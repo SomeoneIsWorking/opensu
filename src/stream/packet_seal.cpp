@@ -3,7 +3,7 @@
 #include <array>
 
 #include "fileio/little_endian.hpp"
-#include "lan/peer_crypto.hpp"
+#include "secrets/crypto.hpp"
 #include "secrets/secret.hpp"
 
 namespace opensu::stream {
@@ -14,10 +14,10 @@ constexpr std::size_t counterAt = 2;
 constexpr std::size_t counterBytes = 8;
 
 /// The AEAD nonce for `counter`: four zero bytes, then the counter.
-std::array<std::uint8_t, lan::crypto::sealNonceBytes> nonceOf(std::uint64_t counter) {
-    std::array<std::uint8_t, lan::crypto::sealNonceBytes> nonce{};
+std::array<std::uint8_t, secrets::crypto::sealNonceBytes> nonceOf(std::uint64_t counter) {
+    std::array<std::uint8_t, secrets::crypto::sealNonceBytes> nonce{};
     for (std::size_t i = 0; i < counterBytes; ++i) {
-        nonce[lan::crypto::sealNonceBytes - counterBytes + i] =
+        nonce[secrets::crypto::sealNonceBytes - counterBytes + i] =
             static_cast<std::uint8_t>((counter >> (8 * i)) & 0xFFU);
     }
     return nonce;
@@ -44,7 +44,7 @@ std::string PacketSeal::seal(PacketKind kind, std::string_view payload) {
     header.push_back(static_cast<char>(version));
     header.push_back(static_cast<char>(kind));
     fileio::appendLittleEndian(header, counter, counterBytes);
-    return header + lan::crypto::seal(key_, nonceOf(counter), header, payload);
+    return header + secrets::crypto::seal(key_, nonceOf(counter), header, payload);
 }
 
 PacketOpener::PacketOpener(std::span<const std::uint8_t> key) : key_{key.begin(), key.end()} {
@@ -65,7 +65,7 @@ std::optional<Opened> PacketOpener::open(std::string_view datagram) {
     }
     const std::string_view header = datagram.substr(0, headerBytes);
     std::optional<std::string> payload =
-        lan::crypto::open(key_, nonceOf(counter), header, datagram.substr(headerBytes));
+        secrets::crypto::open(key_, nonceOf(counter), header, datagram.substr(headerBytes));
     if (!payload) {
         return std::nullopt;
     }

@@ -5,8 +5,8 @@
 #include <nlohmann/json.hpp>
 
 #include "dns_sd.hpp"
+#include "fileio/relative_path.hpp"
 #include "peer_book.hpp"
-#include "relative_path.hpp"
 #include "secrets/secret.hpp"
 
 namespace opensu::lan::wire {
@@ -24,8 +24,9 @@ std::optional<json> objectOf(std::string_view body) {
 }
 
 /// A hex field of exactly `size` bytes.
-std::optional<crypto::Bytes> bytesField(const json& document, const char* key, std::size_t size) {
-    std::optional<crypto::Bytes> bytes = secrets::hexBytes(textField(document, key));
+std::optional<secrets::crypto::Bytes> bytesField(const json& document, const char* key,
+                                                 std::size_t size) {
+    std::optional<secrets::crypto::Bytes> bytes = secrets::hexBytes(textField(document, key));
     if (!bytes || bytes->size() != size) {
         return std::nullopt;
     }
@@ -86,7 +87,8 @@ std::optional<PairRequest> readPairRequest(std::string_view body) {
     if (!document) {
         return std::nullopt;
     }
-    std::optional<crypto::Bytes> commitment = bytesField(*document, "commitment", crypto::keyBytes);
+    std::optional<secrets::crypto::Bytes> commitment =
+        bytesField(*document, "commitment", secrets::crypto::keyBytes);
     PairRequest request{textField(*document, "id"), shownName(textField(*document, "name")), {}};
     if (!commitment || !isPeerId(request.id) || request.name.empty()) {
         return std::nullopt;
@@ -105,8 +107,10 @@ std::optional<PairOffer> readPairOffer(std::string_view body) {
     if (!document) {
         return std::nullopt;
     }
-    std::optional<crypto::Bytes> key = bytesField(*document, "key", crypto::keyBytes);
-    std::optional<crypto::Bytes> nonce = bytesField(*document, "nonce", crypto::nonceBytes);
+    std::optional<secrets::crypto::Bytes> key =
+        bytesField(*document, "key", secrets::crypto::keyBytes);
+    std::optional<secrets::crypto::Bytes> nonce =
+        bytesField(*document, "nonce", secrets::crypto::nonceBytes);
     if (!key || !nonce) {
         return std::nullopt;
     }
@@ -125,8 +129,10 @@ std::optional<PairReveal> readPairReveal(std::string_view body) {
     if (!document) {
         return std::nullopt;
     }
-    std::optional<crypto::Bytes> key = bytesField(*document, "key", crypto::keyBytes);
-    std::optional<crypto::Bytes> nonce = bytesField(*document, "nonce", crypto::nonceBytes);
+    std::optional<secrets::crypto::Bytes> key =
+        bytesField(*document, "key", secrets::crypto::keyBytes);
+    std::optional<secrets::crypto::Bytes> nonce =
+        bytesField(*document, "nonce", secrets::crypto::nonceBytes);
     std::string id = textField(*document, "id");
     if (!key || !nonce || !isPeerId(id)) {
         return std::nullopt;
@@ -228,29 +234,6 @@ std::optional<SaveAsk> readSaveAsk(std::string_view body) {
     return ask;
 }
 
-std::string write(const SaveStatus& status) {
-    return json{{"counter", status.counter},
-                {"hash", status.hash},
-                {"bytes", status.bytes},
-                {"modified", status.modified}}
-        .dump();
-}
-
-std::optional<SaveStatus> readSaveStatus(std::string_view body) {
-    const std::optional<json> document = objectOf(body);
-    if (!document) {
-        return std::nullopt;
-    }
-    const std::optional<std::uint64_t> counter = countField(*document, "counter");
-    const std::optional<std::uint64_t> bytes = countField(*document, "bytes");
-    const auto modified = document->find("modified");
-    if (!counter || !bytes || modified == document->end() || !modified->is_number_integer()) {
-        return std::nullopt;
-    }
-    return SaveStatus{*counter, textField(*document, "hash"), *bytes,
-                      modified->get<std::int64_t>()};
-}
-
 std::string write(const PlayRequest& request) {
     return json{{"game", request.game}, {"salt", secrets::hexText(request.salt)}}.dump();
 }
@@ -260,7 +243,8 @@ std::optional<PlayRequest> readPlayRequest(std::string_view body) {
     if (!document) {
         return std::nullopt;
     }
-    std::optional<crypto::Bytes> salt = bytesField(*document, "salt", crypto::nonceBytes);
+    std::optional<secrets::crypto::Bytes> salt =
+        bytesField(*document, "salt", secrets::crypto::nonceBytes);
     std::string game = textField(*document, "game");
     if (!salt || game.empty()) {
         return std::nullopt;
@@ -278,7 +262,8 @@ std::optional<PlayAnswer> readPlayAnswer(std::string_view body) {
         return std::nullopt;
     }
     const std::optional<std::uint64_t> port = countField(*document, "port");
-    std::optional<crypto::Bytes> salt = bytesField(*document, "salt", crypto::nonceBytes);
+    std::optional<secrets::crypto::Bytes> salt =
+        bytesField(*document, "salt", secrets::crypto::nonceBytes);
     if (!port || *port == 0 || *port > 0xffff || !salt) {
         return std::nullopt;
     }
@@ -307,7 +292,7 @@ std::optional<std::vector<RomFile>> filesIn(const json& document, const char* ke
             return std::nullopt;
         }
         RomFile file{textField(entry, "path"), countField(entry, "bytes").value_or(0)};
-        if (file.path.empty() || !staysInside(file.path)) {
+        if (file.path.empty() || !fileio::staysInside(file.path)) {
             return std::nullopt;
         }
         files.push_back(std::move(file));
@@ -375,7 +360,7 @@ std::optional<std::vector<RomConsole>> readRomListing(std::string_view body) {
             RomGame game{textField(listed, "title"), 0, textField(listed, "entry"), {}};
             const std::string inside = game.entry + "/";
             if (!files || files->empty() || !root || *root > 0xffffffffU || game.title.empty() ||
-                game.entry.empty() || !staysInside(game.entry) ||
+                game.entry.empty() || !fileio::staysInside(game.entry) ||
                 !game.entry.starts_with(console.folder + "/")) {
                 continue;
             }
@@ -414,7 +399,7 @@ std::optional<RomAsk> readRomAsk(std::string_view body) {
                textField(*document, "path"), countField(*document, "offset").value_or(0),
                countField(*document, "length").value_or(0)};
     if ((kind != romKindKey(RomKind::Rom) && kind != romKindKey(RomKind::Bios)) || !root ||
-        *root > 0xffffffffU || ask.path.empty() || !staysInside(ask.path)) {
+        *root > 0xffffffffU || ask.path.empty() || !fileio::staysInside(ask.path)) {
         return std::nullopt;
     }
     ask.root = static_cast<std::uint32_t>(*root);

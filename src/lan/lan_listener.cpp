@@ -143,12 +143,13 @@ std::optional<LanListener::Signed> LanListener::verify(const Request& request) {
     const std::optional<std::string_view> nonce = request.header(nonceHeader);
     const std::optional<std::string_view> signature = request.header(signatureHeader);
     if (!peer || !time || !nonce || !signature || !isPeerId(*peer) ||
-        nonce->size() != crypto::nonceBytes * 2 || !secrets::isLowerHex(*nonce)) {
+        nonce->size() != secrets::crypto::nonceBytes * 2 || !secrets::isLowerHex(*nonce)) {
         return std::nullopt;
     }
     const std::optional<std::int64_t> sent = numberOf(*time);
     const std::optional<Peer> known = sources_.book.find(*peer);
-    std::optional<crypto::Bytes> secret = known ? sources_.book.secretOf(*peer) : std::nullopt;
+    std::optional<secrets::crypto::Bytes> secret =
+        known ? sources_.book.secretOf(*peer) : std::nullopt;
     if (!sent || !secret) {
         lucent::info("lan", "refused {} {} from an openSU not paired with this one", request.method,
                      request.path());
@@ -214,11 +215,11 @@ Response LanListener::savesRoute(std::string_view path, std::string_view body,
     }
     const library::saves::SaveKey key{ask->system, ask->game};
     if (path == wire::saveStatusRoute) {
-        const std::optional<wire::SaveStatus> status = sources_.saves.statusOf(key);
+        const std::optional<save_sync::SaveStatus> status = sources_.saves.statusOf(key);
         if (!status) {
             return refused(notFound, "Not Found", "no game here has those saves");
         }
-        return Response::json(ok, "OK", wire::write(*status));
+        return Response::json(ok, "OK", save_sync::write(*status));
     }
     if (path == wire::saveGetRoute) {
         std::string error;
@@ -231,11 +232,13 @@ Response LanListener::savesRoute(std::string_view path, std::string_view body,
         return Response::binary(ok, "OK", "application/octet-stream", std::move(*bundle));
     }
     if (path == wire::saveNewsRoute) {
-        sources_.saves.heard(verified.peer, *ask);
+        lucent::info("lan", "{} has newer saves of {} {}", verified.peer.name, key.system,
+                     key.game);
+        sources_.saves.heard(verified.peer.id, key, ask->picked);
         return Response::json(ok, "OK", "{}");
     }
     if (path == wire::saveSyncedRoute) {
-        sources_.saves.syncedWith(verified.peer, *ask);
+        sources_.saves.syncedWith(verified.peer.id, key, ask->hash);
         return Response::json(ok, "OK", "{}");
     }
     return refused(notFound, "Not Found", "no such route");
@@ -278,7 +281,7 @@ Response LanListener::playRoute(std::string_view body, const Signed& verified) {
     if (game == listed.end()) {
         return refused(notFound, "Not Found", "no game here has that id");
     }
-    const crypto::Bytes salt = crypto::randomBytes(crypto::nonceBytes);
+    const secrets::crypto::Bytes salt = secrets::crypto::randomBytes(secrets::crypto::nonceBytes);
     StreamKeys keys = streamKeys(verified.secret, asked->salt, salt);
     std::string refusal = "this openSU does not offer remote play";
     const std::optional<std::uint16_t> port =

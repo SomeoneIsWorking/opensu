@@ -65,6 +65,7 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
                session_ ? session_->gameWindows() : nullptr, environment_.gameOutputDir},
       signIn_{StoreSignIn::Options{.dataDir = environment_.dataDir}} {
     shell_.shortcuts() = input::Shortcuts{preferences_.values().shortcuts};
+    saveSharing_.share(preferences_.values());
     // input-sound.md 3.4: Navigation for a focus move or a press, Close for a page dismissed.
     shell_.screens().navigator().setSounds(
         gpu2d::ui::Navigator::Sounds{[this] {
@@ -253,8 +254,9 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     artworkStore_.apply(games_);
     covers_.catalogChanged(games_);
     // With the covers already on disk; one fetched later is shared from the next listing.
-    lan_.share(games_, emulatorSettings_.catalog());
+    lan_.share(games_);
     lanRoms_.share(games_);
+    saveSharing_.know(games_, emulatorSettings_.catalog());
     requestArtwork();
     for (const library::SourceStatus& source : sources_) {
         if (source.availability != library::Availability::Ready &&
@@ -664,13 +666,13 @@ bool ShellApp::launch(const library::Game& game, std::vector<std::string> enviro
             game.unavailable.empty() ? "no way to start " + game.title : game.unavailable, true);
         return false;
     }
-    if (lan_.holding()) {
+    if (saveSharing_.holding()) {
         shell_.setToast("a game is waiting for its saves", true);
         return false;
     }
     const auto held =
         std::make_shared<const HeldLaunch>(HeldLaunch{.game = game, .environment = environment});
-    if (lan_.before(game, [this, held] {
+    if (saveSharing_.before(game, [this, held] {
             static_cast<void>(startLaunch(held->game, held->environment));
         })) {
         shell_.setToast("Syncing " + game.title + "'s saves first");
@@ -1224,9 +1226,9 @@ void ShellApp::showRemotePicture() {
 /// that touches the window or the shell happens here, on the loop's thread.
 void ShellApp::serviceRequests() {
     const bool launching = launches_.running();
-    lan_.playing(launching ? &launches_.game() : nullptr);
+    saveSharing_.playing(launching ? &launches_.game() : nullptr);
     if (const std::optional<library::Game> ended = launches_.takeEnded()) {
-        lan_.ended(*ended);
+        saveSharing_.ended(*ended);
     }
     if (padOwner_.held() && !launching) {
         padOwner_.release();
@@ -1334,7 +1336,8 @@ int ShellApp::run() {
         plugins_.service();
         lan_.service();
         lanRoms_.service();
-        remotePlay_.service(launches_.running() || lan_.holding());
+        saveSharing_.service();
+        remotePlay_.service(launches_.running() || saveSharing_.holding());
         delivery_.service();
         covers_.service();
         serviceDevices(std::chrono::steady_clock::now());

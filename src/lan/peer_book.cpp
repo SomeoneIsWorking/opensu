@@ -84,7 +84,7 @@ PeerBook::PeerBook(fs::path file, secrets::SecretStore secrets)
     if (isPeerId(id_)) {
         return;
     }
-    id_ = secrets::hexText(crypto::randomBytes(peerIdBytes));
+    id_ = secrets::hexText(secrets::crypto::randomBytes(peerIdBytes));
     std::string error;
     if (!write(peers_, error)) {
         throw std::runtime_error{"this openSU's LAN id cannot be kept: " + error};
@@ -111,7 +111,7 @@ std::optional<Peer> PeerBook::find(std::string_view id) const {
     return *found;
 }
 
-std::optional<crypto::Bytes> PeerBook::secretOf(std::string_view id) const {
+std::optional<secrets::crypto::Bytes> PeerBook::secretOf(std::string_view id) const {
     const std::lock_guard lock{mutex_};
     if (std::ranges::find(peers_, id, &Peer::id) == peers_.end()) {
         return std::nullopt;
@@ -127,9 +127,9 @@ std::optional<crypto::Bytes> PeerBook::secretOf(std::string_view id) const {
         }
         return std::nullopt;
     }
-    std::optional<crypto::Bytes> secret = secrets::hexBytes(found->value);
+    std::optional<secrets::crypto::Bytes> secret = secrets::hexBytes(found->value);
     secrets::wipe(found->value);
-    if (!secret || secret->size() != crypto::keyBytes) {
+    if (!secret || secret->size() != secrets::crypto::keyBytes) {
         lucent::warn("lan", "the secret kept for peer {} is damaged", id);
         return std::nullopt;
     }
@@ -137,7 +137,8 @@ std::optional<crypto::Bytes> PeerBook::secretOf(std::string_view id) const {
     return secret;
 }
 
-bool PeerBook::remember(const Peer& peer, const crypto::Bytes& secret, std::string& error) {
+bool PeerBook::remember(const Peer& peer, const secrets::crypto::Bytes& secret,
+                        std::string& error) {
     const std::lock_guard lock{mutex_};
     std::string text = secrets::hexText(secret);
     const bool kept =

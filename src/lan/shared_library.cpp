@@ -5,7 +5,7 @@
 #include <system_error>
 
 #include "lucent/log.h"
-#include "peer_crypto.hpp"
+#include "secrets/crypto.hpp"
 #include "secrets/secret.hpp"
 
 namespace opensu::lan {
@@ -27,9 +27,9 @@ std::string coverToken(const library::Game& game) {
     if (ec) {
         return {};
     }
-    const crypto::Bytes digest =
-        crypto::sha256(game.id + "\n" + game.artwork.string() + "\n" + std::to_string(size) + "\n" +
-                       std::to_string(written));
+    const secrets::crypto::Bytes digest =
+        secrets::crypto::sha256(game.id + "\n" + game.artwork.string() + "\n" +
+                                std::to_string(size) + "\n" + std::to_string(written));
     return secrets::hexText(std::span{digest}.first(wire::coverTokenBytes));
 }
 

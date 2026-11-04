@@ -67,7 +67,7 @@ struct Home {
                                                                                  error),
                "a chosen cover kept");
         expect(fileio::writeWhole(saves / "gba" / "game.srm", "ram", error), "a save kept");
-        expect(fileio::writeWhole(inPlace.lanSaveVersionsFile(), R"({"games":[]})", error),
+        expect(fileio::writeWhole(inPlace.saveVersionsFile(), R"({"games":[]})", error),
                "the shared saves' record kept");
     }
 
@@ -81,7 +81,7 @@ struct Home {
                 bytesOf(inPlace.chosenCoversDir() / "own%3A1"),
                 bytesOf(inPlace.chosenCoversDir() / "steam%3A220"),
                 bytesOf(saves / "gba" / "game.srm"),
-                bytesOf(inPlace.lanSaveVersionsFile())};
+                bytesOf(inPlace.saveVersionsFile())};
     }
 };
 
@@ -130,9 +130,9 @@ void hiddenRunsKeepThePlayersFiles() {
         const fs::path runSaves = files.savingIn(config).savesDir / "gba" / "game.srm";
         expect(bytesOf(runSaves) == "ram", "the runner finds the player's save");
         expect(fileio::writeWhole(runSaves, "played", error), "the runner saves in the run");
-        expect(bytesOf(files.lanSaveVersionsFile()) == R"({"games":[]})",
+        expect(bytesOf(files.saveVersionsFile()) == R"({"games":[]})",
                "the run reads the shared saves' record");
-        expect(fileio::writeWhole(files.lanSaveVersionsFile(), "synced", error),
+        expect(fileio::writeWhole(files.saveVersionsFile(), "synced", error),
                "and records its syncs in its copy");
         expect(files.stateDir().string().starts_with(home.copies.string()),
                "and keeps the backups it makes of them in its own folder");

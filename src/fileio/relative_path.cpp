@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace opensu::lan {
+namespace opensu::fileio {
 
 bool staysInside(std::string_view path) noexcept {
     if (path.empty()) {
@@ -24,4 +24,4 @@ bool staysInside(std::string_view path) noexcept {
     return true;
 }
 
-} // namespace opensu::lan
+} // namespace opensu::fileio

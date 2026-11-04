@@ -12,7 +12,8 @@ target_compile_features(opensu_setting_layers PUBLIC cxx_std_20)
 opensu_warnings(opensu_setting_layers)
 
 add_library(opensu_settings STATIC settings.cpp install_folders.cpp integrations.cpp mapping_store.cpp
-    game_settings_store.cpp emulator_pick_migration.cpp night_light_choice.cpp sound_set.cpp)
+    game_settings_store.cpp emulator_pick_migration.cpp night_light_choice.cpp sound_set.cpp
+    save_share_kind.cpp)
 add_library(opensu::settings ALIAS opensu_settings)
 target_link_libraries(opensu_settings PRIVATE nlohmann_json::nlohmann_json)
 target_include_directories(opensu_settings PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")

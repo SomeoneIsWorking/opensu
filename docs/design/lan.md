@@ -27,7 +27,8 @@ Module rows are in `docs/codemap.md` under LAN and Remote play.
   id and name, the cached cover, `installed`, no launch). `library::libraryShelf` gives each host
   a launcher (`launcher:lan:<peer id>`), sorted by name, after Your games. Home leaves remote games
   out. The details page shows "On <host>", Play, Game settings and Hide game.
-- `lan::SaveSync` (in the node) shares saves; see [Shared saves](#shared-saves).
+- The node adds the peers the player shares saves with to `save_sync::SaveSync` (owned by the
+  shell's `app::SaveSharing`) as `PeerSaveTarget`s; see [Shared saves](#shared-saves).
 - `app::RemotePlay` (on the shell's loop, both ways) runs remote play's sessions; see
   [Remote play](#remote-play).
 - `lan::RomShelf` (in the node) serves the catalog's ROM files and BIOS files to paired peers, and
@@ -143,18 +144,18 @@ Settings › LAN has a Share saves switch per paired openSU, off by default (`"s
   `library::saves::SaveCopier`, so a Switch save made by Eden on one side lands in Ryujinx's
   format on the other through the same code as Copy saves; other consoles' saves go runner to
   runner.
-- The record (`lan-saves.json`, state dir): per game a change counter, raised whenever the content
+- The record (`save-sync.json`, state dir, shared with the folder and WebDAV targets): per game a change counter, raised whenever the content
   hash here changes, the hash (SHA-256 over each file's slot kind, path and bytes; times do not
-  count), and per peer the hash both held when they last synced.
+  count), and per target (a peer's id) the hash both held when they last synced.
 - The rule (`syncStateOf`): the same hash is in sync; no save on one side takes the other's; else
   a side whose hash differs from the last-synced one changed. One side changed: its saves go to
   the other. Both changed, or two openSUs that never synced hold different saves: conflict, and
   nothing is replaced until the player picks.
-- When: before a game starts (`LanService::before` holds the launch on the shell's loop, "Syncing
+- When: before a game starts (`SaveSharing::before` holds the launch on the shell's loop, "Syncing
   X's saves first", until `SaveSync::prepared`); after it ends; from Sync saves now; on opening its
   details (look only); when a peer says it has newer saves (`/news`) or took these (`/synced`).
 - A pull asks `/status`, takes the bundle from `/get`, checks its hash against the status, stages
-  it under `<state>/lan-incoming/<peer>/`, checks that the saves here did not change meanwhile and
+  it under `<state>/saves-incoming/<hash of the target>/`, checks that the saves here did not change meanwhile and
   are not in use (the game the shell plays, or the emulator's process through
   `launch::runningRefusal`), and copies it in, the saves replaced backed up first under
   `<state>/save-backups/`. It then records the hash and tells the peer (`/synced`).
@@ -162,13 +163,16 @@ Settings › LAN has a Share saves switch per paired openSU, off by default (`"s
 - In a conflict the details row is Pick which save to keep: a dialog with each side's date and
   size and three buttons: Cancel, Keep this one (focused; tells the peer with `picked` set, and it
   pulls over its own) and Keep X's (pulls).
+- The engine is `save_sync::SaveSync`, the same for every target ([cloud saves](../plans/cloud-saves.md)):
+  the LAN is one group of targets (`PeerSaveTarget`), listed afresh each sync from the paired
+  peers that share saves, and dropped when the node stops.
 - The work runs on `SaveSync`'s thread, one game at a time; no lock is held while a peer is asked,
   so two openSUs syncing each other cannot deadlock. A hidden run keeps the record, staging and
   backups in its own folder (`PlayerFiles::stateDir`).
 
 The Saves fact on the details page shows the peer most worth attention: Conflict with X, Newer on
-X, the reason a sync failed, Newer here than on X, X does not share saves with this openSU, X is
-offline, In sync with X.
+X, the reason a sync failed, Newer here than on X, X does not share saves with this openSU, X cannot
+be reached, In sync with X.
 
 ## Remote play
 

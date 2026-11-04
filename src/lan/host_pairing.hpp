@@ -15,7 +15,7 @@
 
 #include "pairing_keys.hpp"
 #include "peer_book.hpp"
-#include "peer_crypto.hpp"
+#include "secrets/crypto.hpp"
 
 namespace opensu::lan {
 
@@ -40,19 +40,19 @@ class HostPairing {
 
     /// What the guest is sent for its commitment.
     struct Offer {
-        crypto::Bytes key;
-        crypto::Bytes nonce;
+        secrets::crypto::Bytes key;
+        secrets::crypto::Bytes nonce;
     };
     /// `guest` asks to pair, committed to `commitment`. Nothing with `refusal` while another guest
     /// is pairing, or within `offerSpacing` of the last offer the player did not answer; the same
     /// guest asking again after that starts over.
-    [[nodiscard]] std::optional<Offer> begin(const Peer& guest, crypto::Bytes commitment,
+    [[nodiscard]] std::optional<Offer> begin(const Peer& guest, secrets::crypto::Bytes commitment,
                                              Clock::time_point now, std::string& refusal);
 
     /// The guest shows its key and nonce. False with `refusal` when they are not what it committed
     /// to or no pairing of its is under way.
-    [[nodiscard]] bool reveal(std::string_view guestId, const crypto::Bytes& key,
-                              const crypto::Bytes& nonce, Clock::time_point now,
+    [[nodiscard]] bool reveal(std::string_view guestId, const secrets::crypto::Bytes& key,
+                              const secrets::crypto::Bytes& nonce, Clock::time_point now,
                               std::string& refusal);
 
     /// The verdict a guest polls for, and its signature.
@@ -76,7 +76,7 @@ class HostPairing {
     /// What an accepted pairing leaves the book.
     struct Accepted {
         Peer guest;
-        crypto::Bytes secret;
+        secrets::crypto::Bytes secret;
     };
     /// What the book keeps if the player accepts the question about `guestId`; nothing when that
     /// question is no longer asked.
@@ -89,12 +89,12 @@ class HostPairing {
   private:
     struct Pending {
         Peer guest;
-        crypto::Bytes commitment;
-        crypto::KeyPair key;
-        crypto::Bytes nonce;
+        secrets::crypto::Bytes commitment;
+        secrets::crypto::KeyPair key;
+        secrets::crypto::Bytes nonce;
         Clock::time_point started;
-        crypto::Bytes guestNonce{};
-        crypto::Bytes secret{};
+        secrets::crypto::Bytes guestNonce{};
+        secrets::crypto::Bytes secret{};
         std::string code{};
         bool revealed{false};
         Verdict verdict{Verdict::Waiting};

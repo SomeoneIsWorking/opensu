@@ -207,12 +207,12 @@ std::string WebClient::Answer::header(std::string_view name) const {
 std::optional<WebClient::Answer> WebClient::request(const std::string& url,
                                                     const std::vector<std::string>& headers,
                                                     const Guard& guard, std::string& error,
-                                                    const std::optional<std::string>& post) const {
+                                                    const Sent& sent) const {
     curl_slist* list = nullptr;
     for (const std::string& header : headers) {
         list = curl_slist_append(list, header.c_str());
     }
-    const std::unique_ptr<curl_slist, HeaderListDeleter> sent{list};
+    const std::unique_ptr<curl_slist, HeaderListDeleter> owned{list};
     std::string next = url;
     for (long hop = 0; hop <= redirectLimit; ++hop) {
         if (std::string refused = guard.refusal(next); !refused.empty()) {
@@ -231,10 +231,19 @@ std::optional<WebClient::Answer> WebClient::request(const std::string& url,
         curl_easy_setopt(curl, CURLOPT_URL, next.c_str());
         curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, collectHeader);
         curl_easy_setopt(curl, CURLOPT_HEADERDATA, &received);
-        if (post) {
+        if (sent.body) {
             curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE,
-                             static_cast<curl_off_t>(post->size()));
-            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post->data());
+                             static_cast<curl_off_t>(sent.body->size()));
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, sent.body->data());
+        }
+        if (!sent.method.empty()) {
+            curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, sent.method.c_str());
+        }
+        // Credentials never follow a redirect to another origin.
+        if (!sent.user.empty() && originOf(next) == originOf(url)) {
+            curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+            curl_easy_setopt(curl, CURLOPT_USERNAME, sent.user.c_str());
+            curl_easy_setopt(curl, CURLOPT_PASSWORD, sent.password.c_str());
         }
         curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, connectTimeoutSeconds);
         if (guard.progress) {

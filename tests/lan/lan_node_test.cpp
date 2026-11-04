@@ -34,17 +34,17 @@
 #include "lan/pairing_keys.hpp"
 #include "lan/peer_book.hpp"
 #include "lan/peer_client.hpp"
-#include "lan/peer_crypto.hpp"
 #include "lan/remote_library.hpp"
 #include "lan/request_signature.hpp"
 #include "lan/rom_import.hpp"
 #include "lan/rom_shelf.hpp"
-#include "lan/save_bundle.hpp"
-#include "lan/save_sync.hpp"
 #include "lan/shared_library.hpp"
 #include "lan/wire.hpp"
 #include "library/rom_tree.hpp"
 #include "net/web_client.hpp"
+#include "save_sync/save_bundle.hpp"
+#include "save_sync/save_sync.hpp"
+#include "secrets/crypto.hpp"
 #include "secrets/secret.hpp"
 #include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
@@ -153,6 +153,20 @@ struct Node {
     Node(const fs::path& root, const std::string& name, Directory& directory)
         : remote{std::make_shared<lan::RemoteLibrary>()}, saves{root / name / "saves"},
           state{root / name / "state"},
+          sync{save_sync::SaveSync::Setup{
+              .versionsFile = state / "save-sync.json",
+              .backups = state,
+              .staging = state / "saves-incoming",
+              .runnerSaves = saves,
+              .inUse =
+                  [this](const library::Game&, const library::saves::EmulatorSaves&) {
+                      const std::lock_guard lock{mutex};
+                      return busy;
+                  },
+              .changed =
+                  [this] {
+                      ++savesChanged;
+                  }}},
           node{lan::LanNode::Setup{
               .bookFile = root / name / "lan.json",
               .secrets = secrets::SecretStore{root / name / "secrets", false},
@@ -164,20 +178,7 @@ struct Node {
                   [this] {
                       ++changes;
                   },
-              .saves = lan::SaveSync::Setup{.versionsFile = state / "lan-saves.json",
-                                            .backups = state,
-                                            .staging = state / "lan-incoming",
-                                            .runnerSaves = saves,
-                                            .inUse =
-                                                [this](const library::Game&,
-                                                       const library::saves::EmulatorSaves&) {
-                                                    const std::lock_guard lock{mutex};
-                                                    return busy;
-                                                },
-                                            .changed =
-                                                [this] {
-                                                    ++savesChanged;
-                                                }},
+              .saves = sync,
               .play = [this](const lan::Peer& peer, const std::string& game,
                              const lan::StreamKeys& keys,
                              std::string& refusal) -> std::optional<std::uint16_t> {
@@ -231,6 +232,7 @@ struct Node {
     lan::StreamKeys playKeys;
     fs::path saves;
     fs::path state;
+    save_sync::SaveSync sync;
     lan::LanNode node;
 };
 
@@ -323,8 +325,8 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
     writeFile(cover, "not really a png");
     library::Game uninstalled = installedGame("own:3", "Gone", {});
     uninstalled.installed = false;
-    host.node.share({installedGame("own:1", "Shared game", cover), uninstalled}, runnerCatalog());
-    guest.node.share({installedGame("own:9", "Guest game", {})}, runnerCatalog());
+    host.node.share({installedGame("own:1", "Shared game", cover), uninstalled});
+    guest.node.share({installedGame("own:9", "Guest game", {})});
 
     expect(waitFor([&guest] {
                return guest.node.sightings().size() == 2;
@@ -398,7 +400,7 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
     const auto said = hello ? lan::wire::readHello(*hello) : std::nullopt;
     expect(said && said->id == host.node.id() && said->name == "Living room",
            "anyone may ask its name");
-    const lan::crypto::Bytes guessed = lan::crypto::randomBytes(lan::crypto::keyBytes);
+    const secrets::crypto::Bytes guessed = secrets::crypto::randomBytes(secrets::crypto::keyBytes);
     const std::string strangerId = stranger.node.id();
     const auto refused = toHost.call("GET", "/lan/library", {},
                                      lan::PeerClient::Signer{strangerId, guessed}, 1 << 20, error);
@@ -433,25 +435,25 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
 void bundlesStayInTheirSlots() {
     using library::saves::SlotKind;
     const auto file = [](std::string path) {
-        return lan::BundleFile{
+        return save_sync::BundleFile{
             .kind = SlotKind::Memory, .path = std::move(path), .bytes = "x", .modified = {}};
     };
-    const lan::SaveBundle saves{{file("slot/one.sav"), file("two.sav")}};
-    const auto read = lan::readBundle(lan::write(saves));
+    const save_sync::SaveBundle saves{{file("slot/one.sav"), file("two.sav")}};
+    const auto read = save_sync::readBundle(save_sync::write(saves));
     expect(read && read->hash() == saves.hash() && read->bytes() == 2,
            "a bundle reads back as written");
     for (const char* outside : {"../x", "a/../../x", "/etc/x", "a\\x", "c:x", "a//x", "./x"}) {
-        expect(!lan::readBundle(lan::write(lan::SaveBundle{{file(outside)}})),
+        expect(!save_sync::readBundle(save_sync::write(save_sync::SaveBundle{{file(outside)}})),
                "a path outside its slot is refused");
     }
-    expect(!lan::readBundle(lan::write(lan::SaveBundle{{file("a"), file("a")}})),
+    expect(!save_sync::readBundle(save_sync::write(save_sync::SaveBundle{{file("a"), file("a")}})),
            "and so are two files at one path");
-    expect(!lan::readBundle("99\n{\"files\":[]}"), "and a header longer than the bundle");
+    expect(!save_sync::readBundle("99\n{\"files\":[]}"), "and a header longer than the bundle");
 }
 
 /// The standing of `node`'s saves of `game` with its one sharing peer, once a look settles.
-std::optional<lan::PeerSaves::Standing> standingOf(Node& node, const library::Game& game) {
-    const std::vector<lan::PeerSaves> standings = node.node.saves().standings(game.id);
+std::optional<save_sync::TargetSaves::Standing> standingOf(Node& node, const library::Game& game) {
+    const std::vector<save_sync::TargetSaves> standings = node.sync.standings(game.id);
     if (standings.size() != 1) {
         return std::nullopt;
     }
@@ -459,12 +461,12 @@ std::optional<lan::PeerSaves::Standing> standingOf(Node& node, const library::Ga
 }
 
 /// Looks at `game` on `node` until its saves stand as `expected` with the peer.
-bool looksLike(Node& node, const library::Game& game, lan::PeerSaves::Standing expected) {
+bool looksLike(Node& node, const library::Game& game, save_sync::TargetSaves::Standing expected) {
     return waitFor([&node, &game, expected] {
-        if (node.node.saves().busy(game.id)) {
+        if (node.sync.busy(game.id)) {
             return false;
         }
-        node.node.saves().look(game);
+        node.sync.look(game);
         std::this_thread::sleep_for(std::chrono::milliseconds{50});
         return standingOf(node, game) == expected;
     });
@@ -482,13 +484,15 @@ bool holdsCopy(const fs::path& folder, const std::string& bytes) {
 }
 
 void sharedSavesFollowThePlayer(const fs::path& root) {
-    using Standing = lan::PeerSaves::Standing;
+    using Standing = save_sync::TargetSaves::Standing;
     Directory directory;
     Node host{root, "Den", directory};
     Node guest{root, "Attic", directory};
     const library::Game game = runnerGame();
-    host.node.share({game}, runnerCatalog());
-    guest.node.share({game}, runnerCatalog());
+    host.node.share({game});
+    guest.node.share({game});
+    host.sync.know({game}, runnerCatalog());
+    guest.sync.know({game}, runnerCatalog());
     const fs::path hostSave = host.saves / "gb" / "Test.srm";
     const fs::path guestSave = guest.saves / "gb" / "Test.srm";
     expect(waitFor([&guest] {
@@ -498,26 +502,26 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
     expect(pairUp(guest, host, true) == GuestPairing::Phase::Paired, "they pair");
 
     writeFile(hostSave, "saved on the den");
-    const std::uint64_t unshared = guest.node.saves().prepare(game);
+    const std::uint64_t unshared = guest.sync.prepare(game);
     expect(waitFor([&guest, unshared] {
-               return guest.node.saves().prepared(unshared);
+               return guest.sync.prepared(unshared);
            }),
            "a launch is let go at once while no peer shares saves");
-    expect(!fs::exists(guestSave) && guest.node.saves().standings(game.id).empty(),
+    expect(!fs::exists(guestSave) && guest.sync.standings(game.id).empty(),
            "and nothing is taken or shown");
 
     std::string error;
     expect(guest.node.shareSaves(host.node.id(), true, error),
            "the attic shares saves with the den");
-    expect(guest.node.saves().sharing(game), "so the game's saves are shared");
+    expect(guest.sync.sharing(game), "so the game's saves are shared");
     expect(looksLike(guest, game, Standing::NotShared),
            "while the den does not share back, it says so");
 
     expect(host.node.shareSaves(guest.node.id(), true, error), "the den shares back");
     expect(looksLike(guest, game, Standing::NewerThere), "the den's save is newer");
-    const std::uint64_t ticket = guest.node.saves().prepare(game);
+    const std::uint64_t ticket = guest.sync.prepare(game);
     expect(waitFor([&guest, ticket] {
-               return guest.node.saves().prepared(ticket);
+               return guest.sync.prepared(ticket);
            }),
            "before the game starts here, its saves are synced");
     expect(readFile(guestSave) == "saved on the den",
@@ -525,7 +529,7 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
     expect(standingOf(guest, game) == Standing::InSync, "and both are in sync");
 
     writeFile(guestSave, "played in the attic");
-    guest.node.saves().sync(game);
+    guest.sync.sync(game);
     expect(waitFor([&hostSave] {
                return readFile(hostSave) == "played in the attic";
            }),
@@ -538,17 +542,17 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
     writeFile(guestSave, "changed in the attic");
     expect(looksLike(guest, game, Standing::Conflict) && looksLike(host, game, Standing::Conflict),
            "a save changed on both sides is a conflict on both");
-    guest.node.saves().sync(game);
+    guest.sync.sync(game);
     expect(looksLike(guest, game, Standing::Conflict) &&
                readFile(hostSave) == "changed on the den" &&
                readFile(guestSave) == "changed in the attic",
            "which a sync leaves alone");
 
     host.setBusy("Close mGBA first: it is running");
-    guest.node.saves().keep(game, host.node.id(), false);
+    guest.sync.keep(game, host.node.id(), false);
     expect(waitFor([&host, &game] {
-               const auto standings = host.node.saves().standings(game.id);
-               return !host.node.saves().busy(game.id) && standings.size() == 1 &&
+               const auto standings = host.sync.standings(game.id);
+               return !host.sync.busy(game.id) && standings.size() == 1 &&
                       standings.front().standing == Standing::Failed &&
                       standings.front().problem.find("running") != std::string::npos;
            }),
@@ -556,7 +560,7 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
     expect(readFile(hostSave) == "changed on the den", "and the den's save is untouched");
 
     host.setBusy({});
-    host.node.saves().keep(game, guest.node.id(), true);
+    host.sync.keep(game, guest.node.id(), true);
     expect(waitFor([&hostSave] {
                return readFile(hostSave) == "changed in the attic";
            }),
@@ -573,7 +577,7 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
 
 /// `bytes` bytes that differ from one run to the next.
 std::string noise(std::size_t bytes) {
-    const lan::crypto::Bytes random = lan::crypto::randomBytes(bytes);
+    const secrets::crypto::Bytes random = secrets::crypto::randomBytes(bytes);
     return {random.begin(), random.end()};
 }
 
@@ -718,21 +722,18 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
     library.share({installedGame("own:1", "Shared game", {})});
     lan::RomShelf shelf;
     const net::WebClient web;
-    lan::SaveSync saves{
-        lan::SaveSync::Setup{.versionsFile = root / "signed" / "lan-saves.json",
-                             .backups = root / "signed",
-                             .staging = root / "signed" / "incoming",
-                             .runnerSaves = root / "signed" / "saves",
-                             .inUse =
-                                 [](const library::Game&, const library::saves::EmulatorSaves&) {
-                                     return std::string{};
-                                 },
-                             .changed =
-                                 [] {
-                                 }},
-        book, web, [] {
-            return std::vector<lan::Sighting>{};
-        }};
+    save_sync::SaveSync saves{save_sync::SaveSync::Setup{
+        .versionsFile = root / "signed" / "save-sync.json",
+        .backups = root / "signed",
+        .staging = root / "signed" / "incoming",
+        .runnerSaves = root / "signed" / "saves",
+        .inUse =
+            [](const library::Game&, const library::saves::EmulatorSaves&) {
+                return std::string{};
+            },
+        .changed =
+            [] {
+            }}};
     lan::LanListener listener{lan::LanListener::Sources{.book = book,
                                                         .pairing = pairing,
                                                         .library = library,
@@ -747,12 +748,12 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
                                                             },
                                                         .play = {}},
                               0};
-    const lan::crypto::Bytes secret = lan::crypto::randomBytes(lan::crypto::keyBytes);
-    const std::string peer = secrets::hexText(lan::crypto::randomBytes(lan::peerIdBytes));
+    const secrets::crypto::Bytes secret = secrets::crypto::randomBytes(secrets::crypto::keyBytes);
+    const std::string peer = secrets::hexText(secrets::crypto::randomBytes(lan::peerIdBytes));
     std::string error;
     expect(book.remember(lan::Peer{peer, "Guest"}, secret, error), "the guest is paired");
 
-    const auto request = [&peer](const lan::crypto::Bytes& key, std::int64_t time,
+    const auto request = [&peer](const secrets::crypto::Bytes& key, std::int64_t time,
                                  const std::string& nonce) {
         lucent::http::Request asked{"GET", "/lan/library", {}, {}};
         asked.headers = {{std::string{lan::peerHeader}, peer},
@@ -764,18 +765,19 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
         return asked;
     };
     const std::int64_t now = lan::unixSeconds(std::chrono::system_clock::now());
-    const std::string nonce = secrets::hexText(lan::crypto::randomBytes(lan::crypto::nonceBytes));
+    const std::string nonce =
+        secrets::hexText(secrets::crypto::randomBytes(secrets::crypto::nonceBytes));
 
     const lucent::http::Response answer = listener.handle(request(secret, now, nonce));
     expect(answer.status == 200, "a signed request is answered");
     expect(answer.body.find("Shared game") == std::string::npos,
            "the answer does not cross the LAN in clear");
     const lan::RequestFacts facts{"GET", "/lan/library", now, nonce, {}};
-    const lan::crypto::Bytes other = lan::crypto::randomBytes(lan::crypto::keyBytes);
+    const secrets::crypto::Bytes other = secrets::crypto::randomBytes(secrets::crypto::keyBytes);
     expect(!lan::openBody(other, facts, lan::Direction::Answer, 200, answer.body),
            "it opens with no other secret");
     const std::string otherNonce =
-        secrets::hexText(lan::crypto::randomBytes(lan::crypto::nonceBytes));
+        secrets::hexText(secrets::crypto::randomBytes(secrets::crypto::nonceBytes));
     const lan::RequestFacts otherRequest{"GET", "/lan/library", now, otherNonce, {}};
     expect(!lan::openBody(secret, otherRequest, lan::Direction::Answer, 200, answer.body),
            "nor as the answer to another request");
@@ -785,10 +787,12 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
            "sealed with the pairing's secret for this request, it holds the shared listing");
 
     expect(listener.handle(request(secret, now, nonce)).status == 403, "a repeat is refused");
-    const std::string fresh = secrets::hexText(lan::crypto::randomBytes(lan::crypto::nonceBytes));
+    const std::string fresh =
+        secrets::hexText(secrets::crypto::randomBytes(secrets::crypto::nonceBytes));
     expect(listener.handle(request(secret, now - 3600, fresh)).status == 403,
            "a request an hour late is refused");
-    const std::string another = secrets::hexText(lan::crypto::randomBytes(lan::crypto::nonceBytes));
+    const std::string another =
+        secrets::hexText(secrets::crypto::randomBytes(secrets::crypto::nonceBytes));
     expect(listener.handle(request(other, now, another)).status == 403,
            "a request signed with another secret is refused");
     expect(listener.handle(lucent::http::Request{"GET", "/lan/library", {}, {}}).status == 403,
@@ -800,7 +804,8 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
     // A body signed but not sealed for the host, as a peer that never had the secret could not
     // send, is refused before it is read.
     const std::string plain = R"({"system":"gb","game":"Test"})";
-    const std::string fresher = secrets::hexText(lan::crypto::randomBytes(lan::crypto::nonceBytes));
+    const std::string fresher =
+        secrets::hexText(secrets::crypto::randomBytes(secrets::crypto::nonceBytes));
     lucent::http::Request unsealed{"POST", std::string{lan::wire::saveStatusRoute}, {}, plain};
     unsealed.headers = {
         {std::string{lan::peerHeader}, peer},
@@ -826,7 +831,7 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
         const std::string body =
             lan::wire::write(lan::wire::RomAsk{lan::wire::RomKind::Rom, 0, path, 0, 0});
         const std::string asked =
-            secrets::hexText(lan::crypto::randomBytes(lan::crypto::nonceBytes));
+            secrets::hexText(secrets::crypto::randomBytes(secrets::crypto::nonceBytes));
         const lan::RequestFacts sent{"POST", route, now, asked, {}};
         const std::string sealed = lan::sealBody(secret, sent, lan::Direction::Request, 0, body);
         lucent::http::Request post{"POST", route, {}, sealed};
@@ -850,17 +855,17 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
 }
 
 void bothSidesDeriveOneSecret() {
-    const lan::crypto::KeyPair guest;
-    const lan::crypto::KeyPair host;
+    const secrets::crypto::KeyPair guest;
+    const secrets::crypto::KeyPair host;
     const lan::PairingTranscript transcript{
         .guestId = "g",
         .hostId = "h",
         .guestKey = guest.publicKey(),
-        .guestNonce = lan::crypto::randomBytes(lan::crypto::nonceBytes),
+        .guestNonce = secrets::crypto::randomBytes(secrets::crypto::nonceBytes),
         .hostKey = host.publicKey(),
-        .hostNonce = lan::crypto::randomBytes(lan::crypto::nonceBytes)};
-    const lan::crypto::Bytes guestShared = must(guest.agree(host.publicKey()), "X25519 agrees");
-    const lan::crypto::Bytes hostShared = must(host.agree(guest.publicKey()), "X25519 agrees");
+        .hostNonce = secrets::crypto::randomBytes(secrets::crypto::nonceBytes)};
+    const secrets::crypto::Bytes guestShared = must(guest.agree(host.publicKey()), "X25519 agrees");
+    const secrets::crypto::Bytes hostShared = must(host.agree(guest.publicKey()), "X25519 agrees");
     expect(guestShared == hostShared, "both ends agree on one secret");
     expect(lan::pairingSecret(guestShared, transcript) ==
                lan::pairingSecret(hostShared, transcript),
@@ -874,7 +879,7 @@ void bothSidesDeriveOneSecret() {
            "a code is two groups of three digits");
 
     lan::HostPairing pairing{"h"};
-    const lan::crypto::Bytes nonce = lan::crypto::randomBytes(lan::crypto::nonceBytes);
+    const secrets::crypto::Bytes nonce = secrets::crypto::randomBytes(secrets::crypto::nonceBytes);
     const auto at = lan::HostPairing::Clock::now();
     std::string refusal;
     expect(pairing
@@ -882,7 +887,7 @@ void bothSidesDeriveOneSecret() {
                       refusal)
                .has_value(),
            "a guest's commitment is answered");
-    const lan::crypto::KeyPair swapped;
+    const secrets::crypto::KeyPair swapped;
     expect(!pairing.begin(lan::Peer{"x", "Other"},
                           lan::pairingCommitment(swapped.publicKey(), nonce), at, refusal),
            "one pairing at a time");

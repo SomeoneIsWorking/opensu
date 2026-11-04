@@ -1,6 +1,6 @@
-# Wiping secrets from memory, and account secrets: the desktop's keyring when the build has one,
-# else an owner-only file.
-add_library(opensu_secrets STATIC secret.cpp secret_store.cpp)
+# Wiping secrets from memory, account secrets (the desktop's keyring when the build has one, else
+# an owner-only file) and the primitives secrets are made and sealed with.
+add_library(opensu_secrets STATIC secret.cpp secret_store.cpp crypto.cpp)
 add_library(opensu::secrets ALIAS opensu_secrets)
 target_include_directories(opensu_secrets PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_link_libraries(opensu_secrets PRIVATE opensu::fileio lucent::lucent OpenSSL::Crypto)

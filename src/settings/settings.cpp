@@ -34,6 +34,10 @@ constexpr const char* keyboardStyleKey = "keyboard";
 constexpr const char* nightLightKey = "nightLight";
 constexpr const char* consoleThemeKey = "consoleTheme";
 constexpr const char* lanNameKey = "lanName";
+constexpr const char* saveShareKey = "saveShare";
+constexpr const char* saveShareFolderKey = "saveShareFolder";
+constexpr const char* saveShareUrlKey = "saveShareUrl";
+constexpr const char* saveShareUserKey = "saveShareUser";
 constexpr const char* interfaceSoundsKey = "interfaceSounds";
 constexpr const char* shortcutsKey = "shortcuts";
 constexpr const char* shortcutKeysKey = "keys";
@@ -435,6 +439,21 @@ Settings Store::load() const {
     }
     read.text(consoleThemeKey, settings.consoleTheme, "showing the default console art theme");
     read.text(lanNameKey, settings.lanName, "going by the machine's name on the LAN");
+    std::string shareSpelling;
+    read.text(saveShareKey, shareSpelling, "sharing saves only over the LAN");
+    if (!shareSpelling.empty()) {
+        if (const std::optional<SaveShareKind> kind = saveShareKindOf(shareSpelling)) {
+            settings.saveShare = *kind;
+        } else {
+            lucent::warn("settings", "{}: {} is not a place to share saves; sharing none",
+                         file_.string(), shareSpelling);
+        }
+    }
+    std::string shareFolder;
+    read.text(saveShareFolderKey, shareFolder, "no saves folder");
+    settings.saveShareFolder = shareFolder;
+    read.text(saveShareUrlKey, settings.saveShareUrl, "no WebDAV share");
+    read.text(saveShareUserKey, settings.saveShareUser, "no WebDAV user");
     read.soundSet(interfaceSoundsKey, settings.interfaceSounds, "playing Marimba");
     std::string homeSpelling;
     read.text(homeModeKey, homeSpelling, "using the environment's");
@@ -516,6 +535,10 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {nightLightKey, std::string{key(settings.nightLight)}},
         {consoleThemeKey, settings.consoleTheme},
         {lanNameKey, settings.lanName},
+        {saveShareKey, std::string{key(settings.saveShare)}},
+        {saveShareFolderKey, settings.saveShareFolder.string()},
+        {saveShareUrlKey, settings.saveShareUrl},
+        {saveShareUserKey, settings.saveShareUser},
         {interfaceSoundsKey, std::string{key(settings.interfaceSounds)}},
         {wineRunnerKey, settings.wineRunner.string()},
         {ownWinePrefixKey, settings.ownWinePrefixes.ids()},

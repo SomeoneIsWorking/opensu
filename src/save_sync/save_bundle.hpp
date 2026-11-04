@@ -1,7 +1,7 @@
-// save_bundle — a game's saves as one openSU sends them to another: the files of each slot a copy
-// carries (`library::saves::copiedSlots`), by slot kind and path inside the slot, with their bytes
-// and modification times; its content hash, which says whether two openSUs hold the same saves;
-// and the bundle written out under a staging folder as saves a copy can take
+// save_bundle — a game's saves as they are shared with a target (`SaveTarget`): the files of each
+// slot a copy carries (`library::saves::copiedSlots`), by slot kind and path inside the slot, with
+// their bytes and modification times; its content hash, which says whether two openSUs hold the
+// same saves; and the bundle written out under a staging folder as saves a copy can take
 // (`library::saves::SaveCopier`). Paths from another openSU are checked: relative, no `..`.
 #pragma once
 
@@ -15,7 +15,7 @@
 
 #include "library/game_saves.hpp"
 
-namespace opensu::lan {
+namespace opensu::save_sync {
 
 /// The largest bundle sent or taken.
 inline constexpr std::size_t largestBundle = std::size_t{512} * 1024 * 1024;
@@ -53,4 +53,4 @@ struct SaveBundle {
 [[nodiscard]] library::saves::EmulatorSaves
 staged(const SaveBundle& bundle, const std::filesystem::path& folder, std::string name);
 
-} // namespace opensu::lan
+} // namespace opensu::save_sync

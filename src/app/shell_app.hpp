@@ -89,6 +89,7 @@
 #include "remote_play.hpp"
 #include "retro_session.hpp"
 #include "save_copy_controller.hpp"
+#include "save_sharing.hpp"
 #include "search_controller.hpp"
 #include "session_install_controller.hpp"
 #include "settings_controller.hpp"
@@ -655,7 +656,7 @@ class ShellApp final {
                                  },
                                  [this](const library::Game& game) {
                                      saveCopy_.read(game);
-                                     lan_.look(game);
+                                     saveSharing_.look(game);
                                  },
                                  [this](const library::Game& game) {
                                      return saveCopy_.offer(game);
@@ -792,19 +793,24 @@ class ShellApp final {
                 }}};
     /// The ROM folders as LAN import writes into them; the import's thread shares it.
     std::shared_ptr<const library::roms::RomTree> romTree_{library::roms::openRomTree()};
+    /// Saves shared with the share Settings › Saves names and the paired openSUs.
+    SaveSharing saveSharing_{
+        save_sync::SaveSync::Setup{.versionsFile = files_.saveVersionsFile(),
+                                   .backups = files_.stateDir(),
+                                   .staging = files_.stateDir() / "saves-incoming",
+                                   .runnerSaves = resolved_.savesDir,
+                                   .inUse = {},
+                                   .changed = {}},
+        files_.secrets(environment_.keyring), [this] {
+            details_.refresh();
+        }};
     /// This openSU on the LAN while LAN is on: pairing, and the paired openSUs' games.
     LanService lan_{
         LanService::Places{.bookFile = files_.lanBookFile(),
-                           .secrets = files_.lanSecrets(environment_.keyring),
+                           .secrets = files_.secrets(environment_.keyring),
                            .coverCache = resolved_.cacheDir / "lan",
                            .port = settings_.lanPort,
-                           .saves =
-                               lan::SaveSync::Setup{.versionsFile = files_.lanSaveVersionsFile(),
-                                                    .backups = files_.stateDir(),
-                                                    .staging = files_.stateDir() / "lan-incoming",
-                                                    .runnerSaves = resolved_.savesDir,
-                                                    .inUse = {},
-                                                    .changed = {}},
+                           .saves = saveSharing_.engine(),
                            .roms = LanRoms::importSetup(files_.stateDir() / "lan-roms", romTree_)},
         preferences_,
         shell_.screens().navigator(),
@@ -823,10 +829,6 @@ class ShellApp final {
                               [this] {
                                   settingsScreen_.refresh();
                               },
-                          .savesChanged =
-                              [this] {
-                                  details_.refresh();
-                              },
                           .romsChanged =
                               [this] {
                                   lanRoms_.progressed();
@@ -837,7 +839,17 @@ class ShellApp final {
                                   return remotePlay_.offer(peer, game, keys, refusal);
                               }}};
     /// The details page's Saves fact and row for saves shared with paired openSUs.
-    SharedSaves sharedSaves_{lan_, shell_.screens().navigator(), sounds_};
+    SharedSaves sharedSaves_{saveSharing_, shell_.screens().navigator(), sounds_};
+    /// Settings › Saves.
+    SaveSettings saveSettings_{SaveSettings::Services{.sharing = saveSharing_,
+                                                      .preferences = preferences_,
+                                                      .paths = paths_,
+                                                      .navigator = shell_.screens().navigator(),
+                                                      .keyboard = keyboardPad_,
+                                                      .sounds = sounds_},
+                               files_.secrets(environment_.keyring), [this] {
+                                   settingsScreen_.refresh();
+                               }};
     /// Settings › LAN.
     LanSettings lanSettings_{
         lan_, preferences_, shell_.screens().navigator(), keyboardPad_, sounds_, [this] {
@@ -971,7 +983,7 @@ class ShellApp final {
             paths_, shortcutEditor_, shell_.shortcuts(), emulatorSettings_, layerSettings_,
             layered_, steamLibrarySettings_, pluginSettings_, chordSettings_, mappings_,
             wineSettings_, integrationSettings_, artworkSettings_, interfaceSoundSettings_,
-            lanSettings_, lanRoms_, integrations_},
+            lanSettings_, lanRoms_, saveSettings_, integrations_},
         sounds_,
         preferences_,
         environment_,

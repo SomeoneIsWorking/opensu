@@ -144,7 +144,7 @@ struct Rig {
                          paths, shortcutEditor, shortcuts, emulatorSettings, layerSettings, layered,
                          steamLibrarySettings, pluginSettings, chordSettings, mappings, wine,
                          integrationSettings, artworkSettings, interfaceSoundSettings, lanSettings,
-                         lanRoms, inForce},
+                         lanRoms, saveSettings, inForce},
                      sounds,
                      preferences,
                      config,
@@ -408,38 +408,38 @@ struct Rig {
                                            controller.refresh();
                                        }};
     app::ChordSettings chordSettings{shortcutEditor, shortcuts};
-    app::LanService lan{
-        app::LanService::Places{
-            .bookFile = config.configDir / "lan.json",
-            .secrets = secrets::SecretStore{config.configDir / "secrets", false},
-            .coverCache = config.cacheDir / "lan",
-            .port = 0,
-            .saves = lan::SaveSync::Setup{.versionsFile = config.configDir / "lan-saves.json",
-                                          .backups = config.configDir,
-                                          .staging = config.configDir / "incoming",
-                                          .runnerSaves = config.savesDir,
-                                          .inUse = {},
-                                          .changed = {}},
-            .roms = {}},
-        preferences,
-        screens.navigator,
-        sounds,
-        std::make_shared<lan::RemoteLibrary>(),
-        false,
-        app::LanService::Hooks{.say =
-                                   [](const std::string&, bool) {
-                                   },
-                               .remoteChanged =
-                                   [] {
-                                   },
-                               .peersChanged =
-                                   [] {
-                                   },
-                               .savesChanged =
-                                   [] {
-                                   },
-                               .romsChanged = {},
-                               .play = {}}};
+    app::SaveSharing sharing{
+        save_sync::SaveSync::Setup{.versionsFile = config.configDir / "save-sync.json",
+                                   .backups = config.configDir,
+                                   .staging = config.configDir / "incoming",
+                                   .runnerSaves = config.savesDir,
+                                   .inUse = {},
+                                   .changed = {}},
+        secrets::SecretStore{config.configDir / "secrets", false}, [] {
+        }};
+    app::LanService lan{app::LanService::Places{
+                            .bookFile = config.configDir / "lan.json",
+                            .secrets = secrets::SecretStore{config.configDir / "secrets", false},
+                            .coverCache = config.cacheDir / "lan",
+                            .port = 0,
+                            .saves = sharing.engine(),
+                            .roms = {}},
+                        preferences,
+                        screens.navigator,
+                        sounds,
+                        std::make_shared<lan::RemoteLibrary>(),
+                        false,
+                        app::LanService::Hooks{.say =
+                                                   [](const std::string&, bool) {
+                                                   },
+                                               .remoteChanged =
+                                                   [] {
+                                                   },
+                                               .peersChanged =
+                                                   [] {
+                                                   },
+                                               .romsChanged = {},
+                                               .play = {}}};
     app::LanSettings lanSettings{lan, preferences, screens.navigator, pad, sounds, [] {
                                  }};
     app::LanRoms lanRoms{
@@ -452,6 +452,14 @@ struct Rig {
                             .biosFolder = {},
                             .reloadCatalog = {},
                             .refresh = {}}};
+    app::SaveSettings saveSettings{app::SaveSettings::Services{.sharing = sharing,
+                                                               .preferences = preferences,
+                                                               .paths = paths,
+                                                               .navigator = screens.navigator,
+                                                               .keyboard = pad,
+                                                               .sounds = sounds},
+                                   secrets::SecretStore{config.configDir / "secrets", false}, [] {
+                                   }};
     ui::MappingPage mappingPage;
     app::MappingEditor mappings{
         mappingPage, settings::MappingStore{config.configDir / settings::mappingsFile}, sounds,
@@ -525,7 +533,7 @@ void pagesFollowTheIntegrations(const fs::path& root) {
     }
     expect(names == std::vector<std::string>{"Appearance", "Library", "Integrations", "Emulators",
                                              "Audio", "Controls", "Guide chords", "Install folders",
-                                             "Artwork", "About"},
+                                             "Artwork", "Saves", "About"},
            "no Steam libraries, Wine or Plugins with their integrations off");
     rig.enter("Library");
     expect(std::ranges::none_of(rig.rows(),
@@ -626,8 +634,8 @@ void categoriesFollowTheSavedSettings(const fs::path& root) {
     expect(names == std::vector<std::string>{"Appearance", "Library", "Integrations", "Emulators",
                                              "Steam libraries", "Audio", "Controls", "Guide chords",
                                              "Install folders", "Artwork", "Wine", "Plugins",
-                                             "About"},
-           "the thirteen categories");
+                                             "Saves", "About"},
+           "the fourteen categories");
     expect(rig.controller.isOpen() && rig.top() == "settings" &&
                rig.controller.category() == "Appearance" &&
                rig.focused() == "categories/appearance",

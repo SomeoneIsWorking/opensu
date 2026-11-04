@@ -1,0 +1,5 @@
+add_executable(share_target_test share_target_test.cpp)
+target_link_libraries(share_target_test PRIVATE opensu::save_sync)
+opensu_warnings(share_target_test)
+target_compile_definitions(share_target_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME share_target COMMAND share_target_test)

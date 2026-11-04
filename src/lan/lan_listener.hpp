@@ -4,9 +4,9 @@
 // only, signed, its body and answer sealed (`request_signature`): `GET /lan/library` (the shared
 // listing), `GET /lan/cover/<token>` (one shared cover), `POST /lan/unpair` (the peer forgets this
 // one, and this one it), and for a peer the player shares saves with the save routes
-// (`SaveSync`: `/lan/saves/status`, `/get`, `/news`, `/synced`), and `POST /lan/play`, which asks
-// to play a listed game here over remote play (`play`), and ROM import's routes (`RomShelf`:
-// `GET /lan/roms`, `POST /lan/roms/file`, `/chunk`). A request that fails its
+// (`save_sync::SaveSync`: `/lan/saves/status`, `/get`, `/news`, `/synced`), and `POST /lan/play`,
+// which asks to play a listed game here over remote play (`play`), and ROM import's routes
+// (`RomShelf`: `GET /lan/roms`, `POST /lan/roms/file`, `/chunk`). A request that fails its
 // signature, comes late, repeats or does not open is refused with 403, as are the save routes of
 // a peer saves are not shared with.
 #pragma once
@@ -21,7 +21,7 @@
 #include "peer_book.hpp"
 #include "request_signature.hpp"
 #include "rom_shelf.hpp"
-#include "save_sync.hpp"
+#include "save_sync/save_sync.hpp"
 #include "shared_library.hpp"
 
 namespace opensu::lan {
@@ -32,7 +32,7 @@ class LanListener {
         PeerBook& book;
         HostPairing& pairing;
         const SharedLibrary& library;
-        SaveSync& saves;
+        save_sync::SaveSync& saves;
         RomShelf& roms;
         /// The name this openSU goes by now.
         std::function<std::string()> name;
@@ -68,7 +68,7 @@ class LanListener {
     /// keyed by.
     struct Signed {
         Peer peer;
-        crypto::Bytes secret;
+        secrets::crypto::Bytes secret;
         std::string nonce;
         std::int64_t time{0};
     };

@@ -1,6 +1,6 @@
-// peer_crypto — the primitives LAN pairing and its signed, sealed requests are made of, over
-// libcrypto: random bytes, SHA-256, HMAC-SHA-256, HKDF-SHA-256, ChaCha20-Poly1305, a constant-time
-// comparison and an ephemeral X25519 key pair.
+// crypto — the primitives LAN pairing, its signed, sealed requests and sealed shared saves are
+// made of, over libcrypto: random bytes, SHA-256, HMAC-SHA-256, HKDF-SHA-256, scrypt,
+// ChaCha20-Poly1305, a constant-time comparison and an ephemeral X25519 key pair.
 #pragma once
 
 #include <cstddef>
@@ -15,7 +15,7 @@
 struct evp_pkey_st;
 struct evp_md_ctx_st;
 
-namespace opensu::lan::crypto {
+namespace opensu::secrets::crypto {
 
 using Bytes = std::vector<std::uint8_t>;
 
@@ -63,6 +63,9 @@ class Sha256 {
                                std::span<const std::uint8_t> salt, std::string_view info,
                                std::size_t length);
 
+/// A `keyBytes` key from `passphrase` and `salt` with scrypt (RFC 7914; N 2^15, r 8, p 1).
+[[nodiscard]] Bytes scryptKey(std::string_view passphrase, std::span<const std::uint8_t> salt);
+
 /// `plain` encrypted and authenticated under the `keyBytes` key `key` and `nonce` with
 /// ChaCha20-Poly1305 (RFC 8439), `aad` authenticated with it; the tag follows the ciphertext.
 [[nodiscard]] std::string seal(std::span<const std::uint8_t> key,
@@ -108,4 +111,4 @@ class KeyPair {
     Bytes public_;
 };
 
-} // namespace opensu::lan::crypto
+} // namespace opensu::secrets::crypto

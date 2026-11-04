@@ -27,7 +27,8 @@ void HostPairing::lapse(Clock::time_point now) {
     }
 }
 
-std::optional<HostPairing::Offer> HostPairing::begin(const Peer& guest, crypto::Bytes commitment,
+std::optional<HostPairing::Offer> HostPairing::begin(const Peer& guest,
+                                                     secrets::crypto::Bytes commitment,
                                                      Clock::time_point now, std::string& refusal) {
     const std::lock_guard lock{mutex_};
     lapse(now);
@@ -45,27 +46,28 @@ std::optional<HostPairing::Offer> HostPairing::begin(const Peer& guest, crypto::
     }
     pending_.emplace(Pending{.guest = guest,
                              .commitment = std::move(commitment),
-                             .key = crypto::KeyPair{},
-                             .nonce = crypto::randomBytes(crypto::nonceBytes),
+                             .key = secrets::crypto::KeyPair{},
+                             .nonce = secrets::crypto::randomBytes(secrets::crypto::nonceBytes),
                              .started = now});
     lucent::info("lan", "{} asks to pair", guest.name);
     return Offer{pending_->key.publicKey(), pending_->nonce};
 }
 
-bool HostPairing::reveal(std::string_view guestId, const crypto::Bytes& key,
-                         const crypto::Bytes& nonce, Clock::time_point now, std::string& refusal) {
+bool HostPairing::reveal(std::string_view guestId, const secrets::crypto::Bytes& key,
+                         const secrets::crypto::Bytes& nonce, Clock::time_point now,
+                         std::string& refusal) {
     const std::lock_guard lock{mutex_};
     lapse(now);
     if (!pending_ || pending_->guest.id != guestId || pending_->revealed) {
         refusal = "no pairing of that openSU is under way";
         return false;
     }
-    if (!crypto::sameBytes(pairingCommitment(key, nonce), pending_->commitment)) {
+    if (!secrets::crypto::sameBytes(pairingCommitment(key, nonce), pending_->commitment)) {
         refusal = "the key is not the one committed to";
         pending_.reset();
         return false;
     }
-    std::optional<crypto::Bytes> shared = pending_->key.agree(key);
+    std::optional<secrets::crypto::Bytes> shared = pending_->key.agree(key);
     if (!shared) {
         refusal = "that is not an X25519 key";
         pending_.reset();

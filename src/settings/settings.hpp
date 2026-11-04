@@ -20,6 +20,7 @@
 #include "library/sections.hpp"
 #include "library/wine.hpp"
 #include "night_light_choice.hpp"
+#include "save_share_kind.hpp"
 #include "sound_set.hpp"
 
 namespace opensu::settings {
@@ -124,6 +125,12 @@ struct Settings {
     std::string consoleTheme;
     /// The name other openSUs on the LAN list this one by; empty for the machine's host name.
     std::string lanName;
+    std::filesystem::path saveShareFolder;
+    /// The WebDAV folder's address and user.
+    std::string saveShareUrl;
+    std::string saveShareUser;
+    /// Where saves are shared beside the LAN; its passphrase and WebDAV password are secrets.
+    SaveShareKind saveShare{SaveShareKind::Off};
     /// Which interface sounds play: one of openSU's sets, or iiSU's from the file placed in the
     /// iiSU folder (`artwork::IisuInstall`).
     SoundSet interfaceSounds{SoundSet::Marimba};

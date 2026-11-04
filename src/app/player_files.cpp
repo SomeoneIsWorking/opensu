@@ -5,10 +5,10 @@
 #include <system_error>
 
 #include "lan/peer_book.hpp"
-#include "lan/save_versions.hpp"
 #include "launch/process_id.hpp"
 #include "library/own_games.hpp"
 #include "lucent/log.h"
+#include "save_sync/save_versions.hpp"
 #include "settings/game_settings_store.hpp"
 #include "settings/mapping_store.hpp"
 #include "settings/settings.hpp"
@@ -61,7 +61,7 @@ PlayerFiles::PlayerFiles(const Dirs& dirs, fs::path copiesDir) : copiesDir_{std:
     chosenCovers_ = chosenCoversUnder(keptData);
     lanBook_ = keptConfig / lan::peerBookFile;
     state_ = copiesDir_.empty() ? dirs.state : copiesDir_ / "state";
-    lanSaveVersions_ = state_ / lan::saveVersionsFile;
+    saveVersions_ = state_ / save_sync::saveVersionsFile;
     secrets_ = keptConfig / secrets::secretsFolder;
     saves_ = copiesDir_.empty() ? dirs.saves : copiesDir_ / "saves";
     if (copiesDir_.empty()) {
@@ -75,7 +75,7 @@ PlayerFiles::PlayerFiles(const Dirs& dirs, fs::path copiesDir) : copiesDir_{std:
     copyIfThere(library::own::recordsFile(dataDir), ownGames_);
     copyIfThere(chosenCoversUnder(dataDir), chosenCovers_);
     copyIfThere(configDir / lan::peerBookFile, lanBook_);
-    copyIfThere(dirs.state / lan::saveVersionsFile, lanSaveVersions_);
+    copyIfThere(dirs.state / save_sync::saveVersionsFile, saveVersions_);
     copyIfThere(configDir / secrets::secretsFolder, secrets_);
     copyIfThere(dirs.saves, saves_);
     copiesShown_ = copiesDir_.string();

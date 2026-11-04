@@ -11,14 +11,14 @@
 #include <nlohmann/json.hpp>
 
 #include "clock/file_time.hpp"
+#include "fileio/relative_path.hpp"
+#include "json_text.hpp"
 #include "library/save_copy.hpp"
 #include "library/save_formats.hpp"
-#include "peer_crypto.hpp"
-#include "relative_path.hpp"
+#include "secrets/crypto.hpp"
 #include "secrets/secret.hpp"
-#include "wire.hpp"
 
-namespace opensu::lan {
+namespace opensu::save_sync {
 namespace {
 
 namespace fs = std::filesystem;
@@ -89,10 +89,10 @@ std::string SaveBundle::hash() const {
         listing += '\n';
         listing += file->path;
         listing += '\n';
-        listing += secrets::hexText(crypto::sha256(file->bytes));
+        listing += secrets::hexText(secrets::crypto::sha256(file->bytes));
         listing += '\n';
     }
-    return secrets::hexText(crypto::sha256(listing));
+    return secrets::hexText(secrets::crypto::sha256(listing));
 }
 
 std::uintmax_t SaveBundle::bytes() const {
@@ -206,10 +206,10 @@ std::optional<SaveBundle> readBundle(std::string_view bytes) {
             !entry["modified"].is_number_integer()) {
             return std::nullopt;
         }
-        const std::optional<SlotKind> kind = kindOf(wire::textField(entry, "kind"));
-        std::string path = wire::textField(entry, "path");
+        const std::optional<SlotKind> kind = kindOf(textField(entry, "kind"));
+        std::string path = textField(entry, "path");
         const auto size = entry["bytes"].get<std::uint64_t>();
-        if (!kind || !staysInside(path) || size > bytes.size() - at) {
+        if (!kind || !fileio::staysInside(path) || size > bytes.size() - at) {
             return std::nullopt;
         }
         BundleFile file{.kind = *kind,
@@ -284,4 +284,4 @@ EmulatorSaves staged(const SaveBundle& bundle, const fs::path& folder, std::stri
     return saves;
 }
 
-} // namespace opensu::lan
+} // namespace opensu::save_sync

@@ -1,11 +1,11 @@
 // player_files — where the shell keeps the player's own files: `settings.json`,
 // `game-settings.json`, `mappings.json`, `own-games.json`, the LAN's `lan.json`, the secrets its
-// pairings keep and its record of shared saves (`lan-saves.json` in the state dir), the chosen
-// covers, the built-in runner's save RAM and states, and the state dir save backups go to. An
-// ordinary run uses them in place. A hidden run copies them at start into its own folder under the
-// runtime dir and keeps every change there, so the run behaves as usual while the player's files
-// stay as they were; the folder goes with the run. A hidden run's secrets stay in that folder,
-// never the keyring.
+// pairings and shared saves keep, its record of shared saves (`save-sync.json` in the state dir),
+// the chosen covers, the built-in runner's save RAM and states, and the state dir save backups go
+// to. An ordinary run uses them in place. A hidden run copies them at start into its own folder
+// under the runtime dir and keeps every change there, so the run behaves as usual while the
+// player's files stay as they were; the folder goes with the run. A hidden run's secrets stay in
+// that folder, never the keyring.
 #pragma once
 
 #include <filesystem>
@@ -58,17 +58,17 @@ class PlayerFiles {
         return lanBook_;
     }
     /// Where this run keeps what it makes of the player's saves: their backups before a copy over
-    /// them, and the LAN's staging; a hidden run's own folder.
+    /// them, and the shared saves' staging; a hidden run's own folder.
     [[nodiscard]] const std::filesystem::path& stateDir() const noexcept {
         return state_;
     }
-    /// The record of the saves shared with paired openSUs, which follows the saves it describes.
-    [[nodiscard]] const std::filesystem::path& lanSaveVersionsFile() const noexcept {
-        return lanSaveVersions_;
+    /// The record of the shared saves, which follows the saves it describes.
+    [[nodiscard]] const std::filesystem::path& saveVersionsFile() const noexcept {
+        return saveVersions_;
     }
-    /// Where the LAN's pairing secrets are kept: the keyring when `keyring` allows and this is
+    /// Where the pairing and share secrets are kept: the keyring when `keyring` allows and this is
     /// not a hidden run, else owner-only files beside these.
-    [[nodiscard]] secrets::SecretStore lanSecrets(bool keyring) const {
+    [[nodiscard]] secrets::SecretStore secrets(bool keyring) const {
         return secrets::SecretStore{secrets_, keyring && copiesDir_.empty()};
     }
     /// `config` with its save RAM and states where these files are.
@@ -85,7 +85,7 @@ class PlayerFiles {
     std::filesystem::path chosenCovers_;
     std::filesystem::path state_;
     std::filesystem::path lanBook_;
-    std::filesystem::path lanSaveVersions_;
+    std::filesystem::path saveVersions_;
     std::filesystem::path secrets_;
     std::filesystem::path saves_;
 };

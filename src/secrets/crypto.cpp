@@ -1,4 +1,4 @@
-#include "peer_crypto.hpp"
+#include "crypto.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -12,10 +12,15 @@
 
 #include "secrets/secret.hpp"
 
-namespace opensu::lan::crypto {
+namespace opensu::secrets::crypto {
 namespace {
 
 constexpr std::size_t sha256Bytes = 32;
+constexpr std::uint64_t scryptCost = std::uint64_t{1} << 15U;
+constexpr std::uint64_t scryptBlock = 8;
+constexpr std::uint64_t scryptParallel = 1;
+/// 128 r N is 32 MiB; twice that leaves libcrypto room.
+constexpr std::uint64_t scryptMemory = std::uint64_t{64} * 1024 * 1024;
 
 struct ContextFree {
     void operator()(EVP_PKEY_CTX* context) const noexcept {
@@ -142,6 +147,16 @@ Bytes hkdfSha256(std::span<const std::uint8_t> secret, std::span<const std::uint
     return out;
 }
 
+Bytes scryptKey(std::string_view passphrase, std::span<const std::uint8_t> salt) {
+    Bytes out(keyBytes);
+    if (EVP_PBE_scrypt(passphrase.data(), passphrase.size(), salt.data(), salt.size(), scryptCost,
+                       scryptBlock, scryptParallel, scryptMemory, out.data(), out.size()) != 1) {
+        secrets::wipeBytes(out.data(), out.size());
+        throw std::runtime_error{"libcrypto cannot derive a key with scrypt"};
+    }
+    return out;
+}
+
 std::string seal(std::span<const std::uint8_t> key, std::span<const std::uint8_t> nonce,
                  std::string_view aad, std::string_view plain) {
     const Cipher context = aeadFor(true, key, nonce, aad);
@@ -241,4 +256,4 @@ std::optional<Bytes> KeyPair::agree(std::span<const std::uint8_t> peerPublic) co
     return shared;
 }
 
-} // namespace opensu::lan::crypto
+} // namespace opensu::secrets::crypto

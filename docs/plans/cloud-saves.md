@@ -30,7 +30,7 @@ player picks which to keep, every replaced copy is backed up first).
    Store games and the standalone emulators of other consoles have no save store yet.
 2. LAN sharing first (the player, 2026-11-03: "LAN save sharing sounds great"): openSU machines
    that found and paired with each other ([LAN pairing](lan-remote-play.md), step 1) sync saves
-   directly. Built (2026-11-04, `lan::SaveSync`, [lan.md](../design/lan.md#shared-saves)): Share
+   directly. Built (2026-11-04, `save_sync::SaveSync` with `lan::PeerSaveTarget`, [lan.md](../design/lan.md#shared-saves)): Share
    saves per paired openSU, off by default; the launched emulator's saves by `SaveKey`, pulled
    before a game starts and pushed after it ends; a change counter and content hash per game and
    the hash last synced with each peer; a save changed on both sides left for the player to pick
@@ -39,4 +39,17 @@ player picks which to keep, every replaced copy is backed up first).
    hidden openSUs on this PC over Avahi. Not shown between two machines or to the Windows VM:
    Windows builds no discovery (`dns_sd_none.cpp`) and the VM is on user-mode networking, so no
    openSU there can be found or reach this one.
-3. Folder and WebDAV targets; Epic and GOG cloud through legendary and gogdl.
+3. Folder and WebDAV targets; Epic and GOG cloud through legendary and gogdl. Folder and WebDAV
+   built (2026-11-04): `save_sync` is the engine for every target (restructured out of `lan`),
+   the LAN's peers one group (`lan::PeerSaveTarget`), the share Settings › Saves names another
+   (`save_sync::ShareTarget` over `FolderShare` or `WebDavShare`), with the same record, rule,
+   staging, backups and conflict pick. A share holds `opensu-saves/key.json` (a salt and a sealed
+   check) and each game's status and bundle sealed with ChaCha20-Poly1305 under the scrypt of the
+   player's passphrase; the passphrase and the WebDAV password are in the secret store, the folder,
+   address and user in `settings.json` (`saveShare`, `saveShareFolder`, `saveShareUrl`,
+   `saveShareUser`). Shown with two hidden openSUs at once sharing one scratch folder, and the same
+   against a stand-in WebDAV server in the project's Python environment
+   (`scratch/saves3/share/{folder,webdav}/proof.txt`, frames in `frames/`): Kirby's runner save
+   given by the first, taken by the second before its launch and loaded by the core; both changed,
+   the second shows the conflict and keeps the share's after the pick, its own backed up; a third
+   with another passphrase is refused; the bundle holds none of the save in the clear.

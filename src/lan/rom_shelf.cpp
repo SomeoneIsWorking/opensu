@@ -7,9 +7,9 @@
 #include <utility>
 
 #include "clock/file_time.hpp"
+#include "fileio/relative_path.hpp"
 #include "lucent/log.h"
-#include "peer_crypto.hpp"
-#include "relative_path.hpp"
+#include "secrets/crypto.hpp"
 #include "secrets/secret.hpp"
 
 namespace opensu::lan {
@@ -47,7 +47,7 @@ std::optional<std::vector<wire::RomFile>> filesOf(const fs::path& root, const fs
     const auto add = [&](const fs::path& file) {
         const std::string path = file.lexically_relative(root).generic_string();
         const std::uintmax_t size = fs::file_size(file, ec);
-        if (ec || path.empty() || !staysInside(path)) {
+        if (ec || path.empty() || !fileio::staysInside(path)) {
             return false;
         }
         files.push_back(wire::RomFile{path, static_cast<std::uint64_t>(size)});
@@ -141,7 +141,7 @@ void RomShelf::build() {
              bios != contents_.bios.end() ? bios->second : std::vector<std::string>{}) {
             const fs::path file = contents_.biosFolder / path;
             const std::optional<std::pair<std::uint64_t, std::int64_t>> stamp = stampOf(file);
-            if (!stamp || !staysInside(path) || path.empty()) {
+            if (!stamp || !fileio::staysInside(path) || path.empty()) {
                 continue;
             }
             console.bios.push_back(wire::RomFile{path, stamp->first});
@@ -235,7 +235,7 @@ void RomShelf::hashAll(const std::stop_token& stop) {
         }
         const std::optional<std::pair<std::uint64_t, std::int64_t>> stamp = stampOf(file);
         std::ifstream in{file, std::ios::binary};
-        crypto::Sha256 hash;
+        secrets::crypto::Sha256 hash;
         std::uint64_t read = 0;
         while (in && !stop.stop_requested()) {
             in.read(piece.data(), static_cast<std::streamsize>(piece.size()));
@@ -243,7 +243,7 @@ void RomShelf::hashAll(const std::stop_token& stop) {
             hash.add(std::string_view{piece.data(), got});
             read += got;
         }
-        const crypto::Bytes digest = hash.finish();
+        const secrets::crypto::Bytes digest = hash.finish();
         const std::lock_guard lock{mutex_};
         std::erase(toHash_, file);
         if (stamp && read == stamp->first && in.eof()) {

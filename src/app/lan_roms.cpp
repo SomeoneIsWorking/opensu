@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <utility>
 
-#include "lan/relative_path.hpp"
+#include "fileio/relative_path.hpp"
 #include "library/catalog.hpp"
 #include "library/rom_systems.hpp"
 #include "lucent/log.h"
@@ -495,7 +495,7 @@ std::string LanRoms::consoleFolder(const fs::path& folder, const std::string& sy
          tree_->children(folder).value_or(std::vector<library::roms::RomNode>{})) {
         const library::roms::RomSystem* holds = library::roms::systemForFolder(node.name);
         if (node.folder && holds != nullptr && holds->key == system &&
-            lan::staysInside(node.name)) {
+            fileio::staysInside(node.name)) {
             return node.name;
         }
     }

@@ -23,6 +23,7 @@
 #include "library_additions.hpp"
 #include "pad_owner.hpp"
 #include "plugin_service.hpp"
+#include "save_sharing.hpp"
 #include "steam/client_modes.hpp"
 #include "support/fake_interface_text.hpp"
 #include "support/test_main.hpp"
@@ -275,37 +276,37 @@ void theSwitchAppliesAChange(const fs::path& root) {
                                     }}};
     audio::SdlSoundPlayer sounds;
     test::InterfaceRig ui;
-    app::LanService lan{app::LanService::Places{
-                            .bookFile = dir / "lan.json",
-                            .secrets = secrets::SecretStore{dir / "secrets", false},
-                            .coverCache = dir / "lan-covers",
-                            .port = 0,
-                            .saves = lan::SaveSync::Setup{.versionsFile = dir / "lan-saves.json",
-                                                          .backups = dir,
-                                                          .staging = dir / "lan-incoming",
-                                                          .runnerSaves = dir / "saves",
-                                                          .inUse = {},
-                                                          .changed = {}},
-                            .roms = {}},
-                        preferences,
-                        ui.navigator,
-                        sounds,
-                        std::make_shared<lan::RemoteLibrary>(),
-                        inForce.current().lan,
-                        app::LanService::Hooks{.say =
-                                                   [](const std::string&, bool) {
-                                                   },
-                                               .remoteChanged =
-                                                   [] {
-                                                   },
-                                               .peersChanged =
-                                                   [] {
-                                                   },
-                                               .savesChanged =
-                                                   [] {
-                                                   },
-                                               .romsChanged = {},
-                                               .play = {}}};
+    app::SaveSharing sharing{save_sync::SaveSync::Setup{.versionsFile = dir / "save-sync.json",
+                                                        .backups = dir,
+                                                        .staging = dir / "saves-incoming",
+                                                        .runnerSaves = dir / "saves",
+                                                        .inUse = {},
+                                                        .changed = {}},
+                             secrets::SecretStore{dir / "secrets", false}, [] {
+                             }};
+    app::LanService lan{
+        app::LanService::Places{.bookFile = dir / "lan.json",
+                                .secrets = secrets::SecretStore{dir / "secrets", false},
+                                .coverCache = dir / "lan-covers",
+                                .port = 0,
+                                .saves = sharing.engine(),
+                                .roms = {}},
+        preferences,
+        ui.navigator,
+        sounds,
+        std::make_shared<lan::RemoteLibrary>(),
+        inForce.current().lan,
+        app::LanService::Hooks{.say =
+                                   [](const std::string&, bool) {
+                                   },
+                               .remoteChanged =
+                                   [] {
+                                   },
+                               .peersChanged =
+                                   [] {
+                                   },
+                               .romsChanged = {},
+                               .play = {}}};
     int emulatorChanges = 0;
     app::IntegrationSwitch integrationSwitch{
         inForce,

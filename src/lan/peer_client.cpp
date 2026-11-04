@@ -3,8 +3,8 @@
 #include <chrono>
 #include <vector>
 
-#include "peer_crypto.hpp"
 #include "request_signature.hpp"
+#include "secrets/crypto.hpp"
 #include "secrets/secret.hpp"
 
 namespace opensu::lan {
@@ -25,7 +25,9 @@ std::optional<net::WebClient::Answer> PeerClient::send(std::string_view target,
         .maxBody = largest, .refusal = [allowed = std::string_view{url}](const std::string& hop) {
             return hop == allowed ? std::string{} : "an openSU sends nowhere else";
         }};
-    return web_.request(url, headers, guard, error, post);
+    return web_.request(
+        url, headers, guard, error,
+        net::WebClient::Sent{.method = {}, .body = post, .user = {}, .password = {}});
 }
 
 std::optional<net::WebClient::Answer> PeerClient::post(std::string_view target,
@@ -38,7 +40,8 @@ std::optional<net::WebClient::Answer>
 PeerClient::call(std::string_view method, std::string_view target, const std::string& body,
                  const Signer& signer, std::size_t largest, std::string& error) const {
     const std::int64_t now = unixSeconds(std::chrono::system_clock::now());
-    const std::string nonce = secrets::hexText(crypto::randomBytes(crypto::nonceBytes));
+    const std::string nonce =
+        secrets::hexText(secrets::crypto::randomBytes(secrets::crypto::nonceBytes));
     RequestFacts facts{method, target, now, nonce, {}};
     const bool posts = method == "POST";
     const std::string sent =
@@ -52,7 +55,7 @@ PeerClient::call(std::string_view method, std::string_view target, const std::st
         std::string{nonceHeader} + ": " + nonce, std::string{signatureHeader} + ": " + signature};
     std::optional<net::WebClient::Answer> answer =
         send(target, headers, posts ? std::optional<std::string>{sent} : std::nullopt,
-             largest + crypto::sealNonceBytes + crypto::sealTagBytes, error);
+             largest + secrets::crypto::sealNonceBytes + secrets::crypto::sealTagBytes, error);
     if (!answer) {
         return std::nullopt;
     }

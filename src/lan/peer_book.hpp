@@ -13,7 +13,7 @@
 #include <string_view>
 #include <vector>
 
-#include "peer_crypto.hpp"
+#include "secrets/crypto.hpp"
 #include "secrets/secret_store.hpp"
 
 namespace opensu::lan {
@@ -61,11 +61,12 @@ class PeerBook {
     [[nodiscard]] std::vector<Peer> paired() const;
     [[nodiscard]] std::optional<Peer> find(std::string_view id) const;
     /// The secret of the paired peer `id`; nothing when it is not paired or its secret is gone.
-    [[nodiscard]] std::optional<crypto::Bytes> secretOf(std::string_view id) const;
+    [[nodiscard]] std::optional<secrets::crypto::Bytes> secretOf(std::string_view id) const;
 
     /// Keeps `peer` as paired with `secret`, replacing an earlier pairing with it. False with
     /// `error` when the secret or the file could not be kept; the book is then as it was.
-    [[nodiscard]] bool remember(const Peer& peer, const crypto::Bytes& secret, std::string& error);
+    [[nodiscard]] bool remember(const Peer& peer, const secrets::crypto::Bytes& secret,
+                                std::string& error);
     /// Shares saves with `id` from now on, or no longer. False with `error` when it is not paired
     /// or the file could not be kept.
     [[nodiscard]] bool shareSaves(std::string_view id, bool on, std::string& error);
@@ -81,7 +82,7 @@ class PeerBook {
     mutable std::mutex mutex_;
     std::vector<Peer> peers_;
     /// Secrets read from the store, wiped when they go.
-    mutable std::map<std::string, crypto::Bytes, std::less<>> known_;
+    mutable std::map<std::string, secrets::crypto::Bytes, std::less<>> known_;
 };
 
 } // namespace opensu::lan

@@ -67,13 +67,23 @@ class WebClient {
         std::stop_token stop{};
     };
 
-    /// The response to a GET of `url` with `headers` sent, or with `post` a POST of it, following
-    /// redirects that `guard` allows. Nothing when a hop is refused, the body is over
-    /// `guard.maxBody`, the transfer fails, or `guard.progress` or `guard.stop` cancels it;
-    /// `error` says why ("cancelled" for the last two).
-    [[nodiscard]] std::optional<Answer>
-    request(const std::string& url, const std::vector<std::string>& headers, const Guard& guard,
-            std::string& error, const std::optional<std::string>& post = std::nullopt) const;
+    /// What a request sends beyond a GET: its method (POST with a body, else GET, when empty),
+    /// its body, and Basic credentials when `user` is set.
+    struct Sent {
+        std::string method;
+        std::optional<std::string> body;
+        std::string user;
+        std::string password;
+    };
+
+    /// The response to `sent` of `url` with `headers` sent, following redirects that `guard`
+    /// allows. Nothing when a hop is refused, the body is over `guard.maxBody`, the transfer fails,
+    /// or `guard.progress` or `guard.stop` cancels it; `error` says why ("cancelled" for the last
+    /// two).
+    [[nodiscard]] std::optional<Answer> request(const std::string& url,
+                                                const std::vector<std::string>& headers,
+                                                const Guard& guard, std::string& error,
+                                                const Sent& sent = {}) const;
 
     /// What a 200 response says of its body.
     struct BodyFacts {

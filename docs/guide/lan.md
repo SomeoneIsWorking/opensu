@@ -66,7 +66,7 @@ For a game installed on both openSUs, the saves of the emulator it starts with f
   saves first").
 - After the game ends, the other openSU takes yours.
 - The game's details page says how its saves stand under **Saves**: In sync with Desk, Newer on
-  Desk, Conflict with Desk, or Desk is offline. **Sync saves now** syncs at once.
+  Desk, Conflict with Desk, or Desk cannot be reached. **Sync saves now** syncs at once.
 - If you played on both since they last synced, nothing is replaced. The row says **Pick which
   save to keep** and shows each side's date and size. B cancels.
 - The saves replaced are always backed up first, as Copy saves does, under

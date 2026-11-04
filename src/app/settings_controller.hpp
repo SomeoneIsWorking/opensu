@@ -38,6 +38,7 @@
 #include "path_editor.hpp"
 #include "plugin_settings.hpp"
 #include "preferences.hpp"
+#include "save_settings.hpp"
 #include "settings/install_folders.hpp"
 #include "shortcut_editor.hpp"
 #include "steam_library_settings.hpp"
@@ -87,6 +88,7 @@ class SettingsController final : public ui::RowActions {
         InterfaceSoundSettings& interfaceSounds;
         LanSettings& lan;
         LanRoms& lanRoms;
+        SaveSettings& saves;
         /// Which pages and rows show: those of the integrations in force.
         const IntegrationsInForce& inForce;
     };
@@ -103,8 +105,9 @@ class SettingsController final : public ui::RowActions {
           chords_{services.chords}, mappings_{services.mappings}, wine_{services.wine},
           integrations_{services.integrations}, artwork_{services.artwork},
           interfaceSounds_{services.interfaceSounds}, lan_{services.lan},
-          lanRoms_{services.lanRoms}, inForce_{services.inForce}, sounds_{sounds},
-          preferences_{preferences}, defaults_{defaults}, hooks_{std::move(hooks)} {
+          lanRoms_{services.lanRoms}, saves_{services.saves}, inForce_{services.inForce},
+          sounds_{sounds}, preferences_{preferences}, defaults_{defaults},
+          hooks_{std::move(hooks)} {
     }
 
     /// Opens the screen on its first category.
@@ -189,6 +192,7 @@ class SettingsController final : public ui::RowActions {
     InterfaceSoundSettings& interfaceSounds_;
     LanSettings& lan_;
     LanRoms& lanRoms_;
+    SaveSettings& saves_;
     const IntegrationsInForce& inForce_;
     audio::SdlSoundPlayer& sounds_;
     Preferences& preferences_;

@@ -11,7 +11,7 @@
 
 #include <nlohmann/json_fwd.hpp>
 
-#include "peer_crypto.hpp"
+#include "secrets/crypto.hpp"
 
 namespace opensu::lan::wire {
 
@@ -30,15 +30,15 @@ struct Hello {
 struct PairRequest {
     std::string id;
     std::string name;
-    crypto::Bytes commitment;
+    secrets::crypto::Bytes commitment;
 };
 [[nodiscard]] std::string write(const PairRequest& request);
 [[nodiscard]] std::optional<PairRequest> readPairRequest(std::string_view body);
 
 /// The host's answer to it: its key and nonce for this pairing.
 struct PairOffer {
-    crypto::Bytes key;
-    crypto::Bytes nonce;
+    secrets::crypto::Bytes key;
+    secrets::crypto::Bytes nonce;
 };
 [[nodiscard]] std::string write(const PairOffer& offer);
 [[nodiscard]] std::optional<PairOffer> readPairOffer(std::string_view body);
@@ -46,8 +46,8 @@ struct PairOffer {
 /// `POST /lan/pair/reveal`: the guest's key and nonce.
 struct PairReveal {
     std::string id;
-    crypto::Bytes key;
-    crypto::Bytes nonce;
+    secrets::crypto::Bytes key;
+    secrets::crypto::Bytes nonce;
 };
 [[nodiscard]] std::string write(const PairReveal& reveal);
 [[nodiscard]] std::optional<PairReveal> readPairReveal(std::string_view body);
@@ -109,25 +109,14 @@ struct SaveAsk {
 /// Nothing when `body` is not one, or its system or game could step out of a folder.
 [[nodiscard]] std::optional<SaveAsk> readSaveAsk(std::string_view body);
 
-/// The answer to `/lan/saves/status`: the version of the game's saves there, their size and newest
-/// change (Unix seconds, 0 for none).
-struct SaveStatus {
-    std::uint64_t counter{0};
-    std::string hash;
-    std::uint64_t bytes{0};
-    std::int64_t modified{0};
-
-    bool operator==(const SaveStatus&) const = default;
-};
-[[nodiscard]] std::string write(const SaveStatus& status);
-[[nodiscard]] std::optional<SaveStatus> readSaveStatus(std::string_view body);
+// The answer to `/lan/saves/status` is a `save_sync::SaveStatus`.
 
 /// `POST /lan/play`: a paired guest asks to play one of the listed games on the host, with its
 /// half of the session's salt.
 inline constexpr std::string_view playRoute = "/lan/play";
 struct PlayRequest {
     std::string game;
-    crypto::Bytes salt;
+    secrets::crypto::Bytes salt;
 };
 [[nodiscard]] std::string write(const PlayRequest& request);
 [[nodiscard]] std::optional<PlayRequest> readPlayRequest(std::string_view body);
@@ -135,7 +124,7 @@ struct PlayRequest {
 /// The host's answer: the UDP port its stream listens on and its half of the salt.
 struct PlayAnswer {
     std::uint16_t port{0};
-    crypto::Bytes salt;
+    secrets::crypto::Bytes salt;
 };
 [[nodiscard]] std::string write(const PlayAnswer& answer);
 [[nodiscard]] std::optional<PlayAnswer> readPlayAnswer(std::string_view body);

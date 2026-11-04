@@ -83,8 +83,8 @@ void GuestPairing::run(const std::stop_token& stop) {
 
 GuestPairing::Phase GuestPairing::pair(const std::stop_token& stop, std::string& problem) {
     const PeerClient client{web_, Endpoint{host_.address, host_.port}};
-    const crypto::KeyPair ours;
-    const crypto::Bytes nonce = crypto::randomBytes(crypto::nonceBytes);
+    const secrets::crypto::KeyPair ours;
+    const secrets::crypto::Bytes nonce = secrets::crypto::randomBytes(secrets::crypto::nonceBytes);
     std::optional<net::WebClient::Answer> answer =
         client.post("/lan/pair",
                     wire::write(wire::PairRequest{self_.id, self_.name,
@@ -102,7 +102,7 @@ GuestPairing::Phase GuestPairing::pair(const std::stop_token& stop, std::string&
         problem = host_.name + " did not answer as an openSU";
         return Phase::Failed;
     }
-    std::optional<crypto::Bytes> shared = ours.agree(offer->key);
+    std::optional<secrets::crypto::Bytes> shared = ours.agree(offer->key);
     if (!shared) {
         problem = host_.name + " sent a key that is not one";
         return Phase::Failed;
@@ -113,7 +113,7 @@ GuestPairing::Phase GuestPairing::pair(const std::stop_token& stop, std::string&
                                        .guestNonce = nonce,
                                        .hostKey = offer->key,
                                        .hostNonce = offer->nonce};
-    crypto::Bytes secret = pairingSecret(*shared, transcript);
+    secrets::crypto::Bytes secret = pairingSecret(*shared, transcript);
     secrets::wipeBytes(shared->data(), shared->size());
     answer = client.post("/lan/pair/reveal",
                          wire::write(wire::PairReveal{self_.id, ours.publicKey(), nonce}),

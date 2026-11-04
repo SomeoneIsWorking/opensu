@@ -9,7 +9,7 @@
 #include <span>
 #include <string>
 
-#include "peer_crypto.hpp"
+#include "secrets/crypto.hpp"
 
 namespace opensu::lan {
 
@@ -17,22 +17,22 @@ namespace opensu::lan {
 struct PairingTranscript {
     std::string guestId;
     std::string hostId;
-    crypto::Bytes guestKey;
-    crypto::Bytes guestNonce;
-    crypto::Bytes hostKey;
-    crypto::Bytes hostNonce;
+    secrets::crypto::Bytes guestKey;
+    secrets::crypto::Bytes guestNonce;
+    secrets::crypto::Bytes hostKey;
+    secrets::crypto::Bytes hostNonce;
 };
 
 /// What the guest sends first: SHA-256 over its key and nonce.
-[[nodiscard]] crypto::Bytes pairingCommitment(std::span<const std::uint8_t> guestKey,
-                                              std::span<const std::uint8_t> guestNonce);
+[[nodiscard]] secrets::crypto::Bytes pairingCommitment(std::span<const std::uint8_t> guestKey,
+                                                       std::span<const std::uint8_t> guestNonce);
 
 /// The six digits both screens show, as "123 456".
 [[nodiscard]] std::string pairingCode(const PairingTranscript& transcript);
 
 /// The per-peer secret both keep, from the X25519 secret they share and the transcript.
-[[nodiscard]] crypto::Bytes pairingSecret(std::span<const std::uint8_t> shared,
-                                          const PairingTranscript& transcript);
+[[nodiscard]] secrets::crypto::Bytes pairingSecret(std::span<const std::uint8_t> shared,
+                                                   const PairingTranscript& transcript);
 
 /// The host's word on a pairing ("waiting", "accepted", "declined"), signed with the pairing's
 /// secret so the guest keeps it only when it came from the host it paired with.
@@ -43,12 +43,12 @@ struct PairingTranscript {
 /// The keys one remote-play session's packets are sealed with, one per sender, so a counter is
 /// never used twice under one key.
 struct StreamKeys {
-    crypto::Bytes host;
-    crypto::Bytes guest;
+    secrets::crypto::Bytes host;
+    secrets::crypto::Bytes guest;
 };
 
 /// A session's keys: HKDF over the pairing's secret, salted with the fresh salts both sides sent
-/// for it (`crypto::nonceBytes` each).
+/// for it (`secrets::crypto::nonceBytes` each).
 [[nodiscard]] StreamKeys streamKeys(std::span<const std::uint8_t> secret,
                                     std::span<const std::uint8_t> guestSalt,
                                     std::span<const std::uint8_t> hostSalt);

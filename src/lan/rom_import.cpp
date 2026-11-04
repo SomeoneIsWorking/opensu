@@ -33,7 +33,7 @@ std::string refusalOf(const net::WebClient::Answer& answer) {
 }
 
 /// SHA-256 over the first `bytes` of `file`; false when it cannot be read.
-bool hashPart(const fs::path& file, std::uint64_t bytes, crypto::Sha256& hash) {
+bool hashPart(const fs::path& file, std::uint64_t bytes, secrets::crypto::Sha256& hash) {
     std::ifstream in{file, std::ios::binary};
     std::string piece(readPiece, '\0');
     std::uint64_t left = bytes;
@@ -288,11 +288,11 @@ bool RomImport::fetchFile(const Item& item, const File& file, std::uint64_t befo
     std::error_code ec;
     fs::create_directories(part.parent_path(), ec);
     std::uint64_t have = fs::exists(part, ec) ? fs::file_size(part, ec) : 0;
-    crypto::Sha256 hash;
+    secrets::crypto::Sha256 hash;
     if (ec || have > facts->bytes || !hashPart(part, have, hash)) {
         fs::remove(part, ec);
         have = 0;
-        hash = crypto::Sha256{};
+        hash = secrets::crypto::Sha256{};
     }
     if (have > 0) {
         lucent::info("lan", "importing {} from {}: {} goes on from byte {}", item.title,

@@ -183,6 +183,7 @@ std::vector<ui::SettingsCategory> SettingsController::build() const {
     if (in.lan) {
         pages.push_back(lan_.page());
     }
+    pages.push_back(saves_.page());
     pages.push_back(aboutPage());
     return pages;
 }
@@ -589,6 +590,11 @@ void SettingsController::run(const std::string& id, int step) {
         if (step == 0) {
             lanRoms_.run(id);
         }
+        return;
+    }
+    if (SaveSettings::owns(id)) {
+        saves_.run(id, step);
+        refresh();
         return;
     }
     if (EmulatorSettings::owns(id)) {

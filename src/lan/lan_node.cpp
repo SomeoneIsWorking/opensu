@@ -10,6 +10,7 @@
 #include "fileio/atomic_write.hpp"
 #include "lucent/log.h"
 #include "pairing_keys.hpp"
+#include "peer_save_target.hpp"
 #include "secrets/secret.hpp"
 
 namespace opensu::lan {
@@ -27,6 +28,9 @@ constexpr std::chrono::seconds lookEvery{2};
 constexpr std::chrono::seconds refetchEvery{60};
 constexpr std::array<std::string_view, 3> coverExtensions{".png", ".jpg", ".webp"};
 
+/// The shared saves' group of targets the paired peers make.
+constexpr std::string_view savesGroup = "lan";
+
 std::string_view extensionOf(std::string_view contentType) {
     if (contentType.starts_with("image/png")) {
         return ".png";
@@ -43,25 +47,21 @@ LanNode::LanNode(Setup setup)
     : coverCache_{std::move(setup.coverCache)}, remote_{std::move(setup.remote)},
       changed_{std::move(setup.changed)},
       book_{std::move(setup.bookFile), std::move(setup.secrets)}, name_{std::move(setup.name)},
-      saves_{std::move(setup.saves), book_, web_,
-             [this] {
-                 return sightings();
-             }},
-      listener_{LanListener::Sources{.book = book_,
-                                     .pairing = pairing_,
-                                     .library = library_,
-                                     .saves = saves_,
-                                     .roms = shelf_,
-                                     .name =
-                                         [this] {
-                                             return name_;
-                                         },
-                                     .unpaired =
-                                         [this](const Peer& /*peer*/) {
-                                             wake();
-                                         },
-                                     .play = std::move(setup.play)},
-                setup.port} {
+      saves_{setup.saves}, listener_{LanListener::Sources{.book = book_,
+                                                          .pairing = pairing_,
+                                                          .library = library_,
+                                                          .saves = saves_,
+                                                          .roms = shelf_,
+                                                          .name =
+                                                              [this] {
+                                                                  return name_;
+                                                              },
+                                                          .unpaired =
+                                                              [this](const Peer& /*peer*/) {
+                                                                  wake();
+                                                              },
+                                                          .play = std::move(setup.play)},
+                                     setup.port} {
     if (!listener_.start()) {
         problem_ = setup.port == 0 ? std::string{"no port can be had to listen on"}
                                    : "port " + std::to_string(setup.port) + " is taken";
@@ -81,19 +81,31 @@ LanNode::LanNode(Setup setup)
         return linkTo(host, why);
     };
     imports_ = std::make_unique<RomImport>(std::move(roms), web_);
+    saves_.setTargets(std::string{savesGroup}, [this] {
+        std::vector<std::shared_ptr<save_sync::SaveTarget>> targets;
+        for (Peer& peer : book_.paired()) {
+            if (peer.sharesSaves) {
+                targets.push_back(
+                    std::make_shared<PeerSaveTarget>(std::move(peer), book_, web_, [this] {
+                        return sightings();
+                    }));
+            }
+        }
+        return targets;
+    });
     worker_ = std::jthread{[this](const std::stop_token& stop) {
         work(stop);
     }};
 }
 
 LanNode::~LanNode() {
+    saves_.setTargets(std::string{savesGroup}, {});
     imports_.reset();
     worker_.request_stop();
     wake_.notify_all();
     if (worker_.joinable()) {
         worker_.join();
     }
-    saves_.stop();
     asking_.reset();
     discovery_.reset();
     listener_.stop();
@@ -160,13 +172,13 @@ std::optional<LanNode::PlayOffer>
 LanNode::askToPlay(const std::string& hostId, const std::string& gameId, std::string& error) const {
     const std::vector<Sighting> seen = sightings();
     const auto host = std::ranges::find(seen, hostId, &Sighting::id);
-    std::optional<crypto::Bytes> secret = book_.secretOf(hostId);
+    std::optional<secrets::crypto::Bytes> secret = book_.secretOf(hostId);
     if (host == seen.end() || !secret) {
         error = host == seen.end() ? "that openSU is not on the LAN now"
                                    : "that openSU is not paired with this one";
         return std::nullopt;
     }
-    const crypto::Bytes salt = crypto::randomBytes(crypto::nonceBytes);
+    const secrets::crypto::Bytes salt = secrets::crypto::randomBytes(secrets::crypto::nonceBytes);
     const PeerClient client{web_, Endpoint{host->address, host->port}};
     const std::optional<net::WebClient::Answer> answer =
         client.call("POST", wire::playRoute, wire::write(wire::PlayRequest{gameId, salt}),
@@ -194,7 +206,7 @@ LanNode::askToPlay(const std::string& hostId, const std::string& gameId, std::st
 std::optional<RomImport::Link> LanNode::linkTo(const std::string& hostId, std::string& why) const {
     const std::vector<Sighting> seen = sightings();
     const auto host = std::ranges::find(seen, hostId, &Sighting::id);
-    std::optional<crypto::Bytes> secret = book_.secretOf(hostId);
+    std::optional<secrets::crypto::Bytes> secret = book_.secretOf(hostId);
     if (host == seen.end() || !secret) {
         if (secret) {
             secrets::wipeBytes(secret->data(), secret->size());
@@ -232,7 +244,7 @@ std::optional<std::vector<wire::RomConsole>> LanNode::romsOf(const std::string& 
 }
 
 bool LanNode::forget(const std::string& peerId, std::string& error) {
-    std::optional<crypto::Bytes> secret = book_.secretOf(peerId);
+    std::optional<secrets::crypto::Bytes> secret = book_.secretOf(peerId);
     if (!book_.forget(peerId, error)) {
         if (secret) {
             secrets::wipeBytes(secret->data(), secret->size());
@@ -328,7 +340,7 @@ std::vector<library::Game> LanNode::fetch(const std::vector<Sighting>& online, b
     }
     std::vector<library::Game> games;
     for (const Sighting& sighting : online) {
-        std::optional<crypto::Bytes> secret = book_.secretOf(sighting.id);
+        std::optional<secrets::crypto::Bytes> secret = book_.secretOf(sighting.id);
         if (!secret) {
             continue;
         }
@@ -369,8 +381,8 @@ std::vector<library::Game> LanNode::fetch(const std::vector<Sighting>& online, b
     return games;
 }
 
-fs::path LanNode::coverOf(const Peer& host, const PeerClient& client, const crypto::Bytes& secret,
-                          const std::string& token) const {
+fs::path LanNode::coverOf(const Peer& host, const PeerClient& client,
+                          const secrets::crypto::Bytes& secret, const std::string& token) const {
     const fs::path folder = coverCache_ / host.id;
     for (const std::string_view extension : coverExtensions) {
         fs::path cached = folder / (token + std::string{extension});

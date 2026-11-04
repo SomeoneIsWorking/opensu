@@ -59,6 +59,24 @@ carried to the built-in runner, so a game with a clock starts it from the system
 DuckStation's per-game memory card (`~/.local/share/duckstation/memcards/<title>_1.mcd`) is copied
 whole; a card of another size is refused.
 
+## Sharing saves through a folder or WebDAV
+
+Settings › Saves shares your games' saves through a place every openSU of yours reaches, beside
+the LAN, with the same rules as [shared saves on the LAN](lan.md#shared-saves): taken before a game
+starts if newer there, given after it ends, a conflict left for you to pick, the replaced save
+backed up first.
+
+- **Share saves**: Off, **A folder** (one Syncthing, Nextcloud or Dropbox already syncs, or a
+  mounted share) or **WebDAV** (a Nextcloud, ownCloud or NAS folder's address, user and password;
+  HTTPS only).
+- **Passphrase**: the saves are sealed with it where they are shared, under `opensu-saves/` there.
+  Set the same one on every openSU; one with another passphrase says it cannot open them. A lost
+  passphrase cannot be recovered: choose a new folder and set a new one.
+- The password and the passphrase are kept in the keyring (or an owner-only file without one),
+  never in `settings.json`.
+
+The details page's **Saves** names the folder (by its name) or the WebDAV server (by its host).
+
 ## Emulator downloads
 
 Emulators that publish an official AppImage (Cemu, Eden, PCSX2, RPCS3, DuckStation, PPSSPP, Azahar,

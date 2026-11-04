@@ -19,7 +19,7 @@
 
 #include "net/web_client.hpp"
 #include "peer_client.hpp"
-#include "peer_crypto.hpp"
+#include "secrets/crypto.hpp"
 #include "wire.hpp"
 
 namespace opensu::lan {
@@ -29,7 +29,7 @@ class RomImport {
     /// Where a host listens now and the secret of the pairing with it.
     struct Link {
         Endpoint endpoint;
-        crypto::Bytes secret;
+        secrets::crypto::Bytes secret;
     };
     /// One file of an item: which of the host's files, its size there, and where it goes here:
     /// `place` (`/`-separated) under `folder`.
