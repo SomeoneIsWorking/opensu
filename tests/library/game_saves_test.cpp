@@ -458,9 +458,11 @@ void readsEdensNewerLayoutAndFlatpaks() {
            "a host install reads the host's folders");
     game.emulatorOptions[0].flatpak = true;
     const std::vector<EmulatorSaves> sandboxed = savesOf(game, catalog, rig.runner);
-    expect(sandboxed.front().home && sandboxed.front().home->folder == sandbox / "data/eden/nand" &&
-               sandboxed.front().slotFor(SlotKind::Account) != nullptr &&
-               sandboxed.front().slotFor(SlotKind::Account)->current,
+    const EmulatorSaves& flatpak = sandboxed.front();
+    const SaveHome& flatpakHome = opensu::test::need(flatpak.home, "the Flatpak's saves are found");
+    const SaveSlot* flatpakAccount = flatpak.slotFor(SlotKind::Account);
+    expect(flatpakHome.folder == sandbox / "data/eden/nand" && flatpakAccount != nullptr &&
+               flatpakAccount->current,
            "the Flatpak's saves and current profile are read inside its sandbox folders");
 }
 
