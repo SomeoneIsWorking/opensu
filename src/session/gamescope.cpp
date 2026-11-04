@@ -1,12 +1,20 @@
 #include "gamescope.hpp"
 
+#include <string_view>
+
 namespace opensu::session {
+namespace {
+
+/// Gamescope's children get its own socket as WAYLAND_DISPLAY, so a Wayland game shows inside it.
+constexpr std::string_view exposeWayland = "--expose-wayland";
+
+} // namespace
 
 std::vector<std::string> gamescopeArgs(const display::Output& output, const std::string& program,
                                        const std::vector<std::string>& args) {
     if (output.native()) {
         // Top level on the seat: the DRM backend takes the connector's preferred mode.
-        std::vector<std::string> top{"--backend", "drm", "--", program};
+        std::vector<std::string> top{"--backend", "drm", std::string{exposeWayland}, "--", program};
         top.insert(top.end(), args.begin(), args.end());
         return top;
     }
@@ -20,6 +28,7 @@ std::vector<std::string> gamescopeArgs(const display::Output& output, const std:
     out.push_back("-f");
     // The fork: a host close request closes the focused game, not the session.
     out.push_back("--close-focused-window");
+    out.push_back(std::string{exposeWayland});
     out.push_back("--");
     out.push_back(program);
     out.insert(out.end(), args.begin(), args.end());

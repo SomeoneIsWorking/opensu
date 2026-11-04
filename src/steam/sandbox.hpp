@@ -27,7 +27,8 @@ struct SandboxPlaces {
     std::filesystem::path runtimeDir;
     /// openSU's Gamescope Xwayland, `:1`.
     std::string display;
-    /// Gamescope's Wayland socket name in the runtime dir, for the games' WSI layer; may be empty.
+    /// Gamescope's Wayland socket name in the runtime dir, the sandbox's WAYLAND_DISPLAY; may be
+    /// empty.
     std::string gamescopeWayland;
     /// The GPU's device nodes (`gpuNodes`).
     std::vector<std::filesystem::path> gpu;

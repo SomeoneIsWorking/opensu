@@ -2,7 +2,7 @@
 //
 // Gamescope names the focused window in GAMESCOPE_FOCUSED_WINDOW on the root and lists each window
 // it could focus in GAMESCOPE_FOCUSABLE_WINDOWS as (window, app id, pid) triples. Outside Steam
-// mode (`-e`, which openSU does not pass) a window's app id is its own X id, except a window that
+// mode (`-e`, which openSU does not pass) a window's app id is its own window id, except one that
 // carries STEAM_BIGPICTURE, whose app id is Steam's, 769 (steamcompmgr.cpp:5825-5839, 6930-6939).
 #pragma once
 

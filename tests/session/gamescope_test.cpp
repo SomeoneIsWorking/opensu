@@ -1,4 +1,5 @@
-// The Gamescope command line that wraps opensu: exact argv, with and without a refresh rate.
+// The Gamescope command line that wraps opensu: exact argv, with and without a refresh rate, its
+// Wayland socket exposed to its children.
 #include "session/gamescope.hpp"
 #include "support/test_main.hpp"
 
@@ -26,21 +27,23 @@ using Args = std::vector<std::string>;
 int main() try {
     const auto withRefresh = gamescopeArgs(Output{2560, 1440, 144}, "/usr/bin/opensu", {"--x"});
     expect(withRefresh == Args{"-W", "2560", "-H", "1440", "-w", "2560", "-h", "1440", "-r", "144",
-                               "-f", "--close-focused-window", "--", "/usr/bin/opensu", "--x"},
+                               "-f", "--close-focused-window", "--expose-wayland", "--",
+                               "/usr/bin/opensu", "--x"},
            "output size, refresh and opensu's command are passed through");
 
     const auto noRefresh = gamescopeArgs(Output{1920, 1080, 0}, "/usr/bin/opensu", {});
     expect(noRefresh == Args{"-W", "1920", "-H", "1080", "-w", "1920", "-h", "1080", "-f",
-                             "--close-focused-window", "--", "/usr/bin/opensu"},
+                             "--close-focused-window", "--expose-wayland", "--", "/usr/bin/opensu"},
            "-r is omitted without a refresh rate, and no arguments end at the program");
 
     const auto negative = gamescopeArgs(Output{1280, 720, -1}, "opensu", {"a", "b"});
     expect(negative == Args{"-W", "1280", "-H", "720", "-w", "1280", "-h", "720", "-f",
-                            "--close-focused-window", "--", "opensu", "a", "b"},
+                            "--close-focused-window", "--expose-wayland", "--", "opensu", "a", "b"},
            "a negative refresh rate is omitted");
 
     const auto native = gamescopeArgs(Output{}, "/usr/bin/opensu", {"--session"});
-    expect(native == Args{"--backend", "drm", "--", "/usr/bin/opensu", "--session"},
+    expect(native ==
+               Args{"--backend", "drm", "--expose-wayland", "--", "/usr/bin/opensu", "--session"},
            "the native output is a top-level DRM Gamescope with no size or window flags");
     expect(Output{}.native() && !Output{1280, 720, 0}.native(), "only a sized output is nested");
 

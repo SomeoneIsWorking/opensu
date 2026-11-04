@@ -9,8 +9,7 @@ namespace {
 namespace fs = std::filesystem;
 
 /// Variables naming the desktop's session, which the sandbox does not have.
-constexpr std::string_view desktopVariables[] = {"WAYLAND_DISPLAY", "XAUTHORITY",
-                                                 "SESSION_MANAGER"};
+constexpr std::string_view desktopVariables[] = {"XAUTHORITY", "SESSION_MANAGER"};
 
 void add(std::vector<std::string>& args, std::initializer_list<std::string_view> items) {
     for (const std::string_view item : items) {
@@ -91,6 +90,12 @@ std::vector<std::string> sandboxArguments(const SandboxPlaces& places,
     }
     for (const std::string_view variable : desktopVariables) {
         add(args, {"--unsetenv", variable});
+    }
+    // A Wayland game reaches Gamescope's socket, the one Wayland socket the sandbox has.
+    if (places.gamescopeWayland.empty()) {
+        add(args, {"--unsetenv", "WAYLAND_DISPLAY"});
+    } else {
+        add(args, {"--setenv", "WAYLAND_DISPLAY", places.gamescopeWayland});
     }
     const std::string bus = (places.runtimeDir / "bus").string();
     add(args, {"--bind", secretBus.string(), bus});

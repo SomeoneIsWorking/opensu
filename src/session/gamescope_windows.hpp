@@ -2,9 +2,9 @@
 // it has focused (`window_focus`).
 //
 // Gamescope publishes GAMESCOPE_FOCUSABLE_WINDOWS on the root window: one (window, app id, pid)
-// triple per window it could focus, the pid found by Gamescope itself, so a window that names no
-// _NET_WM_PID still counts. GAMESCOPE_FOCUSED_WINDOW names the focused one in every mode
-// (steamcompmgr.cpp:5151-5190, 5493).
+// triple per window it could focus, Xwayland or xdg (the fork gives xdg windows ids with the top
+// bit set), the pid found by Gamescope itself, so a window that names no _NET_WM_PID still
+// counts. GAMESCOPE_FOCUSED_WINDOW names the focused one in every mode.
 #pragma once
 
 #include <memory>

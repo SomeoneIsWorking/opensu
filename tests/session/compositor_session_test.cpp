@@ -162,7 +162,8 @@ void testLoginSessionIsTopLevel() {
 
     std::error_code ec;
     const std::string self = fs::read_symlink("/proc/self/exe", ec).string();
-    expect(slurp(fixture.argsFile) == "--backend\ndrm\n--\n" + self + "\n--session\n",
+    expect(slurp(fixture.argsFile) ==
+               "--backend\ndrm\n--expose-wayland\n--\n" + self + "\n--session\n",
            "Gamescope is told the DRM backend, no size, and runs this executable --session");
     expect(slurp(fixture.base / "state" / "gamescope-session.log") ==
                "picked HDMI-A-1\na warning\n",
