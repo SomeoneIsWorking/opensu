@@ -60,6 +60,7 @@
 #include "interface_sounds.hpp"
 #include "keyboard_pad.hpp"
 #include "lan/remote_library.hpp"
+#include "lan_roms.hpp"
 #include "lan_service.hpp"
 #include "lan_settings.hpp"
 #include "launch/handoff.hpp"
@@ -162,6 +163,8 @@ class ShellApp final {
     void reloadCatalog();
     /// The player's ROM folders changed: the catalog reads them from now on.
     void romFoldersChanged();
+    /// Keeps `folder` with the player's ROM folders, which the catalog reads from now on.
+    void addRomFolder(const std::filesystem::path& folder);
     /// Takes the listings that arrived and shows them. Main loop only.
     void serviceCatalog();
     /// Lists every store and waits for all of them; for a still render only.
@@ -788,6 +791,8 @@ class ShellApp final {
                 [this] {
                     return sounds_.live(stream::audioRate, stream::audioChannels);
                 }}};
+    /// The ROM folders as LAN import writes into them; the import's thread shares it.
+    std::shared_ptr<const library::roms::RomTree> romTree_{library::roms::openRomTree()};
     /// This openSU on the LAN while LAN is on: pairing, and the paired openSUs' games.
     LanService lan_{
         LanService::Places{.bookFile = files_.lanBookFile(),
@@ -800,7 +805,8 @@ class ShellApp final {
                                                     .staging = files_.stateDir() / "lan-incoming",
                                                     .runnerSaves = resolved_.savesDir,
                                                     .inUse = {},
-                                                    .changed = {}}},
+                                                    .changed = {}},
+                           .roms = LanRoms::importSetup(files_.stateDir() / "lan-roms", romTree_)},
         preferences_,
         shell_.screens().navigator(),
         sounds_,
@@ -822,6 +828,10 @@ class ShellApp final {
                               [this] {
                                   details_.refresh();
                               },
+                          .romsChanged =
+                              [this] {
+                                  lanRoms_.progressed();
+                              },
                           .play =
                               [this](const lan::Peer& peer, const std::string& game,
                                      const lan::StreamKeys& keys, std::string& refusal) {
@@ -834,6 +844,36 @@ class ShellApp final {
         lan_, preferences_, shell_.screens().navigator(), keyboardPad_, sounds_, [this] {
             settingsScreen_.refresh();
         }};
+    /// ROMs offered to paired openSUs, and those of theirs imported here.
+    LanRoms lanRoms_{lan_, paths_, romTree_, resolved_.home,
+                     LanRoms::Hooks{.say =
+                                        [this](const std::string& text, bool isError) {
+                                            shell_.setToast(text, isError);
+                                        },
+                                    .romFolders =
+                                        [this] {
+                                            return library::romRootsOf(resolved_);
+                                        },
+                                    .addRomFolder =
+                                        [this](const std::filesystem::path& folder) {
+                                            addRomFolder(folder);
+                                        },
+                                    .bios =
+                                        [this](std::string_view system) {
+                                            return emulatorSettings_.biosOf(system);
+                                        },
+                                    .biosFolder =
+                                        [this] {
+                                            return emulatorSettings_.biosFolder();
+                                        },
+                                    .reloadCatalog =
+                                        [this] {
+                                            reloadCatalog();
+                                        },
+                                    .refresh =
+                                        [this] {
+                                            settingsScreen_.refresh();
+                                        }}};
     /// The plugins, their play time and the Settings screen's Plugins category.
     PluginService plugins_{environment_, preferences_, integrations_.current().plugins,
                            PluginService::Hooks{[this](const std::string& text, bool isError) {
@@ -928,11 +968,11 @@ class ShellApp final {
     SettingsController settingsScreen_{
         shell_.screens().navigator(),
         shell_.screens().chrome(),
-        SettingsController::Services{paths_, shortcutEditor_, shell_.shortcuts(), emulatorSettings_,
-                                     layerSettings_, layered_, steamLibrarySettings_,
-                                     pluginSettings_, chordSettings_, mappings_, wineSettings_,
-                                     integrationSettings_, artworkSettings_,
-                                     interfaceSoundSettings_, lanSettings_, integrations_},
+        SettingsController::Services{
+            paths_, shortcutEditor_, shell_.shortcuts(), emulatorSettings_, layerSettings_,
+            layered_, steamLibrarySettings_, pluginSettings_, chordSettings_, mappings_,
+            wineSettings_, integrationSettings_, artworkSettings_, interfaceSoundSettings_,
+            lanSettings_, lanRoms_, integrations_},
         sounds_,
         preferences_,
         environment_,

@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <charconv>
 #include <string_view>
+#include <system_error>
 
 #include "activity_call.hpp"
 #include "rom_tree.hpp"
@@ -55,6 +56,54 @@ class DocumentTree final : public RomTree {
             return folder.string();
         }
         return call.string(name);
+    }
+
+    [[nodiscard]] std::string writeRefusal(const fs::path& folder) const override {
+        if (!folder.string().starts_with("content://")) {
+            return files_.writeRefusal(folder);
+        }
+        const android::ActivityCall call;
+        if (!call.ready()) {
+            return "the app cannot be asked about " + folder.string();
+        }
+        const jboolean writable = call.env()->CallBooleanMethod(
+            call.activity(), call.method("documentWritable", "(Ljava/lang/String;)Z"),
+            call.env()->NewStringUTF(folder.c_str()));
+        if (!call.takeException().empty() || writable == JNI_FALSE) {
+            return "openSU may only read " + label(folder) + "; pick it again to let it write";
+        }
+        return {};
+    }
+
+    [[nodiscard]] bool place(const fs::path& folder, std::string_view relative,
+                             const fs::path& staged, std::string& error) const override {
+        if (!folder.string().starts_with("content://")) {
+            return files_.place(folder, relative, staged, error);
+        }
+        const android::ActivityCall call;
+        if (!call.ready()) {
+            error = "the app cannot be asked to write " + folder.string();
+            return false;
+        }
+        auto* refusal = static_cast<jstring>(call.env()->CallObjectMethod(
+            call.activity(),
+            call.method(
+                "placeDocument",
+                "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;"),
+            call.env()->NewStringUTF(folder.c_str()),
+            call.env()->NewStringUTF(std::string{relative}.c_str()),
+            call.env()->NewStringUTF(staged.c_str())));
+        if (const std::string thrown = call.takeException(); !thrown.empty()) {
+            error = thrown;
+            return false;
+        }
+        if (refusal != nullptr) {
+            error = call.string(refusal);
+            return false;
+        }
+        std::error_code ec;
+        fs::remove(staged, ec);
+        return true;
     }
 
   private:

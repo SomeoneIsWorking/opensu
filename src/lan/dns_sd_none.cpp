@@ -5,8 +5,6 @@ namespace {
 
 #if defined(_WIN32)
 constexpr std::string_view missing = "Finding other openSUs is not built for Windows yet";
-#elif defined(__ANDROID__)
-constexpr std::string_view missing = "Finding other openSUs is not built for Android yet";
 #elif defined(__APPLE__)
 constexpr std::string_view missing = "Finding other openSUs is not built for macOS yet";
 #else

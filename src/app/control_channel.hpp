@@ -133,6 +133,8 @@ struct ShellSnapshot {
     std::size_t lanSeen{0};
     std::size_t lanPaired{0};
     std::string lanCode;
+    /// ROMs being imported from paired openSUs (`LanRoms::glance`); empty for none.
+    std::string lanImport;
     /// The open details page's Saves fact, how its game's shared saves stand; empty for none.
     std::string lanSaves;
     /// Remote play (`RemotePlay::Glance`): "", "asking", "playing" or "hosting", with whom, and

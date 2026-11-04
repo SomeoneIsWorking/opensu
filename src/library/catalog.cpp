@@ -8,6 +8,13 @@
 
 namespace opensu::library {
 
+std::vector<std::filesystem::path> romRootsOf(const config::Config& config) {
+    if (!config.romRoots.empty()) {
+        return config.romRoots;
+    }
+    return roms::discoverRoots(config.home, roms::standardMountDirs(config.home));
+}
+
 Catalog makeCatalog(const config::Config& config, bool hidden,
                     const std::filesystem::path& ownGames, roms::RomsetLists& romsets,
                     const CatalogStores& stores) {
@@ -24,10 +31,7 @@ Catalog makeCatalog(const config::Config& config, bool hidden,
             gog::TokenStore::under(config.dataDir),
             gog::Setup{.paths = gog::Paths::under(config.dataDir)}));
     }
-    std::vector<std::filesystem::path> romRoots = config.romRoots;
-    if (romRoots.empty()) {
-        romRoots = roms::discoverRoots(config.home, roms::standardMountDirs(config.home));
-    }
+    std::vector<std::filesystem::path> romRoots = romRootsOf(config);
     roms::EmulatorSetup emulators =
         roms::EmulatorSetup::standard(config, hidden, stores.standaloneEmulators);
     roms::SwitchInfo switchInfo{roms::SwitchInfo::keyDirsOf(emulators.catalog),

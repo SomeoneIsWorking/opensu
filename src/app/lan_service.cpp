@@ -35,6 +35,9 @@ LanService::~LanService() {
     if (asker_.joinable()) {
         asker_.join();
     }
+    if (romAsker_.joinable()) {
+        romAsker_.join();
+    }
     node_.reset();
 }
 
@@ -80,6 +83,10 @@ void LanService::start() {
         }
         return launch::runningRefusal(kept);
     };
+    lan::RomImport::Setup roms = places_.roms;
+    roms.changed = [news = romsNews_] {
+        news->store(true);
+    };
     try {
         node_ = std::make_unique<lan::LanNode>(lan::LanNode::Setup{.bookFile = places_.bookFile,
                                                                    .secrets = places_.secrets,
@@ -92,18 +99,23 @@ void LanService::start() {
                                                                            news->store(true);
                                                                        },
                                                                    .saves = std::move(saves),
-                                                                   .play = hooks_.play});
+                                                                   .play = hooks_.play,
+                                                                   .roms = std::move(roms)});
     } catch (const std::runtime_error& error) {
         lucent::error("lan", "LAN cannot start: {}", error.what());
         hooks_.say("LAN cannot start: " + std::string{error.what()}, true);
         return;
     }
     node_->share(shared_, catalog_);
+    node_->shareRoms(roms_);
 }
 
 void LanService::stop() {
     if (asker_.joinable()) {
         asker_.join();
+    }
+    if (romAsker_.joinable()) {
+        romAsker_.join();
     }
     release();
     closeQuestion();
@@ -123,6 +135,30 @@ void LanService::share(const std::vector<library::Game>& games,
     catalog_ = catalog;
     if (node_ != nullptr) {
         node_->share(shared_, catalog_);
+    }
+}
+
+bool LanService::askRoms(std::string hostId, RomsAnswer answer) {
+    if (node_ == nullptr || askingRoms_->exchange(true)) {
+        return false;
+    }
+    if (romAsker_.joinable()) {
+        romAsker_.join();
+    }
+    romAsker_ = std::jthread{[node = node_.get(), asking = askingRoms_, hostId = std::move(hostId),
+                              answer = std::move(answer)] {
+        std::string error;
+        std::optional<std::vector<lan::wire::RomConsole>> consoles = node->romsOf(hostId, error);
+        asking->store(false);
+        answer(std::move(consoles), std::move(error));
+    }};
+    return true;
+}
+
+void LanService::shareRoms(lan::RomShelf::Contents contents) {
+    roms_ = std::move(contents);
+    if (node_ != nullptr) {
+        node_->shareRoms(roms_);
     }
 }
 
@@ -280,6 +316,9 @@ void LanService::service() {
     }
     if (savesNews_->exchange(false)) {
         hooks_.savesChanged();
+    }
+    if (romsNews_->exchange(false)) {
+        hooks_.romsChanged();
     }
     if (held_ && node_->saves().prepared(held_->ticket)) {
         release();

@@ -2,7 +2,9 @@ package io.github.someoneisworking.opensu;
 
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
 
 import java.io.IOException;
@@ -12,6 +14,8 @@ public final class ShellActivity extends LandscapeActivity {
     private Launches launches;
     private MusicVolume volume;
     private DocumentTree documents;
+    /** The LAN announcement and browsing while LAN is on, else null. */
+    private LanDiscovery lan;
     private static final int PICK_FOLDER = 0x5af;
     /** The folder picker's answer until native code takes it: a tree URI, "" when cancelled. */
     private String pickedFolder;
@@ -102,6 +106,7 @@ public final class ShellActivity extends LandscapeActivity {
         runOnUiThread(() -> {
             Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
             pick.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                     | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
             startActivityForResult(pick, PICK_FOLDER);
         });
@@ -135,6 +140,51 @@ public final class ShellActivity extends LandscapeActivity {
         return documents.children(location);
     }
 
+    /** Called from the document RomTree: whether openSU may write in a picked folder. */
+    public boolean documentWritable(String location) {
+        return documents.writable(location);
+    }
+
+    /** Called from the document RomTree: puts a staged file in a picked folder; null, else why not. */
+    public String placeDocument(String location, String relative, String file) {
+        return documents.place(location, relative, file);
+    }
+
+    /** Called from the Android DNS-SD backend: announces and browses; null, else why it cannot. */
+    public synchronized String lanStart(String id, String name, int port) {
+        if (lan != null) {
+            lan.stop();
+        }
+        lan = new LanDiscovery(this, id, name, port);
+        String refusal = lan.start();
+        if (refusal != null) {
+            lan = null;
+        }
+        return refusal;
+    }
+
+    public synchronized void lanStop() {
+        if (lan != null) {
+            lan.stop();
+            lan = null;
+        }
+    }
+
+    /** The other openSUs found: "id TAB name TAB address TAB port" each. */
+    public synchronized String[] lanSightings() {
+        return lan != null ? lan.sightings() : new String[0];
+    }
+
+    public synchronized String lanAnnouncedName() {
+        return lan != null ? lan.announcedName() : "";
+    }
+
+    /** The name the player gave this device, else its model. */
+    public String lanMachineName() {
+        String named = Settings.Global.getString(getContentResolver(), Settings.Global.DEVICE_NAME);
+        return named != null && !named.isEmpty() ? named : Build.MODEL;
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode != PICK_FOLDER) {
@@ -143,9 +193,10 @@ public final class ShellActivity extends LandscapeActivity {
         }
         Uri tree = resultCode == RESULT_OK && data != null ? data.getData() : null;
         if (tree != null) {
-            // Kept across restarts, so the library can read the folder at every start.
+            // Kept across restarts, so the library reads the folder at every start and ROMs
+            // imported over the LAN can be written into it.
             getContentResolver().takePersistableUriPermission(tree,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
         }
         synchronized (this) {
             pickedFolder = tree != null ? tree.toString() : "";

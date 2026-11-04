@@ -51,6 +51,7 @@ LanNode::LanNode(Setup setup)
                                      .pairing = pairing_,
                                      .library = library_,
                                      .saves = saves_,
+                                     .roms = shelf_,
                                      .name =
                                          [this] {
                                              return name_;
@@ -74,12 +75,19 @@ LanNode::LanNode(Setup setup)
             lucent::warn("lan", "this openSU cannot be found on the LAN: {}", problem_);
         }
     }
+    RomImport::Setup roms = std::move(setup.roms);
+    roms.selfId = book_.id();
+    roms.link = [this](const std::string& host, std::string& why) {
+        return linkTo(host, why);
+    };
+    imports_ = std::make_unique<RomImport>(std::move(roms), web_);
     worker_ = std::jthread{[this](const std::stop_token& stop) {
         work(stop);
     }};
 }
 
 LanNode::~LanNode() {
+    imports_.reset();
     worker_.request_stop();
     wake_.notify_all();
     if (worker_.joinable()) {
@@ -181,6 +189,46 @@ LanNode::askToPlay(const std::string& hostId, const std::string& gameId, std::st
     }
     secrets::wipeBytes(secret->data(), secret->size());
     return offer;
+}
+
+std::optional<RomImport::Link> LanNode::linkTo(const std::string& hostId, std::string& why) const {
+    const std::vector<Sighting> seen = sightings();
+    const auto host = std::ranges::find(seen, hostId, &Sighting::id);
+    std::optional<crypto::Bytes> secret = book_.secretOf(hostId);
+    if (host == seen.end() || !secret) {
+        if (secret) {
+            secrets::wipeBytes(secret->data(), secret->size());
+        }
+        why = host == seen.end() ? "that openSU is not on the LAN now"
+                                 : "that openSU is not paired with this one";
+        return std::nullopt;
+    }
+    return RomImport::Link{Endpoint{host->address, host->port}, std::move(*secret)};
+}
+
+std::optional<std::vector<wire::RomConsole>> LanNode::romsOf(const std::string& hostId,
+                                                             std::string& error) const {
+    std::optional<RomImport::Link> link = linkTo(hostId, error);
+    if (!link) {
+        return std::nullopt;
+    }
+    const PeerClient client{web_, link->endpoint};
+    const std::optional<net::WebClient::Answer> answer =
+        client.call("GET", wire::romListRoute, {}, PeerClient::Signer{book_.id(), link->secret},
+                    largestListing, error);
+    secrets::wipeBytes(link->secret.data(), link->secret.size());
+    if (!answer) {
+        return std::nullopt;
+    }
+    if (answer->status != ok) {
+        error = "HTTP " + std::to_string(answer->status);
+        return std::nullopt;
+    }
+    std::optional<std::vector<wire::RomConsole>> consoles = wire::readRomListing(answer->body);
+    if (!consoles) {
+        error = "its answer is not a ROM listing";
+    }
+    return consoles;
 }
 
 bool LanNode::forget(const std::string& peerId, std::string& error) {

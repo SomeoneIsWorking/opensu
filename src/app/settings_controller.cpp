@@ -129,6 +129,9 @@ std::optional<ui::SettingsCategory> SettingsController::subPage(const std::strin
     if (std::optional<ui::SettingsCategory> found = wine_.subPage(id)) {
         return found;
     }
+    if (std::optional<ui::SettingsCategory> found = lanRoms_.subPage(id)) {
+        return found;
+    }
     return mappings_.settingsPage(id);
 }
 
@@ -523,6 +526,7 @@ void SettingsController::openPage(const std::string& id) {
                                                         std::move(title)));
         return;
     }
+    lanRoms_.opening(id);
     navigator_.push(std::make_unique<SettingsSubPage>(*this, chrome_, id));
 }
 
@@ -579,6 +583,12 @@ void SettingsController::run(const std::string& id, int step) {
     if (LanSettings::owns(id)) {
         lan_.run(id, step);
         refresh();
+        return;
+    }
+    if (LanRoms::owns(id)) {
+        if (step == 0) {
+            lanRoms_.run(id);
+        }
         return;
     }
     if (EmulatorSettings::owns(id)) {

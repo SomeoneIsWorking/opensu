@@ -144,7 +144,7 @@ struct Rig {
                          paths, shortcutEditor, shortcuts, emulatorSettings, layerSettings, layered,
                          steamLibrarySettings, pluginSettings, chordSettings, mappings, wine,
                          integrationSettings, artworkSettings, interfaceSoundSettings, lanSettings,
-                         inForce},
+                         lanRoms, inForce},
                      sounds,
                      preferences,
                      config,
@@ -419,7 +419,8 @@ struct Rig {
                                           .staging = config.configDir / "incoming",
                                           .runnerSaves = config.savesDir,
                                           .inUse = {},
-                                          .changed = {}}},
+                                          .changed = {}},
+            .roms = {}},
         preferences,
         screens.navigator,
         sounds,
@@ -437,9 +438,20 @@ struct Rig {
                                .savesChanged =
                                    [] {
                                    },
+                               .romsChanged = {},
                                .play = {}}};
     app::LanSettings lanSettings{lan, preferences, screens.navigator, pad, sounds, [] {
                                  }};
+    app::LanRoms lanRoms{
+        lan, paths, std::shared_ptr<const library::roms::RomTree>{library::roms::openRomTree()},
+        config.home,
+        app::LanRoms::Hooks{.say = {},
+                            .romFolders = {},
+                            .addRomFolder = {},
+                            .bios = {},
+                            .biosFolder = {},
+                            .reloadCatalog = {},
+                            .refresh = {}}};
     ui::MappingPage mappingPage;
     app::MappingEditor mappings{
         mappingPage, settings::MappingStore{config.configDir / settings::mappingsFile}, sounds,

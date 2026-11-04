@@ -1,7 +1,7 @@
 // lan_settings — the Settings screen's LAN category while LAN is on: the name this openSU goes by
 // (renamed on an entry card), whether it can be found and on which port, the other openSUs found
-// on the LAN with Pair, and the paired ones with Remove, which asks first, and Share saves, off
-// until the player turns it on.
+// on the LAN with Pair, and the paired ones with Remove, which asks first, ROMs on <name>
+// (`LanRoms`' page), and Share saves, off until the player turns it on.
 #pragma once
 
 #include <functional>

@@ -7,12 +7,14 @@
 // when none is there).
 #pragma once
 
+#include <filesystem>
 #include <functional>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "emulator_downloads.hpp"
+#include "library/core_bios.hpp"
 #include "ui/setting_row.hpp"
 
 namespace opensu::app {
@@ -41,6 +43,12 @@ class EmulatorSettings {
     [[nodiscard]] const library::roms::Emulators& found() const noexcept {
         return found_;
     }
+    /// The BIOS the built-in core chosen for the console `system` runs on, as the runner's BIOS
+    /// folder has it now; nothing when that is no built-in core, an arcade one, or its core info
+    /// is not here.
+    [[nodiscard]] std::optional<library::roms::CoreBios> biosOf(std::string_view system) const;
+    /// The runner's BIOS folder.
+    [[nodiscard]] const std::filesystem::path& biosFolder() const noexcept;
     /// The category, with `layerRows` under their own heading.
     [[nodiscard]] ui::SettingsCategory page(std::vector<ui::SettingsRow> layerRows = {}) const;
     /// The Downloads or BIOS files page `id` opens, or nothing for another id.
@@ -63,6 +71,9 @@ class EmulatorSettings {
     void addEmulatorRows(ui::SettingsCategory& page) const;
     /// What `id`'s row reads while it downloads or when `ours`; nothing otherwise.
     [[nodiscard]] std::optional<std::string> downloadValue(std::string_view id, bool ours) const;
+    /// `entry`'s BIOS as the folder has it now; nothing when its core info is not here.
+    [[nodiscard]] std::optional<library::roms::CoreBios>
+    biosOf(const library::roms::EmulatorEntry& entry) const;
     /// Each chosen built-in core's BIOS: what it runs on, and each file it looks for.
     void addBiosRows(ui::SettingsCategory& page) const;
     [[nodiscard]] std::string valueOf(const library::roms::EmulatorEntry& entry) const;

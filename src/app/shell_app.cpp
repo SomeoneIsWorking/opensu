@@ -211,6 +211,12 @@ void ShellApp::reloadCatalog() {
     catalogLoader_.refresh();
 }
 
+void ShellApp::addRomFolder(const std::filesystem::path& folder) {
+    preferences_.values().addRomFolder(folder);
+    preferences_.save();
+    romFoldersChanged();
+}
+
 void ShellApp::romFoldersChanged() {
     resolved_.romRoots = settings::resolved(environment_, preferences_.values()).romRoots;
     catalogLoader_.replace(catalogOf(integrations_.catalogStores()));
@@ -249,6 +255,7 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     covers_.catalogChanged(games_);
     // With the covers already on disk; one fetched later is shared from the next listing.
     lan_.share(games_, emulatorSettings_.catalog());
+    lanRoms_.share(games_);
     requestArtwork();
     for (const library::SourceStatus& source : sources_) {
         if (source.availability != library::Availability::Ready &&
@@ -1050,6 +1057,7 @@ void ShellApp::publishSnapshot() {
     next.lanSeen = lan.seen;
     next.lanPaired = lan.paired;
     next.lanCode = lan.code;
+    next.lanImport = lanRoms_.glance();
     if (const ui::GameDetails* shown = details_.details()) {
         if (const ui::SettingsRow* saves = ui::factOf(*shown, "Saves")) {
             next.lanSaves = saves->value;
@@ -1327,6 +1335,7 @@ int ShellApp::run() {
         serviceCatalog();
         plugins_.service();
         lan_.service();
+        lanRoms_.service();
         remotePlay_.service(launches_.running() || lan_.holding());
         delivery_.service();
         covers_.service();

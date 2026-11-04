@@ -1,8 +1,9 @@
 // dns_sd — this openSU announced on the LAN as a `_opensu._tcp` DNS-SD service, and the other
 // openSUs announced there, while it lives. One backend per OS: `dns_sd_avahi.cpp` on Linux, over
-// Avahi's D-Bus API on a thread of its own; `dns_sd_none.cpp` elsewhere, which says it is not
-// built yet. A service's TXT record carries its peer id (`id`), name (`name`) and protocol
-// version (`v`); its own announcement is never listed.
+// Avahi's D-Bus API on a thread of its own; `dns_sd_android.cpp` on Android, NsdManager through
+// the shell Activity; `dns_sd_none.cpp` elsewhere, which says it is not built yet. A service's TXT
+// record carries its peer id (`id`), name (`name`) and protocol version (`v`); its own announcement
+// is never listed.
 #pragma once
 
 #include <cstdint>

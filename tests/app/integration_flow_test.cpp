@@ -356,7 +356,8 @@ void theSwitchAppliesAChange(const fs::path& root) {
                                                           .staging = dir / "lan-incoming",
                                                           .runnerSaves = dir / "saves",
                                                           .inUse = {},
-                                                          .changed = {}}},
+                                                          .changed = {}},
+                            .roms = {}},
                         preferences,
                         ui.navigator,
                         sounds,
@@ -374,6 +375,7 @@ void theSwitchAppliesAChange(const fs::path& root) {
                                                .savesChanged =
                                                    [] {
                                                    },
+                                               .romsChanged = {},
                                                .play = {}}};
     int emulatorChanges = 0;
     app::IntegrationSwitch integrationSwitch{

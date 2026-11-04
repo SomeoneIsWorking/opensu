@@ -47,6 +47,9 @@ class LanService {
         /// Where shared saves are recorded, staged and backed up; when they are in use is this
         /// service's to say.
         lan::SaveSync::Setup saves;
+        /// Where ROMs imported from peers are staged and how each is put in place; when their
+        /// progress changes is this service's to say.
+        lan::RomImport::Setup roms;
     };
     struct Hooks {
         /// Tells the player something; `error` marks a refusal.
@@ -57,6 +60,8 @@ class LanService {
         std::function<void()> peersChanged;
         /// How a game's shared saves stand changed: the details page shows it.
         std::function<void()> savesChanged;
+        /// How the ROMs imported from peers stand changed: the import page shows it.
+        std::function<void()> romsChanged;
         /// A paired peer asks to play a game here; on the listener's thread.
         decltype(lan::LanNode::Setup::play) play;
     };
@@ -79,6 +84,9 @@ class LanService {
     [[nodiscard]] const lan::LanNode* node() const noexcept {
         return node_.get();
     }
+    [[nodiscard]] lan::LanNode* node() noexcept {
+        return node_.get();
+    }
     /// The name this openSU goes by: the player's, else the machine's.
     [[nodiscard]] std::string name() const;
 
@@ -86,6 +94,8 @@ class LanService {
     /// `catalog`, with those the player shares saves with.
     void share(const std::vector<library::Game>& games,
                const library::roms::EmulatorCatalog& catalog);
+    /// Offers the ROMs and BIOS files of `contents` to paired peers to import.
+    void shareRoms(lan::RomShelf::Contents contents);
     /// Shares saves with `peerId` from now on, or no longer, and says so.
     void shareSaves(const std::string& peerId, bool on);
 
@@ -121,6 +131,13 @@ class LanService {
     /// Asks the paired openSU `hostId` to stream its game `gameId` here, off the loop; `answer` is
     /// called on that thread. False while LAN is off or another request is under way.
     [[nodiscard]] bool askToPlay(std::string hostId, std::string gameId, PlayAnswer answer);
+
+    /// What a host answered a request for its ROMs: the listing, or why there is none.
+    using RomsAnswer =
+        std::function<void(std::optional<std::vector<lan::wire::RomConsole>>, std::string)>;
+    /// Asks the paired openSU `hostId` for the ROMs it offers, off the loop; `answer` is called on
+    /// that thread. False while LAN is off or another request for ROMs is under way.
+    [[nodiscard]] bool askRoms(std::string hostId, RomsAnswer answer);
 
     /// Shows the question and the card as the pairings stand and passes on the node's news.
     /// Every frame, main loop only.
@@ -176,6 +193,10 @@ class LanService {
     std::shared_ptr<Playing> playing_{std::make_shared<Playing>()};
     /// Set on the sync's thread, taken on the loop.
     std::shared_ptr<std::atomic<bool>> savesNews_{std::make_shared<std::atomic<bool>>(false)};
+    /// Set on the import's thread, taken on the loop.
+    std::shared_ptr<std::atomic<bool>> romsNews_{std::make_shared<std::atomic<bool>>(false)};
+    /// The ROMs offered last, offered again after a restart.
+    lan::RomShelf::Contents roms_;
     /// The question asked now, and its dialog's title while the dialog is open.
     std::optional<lan::HostPairing::Question> asked_;
     std::string questionTitle_;
@@ -190,6 +211,9 @@ class LanService {
     /// A request to play a host's game under way; joined before the node goes.
     std::jthread asker_;
     std::shared_ptr<std::atomic<bool>> asking_{std::make_shared<std::atomic<bool>>(false)};
+    /// A request for a host's ROMs under way; joined before the node goes.
+    std::jthread romAsker_;
+    std::shared_ptr<std::atomic<bool>> askingRoms_{std::make_shared<std::atomic<bool>>(false)};
 };
 
 } // namespace opensu::app

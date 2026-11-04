@@ -140,4 +140,80 @@ struct PlayAnswer {
 [[nodiscard]] std::string write(const PlayAnswer& answer);
 [[nodiscard]] std::optional<PlayAnswer> readPlayAnswer(std::string_view body);
 
+/// The routes of ROM import, for paired peers.
+inline constexpr std::string_view romListRoute = "/lan/roms";
+inline constexpr std::string_view romFileRoute = "/lan/roms/file";
+inline constexpr std::string_view romChunkRoute = "/lan/roms/chunk";
+/// The most one `/lan/roms/chunk` answer carries.
+inline constexpr std::uint64_t romChunkBytes = std::uint64_t{2} * 1024 * 1024;
+
+/// Which folder a ROM route's path is in: a ROM folder the host lists, or its BIOS folder.
+enum class RomKind : std::uint8_t { Rom, Bios };
+
+/// One file a host offers: its path inside the ROM folder (`<console folder>/...`) or the BIOS
+/// folder, `/`-separated, and its size.
+struct RomFile {
+    std::string path;
+    std::uint64_t bytes{0};
+
+    bool operator==(const RomFile&) const = default;
+};
+
+/// One game of a console: a file or a game folder of its ROM folder, and every file it holds.
+struct RomGame {
+    std::string title;
+    /// Which of the host's ROM folders it is in, by its place in the host's list.
+    std::uint32_t root{0};
+    /// The file or folder that is the game, inside that ROM folder.
+    std::string entry;
+    std::vector<RomFile> files;
+
+    [[nodiscard]] std::uint64_t bytes() const;
+    bool operator==(const RomGame&) const = default;
+};
+
+/// One console's games on the host, under the folder name the host keeps them in, and the BIOS
+/// files the host's runner has for it.
+struct RomConsole {
+    /// The console's key (`library::roms::RomSystem::key`).
+    std::string system;
+    std::string folder;
+    std::vector<RomGame> games;
+    std::vector<RomFile> bios;
+
+    bool operator==(const RomConsole&) const = default;
+};
+
+/// `GET /lan/roms`: `{"consoles":[{"system","folder","games":[{"title","root","entry","files"}],
+/// "bios"}]}`, `files` and `bios` each `[{"path","bytes"}]`.
+[[nodiscard]] std::string write(const std::vector<RomConsole>& consoles);
+/// A ROM listing read back; nothing when `body` is not one. A file whose path could step out of
+/// its folder, or a game's file outside its entry, drops the game; a console without a key or
+/// folder is left out.
+[[nodiscard]] std::optional<std::vector<RomConsole>> readRomListing(std::string_view body);
+
+/// `POST /lan/roms/file` and `/chunk`: one listed file, and for a chunk where it starts and how
+/// many bytes are asked for (at most `romChunkBytes` come back).
+struct RomAsk {
+    RomKind kind{RomKind::Rom};
+    std::uint32_t root{0};
+    std::string path;
+    std::uint64_t offset{0};
+    std::uint64_t length{0};
+};
+[[nodiscard]] std::string write(const RomAsk& ask);
+/// Nothing when `body` is not one or its path is empty or could step out of its folder.
+[[nodiscard]] std::optional<RomAsk> readRomAsk(std::string_view body);
+
+/// The answer to `/lan/roms/file`: the file's size and its SHA-256 as hex, empty while the host
+/// is still hashing it.
+struct RomFacts {
+    std::uint64_t bytes{0};
+    std::string sha256;
+
+    bool operator==(const RomFacts&) const = default;
+};
+[[nodiscard]] std::string write(const RomFacts& facts);
+[[nodiscard]] std::optional<RomFacts> readRomFacts(std::string_view body);
+
 } // namespace opensu::lan::wire

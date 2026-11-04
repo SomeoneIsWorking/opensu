@@ -4,7 +4,9 @@
 // then lists the other's installed games and covers; an unpaired openSU learns only the name;
 // signed requests that are forged, late or repeated are refused, and their bodies sealed;
 // forgetting revokes both sides. Saves shared both ways follow the player: pulled before a game,
-// pushed after, a conflict left for the player to pick, every replaced save backed up.
+// pushed after, a conflict left for the player to pick, every replaced save backed up. ROMs a
+// paired host lists are imported in sealed chunks, resumed from a part, checked by their hash and
+// placed in the guest's ROM folder; a path outside the host's folders is refused.
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -18,6 +20,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <string>
 #include <system_error>
 #include <thread>
@@ -34,10 +37,13 @@
 #include "lan/peer_crypto.hpp"
 #include "lan/remote_library.hpp"
 #include "lan/request_signature.hpp"
+#include "lan/rom_import.hpp"
+#include "lan/rom_shelf.hpp"
 #include "lan/save_bundle.hpp"
 #include "lan/save_sync.hpp"
 #include "lan/shared_library.hpp"
 #include "lan/wire.hpp"
+#include "library/rom_tree.hpp"
 #include "net/web_client.hpp"
 #include "secrets/secret.hpp"
 #include "support/scratch_dir.hpp"
@@ -90,11 +96,20 @@ class Directory {
         const std::lock_guard lock{mutex_};
         announced_.erase(id);
     }
+    /// Whether `id` is heard on the LAN, as a machine that leaves and comes back.
+    void hear(const std::string& id, bool heard) {
+        const std::lock_guard lock{mutex_};
+        if (heard) {
+            unheard_.erase(id);
+        } else {
+            unheard_.insert(id);
+        }
+    }
     [[nodiscard]] std::vector<lan::Sighting> except(const std::string& id) const {
         const std::lock_guard lock{mutex_};
         std::vector<lan::Sighting> seen;
         for (const auto& [peer, sighting] : announced_) {
-            if (peer != id) {
+            if (peer != id && !unheard_.contains(peer)) {
                 seen.push_back(sighting);
             }
         }
@@ -104,6 +119,7 @@ class Directory {
   private:
     mutable std::mutex mutex_;
     std::map<std::string, lan::Sighting> announced_;
+    std::set<std::string> unheard_;
 };
 
 class DirectoryDiscovery final : public lan::ServiceDiscovery {
@@ -174,6 +190,19 @@ struct Node {
                   playKeys = keys;
                   return streamPort;
               },
+              .roms = lan::RomImport::Setup{.selfId = {},
+                                            .staging = state / "lan-roms",
+                                            .link = {},
+                                            .place =
+                                                [](const lan::RomImport::Item&,
+                                                   const lan::RomImport::File& file,
+                                                   const fs::path& staged, std::string& error) {
+                                                    return library::roms::FileTree{}.place(
+                                                        file.folder, file.place, staged, error);
+                                                },
+                                            .changed =
+                                                [] {
+                                                }},
               .discovery =
                   [&directory](const lan::Announcement& self, std::string& /*error*/) {
                       return std::make_unique<DirectoryDiscovery>(directory, self);
@@ -541,12 +570,153 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
 }
 
 /// The signed routes, asked directly of a listener.
+
+/// `bytes` bytes that differ from one run to the next.
+std::string noise(std::size_t bytes) {
+    const lan::crypto::Bytes random = lan::crypto::randomBytes(bytes);
+    return {random.begin(), random.end()};
+}
+
+library::Game romGame(const fs::path& file, const std::string& system, const std::string& title) {
+    library::Game game;
+    game.id = "rom:" + file.string();
+    game.source = library::Source::Rom;
+    game.sourceId = system;
+    game.title = title;
+    game.file = file;
+    game.installed = true;
+    return game;
+}
+
+/// The import of `id`, once it ended (done or failed).
+lan::RomImport::Progress importEnded(Node& guest, const std::string& id) {
+    std::optional<lan::RomImport::Progress> ended;
+    waitFor([&] {
+        for (const lan::RomImport::Progress& progress : guest.node.imports().progress()) {
+            if (progress.id == id && (progress.state == lan::RomImport::State::Done ||
+                                      progress.state == lan::RomImport::State::Failed)) {
+                ended = progress;
+                return true;
+            }
+        }
+        return false;
+    });
+    return must(ended, "the import ends");
+}
+
+/// The game `title` of the listing as an import into `folder`.
+lan::RomImport::Item itemOf(const std::vector<lan::wire::RomConsole>& consoles, Node& host,
+                            const std::string& title, const fs::path& folder) {
+    for (const lan::wire::RomConsole& console : consoles) {
+        for (const lan::wire::RomGame& game : console.games) {
+            if (game.title != title) {
+                continue;
+            }
+            lan::RomImport::Item item{"rom:" + game.entry, host.node.id(), "Host",
+                                      game.title,          console.system, {}};
+            for (const lan::wire::RomFile& file : game.files) {
+                item.files.push_back(lan::RomImport::File{
+                    lan::wire::RomKind::Rom, game.root, file.path, file.bytes, folder, file.path});
+            }
+            return item;
+        }
+    }
+    fail("the listing holds the game");
+}
+
+void romsComeOverInChunks(const fs::path& root) {
+    Directory directory;
+    Node host{root, "Rom host", directory};
+    Node guest{root, "Rom guest", directory};
+    expect(waitFor([&guest] {
+               return guest.node.sightings().size() == 1;
+           }),
+           "the guest finds the host");
+    expect(pairUp(guest, host, true) == GuestPairing::Phase::Paired, "the two pair");
+
+    const fs::path roms = root / "host-roms";
+    // Larger than two chunks, so it crosses in three.
+    const std::string big = noise(static_cast<std::size_t>(lan::wire::romChunkBytes * 2 + 4321));
+    writeFile(roms / "Game Boy" / "Big.gb", big);
+    writeFile(roms / "PSX" / "Disc" / "Disc.cue", "FILE \"Disc.bin\" BINARY\n");
+    writeFile(roms / "PSX" / "Disc" / "Disc.bin", noise(70000));
+    writeFile(roms / "Game Boy" / "Unlisted.gb", "not in the catalog");
+    writeFile(root / "outside.txt", "private");
+    const fs::path bios = root / "host-bios";
+    writeFile(bios / "scph5501.bin", noise(512));
+    host.node.shareRoms(lan::RomShelf::Contents{
+        .roots = {roms},
+        .games = {romGame(roms / "Game Boy" / "Big.gb", "gb", "Big"),
+                  romGame(roms / "PSX" / "Disc" / "Disc.cue", "psx", "Disc")},
+        .biosFolder = bios,
+        .bios = {{"psx", {"scph5501.bin", "missing.bin"}}}});
+
+    std::string error;
+    const std::vector<lan::wire::RomConsole> consoles =
+        must(guest.node.romsOf(host.node.id(), error), "the guest lists the host's ROMs");
+    expect(consoles.size() == 2, "a console per folder of games");
+    const auto psx = std::ranges::find(consoles, "psx", &lan::wire::RomConsole::system);
+    expect(psx != consoles.end() && psx->games.size() == 1 && psx->games[0].files.size() == 2 &&
+               psx->games[0].entry == "PSX/Disc",
+           "a game folder is listed with every file in it");
+    expect(psx->bios.size() == 1 && psx->bios[0].path == "scph5501.bin" &&
+               psx->bios[0].bytes == 512,
+           "the BIOS files the host has for the console are listed, and no others");
+
+    const fs::path mine = root / "guest-roms";
+    const lan::RomImport::Item disc = itemOf(consoles, host, "Disc", mine);
+    lan::RomImport::Item bigItem = itemOf(consoles, host, "Big", mine);
+    // A part already holding the start of the file, as a dropped connection leaves it.
+    const fs::path part =
+        guest.state / "lan-roms" / host.node.id() / "rom-0" / "Game Boy" / "Big.gb.part";
+    writeFile(part, big.substr(0, static_cast<std::size_t>(lan::wire::romChunkBytes) + 99));
+    guest.node.imports().add({disc, bigItem});
+    expect(importEnded(guest, disc.id).state == lan::RomImport::State::Done,
+           "the folder game arrives");
+    const lan::RomImport::Progress bigDone = importEnded(guest, bigItem.id);
+    expect(bigDone.state == lan::RomImport::State::Done && bigDone.done == big.size(),
+           "the large ROM arrives, all of it");
+    expect(readFile(mine / "Game Boy" / "Big.gb") == big,
+           "it is the host's bytes, resumed from the part");
+    expect(readFile(mine / "PSX" / "Disc" / "Disc.cue") ==
+                   readFile(roms / "PSX" / "Disc" / "Disc.cue") &&
+               readFile(mine / "PSX" / "Disc" / "Disc.bin") ==
+                   readFile(roms / "PSX" / "Disc" / "Disc.bin"),
+           "every file of the game folder is in the guest's folder");
+    expect(!fs::exists(part), "the part is gone once the file is in place");
+
+    // A part that does not hold the host's bytes fails the hash and is thrown away.
+    writeFile(part, std::string(1000, 'x'));
+    fs::remove(mine / "Game Boy" / "Big.gb");
+    guest.node.imports().add({bigItem});
+    const lan::RomImport::Progress damaged = importEnded(guest, bigItem.id);
+    expect(damaged.state == lan::RomImport::State::Failed &&
+               damaged.note.find("arrived different") != std::string::npos,
+           "a file whose hash is not the host's is refused");
+    expect(!fs::exists(part) && !fs::exists(mine / "Game Boy" / "Big.gb"), "nothing of it is kept");
+
+    // The host leaves the LAN: the import waits, and goes on when it is back.
+    directory.hear(host.node.id(), false);
+    guest.node.imports().add({bigItem});
+    expect(waitFor([&] {
+               const auto all = guest.node.imports().progress();
+               const auto it = std::ranges::find(all, bigItem.id, &lan::RomImport::Progress::id);
+               return it != all.end() && it->state == lan::RomImport::State::Waiting;
+           }),
+           "an import waits while its host is away");
+    directory.hear(host.node.id(), true);
+    expect(importEnded(guest, bigItem.id).state == lan::RomImport::State::Done &&
+               readFile(mine / "Game Boy" / "Big.gb") == big,
+           "and arrives once the host is back");
+}
+
 void signedRequestsAreCheckedOnce(const fs::path& root) {
     lan::PeerBook book{root / "signed" / "lan.json",
                        secrets::SecretStore{root / "signed" / "secrets", false}};
     lan::HostPairing pairing{book.id()};
     lan::SharedLibrary library;
     library.share({installedGame("own:1", "Shared game", {})});
+    lan::RomShelf shelf;
     const net::WebClient web;
     lan::SaveSync saves{
         lan::SaveSync::Setup{.versionsFile = root / "signed" / "lan-saves.json",
@@ -567,6 +737,7 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
                                                         .pairing = pairing,
                                                         .library = library,
                                                         .saves = saves,
+                                                        .roms = shelf,
                                                         .name =
                                                             [] {
                                                                 return std::string{"Host"};
@@ -639,6 +810,43 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
          lan::requestSignature(
              secret, lan::RequestFacts{"POST", lan::wire::saveStatusRoute, now, fresher, plain})}};
     expect(listener.handle(unsealed).status == 403, "a body that does not open is refused");
+
+    // ROM routes read only the files the shelf lists.
+    const fs::path roms = root / "signed" / "roms";
+    writeFile(roms / "NES" / "Listed.nes", "listed bytes");
+    writeFile(roms / "NES" / "Unlisted.nes", "unlisted bytes");
+    writeFile(root / "signed" / "secret.txt", "private");
+    shelf.share(
+        lan::RomShelf::Contents{.roots = {roms},
+                                .games = {romGame(roms / "NES" / "Listed.nes", "nes", "Listed")},
+                                .biosFolder = {},
+                                .bios = {}});
+    const auto chunk = [&](const std::string& path) {
+        const std::string route{lan::wire::romChunkRoute};
+        const std::string body =
+            lan::wire::write(lan::wire::RomAsk{lan::wire::RomKind::Rom, 0, path, 0, 0});
+        const std::string asked =
+            secrets::hexText(lan::crypto::randomBytes(lan::crypto::nonceBytes));
+        const lan::RequestFacts sent{"POST", route, now, asked, {}};
+        const std::string sealed = lan::sealBody(secret, sent, lan::Direction::Request, 0, body);
+        lucent::http::Request post{"POST", route, {}, sealed};
+        post.headers = {
+            {std::string{lan::peerHeader}, peer},
+            {std::string{lan::timeHeader}, std::to_string(now)},
+            {std::string{lan::nonceHeader}, asked},
+            {std::string{lan::signatureHeader},
+             lan::requestSignature(secret, lan::RequestFacts{"POST", route, now, asked, sealed})}};
+        const lucent::http::Response answered = listener.handle(post);
+        return std::pair{answered.status, lan::openBody(secret, sent, lan::Direction::Answer,
+                                                        answered.status, answered.body)
+                                              .value_or("")};
+    };
+    const auto listed = chunk("NES/Listed.nes");
+    expect(listed.first == 200 && listed.second == "listed bytes", "a listed ROM is sent");
+    expect(listed.second.size() < lan::wire::romChunkBytes, "in one chunk when it fits");
+    expect(chunk("NES/Unlisted.nes").first == 403, "a file the catalog does not list is refused");
+    expect(chunk("../secret.txt").first == 403, "a path out of the ROM folder is refused");
+    expect(chunk("NES/../../secret.txt").first == 403, "however it is spelled");
 }
 
 void bothSidesDeriveOneSecret() {
@@ -712,6 +920,7 @@ int main() try {
     pairedNodesListEachOthersGames(scratch.path());
     bundlesStayInTheirSlots();
     sharedSavesFollowThePlayer(scratch.path());
+    romsComeOverInChunks(scratch.path());
     std::printf("lan_node: all checks passed\n");
     return 0;
 } catch (...) {

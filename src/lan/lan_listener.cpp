@@ -100,9 +100,11 @@ Response LanListener::handle(const Request& request) {
         return pairStatus(request);
     }
     const bool peerPath =
-        (request.method == "GET" && (path == "/lan/library" || path.starts_with(coverPrefix))) ||
+        (request.method == "GET" &&
+         (path == "/lan/library" || path == wire::romListRoute || path.starts_with(coverPrefix))) ||
         (request.method == "POST" &&
-         (path == "/lan/unpair" || path == wire::playRoute || path.starts_with(savesPrefix)));
+         (path == "/lan/unpair" || path == wire::playRoute || path.starts_with(savesPrefix) ||
+          path == wire::romFileRoute || path == wire::romChunkRoute));
     if (!peerPath) {
         return refused(notFound, "Not Found", "no such route");
     }
@@ -121,6 +123,8 @@ Response LanListener::handle(const Request& request) {
             answer = savesRoute(path, *body, *verified);
         } else if (path == wire::playRoute) {
             answer = playRoute(*body, *verified);
+        } else if (path == wire::romFileRoute || path == wire::romChunkRoute) {
+            answer = romsRoute(path, *body, *verified);
         } else {
             answer = peerRoute(request, *verified);
         }
@@ -166,6 +170,9 @@ Response LanListener::peerRoute(const Request& request, const Signed& verified) 
     const std::string_view path = request.path();
     if (path == "/lan/library") {
         return Response::json(ok, "OK", wire::write(sources_.library.listing()));
+    }
+    if (path == wire::romListRoute) {
+        return Response::json(ok, "OK", wire::write(sources_.roms.listing()));
     }
     if (path == "/lan/unpair") {
         std::string error;
@@ -232,6 +239,33 @@ Response LanListener::savesRoute(std::string_view path, std::string_view body,
         return Response::json(ok, "OK", "{}");
     }
     return refused(notFound, "Not Found", "no such route");
+}
+
+Response LanListener::romsRoute(std::string_view path, std::string_view body,
+                                const Signed& verified) {
+    const std::optional<wire::RomAsk> ask = wire::readRomAsk(body);
+    if (!ask) {
+        lucent::info("lan", "refused {} from {}: not a file inside a ROM or BIOS folder", path,
+                     verified.peer.name);
+        return refused(forbidden, "Forbidden",
+                       "that path is outside the folders this openSU lists");
+    }
+    if (path == wire::romFileRoute) {
+        const std::optional<wire::RomFacts> facts = sources_.roms.factsOf(*ask);
+        if (!facts) {
+            lucent::info("lan", "refused {} the file {}: not in a folder this openSU lists",
+                         verified.peer.name, ask->path);
+            return refused(forbidden, "Forbidden", "no ROM folder here lists that file");
+        }
+        return Response::json(ok, "OK", wire::write(*facts));
+    }
+    std::string error;
+    std::optional<std::string> chunk = sources_.roms.chunkOf(*ask, error);
+    if (!chunk) {
+        lucent::info("lan", "refused {} a chunk of {}: {}", verified.peer.name, ask->path, error);
+        return refused(forbidden, "Forbidden", error);
+    }
+    return Response::binary(ok, "OK", "application/octet-stream", std::move(*chunk));
 }
 
 Response LanListener::playRoute(std::string_view body, const Signed& verified) {

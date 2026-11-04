@@ -29,8 +29,9 @@ fork as any third-party code.
    (`docs/design/lan.md`): `_opensu._tcp` over Avahi, pairing with a six-digit code shown on both
    screens and a per-peer secret, signed requests on a LAN listener of its own (not the control
    channel), each paired openSU's installed games and covers as a launcher in Library, Remove
-   revoking both sides. Shown with three hidden openSUs on one machine. Discovery on Windows,
-   macOS and Android says it is not built yet.
+   revoking both sides. Shown with three hidden openSUs on one machine. Android discovers and
+   pairs through NSD since `docs/plans/lan-rom-import.md` step 2; on Windows and macOS discovery
+   says it is not built yet.
 2. Launch on the host, PyroWave video plus Opus audio over UDP, pad and keyboard input back.
    Built on Linux (`docs/design/lan.md#remote-play`): `/lan/play` with per-session HKDF keys, each
    datagram sealed with its counter as nonce and replays dropped; the host's game launched through

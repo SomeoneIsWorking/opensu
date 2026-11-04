@@ -1,6 +1,7 @@
 package io.github.someoneisworking.opensu;
 
 import android.content.ContentResolver;
+import android.content.UriPermission;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
@@ -85,6 +86,75 @@ final class DocumentTree {
             }
         }
         return uri.getLastPathSegment();
+    }
+
+    /** Whether the app kept a grant to write in the picked tree `location`. */
+    boolean writable(String location) {
+        Uri tree = Uri.parse(location);
+        for (UriPermission grant : context.getContentResolver().getPersistedUriPermissions()) {
+            if (grant.getUri().equals(tree) && grant.isWritePermission()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The child of `parent` (a document of `tree`) named `name`, or null. */
+    private Uri child(Uri tree, Uri parent, String name) {
+        Uri listing = DocumentsContract.buildChildDocumentsUriUsingTree(tree, documentId(parent));
+        try (Cursor cursor = context.getContentResolver().query(listing, COLUMNS, null, null, null)) {
+            while (cursor != null && cursor.moveToNext()) {
+                if (name.equals(cursor.getString(1))) {
+                    return DocumentsContract.buildDocumentUriUsingTree(tree, cursor.getString(0));
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Copies `file` to `relative` ("nes/Game.nes") under the picked tree `location`, making the
+     * folders on the way and replacing a document of that name: null once it is there, else why not.
+     */
+    String place(String location, String relative, String file) {
+        Uri tree = Uri.parse(location);
+        ContentResolver resolver = context.getContentResolver();
+        String[] steps = relative.split("/");
+        try {
+            Uri parent = DocumentsContract.buildDocumentUriUsingTree(tree, documentId(tree));
+            for (int i = 0; i < steps.length - 1; ++i) {
+                Uri folder = child(tree, parent, steps[i]);
+                if (folder == null) {
+                    folder = DocumentsContract.createDocument(resolver, parent, Document.MIME_TYPE_DIR, steps[i]);
+                }
+                if (folder == null) {
+                    return "cannot make the folder " + steps[i];
+                }
+                parent = folder;
+            }
+            String name = steps[steps.length - 1];
+            Uri old = child(tree, parent, name);
+            if (old != null) {
+                DocumentsContract.deleteDocument(resolver, old);
+            }
+            Uri target = DocumentsContract.createDocument(resolver, parent, "application/octet-stream", name);
+            if (target == null) {
+                return "cannot make " + relative;
+            }
+            try (InputStream in = new java.io.FileInputStream(file);
+                 OutputStream out = resolver.openOutputStream(target, "w")) {
+                if (out == null) {
+                    return "cannot write " + relative;
+                }
+                byte[] buffer = new byte[1 << 16];
+                for (int read = in.read(buffer); read >= 0; read = in.read(buffer)) {
+                    out.write(buffer, 0, read);
+                }
+            }
+            return null;
+        } catch (IOException | SecurityException | IllegalArgumentException | IllegalStateException refused) {
+            return refused.toString();
+        }
     }
 
     /** Copies the document into `folder` under its own name, for programs that take a file path. */

@@ -3,7 +3,8 @@
 The LAN integration (Settings › Integrations › LAN, off by default) makes this openSU findable by
 the other openSUs on the network, pairs with them, lists the installed games of each paired one in
 Library under that openSU's name, shares the games' saves with the ones the player chose, and
-plays such a game remotely: it runs on the host and streams here (see [Remote play](#remote-play)).
+plays such a game remotely: it runs on the host and streams here (see [Remote play](#remote-play)),
+and imports a paired openSU's ROMs into this one's ROM folder (see [ROM import](#rom-import)).
 Module rows are in `docs/codemap.md` under LAN and Remote play.
 
 ## Owners and data flow
@@ -29,6 +30,9 @@ Module rows are in `docs/codemap.md` under LAN and Remote play.
 - `lan::SaveSync` (in the node) shares saves; see [Shared saves](#shared-saves).
 - `app::RemotePlay` (on the shell's loop, both ways) runs remote play's sessions; see
   [Remote play](#remote-play).
+- `lan::RomShelf` (in the node) serves the catalog's ROM files and BIOS files to paired peers, and
+  `lan::RomImport` (in the node) fetches the ones the player picked from a host; `app::LanRoms`
+  (on the shell's loop) gives both to the shell. See [ROM import](#rom-import).
 
 ## Discovery
 
@@ -37,8 +41,15 @@ Each node announces `_opensu._tcp` on its listener's port with TXT `id` (its 32-
 Avahi's D-Bus API (`EntryGroupNew`/`AddService`/`Commit`, `ServiceBrowserNew`, `ResolveService`)
 over sd-bus on the node's own thread. A name clash takes Avahi's alternative name. Only IPv4
 resolutions are kept, and its own id is skipped. An openSU on the same machine resolves on every
-interface, loopback included; the first one is listed. Windows, macOS and Android build
-`dns_sd_none.cpp`, and Settings › LAN says finding openSUs is not built there yet.
+interface, loopback included; the first one is listed.
+
+On Android, `dns_sd_android.cpp` calls the Activity over JNI, and `LanDiscovery.java` registers
+and browses through `NsdManager`, resolving one service at a time (NSD allows one resolve at a
+time before API 34) and keeping IPv4 addresses only. It holds a `WifiManager` multicast lock while
+the node runs (`CHANGE_WIFI_MULTICAST_STATE`; many devices drop multicast without it); NSD needs no
+runtime permission, and `NEARBY_WIFI_DEVICES` is not asked for. The machine's name is the
+device name from Settings, else the model. Windows and macOS build `dns_sd_none.cpp`, and
+Settings › LAN says finding openSUs is not built there yet.
 
 ## Wire
 
@@ -59,10 +70,14 @@ It never shares the loopback control channel's port.
 | `POST /lan/saves/get` | sharing saves, signed | the same ask → the saves as a bundle (below), at most 512 MiB |
 | `POST /lan/saves/news` | sharing saves, signed | the caller holds newer saves of the game (`picked`: the player there chose them in a conflict); this one pulls them |
 | `POST /lan/saves/synced` | sharing saves, signed | the caller took `hash` (`counter`) of the game from here |
+| `GET /lan/roms` | paired, signed | the ROM listing (below), at most 8 MiB |
+| `POST /lan/roms/file` | paired, signed | `{"kind","root","path"}` → `{"bytes","sha256"}`; `sha256` is empty while the host still hashes the file |
+| `POST /lan/roms/chunk` | paired, signed | `{"kind","root","path","offset","length"}` → at most 2 MiB of the file from `offset`, as raw bytes |
 | `POST /lan/play` | paired, signed | `{"game","salt"}` → `{"port","salt"}`: the host streams that listed game to the caller; 404 for a game it does not list, 409 with why when it will not (busy, outside Gamescope, no capture) |
 
 Everything else, and any signed route that fails its check or whose body does not open, is 403.
-The saves routes are 403 too, sealed, while this openSU does not share saves with the caller.
+The saves routes are 403 too, sealed, while this openSU does not share saves with the caller. The
+ROM routes are 403 for any path that is not a file the host lists (below).
 
 ## Pairing
 
@@ -221,6 +236,51 @@ runs.
   it, as a local game's virtual pad is played. Guide
   opens this openSU's own menu, whose Close game row reads End remote play.
 
+## ROM import
+
+The host offers what its catalog reads from its ROM folders, and the BIOS files its runner has for
+those consoles. The guest browses them in Settings › LAN › ROMs on <host>, picks games or a whole
+console, and Import copies them into its own ROM folder, where the catalog reads them.
+
+- **Host.** `app::LanRoms::share`, called from `ShellApp::applyCatalog`, gives the node's
+  `lan::RomShelf` the ROM roots, the ROM games and, for each of their consoles, the BIOS files the
+  chosen built-in core lists and the system folder holds (`EmulatorSettings::biosOf`). A game is
+  its catalog entry under a root: one file, or a folder (a disc's `.cue` and its tracks, a
+  multi-file game) walked whole. The listing is
+  `[{"system","folder","games":[{"title","root","entry","files":[{"path","bytes"}]}],"bios":[...]}]`,
+  consoles grouped by system and the host's folder for it. Paths are relative, `/`-separated and
+  checked by `lan::staysInside` (no absolute path, drive, `.` or `..` step), the rule
+  `save_bundle` checks slots with. `RomShelf` answers a file or a chunk only for a key
+  (kind, root, path) it listed, so a path outside the listed folders, or a file in them it does
+  not list (`notes.txt`), is 403. It reads only the asked range; nothing holds a whole ROM.
+  Hashing runs on its own thread, one file at a time, kept by size and modification time; the
+  first `/lan/roms/file` of a file queues it.
+- **Guest.** `lan::RomImport` (its own thread) fetches each picked game file by file in 2 MiB
+  chunks (`wire::romChunkBytes`), each a signed, sealed request, appending to
+  `<state>/lan-roms/<host id>/{rom-<root>|bios}/<path>.part`. A part already there is hashed and
+  the transfer goes on from its end ("goes on from byte N"). When the part reaches the host's size
+  it waits for the host's SHA-256 and compares; a mismatch deletes the part and fails the game
+  ("arrived different from <host>'s copy"). A whole file is placed through
+  `library::roms::RomTree::place` into the destination folder, then the next. A network error, or
+  the host off the LAN, leaves the game Waiting and tries again after 1 s, doubling to 30 s; a
+  refusal or a failed place fails it. Stop importing drops what has not arrived and its parts.
+- **Destination.** The first ROM folder the catalog reads that `RomTree::writeRefusal` accepts;
+  with none, the guest asks for one (the folder chooser on the desktop, the system picker on
+  Android, which grants write access to the tree), and it joins the ROM folders
+  (`Settings::addRomFolder`, applied at once by `ShellApp::romFoldersChanged`). A console's games
+  go in the folder the guest already has for that system, else one named as the host's.
+  BIOS files go to the runner's system folder.
+- **BIOS.** For each picked console the host's BIOS files the guest's core lists and the guest's
+  system folder lacks are offered as toggles; on when the core cannot start without one and the
+  file is not optional, off otherwise.
+- **Progress.** Each game's row shows Queued, its percentage, Waiting with the reason, Checking,
+  Done or Failed with why; All shows the total. `/state` reports `lanImport` ("title state
+  done/total" per game). Each arrival reloads the catalog.
+- **Android.** `RomTree::place` into a picked folder (`content://`) goes through
+  `DocumentTree.place`: it makes the subfolders with `DocumentsContract.createDocument`, replaces a
+  document of the same name and copies the staged file through `openOutputStream`, then deletes
+  the staging copy.
+
 ## Keys and secrets
 
 `lan.json` (config dir) holds this openSU's peer id and each paired peer's id and name. Each
@@ -244,7 +304,11 @@ Library on both sides.
   too. Its requests are refused here.
 - A cover fetched for a local game after the catalog was read is shared from the next catalog
   read.
-- Discovery is Linux only. The rest is portable C++ over libcrypto and Lucent.
+- Discovery is Linux and Android only. The rest is portable C++ over libcrypto and Lucent.
+- An Android host does not offer ROMs from a picked (`content://`) folder; only folders on a path.
+- A ROM whose path has a `:` or `\` is not offered (the relative-path rule).
+- The import queue is not kept across restarts; the parts are, so importing the same game again
+  goes on from them.
 - A save bundle is held whole in memory on both sides (at most 512 MiB).
 - Saves sync only while both openSUs run. One that was off syncs at its next launch of the game,
   or when its details open and Sync saves now is pressed.
@@ -280,6 +344,15 @@ and, with a details page open, `lanSaves` (its Saves fact); `/frame.png` shows t
 screens, and the `lan` and `saves` log lines name every pairing, listing, refusal, pull and push.
 A request to `/lan/library` without a pairing gets 403. A socket dump of the LAN port shows the
 routes and lengths but no save bytes.
+
+ROM import: `romsComeOverInChunks` in `lan_node_test.cpp` lists a host's ROMs and BIOS, imports a
+game larger than two chunks that resumes from a part, fails a damaged part on its hash, and waits
+while the host is away; `signedRequestsAreCheckedOnce` asks for unlisted and `..` paths and gets
+403. In the product, give the host a scratch ROM folder through `OPENSU_ROM_ROOTS`, pair, and on
+the guest walk Settings › LAN › ROMs on <host>, a console, Whole console, Back, Import; `lanImport`
+reaches `done` for each game, the guest's library shows them and they play. Kill the host by its
+PID during a large file and start it again: the guest's log says "goes on from byte". A signed,
+sealed `/lan/roms/chunk` for `../x` or an unlisted file gets 403 and the host logs the refusal.
 
 Remote play: `tests/stream/stream_test.cpp` checks sealing and replay, the payloads, a host and a
 guest session over loopback UDP (the mapping sent, the opening probe planning PyroWave), PyroWave

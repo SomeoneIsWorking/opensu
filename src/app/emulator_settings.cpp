@@ -180,6 +180,29 @@ std::string biosValue(const library::roms::CoreBios::File& file) {
 
 } // namespace
 
+std::optional<library::roms::CoreBios>
+EmulatorSettings::biosOf(const library::roms::EmulatorEntry& entry) const {
+    const library::roms::EmulatorSearch& search = downloads_.setup().search;
+    const std::optional<std::string> info = search.cores.info(entry.core);
+    if (!info) {
+        return std::nullopt;
+    }
+    return library::roms::biosIn(library::roms::firmwareIn(*info), entry.withoutBios,
+                                 entry.biosScan, search.system);
+}
+
+std::optional<library::roms::CoreBios> EmulatorSettings::biosOf(std::string_view system) const {
+    const EmulatorEntry* entry = found_.catalog().findByName(found_.chosenName(system));
+    if (entry == nullptr || !entry->builtIn() || !entry->romsets.empty()) {
+        return std::nullopt;
+    }
+    return biosOf(*entry);
+}
+
+const std::filesystem::path& EmulatorSettings::biosFolder() const noexcept {
+    return downloads_.setup().search.system;
+}
+
 void EmulatorSettings::addBiosRows(ui::SettingsCategory& page) const {
     // Each chosen built-in core once, with the systems it runs; arcade BIOS sets are romsets.
     std::vector<std::pair<const EmulatorEntry*, std::string>> chosen;
@@ -195,19 +218,17 @@ void EmulatorSettings::addBiosRows(ui::SettingsCategory& page) const {
             at->second += ", " + library::roms::systemLabel(system);
         }
     }
-    const library::roms::EmulatorSearch& search = downloads_.setup().search;
     for (const auto& [entry, systems] : chosen) {
         const std::string row = std::string{biosId} + entry->id;
-        const std::optional<std::string> info = search.cores.info(entry->core);
-        if (!info) {
+        const std::optional<library::roms::CoreBios> found = biosOf(*entry);
+        if (!found) {
             page.rows.push_back(ui::makeHeading(systems));
             page.rows.push_back(ui::makeRow(row, RowKind::Info, entry->name,
                                             "No core info yet; Check for updates fetches it",
                                             "Not listed"));
             continue;
         }
-        const library::roms::CoreBios bios = library::roms::biosIn(
-            library::roms::firmwareIn(*info), entry->withoutBios, entry->biosScan, search.system);
+        const library::roms::CoreBios& bios = *found;
         if (bios.files.empty()) {
             continue;
         }

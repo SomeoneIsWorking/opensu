@@ -1,5 +1,6 @@
-// rom_tree — the folders the ROM scan walks: the filesystem, and on Android also the folders the
-// player granted through the system picker, named by `content://` document URIs.
+// rom_tree — the ROM folders: what the scan walks, and where a ROM taken from elsewhere (LAN
+// import) is put. The filesystem, and on Android also the folders the player granted through the
+// system picker, named by `content://` document URIs.
 #pragma once
 
 #include <cstdint>
@@ -7,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace opensu::library::roms {
@@ -37,6 +39,13 @@ class RomTree {
     children(const std::filesystem::path& folder) const = 0;
     /// How the player reads `folder`: its path, or a picked folder's name.
     [[nodiscard]] virtual std::string label(const std::filesystem::path& folder) const = 0;
+    /// Why files cannot be put in `folder`; empty when they can.
+    [[nodiscard]] virtual std::string writeRefusal(const std::filesystem::path& folder) const = 0;
+    /// Moves `staged` to `relative` (`/`-separated, checked by the caller) under `folder`, making
+    /// the folders on the way and replacing a file there. False with `error` when it cannot.
+    [[nodiscard]] virtual bool place(const std::filesystem::path& folder, std::string_view relative,
+                                     const std::filesystem::path& staged,
+                                     std::string& error) const = 0;
 };
 
 /// The filesystem.
@@ -48,6 +57,10 @@ class FileTree final : public RomTree {
     [[nodiscard]] std::optional<std::vector<RomNode>>
     children(const std::filesystem::path& folder) const override;
     [[nodiscard]] std::string label(const std::filesystem::path& folder) const override;
+    [[nodiscard]] std::string writeRefusal(const std::filesystem::path& folder) const override;
+    [[nodiscard]] bool place(const std::filesystem::path& folder, std::string_view relative,
+                             const std::filesystem::path& staged,
+                             std::string& error) const override;
 };
 
 /// This OS's tree: the filesystem, with picked document folders on Android.

@@ -81,6 +81,36 @@ Bytes sha256(std::string_view text) {
     return out;
 }
 
+void Sha256::Free::operator()(evp_md_ctx_st* context) const noexcept {
+    EVP_MD_CTX_free(context);
+}
+
+Sha256::Sha256() : context_{EVP_MD_CTX_new()} {
+    if (context_ == nullptr || EVP_DigestInit_ex(context_.get(), EVP_sha256(), nullptr) != 1) {
+        throw std::runtime_error{"libcrypto cannot hash with SHA-256"};
+    }
+}
+
+Sha256::~Sha256() = default;
+Sha256::Sha256(Sha256&&) noexcept = default;
+Sha256& Sha256::operator=(Sha256&&) noexcept = default;
+
+void Sha256::add(std::string_view piece) {
+    if (EVP_DigestUpdate(context_.get(), piece.data(), piece.size()) != 1) {
+        throw std::runtime_error{"libcrypto cannot hash with SHA-256"};
+    }
+}
+
+Bytes Sha256::finish() {
+    Bytes out(sha256Bytes);
+    unsigned int written = 0;
+    if (EVP_DigestFinal_ex(context_.get(), out.data(), &written) != 1 ||
+        EVP_DigestInit_ex(context_.get(), EVP_sha256(), nullptr) != 1) {
+        throw std::runtime_error{"libcrypto cannot hash with SHA-256"};
+    }
+    return out;
+}
+
 Bytes hmacSha256(std::span<const std::uint8_t> key, std::string_view message) {
     Bytes out(sha256Bytes);
     std::size_t written = 0;

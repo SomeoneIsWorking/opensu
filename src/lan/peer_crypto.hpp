@@ -13,6 +13,7 @@
 #include <vector>
 
 struct evp_pkey_st;
+struct evp_md_ctx_st;
 
 namespace opensu::lan::crypto {
 
@@ -32,6 +33,28 @@ inline constexpr std::size_t sealTagBytes = 16;
 
 [[nodiscard]] Bytes sha256(std::span<const std::uint8_t> data);
 [[nodiscard]] Bytes sha256(std::string_view text);
+
+/// SHA-256 over bytes given a piece at a time, for a file too large to hold.
+class Sha256 {
+  public:
+    /// Throws `std::runtime_error` when libcrypto cannot hash.
+    Sha256();
+    ~Sha256();
+    Sha256(const Sha256&) = delete;
+    Sha256& operator=(const Sha256&) = delete;
+    Sha256(Sha256&&) noexcept;
+    Sha256& operator=(Sha256&&) noexcept;
+
+    void add(std::string_view piece);
+    /// The digest of everything added; the hash then starts over.
+    [[nodiscard]] Bytes finish();
+
+  private:
+    struct Free {
+        void operator()(evp_md_ctx_st* context) const noexcept;
+    };
+    std::unique_ptr<evp_md_ctx_st, Free> context_;
+};
 
 [[nodiscard]] Bytes hmacSha256(std::span<const std::uint8_t> key, std::string_view message);
 

@@ -6,6 +6,7 @@
 
 #include "dns_sd.hpp"
 #include "peer_book.hpp"
+#include "relative_path.hpp"
 #include "secrets/secret.hpp"
 
 namespace opensu::lan::wire {
@@ -282,6 +283,160 @@ std::optional<PlayAnswer> readPlayAnswer(std::string_view body) {
         return std::nullopt;
     }
     return PlayAnswer{static_cast<std::uint16_t>(*port), std::move(*salt)};
+}
+
+namespace {
+
+json filesOf(const std::vector<RomFile>& files) {
+    json list = json::array();
+    for (const RomFile& file : files) {
+        list.push_back(json{{"path", file.path}, {"bytes", file.bytes}});
+    }
+    return list;
+}
+
+/// The files of `document[key]`; nothing when one is malformed or could step out of its folder.
+std::optional<std::vector<RomFile>> filesIn(const json& document, const char* key) {
+    const auto found = document.find(key);
+    if (found == document.end() || !found->is_array()) {
+        return std::nullopt;
+    }
+    std::vector<RomFile> files;
+    for (const json& entry : *found) {
+        if (!entry.is_object()) {
+            return std::nullopt;
+        }
+        RomFile file{textField(entry, "path"), countField(entry, "bytes").value_or(0)};
+        if (file.path.empty() || !staysInside(file.path)) {
+            return std::nullopt;
+        }
+        files.push_back(std::move(file));
+    }
+    return files;
+}
+
+constexpr std::string_view romKindKey(RomKind kind) noexcept {
+    return kind == RomKind::Bios ? "bios" : "rom";
+}
+
+} // namespace
+
+std::uint64_t RomGame::bytes() const {
+    std::uint64_t total = 0;
+    for (const RomFile& file : files) {
+        total += file.bytes;
+    }
+    return total;
+}
+
+std::string write(const std::vector<RomConsole>& consoles) {
+    json list = json::array();
+    for (const RomConsole& console : consoles) {
+        json games = json::array();
+        for (const RomGame& game : console.games) {
+            games.push_back(json{{"title", game.title},
+                                 {"root", game.root},
+                                 {"entry", game.entry},
+                                 {"files", filesOf(game.files)}});
+        }
+        list.push_back(json{{"system", console.system},
+                            {"folder", console.folder},
+                            {"games", games},
+                            {"bios", filesOf(console.bios)}});
+    }
+    return json{{"consoles", list}}.dump();
+}
+
+std::optional<std::vector<RomConsole>> readRomListing(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document || !document->contains("consoles") || !(*document)["consoles"].is_array()) {
+        return std::nullopt;
+    }
+    std::vector<RomConsole> consoles;
+    for (const json& entry : (*document)["consoles"]) {
+        if (!entry.is_object()) {
+            continue;
+        }
+        RomConsole console{textField(entry, "system"), textField(entry, "folder"), {}, {}};
+        if (!keyPart(console.system) || !keyPart(console.folder)) {
+            continue;
+        }
+        console.bios = filesIn(entry, "bios").value_or(std::vector<RomFile>{});
+        const auto games = entry.find("games");
+        if (games == entry.end() || !games->is_array()) {
+            continue;
+        }
+        for (const json& listed : *games) {
+            if (!listed.is_object()) {
+                continue;
+            }
+            std::optional<std::vector<RomFile>> files = filesIn(listed, "files");
+            const std::optional<std::uint64_t> root = countField(listed, "root");
+            RomGame game{textField(listed, "title"), 0, textField(listed, "entry"), {}};
+            const std::string inside = game.entry + "/";
+            if (!files || files->empty() || !root || *root > 0xffffffffU || game.title.empty() ||
+                game.entry.empty() || !staysInside(game.entry) ||
+                !game.entry.starts_with(console.folder + "/")) {
+                continue;
+            }
+            const bool contained = std::ranges::all_of(*files, [&](const RomFile& file) {
+                return file.path == game.entry || file.path.starts_with(inside);
+            });
+            if (!contained) {
+                continue;
+            }
+            game.root = static_cast<std::uint32_t>(*root);
+            game.files = std::move(*files);
+            console.games.push_back(std::move(game));
+        }
+        consoles.push_back(std::move(console));
+    }
+    return consoles;
+}
+
+std::string write(const RomAsk& ask) {
+    return json{{"kind", std::string{romKindKey(ask.kind)}},
+                {"root", ask.root},
+                {"path", ask.path},
+                {"offset", ask.offset},
+                {"length", ask.length}}
+        .dump();
+}
+
+std::optional<RomAsk> readRomAsk(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    const std::string kind = textField(*document, "kind");
+    const std::optional<std::uint64_t> root = countField(*document, "root");
+    RomAsk ask{kind == romKindKey(RomKind::Bios) ? RomKind::Bios : RomKind::Rom, 0,
+               textField(*document, "path"), countField(*document, "offset").value_or(0),
+               countField(*document, "length").value_or(0)};
+    if ((kind != romKindKey(RomKind::Rom) && kind != romKindKey(RomKind::Bios)) || !root ||
+        *root > 0xffffffffU || ask.path.empty() || !staysInside(ask.path)) {
+        return std::nullopt;
+    }
+    ask.root = static_cast<std::uint32_t>(*root);
+    return ask;
+}
+
+std::string write(const RomFacts& facts) {
+    return json{{"bytes", facts.bytes}, {"sha256", facts.sha256}}.dump();
+}
+
+std::optional<RomFacts> readRomFacts(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    const std::optional<std::uint64_t> bytes = countField(*document, "bytes");
+    RomFacts facts{bytes.value_or(0), textField(*document, "sha256")};
+    if (!bytes || (!facts.sha256.empty() &&
+                   (facts.sha256.size() != 64 || !secrets::isLowerHex(facts.sha256)))) {
+        return std::nullopt;
+    }
+    return facts;
 }
 
 } // namespace opensu::lan::wire

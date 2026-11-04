@@ -3,7 +3,8 @@
 // the saves it shares (`SaveSync`), and a worker that keeps the paired peers' games in
 // `RemoteLibrary` while they are announced (again when one comes or goes, a pairing changes, and
 // every minute), their covers cached under `coverCache`; a paired peer's request to play a game
-// here goes to `play`, and this one asks a host to play one of its games (`askToPlay`). A pairing
+// here goes to `play`, and this one asks a host to play one of its games (`askToPlay`). It offers
+// its ROMs to paired peers (`RomShelf`) and imports theirs (`romsOf`, `imports`). A pairing
 // is one secret both sides keep, so each lists the other's games. Made on the shell's loop and
 // asked from it; its own threads only fill what it reports.
 #pragma once
@@ -28,6 +29,8 @@
 #include "peer_book.hpp"
 #include "peer_client.hpp"
 #include "remote_library.hpp"
+#include "rom_import.hpp"
+#include "rom_shelf.hpp"
 #include "save_sync.hpp"
 #include "secrets/secret_store.hpp"
 #include "shared_library.hpp"
@@ -53,6 +56,9 @@ class LanNode {
         /// A paired peer asks to play a listed game here (`LanListener::Sources::play`); empty
         /// refuses every such request.
         decltype(LanListener::Sources::play) play;
+        /// Where ROMs being imported are staged, where each one taken goes, and when an import's
+        /// progress changes (`RomImport::Setup`; this node gives its id and the hosts' links).
+        RomImport::Setup roms;
         /// Announces this openSU and finds the others.
         std::function<std::unique_ptr<ServiceDiscovery>(const Announcement&, std::string&)>
             discovery{startDiscovery};
@@ -97,6 +103,22 @@ class LanNode {
     /// not be kept.
     [[nodiscard]] bool shareSaves(const std::string& peerId, bool on, std::string& error) {
         return book_.shareSaves(peerId, on, error);
+    }
+
+    /// Offers the ROMs and BIOS files of `contents` to paired peers from now on.
+    void shareRoms(RomShelf::Contents contents) {
+        shelf_.share(std::move(contents));
+    }
+    /// The ROMs the paired, announced openSU `hostId` offers. Blocks for the call, so never on the
+    /// loop. Nothing with `error` when it is gone, unpaired or refuses.
+    [[nodiscard]] std::optional<std::vector<wire::RomConsole>> romsOf(const std::string& hostId,
+                                                                      std::string& error) const;
+    /// The ROMs being imported from paired peers.
+    [[nodiscard]] RomImport& imports() noexcept {
+        return *imports_;
+    }
+    [[nodiscard]] const RomImport& imports() const noexcept {
+        return *imports_;
     }
 
     /// The pairing this one hosts that waits for the player.
@@ -147,6 +169,9 @@ class LanNode {
                                                 const crypto::Bytes& secret,
                                                 const std::string& token) const;
     void tell(const Notice& notice) const;
+    /// Where the paired, announced `hostId` listens and the pairing's secret; nothing with why.
+    [[nodiscard]] std::optional<RomImport::Link> linkTo(const std::string& hostId,
+                                                        std::string& why) const;
 
     net::WebClient web_;
     std::filesystem::path coverCache_;
@@ -157,9 +182,12 @@ class LanNode {
     HostPairing pairing_{book_.id()};
     SharedLibrary library_;
     SaveSync saves_;
+    RomShelf shelf_;
     LanListener listener_;
     std::string problem_;
     std::unique_ptr<ServiceDiscovery> discovery_;
+    /// Stopped first, so no import asks for a link while the node goes.
+    std::unique_ptr<RomImport> imports_;
     /// Loop only.
     std::unique_ptr<GuestPairing> asking_;
     std::mutex mutex_;

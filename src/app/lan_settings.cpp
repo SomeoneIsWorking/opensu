@@ -8,6 +8,7 @@
 
 #include "lan/dns_sd.hpp"
 #include "lan/peer_book.hpp"
+#include "lan_roms.hpp"
 #include "ui/entry_screen.hpp"
 
 namespace opensu::app {
@@ -70,6 +71,9 @@ ui::SettingsCategory LanSettings::page() const {
         page.rows.push_back(ui::makeRow(
             rowOf(forgetPrefix, peer.id), RowKind::Action, peer.name,
             online ? "On the LAN; its games are in Library" : "Not on the LAN now", "Remove"));
+        page.rows.push_back(ui::makePage(
+            LanRoms::pageOf(peer.id), "ROMs on " + peer.name,
+            online ? "Its ROMs by console, to import here" : "Not on the LAN now", ""));
         page.rows.push_back(ui::makeToggle(
             rowOf(savesPrefix, peer.id), "Share saves with " + peer.name,
             "Saves of the games on both go to whichever played last; it must share them too",

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <filesystem>
+#include <vector>
 
 #include "config/config.hpp"
 #include "epic.hpp"
@@ -26,6 +27,9 @@ struct CatalogStores {
 
     bool operator==(const CatalogStores&) const = default;
 };
+
+/// The ROM folders the catalog reads: the configured ones, else those found on this machine.
+[[nodiscard]] std::vector<std::filesystem::path> romRootsOf(const config::Config& config);
 
 /// Builds the catalog's providers of `stores` from the configuration; a store left out is not
 /// read at all. A `hidden` shell's ROMs start hidden, unless it runs inside a Gamescope, whose
