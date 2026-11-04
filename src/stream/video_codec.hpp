@@ -24,6 +24,8 @@ namespace opensu::stream {
 /// The most bytes of coded data one datagram carries, so a sealed video datagram fits a
 /// 1500-byte Ethernet frame.
 inline constexpr std::size_t videoPacketBytes = 1400;
+/// The frames a second the host captures and codes at.
+inline constexpr int videoFramesPerSecond = 60;
 
 /// How a frame is coded; the value is what `wire::VideoPacket::codec` carries.
 enum class VideoCodec : std::uint8_t {

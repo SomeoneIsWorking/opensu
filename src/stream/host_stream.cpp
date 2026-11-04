@@ -1,6 +1,8 @@
 #include "host_stream.hpp"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <utility>
 #include <vector>
 
@@ -22,6 +24,20 @@ constexpr int endRepeats = 3;
 /// How often the prober looks for datagrams due: often in a burst, seldom between.
 constexpr std::chrono::milliseconds probeTick{1};
 constexpr std::chrono::milliseconds probeIdle{20};
+/// What the pacer sends video at, over the plan's rate.
+constexpr double paceOverRate = 2.0;
+
+/// A video payload as it crosses the link: sealed.
+std::size_t sealedBytes(const std::string& payload) {
+    return payload.size() + sealOverhead;
+}
+
+/// The datagram bytes of one frame at `bitsPerSecond`, its headers and seals counted.
+double frameDatagramBytes(std::uint64_t bitsPerSecond) {
+    const double coded = static_cast<double>(bitsPerSecond) / 8 / videoFramesPerSecond;
+    const double packets = std::ceil(coded / static_cast<double>(videoPacketBytes));
+    return coded + packets * static_cast<double>(wire::videoHeaderBytes + sealOverhead);
+}
 
 } // namespace
 
@@ -33,16 +49,16 @@ HostStream::HostStream(Setup setup)
     receiver_ = std::jthread{[this](const std::stop_token& stop) {
         receive(stop);
     }};
-    prober_ = std::jthread{[this](const std::stop_token& stop) {
-        probe(stop);
+    sender_ = std::jthread{[this](const std::stop_token& stop) {
+        pace(stop);
     }};
 }
 
 HostStream::~HostStream() {
-    prober_.request_stop();
+    sender_.request_stop();
     receiver_.request_stop();
-    if (prober_.joinable()) {
-        prober_.join();
+    if (sender_.joinable()) {
+        sender_.join();
     }
     if (receiver_.joinable()) {
         receiver_.join();
@@ -60,11 +76,16 @@ void HostStream::refuse(VideoCodec codec) {
 }
 
 std::string HostStream::linkSummary() const {
-    const std::lock_guard lock{linkMutex_};
-    return link_.summary();
+    std::string summary;
+    {
+        const std::lock_guard lock{linkMutex_};
+        summary = link_.summary();
+    }
+    const std::lock_guard lock{paceMutex_};
+    return summary + " paced=" + std::to_string(paced_) + "/" + std::to_string(videoSent_);
 }
 
-void HostStream::probe(const std::stop_token& stop) {
+void HostStream::pace(const std::stop_token& stop) {
     while (!stop.stop_requested() && !over()) {
         LinkRate::ProbeDue due;
         if (joined_) {
@@ -74,7 +95,50 @@ void HostStream::probe(const std::stop_token& stop) {
         for (std::uint32_t i = 0; i < due.count; ++i) {
             send(PacketKind::Probe, wire::write(wire::Probe{due.burst, due.first + i}, probeBytes));
         }
-        std::this_thread::sleep_for(due.count > 0 ? probeTick : probeIdle);
+        std::chrono::microseconds wait = due.count > 0 ? probeTick : probeIdle;
+        std::unique_lock lock{paceMutex_};
+        const std::uint64_t nowUs = wire::nowMicros();
+        sendDue(nowUs);
+        if (!waiting_.empty()) {
+            const std::uint64_t dueUs = pacer_.waitUs(sealedBytes(waiting_.front()), nowUs);
+            wait = std::min(wait, std::chrono::microseconds{std::max<std::uint64_t>(dueUs, 1)});
+        }
+        paceWake_.wait_for(lock, stop, wait, [this] {
+            return queued_;
+        });
+        queued_ = false;
+    }
+}
+
+void HostStream::sendDue(std::uint64_t nowUs) {
+    while (!waiting_.empty() && pacer_.take(sealedBytes(waiting_.front()), nowUs)) {
+        send(PacketKind::Video, waiting_.front());
+        waiting_.pop_front();
+        ++videoSent_;
+    }
+}
+
+void HostStream::sendFrame(std::vector<std::string> payloads) {
+    const std::optional<LinkPlan> planned = plan();
+    const std::uint64_t nowUs = wire::nowMicros();
+    const std::lock_guard lock{paceMutex_};
+    if (planned && planned->bitsPerSecond != pacedRate_) {
+        pacedRate_ = planned->bitsPerSecond;
+        const double frame = frameDatagramBytes(pacedRate_);
+        constexpr auto fullPacket =
+            static_cast<double>(wire::videoHeaderBytes + videoPacketBytes + sealOverhead);
+        pacer_.set(static_cast<double>(pacedRate_) / 8 * paceOverRate, std::max(frame, fullPacket));
+    }
+    const bool idle = waiting_.empty();
+    const std::size_t frame = payloads.size();
+    for (std::string& payload : payloads) {
+        waiting_.push_back(std::move(payload));
+    }
+    sendDue(nowUs);
+    paced_ += std::min(waiting_.size(), frame);
+    if (idle && !waiting_.empty()) {
+        queued_ = true;
+        paceWake_.notify_one();
     }
 }
 

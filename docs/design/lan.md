@@ -216,7 +216,13 @@ runs.
   in common PyroWave codes whatever the link carries, and says so.
 - Hardware codecs (`hardware_codec_vaapi.cpp`): libavcodec on a VA-API DRM device, CBR at the
   plan's rate with a two-frame buffer, no B-frames, one frame in flight, a key frame every 300
-  frames or when asked, reopened when the rate moves by a fifth. The guest decodes the same way
+  frames or when asked, reopened when the rate moves by a fifth.
+- Pacing (`HostStream::sendFrame`, a `stream::TokenBucket`): each frame's datagrams leave at once
+  while the bucket holds them, the bucket as deep as one frame at the plan's rate (headers and
+  seals counted) and filling at twice that rate; the rest of a larger frame, a key frame above
+  all, follows from the sender thread as the bucket fills, and the next frame waits behind it. A
+  frame no larger than the plan's (every PyroWave frame) leaves as before; a shallow link queue
+  never gets more than one frame's worth at line rate. The guest decodes the same way
   into NV12 and converts it to RGBA on the CPU.
 - Guest: `stream::GuestStream` receives; `stream::GuestVideo` queues video packets and decodes on a
   thread of its own, a decoder per codec: a frame missing a packet is dropped when the next begins
@@ -324,10 +330,6 @@ Library on both sides.
   Decoding straight into an image the presenter samples needs the decoder on the presenter's
   Vulkan device, which SDL GPU neither exposes nor imports (`SDL_GPUDevice` gives no `VkDevice`,
   queue or external-memory import); it waits on an SDL fork that does.
-- A frame's packets leave the host back to back. On a link with a shallow queue a hardware codec's
-  key frame or a probe burst overflows it, so on a hardware codec the rate saws between 60 % of
-  the link and the loss that lowers it again, each loss costing the frames up to the next key frame
-  (about 0.6 s at a 60 Mbit/s cap). Pacing each frame's packets across its 16 ms would end that.
 - The guest's Video settings do not apply to the stream.
 - A game whose sound ignores `PIPEWIRE_NODE` and `PULSE_SINK` plays on the host's speakers and
   the guest hears silence.
@@ -364,7 +366,7 @@ a third of one, no hardware codec in common, a lossy second, a probe passing, a 
 empty, the user's `XDG_RUNTIME_DIR` for PipeWire) and the guest as a plain `--hidden` openSU, pair
 them and press Play on the host's game in the guest's Library. `/state` reports `remotePlay`
 (`asking`, `playing`, `hosting`), `remotePeer`, `remoteRoundTripUs` and `remoteBytesPerSecond`;
-on the host `remoteVideo` is the link (codec, rate, delivered, loss, switches, probes), on the guest
+on the host `remoteVideo` is the link (codec, rate, delivered, loss, switches, probes, and `paced=` the video datagrams the pacer held back of those sent), on the guest
 the codec and switches, frames decoded, dropped and late, and each stage's p50/p95 in ms from
 capture to the submitted frame and `remoteAudio` (packets, lost, arrival p50/p95). On both
 sides `/remote/frame.png` returns the newest remote picture, numbered in `X-Opensu-Frame`: the one

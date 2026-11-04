@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <mutex>
 
+#include "token_bucket.hpp"
+
 namespace opensu::stream {
 
 class LinkCap {
@@ -19,8 +21,7 @@ class LinkCap {
   private:
     std::mutex mutex_;
     std::uint64_t bitsPerSecond_{0};
-    double tokens_{0};
-    std::uint64_t filledUs_{0};
+    TokenBucket bucket_;
 };
 
 } // namespace opensu::stream

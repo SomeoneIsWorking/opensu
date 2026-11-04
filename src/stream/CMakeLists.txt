@@ -5,7 +5,7 @@
 # (`game_sound`) coded with Opus (`audio_codec`); and the guest's pad, keys and pointer played into
 # the game (`host_input`). Linux builds all of it; elsewhere each of those refuses, and so does a
 # session.
-add_library(opensu_stream STATIC packet_seal.cpp stream_wire.cpp link_rate.cpp link_cap.cpp
+add_library(opensu_stream STATIC packet_seal.cpp stream_wire.cpp link_rate.cpp link_cap.cpp token_bucket.cpp
     host_stream.cpp guest_stream.cpp video_codec.cpp picture_colour.cpp host_video.cpp
     guest_video.cpp host_audio.cpp guest_audio.cpp)
 add_library(opensu::stream ALIAS opensu_stream)

@@ -28,9 +28,8 @@ extern "C" {
 namespace opensu::stream::backend {
 namespace {
 
-constexpr int framesPerSecond = 60;
 /// A key frame at least this often, so a guest that missed one's request recovers.
-constexpr int keyFrameEvery = 5 * framesPerSecond;
+constexpr int keyFrameEvery = 5 * videoFramesPerSecond;
 /// The rate a running encoder is reopened for, as a share of the one it codes at.
 constexpr double reopenShare = 0.2;
 
@@ -226,8 +225,8 @@ class Encoder final : public VideoEncoder {
         Context context{avcodec_alloc_context3(encoder_)};
         context->width = width;
         context->height = height;
-        context->time_base = AVRational{1, framesPerSecond};
-        context->framerate = AVRational{framesPerSecond, 1};
+        context->time_base = AVRational{1, videoFramesPerSecond};
+        context->framerate = AVRational{videoFramesPerSecond, 1};
         context->pix_fmt = AV_PIX_FMT_VAAPI;
         context->sw_pix_fmt = AV_PIX_FMT_NV12;
         context->hw_frames_ctx = av_buffer_ref(frames.get());
@@ -236,7 +235,7 @@ class Encoder final : public VideoEncoder {
         const auto rate = static_cast<std::int64_t>(bitsPerSecond);
         context->bit_rate = rate;
         context->rc_max_rate = rate;
-        context->rc_buffer_size = static_cast<int>(rate / (framesPerSecond / 2));
+        context->rc_buffer_size = static_cast<int>(rate / (videoFramesPerSecond / 2));
         context->color_range = AVCOL_RANGE_JPEG;
         context->colorspace = AVCOL_SPC_BT709;
         context->color_primaries = AVCOL_PRI_BT709;

@@ -44,10 +44,9 @@ int even(int value) {
     return value & ~1;
 }
 
-/// The bytes a frame may code to at `bitsPerSecond` and 60 frames a second.
+/// The bytes a frame may code to at `bitsPerSecond`.
 std::size_t frameBytes(std::uint64_t bitsPerSecond) {
-    constexpr std::uint64_t framesPerSecond = 60;
-    return static_cast<std::size_t>(bitsPerSecond / 8 / framesPerSecond);
+    return static_cast<std::size_t>(bitsPerSecond / 8 / videoFramesPerSecond);
 }
 
 class Encoder final : public VideoEncoder {

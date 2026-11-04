@@ -59,11 +59,14 @@ void HostVideo::send(const CapturedFrame& frame) {
                              .encodedUs = encodedUs,
                              .sentUs = wire::nowMicros(),
                              .data = {}};
+    std::vector<std::string> payloads;
+    payloads.reserve(coded.packets.size());
     for (std::string& data : coded.packets) {
         packet.data = std::move(data);
-        stream_.send(PacketKind::Video, wire::write(packet));
+        payloads.push_back(wire::write(packet));
         ++packet.part;
     }
+    stream_.sendFrame(std::move(payloads));
     const std::lock_guard lock{lastMutex_};
     lastNumber_ = number;
     lastWidth_ = packet.width;

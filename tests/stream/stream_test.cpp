@@ -27,6 +27,7 @@
 #include "stream/link_rate.hpp"
 #include "stream/packet_seal.hpp"
 #include "stream/stream_wire.hpp"
+#include "stream/token_bucket.hpp"
 #include "stream/udp_socket.hpp"
 #include "stream/video_codec.hpp"
 #include "support/test_main.hpp"
@@ -661,6 +662,18 @@ void soundSurvivesTheCodec() {
            "the guest counts what came, what was lost and how long it took");
 }
 
+/// A bucket full to its depth lets that much through at once, then its rate: what the host's
+/// pacer holds a frame's tail back by.
+void theBucketHoldsBackWhatItsRateHasNoRoomFor() {
+    stream::TokenBucket bucket;
+    bucket.set(1'000'000, 10'000);
+    expect(bucket.take(10'000, 5), "a full bucket lets its depth through at once");
+    expect(!bucket.take(1'000, 5), "and nothing more then");
+    expect(bucket.waitUs(1'000, 5) == 1'000, "a kilobyte more waits a millisecond at 1 MB/s");
+    expect(bucket.take(1'000, 1'005), "and goes once it has");
+    expect(!bucket.take(20'000, 10'000'000), "it never holds more than its depth");
+}
+
 } // namespace
 
 int main() try {
@@ -672,6 +685,7 @@ int main() try {
     picturesSurviveTheHardwareCodecs();
     theLinkPicksTheCodec();
     theCapDropsWhatTheRateHasNoRoomFor();
+    theBucketHoldsBackWhatItsRateHasNoRoomFor();
     soundSurvivesTheCodec();
     std::printf("stream: all checks passed\n");
     return 0;
