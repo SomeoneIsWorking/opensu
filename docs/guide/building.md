@@ -44,7 +44,7 @@ installed.
 `uv run --frozen python -m tools.check all` checks out Lucent and gpu2d at the commits
 `tools/check/pins.py` pins into `build/check/deps`, then configures, builds, lints (clang-format,
 clang-tidy, ruff) and tests openSU with Clang in `build/check`, as CI does (`--gamescope off` leaves
-the fork out). Each step also runs on its own (`deps`, `configure`, `build`, `lint`, `test`), and
+the fork out of the tree). Each step also runs on its own (`deps`, `configure`, `build`, `lint`, `test`), and
 `--build-dir` names another tree (`build/agent`, `build/player`). `--platform windows` builds on a
 Windows host with clang-cl and vcpkg, `--platform macos` on an Apple silicon Mac with Homebrew's
 LLVM and vcpkg. `--jobs N` caps the compilers and clang-tidy processes that run at once, the fork's
@@ -66,14 +66,15 @@ distribution; a host other than Fedora is refused, since the image's binaries ne
 libraries, and builds by hand instead. CI's `tools.check ci` runs `all` in the same image on the
 pinned Fedora 44, with systemd as PID 1 for the tests.
 
-PyroWave and librashader are not built in a build tree. `deps` builds `cmake/thirdparty` once per
-pinned revision and toolchain into a prefix of their own,
+PyroWave, librashader and the Gamescope fork are not built in a build tree. `deps` builds
+`cmake/thirdparty` once per pinned revision, toolchain and build image into a prefix of their own,
 `~/.local/share/opensu-thirdparty/<platform>-<digest>` (the digest covers `cmake/thirdparty`, the
-pins in `cmake/ThirdParty.cmake`, `cmake/toolchains`, the compiler arguments and versions and
-`rustc -vV`), and `configure` hands it to CMake as `CMAKE_PREFIX_PATH`, where
-`find_package(OpensuPyroWave)` and `find_package(OpensuLibrashader)` find them; every build tree and
-checkout with the same pins and compilers shares it. An Android build does the same per ABI with
-the NDK's toolchain.
+pins in `cmake/ThirdParty.cmake`, `cmake/toolchains`, the compiler arguments and versions, the
+build image's tag, which each image's run names in `OPENSU_BUILD_IMAGE`, and `rustc -vV`), and
+`configure` hands it to CMake as `CMAKE_PREFIX_PATH`, where `find_package(OpensuPyroWave)`,
+`find_package(OpensuLibrashader)` and `find_package(OpensuGamescope)` find them; every build tree
+and checkout with the same pins, compilers and image shares it. An Android build does the same per
+ABI with the NDK's toolchain.
 
 The tool checks the checkout its own code is in, which `python -m` takes from the current
 directory, so another checkout is named with `uv run --frozen --directory <checkout> python -m
@@ -93,7 +94,8 @@ git clone https://github.com/SomeoneIsWorking/gpu2d.git
 Then point openSU at both (`LUCENT_ROOT` defaults to `$HOME/repo/lucent`, `GPU2D_ROOT` to
 `$HOME/repo/gpu2d`)
 
-and at a prefix holding PyroWave and librashader, which `cmake/thirdparty` builds:
+and at a prefix holding PyroWave, librashader and the Gamescope fork, which `cmake/thirdparty`
+builds (the fork needs Gamescope's build dependencies, `sudo dnf builddep gamescope` on Fedora):
 
 ```sh
 cmake -S cmake/thirdparty -B build/thirdparty -G Ninja -DCMAKE_C_COMPILER=clang \
@@ -119,20 +121,14 @@ control channel.
 ## The Gamescope fork
 
 The nested session (openSU started on a desktop) runs openSU's own pinned
-[Gamescope fork](https://github.com/SomeoneIsWorking/gamescope) (branch `opensu`), built by
-`cmake/Gamescope.cmake` from a fixed commit. It adds `--close-focused-window`, so Alt+F4 in KDE
-closes the game instead of ending the session, and openSU's frame generation. `tools.check` builds
-it natively in its build image (`OPENSU_GAMESCOPE_BUILD_ENV=native`, with `OPENSU_GAMESCOPE_JOBS`
-from `--jobs`). A build by hand runs meson and ninja inside a rootless podman container of their
-own, so the host needs no Gamescope build dependencies, only podman (`sudo dnf install podman`) and
-the network once. That container image
-(`packaging/gamescope-build/Containerfile`) is the host's own Fedora release plus
-`dnf builddep gamescope`, clang, meson, ninja and glslang, tagged by the Containerfile's hash; the
-first `cmake --build` pulls and builds it (a few GB of image, several minutes), clones the commit
-and its submodules, and builds the fork. Afterwards nothing is rebuilt until the Containerfile
-changes. Only Fedora hosts are supported; configure refuses elsewhere. The staged binary's runtime
-libraries are checked on the host with `ldd`; `sudo dnf install gamescope` installs any that are
-missing.
+[Gamescope fork](https://github.com/SomeoneIsWorking/gamescope) (branch `opensu`), pinned in
+`cmake/ThirdParty.cmake`. It adds `--close-focused-window`, so Alt+F4 in KDE closes the game
+instead of ending the session, and openSU's frame generation. The shared third-party prefix builds
+it (`cmake/thirdparty/Gamescope.cmake`: meson, release, Clang, only `src/gamescope`) in the build
+image, which has its build dependencies, with `--jobs` capping the fork's ninja; a build tree only
+copies the binary (`cmake/Gamescope.cmake`), so a second tree builds none of it and a pin or image
+change builds it once more in a new prefix. The staged binary's runtime libraries are checked with
+`ldd`; `sudo dnf install gamescope` installs any that are missing.
 
 To work on the rest of openSU without the fork, configure with `-DOPENSU_BUILD_GAMESCOPE=OFF`; the
 nested session then refuses to start and says so. `cmake --install` puts the binary at

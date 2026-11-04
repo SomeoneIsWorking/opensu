@@ -1075,20 +1075,12 @@ from the primary plane's format, as KWin's desktop output (S010). New atoms `_GE
 kept as an explicit test choice), `_PERFORMANCE` and `_FLOW_SCALE` (percent). Verified headless:
 motion-interpolated frames with fixed 2x and adaptive 43 to 60, unchanged pacing, no validation
 message from the generator, GPU time per generated frame (`docs/issues/adaptive-lsfg-vk.md`,
-"Lossless generator"). openSU sets the atoms for the game in front (below). `cmake/Gamescope.cmake` builds the pin
-as an ExternalProject (meson, release, Clang; the layer and the tests are off) whose
-configure and build steps run in a rootless podman container built from
-`packaging/gamescope-build/Containerfile` (host's Fedora release, `dnf builddep gamescope`;
-image tagged by the Containerfile hash), then checks the staged binary with `ldd` on the host
-(Fedora hosts only; no host-build fallback; `OPENSU_GAMESCOPE_BUILD_ENV=native` runs meson directly
-inside an environment prepared for it, CI's Fedora 44 job container and the AppImage's Ubuntu 24.04
-build container) and stages it where `Config::gamescope` finds it, in the build
-tree and installed. A pin change fetches the commit into the existing clone
-(`cmake/GitFetchPin.cmake`, before the disconnected update that would refuse it) and runs
-`meson setup --reconfigure`, so the version header (`git describe`) follows the pin. Verified in a
-scratch tree configured at `41e84d4f` with the new pin absent from its clone: the bump fetched,
-rebuilt and reported `3.16.29-4-geea763bd`, and the unchanged rebuild after it had no work; the
-bump to `79db8c0d` did the same in `build/clang` (`3.16.29-7-g79db8c0d`).
+"Lossless generator"). openSU sets the atoms for the game in front (below). The shared third-party prefix builds the pin
+(`cmake/thirdparty/Gamescope.cmake`: meson, release, Clang; the layer and the tests are off) once
+per pin, toolchain and build image, in the build image that has its dependencies; a build tree
+copies the binary to where `Config::gamescope` finds it and checks it with `ldd`
+(`cmake/Gamescope.cmake`), in the build tree and installed. A pin change is a new prefix, cloned
+afresh, so the version header (`git describe`) follows the pin.
 
 With no game running, the focused app window is openSU's own, so Alt+F4 reaches
 SDL as a window close request: `ShellWindow::pollEvents` returns false, which ends the frame loop in

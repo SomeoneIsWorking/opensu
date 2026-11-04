@@ -1,11 +1,12 @@
-"""The pinned third-party libraries (PyroWave with Granite, librashader) in a shared prefix outside
-every build tree: cmake/thirdparty built once per revision and toolchain, which openSU trees find
-through `CMAKE_PREFIX_PATH`.
+"""The pinned third-party code (PyroWave with Granite, librashader, the Gamescope fork on Linux)
+in a shared prefix outside every build tree: cmake/thirdparty built once per revision, toolchain
+and build image, which openSU trees find through `CMAKE_PREFIX_PATH`.
 
 A prefix is named for the platform and a digest of what decides its contents: cmake/thirdparty,
-cmake/ThirdParty.cmake (the pins) and cmake/toolchains, the toolchain's CMake arguments, each
-compiler's `--version` and `rustc -vV`. It is built in a directory of its own beside it and moved
-into place whole, so a reader never sees half of one and two builds of the same one cannot mix.
+cmake/ThirdParty.cmake (the pins) and cmake/toolchains, the toolchain's CMake arguments, the build
+image it is built in (Linux), each compiler's `--version` and `rustc -vV`. It is built in a
+directory of its own beside it and moved into place whole, so a reader never sees half of one and
+two builds of the same one cannot mix.
 """
 
 import hashlib
@@ -26,16 +27,20 @@ TOOLCHAINS = REPO / "cmake" / "toolchains"
 DEFAULT_ROOT = Path.home() / ".local" / "share" / "opensu-thirdparty"
 # Written last, so its presence says the prefix is whole.
 COMPLETE = "complete.txt"
+# The build image a Linux step runs in names itself here (tools/check/container.py, the AppImage's).
+IMAGE_VARIABLE = "OPENSU_BUILD_IMAGE"
 
 
 @dataclass(frozen=True)
 class Toolchain:
     """What a prefix is built with: the platform, the CMake arguments naming the compilers or
-    toolchain file, and the compilers whose versions it depends on."""
+    toolchain file, the compilers whose versions it depends on and the build image it is built in
+    (empty where there is none)."""
 
     platform: str
     arguments: Sequence[str]
     compilers: Sequence[str] = ()
+    image: str = ""
 
 
 def _version(command: Sequence[str], env: Mapping[str, str]) -> str:
@@ -62,6 +67,8 @@ def identity(toolchain: Toolchain, env: Mapping[str, str]) -> str:
     # Paths into the checkout are named relative to it, so every checkout shares one prefix.
     arguments = [arg.replace(str(REPO), "<checkout>") for arg in toolchain.arguments]
     lines = [f"platform {toolchain.platform}", *(f"argument {arg}" for arg in arguments)]
+    if toolchain.image:
+        lines.append(f"image {toolchain.image}")
     files = [PINS, *(p for d in (SOURCE, TOOLCHAINS) for p in d.rglob("*") if p.is_file())]
     for path in sorted(files):
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -89,7 +96,8 @@ def require(toolchain: Toolchain, env: Mapping[str, str], root: Path = DEFAULT_R
 def ensure(
     toolchain: Toolchain, env: Mapping[str, str], jobs: int, root: Path = DEFAULT_ROOT
 ) -> Path:
-    """The prefix for `toolchain`, built first when it is missing."""
+    """The prefix for `toolchain`, built first when it is missing, with `jobs` compilers at once
+    (the Gamescope fork's ninja included)."""
     path = prefix(toolchain, env, root)
     if (path / COMPLETE).is_file():
         print(f"+ third-party prefix {path} (built)", flush=True)
@@ -104,7 +112,7 @@ def ensure(
         [
             "cmake", "-S", SOURCE, "-B", build_dir, "-G", "Ninja",
             "-DCMAKE_BUILD_TYPE=Release", f"-DCMAKE_INSTALL_PREFIX={stage}",
-            *toolchain.arguments,
+            f"-DOPENSU_GAMESCOPE_JOBS={jobs}", *toolchain.arguments,
         ],
         build_env,
     )  # fmt: skip

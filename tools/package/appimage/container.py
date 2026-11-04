@@ -4,7 +4,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from tools import podman
-from tools.check import process
+from tools.check import process, thirdparty
 from tools.checkout import REPO
 from tools.package.appimage import config
 
@@ -40,6 +40,7 @@ def run_in(
         "podman", "run", "--rm", "--userns=keep-id", "--security-opt", "label=disable",
         "-v", f"{REPO}:{REPO}", "-w", REPO,
         "-e", f"HOME={home}",
+        "-e", f"{thirdparty.IMAGE_VARIABLE}={tag}",
         "-e", f"UV_CACHE_DIR={layout.root / 'uv-cache'}",
         "-e", f"UV_PROJECT_ENVIRONMENT={layout.root / 'venv'}",
     ]  # fmt: skip

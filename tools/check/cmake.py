@@ -11,20 +11,22 @@ from tools.check import deps, macos, process, thirdparty, windows
 from tools.check.deps import Deps
 from tools.checkout import REPO
 
-GAMESCOPE_MODES = ("native", "off")
+GAMESCOPE_MODES = ("on", "off")
 PLATFORMS = ("linux", "windows", "macos")
 DEFAULT_JOBS = os.cpu_count() or 1
 
 
 @dataclass(frozen=True)
 class Plan:
-    """One build tree: where it lives, the OS it builds for, what it builds against, how the
-    fork is built (Linux only) and how many compilers or clang-tidy processes run at once."""
+    """One build tree: where it lives, the OS it builds for, what it builds against, whether it
+    stages the Gamescope fork and with which extra meson options the prefix builds it (Linux only),
+    and how many compilers or clang-tidy processes run at once."""
 
     build_dir: Path
     deps: Deps
     platform: str = "linux"
-    gamescope: str = "native"
+    gamescope: str = "on"
+    gamescope_meson_options: str = ""
     build_type: str = "RelWithDebInfo"
     install_prefix: str = "/usr/local"
     defines: Sequence[str] = field(default_factory=tuple)
@@ -48,10 +50,17 @@ class Plan:
             defines = macos.compiler_defines(env)
             compilers = [d.split("=", 1)[1] for d in defines if "_COMPILER=" in d]
             return thirdparty.Toolchain("macos-arm64", defines, compilers)
+        image = env.get(thirdparty.IMAGE_VARIABLE, "")
+        if not image:
+            raise RuntimeError(
+                f"Linux steps run in a build image, which names itself in "
+                f"{thirdparty.IMAGE_VARIABLE}; run them through tools.check or tools.package"
+            )
+        arguments = ["-DCMAKE_C_COMPILER=clang", "-DCMAKE_CXX_COMPILER=clang++"]
+        if self.gamescope_meson_options:
+            arguments.append(f"-DOPENSU_GAMESCOPE_MESON_OPTIONS={self.gamescope_meson_options}")
         return thirdparty.Toolchain(
-            f"linux-{platform.machine()}",
-            ["-DCMAKE_C_COMPILER=clang", "-DCMAKE_CXX_COMPILER=clang++"],
-            ["clang", "clang++"],
+            f"linux-{platform.machine()}", arguments, ["clang", "clang++"], image
         )
 
     def configure_args(self, env: Mapping[str, str]) -> list[str]:
@@ -98,14 +107,7 @@ class Plan:
             f"-DGPU2D_ROOT={self.deps.gpu2d}",
             found,
         ]
-        if self.gamescope == "off":
-            args.append("-DOPENSU_BUILD_GAMESCOPE=OFF")
-        else:
-            args += [
-                "-DOPENSU_BUILD_GAMESCOPE=ON",
-                f"-DOPENSU_GAMESCOPE_BUILD_ENV={self.gamescope}",
-                f"-DOPENSU_GAMESCOPE_JOBS={self.jobs}",
-            ]
+        args.append(f"-DOPENSU_BUILD_GAMESCOPE={'ON' if self.gamescope == 'on' else 'OFF'}")
         args += list(self.defines)
         return args
 

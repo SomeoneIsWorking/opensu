@@ -1,5 +1,5 @@
-# The third-party libraries openSU builds against through the shared prefix (cmake/thirdparty):
-# their pinned commits, which that build reads too, and finding them there.
+# The third-party code openSU builds against or ships through the shared prefix (cmake/thirdparty):
+# the pinned commits, which that build reads too, and finding them there.
 
 set(OPENSU_PYROWAVE_REPOSITORY "https://github.com/SomeoneIsWorking/pyrowave.git")
 set(OPENSU_PYROWAVE_COMMIT "92014b63d5db0e15dca4fb1e301e0b784cd290da")
@@ -7,6 +7,8 @@ set(OPENSU_GRANITE_REPOSITORY "https://github.com/Themaister/Granite.git")
 set(OPENSU_GRANITE_COMMIT "53090429539bf3404250d18fe58db971f0907c04")
 set(OPENSU_LIBRASHADER_REPOSITORY "https://github.com/SomeoneIsWorking/librashader.git")
 set(OPENSU_LIBRASHADER_COMMIT "41211fab77a19f4387d55ffffcb713ca1db7cf32")
+set(OPENSU_GAMESCOPE_REPOSITORY "https://github.com/SomeoneIsWorking/gamescope.git")
+set(OPENSU_GAMESCOPE_COMMIT "7bc32a74efb9525e07f215e7326d418247c74021")
 
 # Finds `package` (its variables set in the caller's scope); a prefix built from other pins is
 # refused rather than shipped.

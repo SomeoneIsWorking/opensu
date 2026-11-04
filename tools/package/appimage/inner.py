@@ -15,11 +15,11 @@ def plan_for(layout: config.Layout, version: str) -> cmake.Plan:
     return cmake.Plan(
         build_dir=layout.root,
         deps=deps.Deps(layout.deps),
-        gamescope="native",
+        gamescope="on",
+        gamescope_meson_options=config.GAMESCOPE_MESON_OPTIONS,
         build_type="Release",
         install_prefix="/usr",
         defines=(
-            f"-DOPENSU_GAMESCOPE_MESON_OPTIONS={config.GAMESCOPE_MESON_OPTIONS}",
             "-DOPENSU_DESKTOP_EXEC=opensu",
             f"-DOPENSU_VERSION={version}",
             # The host's libavcodec is another library version on each distribution.

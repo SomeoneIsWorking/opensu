@@ -62,8 +62,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--gamescope",
         choices=cmake.GAMESCOPE_MODES,
-        default="native",
-        help="native builds the Gamescope fork in the build image (default), off leaves it out",
+        default="on",
+        help="on stages the shared prefix's Gamescope fork in the tree (default), off omits it",
     )
     parser.add_argument(
         "--prefix",

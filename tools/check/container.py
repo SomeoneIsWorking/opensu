@@ -113,6 +113,7 @@ def run_step(
         "podman", "run", "--rm", "--userns=keep-id", "--security-opt", "label=disable",
         "-w", str(REPO), *_tree_mounts(build_dir), *mounts,
         "-e", f"HOME={Path.home()}",
+        "-e", f"{thirdparty.IMAGE_VARIABLE}={tag}",
         "-e", f"CARGO_HOME={build_dir / 'cargo'}",
         "-e", f"UV_CACHE_DIR={build_dir / 'uv-cache'}",
         "-e", f"UV_PROJECT_ENVIRONMENT={build_dir / 'venv'}",
@@ -123,7 +124,7 @@ def run_step(
 
 
 def run_all(build_dir: Path, jobs: int, env: Mapping[str, str]) -> None:
-    """`tools.check all --gamescope native` in the image on the pinned Fedora, against this
+    """`tools.check all --gamescope on` in the image on the pinned Fedora, against this
     checkout, on the caller's display for the tests' hidden windows."""
     tag = ensure_image(env)
     uid = os.getuid()
@@ -144,11 +145,12 @@ def run_all(build_dir: Path, jobs: int, env: Mapping[str, str]) -> None:
             str(uid),
             [
                 "env", f"HOME={home}", f"XDG_RUNTIME_DIR={runtime}",
+                f"{thirdparty.IMAGE_VARIABLE}={tag}",
                 f"DBUS_SESSION_BUS_ADDRESS=unix:path={runtime}/bus",
                 f"UV_CACHE_DIR={build_dir / 'uv-cache'}",
                 f"UV_PROJECT_ENVIRONMENT={build_dir / 'venv'}",
                 "uv", "run", "--frozen", "python", "-m", "tools.check", "all", "--in-build-image",
-                "--gamescope", "native", "--build-dir", str(build_dir), "--jobs", str(jobs),
+                "--gamescope", "on", "--build-dir", str(build_dir), "--jobs", str(jobs),
             ],
             env,
         )  # fmt: skip
