@@ -101,7 +101,7 @@ std::vector<Source> stores(std::initializer_list<Source> list) {
 }
 
 void testHomeShelf() {
-    const std::vector<ShelfItem> home = opensu::library::homeShelf(library(), {});
+    const std::vector<ShelfItem> home = opensu::library::homeShelf(library(), {}, {}, {});
     // Hades (Steam), Celeste (Epic), Only Steam: the installed titles, each once.
     expect(home.size() == 3, "Home holds only the installed titles");
     expect(gameAt(home, 0)->id == "steam:hades" && gameAt(home, 1)->id == "epic:celeste" &&
@@ -114,7 +114,8 @@ void testHomeShelf() {
                                     return std::get<Game>(item).source == Source::Rom;
                                 }),
            "no ROM and no folder is on Home");
-    expect(opensu::library::homeShelf({}, {}).empty(), "nothing installed is an empty Home");
+    expect(opensu::library::homeShelf({}, {}, {}, {}).empty(),
+           "nothing installed is an empty Home");
 }
 
 void testHomeChoices() {
@@ -124,7 +125,7 @@ void testHomeChoices() {
     opensu::library::setOnHome(games, Console{"ps2", "PlayStation 2", 2}, true, choices);
     opensu::library::setOnHome(games, games.at(9), true, choices);
     opensu::library::setOnHome(games, games.at(4), false, choices);
-    const std::vector<ShelfItem> home = opensu::library::homeShelf(games, choices);
+    const std::vector<ShelfItem> home = opensu::library::homeShelf(games, {}, {}, choices);
     // PS2, then Hades, the GC ROM, Celeste, Tunic in the games' order; Only Steam taken off.
     expect(home.size() == 5 && consoleAt(home, 0) != nullptr &&
                consoleAt(home, 0)->system == "ps2" && gameAt(home, 1)->id == "steam:hades" &&
@@ -148,6 +149,23 @@ void testHomeChoices() {
 /// The add tiles the shell passes: Add a game alone.
 std::vector<AddTile> oneAdd() {
     return {AddTile{"add-game", "Add a game", "A file"}};
+}
+
+void testEmptyHome() {
+    const std::vector<SourceStatus> listed{{Source::Rom, Availability::Ready, {}}};
+    const std::vector<ShelfItem> empty = opensu::library::homeShelf({}, listed, oneAdd(), {});
+    expect(empty.size() == 1 && std::get<AddTile>(empty.at(0)) == oneAdd().at(0),
+           "a Home with nothing on it holds the add tiles");
+    const std::vector<SourceStatus> loading{{Source::Steam, Availability::Loading, {}}};
+    expect(opensu::library::homeShelf({}, loading, oneAdd(), {}).empty(),
+           "but not while a store's first listing is still out");
+    const std::vector<ShelfItem> home = opensu::library::homeShelf(library(), listed, oneAdd(), {});
+    expect(home.size() == 3 &&
+               std::ranges::none_of(home,
+                                    [](const ShelfItem& item) {
+                                        return std::holds_alternative<AddTile>(item);
+                                    }),
+           "a Home with a game leaves the add tiles to Library");
 }
 
 void testLibraryShelf() {
@@ -215,8 +233,8 @@ void testLibraryLaunchers() {
                std::get<AllGames>(ownOnly.at(2)).games == 1,
            "the player's own games are a launcher without Giveaways, and in All games");
     expect(
-        opensu::library::homeShelf({game(Source::Own, "own:1", "1", "Celeste", true)}, {}).size() ==
-            1,
+        opensu::library::homeShelf({game(Source::Own, "own:1", "1", "Celeste", true)}, {}, {}, {})
+                .size() == 1,
         "an added game is on Home");
 }
 
@@ -417,7 +435,7 @@ void testRemoteHosts() {
     expect(held.size() == 2 && gameAt(held, 0)->id == "lan:bb:a" &&
                gameAt(held, 1)->id == "lan:bb:c",
            "it holds that openSU's games only");
-    expect(opensu::library::homeShelf(games, {}).size() == 1,
+    expect(opensu::library::homeShelf(games, {}, {}, {}).size() == 1,
            "Home leaves them to their launchers");
 }
 
@@ -425,6 +443,7 @@ int main() try {
     try {
         testHomeShelf();
         testHomeChoices();
+        testEmptyHome();
         testLibraryShelf();
         testLibraryLaunchers();
         testConsoleShelf();

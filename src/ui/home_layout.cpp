@@ -20,8 +20,6 @@ constexpr float wiiSuMinPageCellScale = 0.92f;
 constexpr int wiiSuMinColumns = 3;
 // Rounding slack when counting the rows that fit, so an exact fit is not lost to float error.
 constexpr float rowFitSlack = 0.001f;
-// iiSU ou4.q: placeholders fill at least 4 viewports.
-constexpr int minSlotPages = 4;
 
 /// coerceIn, which is what iiSU's gk2.C is.
 float clampTo(float value, float low, float high) noexcept {
@@ -99,7 +97,7 @@ int HomeLayout::wiiSuPageColumns(const WiiSuPageInput& page) noexcept {
 
 HomeLayout::HomeLayout(const HomeLayoutInput& input)
     : mode_{input.mode}, width_{std::max(input.width, 1.0f)}, height_{std::max(input.height, 1.0f)},
-      dp_{input.dp}, items_{input.items}, fillSlots_{input.fillSlots} {
+      dp_{input.dp}, items_{input.items} {
     const bool paged = mode_ == ScrollMode::Paged;
     // iiSU zj2 subtracts WiiSu's content padding when it counts columns; hx2.g lays the grid out
     // without it (reference capture: WiiSu and Standard grids start at the same y).
@@ -172,20 +170,15 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
         const std::size_t perPage =
             static_cast<std::size_t>(columns_) * static_cast<std::size_t>(rows_);
         pageCount_ = slotPages(perPage);
-        slots_ = slotsFor(perPage);
+        slots_ = slotsFor();
     } else {
-        // iiSU ou4.q: a Flow page is the persisted viewport as vj2.M clamps it.
-        const auto perPage = static_cast<std::size_t>(clampTo(input.rows, 2, 6)) *
-                             static_cast<std::size_t>(clampTo(input.columns, 2, 8));
-        slots_ = slotsFor(perPage);
-        if (!fillSlots_) {
-            // Fewer items than a screen holds take only the rows they need, so they spread across
-            // the screen instead of stacking in its first column.
-            const auto across = static_cast<std::size_t>(
-                std::max((viewportWidth_ + gap_) / (cellWidth_ + gap_), 1.0f));
-            const auto needed = static_cast<int>((slots_ + across - 1) / across);
-            rows_ = clampTo(needed, 1, rows_);
-        }
+        slots_ = slotsFor();
+        // Fewer items than a screen holds take only the rows they need, so they spread across the
+        // screen instead of stacking in its first column.
+        const auto across =
+            static_cast<std::size_t>(std::max((viewportWidth_ + gap_) / (cellWidth_ + gap_), 1.0f));
+        const auto needed = static_cast<int>((slots_ + across - 1) / across);
+        rows_ = clampTo(needed, 1, rows_);
         // iiSU hx2.g: a horizontal flow has as many columns as the slots need.
         columns_ = std::max(1, static_cast<int>((slots_ + static_cast<std::size_t>(rows_) - 1) /
                                                 static_cast<std::size_t>(rows_)));
@@ -202,15 +195,13 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
 }
 
 int HomeLayout::slotPages(std::size_t perPage) const noexcept {
-    // iiSU ou4.q: every page up to the one holding the last item, and at least four.
+    // Every page up to the one holding the last item; iiSU ou4.q's four-page minimum of empty
+    // slots is left out, so a shelf never ends in blank tiles.
     const std::size_t used = items_ == 0 ? 0 : (items_ - 1) / perPage + 1;
-    return std::max(fillSlots_ ? minSlotPages : 1, static_cast<int>(used));
+    return std::max(1, static_cast<int>(used));
 }
 
-std::size_t HomeLayout::slotsFor(std::size_t perPage) const noexcept {
-    if (fillSlots_) {
-        return static_cast<std::size_t>(slotPages(perPage)) * perPage;
-    }
+std::size_t HomeLayout::slotsFor() const noexcept {
     // An empty grid keeps one slot so focus always has a cell.
     return std::max<std::size_t>(items_, 1);
 }

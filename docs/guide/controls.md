@@ -27,8 +27,11 @@ everywhere, and on Android touch: a click or tap focuses and presses.
 ## Home and Library
 
 Home holds every store game and game of your own installed on this computer, plus whatever you
-add to it; Library holds everything: the stores, Giveaways, Add a game, All games and one tile per
-console.
+add to it; Library holds everything: the stores, Giveaways, the add tiles (Add a game, Add a ROM
+folder, Set up <integration>), All games and one tile per console.
+
+- While Home has nothing on it, as on a fresh start, it shows the add tiles too. Once a game or
+  console is on Home they leave it and stay in Library.
 
 - **Add to Home** puts any game on Home (a ROM, a game not installed yet, a game on another openSU
   on the LAN) or a console, which opens its ROMs from Home as it does in Library. **Remove from

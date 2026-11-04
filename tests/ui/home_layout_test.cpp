@@ -29,12 +29,10 @@ HomeLayoutInput window(std::size_t items, ScrollMode mode) {
 void defaultViewport() {
     const HomeLayout layout{window(12, ScrollMode::Flow)};
     expect(layout.rows() == 3, "the default viewport has 3 rows");
-    expect(layout.slotCount() == 48, "empty slots fill four 3 x 4 viewports");
-    expect(layout.columns() == 16, "48 slots in 3 rows make 16 columns");
-    const HomeLayout full{window(49, ScrollMode::Flow)};
-    expect(full.slotCount() == 60, "49 items take a fifth viewport, filled with empty slots");
+    expect(layout.slotCount() == 12, "the grid holds its items and no empty slots");
+    expect(layout.columns() == 4, "12 slots in 3 rows make 4 columns");
     const HomeLayout empty{window(0, ScrollMode::Flow)};
-    expect(empty.slotCount() == 48, "an empty grid still shows four viewports of slots");
+    expect(empty.slotCount() == 1, "an empty grid keeps one cell for focus");
     near(layout.cellWidth(), layout.cellHeight(), "cells are square");
     expect(HomeLayout::clampRows(0) == 1, "rows are at least 1");
     expect(HomeLayout::clampRows(9) == 6, "rows are at most 6");
@@ -44,7 +42,6 @@ void defaultViewport() {
 void iconSizeScalesTheCells() {
     for (const ScrollMode mode : {ScrollMode::Flow, ScrollMode::Paged}) {
         HomeLayoutInput input = window(60, mode);
-        input.fillSlots = false;
         const HomeLayout base{input};
         input.iconLevel = opensu::ui::defaultIconLevel;
         const HomeLayout same{input};
@@ -85,7 +82,6 @@ void iconSizeScalesTheCells() {
 void iconSizeKeepsHitTestsAndWindowsConsistent() {
     for (const int level : {1, 5, 14, 20}) {
         HomeLayoutInput input = window(80, ScrollMode::Flow);
-        input.fillSlots = false;
         input.iconLevel = level;
         const HomeLayout layout{input};
         const opensu::ui::SlotRange seen = layout.visibleSlots(0.0f, 1280.0f);
@@ -105,7 +101,6 @@ void iconSizeKeepsHitTestsAndWindowsConsistent() {
 
 void categoryLevel() {
     HomeLayoutInput input = window(5, ScrollMode::Flow);
-    input.fillSlots = false;
     const HomeLayout layout{input};
     expect(layout.slotCount() == 5, "the category level holds its five consoles and no slots");
     expect(layout.rows() == 1 && layout.columns() == 5,
@@ -125,7 +120,7 @@ void gapRule() {
 }
 
 void flowMetrics() {
-    const HomeLayout layout{window(39, ScrollMode::Flow)};
+    const HomeLayout layout{window(48, ScrollMode::Flow)};
     // Hand-computed from hx2.g: inset 12, padding 12.8, content 674.4, gap refined twice.
     near(layout.viewportX(), 12.0f, "the flow inset is 8 dp");
     near(layout.gap(), 24.91008f, "gap after two refinements");
@@ -175,8 +170,8 @@ void flowScrollKeepsFocusVisible() {
 void paged() {
     const HomeLayout layout{window(37, ScrollMode::Paged)};
     expect(layout.columns() == 5, "WiiSu sizes this window to 5 columns");
-    expect(layout.pageCount() == 4, "37 items in 15-slot pages show at least 4 pages");
-    expect(layout.slotCount() == 60, "every page is whole");
+    expect(layout.pageCount() == 3, "37 items in 15-slot pages take 3 pages");
+    expect(layout.slotCount() == 37, "the last page holds only its items");
     expect(HomeLayout{window(61, ScrollMode::Paged)}.pageCount() == 5,
            "61 items need a fifth page");
     expect(layout.pageOf(14) == 0 && layout.pageOf(15) == 1 && layout.pageOf(36) == 2,
@@ -218,7 +213,7 @@ void columnGrowth() {
 
 void pill() {
     expect(HomeLayout{window(37, ScrollMode::Flow)}.pagePill(0).dots.empty(), "no pill in Flow");
-    const opensu::ui::PagePill pill = HomeLayout{window(37, ScrollMode::Paged)}.pagePill(1);
+    const opensu::ui::PagePill pill = HomeLayout{window(60, ScrollMode::Paged)}.pagePill(1);
     // 800 / 1.5 = 533 dp short side, so not compact: 25 dp tall, 9 dp padding, 10 dp slots.
     near(pill.body.height, 37.5f, "pill is 25 dp tall");
     near(pill.body.width, 111.75f, "pill hugs four dots");
@@ -247,21 +242,22 @@ void pill() {
 void referenceCapture() {
     // iiSU in the emulator at 1920 x 1080, 2.25 px/dp, 853 x 456 dp after the status bar; grid
     // insets are TopBarMetrics' 69.29 and 68.94 dp. Edges measured from the captures, +-1.5 px.
-    const auto at = [](ScrollMode mode) {
+    const auto at = [](ScrollMode mode, std::size_t items) {
         return HomeLayout{HomeLayoutInput{.width = 1920.0f,
                                           .height = 1080.0f,
                                           .dp = 2.25f,
-                                          .items = 0,
+                                          .items = items,
                                           .mode = mode,
                                           .topInset = 69.29424f * 2.25f,
                                           .bottomInset = 68.93672f * 2.25f}};
     };
-    const HomeLayout standard = at(ScrollMode::Flow);
+    // Enough items for 3 rows, and for 4 WiiSu pages of 7 x 3.
+    const HomeLayout standard = at(ScrollMode::Flow, 48);
     near(standard.canvasRect(0, 0.0f).x, 18.0f, "Standard: first column at x 18", 1.5);
     near(standard.canvasRect(0, 0.0f).y, 173.5f, "Standard: first row at y 173.5", 1.5);
     near(standard.cellWidth(), 226.0f, "Standard: 226 px cells", 1.5);
     near(standard.cellWidth() + standard.gap(), 253.7f, "Standard: 253.7 px pitch", 1.5);
-    const HomeLayout wiisu = at(ScrollMode::Paged);
+    const HomeLayout wiisu = at(ScrollMode::Paged, 84);
     expect(wiisu.columns() == 7, "WiiSu: 7 columns a page");
     expect(wiisu.pageCount() == 4, "WiiSu: 4 pages");
     near(wiisu.canvasRect(0, 0.0f).x, 94.5f, "WiiSu: page starts at x 94.5", 1.5);
@@ -274,7 +270,7 @@ void arrows() {
     expect(!HomeLayout{window(37, ScrollMode::Flow)}.pageArrows(0).next, "no arrows in Flow");
     // 1920 x 1080 at 2.25 px/dp, as iiSU's reference capture: 64 x 96 px, 26 px from the edge.
     const HomeLayout layout{HomeLayoutInput{
-        .width = 1920.0f, .height = 1080.0f, .dp = 2.25f, .items = 0, .mode = ScrollMode::Paged}};
+        .width = 1920.0f, .height = 1080.0f, .dp = 2.25f, .items = 84, .mode = ScrollMode::Paged}};
     const opensu::ui::PageArrows first = layout.pageArrows(0);
     expect(!first.previous, "the first page only points on");
     if (!first.next) {
@@ -306,11 +302,13 @@ void slotsUnderThePointer() {
            "the gap between cells hits none");
     expect(!layout.slotAt(scroll, first.x - 1.0f, first.centreY()), "nor does the margin");
     // Scrolled until it is on the canvas.
-    const float placeholderScroll = layout.canvasRect(40, scroll).x - 200.0f;
-    const opensu::ui::Rect placeholder = layout.canvasRect(40, placeholderScroll);
-    const auto empty =
-        layout.slotAt(placeholderScroll, placeholder.centreX(), placeholder.centreY());
-    expect(empty && *empty == 40, "an empty slot is hit like a tile");
+    const float lastScroll = layout.canvasRect(36, scroll).x - 200.0f;
+    const opensu::ui::Rect last = layout.canvasRect(36, lastScroll);
+    const auto end = layout.slotAt(lastScroll, last.centreX(), last.centreY());
+    expect(end && *end == 36, "the last slot is hit once scrolled to");
+    expect(
+        !layout.slotAt(lastScroll, last.right() + layout.gap() + last.width * 0.5f, last.centreY()),
+        "past the last item there is no slot");
     const opensu::ui::Rect scrolled = layout.canvasRect(0, 100.0f);
     const auto moved = layout.slotAt(100.0f, scrolled.centreX(), scrolled.centreY());
     expect(moved && *moved == 0, "the scroll offset moves the cells");
@@ -365,7 +363,7 @@ void visibleWindowIsSmallWhateverTheLibrary() {
         expect(hit && *hit == seen.first, "hit-testing finds a visible slot");
     }
     const HomeLayout empty{window(0, ScrollMode::Flow)};
-    expect(empty.visibleSlots(0.0f, 1280.0f).size() > 0, "an empty grid still shows its slots");
+    expect(empty.visibleSlots(0.0f, 1280.0f).size() == 1, "an empty grid shows its one cell");
 }
 
 } // namespace

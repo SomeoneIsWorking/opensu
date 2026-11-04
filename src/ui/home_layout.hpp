@@ -99,15 +99,11 @@ struct HomeLayoutInput {
     float dp{1.0f};
     std::size_t items{};
     ScrollMode mode{ScrollMode::Flow};
-    /// The persisted viewport (iiSU wx2).
+    /// The persisted viewport's rows (iiSU wx2).
     int rows{3};
-    int columns{4};
     /// Space the shell's own chrome takes at the top and bottom, in pixels.
     float topInset{};
     float bottomInset{};
-    /// Whether empty cells are placeholder slots filling at least four pages (Home), or the grid
-    /// holds only its items (the ROMs category level, navigation.md 5.2).
-    bool fillSlots{true};
     /// iiSU's icon size level. Away from the default the cells are that much larger or smaller
     /// and as many rows are laid out as fit, up to 6.
     int iconLevel{defaultIconLevel};
@@ -196,7 +192,7 @@ class HomeLayout {
     [[nodiscard]] float pageSidePadding() const noexcept {
         return pageSidePadding_;
     }
-    /// Every cell the grid shows, filled or not: whole pages, at least four of them.
+    /// Every cell the grid shows: one per item, and one when there are none.
     [[nodiscard]] std::size_t slotCount() const noexcept;
 
     /// The lane cell of a slot: column-major, page by page.
@@ -244,8 +240,8 @@ class HomeLayout {
     [[nodiscard]] float compactness() const noexcept;
     [[nodiscard]] Rect arrowRect(bool previous) const noexcept;
     [[nodiscard]] int slotPages(std::size_t perPage) const noexcept;
-    /// How many slots the grid holds: every cell of its pages, or just the items.
-    [[nodiscard]] std::size_t slotsFor(std::size_t perPage) const noexcept;
+    /// How many slots the grid holds: its items, and one cell when it has none.
+    [[nodiscard]] std::size_t slotsFor() const noexcept;
     void computeMaxScroll();
 
     ScrollMode mode_;
@@ -267,7 +263,6 @@ class HomeLayout {
     int pageCount_{1};
     float pageStride_{};
     float pageSidePadding_{};
-    bool fillSlots_;
 };
 
 } // namespace opensu::ui

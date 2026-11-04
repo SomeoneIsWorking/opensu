@@ -36,9 +36,16 @@ Visible deltas from the baseline:
 - Delta from iiSU, deliberate: while a finger or mouse gave the latest input the shell shows a
   Back button before the trail and a Menu button before the status pill, and its hints become
   48 dp buttons; iiSU has neither button and keeps its prompts as they are (S048).
-- Delta from iiSU, deliberate: a Library shelf with fewer items than a screen holds takes only the
-  rows it needs (`HomeLayout`, any platform), so a few consoles spread across the screen; iiSU keeps
-  its rows and stacks them in the first columns. Cell size still follows the configured rows.
+- Delta from iiSU, deliberate: a shelf with fewer items than a screen holds takes only the rows it
+  needs (`HomeLayout`, any platform), so a few tiles spread across the screen; iiSU keeps its rows
+  and stacks them in the first columns. Cell size still follows the configured rows.
+- Delta from iiSU, deliberate: Home draws no blank placeholder cells; iiSU's `ou4.q` fills at least
+  four pages with them, which on a fresh start made Home three rows of grey tiles. A grid holds
+  only its items (one cell when it has none), and a Home with nothing on it holds Library's add
+  tiles (`library::homeShelf`, from `app::LibraryAdditions`) once no store is still loading its
+  first listing. Checked 2026-11-04 in a hidden run on scratch XDG dirs: the fresh Home showed Add
+  a game, Add a ROM folder and the Set up tiles; Add a ROM folder from Home added a folder with one
+  ROM, and once that ROM was added to Home the add tiles left Home and stayed in Library.
 - Delta from iiSU: the status pill is sized to what it shows (launcher column, the measured
   `clock | NN% battery` row, padding at each end), not iiSU's fixed width, so a PC without a
   battery gets a pill that fits its clock. It stays right-aligned.
@@ -300,18 +307,16 @@ Carousel: focused item at 0.5 W (also the first), shared bottom edge at 918/1080
 cap top 364/1080 (cap 12.9 dp), a marker under the focused game; the entrance fades the focused
 tile in 130 ms and its neighbours 170 ms later. Console cards sit 2 dp inside their slot, game cards
 fill it; only Standard draws the cyan-violet focus ring. START opens the options panel (`app::LayoutPicker`, a toolkit overlay; A on a layout card uses it);
-the choice is saved by `settings::Store`. Home is always the grid. Placeholders (empty glass cells, four pages minimum) are Home's: the ROMs
-category level and folders in captures draw only their items, so `HomeLayoutInput::fillSlots` is true
-only for Home. That rule is read from `roms_standard_light_categories.png`; the RE has no ROMs-specific
-branch (`ou4.q` builds placeholders for every Grid caller). Its left inset equals Home's (8 dp edge
-inset, measured the same in both captures). Page dots and the right arrow draw in WiiSu (Paged) mode
+the choice is saved by `settings::Store`. Home is always the grid. iiSU's placeholders (empty glass cells, four pages minimum, `ou4.q`) are
+left out everywhere (see the delta above). The ROMs category level's left inset equals Home's (8 dp
+edge inset, measured the same in both captures). Page dots and the right arrow draw in WiiSu (Paged) mode
 as in `home_dock_light.png`, which is a WiiSu capture; Standard mode has none, as in
 `home_standard_light_initial.png`. Deviation: openSU opens the
 cards page directly from START; iiSU goes START, "Customize Platforms", header arrow, cards. The
 chooser lacks iiSU's options list below the cards. The title shadow numbers are a `// guess:`.
 
 Home's shelf (`library::homeShelf`) is the store games installed here, a title installed in
-several stores once. Library's shelf (`library::libraryShelf`) is, in order: one launcher tile per store whose catalog
+several stores once, or the add tiles while it would hold nothing. Library's shelf (`library::libraryShelf`) is, in order: one launcher tile per store whose catalog
 source is not absent (Steam, Epic, GOG: the badges' presence rule; a signed-out store keeps its
 tile, captioned "Sign in", and A on it opens the store's sign-in page in the default browser off the loop, `ShellApp::startSignIn`); an "All games" tile when any
 store has games; one console tile per system with ROMs, in `rom_systems` order; 

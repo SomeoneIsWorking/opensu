@@ -1,9 +1,10 @@
 // shelf — what one screen of the grid holds. Home holds the store games and the player's own games
 // installed here, less those the player took off it, and the games and consoles the player added
-// (`HomeChoices`). Library holds one tile per launcher (the player's own games one of them, and one
-// per openSU on the LAN whose games are listed), the stores' giveaways, Add a game, the combined
-// library and one per console with ROMs. Opening one of the folders holds its games; Giveaways and
-// Add a game open screens of their own.
+// (`HomeChoices`), or Library's add tiles while it would hold none. Library holds one tile per
+// launcher (the player's own games one of them, and one per openSU on the LAN whose games are
+// listed), the stores' giveaways, the add tiles, the combined library and one per console with
+// ROMs. Opening one of the folders holds its games; Giveaways and the add tiles open screens of
+// their own.
 #pragma once
 
 #include <array>
@@ -92,8 +93,11 @@ using ShelfItem = std::variant<Game, Console, Launcher, AllGames, Giveaways, Add
 /// Home: the consoles the player added, in Library's order, then the games in `games`' order (the
 /// library's sort): each store title whose preferred copy is installed here, a title installed in
 /// several stores once, unless the player took it off, and each game the player added, a ROM, a
-/// title not installed or one on another openSU.
+/// title not installed or one on another openSU. With none of those, the add tiles `adds` once no
+/// store in `sources` is still loading its first listing; nothing while one is.
 [[nodiscard]] std::vector<ShelfItem> homeShelf(const std::vector<Game>& games,
+                                               const std::vector<SourceStatus>& sources,
+                                               const std::vector<AddTile>& adds,
                                                const HomeChoices& choices);
 
 /// Whether `item` is on Home: a game as its title's preferred copy in `games`, or a console;

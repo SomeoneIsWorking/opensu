@@ -97,10 +97,8 @@ HomeLayout HomeGrid::computeLayout() const {
         .items = tiles_.size(),
         .mode = scrollModeFor(mode_),
         .rows = gridViewport.rows,
-        .columns = gridViewport.columns,
         .topInset = frame_.topInset,
         .bottomInset = frame_.bottomInset,
-        .fillSlots = section_ == library::Section::Home,
         .iconLevel = iconSize_,
     }};
 }
@@ -724,7 +722,7 @@ TileVisual HomeGrid::visualFor(std::size_t slot, const Rect& rect) const {
                        : std::min(rect.width, rect.height);
     visual.placeholder = slot >= tiles_.size();
     visual.dark = chromeDark();
-    // An empty slot, which only Home has, is a placeholder tile and takes focus (iiSU ou4.q).
+    // An empty grid's one slot is a placeholder tile and takes focus.
     visual.focused = slot == focus_.index();
     // iiSU w70: the focus scale is the grid's; an XMB holds its focused tile at 1.
     if (visual.focused && grid) {

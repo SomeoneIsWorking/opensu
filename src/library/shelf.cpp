@@ -151,7 +151,9 @@ std::vector<Console> consoles(const std::vector<Game>& games) {
     return out;
 }
 
-std::vector<ShelfItem> homeShelf(const std::vector<Game>& games, const HomeChoices& choices) {
+std::vector<ShelfItem> homeShelf(const std::vector<Game>& games,
+                                 const std::vector<SourceStatus>& sources,
+                                 const std::vector<AddTile>& adds, const HomeChoices& choices) {
     std::vector<ShelfItem> shelf;
     for (Console& console : consoles(games)) {
         if (choices.holds(HomeChoices::consoleKey(console.system), false)) {
@@ -172,6 +174,12 @@ std::vector<ShelfItem> homeShelf(const std::vector<Game>& games, const HomeChoic
         } else if (const auto title = preferredOf.find(&game); title != preferredOf.end()) {
             shelf.emplace_back(entry(*title->second, game, std::nullopt));
         }
+    }
+    const bool loading = std::ranges::any_of(sources, [](const SourceStatus& status) {
+        return status.availability == Availability::Loading;
+    });
+    if (shelf.empty() && !loading) {
+        shelf.assign(adds.begin(), adds.end());
     }
     return shelf;
 }
@@ -289,7 +297,8 @@ std::vector<ShelfItem> ShelfBrowser::shelf(const std::vector<Game>& games,
         }
         returned_ = back();
     }
-    return section() == Section::Home ? homeShelf(games, home) : libraryShelf(games, sources, adds);
+    return section() == Section::Home ? homeShelf(games, sources, adds, home)
+                                      : libraryShelf(games, sources, adds);
 }
 
 void ShelfBrowser::open(const Folder& folder, std::size_t sectionFocus) {
