@@ -5,6 +5,8 @@
 #include <utility>
 
 #include "clock/file_time.hpp"
+#include "mgba_saves.hpp"
+#include "ps1_cards.hpp"
 #include "retro/save_paths.hpp"
 #include "switch_saves.hpp"
 
@@ -54,9 +56,39 @@ std::vector<SaveSlot> runnerSlots(const fs::path& saves, const Game& game) {
     for (const auto& [kind, file] :
          {std::pair{SlotKind::Memory, retro::saveMemoryFile(folder, game.file)},
           std::pair{SlotKind::State, retro::saveStateFile(folder, game.file)}}) {
-        slots.push_back(SaveSlot{.kind = kind, .root = file, .content = {file}});
+        slots.push_back(
+            SaveSlot{.kind = kind,
+                     .root = file,
+                     .content = {file},
+                     .format = kind == SlotKind::Memory ? SaveFormat::SaveRam : SaveFormat::AsIs});
     }
     return slots;
+}
+
+/// The one save file a standalone emulator of a cartridge or disc console keeps of `game`, its
+/// settings in `config`, where it is or will be; nothing for a layout of folders, or when it keeps
+/// none per game.
+std::optional<SaveSlot> fileSlot(roms::SaveLayout layout, const fs::path& folder,
+                                 const fs::path& config, const Game& game) {
+    std::optional<fs::path> file;
+    SaveFormat format = SaveFormat::AsIs;
+    switch (layout) {
+    case roms::SaveLayout::Mgba:
+        file = mgbaSaveFile(config, game.file);
+        format = SaveFormat::Mgba;
+        break;
+    case roms::SaveLayout::DuckStationCards:
+        file = duckStationCard(config, folder, game.title, game.file);
+        format = SaveFormat::DuckStationCard;
+        break;
+    case roms::SaveLayout::YuzuNand:
+    case roms::SaveLayout::RyujinxBis:
+        break;
+    }
+    if (!file) {
+        return std::nullopt;
+    }
+    return SaveSlot{.kind = SlotKind::Memory, .root = *file, .content = {*file}, .format = format};
 }
 
 } // namespace
@@ -166,17 +198,29 @@ std::vector<EmulatorSaves> savesOf(const Game& game, const roms::EmulatorCatalog
             found.push_back(std::move(saves));
             continue;
         }
-        if (!entry->saves || key->system != switchSystem) {
+        if (!entry->saves) {
             continue;
         }
         const bool flatpak = option.flatpak && !entry->saves->flatpakFolder.empty();
-        saves.home =
-            SaveHome{.layout = entry->saves->layout,
-                     .folder = flatpak ? entry->saves->flatpakFolder : entry->saves->folder,
-                     .config = flatpak ? entry->flatpakConfig : entry->config,
-                     .titleId = key->game,
-                     .saveData = game.switchSaveData};
+        const fs::path& config =
+            option.flatpak && !entry->flatpakConfig.empty() ? entry->flatpakConfig : entry->config;
         saves.processHint = option.processHint;
+        const fs::path& folder = flatpak ? entry->saves->flatpakFolder : entry->saves->folder;
+        if (const std::optional<SaveSlot> file =
+                fileSlot(entry->saves->layout, folder, config, game)) {
+            saves.slots = {*file};
+            std::ranges::for_each(saves.slots, measure);
+            found.push_back(std::move(saves));
+            continue;
+        }
+        if (key->system != switchSystem) {
+            continue;
+        }
+        saves.home = SaveHome{.layout = entry->saves->layout,
+                              .folder = folder,
+                              .config = config,
+                              .titleId = key->game,
+                              .saveData = game.switchSaveData};
         saves.slots = storedSlots(*saves.home);
         found.push_back(std::move(saves));
     }

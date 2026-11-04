@@ -1,7 +1,8 @@
 // A game's saves: yuzu's (and Eden's newer) and Ryujinx's layouts read by title id and profile,
 // a Flatpak's folders, the built-in runner's files by ROM name, and a copy between two emulators
 // backed up first and undone byte for byte, into a slot there or one made as the emulator would
-// make it (yuzu's folder, Ryubing's save id and index entry, Kenji-NX's game folder).
+// make it (yuzu's folder, Ryubing's save id and index entry, Kenji-NX's game folder); mGBA's
+// `.sav` and DuckStation's cards copied with the runner, converted where their layouts differ.
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -475,6 +476,131 @@ void readsEdensNewerLayoutAndFlatpaks() {
            "the Flatpak's saves and current profile are read inside its sandbox folders");
 }
 
+/// A catalog of mGBA, DuckStation and two cores, its settings folders under `root`.
+roms::EmulatorCatalog cartridgeCatalog(const fs::path& root) {
+    const nlohmann::json catalog = {
+        {"emulators",
+         {{{"id", "mgba"},
+           {"name", "mGBA"},
+           {"systems", {"gb", "gba"}},
+           {"config", (root / "mgba-config").string()},
+           {"saves", {{"layout", "mgba"}}},
+           {"launchers", {{{"programs", {"mgba-qt"}}}}}},
+          {{"id", "duckstation"},
+           {"name", "DuckStation"},
+           {"systems", {"psx"}},
+           {"config", (root / "duckstation").string()},
+           {"saves",
+            {{"layout", "duckstation"}, {"folder", (root / "duckstation/memcards").string()}}},
+           {"launchers", {{{"programs", {"duckstation-qt"}}}}}},
+          {{"id", "mgba-core"},
+           {"name", "mGBA (built-in)"},
+           {"systems", {"gb", "gba"}},
+           {"core", "mgba_libretro"}},
+          {{"id", "pcsx-rearmed-core"},
+           {"name", "PCSX ReARMed (built-in)"},
+           {"systems", {"psx"}},
+           {"core", "pcsx_rearmed_libretro"}}}}};
+    std::string error;
+    return opensu::test::need(roms::EmulatorCatalog::parse(catalog.dump(), "/home/p", error),
+                              "the cartridge catalog parses");
+}
+
+Game romOf(const fs::path& file, std::string system, std::string title,
+           std::vector<EmulatorOption> options) {
+    Game game;
+    game.id = "rom:" + file.string();
+    game.source = Source::Rom;
+    game.sourceId = std::move(system);
+    game.title = std::move(title);
+    game.file = file;
+    game.emulatorOptions = std::move(options);
+    return game;
+}
+
+void convertsMgbasSaveForTheRunner() {
+    const Rig rig;
+    const fs::path root = rig.scratch.path();
+    const roms::EmulatorCatalog catalog = cartridgeCatalog(root);
+    const fs::path rom = root / "roms/gba/Minish Cap.gba";
+    write(rom, "rom");
+    // 32 KiB of SRAM, then mGBA's 16-byte clock footer.
+    const std::string ram = std::string(0x8000 - 3, 'm') + "end";
+    write(rom.parent_path() / "Minish Cap.sav", ram + std::string(16, '\x01'));
+    write(rig.runner / "gba/Minish Cap.state", "core state");
+    const Game game = romOf(rom, "gba", "Minish Cap",
+                            {installed("mGBA", "mgba"), installed("mGBA (built-in)", "mgba-core")});
+    const SaveKey key = opensu::test::need(keyOf(game), "the game has a key");
+    std::vector<EmulatorSaves> found = savesOf(game, catalog, rig.runner);
+    expect(found.size() == 2 && found[0].emulatorId == "mgba" && found[0].slots.size() == 1 &&
+               found[0].slots[0].format == SaveFormat::Mgba && found[0].bytes() == 0x8010,
+           "mGBA's .sav is found beside the ROM, footer and all");
+    const SaveCopier copier{root / "state"};
+    CopyProgress progress;
+    const std::map<std::string, std::string> before = tree(rig.runner);
+    expect(copier.copy(key, found[0], found[1], std::chrono::system_clock::now(), progress).empty(),
+           "mGBA's save copies to the runner");
+    expect(read(rig.runner / "gba/Minish Cap.srm") == ram,
+           "the runner's .srm is the save RAM, the clock's footer dropped");
+    expect(copier.undo(key, std::string{runnerSavesId}, progress).empty() &&
+               tree(rig.runner) == before,
+           "undo removes the .srm it made");
+
+    write(rig.runner / "gba/Minish Cap.srm", std::string(0x8000, 'r'));
+    found = savesOf(game, catalog, rig.runner);
+    const fs::path sav = rom.parent_path() / "Minish Cap.sav";
+    const std::string had = read(sav);
+    expect(copier.copy(key, found[1], found[0], std::chrono::system_clock::now(), progress).empty(),
+           "the runner's save copies to mGBA, its state left behind");
+    expect(read(sav) == std::string(0x8000, 'r'), "mGBA's .sav is the save RAM");
+    expect(copier.undo(key, "mgba", progress).empty() && read(sav) == had,
+           "undo puts mGBA's .sav back byte for byte");
+
+    write(root / "mgba-config/config.ini", "[ports.qt]\nsavegamePath=saves\n");
+    found = savesOf(game, catalog, rig.runner);
+    expect(found[0].slots[0].root == root / "mgba-config/saves/Minish Cap.sav" &&
+               !found[0].holdsFiles(),
+           "a savegamePath of mGBA's settings, under its settings folder, is where it saves");
+}
+
+void copiesPs1CardsBetweenDuckStationAndTheRunner() {
+    const Rig rig;
+    const fs::path root = rig.scratch.path();
+    const roms::EmulatorCatalog catalog = cartridgeCatalog(root);
+    const fs::path rom = root / "roms/psx/Crash Bandicoot (USA).chd";
+    write(rom, "disc");
+    const Game game = romOf(rom, "psx", "Crash Bandicoot",
+                            {installed("DuckStation", "duckstation"),
+                             installed("PCSX ReARMed (built-in)", "pcsx-rearmed-core")});
+    const SaveKey key = opensu::test::need(keyOf(game), "the game has a key");
+    const fs::path cards = root / "duckstation/memcards";
+    std::vector<EmulatorSaves> found = savesOf(game, catalog, rig.runner);
+    expect(found[0].slots[0].root == cards / "Crash Bandicoot_1.mcd" && !found[0].holdsFiles(),
+           "DuckStation's card of a game it has none of goes by its title");
+    write(cards / "Crash Bandicoot (USA)_1.mcd", std::string(0x20000, 'c'));
+    found = savesOf(game, catalog, rig.runner);
+    expect(found[0].slots[0].root == cards / "Crash Bandicoot (USA)_1.mcd",
+           "a card named by its file is the one it has");
+    const SaveCopier copier{root / "state"};
+    CopyProgress progress;
+    expect(copier.copy(key, found[0], found[1], std::chrono::system_clock::now(), progress).empty(),
+           "DuckStation's card copies to the runner");
+    expect(read(rig.runner / "psx/Crash Bandicoot (USA).srm") == std::string(0x20000, 'c'),
+           "the runner's .srm is the same 128 KiB card");
+
+    write(rig.runner / "psx/Crash Bandicoot (USA).srm", "short");
+    found = savesOf(game, catalog, rig.runner);
+    const std::string refused =
+        copier.copy(key, found[1], found[0], std::chrono::system_clock::now(), progress);
+    expect(!refused.empty() &&
+               read(cards / "Crash Bandicoot (USA)_1.mcd") == std::string(0x20000, 'c'),
+           "a .srm that is not a whole card is refused, DuckStation's card left as it was");
+
+    write(root / "duckstation/settings.ini", "[MemoryCards]\nCard1Type = Shared\n");
+    expect(savesOf(game, catalog, rig.runner).size() == 1,
+           "a shared card holds every game's, so DuckStation offers none to copy");
+}
+
 } // namespace
 
 int main() try {
@@ -485,6 +611,8 @@ int main() try {
     makesTheSlotKenjiWould();
     makesTheSlotYuzuWould();
     readsEdensNewerLayoutAndFlatpaks();
+    convertsMgbasSaveForTheRunner();
+    copiesPs1CardsBetweenDuckStationAndTheRunner();
     std::puts("game_saves: ok");
     return 0;
 } catch (...) {

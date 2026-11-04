@@ -119,6 +119,7 @@
       "name": "DuckStation",
       "systems": ["psx"],
       "config": "~/.local/share/duckstation",
+      "saves": {"layout": "duckstation", "folder": "~/.local/share/duckstation/memcards"},
       "launchers": [
         {"programs": ["duckstation-qt"], "appImage": "duckstation",
          "flatpak": "org.duckstation.DuckStation", "args": ["-batch", "-fullscreen", "--", "{rom}"]}
@@ -176,6 +177,7 @@
       "name": "mGBA",
       "systems": ["gb", "gbc", "gba"],
       "config": "~/.config/mgba",
+      "saves": {"layout": "mgba"},
       "launchers": [
         {"programs": ["mgba-qt", "mgba"], "appImage": "mgba", "flatpak": "io.mgba.mGBA",
          "args": ["-f", "{rom}"]}

@@ -1,4 +1,5 @@
-// save_memory — the core's save RAM and its .srm file: loaded before the first frame, written
+// save_memory — the core's save RAM and its .srm file: loaded before the first frame (fitted to
+// this core's layout when another core of the console wrote it, `save_ram_fit`), written
 // whole (a .part file renamed over the old one) when the RAM differs from what was last written.
 #pragma once
 

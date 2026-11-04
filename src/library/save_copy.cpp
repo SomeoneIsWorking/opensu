@@ -13,6 +13,7 @@
 
 #include "fileio/atomic_write.hpp"
 #include "lucent/log.h"
+#include "save_formats.hpp"
 #include "switch_saves.hpp"
 
 namespace opensu::library::saves {
@@ -31,6 +32,8 @@ struct Pair {
     const SaveSlot* from;
     SaveSlot to;
     std::optional<NewSlot> made;
+    /// The source's save as the target lays it out, when the two differ.
+    std::optional<std::string> converted;
 };
 
 /// One slot of a backup: where it was and its copy's folder in the backup.
@@ -79,6 +82,18 @@ void copyTree(const fs::path& from, const fs::path& to, CopyProgress& progress) 
         copyTree(entry.path(), to / entry.path().filename(), progress);
     }
     fs::last_write_time(to, fs::last_write_time(from));
+}
+
+/// `target` made `bytes`, with `source`'s modification time.
+void writeConverted(const std::string& bytes, const fs::path& source, const fs::path& target,
+                    CopyProgress& progress) {
+    fs::remove_all(target);
+    fs::create_directories(target.parent_path());
+    if (std::string error; !fileio::writeWhole(target, bytes, error)) {
+        throw fs::filesystem_error{error, target, std::make_error_code(std::errc::io_error)};
+    }
+    fs::last_write_time(target, fs::last_write_time(source));
+    progress.done += bytes.size();
 }
 
 /// `target` made what `source` is: a copy of it, or an empty folder when it is not there.
@@ -177,10 +192,15 @@ std::vector<Pair> pairsOf(const EmulatorSaves& from, const EmulatorSaves& to, st
     for (const SaveSlot* source : copiedSlots(from)) {
         const SlotKind kind = source->kind;
         const SaveSlot* target = to.slotFor(kind);
+        // A kind the target never keeps, such as the runner's state in a standalone emulator.
+        if (target == nullptr && !to.home) {
+            continue;
+        }
         // Another profile's save stays its own; the current profile's is made.
         if (target != nullptr &&
             (target->current || target->kind != SlotKind::Account || !to.home)) {
-            pairs.push_back(Pair{.from = source, .to = *target, .made = std::nullopt});
+            pairs.push_back(
+                Pair{.from = source, .to = *target, .made = std::nullopt, .converted = {}});
             continue;
         }
         std::vector<NewSlot> earlier;
@@ -196,10 +216,27 @@ std::vector<Pair> pairsOf(const EmulatorSaves& from, const EmulatorSaves& to, st
             error = to.emulatorName + " cannot take " + from.emulatorName + "'s save: " + why;
             return {};
         }
-        pairs.push_back(Pair{.from = source, .to = planned->slot, .made = std::move(planned)});
+        pairs.push_back(Pair{.from = source,
+                             .to = planned->slot,
+                             .made = std::move(planned),
+                             .converted = std::nullopt});
+    }
+    for (Pair& pair : pairs) {
+        if (!reformatted(pair.from->format, pair.to.format)) {
+            continue;
+        }
+        const fs::path& file = pair.from->content.front();
+        std::string why;
+        pair.converted = converted(pair.from->format, pair.to.format, readText(file), why);
+        if (!pair.converted) {
+            error = from.emulatorName + "'s save cannot be made " + to.emulatorName + "'s: " + why;
+            return {};
+        }
     }
     if (pairs.empty()) {
-        error = from.emulatorName + " keeps no save of this game";
+        error = copiedSlots(from).empty()
+                    ? from.emulatorName + " keeps no save of this game"
+                    : to.emulatorName + " keeps none of the saves " + from.emulatorName + " holds";
     }
     return pairs;
 }
@@ -253,7 +290,8 @@ std::string SaveCopier::copy(const SaveKey& key, const EmulatorSaves& from, cons
         total += treeBytes(root);
     }
     for (const Pair& pair : pairs) {
-        total += treeBytes(pair.from->content.front()) * pair.to.content.size();
+        total += (pair.converted ? pair.converted->size() : treeBytes(pair.from->content.front())) *
+                 pair.to.content.size();
     }
     progress.done = 0;
     progress.total = total;
@@ -292,8 +330,13 @@ std::string SaveCopier::copy(const SaveKey& key, const EmulatorSaves& from, cons
             if (pair.made && to.home) {
                 makeSlot(*to.home, *pair.made);
             }
+            const std::string* converted = pair.converted ? &*pair.converted : nullptr;
             for (const fs::path& target : pair.to.content) {
-                replaceWith(pair.from->content.front(), target, progress);
+                if (converted != nullptr) {
+                    writeConverted(*converted, pair.from->content.front(), target, progress);
+                } else {
+                    replaceWith(pair.from->content.front(), target, progress);
+                }
             }
         }
     } catch (const fs::filesystem_error& failure) {

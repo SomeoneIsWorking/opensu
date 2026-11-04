@@ -12,6 +12,7 @@
 
 #include "clock/file_time.hpp"
 #include "library/save_copy.hpp"
+#include "library/save_formats.hpp"
 #include "peer_crypto.hpp"
 #include "secrets/secret.hpp"
 #include "wire.hpp"
@@ -136,18 +137,27 @@ std::optional<TimePoint> SaveBundle::modified() const {
 std::optional<SaveBundle> bundleOf(const EmulatorSaves& saves, std::string& error) {
     SaveBundle bundle;
     std::uintmax_t total = 0;
-    const auto add = [&](SlotKind kind, const fs::path& file, std::string path) {
+    const auto add = [&](const SaveSlot& slot, const fs::path& file, std::string path) {
         std::optional<std::string> bytes = readWhole(file);
         if (!bytes) {
             error = file.string() + " cannot be read";
             return false;
+        }
+        if (library::saves::reformatted(slot.format, library::saves::SaveFormat::SaveRam)) {
+            std::string why;
+            bytes = library::saves::converted(slot.format, library::saves::SaveFormat::SaveRam,
+                                              std::move(*bytes), why);
+            if (!bytes) {
+                error = file.string() + " is no save: " + why;
+                return false;
+            }
         }
         total += bytes->size();
         if (total > largestBundle) {
             error = saves.emulatorName + "'s saves of this game are too large to send";
             return false;
         }
-        bundle.files.push_back(BundleFile{.kind = kind,
+        bundle.files.push_back(BundleFile{.kind = slot.kind,
                                           .path = std::move(path),
                                           .bytes = std::move(*bytes),
                                           .modified = modifiedOf(file)});
@@ -157,14 +167,14 @@ std::optional<SaveBundle> bundleOf(const EmulatorSaves& saves, std::string& erro
         for (const SaveSlot* slot : library::saves::copiedSlots(saves)) {
             const fs::path& root = slot->content.front();
             if (fs::is_regular_file(root)) {
-                if (!add(slot->kind, root, {})) {
+                if (!add(*slot, root, {})) {
                     return std::nullopt;
                 }
                 continue;
             }
             for (const fs::directory_entry& entry : fs::recursive_directory_iterator{root}) {
                 if (entry.is_regular_file() &&
-                    !add(slot->kind, entry.path(),
+                    !add(*slot, entry.path(),
                          entry.path().lexically_relative(root).generic_string())) {
                     return std::nullopt;
                 }
@@ -276,6 +286,10 @@ EmulatorSaves staged(const SaveBundle& bundle, const fs::path& folder, std::stri
                                 .current = true,
                                 .root = slotFolder,
                                 .content = {slotFolder},
+                                // Save RAM crosses as the core's, whichever emulator keeps it.
+                                .format = file.path.empty() && kind == SlotKind::Memory
+                                              ? library::saves::SaveFormat::SaveRam
+                                              : library::saves::SaveFormat::AsIs,
                                 .bytes = 0,
                                 .modified = std::nullopt};
             }

@@ -188,7 +188,7 @@ game has been observed running yet.
 | S045 | The player's own games: Add a game picks a Linux program, script, AppImage or Windows `.exe`, identifies it (title, platform, Steam app and cover) for the player to confirm; Steam shortcuts and Lutris games imported read only, picked from a list, a Lutris game as the Steam app Lutris runs it as; Match a different game, Rename, Change file, Remove from library (`docs/issues/own-games.md`) | partial | S004, S038 | G001 |
 | S046 | Windows release: clang-cl build with vcpkg, Job Object launches, Win32 process table and game windows, the shell minimized under a game and raised for the Guide, Steam from the registry and `steam://`, native GOG and Epic builds, controller batteries through SDL, librashader `.dll`, per-user Inno Setup installer, `windows` CI and release jobs (`docs/issues/cross-platform-releases.md` step 2) | partial | S042 | G005 |
 | S047 | macOS release: Homebrew LLVM build with vcpkg, process-group launches, libproc process table, game windows from the window server, the shell minimized under a game and raised for the Guide, Steam from Application Support and `steam://`, GOG and Epic Mac builds, `apple/osx/arm64` cores, librashader `.dylib`, MoltenVK through portability enumeration, ad-hoc signed `openSU.app` zip, `macos` CI and release jobs (`docs/issues/cross-platform-releases.md` step 3) | partial | S042 | G005 |
-| S049 | A game's saves per emulator (`library::saves`: Switch's yuzu, Eden's newer, Ryubing's and Kenji-NX's layouts, Flatpak folders, the runner's `.srm` and state) and Copy saves between installed Switch emulators from the details page, into a save the target lacks too, off the frame, refused while either runs, backed up first and undoable (`docs/plans/save-transfer.md`, `docs/plans/cloud-saves.md` step 1) | partial | S008, S026 | G001 |
+| S049 | A game's saves per emulator (`library::saves`: Switch's yuzu, Eden's newer, Ryubing's and Kenji-NX's layouts, Flatpak folders, the runner's `.srm` and state, mGBA's `.sav`, DuckStation's cards) and Copy saves between installed emulators of a game from the details page (Switch emulators; mGBA and the runner for GB/GBC/GBA; DuckStation and the runner for PS1, converted where the formats differ), into a save the target lacks too, off the frame, refused while either runs, backed up first and undoable (`docs/plans/save-transfer.md`, `docs/plans/cloud-saves.md` step 1) | partial | S008, S026 | G001 |
 | S048 | Touch UI: tap, drag, fling and long press through gpu2d's navigator; while a finger or mouse leads, a top-bar Back and Menu button, every hint a 48 dp button, the corner prompts side by side and tappable, scroll bars; the system's Back as B (`docs/issues/cross-platform-releases.md`) | partial | S042 | G002, G005 |
 | S050 | LAN step 1: `_opensu._tcp` announced and found over Avahi (Linux; elsewhere "not built yet"), pairing with a six-digit code on both screens and a per-peer secret in the secret store, signed requests with ChaCha20-Poly1305-sealed bodies on a LAN listener of its own, each paired openSU's installed games and covers as a Library launcher, Remove revoking both sides; shown with three hidden openSUs on one machine over real mDNS, not yet between two machines (`docs/design/lan.md`, `docs/plans/lan-remote-play.md`) | partial | S001 | G001 |
 | S051 | LAN save sharing: a per-peer Share saves switch (off by default), a game's saves keyed by `SaveKey` pulled before it starts and pushed after it ends, a version record per game (`lan-saves.json`), a conflict left for the player to pick on the details page with both dates and sizes, every replaced save backed up through `SaveCopier`, refused while the emulator runs; shown with two hidden openSUs on one machine over real mDNS on a Game Boy test ROM on the built-in runner, a socket dump of the LAN port holding no save bytes; not yet between two machines, not with a Switch emulator, not to the Windows VM (`docs/design/lan.md#shared-saves`, `docs/plans/cloud-saves.md` step 2) | partial | S049, S050 | G001 |
@@ -2264,6 +2264,19 @@ The player's `~/.config/Ryujinx` is in Kenji-NX's layout (`user/save-layout.lock
 `<title id>/<user id>`), which rebuilds its index from the folders at start; that is why the index
 names save ids 1 to 6 with no folders of those names.
 
-Gaps: libretro and standalone pairs of other consoles, cloud and LAN targets are not built;
-`.yuzu_save_size` (Eden's extended-size note, absent from the player's saves)
+Cartridge and disc consoles (`docs/plans/save-transfer.md` step 2): the catalog's `mgba` and
+`duckstation` layouts name one save file per game (`mgba_saves`, `ps1_cards`), each slot carries
+its `SaveFormat`, and `save_formats` converts through the core's save RAM before anything is backed
+up; the runner fits another core's layout of the same cartridge (`retro/save_ram_fit`). Shown in
+hidden runs on scratch copies (`scratch/saves3/transfer/run-all.out`, `frames/`): Kirby & the
+Amazing Mirror runner to mGBA and undone byte for byte; mGBA's `.sav` with a 16-byte clock to the
+runner, which logged `loaded save ... (32768 of the core's 131072 bytes)` and mGBA's `Detected SRAM
+savegame` (`g7`); Final Fantasy Adventure's 256-byte MBC2 save loaded as 256 of 256; Crash
+Bandicoot's DuckStation card loaded as 131072 of 131072 on SwanStation to its title screen (`p4`).
+Two runner defects met on the way are in `docs/issues/runner-core-crashes.md`.
+
+Gaps: runner to DuckStation and the gambatte MBC2 fit ran only in unit tests; PS2, GameCube and
+Wii have no core in the catalog; NDS, PSP and RetroArch's own folders are not read; mGBA's clock is
+not carried to the runner, nor gambatte's `.rtc`; a DuckStation title that differs from the
+database's save title finds the ROM's card instead; `.yuzu_save_size` (Eden's extended-size note, absent from the player's saves)
 is copied as a file like any other.

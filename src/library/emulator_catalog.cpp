@@ -1,6 +1,7 @@
 #include "emulator_catalog.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <fstream>
 #include <iterator>
@@ -85,15 +86,23 @@ std::optional<SaveStore> savesOf(const json& object, const fs::path& home,
     if (!found->is_object()) {
         throw Malformed{where + ": \"saves\" is not an object"};
     }
+    constexpr std::array layouts{std::pair{"yuzu", SaveLayout::YuzuNand},
+                                 std::pair{"ryujinx", SaveLayout::RyujinxBis},
+                                 std::pair{"mgba", SaveLayout::Mgba},
+                                 std::pair{"duckstation", SaveLayout::DuckStationCards}};
     const std::string layout = text(*found, "layout", where, true);
-    SaveStore store{.layout = SaveLayout::YuzuNand,
-                    .folder = configPath(text(*found, "folder", where, true), home)};
-    if (layout == "ryujinx") {
-        store.layout = SaveLayout::RyujinxBis;
-    } else if (layout != "yuzu") {
-        throw Malformed{where + ": \"saves\" \"layout\" must be yuzu or ryujinx"};
+    const auto known = std::ranges::find_if(layouts, [&layout](const auto& entry) {
+        return layout == entry.first;
+    });
+    if (known == layouts.end()) {
+        throw Malformed{where +
+                        ": \"saves\" \"layout\" must be yuzu, ryujinx, mgba or duckstation"};
     }
-    return store;
+    // mGBA's saves are beside each ROM unless its settings name a folder.
+    const bool folderNamed = known->second != SaveLayout::Mgba;
+    return SaveStore{.layout = known->second,
+                     .folder = configPath(text(*found, "folder", where, folderNamed), home),
+                     .flatpakFolder = {}};
 }
 
 /// An arcade core's listings: HTTPS files, or a release.

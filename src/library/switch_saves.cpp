@@ -19,6 +19,7 @@
 
 #include "fileio/atomic_write.hpp"
 #include "fileio/little_endian.hpp"
+#include "ini_file.hpp"
 #include "lucent/log.h"
 
 namespace opensu::library::saves {
@@ -41,7 +42,7 @@ constexpr std::size_t profilesHeader = 0x10;
 constexpr std::size_t profileSize = 0xC8;
 constexpr std::size_t profileCount = 8;
 constexpr std::size_t uuidSize = 16;
-constexpr std::string_view yuzuCurrentUser = "current_user=";
+constexpr std::string_view yuzuCurrentUser = "current_user";
 
 constexpr std::string_view ryujinxUserSaves = "user/save";
 constexpr std::string_view ryujinxProfiles = "system/Profiles.json";
@@ -166,18 +167,11 @@ std::vector<std::string> yuzuUsers(const fs::path& nand) {
 
 /// qt-config.ini's `current_user`, an index into the profiles; 0 when it names none.
 std::size_t yuzuCurrentIndex(const fs::path& config) {
-    std::ifstream in{config / "qt-config.ini"};
-    std::string line;
-    while (std::getline(in, line)) {
-        if (!line.starts_with(yuzuCurrentUser)) {
-            continue;
-        }
-        std::size_t index = 0;
-        const std::string_view value = std::string_view{line}.substr(yuzuCurrentUser.size());
-        const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), index);
-        return error == std::errc{} ? index : 0;
-    }
-    return 0;
+    const std::string value =
+        iniValue(config / "qt-config.ini", "System", yuzuCurrentUser).value_or("");
+    std::size_t index = 0;
+    const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), index);
+    return error == std::errc{} ? index : 0;
 }
 
 /// The open profile's user id in Profiles.json, upper-case; empty when none is open.

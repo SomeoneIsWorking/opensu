@@ -61,12 +61,18 @@ enum class SaveLayout : std::uint8_t {
     /// Ryujinx's line (Ryubing): save folders under `user/save` of its `bis`, each carrying the
     /// save's attribute in `ExtraData0`, its files in `0` (committed) and `1` (working).
     RyujinxBis,
+    /// mGBA: `<rom stem>.sav` beside the ROM, or in the folder its settings name (`mgba_saves`).
+    Mgba,
+    /// DuckStation: a memory card per game, `<title>_1.mcd`, in its `memcards` folder
+    /// (`ps1_cards`).
+    DuckStationCards,
 };
 
 /// Where a standalone emulator keeps its games' saves (`"saves"`).
 struct SaveStore {
     SaveLayout layout{SaveLayout::YuzuNand};
-    /// The NAND (yuzu's line) or `bis` (Ryujinx's line) folder.
+    /// The NAND (yuzu's line), `bis` (Ryujinx's line) or memory card folder; empty for mGBA,
+    /// whose settings say.
     std::filesystem::path folder;
     /// The same folder for its Flatpak, under `~/.var/app/<app id>` where the sandbox's XDG
     /// folders put it (`flatpakFolder`); empty for an emulator without one.

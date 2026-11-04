@@ -2,12 +2,12 @@
 
 #include <algorithm>
 #include <array>
-#include <fstream>
 #include <map>
 #include <stdexcept>
 
 #include <nlohmann/json.hpp>
 
+#include "ini_file.hpp"
 #include "install_log.hpp"
 #include "launch/command.hpp"
 #include "lucent/log.h"
@@ -186,33 +186,13 @@ std::vector<Game> Provider::list() {
 
 std::filesystem::path legendaryInstallDir(const std::filesystem::path& legendaryConfigDir,
                                           const std::filesystem::path& home) {
-    namespace fs = std::filesystem;
-    std::ifstream in{legendaryConfigDir / "config.ini"};
-    std::string line;
-    bool inSection = false;
-    const auto trimmed = [](const std::string& text) {
-        const auto first = text.find_first_not_of(" \t\r");
-        const auto last = text.find_last_not_of(" \t\r");
-        return first == std::string::npos ? std::string{} : text.substr(first, last - first + 1);
-    };
-    while (std::getline(in, line)) {
-        line = trimmed(line);
-        if (line.starts_with("[")) {
-            inSection = line == "[Legendary]";
-            continue;
-        }
-        const std::size_t equals = line.find_first_of("=:");
-        if (!inSection || equals == std::string::npos ||
-            trimmed(line.substr(0, equals)) != "install_dir") {
-            continue;
-        }
-        const std::string value = trimmed(line.substr(equals + 1));
-        if (value == "~" || value.starts_with("~/")) {
-            return home / value.substr(std::min<std::size_t>(value.size(), 2));
-        }
-        if (!value.empty()) {
-            return fs::path{value};
-        }
+    const std::string value =
+        iniValue(legendaryConfigDir / "config.ini", "Legendary", "install_dir").value_or("");
+    if (value == "~" || value.starts_with("~/")) {
+        return home / value.substr(std::min<std::size_t>(value.size(), 2));
+    }
+    if (!value.empty()) {
+        return std::filesystem::path{value};
     }
     return home / "Games";
 }

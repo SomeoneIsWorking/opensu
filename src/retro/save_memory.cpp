@@ -4,6 +4,7 @@
 #include <format>
 #include <fstream>
 #include <iterator>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -11,6 +12,7 @@
 
 #include "fileio/atomic_write.hpp"
 #include "lucent/log.h"
+#include "save_ram_fit.hpp"
 
 namespace opensu::retro {
 
@@ -29,21 +31,28 @@ void SaveMemory::load(std::span<std::byte> ram) {
         lucent::info("retro", "the core has no save RAM; {} is left as it is", file_.string());
         return;
     }
-    if (size > ram.size()) {
-        throw SaveError{std::format("{} is {} bytes, more than the core's {} bytes of save RAM; "
-                                    "the game was not started and the save is left as it is",
-                                    file_.string(), size, ram.size())};
-    }
     std::ifstream in{file_, std::ios::binary};
-    std::vector<char> bytes{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
-    if (!in || bytes.size() != size) {
+    std::vector<char> chars{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
+    if (!in || chars.size() != size) {
         throw SaveError{
             std::format("cannot read {}; the game was not started and the save is left as it is",
                         file_.string())};
     }
-    std::ranges::transform(bytes, ram.begin(), [](char byte) {
+    std::vector<std::byte> bytes(chars.size());
+    std::ranges::transform(chars, bytes.begin(), [](char byte) {
         return static_cast<std::byte>(byte);
     });
+    if (std::optional<std::vector<std::byte>> fitted = fittedSaveRam(bytes, ram.size())) {
+        lucent::info("retro", "{} is {} bytes, another core's layout of the core's {}; fitted",
+                     file_.string(), size, ram.size());
+        bytes = std::move(*fitted);
+    }
+    if (bytes.size() > ram.size()) {
+        throw SaveError{std::format("{} is {} bytes, more than the core's {} bytes of save RAM; "
+                                    "the game was not started and the save is left as it is",
+                                    file_.string(), size, ram.size())};
+    }
+    std::ranges::copy(bytes, ram.begin());
     written_.assign(ram.begin(), ram.end());
     lucent::info("retro", "loaded save {} ({} of the core's {} bytes)", file_.string(), size,
                  ram.size());

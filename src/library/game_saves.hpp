@@ -39,6 +39,19 @@ enum class SlotKind : std::uint8_t {
     State,
 };
 
+/// How a save RAM file is laid out, where emulators of one console differ (`save_formats`).
+enum class SaveFormat : std::uint8_t {
+    /// Copied as it is: a Switch save folder, the runner's state slot.
+    AsIs,
+    /// The core's save RAM alone, as the runner keeps it in its `.srm`; formats convert through
+    /// it.
+    SaveRam,
+    /// mGBA's `.sav`: the save RAM, then a clock's footer for a cartridge with one.
+    Mgba,
+    /// DuckStation's memory card, `.mcd`.
+    DuckStationCard,
+};
+
 struct SaveSlot {
     SlotKind kind{SlotKind::Account};
     /// The profile an account save belongs to, as the emulator spells it; empty otherwise.
@@ -49,6 +62,8 @@ struct SaveSlot {
     std::filesystem::path root;
     /// Where the game's files are: read from the first, a copy written to each.
     std::vector<std::filesystem::path> content;
+    /// How its file is laid out; `AsIs` for a folder.
+    SaveFormat format{SaveFormat::AsIs};
     std::uintmax_t bytes{0};
     /// The newest file's modification; nothing while the slot holds no file, or is not there yet.
     std::optional<std::chrono::system_clock::time_point> modified;

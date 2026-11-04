@@ -1,5 +1,6 @@
 // Save RAM: the round trip, writing only what changed, the atomic replace, a smaller file loaded
-// into the start, and a larger or unreadable file refused and left as it is.
+// into the start, another core's layout fitted (MBC2's packing, blank bytes past the RAM), and a
+// larger or unreadable file refused and left as it is.
 #include "save_memory.hpp"
 
 #include <array>
@@ -86,6 +87,34 @@ void largerFile(const std::filesystem::path& dir) {
     expect(read(file) == "abcdef", "the refused file is left as it is");
 }
 
+void anotherCoresLayout(const std::filesystem::path& dir) {
+    // gambatte keeps an MBC2 cartridge's 512 cells a byte each in an 8 KiB bank; mGBA packs them.
+    const std::filesystem::path file = dir / "mbc2.srm";
+    std::string cells(0x2000, '\xFF');
+    cells[0] = '\xF1';
+    cells[1] = '\xF2';
+    cells[0x1FF] = '\xF9';
+    write(file, cells);
+    std::array<std::byte, 0x100> packed{};
+    SaveMemory{file}.load(packed);
+    expect(packed[0] == std::byte{0x21} && packed[0xFF] == std::byte{0x9F},
+           "gambatte's cells are packed two to a byte, the even cell low, for mGBA");
+    write(file, std::string(reinterpret_cast<const char*>(packed.data()), packed.size()));
+    std::array<std::byte, 0x2000> unpacked{};
+    SaveMemory{file}.load(unpacked);
+    expect(unpacked[0] == std::byte{0xF1} && unpacked[1] == std::byte{0xF2} &&
+               unpacked[0x1FF] == std::byte{0xF9} && unpacked[0x200] == std::byte{0xF1},
+           "and mGBA's unpacked a cell a byte for gambatte, mirrored through the bank");
+
+    const std::filesystem::path padded = dir / "padded.srm";
+    write(padded, "ab" + std::string(6, '\xFF'));
+    std::array<std::byte, 4> ram{};
+    SaveMemory{padded}.load(ram);
+    expect(ram[0] == std::byte{'a'} && ram[2] == std::byte{0xFF},
+           "a longer file whose bytes past the RAM hold nothing loads its start");
+    expect(read(padded).size() == 8, "and is left as it is until the game writes");
+}
+
 void unreadableFile(const std::filesystem::path& dir) {
     const std::filesystem::path file = dir / "unreadable.srm";
     write(file, "ab");
@@ -128,6 +157,7 @@ int main() try {
     roundTrip(scratch.path());
     smallerFile(scratch.path());
     largerFile(scratch.path());
+    anotherCoresLayout(scratch.path());
     unreadableFile(scratch.path());
     failedWrite(scratch.path());
     std::printf("save_memory: all checks passed\n");

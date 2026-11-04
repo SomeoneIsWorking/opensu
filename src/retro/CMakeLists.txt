@@ -9,7 +9,7 @@ opensu_warnings(opensu_retro_saves)
 
 add_library(opensu_retro STATIC
     core.cpp core_environment.cpp core_options.cpp video_frame.cpp audio_sink.cpp
-    audio_output.cpp joypad.cpp save_memory.cpp vulkan_device.cpp frame_filter.cpp
+    audio_output.cpp joypad.cpp save_memory.cpp save_ram_fit.cpp vulkan_device.cpp frame_filter.cpp
     shared_library.cpp librashader_library.cpp shader_chain.cpp streamed_texture.cpp
     fullscreen_pipeline.cpp frame_compositor.cpp presenter.cpp hardware_render.cpp
     save_state.cpp control_server.cpp overlay_pass.cpp touch_layer.cpp frame_stages.cpp
