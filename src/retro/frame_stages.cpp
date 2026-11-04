@@ -4,6 +4,7 @@
 #include <format>
 #include <string>
 
+#include "clock/percentile.hpp"
 #include "lucent/log.h"
 
 namespace opensu::retro {
@@ -22,11 +23,8 @@ std::string percentiles(std::vector<double>& values) {
         return "-";
     }
     std::ranges::sort(values);
-    const auto at = [&values](double share) {
-        return values[std::min(values.size() - 1, static_cast<std::size_t>(
-                                                      share * static_cast<double>(values.size())))];
-    };
-    return std::format("{:.1f}/{:.1f}/{:.1f}", at(0.5), at(0.95), at(0.99));
+    return std::format("{:.1f}/{:.1f}/{:.1f}", clock::percentile(values, 0.5),
+                       clock::percentile(values, 0.95), clock::percentile(values, 0.99));
 }
 
 } // namespace
