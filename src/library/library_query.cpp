@@ -120,21 +120,12 @@ HiddenGames::HiddenGames(std::vector<std::string> keys) : keys_{std::move(keys)}
     keys_.erase(std::ranges::unique(keys_).begin(), keys_.end());
 }
 
-std::string HiddenGames::keyOf(const Game& game) {
-    if (game.source != Source::Rom) {
-        if (const std::string title = titleKey(game.title); !title.empty()) {
-            return "title:" + title;
-        }
-    }
-    return "id:" + game.id;
-}
-
 bool HiddenGames::contains(const Game& game) const {
-    return std::ranges::binary_search(keys_, keyOf(game));
+    return std::ranges::binary_search(keys_, choiceKey(game));
 }
 
 void HiddenGames::set(const Game& game, bool hidden) {
-    const std::string wanted = keyOf(game);
+    const std::string wanted = choiceKey(game);
     const auto at = std::ranges::lower_bound(keys_, wanted);
     const bool present = at != keys_.end() && *at == wanted;
     if (hidden && !present) {

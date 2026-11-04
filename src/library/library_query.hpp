@@ -47,15 +47,12 @@ struct ViewOptions {
     bool operator==(const ViewOptions&) const = default;
 };
 
-/// The games the player hid. A store game is hidden as a title, so every store's copy goes with
-/// it; a ROM is hidden by itself.
+/// The games the player hid, by `choiceKey`. A store game is hidden as a title, so every store's
+/// copy goes with it; a ROM is hidden by itself.
 class HiddenGames {
   public:
     HiddenGames() = default;
     explicit HiddenGames(std::vector<std::string> keys);
-
-    /// What identifies `game` here: its title across stores, or its id for a ROM.
-    [[nodiscard]] static std::string keyOf(const Game& game);
 
     [[nodiscard]] bool contains(const Game& game) const;
     /// Hides or shows `game`.

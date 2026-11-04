@@ -48,6 +48,15 @@ std::string titleKey(std::string_view title) {
     return key;
 }
 
+std::string choiceKey(const Game& game) {
+    if (game.source != Source::Rom) {
+        if (const std::string title = titleKey(game.title); !title.empty()) {
+            return "title:" + title;
+        }
+    }
+    return "id:" + game.id;
+}
+
 std::vector<Title> storeTitles(const std::vector<Game>& games) {
     std::vector<Title> titles;
     std::unordered_map<std::string, std::vector<std::size_t>> byKey;

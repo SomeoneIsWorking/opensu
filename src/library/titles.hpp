@@ -15,6 +15,10 @@ namespace opensu::library {
 /// count, so a title with none (all CJK, say) has an empty key and is never merged.
 [[nodiscard]] std::string titleKey(std::string_view title);
 
+/// What the player's choices about `game` (hidden, on Home) are kept under: its title across
+/// stores ("title:<key>"), or its id for a ROM or a title with an empty key ("id:<id>").
+[[nodiscard]] std::string choiceKey(const Game& game);
+
 /// One title and every store copy of it.
 struct Title {
     /// Preferred first: installed before not, then Steam, GOG, Epic. The first is what an
