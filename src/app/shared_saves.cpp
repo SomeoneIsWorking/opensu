@@ -49,13 +49,15 @@ std::string factOf(const save_sync::TargetSaves& saves) {
     return "Not synced with " + peer + ": " + saves.problem;
 }
 
-/// "2026-11-04 18:09 · 8.2 KB", or "No save" for a side without one.
+/// "2026-11-04 18:09 · 8.2 KB", the time alone where the size is not known (Epic's cloud), or
+/// "No save" for a side without one.
 std::string sideText(const save_sync::SaveStatus& status) {
     if (status.hash.empty()) {
         return "No save";
     }
     const std::chrono::system_clock::time_point at{std::chrono::seconds{status.modified}};
-    return ui::momentText(at) + " · " + ui::sizeText(status.bytes);
+    const std::string moment = ui::momentText(at);
+    return status.bytes == 0 ? moment : moment + " · " + ui::sizeText(status.bytes);
 }
 
 std::optional<save_sync::TargetSaves>

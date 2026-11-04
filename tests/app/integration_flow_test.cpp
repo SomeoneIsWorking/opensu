@@ -282,6 +282,10 @@ void theSwitchAppliesAChange(const fs::path& root) {
                                                         .runnerSaves = dir / "saves",
                                                         .inUse = {},
                                                         .changed = {}},
+                             save_sync::EpicCloud::Setup{.legendary = "legendary",
+                                                         .recordFile = dir / "epic-saves.json",
+                                                         .backups = dir,
+                                                         .changed = {}},
                              secrets::SecretStore{dir / "secrets", false}, [] {
                              }};
     app::LanService lan{

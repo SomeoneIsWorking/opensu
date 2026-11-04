@@ -3,3 +3,8 @@ target_link_libraries(share_target_test PRIVATE opensu::save_sync)
 opensu_warnings(share_target_test)
 target_compile_definitions(share_target_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME share_target COMMAND share_target_test)
+
+add_executable(epic_cloud_test epic_cloud_test.cpp)
+target_link_libraries(epic_cloud_test PRIVATE opensu::save_sync)
+opensu_warnings(epic_cloud_test)
+add_test(NAME epic_cloud COMMAND epic_cloud_test)

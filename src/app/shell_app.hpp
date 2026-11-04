@@ -801,6 +801,10 @@ class ShellApp final {
                                    .runnerSaves = resolved_.savesDir,
                                    .inUse = {},
                                    .changed = {}},
+        save_sync::EpicCloud::Setup{.legendary = "legendary",
+                                    .recordFile = files_.stateDir() / save_sync::epicSavesFile,
+                                    .backups = files_.stateDir(),
+                                    .changed = {}},
         files_.secrets(environment_.keyring), [this] {
             details_.refresh();
         }};

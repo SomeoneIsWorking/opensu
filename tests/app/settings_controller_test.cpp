@@ -415,6 +415,10 @@ struct Rig {
                                    .runnerSaves = config.savesDir,
                                    .inUse = {},
                                    .changed = {}},
+        save_sync::EpicCloud::Setup{.legendary = "legendary",
+                                    .recordFile = config.configDir / "epic-saves.json",
+                                    .backups = config.configDir,
+                                    .changed = {}},
         secrets::SecretStore{config.configDir / "secrets", false}, [] {
         }};
     app::LanService lan{app::LanService::Places{

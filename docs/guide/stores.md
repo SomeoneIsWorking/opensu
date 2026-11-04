@@ -97,6 +97,16 @@ update through `legendary update`, GOG games through `gogdl update` in the folde
 installed to, and a Steam game's update is put on Steam's own queue. An update is refused while the
 game runs or another install, update or uninstall is under way, and shows on the Downloads page.
 
+## Epic cloud saves
+
+An installed Epic game whose saves Epic keeps in its cloud syncs them through Legendary: before it
+starts the newer cloud save is taken, after it ends a changed save is given, and the details page's
+**Saves** says how they stand with Epic (In sync, Newer on Epic, Newer here, Conflict). A save
+changed both here and in Epic's cloud since they last synced is never overwritten: **Pick which save
+to keep** offers both with their dates, and the save replaced here is copied first into openSU's
+state folder under `save-backups/epic/<app>/<UTC time>/`. The first time, a game whose save folder
+Legendary has not set yet gets the one Legendary works out. GOG cloud saves are not synced yet.
+
 ## Uninstalling games
 
 An installed Steam, Epic or GOG game's details page and tile menu (Select) have Uninstall. The

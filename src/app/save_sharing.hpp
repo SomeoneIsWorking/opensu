@@ -1,7 +1,9 @@
-// save_sharing — the shell's shared saves (`save_sync::SaveSync`) on its loop: the folder or
-// WebDAV share Settings › Saves names (`share`), the LAN's paired openSUs while LAN is on (their
-// group set by `lan::LanNode`), a launch held while a game's saves are taken first (`before`), the
-// game running, whose saves are not replaced, and how a game's saves stand for its details page.
+// save_sharing — the shell's shared saves on its loop: the folder or WebDAV share Settings › Saves
+// names (`share`) and the LAN's paired openSUs while LAN is on (their group set by
+// `lan::LanNode`), both through `save_sync::SaveSync`; an Epic game's saves through Epic's cloud
+// (`save_sync::EpicCloud`) instead. A launch is held while a game's saves are taken first
+// (`before`), the game running is not replaced, and how a game's saves stand is for its details
+// page.
 #pragma once
 
 #include <atomic>
@@ -16,6 +18,7 @@
 #include "library/emulator_catalog.hpp"
 #include "library/game.hpp"
 #include "net/web_client.hpp"
+#include "save_sync/epic_cloud.hpp"
 #include "save_sync/save_sync.hpp"
 #include "secrets/secret_store.hpp"
 #include "settings/settings.hpp"
@@ -29,8 +32,8 @@ inline constexpr std::string_view webDavPasswordSecret = "save-share-webdav-pass
 class SaveSharing {
   public:
     /// `changed`: how a game's saves stand changed; called on the loop from `service`.
-    SaveSharing(save_sync::SaveSync::Setup setup, secrets::SecretStore secrets,
-                std::function<void()> changed);
+    SaveSharing(save_sync::SaveSync::Setup setup, save_sync::EpicCloud::Setup epic,
+                secrets::SecretStore secrets, std::function<void()> changed);
 
     /// The engine the LAN adds its paired openSUs to.
     [[nodiscard]] save_sync::SaveSync& engine() noexcept {
@@ -70,6 +73,8 @@ class SaveSharing {
     };
     struct Held {
         std::uint64_t ticket{0};
+        /// Whose ticket: Epic's cloud's, else the shared saves'.
+        bool epic{false};
         std::function<void()> launch;
     };
 
@@ -79,7 +84,8 @@ class SaveSharing {
     std::shared_ptr<Playing> playing_{std::make_shared<Playing>()};
     std::shared_ptr<std::atomic<bool>> news_{std::make_shared<std::atomic<bool>>(false)};
     std::optional<Held> held_;
-    /// Last, so it stops before what its callbacks reach goes.
+    /// Last, so they stop before what their callbacks reach goes.
+    std::unique_ptr<save_sync::EpicCloud> epic_;
     std::unique_ptr<save_sync::SaveSync> sync_;
 };
 

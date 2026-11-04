@@ -38,12 +38,14 @@ std::string hostOf(const std::string& url) {
 
 } // namespace
 
-SaveSharing::SaveSharing(save_sync::SaveSync::Setup setup, secrets::SecretStore secrets,
-                         std::function<void()> changed)
+SaveSharing::SaveSharing(save_sync::SaveSync::Setup setup, save_sync::EpicCloud::Setup epic,
+                         secrets::SecretStore secrets, std::function<void()> changed)
     : secrets_{std::move(secrets)}, changed_{std::move(changed)} {
     setup.changed = [news = news_] {
         news->store(true);
     };
+    epic.changed = setup.changed;
+    epic_ = std::make_unique<save_sync::EpicCloud>(std::move(epic));
     setup.inUse = [playing = playing_](const library::Game& game,
                                        const library::saves::EmulatorSaves& kept) {
         {
@@ -98,10 +100,16 @@ void SaveSharing::know(const std::vector<library::Game>& games,
 }
 
 bool SaveSharing::before(const library::Game& game, std::function<void()> launch) {
-    if (held_ || !sync_->sharing(game)) {
+    if (held_) {
         return false;
     }
-    held_ = Held{.ticket = sync_->prepare(game), .launch = std::move(launch)};
+    if (save_sync::EpicCloud::serves(game)) {
+        held_ = Held{.ticket = epic_->prepare(game), .epic = true, .launch = std::move(launch)};
+    } else if (sync_->sharing(game)) {
+        held_ = Held{.ticket = sync_->prepare(game), .epic = false, .launch = std::move(launch)};
+    } else {
+        return false;
+    }
     lucent::info("saves", "{}: syncing saves before it starts", game.title);
     return true;
 }
@@ -112,40 +120,63 @@ void SaveSharing::playing(const library::Game* game) {
 }
 
 void SaveSharing::ended(const library::Game& game) {
-    if (sync_->sharing(game)) {
+    if (save_sync::EpicCloud::serves(game)) {
+        epic_->sync(game);
+    } else if (sync_->sharing(game)) {
         sync_->sync(game);
     }
 }
 
 void SaveSharing::look(const library::Game& game) {
-    sync_->look(game);
+    if (save_sync::EpicCloud::serves(game)) {
+        epic_->look(game);
+    } else {
+        sync_->look(game);
+    }
 }
 
 void SaveSharing::syncNow(const library::Game& game) {
-    sync_->sync(game);
+    if (save_sync::EpicCloud::serves(game)) {
+        epic_->sync(game);
+    } else {
+        sync_->sync(game);
+    }
 }
 
 void SaveSharing::keep(const library::Game& game, const std::string& targetId, bool theirs) {
-    sync_->keep(game, targetId, theirs);
+    if (save_sync::EpicCloud::serves(game)) {
+        epic_->keep(game, theirs);
+    } else {
+        sync_->keep(game, targetId, theirs);
+    }
 }
 
 std::vector<save_sync::TargetSaves> SaveSharing::standings(const std::string& gameId) const {
-    return sync_->standings(gameId);
+    std::vector<save_sync::TargetSaves> standings = sync_->standings(gameId);
+    if (std::optional<save_sync::TargetSaves> epic = epic_->standing(gameId)) {
+        standings.push_back(std::move(*epic));
+    }
+    return standings;
 }
 
 bool SaveSharing::syncing(const std::string& gameId) const {
-    return sync_->busy(gameId);
+    return sync_->busy(gameId) || epic_->busy(gameId);
 }
 
 void SaveSharing::service() {
     if (news_->exchange(false)) {
         changed_();
     }
-    if (!held_ || !sync_->prepared(held_->ticket)) {
+    if (!held_) {
         return;
     }
-    const Held held = *std::exchange(held_, std::nullopt);
-    held.launch();
+    Held& held = *held_;
+    if (!(held.epic ? epic_->prepared(held.ticket) : sync_->prepared(held.ticket))) {
+        return;
+    }
+    const std::function<void()> launch = std::move(held.launch);
+    held_.reset();
+    launch();
 }
 
 } // namespace opensu::app
