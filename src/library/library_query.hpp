@@ -93,6 +93,8 @@ struct LibraryView {
     std::vector<Game> games;
     /// The stores the source filter leaves out are `Absent`, so Library shows no launcher for them.
     std::vector<SourceStatus> sources;
+    /// The add tiles Library shows.
+    std::vector<AddTile> adds;
 };
 
 [[nodiscard]] LibraryView applyOptions(const std::vector<Game>& games,
@@ -110,10 +112,9 @@ struct LibraryView {
 
 /// The shelf the grid shows: the search's results when there is a search, else the browser's
 /// shelf of the narrowed library.
-[[nodiscard]] std::vector<ShelfItem> visibleShelf(ShelfBrowser& browser,
-                                                  const std::vector<Game>& games,
-                                                  const std::vector<SourceStatus>& sources,
-                                                  const ViewOptions& options,
-                                                  const HiddenGames& hidden);
+[[nodiscard]] std::vector<ShelfItem>
+visibleShelf(ShelfBrowser& browser, const std::vector<Game>& games,
+             const std::vector<SourceStatus>& sources, const std::vector<AddTile>& adds,
+             const ViewOptions& options, const HiddenGames& hidden);
 
 } // namespace opensu::library

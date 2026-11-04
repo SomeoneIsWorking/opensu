@@ -226,9 +226,9 @@ void visibleShelfSearchesOrBrowses() {
     ShelfBrowser browser;
     ViewOptions options;
     const HiddenGames none;
-    const auto browse = visibleShelf(browser, catalog(), sources(), options, none);
+    const auto browse = visibleShelf(browser, catalog(), sources(), {}, options, none);
     options.search = "tunic";
-    const auto search = visibleShelf(browser, catalog(), sources(), options, none);
+    const auto search = visibleShelf(browser, catalog(), sources(), {}, options, none);
     expect(gameTitles(search) == std::vector<std::string>{"Tunic"}, "a search lists its results");
     expect(browse.size() != search.size(), "and the browser's shelf otherwise");
 }

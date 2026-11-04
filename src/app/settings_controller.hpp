@@ -64,6 +64,8 @@ class SettingsController final : public ui::RowActions {
         std::function<settings::StoreFolders()> storeFolders;
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
+        /// The ROM folders were changed: the catalog reads them from now on.
+        std::function<void()> romFoldersChanged;
     };
 
     /// What the rows act on besides the preferences.
@@ -107,6 +109,8 @@ class SettingsController final : public ui::RowActions {
     void open();
     /// Opens the screen on the category with id `id` (the first when there is none).
     void openCategory(const std::string& id);
+    /// Opens the screen on category `id` with its row `row` focused.
+    void openAt(const std::string& id, const std::string& row);
     /// Closes every Settings screen at once, asking nothing.
     void close();
     [[nodiscard]] bool isOpen() const;
@@ -132,6 +136,8 @@ class SettingsController final : public ui::RowActions {
     void run(const std::string& id, int step) override;
     void setLevel(const std::string& id, int level) override;
     void openPage(const std::string& id) override;
+    /// Library › Add a ROM folder: the folder picker, and the folder kept and read once picked.
+    void addRomFolder();
     /// Back on the categories, or the menu button anywhere: closes Settings, asking first when
     /// Integrations has changes not applied. Stays when it asked.
     [[nodiscard]] gpu2d::ui::Screen::BackReply leave();
@@ -147,8 +153,9 @@ class SettingsController final : public ui::RowActions {
     [[nodiscard]] ui::SettingsCategory aboutPage() const;
     /// A page a row opens, built now.
     [[nodiscard]] std::optional<ui::SettingsCategory> subPage(const std::string& id) const;
-    /// Pushes the root screen on `category`, after reading what the categories show.
-    void show(const std::string& category);
+    /// Pushes the root screen on `category` (its row `row` focused, if given), after reading what
+    /// the categories show.
+    void show(const std::string& category, const std::string& row = {});
     /// Closes Settings with iiSU's Close sound.
     void closeAll();
     /// Keeps the preferences and shows the change.

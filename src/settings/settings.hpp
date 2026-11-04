@@ -133,6 +133,9 @@ struct Settings {
     /// The integrations the player chose; absent until the first-run chooser was answered.
     std::optional<IntegrationChoices> integrations;
 
+    /// Adds `folder` to `romFolders` unless it is there already.
+    void addRomFolder(const std::filesystem::path& folder);
+
     bool operator==(const Settings&) const = default;
 };
 

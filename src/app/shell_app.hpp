@@ -72,6 +72,7 @@
 #include "library/catalog_loader.hpp"
 #include "library/lossless_scaling.hpp"
 #include "library/shelf.hpp"
+#include "library_additions.hpp"
 #include "mapping_editor.hpp"
 #include "night_light.hpp"
 #include "offer_claim.hpp"
@@ -159,6 +160,8 @@ class ShellApp final {
 
     /// Asks every store to list again; the listings reach the shell as they arrive.
     void reloadCatalog();
+    /// The player's ROM folders changed: the catalog reads them from now on.
+    void romFoldersChanged();
     /// Takes the listings that arrived and shows them. Main loop only.
     void serviceCatalog();
     /// Lists every store and waits for all of them; for a still render only.
@@ -305,7 +308,8 @@ class ShellApp final {
     /// Which integrations and which Steam mode are in force; before everything that asks.
     IntegrationsInForce integrations_{preferences_, settings_.loginSession};
     /// The environment's configuration with what the player set in place of it: the roots the
-    /// catalog and Steam read, fixed for the run; the runner's saves where `files_` keeps them.
+    /// catalog and Steam read, fixed for the run but for the ROM folders (`romFoldersChanged`);
+    /// the runner's saves where `files_` keeps them.
     config::Config resolved_{
         files_.savingIn(settings::resolved(environment_, preferences_.values()))};
     /// The arcade cores' romset lists, fetched off the library scan; before the catalog that
@@ -935,7 +939,27 @@ class ShellApp final {
                                   },
                                   [this](const std::string& text, bool isError) {
                                       shell_.setToast(text, isError);
+                                  },
+                                  [this] {
+                                      romFoldersChanged();
                                   }}};
+    /// Library's add tiles: Add a game, Add a ROM folder, the integrations not set up.
+    LibraryAdditions libraryAdditions_{
+        integrations_,
+        LibraryAdditions::Hooks{.addGame =
+                                    [this] {
+                                        ownGames_.openAdd();
+                                    },
+                                .addRomFolder =
+                                    [this] {
+                                        settingsScreen_.addRomFolder();
+                                    },
+                                .importFromLan = {},
+                                .setUp =
+                                    [this](const std::string& row) {
+                                        settingsScreen_.openAt(
+                                            std::string{IntegrationSettings::categoryId}, row);
+                                    }}};
     std::unique_ptr<gamepad::PadSource> pads_{
         gamepad::openPadSource(PadOwner::padsFor(environment_.dataDir, settings_.hidden))};
     /// Who has the pads: the shell, the running launch with its mapping, or another window.

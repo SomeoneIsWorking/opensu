@@ -42,8 +42,8 @@ enum class TileKind : std::uint8_t {
     AllGames,
     /// The stores' free-to-keep offers.
     Giveaways,
-    /// Adds a game of the player's own.
-    AddGame,
+    /// Adds to the library: a game of the player's own, a ROM folder, an integration.
+    Add,
 };
 
 /// Everything one tile is drawn from.

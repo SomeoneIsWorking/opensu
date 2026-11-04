@@ -175,8 +175,8 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
     [[nodiscard]] std::optional<library::Folder> focusedFolder() const;
     /// Whether the focused tile is Giveaways.
     [[nodiscard]] bool focusedGiveaways() const;
-    /// Whether the focused tile is Add a game.
-    [[nodiscard]] bool focusedAddGame() const;
+    /// The focused add tile, or null when another tile or an empty slot has focus.
+    [[nodiscard]] const library::AddTile* focusedAdd() const;
     /// The title the focused entry shows, empty for an empty slot.
     [[nodiscard]] std::string focusedTitle() const;
     /// The title for the top bar's pill: the grid's, where an XMB and a Carousel draw their own.

@@ -147,7 +147,7 @@ void HiddenGames::set(const Game& game, bool hidden) {
 std::vector<SourceChoice> sourceChoices(const std::vector<Game>& games,
                                         const std::vector<SourceStatus>& sources) {
     std::vector<SourceChoice> choices{SourceChoice{"", "All sources"}};
-    for (const ShelfItem& item : libraryShelf(games, sources)) {
+    for (const ShelfItem& item : libraryShelf(games, sources, {})) {
         const std::optional<Folder> folder = folderOf(item);
         if (folder && !std::holds_alternative<AllGames>(*folder)) {
             choices.push_back(SourceChoice{key(*folder), name(*folder)});
@@ -199,11 +199,11 @@ std::vector<ShelfItem> searchShelf(const LibraryView& view, std::string_view tex
             hits.push_back(Hit{std::move(item), *rank, folder});
         }
     };
-    for (ShelfItem& item : libraryShelf(view.games, view.sources)) {
+    for (ShelfItem& item : libraryShelf(view.games, view.sources, view.adds)) {
         const std::optional<Folder> folder = folderOf(item);
-        const std::string_view tile =
-            std::holds_alternative<AddGame>(item) ? addGameName : giveawaysName;
-        consider(item, folder ? name(*folder) : std::string{tile}, true);
+        const auto* add = std::get_if<AddTile>(&item);
+        const std::string tile = add != nullptr ? add->name : std::string{giveawaysName};
+        consider(item, folder ? name(*folder) : tile, true);
     }
     for (ShelfItem& item : allGamesShelf(view.games)) {
         consider(item, std::get<Game>(item).title, false);
@@ -247,12 +247,14 @@ std::string describeResult(const ShelfItem& item) {
 
 std::vector<ShelfItem> visibleShelf(ShelfBrowser& browser, const std::vector<Game>& games,
                                     const std::vector<SourceStatus>& sources,
-                                    const ViewOptions& options, const HiddenGames& hidden) {
-    const LibraryView view = applyOptions(games, sources, options, hidden);
+                                    const std::vector<AddTile>& adds, const ViewOptions& options,
+                                    const HiddenGames& hidden) {
+    LibraryView view = applyOptions(games, sources, options, hidden);
+    view.adds = adds;
     if (!options.search.empty()) {
         return searchShelf(view, options.search);
     }
-    return browser.shelf(view.games, view.sources);
+    return browser.shelf(view.games, view.sources, view.adds);
 }
 
 } // namespace opensu::library

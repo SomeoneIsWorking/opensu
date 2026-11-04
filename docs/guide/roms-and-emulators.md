@@ -4,9 +4,10 @@
 
 ROMs live in a ROM root with one folder per system (`PS2`, `GameCube`, `Switch`, `PSX CHD`, ...).
 openSU finds the roots itself: a folder named `ROM`, `ROMs` or `roms` in the home folder, in
-`~/Emulation`, or at the top of a mounted drive. Settings › Library › Add a ROM folder adds one
-(on Android through the system's folder picker), and Find ROM folders automatically forgets the
-added ones. `OPENSU_ROM_ROOTS` overrides the search ([environment.md](environment.md)).
+`~/Emulation`, or at the top of a mounted drive. Library's Add a ROM folder tile, or Settings ›
+Library › Add a ROM folder, adds one (on Android through the system's folder picker), and Find ROM
+folders automatically forgets the added ones; either is read at once, without a restart.
+`OPENSU_ROM_ROOTS` overrides the search ([environment.md](environment.md)).
 
 A system folder holds game files or game folders; in a folder, the base game is started rather than
 its updates and DLC. Library has one tile per console, and each console's shelf its games.

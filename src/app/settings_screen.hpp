@@ -19,9 +19,11 @@ namespace opensu::app {
 
 class SettingsScreen final : public gpu2d::ui::Screen {
   public:
-    SettingsScreen(SettingsController& controller, const ui::Chrome& chrome, std::string category)
+    /// Opens on `category`, with its row `row` focused, else its tab.
+    SettingsScreen(SettingsController& controller, const ui::Chrome& chrome, std::string category,
+                   std::string row = {})
         : Screen{"settings", "Settings"}, controller_{controller}, chrome_{chrome},
-          category_{std::move(category)} {
+          category_{std::move(category)}, row_{std::move(row)} {
     }
 
     [[nodiscard]] std::unique_ptr<gpu2d::ui::Widget> build(const gpu2d::ui::Theme& theme) override;
@@ -29,7 +31,7 @@ class SettingsScreen final : public gpu2d::ui::Screen {
     bool act(gpu2d::ui::Action action, gpu2d::ui::ActContext& context) override;
     [[nodiscard]] std::vector<gpu2d::ui::Hint> hints() const override;
     [[nodiscard]] std::string initialFocus() const override {
-        return tabId();
+        return row_.empty() ? tabId() : row_;
     }
 
     /// The chosen category's label.
@@ -41,6 +43,7 @@ class SettingsScreen final : public gpu2d::ui::Screen {
     SettingsController& controller_;
     const ui::Chrome& chrome_;
     std::string category_;
+    std::string row_;
     std::string label_;
 };
 

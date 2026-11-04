@@ -3,6 +3,7 @@
 // (switches, Steam's mode, no Normal in a login session, Isolated's controllers) and the switch
 // that puts a change into effect (the catalog's stores, standalone emulators, Lua plugins, the
 // Steam client's mode), with no Steam started.
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -20,6 +21,7 @@
 #include "integration_settings.hpp"
 #include "integration_switch.hpp"
 #include "integrations_in_force.hpp"
+#include "library_additions.hpp"
 #include "pad_owner.hpp"
 #include "plugin_service.hpp"
 #include "steam/client_modes.hpp"
@@ -119,6 +121,51 @@ void allOffIsAChoice(const fs::path& root) {
     press(ui, Action::Accept);
     expect(inForce.chosen(), "Done with everything off is kept as a choice");
     expect(inForce.current() == settings::Integrations{}, "and nothing is in force");
+}
+
+void libraryTilesSetUpWhatIsOff(const fs::path& root) {
+    app::Preferences preferences = preferencesIn(root / "tiles");
+    app::IntegrationsInForce inForce{preferences, false};
+    std::vector<std::string> pressed;
+    const app::LibraryAdditions additions{
+        inForce, app::LibraryAdditions::Hooks{.addGame =
+                                                  [&pressed] {
+                                                      pressed.emplace_back("add game");
+                                                  },
+                                              .addRomFolder =
+                                                  [&pressed] {
+                                                      pressed.emplace_back("add rom folder");
+                                                  },
+                                              .importFromLan = {},
+                                              .setUp =
+                                                  [&pressed](const std::string& row) {
+                                                      pressed.push_back(row);
+                                                  }}};
+    const auto ids = [&additions] {
+        std::vector<std::string> out;
+        for (const library::AddTile& tile : additions.tiles()) {
+            out.push_back(tile.id);
+        }
+        return out;
+    };
+    expect(ids() == std::vector<std::string>{"add-game", "add-rom-folder", "set-up:steam",
+                                             "set-up:epic", "set-up:gog", "set-up:emulators",
+                                             "set-up:plugins", "set-up:lan"},
+           "nothing chosen: Add a game, Add a ROM folder and a tile per integration, no LAN "
+           "import without its hook");
+    for (const std::string id : {"add-game", "add-rom-folder", "set-up:gog"}) {
+        additions.press(id);
+    }
+    expect(pressed == std::vector<std::string>{"add game", "add rom folder", "integrations.gog"},
+           "each tile does its own thing; an integration's opens its switch");
+    settings::IntegrationChoices chosen;
+    chosen.steam = true;
+    chosen.lan = true;
+    inForce.choose(chosen);
+    const std::vector<std::string> after = ids();
+    expect(std::ranges::find(after, "set-up:steam") == after.end() &&
+               std::ranges::find(after, "set-up:lan") == after.end() && after.size() == 6,
+           "a tile goes once its integration is on");
 }
 
 /// Steam's modes on a build that offers several: Linux's Normal, Managed and Isolated.
@@ -390,6 +437,7 @@ int main() try {
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "integration-flow";
     theChooserAsksUntilDone(root);
     allOffIsAChoice(root);
+    libraryTilesSetUpWhatIsOff(root);
     if (steam::clientModes().size() > 1) {
         settingsStagesThenApplies(root);
     } else {

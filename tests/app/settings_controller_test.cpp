@@ -171,6 +171,10 @@ struct Rig {
                       .say =
                           [this](const std::string& text, bool error) {
                               said.push_back({text, error});
+                          },
+                      .romFoldersChanged =
+                          [this] {
+                              ++romFolderChanges;
                           }}} {
         screens.navigator.setKeyboard([this] {
             pad.open();
@@ -296,6 +300,8 @@ struct Rig {
     audio::SdlSoundPlayer sounds;
     std::vector<std::string> failures;
     std::vector<Said> said;
+    /// How often the catalog was told the ROM folders changed.
+    int romFolderChanges{0};
     steam::DevTools devTools;
     std::vector<library::steam::LibraryFolder> recorded;
     app::Preferences preferences;
@@ -855,14 +861,16 @@ void rootsAreAddedAndReset(const fs::path& root) {
     rig.focus("roms.add");
     rig.act(Button::A);
     choose(rig, roms);
-    expect(rig.onDisk().romFolders == std::vector<fs::path>{roms}, "a ROM folder is kept");
+    expect(rig.onDisk().romFolders == std::vector<fs::path>{roms} && rig.romFolderChanges == 1,
+           "a ROM folder is kept and read at once");
     rig.focus("roms.add");
     rig.act(Button::A);
     choose(rig, roms);
     expect(rig.onDisk().romFolders.size() == 1, "the same folder is not added twice");
     rig.focus("roms.reset");
     rig.act(Button::A);
-    expect(rig.onDisk().romFolders.empty(), "reset goes back to automatic");
+    expect(rig.onDisk().romFolders.empty() && rig.romFolderChanges == 3,
+           "reset goes back to automatic, read at once");
 
     rig.focus("steam.add");
     rig.act(Button::A);

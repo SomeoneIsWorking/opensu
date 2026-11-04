@@ -6,7 +6,6 @@
 #include <unordered_map>
 #include <utility>
 
-#include "add_game_offer.hpp"
 #include "rom_systems.hpp"
 #include "titles.hpp"
 
@@ -155,7 +154,8 @@ std::vector<ShelfItem> homeShelf(const std::vector<Game>& games) {
 }
 
 std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
-                                    const std::vector<SourceStatus>& sources) {
+                                    const std::vector<SourceStatus>& sources,
+                                    const std::vector<AddTile>& adds) {
     std::vector<ShelfItem> shelf;
     for (const Source source : launcherOrder) {
         const auto status = std::ranges::find(sources, source, &SourceStatus::source);
@@ -177,9 +177,7 @@ std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
         })) {
         shelf.emplace_back(Giveaways{});
     }
-    if (!addGameOffer().empty()) {
-        shelf.emplace_back(AddGame{});
-    }
+    shelf.insert(shelf.end(), adds.begin(), adds.end());
     const std::vector<Title> titles = storeTitles(games);
     if (!titles.empty()) {
         shelf.emplace_back(AllGames{titles.size()});
@@ -238,7 +236,8 @@ std::vector<ShelfItem> folderShelf(const std::vector<Game>& games, const Folder&
 }
 
 std::vector<ShelfItem> ShelfBrowser::shelf(const std::vector<Game>& games,
-                                           const std::vector<SourceStatus>& sources) {
+                                           const std::vector<SourceStatus>& sources,
+                                           const std::vector<AddTile>& adds) {
     if (folder_) {
         std::vector<ShelfItem> inside = folderShelf(games, *folder_);
         if (!inside.empty()) {
@@ -246,7 +245,7 @@ std::vector<ShelfItem> ShelfBrowser::shelf(const std::vector<Game>& games,
         }
         returned_ = back();
     }
-    return section() == Section::Home ? homeShelf(games) : libraryShelf(games, sources);
+    return section() == Section::Home ? homeShelf(games) : libraryShelf(games, sources, adds);
 }
 
 void ShelfBrowser::open(const Folder& folder, std::size_t sectionFocus) {

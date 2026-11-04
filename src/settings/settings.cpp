@@ -519,6 +519,12 @@ bool Store::save(const Settings& settings, std::string& error) const {
     return fileio::writeWhole(file_, document.dump(2) + "\n", error);
 }
 
+void Settings::addRomFolder(const std::filesystem::path& folder) {
+    if (std::ranges::find(romFolders, folder) == romFolders.end()) {
+        romFolders.push_back(folder);
+    }
+}
+
 config::Config resolved(config::Config base, const Settings& settings) {
     if (settings.homeMode) {
         base.homeMode = *settings.homeMode;

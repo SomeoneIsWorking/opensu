@@ -60,17 +60,19 @@ struct Giveaways {
 /// The Giveaways tile's and screen's name.
 inline constexpr std::string_view giveawaysName = "Giveaways";
 
-/// Adds a game of the player's own: a file, or imports from Steam's shortcuts and Lutris.
-struct AddGame {
-    bool operator==(const AddGame&) const = default;
-};
+/// A tile that adds to the library: a game of the player's own, a ROM folder, an integration not
+/// set up yet. The shell says which tiles there are and acts on a pressed one by its id.
+struct AddTile {
+    std::string id;
+    std::string name;
+    std::string caption;
 
-/// The Add a game tile's name.
-inline constexpr std::string_view addGameName = "Add a game";
+    bool operator==(const AddTile&) const = default;
+};
 
 /// A tile that opens a shelf of its own.
 using Folder = std::variant<Console, Launcher, AllGames>;
-using ShelfItem = std::variant<Game, Console, Launcher, AllGames, Giveaways, AddGame>;
+using ShelfItem = std::variant<Game, Console, Launcher, AllGames, Giveaways, AddTile>;
 
 /// The folder a shelf item opens, or nothing for a game.
 [[nodiscard]] std::optional<Folder> folderOf(const ShelfItem& item);
@@ -91,11 +93,12 @@ using ShelfItem = std::variant<Game, Console, Launcher, AllGames, Giveaways, Add
 
 /// Library: one launcher per store that is not absent, Steam, Epic, GOG, then the player's own
 /// games when there are any, then one per openSU on the LAN with games listed, by its name;
-/// Giveaways when a store has a launcher; Add a game; the combined
+/// Giveaways when a store has a launcher; the add tiles `adds`, in their order; the combined
 /// library when a store or the player has games; then one console per system with ROMs, in the
 /// known systems' order.
 [[nodiscard]] std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
-                                                  const std::vector<SourceStatus>& sources);
+                                                  const std::vector<SourceStatus>& sources,
+                                                  const std::vector<AddTile>& adds);
 
 /// One console's ROMs, in catalog order.
 [[nodiscard]] std::vector<ShelfItem> consoleShelf(const std::vector<Game>& games,
@@ -119,7 +122,8 @@ class ShelfBrowser {
     /// The shelf for the current place. A folder that has emptied returns to its section, to the
     /// slot it was entered from (`takeReturn`).
     [[nodiscard]] std::vector<ShelfItem> shelf(const std::vector<Game>& games,
-                                               const std::vector<SourceStatus>& sources);
+                                               const std::vector<SourceStatus>& sources,
+                                               const std::vector<AddTile>& adds);
 
     /// The slot to focus in the section an emptied folder returned to, once; nothing when none
     /// did since the last call.

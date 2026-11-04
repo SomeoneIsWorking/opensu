@@ -15,6 +15,8 @@ struct IntegrationEntry {
     std::string_view label;
     /// What it does and what it needs, in one line.
     std::string_view note;
+    /// Its Set up tile's name in Library, short enough for a tile.
+    std::string_view tile;
 };
 
 /// Steam, Epic, GOG, standalone emulators, Lua plugins, the LAN: those this build can serve (Steam

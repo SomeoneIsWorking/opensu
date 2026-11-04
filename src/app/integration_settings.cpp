@@ -19,10 +19,6 @@ constexpr const char* padsId = "integrations.steamPads";
 constexpr const char* alwaysId = "integrations.always";
 constexpr const char* applyId = "integrations.apply";
 
-std::string rowId(std::string_view entry) {
-    return std::string{prefix} + std::string{entry};
-}
-
 std::string_view modeNote(SteamMode mode) {
     switch (mode) {
     case SteamMode::Managed:
@@ -89,6 +85,10 @@ std::size_t IntegrationSettings::pendingCount() const {
            static_cast<std::size_t>(now.emulators != edit.emulators) +
            static_cast<std::size_t>(now.plugins != edit.plugins) +
            static_cast<std::size_t>(now.lan != edit.lan);
+}
+
+std::string IntegrationSettings::rowId(std::string_view entry) {
+    return std::string{prefix} + std::string{entry};
 }
 
 ui::SettingsCategory IntegrationSettings::page() const {

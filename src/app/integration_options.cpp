@@ -9,13 +9,15 @@ namespace opensu::app {
 namespace {
 
 constexpr std::array entries{
-    IntegrationEntry{"steam", "Steam", "Steam games, played through Steam"},
-    IntegrationEntry{"epic", "Epic Games", "Epic games via legendary; needs a sign-in"},
-    IntegrationEntry{"gog", "GOG", "GOG games via gogdl; needs a sign-in"},
+    IntegrationEntry{"steam", "Steam", "Steam games, played through Steam", "Set up Steam"},
+    IntegrationEntry{"epic", "Epic Games", "Epic games via legendary; needs a sign-in",
+                     "Set up Epic"},
+    IntegrationEntry{"gog", "GOG", "GOG games via gogdl; needs a sign-in", "Set up GOG"},
     IntegrationEntry{"emulators", "Standalone emulators",
-                     "Finds and downloads PCSX2, Dolphin, more"},
-    IntegrationEntry{"plugins", "Lua plugins", "Play time and extras from Lua plugins"},
-    IntegrationEntry{"lan", "LAN", "Finds other openSUs here and lists their games"},
+                     "Finds and downloads PCSX2, Dolphin, more", "Set up emulators"},
+    IntegrationEntry{"plugins", "Lua plugins", "Play time and extras from Lua plugins",
+                     "Set up plugins"},
+    IntegrationEntry{"lan", "LAN", "Finds other openSUs here and lists their games", "Set up LAN"},
 };
 
 } // namespace

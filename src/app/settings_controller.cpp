@@ -255,7 +255,7 @@ ui::SettingsCategory SettingsController::libraryPage() const {
     page.rows.push_back(ui::makeRow("roms.list", RowKind::Info, "ROM folders",
                                     v.romFolders.empty() && !defaults_.romRoots.empty()
                                         ? startedWith
-                                        : "Applies after a restart",
+                                        : "The library reads these",
                                     listed(v.romFolders.empty() ? defaults_.romRoots : v.romFolders,
                                            "Found automatically", [this](const fs::path& folder) {
                                                return romTree_->label(folder);
@@ -392,7 +392,11 @@ void SettingsController::openCategory(const std::string& id) {
     show(id);
 }
 
-void SettingsController::show(const std::string& category) {
+void SettingsController::openAt(const std::string& id, const std::string& row) {
+    show(id, row);
+}
+
+void SettingsController::show(const std::string& category, const std::string& row) {
     emulators_.rescan();
     integrations_.sync();
     if (inForce_.current().lists(library::Source::Steam)) {
@@ -411,8 +415,8 @@ void SettingsController::show(const std::string& category) {
     });
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
-    navigator_.push(
-        std::make_unique<SettingsScreen>(*this, chrome_, known ? category : all.front().id));
+    navigator_.push(std::make_unique<SettingsScreen>(
+        *this, chrome_, known ? category : all.front().id, known ? row : std::string{}));
 }
 
 void SettingsController::close() {
@@ -649,7 +653,10 @@ void SettingsController::runLibrary(const std::string& id, int step) {
         hooks_.reloadCatalog();
     } else if (id == romResetId) {
         v.romFolders.clear();
-        hooks_.say("ROM folders are found automatically after a restart", false);
+        changed();
+        hooks_.romFoldersChanged();
+        hooks_.say("ROM folders are found automatically", false);
+        return;
     } else if (id == steamResetId) {
         v.steamRoots.clear();
         hooks_.say("Steam is found automatically after a restart", false);
@@ -657,6 +664,10 @@ void SettingsController::runLibrary(const std::string& id, int step) {
         return;
     }
     changed();
+}
+
+void SettingsController::addRomFolder() {
+    addRoot(romAddId);
 }
 
 void SettingsController::chooseFolder(const std::string& id) {
@@ -690,14 +701,18 @@ void SettingsController::addRoot(const std::string& id) {
         if (!folder) {
             return;
         }
-        std::vector<fs::path>& roots =
-            steam ? preferences_.values().steamRoots : preferences_.values().romFolders;
+        if (!steam) {
+            preferences_.values().addRomFolder(*folder);
+            changed();
+            hooks_.romFoldersChanged();
+            hooks_.say("ROM folder added", false);
+            return;
+        }
+        std::vector<fs::path>& roots = preferences_.values().steamRoots;
         if (std::ranges::find(roots, *folder) == roots.end()) {
             roots.push_back(*folder);
         }
-        hooks_.say((steam ? "Steam folder" : "ROM folder") +
-                       std::string{" saved; it applies after a restart"},
-                   false);
+        hooks_.say("Steam folder saved; it applies after a restart", false);
         changed();
     };
     paths_.begin(std::move(request));

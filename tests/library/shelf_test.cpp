@@ -21,7 +21,7 @@
 
 namespace {
 
-using opensu::library::AddGame;
+using opensu::library::AddTile;
 using opensu::library::AllGames;
 using opensu::library::Availability;
 using opensu::library::Catalog;
@@ -116,15 +116,21 @@ void testHomeShelf() {
     expect(opensu::library::homeShelf({}).empty(), "nothing installed is an empty Home");
 }
 
+/// The add tiles the shell passes: Add a game alone.
+std::vector<AddTile> oneAdd() {
+    return {AddTile{"add-game", "Add a game", "A file"}};
+}
+
 void testLibraryShelf() {
-    const std::vector<ShelfItem> shelf = opensu::library::libraryShelf(library(), allReady());
+    const std::vector<ShelfItem> shelf =
+        opensu::library::libraryShelf(library(), allReady(), oneAdd());
     // Three launchers, Giveaways, Add a game, All games, two consoles.
     expect(shelf.size() == 8, "launchers, Giveaways, Add a game, All games and consoles");
     expect(*launcherAt(shelf, 0) == Launcher{Source::Steam, 3, true}, "Steam counts its games");
     expect(*launcherAt(shelf, 1) == Launcher{Source::Epic, 2, true}, "Epic follows Steam");
     expect(*launcherAt(shelf, 2) == Launcher{Source::Gog, 2, true}, "GOG follows Epic");
     expect(std::holds_alternative<Giveaways>(shelf.at(3)), "Giveaways follows the stores");
-    expect(std::holds_alternative<AddGame>(shelf.at(4)), "Add a game follows Giveaways");
+    expect(std::holds_alternative<AddTile>(shelf.at(4)), "Add a game follows Giveaways");
     expect(std::get_if<AllGames>(&shelf.at(5)) != nullptr &&
                std::get<AllGames>(shelf.at(5)).games == 4,
            "All games counts titles, a title owned in three stores once");
@@ -141,34 +147,42 @@ void testLibraryLaunchers() {
     std::vector<SourceStatus> sources = allReady();
     sources[1].availability = Availability::Absent;
     sources[2].availability = Availability::Attention;
-    const std::vector<ShelfItem> shelf = opensu::library::libraryShelf(library(), sources);
+    const std::vector<ShelfItem> shelf =
+        opensu::library::libraryShelf(library(), sources, oneAdd());
     expect(launcherAt(shelf, 0) != nullptr && launcherAt(shelf, 0)->source == Source::Steam &&
                launcherAt(shelf, 1) != nullptr && launcherAt(shelf, 1)->source == Source::Gog,
            "a store that is not there has no tile");
     expect(!launcherAt(shelf, 1)->ready, "a store that needs attention is not ready");
     expect(std::get_if<AllGames>(&shelf.at(4)) != nullptr, "All games follows Add a game");
 
-    const std::vector<ShelfItem> bare = opensu::library::libraryShelf({}, {});
-    expect(bare.size() == 1 && std::holds_alternative<AddGame>(bare.at(0)),
+    const std::vector<ShelfItem> bare = opensu::library::libraryShelf({}, {}, oneAdd());
+    expect(bare.size() == 1 && std::holds_alternative<AddTile>(bare.at(0)),
            "nothing at all is Add a game alone");
+    const std::vector<AddTile> twoAdds{AddTile{"add-game", "Add a game", ""},
+                                       AddTile{"set-up:steam", "Set up Steam", ""}};
+    const std::vector<ShelfItem> added = opensu::library::libraryShelf({}, {}, twoAdds);
+    expect(added.size() == 2 && std::get<AddTile>(added.at(0)) == twoAdds[0] &&
+               std::get<AddTile>(added.at(1)) == twoAdds[1],
+           "the add tiles stand in the order the shell gives them");
 
-    const std::vector<ShelfItem> romsOnly = opensu::library::libraryShelf(
-        {game(Source::Rom, "rom:gc-a", "gc")}, {{Source::Steam, Availability::Absent, {}}});
-    expect(romsOnly.size() == 2 && std::holds_alternative<AddGame>(romsOnly.at(0)) &&
+    const std::vector<ShelfItem> romsOnly =
+        opensu::library::libraryShelf({game(Source::Rom, "rom:gc-a", "gc")},
+                                      {{Source::Steam, Availability::Absent, {}}}, oneAdd());
+    expect(romsOnly.size() == 2 && std::holds_alternative<AddTile>(romsOnly.at(0)) &&
                consoleAt(romsOnly, 1) != nullptr,
            "no stores, no launchers, no Giveaways and no All games");
 
     const std::vector<ShelfItem> signedOut = opensu::library::libraryShelf(
-        {}, {{Source::Gog, Availability::Attention, "not signed in"}});
+        {}, {{Source::Gog, Availability::Attention, "not signed in"}}, oneAdd());
     expect(signedOut.size() == 3 && !launcherAt(signedOut, 0)->ready &&
                std::holds_alternative<Giveaways>(signedOut.at(1)),
            "a signed-out store still has its tile and Giveaways, and no All games without games");
 
     const std::vector<ShelfItem> ownOnly =
         opensu::library::libraryShelf({game(Source::Own, "own:1", "1", "Celeste", true)},
-                                      {{Source::Own, Availability::Ready, {}}});
+                                      {{Source::Own, Availability::Ready, {}}}, oneAdd());
     expect(ownOnly.size() == 3 && *launcherAt(ownOnly, 0) == Launcher{Source::Own, 1, true} &&
-               std::holds_alternative<AddGame>(ownOnly.at(1)) &&
+               std::holds_alternative<AddTile>(ownOnly.at(1)) &&
                std::get<AllGames>(ownOnly.at(2)).games == 1,
            "the player's own games are a launcher without Giveaways, and in All games");
     expect(opensu::library::homeShelf({game(Source::Own, "own:1", "1", "Celeste", true)}).size() ==
@@ -228,17 +242,17 @@ void testBrowser() {
     ShelfBrowser browser;
     expect(browser.section() == Section::Home, "the browser starts on Home");
     expect(!browser.back().has_value(), "back at a section's top goes nowhere");
-    expect(browser.shelf(library(), allReady()).size() == 3, "Home's shelf");
+    expect(browser.shelf(library(), allReady(), oneAdd()).size() == 3, "Home's shelf");
 
     expect(cycleFrom(browser, 1, 2) == 0 && browser.section() == Section::Library,
            "R1 reaches Library, first visit at its first slot");
-    expect(browser.shelf(library(), allReady()).size() == 8, "Library's shelf");
+    expect(browser.shelf(library(), allReady(), oneAdd()).size() == 8, "Library's shelf");
     browser.open(Console{"ps2", "PlayStation 2", 2}, 5);
     expect(keyOf(browser.folder()) == "ps2", "the console is open");
-    expect(browser.shelf(library(), allReady()).size() == 2, "its shelf is its ROMs");
+    expect(browser.shelf(library(), allReady(), oneAdd()).size() == 2, "its shelf is its ROMs");
     expect(browser.back() == 5, "back restores Library's focus on the console");
     expect(!browser.folder() && browser.section() == Section::Library &&
-               browser.shelf(library(), allReady()).size() == 8,
+               browser.shelf(library(), allReady(), oneAdd()).size() == 8,
            "Library again, not Home");
 
     browser.open(Console{"ps2", "PlayStation 2", 2}, 5);
@@ -246,19 +260,20 @@ void testBrowser() {
     std::erase_if(gone, [](const Game& entry) {
         return entry.sourceId == "ps2";
     });
-    expect(browser.shelf(gone, allReady()).size() == 7 && !browser.folder(),
+    expect(browser.shelf(gone, allReady(), oneAdd()).size() == 7 && !browser.folder(),
            "a console whose ROMs are gone returns to Library");
 
     browser.open(Launcher{Source::Epic, 2, true}, 1);
     expect(browser.inLauncher() && keyOf(browser.folder()) == "launcher:epic",
            "a launcher is open");
-    expect(browser.shelf(library(), allReady()).size() == 2, "its shelf is its store's games");
+    expect(browser.shelf(library(), allReady(), oneAdd()).size() == 2,
+           "its shelf is its store's games");
     expect(browser.back() == 1, "back restores the launcher's slot");
 
     browser.open(AllGames{4}, 3);
     expect(!browser.inLauncher() && keyOf(browser.folder()) == "all",
            "the combined library is open");
-    expect(browser.shelf(library(), allReady()).size() == 4, "its shelf is every title");
+    expect(browser.shelf(library(), allReady(), oneAdd()).size() == 4, "its shelf is every title");
 }
 
 void testCycling() {
@@ -313,7 +328,7 @@ class FakeProvider final : public opensu::library::Provider {
 void testLoadingLauncher() {
     const std::vector<SourceStatus> sources{{Source::Steam, Availability::Ready, {}},
                                             {Source::Epic, Availability::Loading, {}}};
-    const std::vector<ShelfItem> shelf = opensu::library::libraryShelf({}, sources);
+    const std::vector<ShelfItem> shelf = opensu::library::libraryShelf({}, sources, oneAdd());
     const Launcher* epic = launcherAt(shelf, 1);
     expect(epic != nullptr && epic->loading && !epic->ready,
            "a store whose listing is not in is loading, and is not asking to sign in");
@@ -357,7 +372,8 @@ void testRemoteHosts() {
                                   remote("bb", "Living room", "a"), remote("aa", "Desk", "b"),
                                   remote("bb", "Living room", "c")};
     const std::vector<ShelfItem> shelf = opensu::library::libraryShelf(
-        games, {{Source::Own, Availability::Ready, {}}, {Source::Remote, Availability::Ready, {}}});
+        games, {{Source::Own, Availability::Ready, {}}, {Source::Remote, Availability::Ready, {}}},
+        oneAdd());
     const Launcher* desk = launcherAt(shelf, 1);
     const Launcher* room = launcherAt(shelf, 2);
     expect(launcherAt(shelf, 0)->source == Source::Own && desk != nullptr && room != nullptr &&

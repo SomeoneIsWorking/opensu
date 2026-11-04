@@ -349,7 +349,7 @@ void TilePainter::paintContent(Canvas& canvas, const TileVisual& tile,
         paintCard(canvas, tile, content, giveawaysFrom, giveawaysTo);
         return;
     }
-    if (tile.kind == TileKind::AddGame) {
+    if (tile.kind == TileKind::Add) {
         paintCard(canvas, tile, content, addGameFrom, addGameTo);
         return;
     }
@@ -504,7 +504,7 @@ void TilePainter::paintMark(Canvas& canvas, const TileVisual& tile, const Rect& 
         fill(Rect{box.centreX() + ribbon * 0.5f, box.y, loop, loop}, loop * 0.5f);
         return;
     }
-    if (tile.kind == TileKind::AddGame) {
+    if (tile.kind == TileKind::Add) {
         // A plus.
         const float bar = box.width * 0.2f;
         fill(Rect{box.centreX() - bar * 0.5f, box.y, bar, box.height}, bar * 0.3f);
@@ -571,7 +571,7 @@ void TilePainter::paintCard(Canvas& canvas, const TileVisual& tile, const Rect& 
     const float gap = side * 0.04f;
     const bool marked =
         tile.kind == TileKind::Launcher || tile.kind == TileKind::AllGames ||
-        tile.kind == TileKind::Giveaways || tile.kind == TileKind::AddGame ||
+        tile.kind == TileKind::Giveaways || tile.kind == TileKind::Add ||
         (tile.kind == TileKind::Console && consoleArt_.look(tile.console) != CardLook::None);
     if (tile.kind == TileKind::Console && consoleArt_.look(tile.console) == CardLook::Picture) {
         // A photo fills the card; the name and count stand over its foot, outlined.

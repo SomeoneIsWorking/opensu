@@ -1658,6 +1658,14 @@ lookup (the matched name's title) follow it: the player's PlayStation Crash Band
 show a fitted SteamGridDB cover (SNES) keeps that cover, since SteamGridDB knows the game by its
 title. Unverified: launching a Lutris or Steam-shortcut entry.
 
+Add a game is one of Library's add tiles (`app::LibraryAdditions`): Add a ROM folder opens
+Settings' own folder flow (Android's folder picker there) and the library reads the folder at once;
+Set up Steam, Epic, GOG, emulators, plugins and LAN each open that switch in Settings ›
+Integrations and go once it is on. Seen in hidden runs by pad (Set up Steam to its switch, Set up
+LAN gone after LAN was turned on) and by touch (a ROM folder added through the chooser, its NES
+tile at once). Unverified: the Android flow on a device; Import from a PC on your network waits for
+LAN ROM import.
+
 ### S026 — Emulator downloads
 
 `assets/emulators.json` is the one catalog (`library/emulator_catalog`): detection and downloads

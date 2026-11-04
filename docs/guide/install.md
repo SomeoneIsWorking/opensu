@@ -83,8 +83,11 @@ the app. Wine is not offered on macOS; a store's Mac builds are installed and ru
 `openSU-<version>-android.apk` for arm64-v8a and x86_64, Android 9 or newer, signed with the
 certificate whose SHA-256 is
 `BDC838D582DDC695CDAB431D2053B636EB93A0C2E1C3F468DD002D1011E43238`. Install it with the system
-installer (allow installs from your browser or file manager when asked). Add your ROM folders in
-Settings › Library › Add a ROM folder, which opens Android's folder picker. Games run on the built-in
+installer (allow installs from your browser or file manager when asked). To point openSU at your
+ROMs, open Library (the controller icon in the dock) and tap Add a ROM folder: Android's folder
+picker opens; pick the folder that holds one folder per console (`gb`, `snes`, `nes`, ...) and
+allow access, and each console's tile appears in Library with its games. Settings › Library › Add
+a ROM folder does the same. Games run on the built-in
 cores, downloaded from the buildbot's `android/latest/<abi>` folder; the runner draws touch
 controls while no pad is connected, and Back or the pause button opens the Guide menu. Standalone
 emulators that are installed are started by intent with the game. Steam, Epic, GOG and the sign-in

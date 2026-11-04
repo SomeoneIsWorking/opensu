@@ -27,6 +27,9 @@ class IntegrationSettings {
     /// The category's id; its rows' ids start with it and a dot.
     static constexpr std::string_view categoryId = "integrations";
 
+    /// The switch row of the integration entry `entry`.
+    [[nodiscard]] static std::string rowId(std::string_view entry);
+
     [[nodiscard]] ui::SettingsCategory page() const;
     [[nodiscard]] static bool owns(const std::string& id);
     /// Acts on row `id`: A flips a switch or applies; Left and Right step a choice.

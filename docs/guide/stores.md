@@ -11,8 +11,10 @@ Only the ROM library and the built-in libretro runner are on by default. Steam, 
 standalone emulators, Lua plugins and LAN ([lan.md](lan.md)) are each turned on in Settings ›
 Integrations; one that is off starts nothing, reads nothing and shows nothing (no client, no
 `legendary`, no tiles, no Settings pages). The first run, and the first run after an update while
-the settings file has no choices, shows a chooser with all of them off. On Android only standalone
-emulators, Lua plugins and LAN are offered.
+the settings file has no choices, shows a chooser with all of them off. While one is off, Library
+has a Set up tile for it (Set up Steam, Set up Epic, ...) that opens its switch in Settings ›
+Integrations; the tile goes once the integration is on. On Android only standalone emulators, Lua
+plugins and LAN are offered.
 
 ## Steam modes
 

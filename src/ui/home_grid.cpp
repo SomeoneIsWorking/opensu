@@ -6,7 +6,6 @@
 #include <variant>
 
 #include "hud.hpp"
-#include "library/add_game_offer.hpp"
 #include "lucent/log.h"
 #include "lucent/text.h"
 #include "tile_geometry.hpp"
@@ -39,8 +38,8 @@ TileKind kindOf(const library::ShelfItem& item) noexcept {
     if (std::holds_alternative<library::Giveaways>(item)) {
         return TileKind::Giveaways;
     }
-    if (std::holds_alternative<library::AddGame>(item)) {
-        return TileKind::AddGame;
+    if (std::holds_alternative<library::AddTile>(item)) {
+        return TileKind::Add;
     }
     return std::holds_alternative<library::AllGames>(item) ? TileKind::AllGames : TileKind::Game;
 }
@@ -57,8 +56,8 @@ std::string shelfKey(const library::ShelfItem& item) {
     if (std::holds_alternative<library::Giveaways>(item)) {
         return "giveaways";
     }
-    if (std::holds_alternative<library::AddGame>(item)) {
-        return "add-game";
+    if (const auto* add = std::get_if<library::AddTile>(&item)) {
+        return "add:" + add->id;
     }
     const std::optional<library::Folder> folder = library::folderOf(item);
     return folder ? "folder:" + library::key(*folder) : std::string{};
@@ -158,9 +157,9 @@ void HomeGrid::fillTile(Tile& tile, library::ShelfItem item) const {
     } else if (std::holds_alternative<library::Giveaways>(tile.item)) {
         tile.title = std::string{library::giveawaysName};
         tile.caption = "Free to keep";
-    } else if (std::holds_alternative<library::AddGame>(tile.item)) {
-        tile.title = std::string{library::addGameName};
-        tile.caption = std::string{library::addGameOffer()};
+    } else if (const auto* add = std::get_if<library::AddTile>(&tile.item)) {
+        tile.title = add->name;
+        tile.caption = add->caption;
     } else {
         for (const library::Source source : std::get<library::Game>(tile.item).ownedIn) {
             if (const std::optional<Icon> icon = iconFor(source)) {
@@ -674,8 +673,8 @@ std::string HomeGrid::focusedTitle() const {
     if (focusedGiveaways()) {
         return std::string{library::giveawaysName};
     }
-    if (focusedAddGame()) {
-        return std::string{library::addGameName};
+    if (const library::AddTile* add = focusedAdd()) {
+        return add->name;
     }
     return {};
 }
@@ -685,9 +684,10 @@ bool HomeGrid::focusedGiveaways() const {
            std::holds_alternative<library::Giveaways>(tiles_[focus_.index()].item);
 }
 
-bool HomeGrid::focusedAddGame() const {
-    return focus_.index() < tiles_.size() &&
-           std::holds_alternative<library::AddGame>(tiles_[focus_.index()].item);
+const library::AddTile* HomeGrid::focusedAdd() const {
+    return focus_.index() < tiles_.size()
+               ? std::get_if<library::AddTile>(&tiles_[focus_.index()].item)
+               : nullptr;
 }
 
 std::string HomeGrid::pillTitle() const {

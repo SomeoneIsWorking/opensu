@@ -200,8 +200,8 @@ void ShellApp::pressTile() {
     } else if (grid.focusedGiveaways()) {
         sounds_.play(audio::Effect::EnterConsolesApps);
         giveaways_.open();
-    } else if (grid.focusedAddGame()) {
-        ownGames_.openAdd();
+    } else if (const library::AddTile* add = grid.focusedAdd()) {
+        libraryAdditions_.press(add->id);
     } else {
         details_.open();
     }
@@ -209,6 +209,11 @@ void ShellApp::pressTile() {
 
 void ShellApp::reloadCatalog() {
     catalogLoader_.refresh();
+}
+
+void ShellApp::romFoldersChanged() {
+    resolved_.romRoots = settings::resolved(environment_, preferences_.values()).romRoots;
+    catalogLoader_.replace(catalogOf(integrations_.catalogStores()));
 }
 
 library::Catalog ShellApp::catalogOf(const library::CatalogStores& stores) {
@@ -290,8 +295,8 @@ void ShellApp::pushCatalogToShell() {
 
 void ShellApp::showShelf(std::size_t focus) {
     const settings::Settings& chosen = preferences_.values();
-    std::vector<library::ShelfItem> shelf =
-        library::visibleShelf(browser_, games_, sources_, chosen.view, chosen.hidden);
+    std::vector<library::ShelfItem> shelf = library::visibleShelf(
+        browser_, games_, sources_, libraryAdditions_.tiles(), chosen.view, chosen.hidden);
     artworkStore_.apply(shelf);
     covers_.apply(shelf);
     shell_.grid().setShelf(std::move(shelf), browser_.takeReturn().value_or(focus));
@@ -300,8 +305,8 @@ void ShellApp::showShelf(std::size_t focus) {
 
 void ShellApp::refreshShelf() {
     const settings::Settings& chosen = preferences_.values();
-    std::vector<library::ShelfItem> shelf =
-        library::visibleShelf(browser_, games_, sources_, chosen.view, chosen.hidden);
+    std::vector<library::ShelfItem> shelf = library::visibleShelf(
+        browser_, games_, sources_, libraryAdditions_.tiles(), chosen.view, chosen.hidden);
     artworkStore_.apply(shelf);
     covers_.apply(shelf);
     if (const std::optional<std::size_t> slot = browser_.takeReturn()) {
@@ -919,8 +924,8 @@ ui::HintContext ShellApp::hints() const {
     const bool folder = grid.focusedFolder().has_value();
     return ui::HintContext{.back = browser_.canBack(),
                            .clearSearch = search_.searching(),
-                           .select =
-                               game || folder || grid.focusedGiveaways() || grid.focusedAddGame(),
+                           .select = game || folder || grid.focusedGiveaways() ||
+                                     grid.focusedAdd() != nullptr,
                            .details = game,
                            .options = game || folder,
                            .menu = true};
@@ -965,8 +970,8 @@ void ShellApp::publishSnapshot() {
                              : library::key(*folder);
     } else if (grid.focusedGiveaways()) {
         next.focusedId = "giveaways";
-    } else if (grid.focusedAddGame()) {
-        next.focusedId = "add-game";
+    } else if (const library::AddTile* add = grid.focusedAdd()) {
+        next.focusedId = add->id;
     }
     next.focusedTitle = grid.focusedTitle();
     next.section = std::string{library::key(browser_.section())};
