@@ -17,6 +17,12 @@ namespace {
 
 using Standing = lan::PeerSaves::Standing;
 
+/// The conflict the pick asks about, shared by its choices so copying one cannot throw.
+struct Conflict {
+    library::Game game;
+    std::string peerId;
+};
+
 /// Which peer's standing the fact names: the one most worth the player's attention.
 constexpr std::array shownFirst{Standing::Conflict,  Standing::NewerThere, Standing::Failed,
                                 Standing::NewerHere, Standing::NotShared,  Standing::Offline,
@@ -87,8 +93,9 @@ void SharedSaves::act(const library::Game& game) {
         return;
     }
     const std::string peer = shown->peer.name;
-    const auto keep = [this, game, id = shown->peer.id](bool theirs) {
-        lan_.keep(game, id, theirs);
+    const auto keep = [this, conflict = std::make_shared<const Conflict>(
+                                 Conflict{.game = game, .peerId = shown->peer.id})](bool theirs) {
+        lan_.keep(conflict->game, conflict->peerId, theirs);
     };
     std::vector<gpu2d::ui::Dialog::Choice> choices;
     choices.push_back(gpu2d::ui::Dialog::Choice{

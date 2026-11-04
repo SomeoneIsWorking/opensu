@@ -21,10 +21,10 @@ std::optional<net::WebClient::Answer> PeerClient::send(std::string_view target,
                                                        std::string& error) const {
     const std::string url =
         "http://" + endpoint_.address + ":" + std::to_string(endpoint_.port) + std::string{target};
-    const net::WebClient::Guard guard{.maxBody = largest, .refusal = [url](const std::string& hop) {
-                                          return hop == url ? std::string{}
-                                                            : "an openSU sends nowhere else";
-                                      }};
+    const net::WebClient::Guard guard{
+        .maxBody = largest, .refusal = [allowed = std::string_view{url}](const std::string& hop) {
+            return hop == allowed ? std::string{} : "an openSU sends nowhere else";
+        }};
     return web_.request(url, headers, guard, error, post);
 }
 

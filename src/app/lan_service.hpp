@@ -120,8 +120,7 @@ class LanService {
     using PlayAnswer = std::function<void(std::optional<lan::LanNode::PlayOffer>, std::string)>;
     /// Asks the paired openSU `hostId` to stream its game `gameId` here, off the loop; `answer` is
     /// called on that thread. False while LAN is off or another request is under way.
-    [[nodiscard]] bool askToPlay(const std::string& hostId, const std::string& gameId,
-                                 PlayAnswer answer);
+    [[nodiscard]] bool askToPlay(std::string hostId, std::string gameId, PlayAnswer answer);
 
     /// Shows the question and the card as the pairings stand and passes on the node's news.
     /// Every frame, main loop only.
@@ -141,6 +140,8 @@ class LanService {
     void start();
     void stop();
     void serviceQuestion();
+    /// The player's answer to the question its dialog asks.
+    void answerQuestion(bool accept);
     void serviceCard();
     void closeQuestion();
     void closeCard();

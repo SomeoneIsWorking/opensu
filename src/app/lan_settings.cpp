@@ -119,8 +119,8 @@ void LanSettings::run(const std::string& id, int step) {
         "Remove " + peer->name + "?",
         "This openSU forgets the pairing, and tells " + peer->name +
             " to forget it too. Its games leave Library. Pairing again shows a new code.",
-        "Remove", [this, peerId] {
-            lan_.forget(peerId);
+        "Remove", [this, forgotten = std::make_shared<const std::string>(peerId)] {
+            lan_.forget(*forgotten);
         }));
 }
 

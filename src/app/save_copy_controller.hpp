@@ -7,6 +7,7 @@
 // page offers it once a read finds a save to copy and another emulator to take it.
 #pragma once
 
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -107,7 +108,7 @@ class SaveCopyController final : public ui::RowActions {
 
     [[nodiscard]] const gpu2d::ui::Screen* card() const;
     /// Runs `job` on the worker; nothing while it is busy.
-    void start(Work work, std::function<Done()> job);
+    template <std::invocable Job> void start(Work work, Job job);
     /// What a read of `game`'s saves through `catalog` finds. Worker only.
     [[nodiscard]] Found find(const library::Game& game, const library::saves::SaveKey& key,
                              const library::roms::EmulatorCatalog& catalog) const;
@@ -117,8 +118,8 @@ class SaveCopyController final : public ui::RowActions {
     [[nodiscard]] std::vector<std::size_t> targets() const;
     /// Points the source and target at `source` and `target` where they still are.
     void place(const std::string& source, const std::string& target);
-    void copy(const Opened& opened);
-    void undo(const Opened& opened);
+    void copy(Opened opened);
+    void undo(Opened opened);
     /// "Close Ryujinx first: it is running"; empty when neither of `saves` is running.
     [[nodiscard]] static std::string
     runningRefusal(std::initializer_list<const library::saves::EmulatorSaves*> saves);

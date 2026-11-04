@@ -7,6 +7,7 @@
 #include <cstring>
 #include <fstream>
 #include <iterator>
+#include <memory>
 #include <stdexcept>
 #include <thread>
 #include <utility>
@@ -30,6 +31,15 @@
 #include "ui/section_view.hpp"
 
 namespace opensu::app {
+namespace {
+
+/// A launch held for its saves, shared by the held call so copying it cannot throw.
+struct HeldLaunch {
+    library::Game game;
+    std::vector<std::string> environment;
+};
+
+} // namespace
 
 ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
     : environment_{environment}, settings_{settings},
@@ -640,8 +650,10 @@ bool ShellApp::launch(const library::Game& game, std::vector<std::string> enviro
         shell_.setToast("a game is waiting for its saves", true);
         return false;
     }
-    if (lan_.before(game, [this, game, environment] {
-            static_cast<void>(startLaunch(game, environment));
+    const auto held =
+        std::make_shared<const HeldLaunch>(HeldLaunch{.game = game, .environment = environment});
+    if (lan_.before(game, [this, held] {
+            static_cast<void>(startLaunch(held->game, held->environment));
         })) {
         shell_.setToast("Syncing " + game.title + "'s saves first");
         return true;

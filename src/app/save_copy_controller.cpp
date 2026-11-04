@@ -68,7 +68,7 @@ bool SaveCopyController::isOpen() const {
     return card() != nullptr;
 }
 
-void SaveCopyController::start(Work work, std::function<Done()> job) {
+template <std::invocable Job> void SaveCopyController::start(Work work, Job job) {
     if (work_ != Work::None) {
         return;
     }
@@ -102,8 +102,11 @@ void SaveCopyController::read(const library::Game& game) {
         return;
     }
     reading_ = game.id;
-    start(Work::Reading, [this, game, key = *key, catalog = downloads_.setup().catalog] {
-        return Done{find(game, key, catalog), {}, false};
+    // Copied here and moved in: the worker's job copies nothing.
+    Opened opened{.game = game, .key = *key};
+    library::roms::EmulatorCatalog catalog = downloads_.setup().catalog;
+    start(Work::Reading, [this, opened = std::move(opened), catalog = std::move(catalog)] {
+        return Done{find(opened.game, opened.key, catalog), {}, false};
     });
 }
 
@@ -302,12 +305,15 @@ std::string SaveCopyController::runningRefusal(std::initializer_list<const Emula
     return {};
 }
 
-void SaveCopyController::copy(const Opened& opened) {
+void SaveCopyController::copy(Opened opened) {
     if (!found_) {
         return;
     }
-    start(Work::Copying, [this, opened, from = found_->saves[from_], to = found_->saves[to_],
-                          catalog = downloads_.setup().catalog] {
+    EmulatorSaves from = found_->saves[from_];
+    EmulatorSaves to = found_->saves[to_];
+    library::roms::EmulatorCatalog catalog = downloads_.setup().catalog;
+    start(Work::Copying, [this, opened = std::move(opened), from = std::move(from),
+                          to = std::move(to), catalog = std::move(catalog)] {
         Done done;
         done.said = runningRefusal({&from, &to});
         if (done.said.empty()) {
@@ -323,12 +329,14 @@ void SaveCopyController::copy(const Opened& opened) {
     });
 }
 
-void SaveCopyController::undo(const Opened& opened) {
+void SaveCopyController::undo(Opened opened) {
     if (!found_) {
         return;
     }
+    EmulatorSaves to = found_->saves[to_];
+    library::roms::EmulatorCatalog catalog = downloads_.setup().catalog;
     start(Work::Undoing,
-          [this, opened, to = found_->saves[to_], catalog = downloads_.setup().catalog] {
+          [this, opened = std::move(opened), to = std::move(to), catalog = std::move(catalog)] {
               Done done;
               done.said = runningRefusal({&to});
               if (done.said.empty()) {

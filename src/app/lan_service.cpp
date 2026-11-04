@@ -126,21 +126,20 @@ void LanService::share(const std::vector<library::Game>& games,
     }
 }
 
-bool LanService::askToPlay(const std::string& hostId, const std::string& gameId,
-                           PlayAnswer answer) {
+bool LanService::askToPlay(std::string hostId, std::string gameId, PlayAnswer answer) {
     if (node_ == nullptr || asking_->exchange(true)) {
         return false;
     }
     if (asker_.joinable()) {
         asker_.join();
     }
-    asker_ = std::jthread{
-        [node = node_.get(), asking = asking_, hostId, gameId, answer = std::move(answer)] {
-            std::string error;
-            std::optional<lan::LanNode::PlayOffer> offer = node->askToPlay(hostId, gameId, error);
-            asking->store(false);
-            answer(std::move(offer), std::move(error));
-        }};
+    asker_ = std::jthread{[node = node_.get(), asking = asking_, hostId = std::move(hostId),
+                           gameId = std::move(gameId), answer = std::move(answer)] {
+        std::string error;
+        std::optional<lan::LanNode::PlayOffer> offer = node->askToPlay(hostId, gameId, error);
+        asking->store(false);
+        answer(std::move(offer), std::move(error));
+    }};
     return true;
 }
 
@@ -312,32 +311,19 @@ void LanService::serviceQuestion() {
         return;
     }
     lucent::info("lan", "{} asks to pair", asked_->guest.name);
-    const std::string guest = asked_->guest.name;
-    const auto answer = [this, id = asked_->guest.id, guest](bool accept) {
-        questionTitle_.clear();
-        if (node_ == nullptr) {
-            return;
-        }
-        std::string error;
-        if (!node_->answer(id, accept, error)) {
-            hooks_.say("Cannot pair with " + guest + ": " + error, true);
-            return;
-        }
-        hooks_.say(accept ? "Paired with " + guest : "Declined " + guest, false);
-        hooks_.peersChanged();
-    };
+    const std::string& guest = asked_->guest.name;
     std::vector<gpu2d::ui::Dialog::Choice> choices;
     choices.push_back(gpu2d::ui::Dialog::Choice{.label = "Decline",
                                                 .chosen =
-                                                    [answer] {
-                                                        answer(false);
+                                                    [this] {
+                                                        answerQuestion(false);
                                                     },
                                                 .kind = gpu2d::ui::ButtonKind::Normal,
                                                 .exits = true});
     choices.push_back(gpu2d::ui::Dialog::Choice{.label = "Accept",
                                                 .chosen =
-                                                    [answer] {
-                                                        answer(true);
+                                                    [this] {
+                                                        answerQuestion(true);
                                                     },
                                                 .kind = gpu2d::ui::ButtonKind::Primary,
                                                 .exits = false});
@@ -349,6 +335,21 @@ void LanService::serviceQuestion() {
         std::move(choices), 0);
     sounds_.play(audio::Effect::Open);
     navigator_.push(std::move(dialog));
+}
+
+void LanService::answerQuestion(bool accept) {
+    questionTitle_.clear();
+    if (node_ == nullptr || !asked_) {
+        return;
+    }
+    const lan::Peer guest = asked_->guest;
+    std::string error;
+    if (!node_->answer(guest.id, accept, error)) {
+        hooks_.say("Cannot pair with " + guest.name + ": " + error, true);
+        return;
+    }
+    hooks_.say(accept ? "Paired with " + guest.name : "Declined " + guest.name, false);
+    hooks_.peersChanged();
 }
 
 void LanService::serviceCard() {
