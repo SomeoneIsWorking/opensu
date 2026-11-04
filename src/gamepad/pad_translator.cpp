@@ -185,20 +185,39 @@ void PadTranslator::sync(Button button, std::vector<PadEvent>& forward) {
     syncOutputs(map_.outputOf(button), forward);
 }
 
-void PadTranslator::syncOutputs(const std::set<Button>& outputs, std::vector<PadEvent>& forward) {
-    const auto on = [this](Button button) {
+std::optional<PadEvent> virtualPadEvent(Button out,
+                                        const std::function<std::int32_t(Button)>& level) {
+    const auto on = [&level](Button button) {
         return level(button) > 0 ? 1 : 0;
     };
+    if (out == Button::L2 || out == Button::R2) {
+        return PadEvent{EV_ABS, static_cast<std::uint16_t>(out == Button::L2 ? ABS_Z : ABS_RZ),
+                        level(out)};
+    }
+    if (out == Button::Up || out == Button::Down) {
+        return PadEvent{EV_ABS, ABS_HAT0Y, on(Button::Down) - on(Button::Up)};
+    }
+    if (out == Button::Left || out == Button::Right) {
+        return PadEvent{EV_ABS, ABS_HAT0X, on(Button::Right) - on(Button::Left)};
+    }
+    if (const auto key = std::ranges::find(forwardedKeys, out, &KeyButton::second);
+        key != std::end(forwardedKeys)) {
+        return PadEvent{EV_KEY, key->first, on(out)};
+    }
+    return std::nullopt;
+}
+
+void PadTranslator::syncOutputs(const std::set<Button>& outputs, std::vector<PadEvent>& forward) {
+    const std::function<std::int32_t(Button)> levels = [this](Button button) {
+        return level(button);
+    };
     for (const Button out : outputs) {
-        if (out == Button::L2 || out == Button::R2) {
-            forwardAxis(out == Button::L2 ? ABS_Z : ABS_RZ, level(out), forward);
-        } else if (out == Button::Up || out == Button::Down) {
-            forwardAxis(ABS_HAT0Y, on(Button::Down) - on(Button::Up), forward);
-        } else if (out == Button::Left || out == Button::Right) {
-            forwardAxis(ABS_HAT0X, on(Button::Right) - on(Button::Left), forward);
-        } else if (const auto key = std::ranges::find(forwardedKeys, out, &KeyButton::second);
-                   key != std::end(forwardedKeys)) {
-            forwardKey(key->first, on(out), forward);
+        if (const std::optional<PadEvent> event = virtualPadEvent(out, levels)) {
+            if (event->type == EV_KEY) {
+                forwardKey(event->code, event->value, forward);
+            } else {
+                forwardAxis(event->code, event->value, forward);
+            }
         }
     }
 }
