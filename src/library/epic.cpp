@@ -25,6 +25,7 @@ struct Owned {
     std::string artworkUrl;
     /// `asset_infos.<platform>.build_version`: the build Epic offers per platform.
     std::map<std::string, std::string, std::less<>> builds;
+    bool cloudSaves{false};
 };
 
 /// One installed title from `legendary list-installed --json`.
@@ -69,6 +70,24 @@ std::string artworkUrl(const json& entry) {
     return {};
 }
 
+/// legendary's own rule (`Game.supports_cloud_saves` or `supports_mac_cloud_saves`): the metadata
+/// names a cloud save folder.
+bool cloudSavesOf(const json& entry) {
+    const json::const_iterator metadata = entry.find("metadata");
+    if (metadata == entry.end() || !metadata->is_object()) {
+        return false;
+    }
+    const json::const_iterator attributes = metadata->find("customAttributes");
+    if (attributes == metadata->end() || !attributes->is_object()) {
+        return false;
+    }
+    return std::ranges::any_of(std::array{"CloudSaveFolder", "CloudSaveFolder_MAC"},
+                               [&attributes](const char* key) {
+                                   const json::const_iterator folder = attributes->find(key);
+                                   return folder != attributes->end() && !folder->is_null();
+                               });
+}
+
 /// `asset_infos` as platform to build version.
 std::map<std::string, std::string, std::less<>> buildsOf(const json& entry) {
     std::map<std::string, std::string, std::less<>> builds;
@@ -90,7 +109,8 @@ std::vector<Owned> parseOwned(std::string_view output) {
         owned.push_back(Owned{.appName = entry.value("app_name", ""),
                               .title = entry.value("app_title", ""),
                               .artworkUrl = artworkUrl(entry),
-                              .builds = buildsOf(entry)});
+                              .builds = buildsOf(entry),
+                              .cloudSaves = cloudSavesOf(entry)});
     }
     return owned;
 }
@@ -168,6 +188,7 @@ std::vector<Game> Provider::list() {
         game.artworkUrl = title.artworkUrl;
         game.installed = install != installs.end();
         game.updateAvailable = game.installed && updateAvailable(title, install->second);
+        game.cloudSaves = title.cloudSaves;
         game.launch = LaunchSpec{.program = "legendary", .args = {"launch", title.appName}};
         game.windowsInstall =
             !windowsBuildsNative && game.installed && install->second.platform == "Windows";

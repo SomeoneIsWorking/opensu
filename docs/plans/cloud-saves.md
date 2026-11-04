@@ -54,16 +54,19 @@ player picks which to keep, every replaced copy is backed up first).
    the second shows the conflict and keeps the share's after the pick, its own backed up; a third
    with another passphrase is refused; the bundle holds none of the save in the clear.
    Epic built (2026-11-04, `save_sync::EpicCloud`, routed by `app::SaveSharing` for an installed
-   Epic game): the cloud's newest save is the newest manifest `legendary list-saves` names, the
-   save folder `legendary info --json`'s `install.save_path` (set once by a `sync-saves` with both
-   transfers skipped and `--accept-path`), and `epic-saves.json` keeps per game the folder's
-   content hash and the manifest at the last sync, so the same rule decides; a pull is
-   `sync-saves --force-download` after the folder is backed up, a push `--force-upload`, a conflict
-   the same pick. Shown with two hidden openSUs and a stand-in `legendary` sharing one scratch
+   Epic game whose metadata names a cloud save folder, `Game::cloudSaves`; any other launches at
+   once): the cloud's newest save is the one `legendary -v sync-saves <app>` with both transfers
+   skipped compares with (its date as legendary reads it from the manifest's name), one request
+   for that game, the save folder `legendary info --json --offline`'s `install.save_path` (set
+   once by a `sync-saves` with both transfers skipped and `--accept-path`), and `epic-saves.json`
+   keeps per game the folder's content hash and the manifest at the last sync, so the same rule
+   decides; a pull is `sync-saves --force-download` after the folder is backed up, a push
+   `--force-upload`, a conflict the same pick. Shown with two hidden openSUs and a stand-in `legendary` sharing one scratch
    cloud that records every call (`scratch/saves3/epic/proof.txt`, frames in `frames/`): the
    first gives its save, the second takes it before launch and gives its own after the game ends,
    the first, changed too, shows the conflict and keeps Epic's, its own backed up. Not run
-   against Epic. `list-saves` refreshes legendary's game list, which adds its time to each launch.
+   against Epic. Neither call refreshes legendary's game list, as `list-saves` and an online `info`
+   do: a launch waits on one `info --offline` and one `sync-saves` request.
    GOG not built: gogdl's `save-sync <path> <client id> --ts <time>` needs per game the client id
    from `goggame-<id>.info`, the save locations from GOG's remote config
    (`cloudStorage.locations`) with their `<?SAVED_GAMES?>`-style folders resolved in the game's

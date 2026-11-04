@@ -97,6 +97,8 @@ void testUpdates(const fs::path& dir) {
            "the build compared is the installed platform's, not Windows'");
     expect(fortnite->windowsInstall && !fruit->windowsInstall,
            "a Windows install runs under Wine, a Mac one does not");
+    expect(fortnite->cloudSaves && fruit->cloudSaves && !current->cloudSaves,
+           "a cloud save folder in the metadata, Windows' or Mac's, is cloud saves");
     const Game* delisted = find(games, "epic:Delisted");
     expect(delisted != nullptr && delisted->installed && !delisted->updateAvailable,
            "no offered build is no update");

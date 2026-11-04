@@ -1,13 +1,15 @@
 // epic_cloud — Epic games' saves in Epic's cloud through legendary, before a game starts and after
-// it ends, with the shared rule and conflict pick. legendary's own `sync-saves` compares times only
-// and takes the newer side whatever changed, so openSU keeps its own record (`epic-saves.json`: per
-// game the content hash of the save folder and the cloud save's manifest when they last synced) and
-// moves saves only with `sync-saves --force-download` (the save folder backed up first under
+// it ends, with the shared rule and conflict pick, for an installed game whose metadata says it has
+// cloud saves. legendary's own `sync-saves` compares times only and takes the newer side whatever
+// changed, so openSU keeps its own record (`epic-saves.json`: per game the content hash of the save
+// folder and the cloud save's manifest when they last synced) and moves saves only with
+// `sync-saves --force-download` (the save folder backed up first under
 // `<backups>/save-backups/epic/<app>/<UTC time>/`) or `--force-upload`. The cloud's newest save is
-// the newest manifest `list-saves` names ("2026.11.04-18.09.00.manifest", its UTC time). The save
-// folder is the one legendary keeps (`info --json`'s `install.save_path`), set by a `sync-saves`
-// with both transfers skipped and `--accept-path` when it has none. Work runs on a thread of its
-// own.
+// the one a `-v sync-saves` with both transfers skipped compares with, named as its manifest
+// ("2026.11.04-18.09.00.manifest", its UTC time): one request for that game's saves, where
+// `list-saves` refreshes legendary's whole game list first. The save folder is the one legendary
+// keeps (`info --json --offline`'s `install.save_path`), set by a `sync-saves` with both transfers
+// skipped and `--accept-path` when it has none. Work runs on a thread of its own.
 #pragma once
 
 #include <condition_variable>
@@ -32,8 +34,9 @@ namespace opensu::save_sync {
 /// The file the record is kept in, under the state dir.
 inline constexpr std::string_view epicSavesFile = "epic-saves.json";
 
-/// The newest cloud save `list-saves`' output names, as its manifest's name; empty for none.
-[[nodiscard]] std::string newestCloudSave(std::string_view output);
+/// The cloud save of `app` that `-v sync-saves`' output compares with, as its manifest's name;
+/// empty for none, nothing when legendary did not check `app`.
+[[nodiscard]] std::optional<std::string> cloudSaveIn(std::string_view output, std::string_view app);
 /// When a cloud save was made, from its manifest's name; nothing when the name says no time.
 [[nodiscard]] std::optional<std::int64_t> cloudSaveTime(std::string_view manifest);
 
@@ -56,7 +59,7 @@ class EpicCloud {
     EpicCloud(EpicCloud&&) = delete;
     EpicCloud& operator=(EpicCloud&&) = delete;
 
-    /// Whether `game` is an Epic game this syncs.
+    /// Whether `game` is an installed Epic game with cloud saves.
     [[nodiscard]] static bool serves(const library::Game& game);
 
     /// Syncs before `game` starts; `prepared` says when that is done.
@@ -96,7 +99,7 @@ class EpicCloud {
     [[nodiscard]] std::filesystem::path saveFolder(const std::string& app,
                                                    std::string& error) const;
     /// The newest cloud save of `app`, as its manifest's name; nothing, with `error`, when
-    /// legendary cannot list them.
+    /// legendary cannot check it.
     [[nodiscard]] std::optional<std::string> newestOf(const std::string& app,
                                                       std::string& error) const;
     void keep() const;

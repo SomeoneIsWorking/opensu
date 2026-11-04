@@ -1,6 +1,7 @@
 #include "epic_cloud.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <fstream>
 #include <system_error>
@@ -59,24 +60,41 @@ SaveStatus statusOf(const fs::path& folder) {
 
 } // namespace
 
-std::string newestCloudSave(std::string_view output) {
-    std::string newest;
+std::optional<std::string> cloudSaveIn(std::string_view output, std::string_view app) {
+    // cli.py:sync_saves logs `Checking "<title>" (<app>)`, then the cloud save's UTC time as
+    // core.py:check_savegame_state reads it from the manifest's name: at debug level when both
+    // sides have a save, as "- Cloud save date:" when only the cloud has one.
+    constexpr std::array<std::string_view, 2> labels{"Remote save date: ", "- Cloud save date: "};
+    constexpr std::size_t dateSize = 19;
+    const std::string checked = "(" + std::string{app} + ")";
+    bool seen = false;
+    std::string save;
     while (!output.empty()) {
         std::string_view line = output.substr(0, output.find('\n'));
         output.remove_prefix(std::min(output.size(), line.size() + 1));
         while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) {
             line.remove_suffix(1);
         }
-        // " + 2026.11.04-18.09.00.manifest"
-        if (!line.starts_with(" + ") || !line.ends_with(manifestEnd)) {
-            continue;
+        if (line.find("Checking \"") != std::string_view::npos && line.ends_with(checked)) {
+            seen = true;
         }
-        line.remove_prefix(3);
-        if (line > newest) {
-            newest = std::string{line};
+        for (const std::string_view label : labels) {
+            const std::size_t at = line.find(label);
+            if (at == std::string_view::npos || line.size() < at + label.size() + dateSize) {
+                continue;
+            }
+            // "2026-11-04 18:09:00" as "2026.11.04-18.09.00.manifest"
+            std::string name{line.substr(at + label.size(), dateSize)};
+            std::ranges::replace(name, '-', '.');
+            std::ranges::replace(name, ':', '.');
+            name[10] = '-';
+            name += manifestEnd;
+            if (cloudSaveTime(name)) {
+                save = std::move(name);
+            }
         }
     }
-    return newest;
+    return seen ? std::optional{save} : std::nullopt;
 }
 
 std::optional<std::int64_t> cloudSaveTime(std::string_view manifest) {
@@ -123,7 +141,8 @@ EpicCloud::~EpicCloud() {
 }
 
 bool EpicCloud::serves(const library::Game& game) {
-    return game.source == library::Source::Epic && game.installed && !game.sourceId.empty();
+    return game.source == library::Source::Epic && game.installed && game.cloudSaves &&
+           !game.sourceId.empty();
 }
 
 std::uint64_t EpicCloud::prepare(const library::Game& game) {
@@ -218,8 +237,11 @@ std::optional<std::string> EpicCloud::legendary(const std::vector<std::string>& 
         return std::nullopt;
     }
     if (result->status != 0) {
-        error = "legendary " + arguments.front() + " failed (status " +
-                std::to_string(result->status) + ")";
+        const auto command = std::ranges::find_if(arguments, [](const std::string& argument) {
+            return !argument.starts_with('-');
+        });
+        error = "legendary " + (command == arguments.end() ? std::string{} : *command) +
+                " failed (status " + std::to_string(result->status) + ")";
         return std::nullopt;
     }
     return result->output;
@@ -228,7 +250,7 @@ std::optional<std::string> EpicCloud::legendary(const std::vector<std::string>& 
 fs::path EpicCloud::saveFolder(const std::string& app, std::string& error) const {
     const auto kept = [this, &app] {
         const std::optional<launch::Captured> info =
-            launch::runCaptured(setup_.legendary, {"info", app, "--json"});
+            launch::runCaptured(setup_.legendary, {"info", app, "--json", "--offline"});
         if (!info || info->status != 0) {
             return fs::path{};
         }
@@ -254,8 +276,16 @@ fs::path EpicCloud::saveFolder(const std::string& app, std::string& error) const
 }
 
 std::optional<std::string> EpicCloud::newestOf(const std::string& app, std::string& error) const {
-    const std::optional<std::string> listed = legendary({"list-saves", app}, error);
-    return listed ? std::optional{newestCloudSave(*listed)} : std::nullopt;
+    const std::optional<std::string> checked =
+        legendary({"-v", "sync-saves", app, "--skip-upload", "--skip-download", "-y"}, error);
+    if (!checked) {
+        return std::nullopt;
+    }
+    std::optional<std::string> save = cloudSaveIn(*checked, app);
+    if (!save) {
+        error = "legendary did not check its saves";
+    }
+    return save;
 }
 
 TargetSaves EpicCloud::run(const Job& job) {

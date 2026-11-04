@@ -116,6 +116,9 @@ struct Game {
     bool installed{false};
     /// The store has a newer build than the installed one; set only for an installed store game.
     bool updateAvailable{false};
+    /// The store keeps the game's saves in its cloud; set by Epic, whose metadata names a cloud
+    /// save folder (`CloudSaveFolder` or `CloudSaveFolder_MAC`).
+    bool cloudSaves{false};
 
     /// Artwork on disk. The shell reads it through the artwork service rather
     /// than opening these itself.
