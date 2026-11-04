@@ -52,6 +52,8 @@ void printHelp() {
         "  OPENSU_ASSETS       directory holding the typeface (default ../share/opensu\n"
         "                      beside the executable)\n"
         "  OPENSU_CONTROL_PORT control channel port (default 7311)\n"
+        "  OPENSU_LAN_PORT     port other openSUs reach this one on with LAN on\n"
+        "                      (default 7312; a hidden run takes a free one)\n"
         "%.*s"
         "\n"
         "Control channel, on loopback only:\n"
@@ -113,6 +115,7 @@ int main(int argc, char** argv) try {
         .width = config.width,
         .height = config.height,
         .controlPort = arguments.hidden ? std::uint16_t{0} : config.controlPort,
+        .lanPort = arguments.hidden ? std::uint16_t{0} : config.lanPort,
         .controlChannel = config.controlChannel,
         .homeMode = config.homeMode,
         .hidden = arguments.hidden,

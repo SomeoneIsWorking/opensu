@@ -22,12 +22,14 @@ enum class Source : std::uint8_t {
     Rom,
     /// A game the player added from a file, or imported from Steam's shortcuts or Lutris.
     Own,
+    /// A game on another openSU on the LAN that this one paired with.
+    Remote,
 };
 
 /// The store's display name.
 [[nodiscard]] std::string_view label(Source source);
 
-/// The store's name as keys spell it: "steam", "epic", "gog", "emulator", "own".
+/// The store's name as keys spell it: "steam", "epic", "gog", "emulator", "own", "lan".
 [[nodiscard]] std::string key(Source source);
 
 /// The command that starts a game. Every source fills this in, so launching
@@ -105,6 +107,10 @@ struct Game {
     std::string titleId;
     /// A Switch game's own save sizes (`DumpInfo::saveData`); nothing for another game.
     std::optional<SwitchSaveData> switchSaveData;
+    /// The openSU on the LAN a remote game is on: its peer id and the name it goes by; both empty
+    /// for a game on this machine.
+    std::string hostId;
+    std::string hostName;
 
     /// Whether the title can be launched now.
     bool installed{false};

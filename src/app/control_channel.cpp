@@ -232,7 +232,11 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     flag("nightLightShown", snapshot.nightLightShown);
     text("steam", snapshot.steam);
     text("launchers", snapshot.launchers);
-    text("inputDevice", snapshot.inputDevice, true);
+    text("inputDevice", snapshot.inputDevice);
+    flag("lanOn", snapshot.lanOn);
+    number("lanSeen", snapshot.lanSeen);
+    number("lanPaired", snapshot.lanPaired);
+    text("lanCode", snapshot.lanCode, true);
     return out;
 }
 

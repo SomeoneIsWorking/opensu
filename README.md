@@ -87,6 +87,7 @@ Checksums, signatures and requirements: [docs/guide/install.md](docs/guide/insta
 - [Controls](docs/guide/controls.md): pad and keyboard, Guide chords, button mappings
 - [Console art and sounds](docs/guide/console-art.md)
 - [Lua plugins](docs/guide/plugins.md)
+- [LAN](docs/guide/lan.md): other openSUs on your network, pairing, their games in your library
 - [Command line, environment and control channel](docs/guide/environment.md)
 - [Building from source](docs/guide/building.md)
 

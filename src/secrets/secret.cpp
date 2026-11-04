@@ -1,5 +1,6 @@
 #include "secret.hpp"
 
+#include <algorithm>
 #include <cctype>
 
 #include <openssl/crypto.h>
@@ -40,6 +41,23 @@ std::optional<std::vector<std::uint8_t>> hexBytes(std::string_view hex) {
         bytes.push_back(static_cast<std::uint8_t>((high << 4) | low));
     }
     return bytes;
+}
+
+bool isLowerHex(std::string_view text) noexcept {
+    return !text.empty() && std::ranges::all_of(text, [](char c) {
+        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+    });
+}
+
+std::string hexText(std::span<const std::uint8_t> bytes) {
+    constexpr std::string_view digits = "0123456789abcdef";
+    std::string out;
+    out.reserve(bytes.size() * 2);
+    for (const std::uint8_t byte : bytes) {
+        out.push_back(digits[byte >> 4U]);
+        out.push_back(digits[byte & 0x0FU]);
+    }
+    return out;
 }
 
 } // namespace opensu::secrets

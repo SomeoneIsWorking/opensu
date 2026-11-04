@@ -82,6 +82,9 @@ fs::path ArtworkStore::pathFor(const library::Game& game) const {
     case library::Source::Own:
         // Without a Steam app, SteamGridDB's comes through `CoverFitter`.
         return {};
+    case library::Source::Remote:
+        // Its host's cover comes with the listing.
+        break;
     }
     return {};
 }

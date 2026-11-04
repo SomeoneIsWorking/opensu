@@ -177,6 +177,9 @@ std::vector<ui::SettingsCategory> SettingsController::build() const {
     if (in.plugins) {
         pages.push_back(plugins_.page());
     }
+    if (in.lan) {
+        pages.push_back(lan_.page());
+    }
     pages.push_back(aboutPage());
     return pages;
 }
@@ -561,6 +564,11 @@ void SettingsController::run(const std::string& id, int step) {
     }
     if (InterfaceSoundSettings::owns(id)) {
         interfaceSounds_.run(id, step);
+        refresh();
+        return;
+    }
+    if (LanSettings::owns(id)) {
+        lan_.run(id, step);
         refresh();
         return;
     }

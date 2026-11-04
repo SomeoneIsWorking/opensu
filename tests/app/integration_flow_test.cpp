@@ -68,7 +68,7 @@ void theChooserAsksUntilDone(const fs::path& root) {
                                  }};
     chooser.openIfUnchosen();
     ui.frame(1.0);
-    expect(chooser.active() && chooser.rows().size() == 5, "no choices: the card lists five");
+    expect(chooser.active() && chooser.rows().size() == 6, "no choices: the card lists six");
     for (const ui::SettingsRow& row : chooser.rows()) {
         expect(row.kind == ui::RowKind::Toggle && !row.on && !row.note.empty(),
                "each is a switch, off, and says what it does");
@@ -82,7 +82,7 @@ void theChooserAsksUntilDone(const fs::path& root) {
            "A toggles the focused switch");
     press(ui, Action::Back);
     expect(chooser.active(), "Back does not dismiss it: Done is the way on");
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 6; ++i) {
         press(ui, Action::Down);
     }
     expect(ui.navigator.focused() == app::firstRunDoneId, "Done is after the switches");
@@ -90,7 +90,7 @@ void theChooserAsksUntilDone(const fs::path& root) {
     expect(!chooser.active() && chosen == 1, "Done keeps the choices and closes the card");
     const auto saved = settings::Store{root / "chooser" / "settings.json"}.load().integrations;
     expect(saved && saved->steam && !saved->epic && saved->gog && !saved->emulators &&
-               !saved->plugins,
+               !saved->plugins && !saved->lan,
            "the file holds what was chosen");
     expect(inForce.current().steam == SteamUse::Normal && inForce.current().gog,
            "and it is in force");
@@ -297,10 +297,32 @@ void theSwitchAppliesAChange(const fs::path& root) {
                                 .takeFocus =
                                     [] {
                                     }}};
+    audio::SdlSoundPlayer sounds;
+    test::InterfaceRig ui;
+    app::LanService lan{
+        app::LanService::Places{.bookFile = dir / "lan.json",
+                                .secrets = secrets::SecretStore{dir / "secrets", false},
+                                .coverCache = dir / "lan-covers",
+                                .port = 0},
+        preferences,
+        ui.navigator,
+        sounds,
+        std::make_shared<lan::RemoteLibrary>(),
+        inForce.current().lan,
+        app::LanService::Hooks{.say =
+                                   [](const std::string&, bool) {
+                                   },
+                               .remoteChanged =
+                                   [] {
+                                   },
+                               .peersChanged =
+                                   [] {
+                                   }}};
     int emulatorChanges = 0;
     app::IntegrationSwitch integrationSwitch{
         inForce,
-        app::IntegrationSwitch::Targets{client, loader, plugins, emulators, padOwner, *pads, focus},
+        app::IntegrationSwitch::Targets{client, loader, plugins, lan, emulators, padOwner, *pads,
+                                        focus},
         app::IntegrationSwitch::Hooks{.catalog = catalogOf,
                                       .steamInstalled =
                                           [] {
@@ -318,7 +340,8 @@ void theSwitchAppliesAChange(const fs::path& root) {
                                               return false;
                                           }}};
     integrationSwitch.begin();
-    expect(!plugins.active() && !emulators.setup().standalone, "all off: no plugins, no emulators");
+    expect(!plugins.active() && !emulators.setup().standalone && lan.node() == nullptr,
+           "all off: no plugins, no emulators, not on the LAN");
 
     inForce.choose(IntegrationChoices{.steam = true,
                                       .steamMode = settings::SteamMode::Normal,

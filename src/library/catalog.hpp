@@ -21,6 +21,8 @@ struct CatalogStores {
     bool epic{false};
     bool gog{false};
     bool standaloneEmulators{false};
+    /// The games of the openSUs on the LAN this one paired with.
+    bool lan{false};
 
     bool operator==(const CatalogStores&) const = default;
 };

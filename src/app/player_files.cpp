@@ -4,6 +4,7 @@
 #include <string>
 #include <system_error>
 
+#include "lan/peer_book.hpp"
 #include "launch/process_id.hpp"
 #include "library/own_games.hpp"
 #include "lucent/log.h"
@@ -54,6 +55,8 @@ PlayerFiles::PlayerFiles(const Dirs& dirs, fs::path copiesDir) : copiesDir_{std:
     mappings_ = keptConfig / settings::mappingsFile;
     ownGames_ = library::own::recordsFile(keptData);
     chosenCovers_ = chosenCoversUnder(keptData);
+    lanBook_ = keptConfig / lan::peerBookFile;
+    secrets_ = keptConfig / secrets::secretsFolder;
     saves_ = copiesDir_.empty() ? dirs.saves : copiesDir_ / "saves";
     if (copiesDir_.empty()) {
         return;
@@ -65,6 +68,8 @@ PlayerFiles::PlayerFiles(const Dirs& dirs, fs::path copiesDir) : copiesDir_{std:
     copyIfThere(configDir / settings::mappingsFile, mappings_);
     copyIfThere(library::own::recordsFile(dataDir), ownGames_);
     copyIfThere(chosenCoversUnder(dataDir), chosenCovers_);
+    copyIfThere(configDir / lan::peerBookFile, lanBook_);
+    copyIfThere(configDir / secrets::secretsFolder, secrets_);
     copyIfThere(dirs.saves, saves_);
     copiesShown_ = copiesDir_.string();
     lucent::info("settings", "hidden run: the player's files are kept in {}", copiesShown_);

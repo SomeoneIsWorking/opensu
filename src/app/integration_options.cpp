@@ -15,6 +15,7 @@ constexpr std::array entries{
     IntegrationEntry{"emulators", "Standalone emulators",
                      "Finds and downloads PCSX2, Dolphin, more"},
     IntegrationEntry{"plugins", "Lua plugins", "Play time and extras from Lua plugins"},
+    IntegrationEntry{"lan", "LAN", "Finds other openSUs here and lists their games"},
 };
 
 } // namespace
@@ -47,6 +48,9 @@ bool* switchOf(settings::IntegrationChoices& choices, std::string_view id) noexc
     }
     if (id == "plugins") {
         return &choices.plugins;
+    }
+    if (id == "lan") {
+        return &choices.lan;
     }
     return nullptr;
 }

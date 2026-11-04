@@ -11,6 +11,9 @@
 
 namespace opensu::secrets {
 
+/// The folder under the config dir secrets are kept in as files.
+inline constexpr std::string_view secretsFolder = "secrets";
+
 /// Where a secret is kept.
 enum class SecretPlace : std::uint8_t {
     Keyring,

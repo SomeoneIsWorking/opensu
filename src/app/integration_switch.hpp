@@ -1,6 +1,7 @@
 // integration_switch — puts what `IntegrationsInForce` holds into effect, at start and whenever
 // the player changes it: the stores the catalog reads (the catalog is rebuilt and read again),
-// whether standalone emulators are searched and downloaded, whether Lua plugins run, the Steam
+// whether standalone emulators are searched and downloaded, whether Lua plugins run, whether
+// this openSU is on the LAN (`LanService`), the Steam
 // client in its mode (started, attached or stopped on a worker, as Managed's shutdown can take
 // seconds), the fixed virtual pads Isolated Steam's sandbox holds in place of the player's
 // controllers, the pad and focus guards openSU's own Steam asks for (Managed, Isolated), and
@@ -20,6 +21,7 @@
 #include "focus_follow.hpp"
 #include "gamepad/pad_source.hpp"
 #include "integrations_in_force.hpp"
+#include "lan_service.hpp"
 #include "launch/steam_gate.hpp"
 #include "library/catalog.hpp"
 #include "library/catalog_loader.hpp"
@@ -35,6 +37,7 @@ class IntegrationSwitch {
         steam::Client& steam;
         library::CatalogLoader& catalog;
         PluginService& plugins;
+        LanService& lan;
         EmulatorDownloads& emulators;
         PadOwner& pads;
         /// The controllers themselves, which keep Isolated Steam's virtual pads.

@@ -32,6 +32,7 @@ constexpr const char* uiScaleBaseKey = "uiScaleBase";
 constexpr const char* keyboardStyleKey = "keyboard";
 constexpr const char* nightLightKey = "nightLight";
 constexpr const char* consoleThemeKey = "consoleTheme";
+constexpr const char* lanNameKey = "lanName";
 constexpr const char* interfaceSoundsKey = "interfaceSounds";
 constexpr const char* shortcutsKey = "shortcuts";
 constexpr const char* shortcutKeysKey = "keys";
@@ -53,6 +54,7 @@ constexpr const char* epicKey = "epic";
 constexpr const char* gogKey = "gog";
 constexpr const char* standaloneEmulatorsKey = "emulators";
 constexpr const char* luaPluginsKey = "plugins";
+constexpr const char* lanKey = "lan";
 
 /// Reads a file's fields, each on its own: one that is damaged is reported and keeps its default.
 class Reader {
@@ -282,6 +284,7 @@ class Reader {
         entry.boolean(gogKey, choices.gog, fallback);
         entry.boolean(standaloneEmulatorsKey, choices.emulators, fallback);
         entry.boolean(luaPluginsKey, choices.plugins, fallback);
+        entry.boolean(lanKey, choices.lan, fallback);
         std::string mode;
         entry.text(steamModeKey, mode, "using the default Steam mode");
         if (!mode.empty()) {
@@ -407,6 +410,7 @@ Settings Store::load() const {
         }
     }
     read.text(consoleThemeKey, settings.consoleTheme, "showing the default console art theme");
+    read.text(lanNameKey, settings.lanName, "going by the machine's name on the LAN");
     read.soundSet(interfaceSoundsKey, settings.interfaceSounds, "playing Marimba");
     std::string homeSpelling;
     read.text(homeModeKey, homeSpelling, "using the environment's");
@@ -482,6 +486,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {keyboardStyleKey, std::string{input::key(settings.keyboardStyle)}},
         {nightLightKey, std::string{key(settings.nightLight)}},
         {consoleThemeKey, settings.consoleTheme},
+        {lanNameKey, settings.lanName},
         {interfaceSoundsKey, std::string{key(settings.interfaceSounds)}},
         {wineRunnerKey, settings.wineRunner.string()},
         {ownWinePrefixKey, settings.ownWinePrefixes.ids()},
@@ -498,7 +503,8 @@ bool Store::save(const Settings& settings, std::string& error) const {
                           {epicKey, chosen->epic},
                           {gogKey, chosen->gog},
                           {standaloneEmulatorsKey, chosen->emulators},
-                          {luaPluginsKey, chosen->plugins}};
+                          {luaPluginsKey, chosen->plugins},
+                          {lanKey, chosen->lan}};
         if (chosen->steamMode) {
             integrations[steamModeKey] = std::string{key(*chosen->steamMode)};
         }

@@ -186,7 +186,8 @@ void testConsoleShelf() {
 }
 
 void testLauncherShelf() {
-    const std::vector<ShelfItem> steam = opensu::library::launcherShelf(library(), Source::Steam);
+    const std::vector<ShelfItem> steam =
+        opensu::library::launcherShelf(library(), Launcher{Source::Steam});
     expect(steam.size() == 3 && gameAt(steam, 0)->id == "steam:hades" &&
                gameAt(steam, 1)->id == "steam:solo" && gameAt(steam, 2)->id == "steam:celeste",
            "a store holds its whole library, installed or not, in catalog order");
@@ -196,10 +197,12 @@ void testLauncherShelf() {
     expect(gameAt(steam, 2)->ownedIn == stores({Source::Epic}) && !gameAt(steam, 2)->installed,
            "the store's own copy is shown even where another store has it installed");
 
-    const std::vector<ShelfItem> gog = opensu::library::launcherShelf(library(), Source::Gog);
+    const std::vector<ShelfItem> gog =
+        opensu::library::launcherShelf(library(), Launcher{Source::Gog});
     expect(gog.size() == 2 && gameAt(gog, 0)->ownedIn == stores({Source::Steam, Source::Epic}),
            "GOG's Hades lists Steam and Epic");
-    expect(opensu::library::launcherShelf({}, Source::Epic).empty(), "no games, empty shelf");
+    expect(opensu::library::launcherShelf({}, Launcher{Source::Epic}).empty(),
+           "no games, empty shelf");
 }
 
 void testAllGames() {
@@ -343,6 +346,33 @@ void testCatalogStatuses() {
 
 } // namespace
 
+void testRemoteHosts() {
+    const auto remote = [](std::string host, std::string name, const std::string& id) {
+        Game out = game(Source::Remote, "lan:" + host + ":" + id, id, id);
+        out.hostId = std::move(host);
+        out.hostName = std::move(name);
+        return out;
+    };
+    const std::vector<Game> games{game(Source::Own, "own:1", "1", "Celeste", true),
+                                  remote("bb", "Living room", "a"), remote("aa", "Desk", "b"),
+                                  remote("bb", "Living room", "c")};
+    const std::vector<ShelfItem> shelf = opensu::library::libraryShelf(
+        games, {{Source::Own, Availability::Ready, {}}, {Source::Remote, Availability::Ready, {}}});
+    const Launcher* desk = launcherAt(shelf, 1);
+    const Launcher* room = launcherAt(shelf, 2);
+    expect(launcherAt(shelf, 0)->source == Source::Own && desk != nullptr && room != nullptr &&
+               desk->hostName == "Desk" && desk->games == 1 && room->hostName == "Living room" &&
+               room->games == 2,
+           "each openSU on the LAN is a launcher after the player's own, by its name");
+    expect(keyOf(opensu::library::folderOf(shelf.at(2))) == "launcher:lan:bb",
+           "named by its peer id");
+    const std::vector<ShelfItem> held = opensu::library::launcherShelf(games, *room);
+    expect(held.size() == 2 && gameAt(held, 0)->id == "lan:bb:a" &&
+               gameAt(held, 1)->id == "lan:bb:c",
+           "it holds that openSU's games only");
+    expect(opensu::library::homeShelf(games).size() == 1, "Home leaves them to their launchers");
+}
+
 int main() try {
     try {
         testHomeShelf();
@@ -350,6 +380,7 @@ int main() try {
         testLibraryLaunchers();
         testConsoleShelf();
         testLauncherShelf();
+        testRemoteHosts();
         testAllGames();
         testBrowser();
         testCycling();

@@ -1,0 +1,424 @@
+// LAN pairing and remote libraries between openSUs in one process: real listeners on loopback,
+// the discovery each node would get from Avahi stood in by a shared directory of announcements.
+// Pairing shows the same code on both sides and leaves both books holding the same secret; each
+// then lists the other's installed games and covers; an unpaired openSU learns only the name;
+// signed requests that are forged, late or repeated are refused; forgetting revokes both sides.
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <cstdio>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <functional>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <string>
+#include <thread>
+#include <utility>
+#include <vector>
+
+#include "lan/dns_sd.hpp"
+#include "lan/host_pairing.hpp"
+#include "lan/lan_listener.hpp"
+#include "lan/lan_node.hpp"
+#include "lan/pairing_keys.hpp"
+#include "lan/peer_book.hpp"
+#include "lan/peer_client.hpp"
+#include "lan/peer_crypto.hpp"
+#include "lan/remote_library.hpp"
+#include "lan/request_signature.hpp"
+#include "lan/shared_library.hpp"
+#include "lan/wire.hpp"
+#include "net/web_client.hpp"
+#include "secrets/secret.hpp"
+#include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
+
+namespace {
+
+namespace fs = std::filesystem;
+using namespace opensu;
+using lan::GuestPairing;
+
+[[noreturn]] void fail(const char* what) {
+    std::fprintf(stderr, "FAIL: %s\n", what);
+    std::exit(1);
+}
+
+void expect(bool condition, const char* what) {
+    if (!condition) {
+        fail(what);
+    }
+}
+
+/// What `held` holds, failing with `what` when it holds nothing.
+template <typename T> T must(std::optional<T> held, const char* what) {
+    if (!held) {
+        fail(what);
+    }
+    return std::move(*held);
+}
+
+bool waitFor(const std::function<bool()>& holds) {
+    const auto until = std::chrono::steady_clock::now() + std::chrono::seconds{20};
+    while (std::chrono::steady_clock::now() < until) {
+        if (holds()) {
+            return true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds{20});
+    }
+    return holds();
+}
+
+/// Every node's announcement, as Avahi would resolve them on loopback.
+class Directory {
+  public:
+    void announce(const lan::Announcement& self) {
+        const std::lock_guard lock{mutex_};
+        announced_[self.id] = lan::Sighting{self.id, self.name, "127.0.0.1", self.port};
+    }
+    void withdraw(const std::string& id) {
+        const std::lock_guard lock{mutex_};
+        announced_.erase(id);
+    }
+    [[nodiscard]] std::vector<lan::Sighting> except(const std::string& id) const {
+        const std::lock_guard lock{mutex_};
+        std::vector<lan::Sighting> seen;
+        for (const auto& [peer, sighting] : announced_) {
+            if (peer != id) {
+                seen.push_back(sighting);
+            }
+        }
+        return seen;
+    }
+
+  private:
+    mutable std::mutex mutex_;
+    std::map<std::string, lan::Sighting> announced_;
+};
+
+class DirectoryDiscovery final : public lan::ServiceDiscovery {
+  public:
+    DirectoryDiscovery(Directory& directory, lan::Announcement self)
+        : directory_{directory}, self_{std::move(self)} {
+        directory_.announce(self_);
+    }
+    ~DirectoryDiscovery() override {
+        directory_.withdraw(self_.id);
+    }
+    DirectoryDiscovery(const DirectoryDiscovery&) = delete;
+    DirectoryDiscovery& operator=(const DirectoryDiscovery&) = delete;
+    DirectoryDiscovery(DirectoryDiscovery&&) = delete;
+    DirectoryDiscovery& operator=(DirectoryDiscovery&&) = delete;
+
+    [[nodiscard]] std::vector<lan::Sighting> sightings() const override {
+        return directory_.except(self_.id);
+    }
+    [[nodiscard]] std::string announcedName() const override {
+        return self_.name;
+    }
+
+  private:
+    Directory& directory_;
+    lan::Announcement self_;
+};
+
+/// One openSU: its node, its remote games, and how often they changed.
+struct Node {
+    Node(const fs::path& root, const std::string& name, Directory& directory)
+        : remote{std::make_shared<lan::RemoteLibrary>()},
+          node{lan::LanNode::Setup{
+              .bookFile = root / name / "lan.json",
+              .secrets = secrets::SecretStore{root / name / "secrets", false},
+              .coverCache = root / name / "covers",
+              .name = name,
+              .port = 0,
+              .remote = remote,
+              .changed =
+                  [this] {
+                      ++changes;
+                  },
+              .discovery =
+                  [&directory](const lan::Announcement& self, std::string& /*error*/) {
+                      return std::make_unique<DirectoryDiscovery>(directory, self);
+                  }}} {
+    }
+
+    [[nodiscard]] lan::Endpoint endpoint() const {
+        return lan::Endpoint{"127.0.0.1", node.status().port};
+    }
+
+    std::shared_ptr<lan::RemoteLibrary> remote;
+    std::atomic<int> changes{0};
+    lan::LanNode node;
+};
+
+library::Game installedGame(const std::string& id, const std::string& title,
+                            const fs::path& cover) {
+    library::Game game;
+    game.id = id;
+    game.source = library::Source::Own;
+    game.title = title;
+    game.installed = true;
+    game.artwork = cover;
+    return game;
+}
+
+void writeFile(const fs::path& file, const std::string& bytes) {
+    fs::create_directories(file.parent_path());
+    std::ofstream out{file, std::ios::binary};
+    out << bytes;
+}
+
+std::string readFile(const fs::path& file) {
+    std::ifstream in{file, std::ios::binary};
+    return {std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
+}
+
+/// `guest` pairs with `host` and the player at the host answers `accept`; the phase it ends in.
+GuestPairing::Phase pairUp(Node& guest, Node& host, bool accept) {
+    std::string refusal;
+    expect(guest.node.pair(host.node.id(), refusal), "a found openSU can be asked to pair");
+    expect(waitFor([&host] {
+               return host.node.question().has_value();
+           }),
+           "the host asks its player");
+    const lan::HostPairing::Question question = must(host.node.question(), "a question");
+    expect(question.guest.id == guest.node.id(), "it names the guest");
+    expect(waitFor([&guest] {
+               const auto state = guest.node.asking();
+               return state && state->phase == GuestPairing::Phase::Waiting;
+           }),
+           "the guest waits for the host's player");
+    expect(must(guest.node.asking(), "a pairing").code == question.code &&
+               question.code.size() == 7,
+           "both screens show the same six-digit code");
+    std::string error;
+    expect(host.node.answer(question.guest.id, accept, error), "the answer is kept");
+    expect(waitFor([&guest] {
+               const auto state = guest.node.asking();
+               return state && state->phase != GuestPairing::Phase::Waiting;
+           }),
+           "the guest hears the answer");
+    const GuestPairing::Phase phase = must(guest.node.asking(), "a pairing").phase;
+    guest.node.endAsking();
+    return phase;
+}
+
+void pairedNodesListEachOthersGames(const fs::path& root) {
+    Directory directory;
+    Node host{root, "Living room", directory};
+    Node guest{root, "Desk", directory};
+    Node stranger{root, "Stranger", directory};
+    const fs::path cover = root / "art" / "cover.png";
+    writeFile(cover, "not really a png");
+    library::Game uninstalled = installedGame("own:3", "Gone", {});
+    uninstalled.installed = false;
+    host.node.share({installedGame("own:1", "Shared game", cover), uninstalled});
+    guest.node.share({installedGame("own:9", "Guest game", {})});
+
+    expect(waitFor([&guest] {
+               return guest.node.sightings().size() == 2;
+           }),
+           "each openSU finds the others");
+    expect(guest.node.paired().empty() && guest.remote->games().empty(),
+           "nothing is listed before pairing");
+
+    expect(pairUp(stranger, host, false) == GuestPairing::Phase::Declined,
+           "a declined pairing says so");
+    expect(stranger.node.paired().empty() && host.node.paired().empty(),
+           "and neither side keeps the other");
+
+    expect(pairUp(guest, host, true) == GuestPairing::Phase::Paired, "an accepted pairing pairs");
+    expect(host.node.paired().size() == 1 && host.node.paired().front().name == "Desk" &&
+               guest.node.paired().size() == 1 && guest.node.paired().front().name == "Living room",
+           "both books keep the other");
+
+    expect(waitFor([&guest] {
+               return guest.remote->games().size() == 1;
+           }),
+           "the guest lists the host's installed game");
+    const library::Game listed = guest.remote->games().front();
+    expect(listed.source == library::Source::Remote && listed.title == "Shared game" &&
+               listed.hostName == "Living room" && listed.hostId == host.node.id() &&
+               listed.launch.empty() && listed.unavailable == lan::remotePlayMissing,
+           "marked with its host, and not startable yet");
+    expect(!listed.artwork.empty() && readFile(listed.artwork) == "not really a png" &&
+               listed.artwork.extension() == ".png",
+           "its cover is the host's, cached here");
+    expect(guest.changes > 0, "the guest was told its remote games changed");
+    expect(waitFor([&host] {
+               return host.remote->games().size() == 1 &&
+                      host.remote->games().front().title == "Guest game";
+           }),
+           "the pairing works both ways: the host lists the guest's game");
+
+    net::WebClient web;
+    std::string error;
+    const lan::PeerClient toHost{web, host.endpoint()};
+    const auto hello =
+        web.get("http://127.0.0.1:" + std::to_string(host.endpoint().port) + "/lan/hello", error);
+    const auto said = hello ? lan::wire::readHello(*hello) : std::nullopt;
+    expect(said && said->id == host.node.id() && said->name == "Living room",
+           "anyone may ask its name");
+    const lan::crypto::Bytes guessed = lan::crypto::randomBytes(lan::crypto::keyBytes);
+    const std::string strangerId = stranger.node.id();
+    const auto refused = toHost.call("GET", "/lan/library", {},
+                                     lan::PeerClient::Signer{strangerId, guessed}, 1 << 20, error);
+    expect(!refused && error.find("not paired") != std::string::npos,
+           "an unpaired openSU is refused the library");
+    const std::string guestId = guest.node.id();
+    const auto forged = toHost.call("GET", "/lan/library", {},
+                                    lan::PeerClient::Signer{guestId, guessed}, 1 << 20, error);
+    expect(!forged, "a request in the guest's name without its secret is refused");
+
+    expect(host.node.forget(guest.node.id(), error), "the host forgets the guest");
+    expect(host.node.paired().empty(), "the host's book drops it");
+    expect(waitFor([&guest] {
+               return guest.node.paired().empty();
+           }),
+           "the guest is told and forgets the host");
+    expect(waitFor([&guest] {
+               return guest.remote->games().empty();
+           }),
+           "the host's games leave the guest's library");
+    expect(waitFor([&listed] {
+               return !fs::exists(listed.artwork.parent_path());
+           }),
+           "and their covers its cache");
+    expect(waitFor([&host] {
+               return host.remote->games().empty();
+           }),
+           "and the guest's leave the host's");
+}
+
+/// The signed routes, asked directly of a listener.
+void signedRequestsAreCheckedOnce(const fs::path& root) {
+    lan::PeerBook book{root / "signed" / "lan.json",
+                       secrets::SecretStore{root / "signed" / "secrets", false}};
+    lan::HostPairing pairing{book.id()};
+    lan::SharedLibrary library;
+    library.share({installedGame("own:1", "Shared game", {})});
+    lan::LanListener listener{lan::LanListener::Sources{.book = book,
+                                                        .pairing = pairing,
+                                                        .library = library,
+                                                        .name =
+                                                            [] {
+                                                                return std::string{"Host"};
+                                                            },
+                                                        .unpaired =
+                                                            [](const lan::Peer&) {
+                                                            }},
+                              0};
+    const lan::crypto::Bytes secret = lan::crypto::randomBytes(lan::crypto::keyBytes);
+    const std::string peer = secrets::hexText(lan::crypto::randomBytes(lan::peerIdBytes));
+    std::string error;
+    expect(book.remember(lan::Peer{peer, "Guest"}, secret, error), "the guest is paired");
+
+    const auto request = [&peer](const lan::crypto::Bytes& key, std::int64_t time,
+                                 const std::string& nonce) {
+        lucent::http::Request asked{"GET", "/lan/library", {}, {}};
+        asked.headers = {{std::string{lan::peerHeader}, peer},
+                         {std::string{lan::timeHeader}, std::to_string(time)},
+                         {std::string{lan::nonceHeader}, nonce},
+                         {std::string{lan::signatureHeader},
+                          lan::requestSignature(
+                              key, lan::RequestFacts{"GET", "/lan/library", time, nonce, {}})}};
+        return asked;
+    };
+    const std::int64_t now = lan::unixSeconds(std::chrono::system_clock::now());
+    const std::string nonce = secrets::hexText(lan::crypto::randomBytes(lan::crypto::nonceBytes));
+
+    const lucent::http::Response answer = listener.handle(request(secret, now, nonce));
+    expect(answer.status == 200, "a signed request is answered");
+    const auto signature = std::ranges::find(answer.headers, std::string{lan::signatureHeader},
+                                             &lucent::http::Header::name);
+    expect(signature != answer.headers.end() &&
+               signature->value == lan::answerSignature(secret, nonce, 200, answer.body),
+           "and the answer is signed with the same secret");
+    const auto listing = lan::wire::readListing(answer.body);
+    expect(listing && listing->size() == 1 && listing->front().title == "Shared game",
+           "with the shared listing");
+
+    expect(listener.handle(request(secret, now, nonce)).status == 403, "a repeat is refused");
+    const std::string fresh = secrets::hexText(lan::crypto::randomBytes(lan::crypto::nonceBytes));
+    expect(listener.handle(request(secret, now - 3600, fresh)).status == 403,
+           "a request an hour late is refused");
+    const lan::crypto::Bytes other = lan::crypto::randomBytes(lan::crypto::keyBytes);
+    const std::string another = secrets::hexText(lan::crypto::randomBytes(lan::crypto::nonceBytes));
+    expect(listener.handle(request(other, now, another)).status == 403,
+           "a request signed with another secret is refused");
+    expect(listener.handle(lucent::http::Request{"GET", "/lan/library", {}, {}}).status == 403,
+           "an unsigned one too");
+    expect(listener.handle(lucent::http::Request{"GET", "/lan/cover/../../etc", {}, {}}).status ==
+               403,
+           "a cover is for paired peers only");
+}
+
+void bothSidesDeriveOneSecret() {
+    const lan::crypto::KeyPair guest;
+    const lan::crypto::KeyPair host;
+    const lan::PairingTranscript transcript{
+        .guestId = "g",
+        .hostId = "h",
+        .guestKey = guest.publicKey(),
+        .guestNonce = lan::crypto::randomBytes(lan::crypto::nonceBytes),
+        .hostKey = host.publicKey(),
+        .hostNonce = lan::crypto::randomBytes(lan::crypto::nonceBytes)};
+    const lan::crypto::Bytes guestShared = must(guest.agree(host.publicKey()), "X25519 agrees");
+    const lan::crypto::Bytes hostShared = must(host.agree(guest.publicKey()), "X25519 agrees");
+    expect(guestShared == hostShared, "both ends agree on one secret");
+    expect(lan::pairingSecret(guestShared, transcript) ==
+               lan::pairingSecret(hostShared, transcript),
+           "both keep the same secret");
+    const std::string code = lan::pairingCode(transcript);
+    expect(code.size() == 7 && code[3] == ' ' &&
+               std::ranges::count_if(code,
+                                     [](char c) {
+                                         return c >= '0' && c <= '9';
+                                     }) == 6,
+           "a code is two groups of three digits");
+
+    lan::HostPairing pairing{"h"};
+    const lan::crypto::Bytes nonce = lan::crypto::randomBytes(lan::crypto::nonceBytes);
+    const auto at = lan::HostPairing::Clock::now();
+    std::string refusal;
+    expect(pairing
+               .begin(lan::Peer{"g", "Guest"}, lan::pairingCommitment(guest.publicKey(), nonce), at,
+                      refusal)
+               .has_value(),
+           "a guest's commitment is answered");
+    const lan::crypto::KeyPair swapped;
+    expect(!pairing.begin(lan::Peer{"x", "Other"},
+                          lan::pairingCommitment(swapped.publicKey(), nonce), at, refusal),
+           "one pairing at a time");
+    expect(!pairing.reveal("g", swapped.publicKey(), nonce, at, refusal),
+           "a key other than the one committed to is refused");
+    expect(!pairing.question(at), "and nothing is asked of the player");
+    expect(!pairing.reveal("g", guest.publicKey(), nonce, at, refusal),
+           "a refused reveal ends that pairing");
+    expect(pairing.begin(lan::Peer{"g", "Guest"}, lan::pairingCommitment(guest.publicKey(), nonce),
+                         at, refusal)
+                   .has_value() &&
+               pairing.reveal("g", guest.publicKey(), nonce, at, refusal) &&
+               pairing.question(at).has_value(),
+           "asked again and revealed as committed, the player is asked");
+    expect(!pairing.question(at + lan::patience + std::chrono::seconds{1}),
+           "a pairing past its time lapses");
+}
+
+} // namespace
+
+int main() try {
+    const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "lan-node"};
+    bothSidesDeriveOneSecret();
+    signedRequestsAreCheckedOnce(scratch.path());
+    pairedNodesListEachOthersGames(scratch.path());
+    std::printf("lan_node: all checks passed\n");
+    return 0;
+} catch (...) {
+    return opensu::test::escaped();
+}

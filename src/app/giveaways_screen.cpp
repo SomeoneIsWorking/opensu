@@ -36,6 +36,7 @@ std::string claimText(const giveaways::Offer& offer) {
                "account.";
     case library::Source::Rom:
     case library::Source::Own:
+    case library::Source::Remote:
         break;
     }
     return {};

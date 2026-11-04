@@ -54,7 +54,8 @@ library::CatalogStores IntegrationsInForce::catalogStores() const noexcept {
     return library::CatalogStores{.steam = current_.lists(library::Source::Steam),
                                   .epic = current_.lists(library::Source::Epic),
                                   .gog = current_.lists(library::Source::Gog),
-                                  .standaloneEmulators = current_.emulators};
+                                  .standaloneEmulators = current_.emulators,
+                                  .lan = current_.lists(library::Source::Remote)};
 }
 
 std::optional<steam::Client::Mode> IntegrationsInForce::steamMode() const noexcept {

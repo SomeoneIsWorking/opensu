@@ -45,6 +45,8 @@ std::string_view label(Source source) {
         return "Emulator";
     case Source::Own:
         return "Your games";
+    case Source::Remote:
+        return "LAN";
     }
     return "Unknown";
 }

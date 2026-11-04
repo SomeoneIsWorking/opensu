@@ -118,6 +118,7 @@ std::string Installs::update(const library::Game& game) {
     }
     case library::Source::Rom:
     case library::Source::Own:
+    case library::Source::Remote:
         break;
     }
     if (job == nullptr || !begin(*job, game, Work::Update)) {

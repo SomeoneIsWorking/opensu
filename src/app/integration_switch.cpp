@@ -29,9 +29,9 @@ void IntegrationSwitch::guard() {
 void IntegrationSwitch::begin() {
     const settings::Integrations& now = integrations_.current();
     lucent::info("integrations",
-                 "in force: steam={} steamPads={} epic={} gog={} emulators={} plugins={}",
+                 "in force: steam={} steamPads={} epic={} gog={} emulators={} plugins={} lan={}",
                  settings::label(now.steam), settings::key(now.steamPads), now.epic, now.gog,
-                 now.emulators, now.plugins);
+                 now.emulators, now.plugins, now.lan);
     applied_ = now;
     guard();
     moveSteam();
@@ -46,15 +46,19 @@ void IntegrationSwitch::apply() {
     if (now.plugins != was.plugins) {
         targets_.plugins.setActive(now.plugins);
     }
+    if (now.lan != was.lan) {
+        targets_.lan.setActive(now.lan);
+    }
     if (now.emulators != was.emulators) {
         targets_.emulators.setStandalone(now.emulators);
         hooks_.emulatorsChanged();
     }
     const library::CatalogStores stores = integrations_.catalogStores();
     if (now.steam != was.steam || now.epic != was.epic || now.gog != was.gog ||
-        now.emulators != was.emulators) {
-        lucent::info("integrations", "the catalog reads steam={} epic={} gog={} emulators={}",
-                     stores.steam, stores.epic, stores.gog, stores.standaloneEmulators);
+        now.emulators != was.emulators || now.lan != was.lan) {
+        lucent::info("integrations",
+                     "the catalog reads steam={} epic={} gog={} emulators={} lan={}", stores.steam,
+                     stores.epic, stores.gog, stores.standaloneEmulators, stores.lan);
         targets_.catalog.replace(hooks_.catalog(stores));
     }
     guard();

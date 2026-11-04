@@ -11,6 +11,8 @@ MatchKind matchKindOf(const Game& game) {
     case Source::Gog:
     case Source::Own:
         return MatchKind::SteamApp;
+    case Source::Remote:
+        return MatchKind::None;
     case Source::Rom: {
         const roms::RomSystem* system = roms::systemByKey(game.sourceId);
         return system != nullptr && !system->libretroName.empty() ? MatchKind::LibretroTitle

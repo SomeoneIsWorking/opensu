@@ -23,6 +23,9 @@ std::string badgeOf(const library::Game& game) {
             return std::string{system->label};
         }
     }
+    if (game.source == library::Source::Remote) {
+        return "On " + game.hostName;
+    }
     return std::string{library::label(game.source)};
 }
 
@@ -144,6 +147,8 @@ GameDetails detailsOf(const library::Game& game, bool hidden,
     details.hero = game.artwork.empty() ? std::filesystem::path{} : game.artworkWide;
     const bool rom = game.source == library::Source::Rom;
     const bool own = game.source == library::Source::Own;
+    // Installed, uninstalled, drawn and mapped on its host.
+    const bool remote = game.source == library::Source::Remote;
     const bool updatable = game.installed && game.updateAvailable && !rom;
     std::vector<SettingsRow>& facts = details.facts;
     facts.push_back(detailsFact(
@@ -201,7 +206,7 @@ GameDetails detailsOf(const library::Game& game, bool hidden,
             Options{{std::string{sharedPrefix}, std::string{ownPrefix}}, ownWinePrefix ? 1U : 0U}));
     }
     actions.push_back(action(detailsHiddenId, hidden ? "Show game" : "Hide game"));
-    if (game.installed && !rom && !own) {
+    if (game.installed && !rom && !own && !remote) {
         actions.push_back(action(detailsUninstallId, "Uninstall"));
     }
     if (library::matchKindOf(game) != library::MatchKind::None) {
@@ -218,8 +223,10 @@ GameDetails detailsOf(const library::Game& game, bool hidden,
         actions.push_back(
             makePage(std::string{detailsSavesId}, "Copy saves", {}, settings.copySaves));
     }
-    actions.push_back(makePage(std::string{detailsArtworkId}, "Choose artwork", {}, {}));
-    actions.push_back(makePage(std::string{detailsControlsId}, "Controls", {}, {}));
+    if (!remote) {
+        actions.push_back(makePage(std::string{detailsArtworkId}, "Choose artwork", {}, {}));
+        actions.push_back(makePage(std::string{detailsControlsId}, "Controls", {}, {}));
+    }
     actions.push_back(action(detailsBackId, "Back"));
     return details;
 }

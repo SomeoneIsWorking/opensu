@@ -1,15 +1,17 @@
 // player_files — where the shell keeps the player's own files: `settings.json`,
-// `game-settings.json`, `mappings.json`, `own-games.json`, the chosen covers and the built-in
-// runner's save RAM and states. An ordinary run
+// `game-settings.json`, `mappings.json`, `own-games.json`, the LAN's `lan.json` and the secrets its
+// pairings keep, the chosen covers and the built-in runner's save RAM and states. An ordinary run
 // uses them in place. A hidden run copies them at start into its own folder under the runtime dir
 // and keeps every change there, so the run behaves as usual while the player's files stay as they
-// were; the folder goes with the run.
+// were; the folder goes with the run. A hidden run's secrets stay in that folder, never the
+// keyring.
 #pragma once
 
 #include <filesystem>
 #include <string>
 
 #include "config/config.hpp"
+#include "secrets/secret_store.hpp"
 
 namespace opensu::app {
 
@@ -49,6 +51,15 @@ class PlayerFiles {
     [[nodiscard]] const std::filesystem::path& chosenCoversDir() const noexcept {
         return chosenCovers_;
     }
+    /// This openSU's LAN id and the peers it paired with.
+    [[nodiscard]] const std::filesystem::path& lanBookFile() const noexcept {
+        return lanBook_;
+    }
+    /// Where the LAN's pairing secrets are kept: the keyring when `keyring` allows and this is
+    /// not a hidden run, else owner-only files beside these.
+    [[nodiscard]] secrets::SecretStore lanSecrets(bool keyring) const {
+        return secrets::SecretStore{secrets_, keyring && copiesDir_.empty()};
+    }
     /// `config` with its save RAM and states where these files are.
     [[nodiscard]] config::Config savingIn(config::Config config) const;
 
@@ -61,6 +72,8 @@ class PlayerFiles {
     std::filesystem::path mappings_;
     std::filesystem::path ownGames_;
     std::filesystem::path chosenCovers_;
+    std::filesystem::path lanBook_;
+    std::filesystem::path secrets_;
     std::filesystem::path saves_;
 };
 

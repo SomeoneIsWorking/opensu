@@ -205,6 +205,8 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetch(const library::Game& game) {
     case library::Source::Gog:
         return fetchGog(game);
     case library::Source::Own:
+    // A remote game's host sends its cover with the listing.
+    case library::Source::Remote:
         return Outcome::Missing;
     }
     return Outcome::Missing;

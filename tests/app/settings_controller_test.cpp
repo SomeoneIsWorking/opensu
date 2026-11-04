@@ -143,7 +143,8 @@ struct Rig {
                      app::SettingsController::Services{
                          paths, shortcutEditor, shortcuts, emulatorSettings, layerSettings, layered,
                          steamLibrarySettings, pluginSettings, chordSettings, mappings, wine,
-                         integrationSettings, artworkSettings, interfaceSoundSettings, inForce},
+                         integrationSettings, artworkSettings, interfaceSoundSettings, lanSettings,
+                         inForce},
                      sounds,
                      preferences,
                      config,
@@ -401,6 +402,27 @@ struct Rig {
                                            controller.refresh();
                                        }};
     app::ChordSettings chordSettings{shortcutEditor, shortcuts};
+    app::LanService lan{app::LanService::Places{
+                            .bookFile = config.configDir / "lan.json",
+                            .secrets = secrets::SecretStore{config.configDir / "secrets", false},
+                            .coverCache = config.cacheDir / "lan",
+                            .port = 0},
+                        preferences,
+                        screens.navigator,
+                        sounds,
+                        std::make_shared<lan::RemoteLibrary>(),
+                        false,
+                        app::LanService::Hooks{.say =
+                                                   [](const std::string&, bool) {
+                                                   },
+                                               .remoteChanged =
+                                                   [] {
+                                                   },
+                                               .peersChanged =
+                                                   [] {
+                                                   }}};
+    app::LanSettings lanSettings{lan, preferences, screens.navigator, pad, sounds, [] {
+                                 }};
     ui::MappingPage mappingPage;
     app::MappingEditor mappings{
         mappingPage, settings::MappingStore{config.configDir / settings::mappingsFile}, sounds,

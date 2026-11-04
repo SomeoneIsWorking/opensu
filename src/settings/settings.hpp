@@ -118,6 +118,8 @@ struct Settings {
 
     /// The console art theme the home shows (`artwork::ConsoleThemes`); empty for the default.
     std::string consoleTheme;
+    /// The name other openSUs on the LAN list this one by; empty for the machine's host name.
+    std::string lanName;
     /// Which interface sounds play: one of openSU's sets, or iiSU's from the file placed in the
     /// iiSU folder (`artwork::IisuInstall`).
     SoundSet interfaceSounds{SoundSet::Marimba};

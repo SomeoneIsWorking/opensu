@@ -100,7 +100,8 @@ Integrations Integrations::inForce(const std::optional<IntegrationChoices>& choi
     Integrations in{.epic = choices->epic,
                     .gog = choices->gog,
                     .emulators = choices->emulators,
-                    .plugins = choices->plugins};
+                    .plugins = choices->plugins,
+                    .lan = choices->lan};
     if (choices->steam && !built.empty()) {
         SteamMode mode = choices->steamMode.value_or(defaultMode(loginSession));
         const std::vector<SteamMode> offered = modesOffered(loginSession, built);
@@ -131,6 +132,8 @@ bool Integrations::lists(library::Source source) const noexcept {
         return epic;
     case library::Source::Gog:
         return gog;
+    case library::Source::Remote:
+        return lan;
     case library::Source::Rom:
     case library::Source::Own:
         break;

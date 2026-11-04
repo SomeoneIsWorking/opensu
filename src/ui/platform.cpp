@@ -33,6 +33,7 @@ const char* platformForSource(library::Source source) noexcept {
         return "gog";
     case library::Source::Rom:
     case library::Source::Own:
+    case library::Source::Remote:
         return nullptr;
     }
     return nullptr;

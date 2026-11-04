@@ -17,8 +17,8 @@ struct IntegrationEntry {
     std::string_view note;
 };
 
-/// Steam, Epic, GOG, standalone emulators, Lua plugins: those this build can serve (Steam when its
-/// client has a mode, Epic and GOG where their command-line clients run).
+/// Steam, Epic, GOG, standalone emulators, Lua plugins, the LAN: those this build can serve (Steam
+/// when its client has a mode, Epic and GOG where their command-line clients run).
 [[nodiscard]] std::vector<IntegrationEntry> integrationEntries();
 
 /// The switch of `choices` the entry `id` is, or null for no entry.

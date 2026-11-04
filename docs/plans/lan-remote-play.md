@@ -5,8 +5,8 @@ seamlessly, Steam switched to Pyrowave, maybe we can use that too."
 
 ## What it does
 
-- Every openSU on the LAN announces itself (mDNS/DNS-SD, `_opensu._tcp`) and its library over its
-  control channel (`lucent::http::Server`). Another openSU shows those games in its own library,
+- Every openSU on the LAN announces itself (mDNS/DNS-SD, `_opensu._tcp`) and serves its library
+  on a LAN listener of its own (`lucent::http::Server`; never the loopback control channel). Another openSU shows those games in its own library,
   marked with the host's name, without setup beyond accepting the host once (a pairing code shown
   on both screens).
 - Starting a remote game starts it on the host through the host's own launch path, captures the
@@ -25,6 +25,11 @@ fork as any third-party code.
 
 ## Order
 
-1. Discovery and pairing, remote libraries listed (no streaming).
+1. Discovery and pairing, remote libraries listed (no streaming). Built on Linux
+   (`docs/design/lan.md`): `_opensu._tcp` over Avahi, pairing with a six-digit code shown on both
+   screens and a per-peer secret, signed requests on a LAN listener of its own (not the control
+   channel), each paired openSU's installed games and covers as a launcher in Library, Remove
+   revoking both sides. Shown with three hidden openSUs on one machine. Discovery on Windows,
+   macOS and Android says it is not built yet.
 2. Launch on the host, PyroWave video plus Opus audio over UDP, pad and keyboard input back.
 3. Fallback encoder, bandwidth probing, Windows/macOS/Android guests.

@@ -1,4 +1,5 @@
-// web_client — HTTPS GETs over libcurl: artwork, the stores' account APIs and emulator downloads.
+// web_client — HTTPS GETs over libcurl: artwork, the stores' account APIs and emulator downloads;
+// plain HTTP GETs and POSTs to other openSUs on the LAN.
 #pragma once
 
 #include <cstddef>
@@ -8,6 +9,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "trust_store.hpp"
@@ -38,6 +40,11 @@ class WebClient {
     struct Answer {
         long status{0};
         std::string body;
+        /// The last hop's header lines as name and value, in the order they came.
+        std::vector<std::pair<std::string, std::string>> headers{};
+
+        /// The first header named `name`, compared without case; empty when there is none.
+        [[nodiscard]] std::string header(std::string_view name) const;
     };
 
     /// Bytes received and the size the server announced (0 when unknown); returns false to cancel.
@@ -56,12 +63,13 @@ class WebClient {
         Progress progress{};
     };
 
-    /// The response to a GET of `url` with `headers` sent, following redirects that `guard`
-    /// allows. Nothing when a hop is refused, the body is over `guard.maxBody`, the transfer
-    /// fails or `guard.progress` cancels it; `error` says why ("cancelled" for the last).
-    [[nodiscard]] std::optional<Answer> request(const std::string& url,
-                                                const std::vector<std::string>& headers,
-                                                const Guard& guard, std::string& error) const;
+    /// The response to a GET of `url` with `headers` sent, or with `post` a POST of it, following
+    /// redirects that `guard` allows. Nothing when a hop is refused, the body is over
+    /// `guard.maxBody`, the transfer fails or `guard.progress` cancels it; `error` says why
+    /// ("cancelled" for the last).
+    [[nodiscard]] std::optional<Answer>
+    request(const std::string& url, const std::vector<std::string>& headers, const Guard& guard,
+            std::string& error, const std::optional<std::string>& post = std::nullopt) const;
 
     /// What a 200 response says of its body.
     struct BodyFacts {

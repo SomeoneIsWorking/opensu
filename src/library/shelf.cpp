@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 
@@ -20,6 +21,36 @@ constexpr std::array<Source, 3> iconOrder{Source::Steam, Source::Gog, Source::Ep
 
 bool isRomOf(const Game& game, std::string_view system) {
     return game.source == Source::Rom && game.sourceId == system;
+}
+
+bool holds(const Launcher& launcher, const Game& game) {
+    return game.source == launcher.source &&
+           (launcher.source != Source::Remote || game.hostId == launcher.hostId);
+}
+
+/// One launcher per openSU on the LAN with games listed, in the order their games come.
+std::vector<Launcher> hostLaunchers(const std::vector<Game>& games, bool ready) {
+    std::vector<Launcher> hosts;
+    for (const Game& game : games) {
+        if (game.source != Source::Remote) {
+            continue;
+        }
+        const auto known = std::ranges::find(hosts, game.hostId, &Launcher::hostId);
+        if (known != hosts.end()) {
+            ++known->games;
+            continue;
+        }
+        hosts.push_back(Launcher{.source = Source::Remote,
+                                 .games = 1,
+                                 .ready = ready,
+                                 .loading = false,
+                                 .hostId = game.hostId,
+                                 .hostName = game.hostName});
+    }
+    std::ranges::sort(hosts, [](const Launcher& a, const Launcher& b) {
+        return std::tie(a.hostName, a.hostId) < std::tie(b.hostName, b.hostId);
+    });
+    return hosts;
 }
 
 /// The stores of `title`, in icon order, without `leaving`.
@@ -46,7 +77,8 @@ Game entry(const Title& title, const Game& copy, std::optional<Source> leaving) 
 std::vector<ShelfItem> titleShelf(const std::vector<Game>& games, bool installedOnly) {
     std::vector<ShelfItem> shelf;
     for (const Title& title : storeTitles(games)) {
-        if (!installedOnly || title.copies.front()->installed) {
+        const Game& preferred = *title.copies.front();
+        if (!installedOnly || (preferred.installed && preferred.source != Source::Remote)) {
             shelf.emplace_back(entry(title, *title.copies.front(), std::nullopt));
         }
     }
@@ -78,7 +110,8 @@ std::string key(const Folder& folder) {
             return console.system;
         }
         std::string operator()(const Launcher& launcher) const {
-            return "launcher:" + library::key(launcher.source);
+            const std::string store = "launcher:" + library::key(launcher.source);
+            return launcher.hostId.empty() ? store : store + ":" + launcher.hostId;
         }
         std::string operator()(const AllGames&) const {
             return "all";
@@ -93,7 +126,8 @@ std::string name(const Folder& folder) {
             return console.label;
         }
         std::string operator()(const Launcher& launcher) const {
-            return std::string{label(launcher.source)};
+            return launcher.hostName.empty() ? std::string{label(launcher.source)}
+                                             : launcher.hostName;
         }
         std::string operator()(const AllGames&) const {
             return "All games";
@@ -131,8 +165,15 @@ std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
                                         status->availability == Availability::Loading});
         }
     }
+    if (const auto lan = std::ranges::find(sources, Source::Remote, &SourceStatus::source);
+        lan != sources.end()) {
+        for (Launcher& host : hostLaunchers(games, lan->availability == Availability::Ready)) {
+            shelf.emplace_back(std::move(host));
+        }
+    }
     if (std::ranges::any_of(shelf, [](const ShelfItem& item) {
-            return std::get<Launcher>(item).source != Source::Own;
+            const Source source = std::get<Launcher>(item).source;
+            return source != Source::Own && source != Source::Remote;
         })) {
         shelf.emplace_back(Giveaways{});
     }
@@ -159,7 +200,7 @@ std::vector<ShelfItem> consoleShelf(const std::vector<Game>& games, std::string_
     return shelf;
 }
 
-std::vector<ShelfItem> launcherShelf(const std::vector<Game>& games, Source source) {
+std::vector<ShelfItem> launcherShelf(const std::vector<Game>& games, const Launcher& launcher) {
     const std::vector<Title> titles = storeTitles(games);
     std::unordered_map<std::string, const Title*> byGame;
     for (const Title& title : titles) {
@@ -169,8 +210,8 @@ std::vector<ShelfItem> launcherShelf(const std::vector<Game>& games, Source sour
     }
     std::vector<ShelfItem> shelf;
     for (const Game& game : games) {
-        if (game.source == source) {
-            shelf.emplace_back(entry(*byGame.at(game.id), game, source));
+        if (holds(launcher, game)) {
+            shelf.emplace_back(entry(*byGame.at(game.id), game, launcher.source));
         }
     }
     return shelf;
@@ -187,7 +228,7 @@ std::vector<ShelfItem> folderShelf(const std::vector<Game>& games, const Folder&
             return consoleShelf(games, console.system);
         }
         std::vector<ShelfItem> operator()(const Launcher& launcher) const {
-            return launcherShelf(games, launcher.source);
+            return launcherShelf(games, launcher);
         }
         std::vector<ShelfItem> operator()(const AllGames&) const {
             return allGamesShelf(games);

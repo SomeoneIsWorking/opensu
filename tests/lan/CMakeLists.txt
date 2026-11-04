@@ -1,0 +1,5 @@
+add_executable(lan_node_test lan_node_test.cpp)
+target_link_libraries(lan_node_test PRIVATE opensu::lan opensu::command)
+opensu_warnings(lan_node_test)
+target_compile_definitions(lan_node_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME lan_node COMMAND lan_node_test)

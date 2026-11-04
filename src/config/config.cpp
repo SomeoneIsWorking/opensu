@@ -237,6 +237,7 @@ Config read() {
     value.width = envInt("OPENSU_WIDTH", value.width);
     value.height = envInt("OPENSU_HEIGHT", value.height);
     value.controlPort = envPort("OPENSU_CONTROL_PORT", value.controlPort);
+    value.lanPort = envPort("OPENSU_LAN_PORT", value.lanPort);
     value.controlChannel = envBool("OPENSU_CONTROL_CHANNEL", value.controlChannel);
     value.gamescopeWaylandDisplay = std::string{env("GAMESCOPE_WAYLAND_DISPLAY")};
     value.insideGamescope = !value.gamescopeWaylandDisplay.empty();

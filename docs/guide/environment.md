@@ -33,8 +33,9 @@ All optional.
 | `OPENSU_ASSETS` | Directory holding the typeface. Defaults to `share/opensu` beside the executable's directory. |
 | `OPENSU_HOME_MODE` | `standard` (scrolling grid, default) or `wiisu` (pages with peeks and page dots). |
 | `OPENSU_CONTROL_PORT` | The control channel's port, default 7311. |
+| `OPENSU_LAN_PORT` | The port other openSUs reach this one on while LAN is on, default 7312; a hidden run takes a free one ([lan.md](lan.md)). |
 | `OPENSU_SESSION` | The name of the session's scopes, default `opensu-<pid>`; a nested session sets it for the openSU inside. |
-| `OPENSU_SECRET_STORE` | `file` keeps secrets (the SteamGridDB key) in an owner-only file under the config dir instead of the desktop keyring. |
+| `OPENSU_SECRET_STORE` | `file` keeps secrets (the SteamGridDB key, LAN pairings) in an owner-only file under the config dir instead of the desktop keyring. |
 | `OPENSU_STEAMGRIDDB_API` | SteamGridDB's API root, for pointing a test run at a stand-in. |
 | `OPENSU_GE_PROTON_RELEASE` | The GE-Proton release to install, as GitHub release JSON, for a test run; the latest when unset. |
 | `LEGENDARY_CONFIG_PATH` | Legendary's configuration, as Legendary itself reads it. |
@@ -50,7 +51,7 @@ sign-in extension hands over codes and how maintainer tools drive the shell:
 
 | Request | Meaning |
 | --- | --- |
-| `GET /state` | The shell's state as JSON: section, focus, open screens, downloads, `settingsOpen`, `folderPickerOpen`, `firstRunOpen`, `capturingShortcut`, `volumeShown`, `chordHint`, `mapping`, `volumePercent`, `volumeMuted`, `uiScale`, `artworkPending`, `imagesPending`, `inGame` and more. |
+| `GET /state` | The shell's state as JSON: section, focus, open screens, downloads, `settingsOpen`, `folderPickerOpen`, `firstRunOpen`, `capturingShortcut`, `volumeShown`, `chordHint`, `mapping`, `volumePercent`, `volumeMuted`, `uiScale`, `artworkPending`, `imagesPending`, `inGame`, LAN's `lanOn`, `lanSeen`, `lanPaired` and `lanCode` (the code a pairing on either side shows) and more. |
 | `POST /input` | A button name: `up down left right a b x y l1 r1 l2 r2 l3 r3 select start guide search`. `guide+a` holds buttons together; `guide 1500ms` holds them that long, up to 10000ms. |
 | `POST /key` | A key combination, such as `ctrl+up`, posted to the window's event queue as a real keyboard's. |
 | `POST /text` | Text typed as a real keyboard's, so Enter in a field being edited submits it. |

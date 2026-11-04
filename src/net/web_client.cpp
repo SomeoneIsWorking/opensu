@@ -1,9 +1,12 @@
 #include "web_client.hpp"
 
+#include <algorithm>
 #include <fstream>
 #include <memory>
 
 #include <curl/curl.h>
+
+#include "lucent/text.h"
 
 namespace opensu::net {
 namespace {
@@ -58,6 +61,28 @@ std::size_t write(char* data, std::size_t size, std::size_t count, void* file) {
     auto& out = *static_cast<std::ofstream*>(file);
     out.write(data, static_cast<std::streamsize>(size * count));
     return out ? size * count : 0;
+}
+
+/// Each header line of the hop under way as name and value; a status line starts a new hop.
+std::size_t collectHeader(char* data, std::size_t size, std::size_t count, void* sink) {
+    auto& headers = *static_cast<std::vector<std::pair<std::string, std::string>>*>(sink);
+    std::string_view line{data, size * count};
+    if (line.starts_with("HTTP/")) {
+        headers.clear();
+        return size * count;
+    }
+    const std::size_t colon = line.find(':');
+    if (colon != std::string_view::npos) {
+        std::string_view value = line.substr(colon + 1);
+        while (!value.empty() && (value.front() == ' ' || value.front() == '\t')) {
+            value.remove_prefix(1);
+        }
+        while (!value.empty() && (value.back() == '\r' || value.back() == '\n')) {
+            value.remove_suffix(1);
+        }
+        headers.emplace_back(std::string{line.substr(0, colon)}, std::string{value});
+    }
+    return size * count;
 }
 
 int report(void* progress, curl_off_t total, curl_off_t received, curl_off_t, curl_off_t) {
@@ -125,9 +150,17 @@ std::optional<std::string> WebClient::get(const std::string& url, std::string& e
     return fetch(url, error, headers);
 }
 
+std::string WebClient::Answer::header(std::string_view name) const {
+    const auto found = std::ranges::find_if(headers, [name](const auto& entry) {
+        return lucent::text::ascii_iequals(entry.first, name);
+    });
+    return found != headers.end() ? found->second : std::string{};
+}
+
 std::optional<WebClient::Answer> WebClient::request(const std::string& url,
                                                     const std::vector<std::string>& headers,
-                                                    const Guard& guard, std::string& error) const {
+                                                    const Guard& guard, std::string& error,
+                                                    const std::optional<std::string>& post) const {
     curl_slist* list = nullptr;
     for (const std::string& header : headers) {
         list = curl_slist_append(list, header.c_str());
@@ -146,8 +179,16 @@ std::optional<WebClient::Answer> WebClient::request(const std::string& url,
         }
         CappedBody body;
         body.cap = guard.maxBody;
+        std::vector<std::pair<std::string, std::string>> received;
         CURL* curl = handle.get();
         curl_easy_setopt(curl, CURLOPT_URL, next.c_str());
+        curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, collectHeader);
+        curl_easy_setopt(curl, CURLOPT_HEADERDATA, &received);
+        if (post) {
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE,
+                             static_cast<curl_off_t>(post->size()));
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post->data());
+        }
         curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, connectTimeoutSeconds);
         if (guard.progress) {
             curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, stallBytesPerSecond);
@@ -183,7 +224,7 @@ std::optional<WebClient::Answer> WebClient::request(const std::string& url,
         char* location = nullptr;
         curl_easy_getinfo(curl, CURLINFO_REDIRECT_URL, &location);
         if (location == nullptr) {
-            return Answer{status, std::move(body.bytes)};
+            return Answer{status, std::move(body.bytes), std::move(received)};
         }
         next = location;
     }

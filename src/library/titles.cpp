@@ -21,6 +21,8 @@ int rank(Source source) noexcept {
     case Source::Rom:
     case Source::Own:
         break;
+    case Source::Remote:
+        return 4;
     }
     return 3;
 }

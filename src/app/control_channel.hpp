@@ -120,12 +120,19 @@ struct ShellSnapshot {
     /// The night light's temperature for now, and whether openSU shows it (its login session).
     std::size_t nightLightKelvin{0};
     bool nightLightShown{false};
+    /// Whether LAN is on; it packs beside the bool above.
+    bool lanOn{false};
     /// The Steam client's state: stopped, initializing, ready, failed or blocked.
     std::string steam{"stopped"};
     /// The launcher badges, as `steam=ready epic=failed`.
     std::string launchers;
     /// Which device gave the latest input (`input::name`): "pad", "keyboard" or "touch".
     std::string inputDevice{"pad"};
+    /// How many other openSUs LAN finds and is paired with, and the code a pairing under way on
+    /// either side shows.
+    std::size_t lanSeen{0};
+    std::size_t lanPaired{0};
+    std::string lanCode;
 };
 
 /// A pointer event `POST /pointer` injects, in window pixels.

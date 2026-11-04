@@ -61,6 +61,8 @@ Removal UninstallJob::removal(const library::Game& game,
     case library::Source::Own:
         return Removal{.refusal = "openSU never deletes your own games; Remove from library "
                                   "forgets one"};
+    case library::Source::Remote:
+        return Removal{.refusal = "a game on another openSU is removed there"};
     case library::Source::Rom:
         break;
     }
@@ -80,6 +82,9 @@ void UninstallJob::run(const std::stop_token& stop, const std::string& appId) {
         return;
     case library::Source::Own:
         post(Report{.finished = true, .failure = "openSU never deletes your own games"});
+        return;
+    case library::Source::Remote:
+        post(Report{.finished = true, .failure = "a game on another openSU is removed there"});
         return;
     case library::Source::Rom:
         break;

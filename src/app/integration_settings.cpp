@@ -87,7 +87,8 @@ std::size_t IntegrationSettings::pendingCount() const {
            static_cast<std::size_t>(now.epic != edit.epic) +
            static_cast<std::size_t>(now.gog != edit.gog) +
            static_cast<std::size_t>(now.emulators != edit.emulators) +
-           static_cast<std::size_t>(now.plugins != edit.plugins);
+           static_cast<std::size_t>(now.plugins != edit.plugins) +
+           static_cast<std::size_t>(now.lan != edit.lan);
 }
 
 ui::SettingsCategory IntegrationSettings::page() const {

@@ -1,8 +1,8 @@
 // integrations — which of openSU's optional integrations the player turned on, and the one rule
 // for what is in force from that choice: the ROM library and the libretro runner are always on;
-// Steam, Epic, GOG, standalone emulators and Lua plugins only when chosen. Steam runs in a mode:
-// Normal uses the player's desktop Steam, Managed is openSU's own in its Gamescope, Isolated is
-// openSU's own in a sandbox that shows it only openSU's display and the controllers it is given.
+// Steam, Epic, GOG, standalone emulators, Lua plugins and the LAN only when chosen. Steam runs in a
+// mode: Normal uses the player's desktop Steam, Managed is openSU's own in its Gamescope, Isolated
+// is openSU's own in a sandbox that shows it only openSU's display and the controllers it is given.
 // Only the modes the build's Steam client has are offered (`steam::clientModes`), and a login
 // session has no desktop Steam, so there Normal is not offered.
 #pragma once
@@ -59,6 +59,8 @@ struct IntegrationChoices {
     /// Standalone emulators: their downloads and finding them on this machine.
     bool emulators{false};
     bool plugins{false};
+    /// Finding other openSUs on the LAN, pairing with them and listing their games.
+    bool lan{false};
 
     bool operator==(const IntegrationChoices&) const = default;
 };
@@ -77,6 +79,7 @@ struct Integrations {
     bool gog{false};
     bool emulators{false};
     bool plugins{false};
+    bool lan{false};
 
     /// What `choices` puts in force; nothing chosen yet is everything off. `loginSession` is
     /// openSU running as the login session (`--session`); `built` the modes the build has, none
@@ -91,7 +94,8 @@ struct Integrations {
     /// The controller choices Isolated offers, the default first.
     [[nodiscard]] static std::vector<SteamPads> padsOffered();
 
-    /// Whether the catalog lists `source`; ROMs always.
+    /// Whether the catalog lists `source`; ROMs and the player's own games always, other openSUs'
+    /// with the LAN on.
     [[nodiscard]] bool lists(library::Source source) const noexcept;
 
     bool operator==(const Integrations&) const = default;

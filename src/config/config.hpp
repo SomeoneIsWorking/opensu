@@ -125,6 +125,9 @@ struct Config {
 
     /// The loopback control channel's port. Zero asks the system for a free one.
     std::uint16_t controlPort{7311};
+    /// The port other openSUs on the LAN reach this one on while LAN is on. Zero asks the system
+    /// for a free one, which the announcement carries.
+    std::uint16_t lanPort{7312};
 
     /// Whether the control channel runs at all. It is on by default because it
     /// is how an automated run drives the shell, and it listens on loopback

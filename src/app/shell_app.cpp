@@ -32,8 +32,7 @@ namespace opensu::app {
 
 ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
     : environment_{environment}, settings_{settings},
-      catalogLoader_{library::makeCatalog(resolved_, settings_.hidden, files_.ownGamesFile(),
-                                          romsetLists_, integrations_.catalogStores())},
+      catalogLoader_{catalogOf(integrations_.catalogStores())},
       shell_{settings_.width, settings_.height, settings_.homeMode, environment_.assetsDir},
       steam_{steam::Client::Options{
           .home = resolved_.home,
@@ -198,6 +197,15 @@ void ShellApp::reloadCatalog() {
     catalogLoader_.refresh();
 }
 
+library::Catalog ShellApp::catalogOf(const library::CatalogStores& stores) {
+    library::Catalog catalog = library::makeCatalog(resolved_, settings_.hidden,
+                                                    files_.ownGamesFile(), romsetLists_, stores);
+    if (stores.lan) {
+        catalog.add(lan::remoteProvider(remoteGames_));
+    }
+    return catalog;
+}
+
 void ShellApp::serviceCatalog() {
     if (std::optional<library::CatalogSnapshot> snapshot = catalogLoader_.take()) {
         applyCatalog(std::move(*snapshot));
@@ -220,6 +228,8 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     plugins_.request(games_);
     artworkStore_.apply(games_);
     covers_.catalogChanged(games_);
+    // With the covers already on disk; one fetched later is shared from the next listing.
+    lan_.share(games_);
     requestArtwork();
     for (const library::SourceStatus& source : sources_) {
         if (source.availability != library::Availability::Ready &&
@@ -957,6 +967,11 @@ void ShellApp::publishSnapshot() {
     next.steam = std::string{launch::name(steam_.state())};
     next.inputDevice = std::string{input::name(shell_.inputDevice().current())};
     next.launchers = describe(launcherBadges(steam_.state(), steam_.downloads(), sources_));
+    const LanService::Glance lan = lan_.glance();
+    next.lanOn = lan.on;
+    next.lanSeen = lan.seen;
+    next.lanPaired = lan.paired;
+    next.lanCode = lan.code;
 
     bridge_.publish(std::move(next));
 }
@@ -1107,6 +1122,7 @@ int ShellApp::run() {
         serviceRequests();
         serviceCatalog();
         plugins_.service();
+        lan_.service();
         delivery_.service();
         covers_.service();
         serviceDevices(std::chrono::steady_clock::now());

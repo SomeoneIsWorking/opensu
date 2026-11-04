@@ -1,7 +1,8 @@
 // shelf — what one screen of the grid holds. Home holds the store games and the player's own games
-// installed here. Library holds one tile per launcher (the player's own games one of them), the
-// stores' giveaways, Add a game, the combined library and one per console with ROMs. Opening one
-// of the folders holds its games; Giveaways and Add a game open screens of their own.
+// installed here. Library holds one tile per launcher (the player's own games one of them, and one
+// per openSU on the LAN whose games are listed), the stores' giveaways, Add a game, the combined
+// library and one per console with ROMs. Opening one of the folders holds its games; Giveaways and
+// Add a game open screens of their own.
 #pragma once
 
 #include <array>
@@ -37,6 +38,9 @@ struct Launcher {
     bool ready{true};
     /// Whether its first listing has not come back yet; not `ready`, but nothing to sign in to.
     bool loading{false};
+    /// For `Source::Remote`, the openSU whose games it holds: its peer id and name.
+    std::string hostId{};
+    std::string hostName{};
 
     bool operator==(const Launcher&) const = default;
 };
@@ -71,7 +75,8 @@ using ShelfItem = std::variant<Game, Console, Launcher, AllGames, Giveaways, Add
 /// The folder a shelf item opens, or nothing for a game.
 [[nodiscard]] std::optional<Folder> folderOf(const ShelfItem& item);
 
-/// The folder as the control channel names it: the system, "launcher:steam" or "all".
+/// The folder as the control channel names it: the system, "launcher:steam",
+/// "launcher:lan:<peer id>" or "all".
 [[nodiscard]] std::string key(const Folder& folder);
 
 /// The folder's name as the player reads it.
@@ -81,11 +86,12 @@ using ShelfItem = std::variant<Game, Console, Launcher, AllGames, Giveaways, Add
 [[nodiscard]] std::vector<Console> consoles(const std::vector<Game>& games);
 
 /// Home: the store games and the player's own installed here, a title installed in several stores
-/// once.
+/// once. A game on another openSU is left to its host's launcher.
 [[nodiscard]] std::vector<ShelfItem> homeShelf(const std::vector<Game>& games);
 
 /// Library: one launcher per store that is not absent, Steam, Epic, GOG, then the player's own
-/// games when there are any; Giveaways when a store has a launcher; Add a game; the combined
+/// games when there are any, then one per openSU on the LAN with games listed, by its name;
+/// Giveaways when a store has a launcher; Add a game; the combined
 /// library when a store or the player has games; then one console per system with ROMs, in the
 /// known systems' order.
 [[nodiscard]] std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
@@ -95,9 +101,10 @@ using ShelfItem = std::variant<Game, Console, Launcher, AllGames, Giveaways, Add
 [[nodiscard]] std::vector<ShelfItem> consoleShelf(const std::vector<Game>& games,
                                                   std::string_view system);
 
-/// One store's whole library, installed or not, in catalog order. A game owned in other stores
-/// lists them in `ownedIn`.
-[[nodiscard]] std::vector<ShelfItem> launcherShelf(const std::vector<Game>& games, Source source);
+/// One launcher's whole library, installed or not, in catalog order: a store's, or one openSU's on
+/// the LAN. A game owned in other stores lists them in `ownedIn`.
+[[nodiscard]] std::vector<ShelfItem> launcherShelf(const std::vector<Game>& games,
+                                                   const Launcher& launcher);
 
 /// Every store game, each title once as its preferred copy, with every store it is owned in.
 [[nodiscard]] std::vector<ShelfItem> allGamesShelf(const std::vector<Game>& games);

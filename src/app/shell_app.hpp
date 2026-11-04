@@ -59,6 +59,9 @@
 #include "interface_sound_settings.hpp"
 #include "interface_sounds.hpp"
 #include "keyboard_pad.hpp"
+#include "lan/remote_library.hpp"
+#include "lan_service.hpp"
+#include "lan_settings.hpp"
 #include "launch/handoff.hpp"
 #include "launch/process_tree.hpp"
 #include "launch_mailbox.hpp"
@@ -109,6 +112,8 @@ struct Settings {
     int height{800};
     /// Where the loopback control channel listens. Zero asks for a free port.
     std::uint16_t controlPort{0};
+    /// Where other openSUs on the LAN reach this one while LAN is on. Zero asks for a free port.
+    std::uint16_t lanPort{0};
     /// Whether the control channel runs. It is how an automated run drives the
     /// shell, so it is on unless configuration turns it off.
     bool controlChannel{true};
@@ -155,6 +160,8 @@ class ShellApp final {
     void serviceCatalog();
     /// Lists every store and waits for all of them; for a still render only.
     void loadCatalogNow();
+    /// The catalog of `stores`: the stores' providers, and the paired openSUs' games with LAN on.
+    [[nodiscard]] library::Catalog catalogOf(const library::CatalogStores& stores);
     void applyCatalog(library::CatalogSnapshot snapshot);
     /// Shows the chosen console art and asks the fetcher for what the store still wants.
     void requestArtwork();
@@ -290,6 +297,8 @@ class ShellApp final {
             return library::findLosslessDll(
                 library::steam::Library::discover(resolved_.home, resolved_.steamRoots));
         }};
+    /// The paired openSUs' games, which `lan_` fills and the catalog lists; before the catalog.
+    std::shared_ptr<lan::RemoteLibrary> remoteGames_{std::make_shared<lan::RemoteLibrary>()};
     /// Lists every store off the loop; the loop takes what has arrived.
     library::CatalogLoader catalogLoader_;
     /// Downloaded artwork, and the worker that fills it in.
@@ -688,6 +697,33 @@ class ShellApp final {
                                   [this] {
                                       reloadCatalog();
                                   }}};
+    /// This openSU on the LAN while LAN is on: pairing, and the paired openSUs' games.
+    LanService lan_{LanService::Places{.bookFile = files_.lanBookFile(),
+                                       .secrets = files_.lanSecrets(environment_.keyring),
+                                       .coverCache = resolved_.cacheDir / "lan",
+                                       .port = settings_.lanPort},
+                    preferences_,
+                    shell_.screens().navigator(),
+                    sounds_,
+                    remoteGames_,
+                    integrations_.current().lan,
+                    LanService::Hooks{.say =
+                                          [this](const std::string& text, bool isError) {
+                                              shell_.setToast(text, isError);
+                                          },
+                                      .remoteChanged =
+                                          [this] {
+                                              reloadCatalog();
+                                          },
+                                      .peersChanged =
+                                          [this] {
+                                              settingsScreen_.refresh();
+                                          }}};
+    /// Settings › LAN.
+    LanSettings lanSettings_{
+        lan_, preferences_, shell_.screens().navigator(), keyboardPad_, sounds_, [this] {
+            settingsScreen_.refresh();
+        }};
     /// The plugins, their play time and the Settings screen's Plugins category.
     PluginService plugins_{environment_, preferences_, integrations_.current().plugins,
                            PluginService::Hooks{[this](const std::string& text, bool isError) {
@@ -786,7 +822,7 @@ class ShellApp final {
                                      layerSettings_, layered_, steamLibrarySettings_,
                                      pluginSettings_, chordSettings_, mappings_, wineSettings_,
                                      integrationSettings_, artworkSettings_,
-                                     interfaceSoundSettings_, integrations_},
+                                     interfaceSoundSettings_, lanSettings_, integrations_},
         sounds_,
         preferences_,
         environment_,
@@ -935,7 +971,8 @@ class ShellApp final {
     /// The player's SteamGridDB key, handed to `steamGridDb_`; after the Steam client its sign-in
     /// starts and waits on, so its worker ends first.
     SteamGridDbAccount steamGridDbAccount_{SteamGridDbAccount::Parts{
-        .secrets = secrets::SecretStore{environment_.configDir / "secrets", environment_.keyring},
+        .secrets = secrets::SecretStore{environment_.configDir / secrets::secretsFolder,
+                                        environment_.keyring},
         .source = steamGridDb_,
         .steam = [this] {
             return integrationSwitch_.steamInUse();
@@ -1076,13 +1113,12 @@ class ShellApp final {
     /// Puts the integrations in force into effect; after everything it drives.
     IntegrationSwitch integrationSwitch_{
         integrations_,
-        IntegrationSwitch::Targets{steam_, catalogLoader_, plugins_, emulatorDownloads_, padOwner_,
-                                   *pads_, focusFollow_},
+        IntegrationSwitch::Targets{steam_, catalogLoader_, plugins_, lan_, emulatorDownloads_,
+                                   padOwner_, *pads_, focusFollow_},
         IntegrationSwitch::Hooks{
             .catalog =
                 [this](const library::CatalogStores& stores) {
-                    return library::makeCatalog(resolved_, settings_.hidden, files_.ownGamesFile(),
-                                                romsetLists_, stores);
+                    return catalogOf(stores);
                 },
             .steamInstalled =
                 [this] {
