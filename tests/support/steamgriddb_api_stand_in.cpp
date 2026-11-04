@@ -1,8 +1,10 @@
 // A stand-in SteamGridDB API for running openSU against: the test fake on loopback, holding for
 // each Steam app id named a square, a portrait and a wide cover drawn here, each game in its own
-// colour. Prints `api <root>` once listening and serves until its stdin closes.
+// colour. Prints `api <root>` once listening and serves until its stdin closes. `--slow <ms>` waits
+// that long before every answer.
 //
-//   steamgriddb_api_stand_in <key> <app id>...
+//   steamgriddb_api_stand_in [--slow <ms>] <key> <app id>...
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
@@ -48,14 +50,21 @@ std::string drawn(int width, int height, std::uint8_t hue) {
 } // namespace
 
 int main(int argc, char** argv) try {
-    if (argc < 3) {
-        std::fprintf(stderr, "usage: %s <key> <app id>...\n", argv[0]);
+    int first = 1;
+    std::chrono::milliseconds delay{0};
+    if (argc > 2 && std::string{argv[1]} == "--slow") {
+        delay = std::chrono::milliseconds{std::stoi(argv[2])};
+        first = 3;
+    }
+    if (argc < first + 2) {
+        std::fprintf(stderr, "usage: %s [--slow <ms>] <key> <app id>...\n", argv[0]);
         return 2;
     }
-    opensu::test::SteamGridDbServer api{argv[1]};
-    for (int i = 2; i < argc; ++i) {
+    opensu::test::SteamGridDbServer api{argv[first]};
+    api.slowBy(delay);
+    for (int i = first + 1; i < argc; ++i) {
         const std::string appId = argv[i];
-        const auto hue = static_cast<std::uint8_t>(40 + (i - 2) * 50 % 200);
+        const auto hue = static_cast<std::uint8_t>(40 + (i - first - 1) * 50 % 200);
         for (const Shape& shape : shapes) {
             api.putSteam(appId, {appId + "-" + shape.name + ".png",
                                  drawn(shape.width, shape.height, hue), shape.width, shape.height});

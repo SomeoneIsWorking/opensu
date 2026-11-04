@@ -30,8 +30,7 @@ Shown 2026-11-04 in hidden runs (`scratch/polkit-pam/quit/` in the main checkout
 `OPENSU_STEAMGRIDDB_API` pointed at a closed port so no cover fit is in flight: during the
 stand-in's wait, `POST /quit` exits in 0.06 s and SIGTERM in 0.03 s; during the real helper's
 password prompt `POST /quit` exits in 0.04 s; each time "openSU is closing; the authentication is
-cancelled", the install said cancelled, and pkexec and the helper gone. A cover fit in flight still
-delays any quit by up to a few seconds (`docs/issues/quit-waits-for-a-cover-fit.md`).
+cancelled", the install said cancelled, and pkexec and the helper gone.
 
 Left: without openSU's own agent (no system bus or no helper), pkexec waits on the desktop's agent
 and a quit still waits for that dialog to be answered; killing pkexec there could cut the root

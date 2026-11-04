@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <fstream>
 #include <memory>
+#include <stop_token>
 
 #include <curl/curl.h>
 
@@ -24,6 +25,12 @@ struct EasyDeleter {
 };
 
 using Easy = std::unique_ptr<CURL, EasyDeleter>;
+
+struct MultiDeleter {
+    void operator()(CURLM* handle) const noexcept {
+        curl_multi_cleanup(handle);
+    }
+};
 
 /// A request handle that trusts `trust`; null when libcurl cannot start one.
 Easy newEasy(const TrustStore& trust) {
@@ -99,6 +106,45 @@ constexpr long timeoutSeconds = 30;
 constexpr long redirectLimit = 5;
 constexpr long httpOk = 200;
 
+/// The longest a transfer on a stop token waits for its sockets before looking again.
+constexpr int pollMilliseconds = 1000;
+
+/// `curl`'s transfer; a requested `stop` wakes it and ends it at once (CURLE_ABORTED_BY_CALLBACK).
+CURLcode perform(CURL* curl, const std::stop_token& stop) {
+    if (!stop.stop_possible()) {
+        return curl_easy_perform(curl);
+    }
+    const std::unique_ptr<CURLM, MultiDeleter> multi{curl_multi_init()};
+    if (multi == nullptr || curl_multi_add_handle(multi.get(), curl) != CURLM_OK) {
+        return CURLE_FAILED_INIT;
+    }
+    CURLcode result = CURLE_ABORTED_BY_CALLBACK;
+    {
+        const std::stop_callback wake{stop, [handle = multi.get()] {
+                                          curl_multi_wakeup(handle);
+                                      }};
+        int running = 1;
+        CURLMcode status = CURLM_OK;
+        while (running > 0 && status == CURLM_OK && !stop.stop_requested()) {
+            status = curl_multi_perform(multi.get(), &running);
+            if (status == CURLM_OK && running > 0) {
+                status = curl_multi_poll(multi.get(), nullptr, 0, pollMilliseconds, nullptr);
+            }
+        }
+        if (status != CURLM_OK) {
+            result = CURLE_FAILED_INIT;
+        }
+        int queued = 0;
+        while (const CURLMsg* message = curl_multi_info_read(multi.get(), &queued)) {
+            if (message->msg == CURLMSG_DONE && running == 0) {
+                result = message->data.result;
+            }
+        }
+    }
+    curl_multi_remove_handle(multi.get(), curl);
+    return result;
+}
+
 WebClient::BodyFacts factsOf(CURL* curl) {
     curl_off_t modified = -1;
     curl_off_t length = -1;
@@ -146,8 +192,9 @@ WebClient::~WebClient() {
 }
 
 std::optional<std::string> WebClient::get(const std::string& url, std::string& error,
-                                          const std::vector<std::string>& headers) const {
-    return fetch(url, error, headers);
+                                          const std::vector<std::string>& headers,
+                                          const std::stop_token& stop) const {
+    return fetch(url, error, headers, stop);
 }
 
 std::string WebClient::Answer::header(std::string_view name) const {
@@ -206,7 +253,7 @@ std::optional<WebClient::Answer> WebClient::request(const std::string& url,
         if (list != nullptr) {
             curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
         }
-        const CURLcode result = curl_easy_perform(curl);
+        const CURLcode result = perform(curl, guard.stop);
         if (body.over) {
             error = "the answer is over " + std::to_string(guard.maxBody) + " bytes";
             return std::nullopt;
@@ -349,7 +396,8 @@ bool WebClient::download(const std::string& url, const std::filesystem::path& fi
 }
 
 std::optional<std::string> WebClient::fetch(const std::string& url, std::string& error,
-                                            const std::vector<std::string>& headers) const {
+                                            const std::vector<std::string>& headers,
+                                            const std::stop_token& stop) const {
     const Easy handle = newEasy(trust_);
     if (handle == nullptr) {
         error = "libcurl could not start a request";
@@ -374,7 +422,11 @@ std::optional<std::string> WebClient::fetch(const std::string& url, std::string&
     if (list != nullptr) {
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
     }
-    const CURLcode result = curl_easy_perform(curl);
+    const CURLcode result = perform(curl, stop);
+    if (result == CURLE_ABORTED_BY_CALLBACK) {
+        error = "cancelled";
+        return std::nullopt;
+    }
     if (result != CURLE_OK) {
         error = curl_easy_strerror(result);
         return std::nullopt;

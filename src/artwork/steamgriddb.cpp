@@ -91,10 +91,11 @@ bool SteamGridDb::connected() const {
 }
 
 SteamGridDb::Data SteamGridDb::call(const net::WebClient& web, const std::string& path,
-                                    const std::string& key) const {
+                                    const std::string& key, const std::stop_token& stop) const {
     const std::string origin = net::originOf(api_);
     net::WebClient::Guard guard;
     guard.maxBody = answerCap;
+    guard.stop = stop;
     // The bearer key goes with every hop, so no hop may leave the API's origin.
     guard.refusal = [&origin](const std::string& url) {
         return net::originOf(url) == origin ? std::string{}
@@ -125,10 +126,10 @@ SteamGridDb::Data SteamGridDb::call(const net::WebClient& web, const std::string
 }
 
 SteamGridDb::Covers SteamGridDb::listed(const net::WebClient& web, const std::string& by,
-                                        std::optional<CoverShape> shape,
-                                        const std::string& key) const {
+                                        std::optional<CoverShape> shape, const std::string& key,
+                                        const std::stop_token& stop) const {
     const std::string query = shape ? "?dimensions=" + dimensionsOf(*shape) : "";
-    const Data grids = call(web, "/grids" + by + query, key);
+    const Data grids = call(web, "/grids" + by + query, key, stop);
     Covers listed{grids.status, {}, grids.error};
     if (grids.status != Status::Listed || !grids.data.is_array()) {
         return listed;
@@ -151,7 +152,8 @@ SteamGridDb::Covers SteamGridDb::listed(const net::WebClient& web, const std::st
 }
 
 SteamGridDb::Covers SteamGridDb::covers(const net::WebClient& web, const SteamGridDbGame& game,
-                                        std::optional<CoverShape> shape) const {
+                                        std::optional<CoverShape> shape,
+                                        const std::stop_token& stop) const {
     std::string key;
     {
         const std::lock_guard lock{mutex_};
@@ -162,17 +164,18 @@ SteamGridDb::Covers SteamGridDb::covers(const net::WebClient& web, const SteamGr
     }
     Covers found;
     if (!game.steamAppId.empty()) {
-        found = listed(web, "/steam/" + encodeSegment(game.steamAppId), shape, key);
+        found = listed(web, "/steam/" + encodeSegment(game.steamAppId), shape, key, stop);
     }
     if (found.status == Status::Listed && found.covers.empty() && !game.title.empty()) {
-        const Data matches = call(web, "/search/autocomplete/" + encodeSegment(game.title), key);
+        const Data matches =
+            call(web, "/search/autocomplete/" + encodeSegment(game.title), key, stop);
         if (matches.status != Status::Listed) {
             found = {matches.status, {}, matches.error};
         } else if (matches.data.is_array() && !matches.data.empty() &&
                    matches.data[0].is_object() && matches.data[0].contains("id") &&
                    matches.data[0]["id"].is_number_integer()) {
             const auto id = matches.data[0]["id"].get<std::int64_t>();
-            found = listed(web, "/game/" + std::to_string(id), shape, key);
+            found = listed(web, "/game/" + std::to_string(id), shape, key, stop);
         }
     }
     secrets::wipe(key);

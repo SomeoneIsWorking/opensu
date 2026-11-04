@@ -2,12 +2,15 @@
 // game id, filtered by `dimensions` as the API does, title search at
 // `/search/autocomplete/<term>`, each image served at `/img/<name>` with an id unique across games.
 // Every API call must carry `Authorization: Bearer <key>`, else it answers 401 as SteamGridDB does;
-// image fetches are recorded with whether they carried one.
+// image fetches are recorded with whether they carried one. A slowed server waits before each
+// answer.
 #pragma once
 
+#include <chrono>
 #include <map>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -63,6 +66,12 @@ class SteamGridDbServer {
         titles_[title] = gameId;
     }
 
+    /// Waits `delay` before every answer, as a slow API or CDN does.
+    void slowBy(std::chrono::milliseconds delay) {
+        const std::lock_guard lock{mutex_};
+        delay_ = delay;
+    }
+
     [[nodiscard]] std::vector<Seen> seen() const {
         const std::lock_guard lock{mutex_};
         return seen_;
@@ -94,6 +103,12 @@ class SteamGridDbServer {
     }
 
     lucent::http::Response answer(const lucent::http::Request& request) {
+        std::chrono::milliseconds delay{0};
+        {
+            const std::lock_guard lock{mutex_};
+            delay = delay_;
+        }
+        std::this_thread::sleep_for(delay);
         const std::lock_guard lock{mutex_};
         const std::string path{request.path()};
         const std::optional<std::string_view> authorization = request.header("Authorization");
@@ -153,6 +168,7 @@ class SteamGridDbServer {
     std::map<std::string, std::string> files_;
     std::map<std::string, int> titles_;
     std::vector<Seen> seen_;
+    std::chrono::milliseconds delay_{0};
     LoopbackServer server_;
 };
 

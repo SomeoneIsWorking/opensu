@@ -66,12 +66,13 @@ class CoverFitter {
         Next,
         /// SteamGridDB did not answer: a pause, and the game once more at the end of the round.
         Retry,
-        /// No key, a refused key or a cover that cannot be kept: the round ends.
+        /// No key, a refused key, a cover that cannot be kept or the fitter stopping: the round
+        /// ends.
         Stop,
     };
 
-    /// Fits one game.
-    Outcome fit(const Work& work);
+    /// Fits one game; a requested `stop` abandons its requests and keeps nothing of it.
+    Outcome fit(const Work& work, const std::stop_token& stop);
 
     const CoverOverrides& overrides_;
     const SteamGridDb& steamGridDb_;

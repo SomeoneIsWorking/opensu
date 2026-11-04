@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <functional>
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -31,10 +32,11 @@ class WebClient {
     WebClient& operator=(const WebClient&) = delete;
 
     /// The body of a 200 response, following redirects, with each of `headers` ("Name: value")
-    /// sent. Nothing otherwise; `error` says why ("HTTP 404" or libcurl's reason).
-    [[nodiscard]] std::optional<std::string>
-    get(const std::string& url, std::string& error,
-        const std::vector<std::string>& headers = {}) const;
+    /// sent. Nothing otherwise; `error` says why ("HTTP 404", "cancelled" once `stop` is
+    /// requested, or libcurl's reason).
+    [[nodiscard]] std::optional<std::string> get(const std::string& url, std::string& error,
+                                                 const std::vector<std::string>& headers = {},
+                                                 const std::stop_token& stop = {}) const;
 
     /// A response of any status.
     struct Answer {
@@ -56,17 +58,19 @@ class WebClient {
 
     /// What a guarded request may do: how large a body it takes, and which URLs it may reach.
     /// With `progress` it is told of each hop's bytes as they arrive, may be cancelled, and has
-    /// only a stall limit instead of an overall time limit.
+    /// only a stall limit instead of an overall time limit. A request on `stop` ends as soon as
+    /// that stop is requested, whatever the transfer is waiting for.
     struct Guard {
         std::size_t maxBody{0};
         Refusal refusal;
         Progress progress{};
+        std::stop_token stop{};
     };
 
     /// The response to a GET of `url` with `headers` sent, or with `post` a POST of it, following
     /// redirects that `guard` allows. Nothing when a hop is refused, the body is over
-    /// `guard.maxBody`, the transfer fails or `guard.progress` cancels it; `error` says why
-    /// ("cancelled" for the last).
+    /// `guard.maxBody`, the transfer fails, or `guard.progress` or `guard.stop` cancels it;
+    /// `error` says why ("cancelled" for the last two).
     [[nodiscard]] std::optional<Answer>
     request(const std::string& url, const std::vector<std::string>& headers, const Guard& guard,
             std::string& error, const std::optional<std::string>& post = std::nullopt) const;
@@ -99,7 +103,8 @@ class WebClient {
 
     /// One GET following redirects, answered by a 200.
     [[nodiscard]] std::optional<std::string> fetch(const std::string& url, std::string& error,
-                                                   const std::vector<std::string>& headers) const;
+                                                   const std::vector<std::string>& headers,
+                                                   const std::stop_token& stop) const;
 };
 
 } // namespace opensu::net

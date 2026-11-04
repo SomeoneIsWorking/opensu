@@ -100,7 +100,7 @@ void CoverFitter::run(const std::stop_token& stop) {
             busy_ = true;
             fitting_ = work.game;
         }
-        const Outcome outcome = fit(work);
+        const Outcome outcome = fit(work, stop);
         std::unique_lock lock{mutex_};
         if (outcome == Outcome::Stop) {
             queue_.clear();
@@ -114,7 +114,7 @@ void CoverFitter::run(const std::stop_token& stop) {
     }
 }
 
-CoverFitter::Outcome CoverFitter::fit(const Work& work) {
+CoverFitter::Outcome CoverFitter::fit(const Work& work, const std::stop_token& stop) {
     const library::Game& game = work.game;
     const std::string seen = game.id + "\n" + game.artwork.string();
     // A later request can queue a game again while its fit is under way.
@@ -135,7 +135,10 @@ CoverFitter::Outcome CoverFitter::fit(const Work& work) {
         }
     }
     const SteamGridDbGame lookup = steamGridDbGameOf(game);
-    const SteamGridDb::Covers offered = steamGridDb_.covers(web_, lookup, work.shape);
+    const SteamGridDb::Covers offered = steamGridDb_.covers(web_, lookup, work.shape, stop);
+    if (stop.stop_requested()) {
+        return Outcome::Stop;
+    }
     switch (offered.status) {
     case SteamGridDb::Covers::Status::Disconnected:
     case SteamGridDb::Covers::Status::Refused:
@@ -147,7 +150,10 @@ CoverFitter::Outcome CoverFitter::fit(const Work& work) {
         break;
     }
     for (const SteamGridDbCover& candidate : offered.covers) {
-        const std::optional<std::string> bytes = web_.get(candidate.url, error);
+        const std::optional<std::string> bytes = web_.get(candidate.url, error, {}, stop);
+        if (stop.stop_requested()) {
+            return Outcome::Stop;
+        }
         if (!bytes) {
             if (error == "HTTP 404") {
                 continue;

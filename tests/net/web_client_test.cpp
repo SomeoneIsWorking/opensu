@@ -1,11 +1,15 @@
 // The guarded request plugins fetch through: every redirect is asked about before it is followed,
 // a body over the cap is refused, and any status comes back with its body. A download asks about
 // its redirects the same way, and only the last hop's body is kept. A request with progress is
-// told of its bytes and can be cancelled.
+// told of its bytes and can be cancelled. A request or GET on a stop token ends as soon as the stop
+// is requested, while it still waits for the answer.
+#include <chrono>
 #include <cstdio>
 #include <fstream>
 #include <iterator>
+#include <stop_token>
 #include <string>
+#include <thread>
 
 #include "net/web_client.hpp"
 #include "support/loopback_server.hpp"
@@ -34,6 +38,10 @@ int main() try {
         }
         if (path == "/big") {
             return test::reply(200, std::string(4096, 'x'));
+        }
+        if (path == "/slow") {
+            std::this_thread::sleep_for(std::chrono::seconds{5});
+            return test::reply(200, "late");
         }
         return test::reply(404, "none");
     }};
@@ -80,6 +88,39 @@ int main() try {
         }};
     expect(!web.request(server.base() + "/big", {}, stopped, error) && error == "cancelled",
            "a request its progress stops is cancelled");
+
+    const auto stoppedAfter = [](std::stop_source& source) {
+        return std::jthread{[&source] {
+            std::this_thread::sleep_for(std::chrono::milliseconds{200});
+            source.request_stop();
+        }};
+    };
+    std::stop_source requestStop;
+    const net::WebClient::Guard onStop{
+        .maxBody = 1024, .refusal = open.refusal, .stop = requestStop.get_token()};
+    auto begun = std::chrono::steady_clock::now();
+    {
+        const std::jthread stopper = stoppedAfter(requestStop);
+        expect(!web.request(server.base() + "/slow", {}, onStop, error) && error == "cancelled",
+               "a request whose stop is requested is cancelled");
+    }
+    expect(std::chrono::steady_clock::now() - begun < std::chrono::seconds{2},
+           "a request ends as its stop is requested, not when the answer comes");
+    std::stop_source getStop;
+    begun = std::chrono::steady_clock::now();
+    {
+        const std::jthread stopper = stoppedAfter(getStop);
+        expect(!web.get(server.base() + "/slow", error, {}, getStop.get_token()) &&
+                   error == "cancelled",
+               "a GET whose stop is requested is cancelled");
+    }
+    expect(std::chrono::steady_clock::now() - begun < std::chrono::seconds{2},
+           "a GET ends as its stop is requested");
+    std::stop_source unused;
+    const net::WebClient::Guard notStopped{
+        .maxBody = 8192, .refusal = open.refusal, .stop = unused.get_token()};
+    const auto whole = web.request(server.base() + "/big", {}, notStopped, error);
+    expect(whole && whole->body.size() == 4096, "a request on a stop never requested completes");
 
     const test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "web_client"};
     const std::filesystem::path file = scratch.path() / "body";

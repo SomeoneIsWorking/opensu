@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <mutex>
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -83,17 +84,19 @@ class SteamGridDb {
     };
 
     /// `game`'s covers of `shape`, or of every shape: by Steam app id first, then by the first
-    /// title match.
+    /// title match. A requested `stop` ends the lookup as Unreachable.
     [[nodiscard]] Covers covers(const net::WebClient& web, const SteamGridDbGame& game,
-                                std::optional<CoverShape> shape) const;
+                                std::optional<CoverShape> shape,
+                                const std::stop_token& stop = {}) const;
 
   private:
     /// The `data` of the API's answer to `path`, or the status it came to.
     struct Data;
     [[nodiscard]] Data call(const net::WebClient& web, const std::string& path,
-                            const std::string& key) const;
+                            const std::string& key, const std::stop_token& stop) const;
     [[nodiscard]] Covers listed(const net::WebClient& web, const std::string& by,
-                                std::optional<CoverShape> shape, const std::string& key) const;
+                                std::optional<CoverShape> shape, const std::string& key,
+                                const std::stop_token& stop) const;
 
     std::string api_;
     mutable std::mutex mutex_;
