@@ -114,19 +114,26 @@ def shadercross(gpu2d: Path, build_dir: Path, env: Mapping[str, str]) -> Path:
     return prefix / "bin" / "shadercross"
 
 
-def configure_defines(vcpkg: Path, build_dir: Path, env: Mapping[str, str]) -> list[str]:
+def compiler_defines(env: Mapping[str, str]) -> list[str]:
+    """Homebrew's Clang for arm64 at the deployment target, on the one SDK."""
     clang = llvm_bin(env)
+    return [
+        f"-DCMAKE_C_COMPILER={clang / 'clang'}",
+        f"-DCMAKE_CXX_COMPILER={clang / 'clang++'}",
+        "-DCMAKE_OSX_ARCHITECTURES=arm64",
+        f"-DCMAKE_OSX_DEPLOYMENT_TARGET={DEPLOYMENT_TARGET}",
+        f"-DCMAKE_OSX_SYSROOT={env['SDKROOT']}",
+    ]
+
+
+def configure_defines(vcpkg: Path, build_dir: Path, env: Mapping[str, str]) -> list[str]:
     return [
         f"-DCMAKE_TOOLCHAIN_FILE={vcpkg / 'scripts' / 'buildsystems' / 'vcpkg.cmake'}",
         f"-DVCPKG_TARGET_TRIPLET={TRIPLET}",
         f"-DVCPKG_HOST_TRIPLET={HOST_TRIPLET}",
         f"-DVCPKG_OVERLAY_TRIPLETS={TRIPLETS}",
         f"-DVCPKG_INSTALLED_DIR={installed(build_dir)}",
-        f"-DCMAKE_C_COMPILER={clang / 'clang'}",
-        f"-DCMAKE_CXX_COMPILER={clang / 'clang++'}",
-        "-DCMAKE_OSX_ARCHITECTURES=arm64",
-        f"-DCMAKE_OSX_DEPLOYMENT_TARGET={DEPLOYMENT_TARGET}",
-        f"-DCMAKE_OSX_SYSROOT={env['SDKROOT']}",
+        *compiler_defines(env),
         # The SDL3, Vulkan, Vorbis and SQLite modules are found through their .pc files.
         f"-DPKG_CONFIG_EXECUTABLE={build_dir / PKGCONF}",
         f"-DGLSLC={build_dir / GLSLC}",

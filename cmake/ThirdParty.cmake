@@ -1,0 +1,24 @@
+# The third-party libraries openSU builds against through the shared prefix (cmake/thirdparty): their
+# pinned commits, which that build reads too, and finding them there.
+
+set(OPENSU_PYROWAVE_REPOSITORY "https://github.com/SomeoneIsWorking/pyrowave.git")
+set(OPENSU_PYROWAVE_COMMIT "8d19bce43f4fd97c7af3c40f2713ecd9db974642")
+set(OPENSU_GRANITE_REPOSITORY "https://github.com/Themaister/Granite.git")
+set(OPENSU_GRANITE_COMMIT "53090429539bf3404250d18fe58db971f0907c04")
+set(OPENSU_LIBRASHADER_REPOSITORY "https://github.com/SomeoneIsWorking/librashader.git")
+set(OPENSU_LIBRASHADER_COMMIT "41211fab77a19f4387d55ffffcb713ca1db7cf32")
+
+# Finds `package` (its variables set in the caller's scope); a prefix built from other pins is
+# refused rather than shipped.
+macro(opensu_require_thirdparty package commit)
+    find_package(${package} CONFIG)
+    if(NOT ${package}_FOUND)
+        message(FATAL_ERROR "${package} is not in CMAKE_PREFIX_PATH (${CMAKE_PREFIX_PATH}). Build "
+            "the shared third-party prefix with `uv run --frozen python -m tools.check deps` and "
+            "configure with the CMAKE_PREFIX_PATH it prints, or configure with ${ARGN}=OFF.")
+    endif()
+    if(NOT "${${package}_COMMIT}" STREQUAL "${commit}")
+        message(FATAL_ERROR "${${package}_DIR} holds ${package} ${${package}_COMMIT}, not the "
+            "pinned ${commit}; `uv run --frozen python -m tools.check deps` builds the pinned one")
+    endif()
+endmacro()

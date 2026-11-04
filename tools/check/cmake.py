@@ -1,12 +1,13 @@
 """Configuring, building, testing and installing openSU with CMake and Clang."""
 
 import os
+import platform
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from tools.check import macos, process, windows
+from tools.check import deps, macos, process, thirdparty, windows
 from tools.check.deps import Deps
 from tools.checkout import REPO
 
@@ -37,11 +38,28 @@ class Plan:
     def scratch(self) -> Path:
         return self.build_dir / "tmp"
 
+    def toolchain(self, env: Mapping[str, str]) -> thirdparty.Toolchain:
+        """The compilers the shared third-party prefix this tree uses is built with."""
+        if self.platform == "windows":
+            return thirdparty.Toolchain(
+                "windows-x64", [f"-DCMAKE_TOOLCHAIN_FILE={windows.TOOLCHAIN}"], ["clang-cl"]
+            )
+        if self.platform == "macos":
+            defines = macos.compiler_defines(env)
+            compilers = [d.split("=", 1)[1] for d in defines if "_COMPILER=" in d]
+            return thirdparty.Toolchain("macos-arm64", defines, compilers)
+        return thirdparty.Toolchain(
+            f"linux-{platform.machine()}",
+            ["-DCMAKE_C_COMPILER=clang", "-DCMAKE_CXX_COMPILER=clang++"],
+            ["clang", "clang++"],
+        )
+
     def configure_args(self, env: Mapping[str, str]) -> list[str]:
         if self.platform not in PLATFORMS:
             raise ValueError(f"platform must be one of {PLATFORMS}, not {self.platform}")
         if self.gamescope not in GAMESCOPE_MODES:
             raise ValueError(f"gamescope must be one of {GAMESCOPE_MODES}, not {self.gamescope}")
+        found = f"-DCMAKE_PREFIX_PATH={thirdparty.require(self.toolchain(env), env)}"
         if self.platform == "windows":
             return [
                 "cmake", "-S", str(REPO), "-B", str(self.cmake_dir), "-G", "Ninja",
@@ -49,6 +67,7 @@ class Plan:
                 "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
                 f"-DLUCENT_ROOT={self.deps.lucent}",
                 f"-DGPU2D_ROOT={self.deps.gpu2d}",
+                found,
                 *windows.configure_defines(self.deps.vcpkg, self.build_dir),
                 *self.defines,
             ]  # fmt: skip
@@ -59,6 +78,7 @@ class Plan:
                 "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
                 f"-DLUCENT_ROOT={self.deps.lucent}",
                 f"-DGPU2D_ROOT={self.deps.gpu2d}",
+                found,
                 *macos.configure_defines(self.deps.vcpkg, self.build_dir, env),
                 *self.defines,
             ]  # fmt: skip
@@ -76,6 +96,7 @@ class Plan:
             "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
             f"-DLUCENT_ROOT={self.deps.lucent}",
             f"-DGPU2D_ROOT={self.deps.gpu2d}",
+            found,
         ]
         if self.gamescope == "off":
             args.append("-DOPENSU_BUILD_GAMESCOPE=OFF")
@@ -112,6 +133,12 @@ def require_own_tree(cmake_dir: Path) -> None:
     source = configured_source(cmake_dir)
     if source is not None and source != REPO:
         raise RuntimeError(f"{cmake_dir} is configured from {source}, not from {REPO}")
+
+
+def prepare(plan: Plan, env: Mapping[str, str]) -> None:
+    """The pinned sources, then the shared third-party prefix built with the tree's compilers."""
+    deps.fetch(plan.deps, env, plan.platform)
+    thirdparty.ensure(plan.toolchain(env), env, plan.jobs)
 
 
 def configure(plan: Plan, env: Mapping[str, str]) -> None:

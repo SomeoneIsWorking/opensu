@@ -25,14 +25,13 @@ Linux sd-bus from libsystemd (`systemd-devel`) serves openSU's own polkit agent.
 Remote play on Linux captures Gamescope and the game's sound through PipeWire (`pipewire-devel`),
 codes the sound with Opus (`opus-devel`), and plays the guest's keys and pointer through XTest
 (`libXtst-devel`); Debian and Ubuntu name them `libpipewire-0.3-dev libopus-dev libxtst-dev`. Its
-video codec is PyroWave, built with CMake from the pinned
-[fork](https://github.com/SomeoneIsWorking/pyrowave) and pinned Granite by `cmake/PyroWave.cmake`
-(`-DOPENSU_BUILD_PYROWAVE=OFF` builds without it, and remote play then refuses to start).
+video codec is PyroWave, from the pinned [fork](https://github.com/SomeoneIsWorking/pyrowave) and
+pinned Granite (`-DOPENSU_BUILD_PYROWAVE=OFF` builds without it, and remote play then refuses to
+start).
 
 `opensu-retro`, the built-in libretro runner, also needs the Vulkan loader and glslc
 (`vulkan-loader-devel glslc` on Fedora), and Rust (`cargo`) for librashader, the shader preset
-library, built from the pinned [fork](https://github.com/SomeoneIsWorking/librashader) by
-`cmake/Librashader.cmake`. Its tests and the shell's draw on any Vulkan driver, lavapipe
+library, from the pinned [fork](https://github.com/SomeoneIsWorking/librashader). Its tests and the shell's draw on any Vulkan driver, lavapipe
 (`mesa-vulkan-drivers`) included, and use the validation layers (`vulkan-validation-layers`) when
 installed.
 
@@ -45,6 +44,15 @@ when Gamescope's build dependencies are installed, `off` to skip the fork). Each
 its own (`deps`, `configure`, `build`, `lint`, `test`). `--platform windows` builds on a Windows host
 with clang-cl and vcpkg, `--platform macos` on an Apple silicon Mac with Homebrew's LLVM and vcpkg.
 `--jobs N` caps the compilers and clang-tidy processes that run at once (one per core by default).
+
+PyroWave and librashader are not built in a build tree. `deps` builds `cmake/thirdparty` once per
+pinned revision and toolchain into a prefix of their own,
+`~/.local/share/opensu-thirdparty/<platform>-<digest>` (the digest covers `cmake/thirdparty`, the
+pins in `cmake/ThirdParty.cmake`, `cmake/toolchains`, the compiler arguments and versions and
+`rustc -vV`), and `configure` hands it to CMake as `CMAKE_PREFIX_PATH`, where
+`find_package(OpensuPyroWave)` and `find_package(OpensuLibrashader)` find them; every build tree and
+checkout with the same pins and compilers shares it. An Android build does the same per ABI with
+the NDK's toolchain.
 
 The tool checks the checkout its own code is in, which `python -m` takes from the current
 directory, so another checkout is named with `uv run --frozen --directory <checkout> python -m
@@ -59,11 +67,16 @@ git clone https://github.com/SomeoneIsWorking/gpu2d.git
 ```
 
 Then point openSU at both (`LUCENT_ROOT` defaults to `$HOME/repo/lucent`, `GPU2D_ROOT` to
-`$HOME/repo/gpu2d`):
+`$HOME/repo/gpu2d`)
+
+and at a prefix holding PyroWave and librashader, which `cmake/thirdparty` builds:
 
 ```sh
+cmake -S cmake/thirdparty -B build/thirdparty -G Ninja -DCMAKE_C_COMPILER=clang \
+      -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_INSTALL_PREFIX="$PWD/thirdparty"
+cmake --build build/thirdparty && cmake --install build/thirdparty
 cmake -S . -B build/cmake -G Ninja -DCMAKE_CXX_COMPILER=clang++ \
-      -DLUCENT_ROOT="$PWD/lucent" -DGPU2D_ROOT="$PWD/gpu2d"
+      -DLUCENT_ROOT="$PWD/lucent" -DGPU2D_ROOT="$PWD/gpu2d" -DCMAKE_PREFIX_PATH="$PWD/thirdparty"
 cmake --build build/cmake
 ```
 

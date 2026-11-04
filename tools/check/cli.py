@@ -32,7 +32,7 @@ def plan_from(args: argparse.Namespace) -> cmake.Plan:
 
 def step_actions(plan: cmake.Plan) -> dict[str, Callable[[Mapping[str, str]], None]]:
     return {
-        "deps": lambda env: deps.fetch(plan.deps, env, plan.platform),
+        "deps": lambda env: cmake.prepare(plan, env),
         "configure": lambda env: cmake.configure(plan, env),
         "build": lambda env: cmake.build(plan, env),
         "lint": lambda env: lint.all_checks(plan.cmake_dir, env, plan.jobs, plan.platform),

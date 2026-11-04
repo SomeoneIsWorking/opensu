@@ -29,7 +29,7 @@ def plan_for(layout: config.Layout, version: str) -> cmake.Plan:
 def build(layout: config.Layout, version: str) -> Path:
     env = process.build_environment(layout.scratch)
     plan = plan_for(layout, version)
-    deps.fetch(plan.deps, env)
+    cmake.prepare(plan, env)
     cmake.configure(plan, env)
     # The tests need a systemd user manager; CI runs them in tools.check's container.
     cmake.build(plan, env)

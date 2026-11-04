@@ -34,7 +34,7 @@ and gpu2d's window including `X11/Xlib.h`. CI and `release.yml` build Linux only
 | `src/library/emulators.*`, `emulator_release.*`, `downloaded_emulators.*`, `appimage_runtime.*`, `assets/emulators.json` | AppImage, Flatpak and `PATH` launchers, libfuse2 check | Catalog launchers gain per-OS entries: Windows `.exe` (zip release assets), macOS `.app` in `/Applications`, Android package + activity templates (iiSU's `||`-split command templates, `launch.md` 2.1). AppImage download and `appimage_runtime` stay Linux |
 | `src/library/core_target.hpp`, `libretro_cores.*` (`CoreSearch`) | `nightly/linux/x86_64/latest/` and `.so` (now `coreTarget`, per OS/arch in CMake); RetroArch's Linux core folders | Per OS/arch base: `windows/x86_64` (`.dll`), `apple/osx/arm64` (`.dylib`), `android/latest/arm64-v8a` (and `x86_64` for the AVD), whose cores are named `<core>_libretro_android.so`. `info.zip` and `shader_pack.*` are platform-neutral |
 | `src/retro/shared_library.*` (core, librashader) | `librashader.so` | `SDL_LoadObject`/`SDL_LoadFunction` everywhere since step 1 |
-| `cmake/Librashader.cmake` | cargo for the host target, staged as `.so` | cargo targets `x86_64-pc-windows-msvc` (`.dll`), `aarch64-apple-darwin` (`.dylib`), `aarch64-linux-android` and `x86_64-linux-android` (NDK linker) |
+| `cmake/thirdparty/Librashader.cmake` | cargo for the host target, staged as `.so` | cargo targets `x86_64-pc-windows-msvc` (`.dll`), `aarch64-apple-darwin` (`.dylib`), `aarch64-linux-android` and `x86_64-linux-android` (NDK linker) |
 | `src/retro/presenter.*`, `vulkan_device.*`, `hardware_render.*` | Nothing Linux in the code; Vulkan loader from the system | Windows: driver Vulkan. macOS: MoltenVK bundled, `VK_KHR_portability_enumeration` and the portability subset at instance and device creation; GPU cores checked one by one. Android: system Vulkan, the runner's API version and features checked on named devices |
 | gpu2d `src/render/gpu_window.cpp` | `X11/Xlib.h` for the translucent visual; `SDL_CreateGPUDevice(SPIRV, "vulkan")` | Translucency through `SDL_WINDOW_TRANSPARENT` where the OS has it, the X11 visual only on X11. Windows and Android stay Vulkan/SPIR-V. macOS: SDL GPU's Apple backend is Metal, so gpu2d also ships MSL from the same GLSL (`gpu2d_compile_shaders` adds spirv-cross or SDL_shadercross output) and picks the driver per OS. A gpu2d change, in its own repo |
 | `src/config/config.*` | `/proc/self/exe`, `HOME`, `XDG_*`, `XDG_RUNTIME_DIR`, `DISPLAY`, session bus | See the location resolver in 3 |
@@ -594,7 +594,7 @@ with the runner's process and task gone. Unproven: hiding the controls when a pa
 a pad's Guide (no pad on the AVD).
 
 librashader ships in the APK as `librashader.so` beside the runner for both ABIs, built by cargo
-for the ABI's Rust target with the NDK's API-level clang (`cmake/Librashader.cmake`), where the
+for the ABI's Rust target with the NDK's API-level clang (`cmake/thirdparty/Librashader.cmake`), where the
 Android install layout already looks. Shown on the AVD (x86_64): the shader pack downloaded from
 Settings › Emulators, `crt › crt-1tap` set for NES, and the runner logging "librashader ABI 2 API
 5 loaded" and "shader preset …/crt/crt-1tap.slangp built" with the scanlines on the game's frame.

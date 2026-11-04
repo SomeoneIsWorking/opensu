@@ -6,7 +6,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from types import ModuleType
 
-from tools.check import process
+from tools.check import process, thirdparty
+from tools.check.cmake import DEFAULT_JOBS
 from tools.check.deps import Deps
 from tools.checkout import REPO
 from tools.package.android import config
@@ -39,7 +40,13 @@ def build(layout: config.Layout, sources: Deps, abi: str, env: Mapping[str, str]
     """Configure and build both libraries for `abi`; returns the build directory."""
     prefix = layout.prefix(abi)
     build_dir = layout.native_dir(abi)
-    toolchain = layout.ndk / "build" / "cmake" / "android.toolchain.cmake"
+    toolchain = [
+        f"-DCMAKE_TOOLCHAIN_FILE={layout.ndk / 'build' / 'cmake' / 'android.toolchain.cmake'}",
+        f"-DANDROID_ABI={abi}",
+        f"-DANDROID_PLATFORM=android-{config.API_LEVEL}",
+        "-DANDROID_STL=c++_shared",
+    ]
+    shared = thirdparty.ensure(thirdparty.Toolchain(f"android-{abi}", toolchain), env, DEFAULT_JOBS)
     native_env = {
         **env,
         # Only the prefix's packages, linked statically with what they need.
@@ -55,12 +62,10 @@ def build(layout: config.Layout, sources: Deps, abi: str, env: Mapping[str, str]
             build_dir,
             "-G",
             "Ninja",
-            f"-DCMAKE_TOOLCHAIN_FILE={toolchain}",
-            f"-DANDROID_ABI={abi}",
-            f"-DANDROID_PLATFORM=android-{config.API_LEVEL}",
-            "-DANDROID_STL=c++_shared",
+            *toolchain,
             "-DCMAKE_BUILD_TYPE=Release",
-            f"-DCMAKE_FIND_ROOT_PATH={prefix}",
+            # The NDK's toolchain finds packages under these roots only.
+            f"-DCMAKE_FIND_ROOT_PATH={prefix};{shared}",
             "-DPKG_CONFIG_ARGN=--static",
             # std::jthread and std::stop_token are experimental in the NDK's libc++.
             "-DCMAKE_CXX_FLAGS=-fexperimental-library",

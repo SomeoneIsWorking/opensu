@@ -64,7 +64,7 @@ override".
 ## What step 7 built
 
 - librashader comes from `SomeoneIsWorking/librashader` (forked from SnowflakePowered `07ac790c`,
-  v0.12.1), pinned in `cmake/Librashader.cmake`. The fork's commits:
+  v0.12.1), pinned in `cmake/ThirdParty.cmake`. The fork's commits:
   - `73bf79af`: each pass's scissor is clipped to non-negative offsets, so an overscaled viewport
     that overhangs the output draws instead of failing validation.
   - `41211fab`: a pass's render passes, pipeline layout, descriptor pool and set layout, and each

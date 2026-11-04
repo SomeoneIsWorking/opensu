@@ -1998,7 +1998,7 @@ rule. At launch the shell writes the resolved video settings to a per-launch fil
 bands on the source pixel grid, CRT ported from crt-lottes). `video.shader` names a `.slangp` in
 the pack `library/shader_pack` downloads into `<data>/opensu/shaders/slang/`; the runner builds it
 with librashader (`retro/shader_chain`, the pinned `SomeoneIsWorking/librashader` fork built by
-`cmake/Librashader.cmake`), which replaces sampling and filter, and refuses the launch when the
+`cmake/thirdparty`), which replaces sampling and filter, and refuses the launch when the
 library is missing.
 
 Verified, hidden, 2026-10-21 (`scratch/setting-layers/`): `step1/` the presenter split leaves the
