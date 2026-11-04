@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(Threads REQUIRED)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+include(MissingPackage)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE RelWithDebInfo)
@@ -26,10 +28,9 @@ set(NANOSVG_ROOT "$ENV{HOME}/dev/nanosvg" CACHE PATH "nanosvg checkout")
 find_path(NANOSVG_INCLUDE_DIR nanosvg.h
     PATH_SUFFIXES nanosvg PATHS "${NANOSVG_ROOT}/src")
 if(NOT NANOSVG_INCLUDE_DIR)
-    message(FATAL_ERROR
-        "nanosvg not found. Install it with `sudo dnf install nanosvg-devel` (Fedora), "
-        "`sudo apt install libnanosvg-dev` (Debian/Ubuntu), or clone "
-        "https://github.com/memononen/nanosvg to ${NANOSVG_ROOT}")
+    opensu_missing_package("openSU needs nanosvg to draw its icons"
+        FEDORA nanosvg-devel DEBIAN libnanosvg-dev
+        OTHERWISE "clone https://github.com/memononen/nanosvg to ${NANOSVG_ROOT}")
 endif()
 # Its implementation is compiled from a file in the build tree, so openSU's lint, which covers src/
 # and tests/, does not analyse nanosvg's code.
@@ -64,35 +65,31 @@ else()
     endif()
 endif()
 if(NOT SDL3_FOUND OR NOT VULKAN_FOUND OR NOT VORBISFILE_FOUND)
-    message(FATAL_ERROR
-        "openSU needs SDL3, the Vulkan loader and libvorbisfile. Install them with "
-        "`sudo dnf install SDL3-devel vulkan-loader-devel libvorbis-devel` (Fedora); Ubuntu 24.04 "
-        "packages no SDL3, so build it as packaging/appimage/Containerfile does and "
-        "`sudo apt install libvulkan-dev libvorbis-dev`")
+    opensu_missing_package("openSU needs SDL3, the Vulkan loader and libvorbisfile"
+        OTHERWISE "on Ubuntu 24.04, which packages no SDL3, build it as packaging/appimage/Containerfile does"
+        FEDORA "SDL3-devel vulkan-loader-devel libvorbis-devel"
+        DEBIAN "libvulkan-dev libvorbis-dev")
 endif()
 
 # libcrypto decrypts the Switch game files whose own title and icon a Switch tile shows.
 find_package(OpenSSL 3.0 COMPONENTS Crypto)
 if(NOT OPENSSL_FOUND)
-    message(FATAL_ERROR
-        "openSU needs libcrypto (OpenSSL 3). Install it with `sudo dnf install openssl-devel` "
-        "(Fedora) or `sudo apt install libssl-dev` (Debian/Ubuntu)")
+    opensu_missing_package("openSU needs libcrypto (OpenSSL 3)"
+        FEDORA openssl-devel DEBIAN libssl-dev)
 endif()
 
 # nlohmann/json parses and writes every JSON file and reply openSU handles.
 find_package(nlohmann_json 3 QUIET)
 if(NOT nlohmann_json_FOUND)
-    message(FATAL_ERROR
-        "openSU needs nlohmann/json 3. Install it with `sudo dnf install json-devel` (Fedora) or "
-        "`sudo apt install nlohmann-json3-dev` (Debian/Ubuntu)")
+    opensu_missing_package("openSU needs nlohmann/json 3"
+        FEDORA json-devel DEBIAN nlohmann-json3-dev)
 endif()
 
 # SQLite reads Lutris's game list (`library/lutris_games`) for Add a game's import.
 pkg_check_modules(SQLITE3 IMPORTED_TARGET GLOBAL sqlite3)
 if(NOT SQLITE3_FOUND)
-    message(FATAL_ERROR
-        "openSU needs SQLite 3. Install it with `sudo dnf install sqlite-devel` (Fedora) or "
-        "`sudo apt install libsqlite3-dev` (Debian/Ubuntu)")
+    opensu_missing_package("openSU needs SQLite 3"
+        FEDORA sqlite-devel DEBIAN libsqlite3-dev)
 endif()
 
 # Lucent is the project logger. Shared, not vendored.
@@ -110,7 +107,6 @@ add_subdirectory("${GPU2D_ROOT}" "${CMAKE_BINARY_DIR}/gpu2d" EXCLUDE_FROM_ALL)
 # relative path below, in the build tree and installed alike. Gamescope, the session and X11 are
 # Linux's alone.
 include(GNUInstallDirs)
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(Gamescope)
 include(Lua)
 include(Libretro)

@@ -14,24 +14,18 @@ target_link_libraries(opensu_stream
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     pkg_check_modules(PIPEWIRE IMPORTED_TARGET libpipewire-0.3)
     if(NOT PIPEWIRE_FOUND)
-        message(FATAL_ERROR
-            "openSU needs libpipewire 0.3 to capture the screen remote play streams. Install it "
-            "with `sudo dnf install pipewire-devel` (Fedora) or "
-            "`sudo apt install libpipewire-0.3-dev` (Debian/Ubuntu)")
+        opensu_missing_package("openSU needs libpipewire 0.3 to capture the screen remote play streams"
+            FEDORA pipewire-devel DEBIAN libpipewire-0.3-dev)
     endif()
     pkg_check_modules(XTST IMPORTED_TARGET xtst)
     if(NOT XTST_FOUND)
-        message(FATAL_ERROR
-            "openSU needs libXtst to play a remote player's keys and pointer into the game. Install "
-            "it with `sudo dnf install libXtst-devel` (Fedora) or `sudo apt install libxtst-dev` "
-            "(Debian/Ubuntu)")
+        opensu_missing_package("openSU needs libXtst to play a remote player's keys and pointer"
+            FEDORA libXtst-devel DEBIAN libxtst-dev)
     endif()
     pkg_check_modules(OPUS IMPORTED_TARGET opus)
     if(NOT OPUS_FOUND)
-        message(FATAL_ERROR
-            "openSU needs libopus to send a game's sound to a remote player. Install it with "
-            "`sudo dnf install opus-devel` (Fedora) or `sudo apt install libopus-dev` "
-            "(Debian/Ubuntu)")
+        opensu_missing_package("openSU needs libopus to send a game's sound to a remote player"
+            FEDORA opus-devel DEBIAN libopus-dev)
     endif()
     target_sources(opensu_stream PRIVATE udp_socket_posix.cpp pipewire_session.cpp
         screen_capture_pipewire.cpp game_sound_pipewire.cpp host_input.cpp audio_codec_opus.cpp)

@@ -16,11 +16,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT OPENSU_SECRET_SERVICE STREQUAL "OF
     set(opensu_libsecret ${LIBSECRET_FOUND})
 endif()
 if(OPENSU_SECRET_SERVICE STREQUAL "ON" AND NOT opensu_libsecret)
-    message(FATAL_ERROR
-        "OPENSU_SECRET_SERVICE=ON needs libsecret. Install it with "
-        "`sudo dnf install libsecret-devel` (Fedora), `sudo apt install libsecret-1-dev` "
-        "(Debian/Ubuntu) or `sudo pacman -S libsecret` (Arch), or configure with "
-        "-DOPENSU_SECRET_SERVICE=AUTO to keep secrets in an owner-only file")
+    opensu_missing_package("OPENSU_SECRET_SERVICE=ON needs libsecret"
+        FEDORA libsecret-devel DEBIAN libsecret-1-dev ARCH libsecret
+        OTHERWISE "configure with -DOPENSU_SECRET_SERVICE=AUTO to keep secrets in an owner-only file")
 endif()
 if(opensu_libsecret)
     target_sources(opensu_secrets PRIVATE secret_service_libsecret.cpp)

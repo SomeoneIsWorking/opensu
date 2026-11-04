@@ -9,10 +9,8 @@ target_link_libraries(opensu_host PRIVATE nlohmann_json::nlohmann_json)
 target_include_directories(opensu_host PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" INTERFACE "${CMAKE_SOURCE_DIR}/src")
 pkg_check_modules(LIBSYSTEMD IMPORTED_TARGET libsystemd)
 if(NOT LIBSYSTEMD_FOUND)
-    message(FATAL_ERROR
-        "openSU's polkit agent needs sd-bus from libsystemd. Install it with "
-        "`sudo dnf install systemd-devel` (Fedora), `sudo apt install libsystemd-dev` "
-        "(Debian/Ubuntu) or `sudo pacman -S systemd-libs` (Arch)")
+    opensu_missing_package("openSU's polkit agent needs sd-bus from libsystemd"
+        FEDORA systemd-devel DEBIAN libsystemd-dev ARCH systemd-libs)
 endif()
 target_link_libraries(opensu_host PUBLIC opensu::command
                       PRIVATE opensu::fileio opensu::launch opensu::secrets lucent::lucent
