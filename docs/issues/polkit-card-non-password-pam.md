@@ -27,7 +27,7 @@ the whole of a pending authentication. The agent shows a submitted answer or a c
 (`withInbox`). The controller renders that state on one `ui::AuthenticationScreen` per
 authentication, read on every build: waiting with a sweeping bar and Cancel, a field added for each
 question, the note changed in place, closed on the verdict. Cancel while waiting replies
-`Cancelled` to polkit and drops the helper, whose process group is ended.
+`Cancelled` to polkit and drops the helper: its pipes closed, its process group signalled if it still runs 200 ms later.
 
 Shown 2026-11-04 in hidden runs (`scratch/polkit-pam/` in the main checkout, `frames/`, with the
 stand-ins in `helpers/`): a note then `SUCCESS` with no prompt (`1a` card at once, `1b` note

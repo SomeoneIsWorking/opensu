@@ -896,15 +896,20 @@ or with a field (fprintd's "Failed to match" between tries); a field is added on
 the pad's keyboard or a keyboard, and goes to polkit-agent-helper-1, after which the card waits
 again while the answer is checked; the helper's `SUCCESS` closes it whether or not anything was
 asked; a refused password is asked again with "That password was not accepted. Try again."; B,
-waiting or asking, ends the helper's process group, so a module's wait ends, and dismisses it
-(pkexec 126, "authentication was cancelled"). `Authentication` owns that state (`Prompt::State`
+waiting or asking, dismisses it (pkexec 126, "authentication was cancelled") and ends the helper
+as polkit's own agents do: its stdin and stdout closed, then, if it still runs 200 ms later (PAM
+holds it until a module returns: 2.3 s here under `pam_faildelay`), SIGTERM to its process group
+and SIGKILL after 2 s, each logged as `[launch] SIGTERM to process group N: sent` or the error; a
+helper no signal reaches (EPERM) is left to end on its closed pipes, which a module mid-wait only
+notices when it returns. `Authentication` owns that state (`Prompt::State`
 `Waiting` or `Asking`, the note, the question); the controller only renders it. Seen in hidden runs
 with `OPENSU_ROOT_STEP=/bin/true` and `OPENSU_POLKIT_HELPER` scripting the helper's lines: a
 note then a prompt-less success (card at once, note changed in place, closed on `SUCCESS`), a note,
 a module's failure then a password field, an error between a hidden and a shown question, and
 Cancel during a 20 s wait (the helper and its `sleep` gone); and with the real helper on
 `pkexec /bin/true`, a wrong password (field, waiting through `pam_faildelay`, asked again) and
-Cancel. Earlier, inside the fork's headless Gamescope, the same wrong password and dismissal
+Cancel at the field (SIGTERM sent at 200 ms, the helper gone within 0.46 s of the press); a
+stand-in that ignores SIGTERM and exits on stdin's end is gone with no signal sent. Earlier, inside the fork's headless Gamescope, the same wrong password and dismissal
 under "Authentication is needed to run `/bin/true' as the super user". Unverified: the right
 password (left to the player, who knows it), a real non-password module (fprintd, howdy, pam_u2f,
 the remote-biometry module) end to end, a finger-typed answer (the control channel cannot inject

@@ -1,6 +1,9 @@
 // conversation — a child spoken with line by line over its stdin and stdout, as polkit's agent
 // helper is: started in a process group of its own with stderr discarded, its lines read as they
-// come without blocking, its group ended when it is dropped. POSIX only (`posix_child.cpp`).
+// come without blocking. Dropping it closes its stdin and stdout, as polkit's own agents end their
+// helper; a child still running 200 ms later has its group sent SIGTERM, then SIGKILL, each result
+// logged, and one no signal reaches is left to end on its closed pipes. POSIX only
+// (`posix_child.cpp`).
 #pragma once
 
 #include <memory>

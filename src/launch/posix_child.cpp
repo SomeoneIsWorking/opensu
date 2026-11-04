@@ -43,20 +43,45 @@ int exitCode(int status) {
 constexpr auto readSlice = std::chrono::milliseconds{100};
 /// How long a stopped child has to end on SIGTERM before it is killed.
 constexpr auto termGrace = std::chrono::seconds{2};
+/// How long a dropped conversation's child has to end on its closed pipes before it is signalled.
+constexpr auto closeGrace = std::chrono::milliseconds{200};
 
-/// Ends the child's process group: SIGTERM, then SIGKILL after the grace, and reaps it.
-void endGroup(pid_t pid) {
-    ::kill(-pid, SIGTERM);
-    const Clock::time_point until = Clock::now() + termGrace;
+/// Whether `pid` ended, and was reaped, within `wait`.
+bool reapedWithin(pid_t pid, Clock::duration wait) {
+    const Clock::time_point until = Clock::now() + wait;
     int status = 0;
-    while (Clock::now() < until) {
+    for (;;) {
         if (waitpid(pid, &status, WNOHANG) == pid) {
-            ::kill(-pid, SIGKILL);
-            return;
+            return true;
+        }
+        if (Clock::now() >= until) {
+            return false;
         }
         std::this_thread::sleep_for(step);
     }
-    ::kill(-pid, SIGKILL);
+}
+
+/// Sends `signal` (`name`) to the group `pid` leads, logging what came of it; true when sent.
+bool signalGroup(pid_t pid, int signal, const char* name) {
+    const bool sent = ::kill(-pid, signal) == 0;
+    const int error = errno;
+    lucent::info("launch", "{} to process group {}: {}", name, pid,
+                 sent ? "sent" : std::strerror(error));
+    return sent;
+}
+
+/// Ends the child's process group: SIGTERM, then SIGKILL after the grace, and reaps it. A group
+/// no signal reaches (a setuid child that refuses this user's) is left, unreaped, to end itself.
+void endGroup(pid_t pid) {
+    if (signalGroup(pid, SIGTERM, "SIGTERM") && reapedWithin(pid, termGrace)) {
+        static_cast<void>(::kill(-pid, SIGKILL));
+        return;
+    }
+    if (!signalGroup(pid, SIGKILL, "SIGKILL") && !reapedWithin(pid, Clock::duration::zero())) {
+        lucent::warn("launch", "process {} cannot be signalled; left to end on its own", pid);
+        return;
+    }
+    int status = 0;
     while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {
     }
 }
@@ -276,10 +301,10 @@ Conversation::Conversation(int pid, Ends ends) noexcept
 }
 
 Conversation::~Conversation() {
+    // As polkit's own agents end their helper: pipes closed, a signal only if that is not enough.
     ::close(input_);
     ::close(output_);
-    int status = 0;
-    if (waitpid(pid_, &status, WNOHANG) != pid_) {
+    if (!reapedWithin(pid_, closeGrace)) {
         endGroup(pid_);
     }
 }
