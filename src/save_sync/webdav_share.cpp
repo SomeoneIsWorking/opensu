@@ -70,7 +70,7 @@ std::optional<net::WebClient::Answer> WebDavShare::send(const std::string& metho
                                                         const std::vector<std::string>& headers,
                                                         std::string& error) const {
     const net::WebClient::Guard guard{
-        .maxBody = largestBundle * 2, .refusal = refusalOf, .progress = {}};
+        .maxBody = largestBundle * 2, .refusal = refusalOf, .progress = {}, .stop = {}};
     return web_.request(
         urlOf(name), headers, guard, error,
         net::WebClient::Sent{
