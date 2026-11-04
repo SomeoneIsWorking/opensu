@@ -8,8 +8,8 @@ add_library(opensu_lan STATIC peer_crypto.cpp pairing_keys.cpp request_signature
 add_library(opensu::lan ALIAS opensu_lan)
 target_include_directories(opensu_lan PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_lan
-    PUBLIC opensu::library opensu::net opensu::secrets lucent::lucent
-    PRIVATE opensu::clock opensu::fileio nlohmann_json::nlohmann_json OpenSSL::Crypto)
+    PUBLIC opensu::library opensu::net opensu::secrets lucent::lucent nlohmann_json::nlohmann_json
+    PRIVATE opensu::clock opensu::fileio OpenSSL::Crypto)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     pkg_check_modules(LAN_LIBSYSTEMD REQUIRED IMPORTED_TARGET libsystemd)
     target_sources(opensu_lan PRIVATE dns_sd_avahi.cpp)

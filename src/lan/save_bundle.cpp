@@ -33,12 +33,12 @@ constexpr std::array kindKeys{
 constexpr std::size_t largestHeader = std::size_t{16} * 1024 * 1024;
 
 std::string_view keyOf(SlotKind kind) {
-    const auto* found = std::ranges::find(kindKeys, kind, &std::pair<SlotKind, const char*>::first);
+    const auto found = std::ranges::find(kindKeys, kind, &std::pair<SlotKind, const char*>::first);
     return found->second;
 }
 
 std::optional<SlotKind> kindOf(std::string_view key) {
-    const auto* found =
+    const auto found =
         std::ranges::find_if(kindKeys, [key](const std::pair<SlotKind, const char*>& entry) {
             return key == entry.second;
         });
