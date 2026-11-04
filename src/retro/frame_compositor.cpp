@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstring>
 
+#include "display/letterbox.hpp"
 #include "frame_filter.hpp"
 #include "fullscreen_pipeline.hpp"
 
@@ -36,22 +37,13 @@ VkRect2D clipped(VkRect2D rect, VkExtent2D extent) {
 } // namespace
 
 VkRect2D letterbox(VkExtent2D extent, float aspect) {
-    const float width = static_cast<float>(extent.width);
-    const float height = static_cast<float>(extent.height);
-    float drawnWidth = width;
-    float drawnHeight = height;
-    if (aspect > 0.0F) {
-        if (width / height > aspect) {
-            drawnWidth = height * aspect;
-        } else {
-            drawnHeight = width / aspect;
-        }
-    }
+    const display::Placed placed = display::letterbox(static_cast<int>(extent.width),
+                                                      static_cast<int>(extent.height), aspect);
     VkRect2D rect{};
-    rect.extent.width = std::max(1U, static_cast<std::uint32_t>(std::lround(drawnWidth)));
-    rect.extent.height = std::max(1U, static_cast<std::uint32_t>(std::lround(drawnHeight)));
-    rect.offset.x = static_cast<std::int32_t>((extent.width - rect.extent.width) / 2);
-    rect.offset.y = static_cast<std::int32_t>((extent.height - rect.extent.height) / 2);
+    rect.extent.width = static_cast<std::uint32_t>(placed.width);
+    rect.extent.height = static_cast<std::uint32_t>(placed.height);
+    rect.offset.x = placed.x;
+    rect.offset.y = placed.y;
     return rect;
 }
 
