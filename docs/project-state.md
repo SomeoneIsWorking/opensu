@@ -327,8 +327,8 @@ A console tile is
 openSU's own card (below): the platform's gradient deepened toward #1B1726 by 45% (a neutral
 one for a system the gradient table lacks, such as PS4), openSU's drawing of the console at
 36% of the side above the console's name and game count, and the platform frame with the
-console's glyph in its tab. The name breaks onto two lines at a space when one is too wide,
-at one name size so the face rasterises one size. A launcher tile is the same
+console's glyph in its tab. The name, and the count or caption under it, break at spaces onto as
+many lines as fit the card when one is too wide, at one size each so the face rasterises two sizes. A launcher tile is the same
 card in the store's brand colours with its Simple Icons logo above the name and count;
 the All games tile is a violet card with a four-square library glyph. A opens a console,
 a launcher or All games (`library::ShelfBrowser`, `library::Folder`) on its games; B returns to

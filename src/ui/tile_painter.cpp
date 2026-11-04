@@ -106,20 +106,25 @@ struct Stop {
     Colour colour;
 };
 
-/// `text` as one line, or two broken at the last space that lets the first fit `room`.
+/// `text` broken at spaces into lines that each take as many words as fit `room`; a word wider
+/// than `room` stands on a line of its own.
 std::vector<std::string_view> breakLines(gpu2d::ui::Typesetter& typesetter, std::string_view text,
                                          float size, float room) {
-    if (typesetter.measure(text, size) <= room) {
-        return {text};
-    }
-    for (std::size_t space = text.rfind(' '); space != std::string_view::npos && space > 0;
-         space = text.rfind(' ', space - 1)) {
-        const std::string_view first = text.substr(0, space);
-        if (typesetter.measure(first, size) <= room || first.find(' ') == std::string_view::npos) {
-            return {first, text.substr(space + 1)};
+    std::vector<std::string_view> lines;
+    std::size_t start = 0;
+    do {
+        std::size_t end = std::min(text.find(' ', start), text.size());
+        while (end < text.size()) {
+            const std::size_t next = std::min(text.find(' ', end + 1), text.size());
+            if (typesetter.measure(text.substr(start, next - start), size) > room) {
+                break;
+            }
+            end = next;
         }
-    }
-    return {text};
+        lines.push_back(text.substr(start, end - start));
+        start = end + 1;
+    } while (start < text.size());
+    return lines;
 }
 
 Colour alphaColour(int r, int g, int b, float alpha) noexcept {
@@ -561,13 +566,16 @@ void TilePainter::paintCard(Canvas& canvas, const TileVisual& tile, const Rect& 
     const Colour ink = luminance(mix(from, to, 0.5f)) > 0.6f ? consoleDarkInk : white;
 
     // One name size and one count size for every card, so the face rasterises two sizes; a
-    // name too wide for one line breaks at a space.
+    // name or count too wide for one line breaks at spaces.
     const float side = std::min(content.width, content.height);
     const float room = content.width - 2.0f * std::max(frame.tab, frame.stroke * 2.0f);
     const float name = text_.sizeForLineHeight(side * 0.15f);
     const float count = text_.sizeForLineHeight(side * 0.1f);
     const std::vector<std::string_view> lines = breakLines(text_, tile.title, name, room);
+    const std::vector<std::string_view> captions = breakLines(text_, tile.caption, count, room);
     const float nameBox = text_.lineHeight(name);
+    const float countBox = text_.lineHeight(count);
+    const float countBlock = static_cast<float>(captions.size()) * countBox;
     const float gap = side * 0.04f;
     const bool marked =
         tile.kind == TileKind::Launcher || tile.kind == TileKind::AllGames ||
@@ -576,8 +584,7 @@ void TilePainter::paintCard(Canvas& canvas, const TileVisual& tile, const Rect& 
     if (tile.kind == TileKind::Console && consoleArt_.look(tile.console) == CardLook::Picture) {
         // A photo fills the card; the name and count stand over its foot, outlined.
         paintPhoto(canvas, tile, RoundRect{content, frame.artRadius});
-        const float label =
-            static_cast<float>(lines.size()) * nameBox + gap + text_.lineHeight(count);
+        const float label = static_cast<float>(lines.size()) * nameBox + gap + countBlock;
         float y = content.bottom() - side * photoLabelInset - label + nameBox * 0.5f;
         for (const std::string_view line : lines) {
             text_.drawCentredOutlined(
@@ -585,16 +592,18 @@ void TilePainter::paintCard(Canvas& canvas, const TileVisual& tile, const Rect& 
                 withAlpha(white, alpha), name * photoOutline, withAlpha(photoEdge, alpha));
             y += nameBox;
         }
-        const float countY = y - nameBox * 0.5f + gap + text_.lineHeight(count) * 0.5f;
-        text_.drawCentredOutlined(
-            canvas, tile.caption,
-            Point{content.centreX() - text_.measure(tile.caption, count) * 0.5f, countY}, count,
-            withAlpha(white, alpha), count * photoOutline, withAlpha(photoEdge, alpha));
+        float countY = y - nameBox * 0.5f + gap + countBox * 0.5f;
+        for (const std::string_view caption : captions) {
+            text_.drawCentredOutlined(
+                canvas, caption,
+                Point{content.centreX() - text_.measure(caption, count) * 0.5f, countY}, count,
+                withAlpha(white, alpha), count * photoOutline, withAlpha(photoEdge, alpha));
+            countY += countBox;
+        }
         return;
     }
     const float markRoom = marked ? side * markGap : 0.0f;
-    const float words =
-        markRoom + static_cast<float>(lines.size()) * nameBox + gap + text_.lineHeight(count);
+    const float words = markRoom + static_cast<float>(lines.size()) * nameBox + gap + countBlock;
     // The mark gives way to a two-line name, so the block keeps a margin inside the card.
     const float share = tile.kind == TileKind::Console ? consoleMarkSide : markSide;
     const float mark = marked ? std::max(std::min(side * share, content.height * blockMost - words),
@@ -612,10 +621,13 @@ void TilePainter::paintCard(Canvas& canvas, const TileVisual& tile, const Rect& 
                           withAlpha(ink, alpha));
         y += nameBox;
     }
-    const float countY = y - nameBox * 0.5f + gap + text_.lineHeight(count) * 0.5f;
-    text_.drawCentred(canvas, tile.caption,
-                      Point{content.centreX() - text_.measure(tile.caption, count) * 0.5f, countY},
-                      count, withAlpha(ink, alpha * 0.72f));
+    float countY = y - nameBox * 0.5f + gap + countBox * 0.5f;
+    for (const std::string_view caption : captions) {
+        text_.drawCentred(canvas, caption,
+                          Point{content.centreX() - text_.measure(caption, count) * 0.5f, countY},
+                          count, withAlpha(ink, alpha * 0.72f));
+        countY += countBox;
+    }
 }
 
 void TilePainter::paintFallback(Canvas& canvas, const TileVisual& tile, const Rect& content) const {
