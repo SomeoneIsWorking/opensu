@@ -38,12 +38,7 @@ a hidden question, waiting while checked, `Failed to match`, then a shown one (`
 `pam_faildelay`, a wrong password asked again, Cancel (`5a` to `5d`, `5f`).
 
 Driving a real PAM service against openSU's agent: polkit's helper always authenticates through
-the `polkit-1` PAM service, so a test PAM service is reached through `OPENSU_POLKIT_HELPER`: a
-program that takes the user as its argument and polkit's cookie on stdin, runs `pam_start` on the
-test service for that user with a conversation that writes each message as one line
-(`PAM_PROMPT_ECHO_OFF <text>`, `PAM_PROMPT_ECHO_ON <text>`, `PAM_ERROR_MSG <text>`,
-`PAM_TEXT_INFO <text>`, the text `g_strescape`d) and reads each answer as one line from stdin,
-then writes `SUCCESS` or `FAILURE`. Run openSU with `--hidden`, `DISABLE_LSFG=1`,
-`OPENSU_ROOT_STEP=/bin/true` and `OPENSU_POLKIT_HELPER=<that program>`, then Guide, Power,
-Install session mode, Install over the control channel. polkit itself then refuses `/bin/true`
-(the stand-in cannot answer polkit), which says nothing about the card.
+the `polkit-1` PAM service, so a test PAM service is reached through a stand-in helper that runs
+`pam_start` on it (`OPENSU_POLKIT_HELPER`), with `OPENSU_SESSION_ROOT` on an empty folder so Power
+offers Install on any machine; the exact command and inputs are in `docs/guide/environment.md`,
+Testing polkit's questions.

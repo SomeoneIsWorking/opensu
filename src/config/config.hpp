@@ -193,6 +193,11 @@ struct Config {
     /// for the installer.
     std::filesystem::path rootStepStandIn;
 
+    /// A folder standing in for `/` where session mode looks for its entry and selector, from
+    /// OPENSU_SESSION_ROOT, so a test run sees session mode as that folder has it, whatever this
+    /// machine has installed; empty for `/`.
+    std::filesystem::path sessionRootStandIn;
+
     /// What openSU's polkit agent runs in place of polkit-agent-helper-1, from
     /// OPENSU_POLKIT_HELPER, so a test run scripts PAM's side; empty for the installed helper.
     std::filesystem::path polkitHelperStandIn;

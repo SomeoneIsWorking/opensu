@@ -875,7 +875,13 @@ PATH, and without it Install says the package to install. The outcome is said: i
 checked in place), cancelled (pkexec 126, the dialog dismissed, before the installer's first line
 `opensu-install: start`), or failed with polkit's or the installer's last line. A hidden run stages
 the files, logs the command it would run and refuses, unless `OPENSU_ROOT_STEP` stands a harmless
-program in for the installer, which then runs through pkexec. pkexec is openSU's own child
+program in for the installer, which then runs through pkexec; `OPENSU_SESSION_ROOT` points session
+mode's detection at a stand-in folder, so a test run on a machine with session mode installed
+still shows Install (`docs/guide/environment.md`, Testing polkit's questions). A hidden run refuses
+both switches in `host::makeReadOnlySessionMode`, never reaching the selector or KDE's logout:
+seen 2026-11-04 with a stand-in root holding an entry for the build's openSU and a stand-in
+selector, Switch to session mode, Switch: "changes are off in a hidden run", the selector never
+run, the desktop session still active. pkexec is openSU's own child
 (`host_services`' stand-in records its parent), and polkit asks the agent registered for pkexec's
 parent before the session's: openSU registers its own (`host/polkit_agent`, sd-bus) for its
 process at start, as `pkttyagent --process` does, so the desktop's agent (KDE's

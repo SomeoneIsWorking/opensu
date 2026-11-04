@@ -35,7 +35,8 @@ struct HostServices {
     /// The real services for this machine; with `hidden` they can be read but not changed.
     [[nodiscard]] static HostServices detect(const config::Config& config, bool hidden);
     /// Where session mode is for the openSU `config` describes: the program its entry starts,
-    /// the root step staged under the runtime dir, pkexec from PATH, a test run's stand-in step.
+    /// the root step staged under the runtime dir, pkexec from PATH, a test run's stand-ins for
+    /// the root step and for the root session mode is looked for under.
     [[nodiscard]] static host::SessionPaths sessionPaths(const config::Config& config);
 
     /// The services over `run` and `spawn`, with the backlight under `backlightRoot` and session

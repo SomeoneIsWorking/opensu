@@ -40,11 +40,38 @@ All optional.
 | `OPENSU_GE_PROTON_RELEASE` | The GE-Proton release to install, as GitHub release JSON, for a test run; the latest when unset. |
 | `OPENSU_ROOT_STEP` | A harmless program session mode's install runs through pkexec in place of its installer, for a test run: polkit still asks openSU's agent, nothing is installed. |
 | `OPENSU_POLKIT_HELPER` | A program openSU's polkit agent runs in place of `polkit-agent-helper-1`, for a test run: it gets the user as its argument and polkit's cookie on stdin and writes the helper's lines (`PAM_TEXT_INFO`, `PAM_ERROR_MSG`, `PAM_PROMPT_ECHO_OFF`/`ON`, `SUCCESS`, `FAILURE`). It cannot answer polkit, so the action itself is refused. |
+| `OPENSU_SESSION_ROOT` | A folder standing in for `/` where session mode looks for its entry (`usr/local/share/wayland-sessions`, `usr/share/wayland-sessions`) and its selector (`usr/local/libexec/opensu-session-select`), for a test run: an empty folder shows Install session mode whatever this machine has installed. |
 | `LEGENDARY_CONFIG_PATH` | Legendary's configuration, as Legendary itself reads it. |
 
 The environment seeds defaults; Settings (from the Guide menu) saves your choices (interface size,
 volume, shortcuts, install folders, integrations, ...) in `settings.json` and per-game settings in
 `game-settings.json`, both in openSU's config folder, and those win.
+
+## Testing polkit's questions
+
+To bring openSU's polkit agent a BeginAuthentication on any machine, with or without session mode
+installed, and change nothing:
+
+```sh
+mkdir -p scratch/polkit-test/root
+DISABLE_LSFG=1 OPENSU_SESSION_ROOT="$PWD/scratch/polkit-test/root" OPENSU_ROOT_STEP=/bin/true \
+    OPENSU_POLKIT_HELPER=<stand-in helper> opensu --hidden
+```
+
+Leave `OPENSU_POLKIT_HELPER` out to use the real helper and the system's `polkit-1` PAM stack.
+On the control port the run logs, `POST /input` with `guide`, then `down` five times and `a`
+(Power), then `down` three times; `GET /state` must show `"screenFocus": "power.installSession"`
+before going on, then `a` (the Install question) and `a` (Install). pkexec then runs `/bin/true`
+through polkit, which asks openSU's agent, and the card shows. A hidden run refuses Switch to
+session mode and Switch to desktop whatever it is pressed ("changes are off in a hidden run"),
+and the empty folder means neither is offered.
+
+A stand-in helper takes the user as its argument and polkit's cookie as one line on stdin,
+writes one line per PAM message (`PAM_PROMPT_ECHO_OFF <text>`, `PAM_PROMPT_ECHO_ON <text>`,
+`PAM_ERROR_MSG <text>`, `PAM_TEXT_INFO <text>`, the text `g_strescape`d), reads each answer as one
+line, and ends with `SUCCESS` or `FAILURE`; one that runs `pam_start` on its own PAM service puts
+that service in front of the card. It cannot answer polkit, so polkit then refuses `/bin/true`
+("This incident has been reported."), which says nothing about the card.
 
 ## Control channel
 

@@ -1,5 +1,6 @@
 #include "host_services.hpp"
 
+#include <filesystem>
 #include <string>
 
 #include "launch/command.hpp"
@@ -12,6 +13,12 @@ host::SessionPaths HostServices::sessionPaths(const config::Config& config) {
     paths.stage = config.runtimeDir / "session-install";
     paths.pkexec = launch::resolveExecutable("pkexec", config.executablePath);
     paths.rootStepStandIn = config.rootStepStandIn;
+    if (!config.sessionRootStandIn.empty()) {
+        for (std::filesystem::path& dir : paths.entryDirs) {
+            dir = config.sessionRootStandIn / dir.relative_path();
+        }
+        paths.selector = config.sessionRootStandIn / paths.selector.relative_path();
+    }
     paths.request = host::DesktopRequest{config.desktopRequest};
     paths.compositorScope = config.session + "-compositor.scope";
     return paths;
