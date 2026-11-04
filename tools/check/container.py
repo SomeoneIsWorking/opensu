@@ -24,7 +24,7 @@ from tools.checkout import REPO
 CONTAINERFILE = REPO / "packaging" / "ci" / "Containerfile"
 IMAGE_NAME = "localhost/opensu-build"
 # The steps that need the build tools; the tests run where the product runs.
-IN_IMAGE = ("deps", "configure", "build", "lint")
+IN_IMAGE = ("deps", "configure", "build", "lint", "install")
 OS_RELEASE = Path("/etc/os-release")
 # podman's own marker in every container it runs.
 CONTAINER_MARKER = Path("/run/.containerenv")
@@ -92,22 +92,32 @@ def _tree_mounts(build_dir: Path) -> list[str]:
     return words
 
 
-def run_step(step: str, build_dir: Path, gamescope: str, jobs: int, env: Mapping[str, str]) -> None:
-    """One step in the image of the host's release, as the calling user; HOME is the host's path
-    so the shared third-party prefix is the one outside, and nothing is written under it."""
+def run_step(
+    step: str,
+    build_dir: Path,
+    options: Sequence[str],
+    writes: Sequence[Path],
+    env: Mapping[str, str],
+) -> None:
+    """`tools.check <step> <options>` in the image of the host's release, as the calling user, with
+    `writes` (an install's target) mounted at their own paths too; HOME is the host's path so the
+    shared third-party prefix is the one outside, and nothing is written under it."""
     tag = ensure_image(env, host_base())
     shared = thirdparty.DEFAULT_ROOT
-    shared.mkdir(parents=True, exist_ok=True)
     build_dir.mkdir(parents=True, exist_ok=True)
+    mounts = []
+    for path in (shared, *writes):
+        path.mkdir(parents=True, exist_ok=True)
+        mounts += ["-v", f"{path}:{path}"]
     words: list[str | Path] = [
         "podman", "run", "--rm", "--userns=keep-id", "--security-opt", "label=disable",
-        "-w", str(REPO), *_tree_mounts(build_dir), "-v", f"{shared}:{shared}",
+        "-w", str(REPO), *_tree_mounts(build_dir), *mounts,
         "-e", f"HOME={Path.home()}",
         "-e", f"CARGO_HOME={build_dir / 'cargo'}",
         "-e", f"UV_CACHE_DIR={build_dir / 'uv-cache'}",
         "-e", f"UV_PROJECT_ENVIRONMENT={build_dir / 'venv'}",
         tag, "uv", "run", "--frozen", "python", "-m", "tools.check", step, "--in-build-image",
-        "--build-dir", str(build_dir), "--gamescope", gamescope, "--jobs", str(jobs),
+        "--build-dir", str(build_dir), *options,
     ]  # fmt: skip
     process.run(words, env)
 

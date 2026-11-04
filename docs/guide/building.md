@@ -138,18 +138,16 @@ Gamescope.
 
 ## Installing from source
 
-Configure with the prefix to install to, then install. The binary, its assets, its icon and a
-desktop entry (`share/applications/opensu.desktop`, which shows openSU in the application menu) go
-under the prefix:
+`uv run --frozen python -m tools.check install --build-dir build/player` installs a built tree
+into `~/.local` (`--prefix` for another) from the build image: the binaries, the fork, the assets,
+the icon and the application menu entry (`share/applications/opensu.desktop`), then copies that
+entry to the desktop (`xdg-user-dir DESKTOP`) as the desktop shortcut, so both run the installed
+`<prefix>/bin/opensu`. It writes the shortcut again on every install; `--destdir` stages an install
+under another root and writes none.
 
-```sh
-cmake -S . -B build/cmake -G Ninja -DCMAKE_CXX_COMPILER=clang++ \
-      -DLUCENT_ROOT="$PWD/lucent" -DGPU2D_ROOT="$PWD/gpu2d" \
-      -DCMAKE_INSTALL_PREFIX="$HOME/.local"
-cmake --build build/cmake
-cmake --install build/cmake
-```
-
+By hand, install the tree with `cmake --install build/cmake --prefix "$HOME/.local"`. The menu
+entry is written at install time, so its `Exec` names the prefix the install went to, whatever the
+tree was configured with (`-DOPENSU_DESKTOP_EXEC` replaces it, as the AppImage's `opensu` does).
 For a desktop icon as well, copy the entry to the desktop and mark it executable:
 `cp "$HOME/.local/share/applications/opensu.desktop" "$(xdg-user-dir DESKTOP)/" && chmod +x
 "$(xdg-user-dir DESKTOP)/opensu.desktop"`.

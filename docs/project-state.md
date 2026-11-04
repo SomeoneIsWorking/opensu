@@ -1895,7 +1895,9 @@ the host, and the CMake refusals name that route and the packages to install by 
 (`opensu_missing_package`). Verified (2026-11-04, Fedora 44 without `pipewire-devel`): a fresh
 `build/player` configured and built in the image with Clang, `opensu` run on the host
 (`--hidden --render`, `ldd` with nothing missing), an unchanged rebuild compiling nothing, lint
-clean, ctest passing twice on the host.
+clean, ctest passing twice on the host. `tools.check install` puts the tree in `~/.local` from the
+image and the menu entry it installed on the desktop, so the app menu and the desktop run the same
+`~/.local/bin/opensu`; the entry's `Exec` is written at install time from the prefix installed to.
 
 Verified: the same steps locally through `tools.check ci`: Clang build including the fork, the
 three linters clean, 117 of 119 tests pass and 2 skip (`game_keys`, `pads`: no uinput in the

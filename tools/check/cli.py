@@ -4,7 +4,9 @@
 Steps run in order: deps (pinned Lucent and gpu2d, and vcpkg for Windows), configure, build, lint,
 test; `all` runs every one. On Linux every step but test runs in the build image (packaging/ci on
 the host's Fedora release, tools/check/container.py) and test runs on the host. `ci` runs `all`
-inside the build image on the pinned Fedora 44 with systemd, as the CI workflow does.
+inside the build image on the pinned Fedora 44 with systemd, as the CI workflow does. `install`
+(not part of `all`) installs the tree into `--prefix` (default ~/.local) and, on Linux, puts the
+menu entry it installed on the desktop too (tools/check/shortcut.py); `--destdir` stages it instead.
 `--platform windows` builds on a Windows host with clang-cl and vcpkg (tools/check/windows.py),
 `--platform macos` on an Apple silicon Mac with Homebrew's LLVM and vcpkg (tools/check/macos.py).
 `--jobs` caps the compilers and clang-tidy processes that run at once.
@@ -14,10 +16,12 @@ import argparse
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
-from tools.check import cmake, container, deps, lint, macos, process, windows
+from tools.check import cmake, container, deps, lint, macos, process, shortcut, windows
 from tools.checkout import REPO, require_own_environment
 
 STEPS = ("deps", "configure", "build", "lint", "test")
+# Every component: the shell, the runner, the fork, assets, the menu entry and the icon.
+INSTALL_COMPONENT = "Unspecified"
 
 
 def plan_from(args: argparse.Namespace) -> cmake.Plan:
@@ -31,8 +35,17 @@ def plan_from(args: argparse.Namespace) -> cmake.Plan:
     )
 
 
-def step_actions(plan: cmake.Plan) -> dict[str, Callable[[Mapping[str, str]], None]]:
+def install(plan: cmake.Plan, prefix: Path, destdir: Path | None, env: Mapping[str, str]) -> None:
+    """Everything the tree installs into `prefix`, under `destdir` when one is given."""
+    staged = {**env, "DESTDIR": str(destdir)} if destdir is not None else env
+    cmake.install_to(plan, prefix, INSTALL_COMPONENT, staged)
+
+
+def step_actions(
+    plan: cmake.Plan, prefix: Path, destdir: Path | None
+) -> dict[str, Callable[[Mapping[str, str]], None]]:
     return {
+        "install": lambda env: install(plan, prefix, destdir, env),
         "deps": lambda env: cmake.prepare(plan, env),
         "configure": lambda env: cmake.configure(plan, env),
         "build": lambda env: cmake.build(plan, env),
@@ -43,7 +56,7 @@ def step_actions(plan: cmake.Plan) -> dict[str, Callable[[Mapping[str, str]], No
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="tools.check", description=__doc__.splitlines()[0])
-    parser.add_argument("step", choices=(*STEPS, "all", "ci"))
+    parser.add_argument("step", choices=(*STEPS, "all", "ci", "install"))
     parser.add_argument("--platform", choices=cmake.PLATFORMS, default="linux")
     parser.add_argument("--build-dir", default=str(REPO / "build" / "check"))
     parser.add_argument(
@@ -51,6 +64,15 @@ def main(argv: list[str] | None = None) -> int:
         choices=cmake.GAMESCOPE_MODES,
         default="native",
         help="native builds the Gamescope fork in the build image (default), off leaves it out",
+    )
+    parser.add_argument(
+        "--prefix",
+        default=str(Path.home() / ".local"),
+        help="where install puts the tree (default ~/.local)",
+    )
+    parser.add_argument(
+        "--destdir",
+        help="install under this root, as a package stages it; no desktop shortcut is written",
     )
     parser.add_argument(
         "--in-build-image",
@@ -85,11 +107,20 @@ def main(argv: list[str] | None = None) -> int:
     in_image = plan.platform == "linux" and not args.in_build_image
     if in_image:
         container.require_podman(env)
-    actions = step_actions(plan)
+    prefix = Path(args.prefix).resolve()
+    destdir = Path(args.destdir).resolve() if args.destdir else None
+    actions = step_actions(plan, prefix, destdir)
+    options = ["--gamescope", plan.gamescope, "--jobs", str(plan.jobs), "--prefix", str(prefix)]
+    if destdir is not None:
+        options += ["--destdir", str(destdir)]
+    writes = [destdir or prefix] if args.step == "install" else []
     for step in STEPS if args.step == "all" else (args.step,):
         print(f"== {step}", flush=True)
         if in_image and step in container.IN_IMAGE:
-            container.run_step(step, plan.build_dir, plan.gamescope, plan.jobs, env)
+            container.run_step(step, plan.build_dir, options, writes, env)
         else:
             actions[step](env)
+    placed_here = destdir is None and not args.in_build_image and plan.platform == "linux"
+    if args.step == "install" and placed_here:
+        shortcut.place(prefix, env)
     return 0

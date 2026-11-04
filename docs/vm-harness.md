@@ -13,7 +13,7 @@ lint: `uv run --frozen ruff check tools`.
 | --- | --- |
 | `provision` | Kickstart install from the official mirror (kernel and initrd checked against the tree's `.treeinfo` sha256), SDDM and Plasma, user `tester` (wheel, password in `config.py`, sudo asks for it), then copies the host's `steamos-session-picker`, `steamos-session-select`, `steam-picker.desktop` and `kde_settings.conf` (autologin user retargeted), stubs `steam`, runs `dnf upgrade` and saves `base.qcow2` |
 | `up [--gpu virtio\|venus] [--autologin off\|SESSION] [--snapshot NAME]` | Boots a fresh qcow2 overlay of the base (or a snapshot); `--autologin` writes an SDDM drop-in and reboots |
-| `deploy [--headless-gamescope]` | Builds the current tree in `build/vm` (ccache temp under the VM dir, never `/run/user`), `DESTDIR`-installs with prefix `/home/tester/.local`, adds the pinned Gamescope fork from `build/clang`, installs the runtime packages the host `ldd` names, unpacks into the guest |
+| `deploy [--headless-gamescope]` | Builds the current tree in `build/vm` through `tools.check` (deps, configure, build in the build image, the fork included), installs it through `tools.check install --prefix /home/tester/.local --destdir <stage>`, adds that tree's Gamescope fork (`--fork` for another), installs the runtime packages the host `ldd` names, unpacks into the guest |
 | `session-entry` | The `sudo` install line in `docs/guide/session.md`, run as the test user |
 | `autologin off\|default\|SESSION` | Rewrites the autologin drop-in and reboots |
 | `shot NAME`, `key CHORD...`, `type TEXT`, `click X Y` | QMP screendump (VNC frame when the GPU is GL) and keyboard and tablet input |

@@ -1,6 +1,5 @@
-"""Build the current tree on the host, install it under the guest user's ~/.local, ship it."""
+"""Build the current tree through tools.check, install it under the guest user's ~/.local, ship."""
 
-import os
 import re
 import shlex
 import shutil
@@ -8,42 +7,21 @@ import subprocess
 import tarfile
 from pathlib import Path
 
-from tools.vm import config as vmconfig
+from tools.check import cli as check
 from tools.vm.config import REPO, TEST_USER, VmConfig
 from tools.vm.guest import Guest
 
 GUEST_PREFIX = f"/home/{TEST_USER}/.local"
-FORK_BUILD = REPO / "build" / "clang"
 SESSION_ENTRY = f"{GUEST_PREFIX}/share/wayland-sessions/opensu.desktop"
 SESSION_ROOT_ENTRY = "/usr/local/share/wayland-sessions/opensu.desktop"
 BUILD_DIR = REPO / "build" / "vm"
-VM_TMP = vmconfig.load().root / "tmp"
+BUILT_FORK = BUILD_DIR / "cmake" / "libexec" / "opensu" / "gamescope"
 
 
-def _cache_value(cache: Path, name: str) -> str:
-    match = re.search(rf"^{name}:[A-Z]+=(.*)$", cache.read_text(), re.M)
-    if match is None:
-        raise RuntimeError(f"{name} is not in {cache}; configure {cache.parent} first")
-    return match.group(1)
-
-
-def build(fork_build: Path = FORK_BUILD) -> None:
-    """Configure build/vm like the maintainer build (same Lucent and gpu2d) and build opensu."""
-    cache = fork_build / "CMakeCache.txt"
-    subprocess.run(
-        ["cmake", "-S", str(REPO), "-B", str(BUILD_DIR), "-G", "Ninja",
-         "-DCMAKE_CXX_COMPILER=clang++", "-DCMAKE_C_COMPILER=clang",
-         f"-DLUCENT_ROOT={_cache_value(cache, 'LUCENT_ROOT')}",
-         f"-DGPU2D_ROOT={_cache_value(cache, 'GPU2D_ROOT')}",
-         "-DOPENSU_BUILD_GAMESCOPE=OFF", f"-DCMAKE_INSTALL_PREFIX={GUEST_PREFIX}"],
-        check=True,
-        env=_environ(),
-    )  # fmt: skip
-    subprocess.run(
-        ["cmake", "--build", str(BUILD_DIR), "--target", "opensu", "opensu_signin_xpi"],
-        check=True,
-        env=_environ(),
-    )
+def build() -> None:
+    """build/vm through tools.check, the Gamescope fork included, as every Linux tree is built."""
+    for step in ("deps", "configure", "build"):
+        check.main([step, "--build-dir", str(BUILD_DIR)])
 
 
 # The VM has no scanout-capable GPU (see docs/vm-harness.md), so the DRM backend runs headless.
@@ -64,8 +42,8 @@ def stage(cfg: VmConfig, fork: Path, headless_shim: bool = False) -> Path:
         raise RuntimeError(f"the Gamescope fork binary is missing at {fork}; build it first")
     root = cfg.run / "stage"
     shutil.rmtree(root, ignore_errors=True)
-    env = {**_environ(), "DESTDIR": str(root)}
-    subprocess.run(["cmake", "--install", str(BUILD_DIR)], check=True, env=env)
+    check.main(["install", "--build-dir", str(BUILD_DIR), "--prefix", GUEST_PREFIX,
+                "--destdir", str(root)])  # fmt: skip
     prefix = root / GUEST_PREFIX.lstrip("/")
     libexec = prefix / "libexec" / "opensu"
     libexec.mkdir(parents=True, exist_ok=True)
@@ -79,13 +57,6 @@ def stage(cfg: VmConfig, fork: Path, headless_shim: bool = False) -> Path:
     with tarfile.open(tarball, "w") as archive:
         archive.add(prefix, arcname=".")
     return tarball
-
-
-def _environ() -> dict[str, str]:
-    """Host builds keep ccache and compiler temporaries off the user's small /run/user tmpfs."""
-    scratch = VM_TMP
-    scratch.mkdir(parents=True, exist_ok=True)
-    return {**os.environ, "CCACHE_TEMPDIR": str(scratch), "TMPDIR": str(scratch)}
 
 
 def runtime_packages(binaries: list[Path]) -> list[str]:
@@ -122,8 +93,8 @@ def install_session_entry(guest: Guest) -> str:
 def deploy(
     cfg: VmConfig, guest: Guest, fork: Path | None = None, headless_shim: bool = False
 ) -> None:
-    fork = fork or FORK_BUILD / "libexec" / "opensu" / "gamescope"
+    fork = fork or BUILT_FORK
     build()
     tarball = stage(cfg, fork, headless_shim)
-    packages = runtime_packages([BUILD_DIR / "src" / "opensu", fork])
+    packages = runtime_packages([BUILD_DIR / "cmake" / "src" / "opensu", fork])
     ship(cfg, guest, tarball, [*packages, "tar"])
