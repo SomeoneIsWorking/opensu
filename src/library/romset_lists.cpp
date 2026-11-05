@@ -101,7 +101,7 @@ void RomsetLists::fetch(const EmulatorEntry& entry, const std::stop_token& stop)
         return !stop.stop_requested();
     };
     std::string error;
-    const bool kept = dats_.refresh(std::stop_token{}, entry, Clock::now(), error, progress);
+    const bool kept = dats_.refresh(stop, entry, Clock::now(), error, progress);
     if (stop.stop_requested()) {
         return;
     }
