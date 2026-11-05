@@ -196,11 +196,15 @@ void EmulatorDownloads::checkUpdates() {
 
 void EmulatorDownloads::runCheck(const std::stop_token& stop, bool standalone) {
     std::vector<std::string> failures;
-    checkCores(failures);
+    checkCores(stop, failures);
+    if (stop.stop_requested()) {
+        return;
+    }
     if (!setup_.shaders.root().parent_path().empty()) {
-        if (const net::Result<library::roms::ShaderPackBuild> pack =
-                packDownload_.latest(std::stop_token{})) {
+        if (const net::Result<library::roms::ShaderPackBuild> pack = packDownload_.latest(stop)) {
             remember(std::string{library::roms::shaderPackId}, Build{pack->version(), pack->key()});
+        } else if (pack.stopped()) {
+            return;
         } else {
             lucent::warn("emulators", "{}", pack.error());
             failures.push_back(std::string{library::roms::shaderPackName} + ": " + pack.error());
@@ -214,8 +218,10 @@ void EmulatorDownloads::runCheck(const std::stop_token& stop, bool standalone) {
             continue;
         }
         if (const net::Result<library::roms::ReleaseAsset> asset =
-                release_.latest(std::stop_token{}, *entry.release)) {
+                release_.latest(stop, *entry.release)) {
             remember(entry.id, Build{asset->version, asset->assetId});
+        } else if (asset.stopped()) {
+            return;
         } else {
             lucent::warn("emulators", "{}: {}", entry.name, asset.error());
             failures.push_back(entry.name + ": " + asset.error());
@@ -226,11 +232,15 @@ void EmulatorDownloads::runCheck(const std::stop_token& stop, bool standalone) {
     checkChanged_ = true;
 }
 
-void EmulatorDownloads::checkCores(std::vector<std::string>& failures) {
+void EmulatorDownloads::checkCores(const std::stop_token& stop,
+                                   std::vector<std::string>& failures) {
     if (std::ranges::none_of(setup_.catalog.entries(), &EmulatorEntry::builtIn)) {
         return;
     }
-    const net::Result<std::string> listing = coreDownload_.index(std::stop_token{});
+    const net::Result<std::string> listing = coreDownload_.index(stop);
+    if (listing.stopped()) {
+        return;
+    }
     if (!listing) {
         lucent::warn("emulators", "libretro buildbot: {}", listing.error());
         failures.push_back("libretro buildbot: " + listing.error());
@@ -249,10 +259,11 @@ void EmulatorDownloads::checkCores(std::vector<std::string>& failures) {
             failures.push_back(entry.name + ": " + error);
         }
     }
-    fetchMissingInfo(failures);
+    fetchMissingInfo(stop, failures);
 }
 
-void EmulatorDownloads::fetchMissingInfo(std::vector<std::string>& failures) {
+void EmulatorDownloads::fetchMissingInfo(const std::stop_token& stop,
+                                         std::vector<std::string>& failures) {
     std::optional<library::roms::CoreInfoArchive> archive;
     for (const EmulatorEntry& entry : setup_.catalog.entries()) {
         std::error_code ec;
@@ -262,7 +273,10 @@ void EmulatorDownloads::fetchMissingInfo(std::vector<std::string>& failures) {
         }
         std::string error;
         if (!archive) {
-            net::Result<std::string> bytes = coreDownload_.infoArchive(std::stop_token{});
+            net::Result<std::string> bytes = coreDownload_.infoArchive(stop);
+            if (bytes.stopped()) {
+                return;
+            }
             error = bytes.error();
             archive = bytes ? library::roms::CoreInfoArchive::open(*std::move(bytes), error)
                             : std::nullopt;

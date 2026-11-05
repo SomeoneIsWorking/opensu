@@ -156,9 +156,9 @@ class EmulatorDownloads {
     /// Reads the latest builds; releases of standalone emulators only when `standalone`.
     void runCheck(const std::stop_token& stop, bool standalone);
     /// Reads the buildbot's listing once for every built-in emulator.
-    void checkCores(std::vector<std::string>& failures);
+    void checkCores(const std::stop_token& stop, std::vector<std::string>& failures);
     /// Fetches the info of each core openSU downloaded without one, the archive once.
-    void fetchMissingInfo(std::vector<std::string>& failures);
+    void fetchMissingInfo(const std::stop_token& stop, std::vector<std::string>& failures);
     void remember(const std::string& id, Build build);
 
     library::roms::EmulatorSetup setup_;
