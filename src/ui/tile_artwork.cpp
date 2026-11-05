@@ -18,6 +18,7 @@ void TileArtwork::beginShelf(std::vector<Tile>& tiles, std::optional<Tile>& head
 void TileArtwork::unload(Tile& tile) {
     tile.portrait = {};
     tile.wide = {};
+    tile.icon = {};
     tile.artRequested = false;
 }
 
@@ -37,7 +38,10 @@ bool TileArtwork::ask(Tile& tile) {
     if (!game->artworkWide.empty()) {
         tile.wide = loader_.loadFile(game->artworkWide, gpu2d::Filter::Nearest, maxCoverSide);
     }
-    return !game->artwork.empty() || !game->artworkWide.empty();
+    if (!game->icon.empty()) {
+        tile.icon = loader_.loadFile(game->icon, gpu2d::Filter::Nearest, maxCoverSide);
+    }
+    return !game->artwork.empty() || !game->artworkWide.empty() || !game->icon.empty();
 }
 
 void TileArtwork::request(std::vector<Tile>& tiles, std::optional<Tile>& header,

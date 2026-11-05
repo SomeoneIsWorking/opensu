@@ -33,9 +33,14 @@ program, not the folder".
   `<wine> <exe>`, always in `<data dir>/wine-prefixes/own-<n>`, started in the file's folder. A
   non-executable script runs through its `#!` interpreter; a non-executable AppImage or program says
   to `chmod +x` it. A missing file points at Change file.
-- Art: a matched Steam app's portrait from Steam's CDN (`ArtworkFetcher`, cached under
-  `artwork/own/<n>-<app>.jpg`); without one, SteamGridDB by title through `CoverFitter` when connected,
-  else the placeholder; Choose artwork as for any game.
+- Art, no key needed (`ArtworkFetcher::fetchOwn`): the Steam app on record or the store app of
+  exactly the title, from the plain CDN paths else the hashed art `GetItems` names (`fetchSteam`;
+  apps released lately 404 on the plain paths), then `artwork::confidentMatch`'s box art (cached
+  under `artwork/own/<n>-<title>.jpg`), then SteamGridDB by title through `CoverFitter` when
+  connected. The game's own icon is read from its files first (`artwork/game_icon`, kept as
+  `artwork/icons/<n>-<file>.png`), so a tile shows it while a cover is looked for and when none
+  comes. Old-style `.icns` elements (RLE) are not read, only PNG ones. A retyped title on the confirm
+  card drops the store's match, so the title typed is what is looked up; a `steam_appid.txt` stays.
 - Imports, read only: Steam's `userdata/*/config/shortcuts.vdf` (binary KeyValues, `vdf/binary`),
   and Lutris's `pga.db` opened `immutable`; a Lutris entry runs as
   `lutris lutris:rungameid/<id>`, through Lutris's own runner and settings. A Lutris game is the
@@ -44,8 +49,10 @@ program, not the folder".
   before that was read takes it from Lutris on each listing; a match the entry keeps wins.
 - Match a different game, on a game's details and as X in Choose artwork: Steam's store
   search for the title, dropping its last words while it finds none, or a name typed after X;
-  up to eight apps, each with its Steam portrait (else header) under the cache's
-  `artwork/match/` and its release year from `appdetails`; the current match is ticked. A keeps
+  up to eight apps, each with its Steam portrait (else header, else its hashed art) under the
+  cache's `artwork/match/` and its release year from `appdetails`, and for an added game up to
+  eight box arts from `artwork::boxArtSystems`, kept as `box:<system>/<title>`; the current match
+  is ticked. A keeps
   the app as the game's `match` setting (`library/match_pick`, `game-settings.json`), which the
   Steam cover (`artwork/own/<n>-<app>.jpg`), the SteamGridDB lookup and the umu GAMEID follow;
   the entry's `steamAppId` stays what it was identified as when added. Store games and ROMs are

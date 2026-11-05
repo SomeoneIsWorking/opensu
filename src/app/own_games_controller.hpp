@@ -46,6 +46,8 @@ class OwnGamesController {
         std::vector<std::filesystem::path> steamRoots;
         /// Lutris's data folder (`lutris::dataDir`).
         std::filesystem::path lutrisData;
+        /// Steam's store, searched for what a file is.
+        std::string steamStore;
 
         /// Where they are for `config`, the entries kept in `records`.
         [[nodiscard]] static Places of(const config::Config& config, std::filesystem::path records);

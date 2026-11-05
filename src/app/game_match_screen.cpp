@@ -36,9 +36,9 @@ std::unique_ptr<tk::Widget> GameMatchScreen::build(const tk::Theme& theme) {
     grid.space(spacing.pad * 0.75f);
     grid.pad(tk::Insets::all(theme.shape.focusRing + theme.shape.focusGap));
     const std::vector<GameMatchController::Candidate>& candidates = controller_.candidates();
-    const bool boxArt = controller_.kind() == library::MatchKind::LibretroTitle;
     for (std::size_t i = 0; i < candidates.size(); ++i) {
         const GameMatchController::Candidate& candidate = candidates[i];
+        const bool boxArt = !candidate.boxArtUrl.empty();
         tk::CardButton& cell = grid.add<tk::CardButton>(
             "match/" + std::to_string(i),
             [this, i] {
@@ -54,6 +54,10 @@ std::unique_ptr<tk::Widget> GameMatchScreen::build(const tk::Theme& theme) {
             });
         cell.add<tk::Label>(candidate.title, tk::TextRole::Body, true);
         if (boxArt) {
+            if (!candidate.system.empty()) {
+                cell.add<tk::Label>(candidate.system + " box art", tk::TextRole::Caption)
+                    .colour(theme.colours.inkMuted);
+            }
             continue;
         }
         cell.add<tk::Label>(candidate.year.empty()

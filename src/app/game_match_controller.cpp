@@ -55,6 +55,8 @@ void GameMatchController::open(const library::Game& game) {
         return;
     }
     game_ = game;
+    current_ =
+        game.boxArt.empty() ? game.artworkKey : std::string{library::boxArtPick} + game.boxArt;
     kind_ = library::matchKindOf(game);
     title_ = "Match a different game: " + game.title;
     sounds_.play(audio::Effect::OpenContextMenu);
@@ -114,7 +116,11 @@ void GameMatchController::find(const std::stop_token& stop, const std::string& t
         findBoxArt(stop, term, found);
     } else {
         findSteamApps(stop, term, found);
+        if (game_.source == library::Source::Own) {
+            findOwnBoxArt(stop, term, found);
+        }
     }
+    complete(stop, found);
 }
 
 void GameMatchController::findSteamApps(const std::stop_token& stop, const std::string& term,
@@ -125,7 +131,7 @@ void GameMatchController::findSteamApps(const std::stop_token& stop, const std::
     // is searched again without its last words.
     for (std::string asked = term; !asked.empty() && apps.empty();) {
         const net::Result<std::string> answer =
-            web.get(stop, library::identify::storeSearchUrl(asked));
+            web.get(stop, library::identify::storeSearchUrl(asked, places_.sources.steamStore));
         if (answer.stopped()) {
             return;
         }
@@ -150,26 +156,6 @@ void GameMatchController::findSteamApps(const std::stop_token& stop, const std::
             Candidate{.key = std::move(app.appId), .title = std::move(app.title)});
     }
     publish(found);
-    for (Candidate& candidate : found.candidates) {
-        if (stop.stop_requested()) {
-            return;
-        }
-        if (const net::Result<std::string> details =
-                web.get(stop, library::matches::releaseDateUrl(candidate.key))) {
-            candidate.year = library::matches::parseReleaseYear(*details, candidate.key);
-        }
-        const std::string base = places_.steamCdn + "/" + candidate.key + "/";
-        // The library portrait, else the store header, which every app has.
-        candidate.cover = cached(stop, base + "library_600x900.jpg", candidate.key + ".jpg");
-        if (candidate.cover.empty()) {
-            candidate.cover = cached(stop, base + "header.jpg", candidate.key + "-header.jpg");
-        }
-        if (stop.stop_requested()) {
-            return;
-        }
-        candidate.complete = true;
-        publish(found);
-    }
 }
 
 void GameMatchController::findBoxArt(const std::stop_token& stop, const std::string& term,
@@ -187,7 +173,7 @@ void GameMatchController::findBoxArt(const std::stop_token& stop, const std::str
     }
     const net::WebClient web;
     net::Result<std::vector<std::string>> names =
-        artwork::boxArtNames(stop, web, listings_, *system, places_.libretro);
+        artwork::boxArtNames(stop, web, listings_, *system, places_.sources.libretro);
     if (names.stopped()) {
         return;
     }
@@ -204,16 +190,86 @@ void GameMatchController::findBoxArt(const std::stop_token& stop, const std::str
         asked.resize(space == std::string::npos ? 0 : space);
     }
     for (std::string& title : titles) {
-        found.candidates.push_back(Candidate{.key = title, .title = std::move(title)});
+        found.candidates.push_back(Candidate{
+            .key = title,
+            .title = title,
+            .boxArtUrl = artwork::boxArtUrl(places_.sources.libretro, *system, title),
+            .boxArtFile = std::string{system->key} + "-" + artwork::thumbnailName(title) + ".png"});
     }
     publish(found);
+}
+
+void GameMatchController::findOwnBoxArt(const std::stop_token& stop, const std::string& term,
+                                        Found& found) {
+    const net::WebClient web;
+    if (found.candidates.empty()) {
+        found.term = term;
+    }
+    std::size_t offered = 0;
+    for (const std::string_view key : artwork::boxArtSystems) {
+        const library::roms::RomSystem* system = library::roms::systemByKey(key);
+        if (system == nullptr || offered == mostCandidates) {
+            continue;
+        }
+        const net::Result<std::vector<std::string>> names =
+            artwork::boxArtNames(stop, web, listings_, *system, places_.sources.libretro);
+        if (names.stopped()) {
+            return;
+        }
+        if (!names) {
+            lucent::warn("match", "libretro-thumbnails listing: {}", names.error());
+            continue;
+        }
+        for (const std::string& title :
+             artwork::namesMatching(term, *names, mostCandidates - offered)) {
+            found.candidates.push_back(Candidate{
+                .key = std::string{library::boxArtPick} + std::string{key} + "/" + title,
+                .title = title,
+                .boxArtUrl = artwork::boxArtUrl(places_.sources.libretro, *system, title),
+                .boxArtFile = std::string{key} + "-" + artwork::thumbnailName(title) + ".png",
+                .system = std::string{system->label}});
+            ++offered;
+        }
+        publish(found);
+    }
+}
+
+fs::path GameMatchController::steamCover(const std::stop_token& stop,
+                                         const std::string& app) const {
+    const std::string base = places_.sources.steam + "/" + app + "/";
+    // The library portrait, else the store header, else the art `GetItems` names.
+    fs::path cover = cached(stop, base + "library_600x900.jpg", app + ".jpg");
+    if (cover.empty()) {
+        cover = cached(stop, base + "header.jpg", app + "-header.jpg");
+    }
+    if (!cover.empty() || stop.stop_requested()) {
+        return cover;
+    }
+    const net::WebClient web;
+    const net::Result<std::vector<std::string>> urls =
+        artwork::steamArtUrls(stop, web, places_.sources, app);
+    if (urls && !urls->empty()) {
+        return cached(stop, urls->front(), app + "-art.jpg");
+    }
+    return {};
+}
+
+void GameMatchController::complete(const std::stop_token& stop, Found& found) {
+    const net::WebClient web;
     for (Candidate& candidate : found.candidates) {
         if (stop.stop_requested()) {
             return;
         }
-        candidate.cover =
-            cached(stop, artwork::boxArtUrl(places_.libretro, *system, candidate.key),
-                   std::string{system->key} + "-" + artwork::thumbnailName(candidate.key) + ".png");
+        if (candidate.boxArtUrl.empty()) {
+            if (const net::Result<std::string> details =
+                    web.get(stop, library::matches::releaseDateUrl(candidate.key,
+                                                                   places_.sources.steamStore))) {
+                candidate.year = library::matches::parseReleaseYear(*details, candidate.key);
+            }
+            candidate.cover = steamCover(stop, candidate.key);
+        } else {
+            candidate.cover = cached(stop, candidate.boxArtUrl, candidate.boxArtFile);
+        }
         if (stop.stop_requested()) {
             return;
         }
@@ -240,14 +296,17 @@ void GameMatchController::service() {
 }
 
 std::string GameMatchController::searched() const {
-    return kind_ == library::MatchKind::LibretroTitle ? "libretro-thumbnails" : "Steam";
+    if (kind_ == library::MatchKind::LibretroTitle) {
+        return "libretro-thumbnails";
+    }
+    return game_.source == library::Source::Own ? "Steam and libretro-thumbnails" : "Steam";
 }
 
 std::string GameMatchController::status() const {
     if (!searched_) {
         return "Searching " + searched() + " for \"" + term_ + "\"...";
     }
-    if (!error_.empty()) {
+    if (!error_.empty() && candidates_.empty()) {
         return error_;
     }
     if (candidates_.empty()) {
@@ -263,7 +322,7 @@ void GameMatchController::choose(std::size_t index) {
     }
     const Candidate picked = candidates_[index];
     close();
-    if (picked.key == game_.artworkKey) {
+    if (picked.key == current_) {
         return;
     }
     lucent::info("match", "{} matched to {} ({})", game_.id, picked.key, picked.title);
@@ -276,9 +335,7 @@ void GameMatchController::searchAnother() {
     navigator_.push(std::make_unique<ui::EntryScreen>(
         ui::Entry{.id = nameCardId,
                   .title = "Search another name",
-                  .note = kind_ == library::MatchKind::LibretroTitle
-                              ? "The name libretro-thumbnails' box art is searched for."
-                              : "The name Steam's store is searched for.",
+                  .note = "The name " + searched() + " is searched for.",
                   .label = "Name",
                   .placeholder = "Name",
                   .secret = false,

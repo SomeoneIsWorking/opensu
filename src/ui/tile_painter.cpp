@@ -47,6 +47,8 @@ constexpr std::array<Colour, 10> ringStops{
 constexpr float ringUnderInset = 1.7f;
 constexpr float ringOverInset = 0.9f;
 
+/// The most of a tile's short side a game's own icon takes.
+constexpr float iconShare = 0.6f;
 // iiSU nx2.u: no-art letter is #66FFFFFF, clamp(0.34 min, 34, 92) px.
 constexpr Colour fallbackInk{0xFF, 0xFF, 0xFF, 0x66};
 
@@ -630,7 +632,28 @@ void TilePainter::paintCard(Canvas& canvas, const TileVisual& tile, const Rect& 
     }
 }
 
+void TilePainter::paintIcon(Canvas& canvas, const TileVisual& tile, const Rect& content) {
+    const gpu2d::Texture& icon = *tile.icon;
+    const auto width = static_cast<float>(icon.width());
+    const auto height = static_cast<float>(icon.height());
+    const float room = std::min(content.width, content.height) * iconShare;
+    const float fit = room / std::max(width, height);
+    // A small icon grows by whole pixels, so nearest sampling keeps it crisp.
+    const float scale = fit >= 1.0f ? std::floor(fit) : fit;
+    const float drawnWidth = width * scale;
+    const float drawnHeight = height * scale;
+    canvas.image(icon.view(), wholeOf(icon),
+                 gpu2d::Rect{std::round(content.centreX() - drawnWidth * 0.5f),
+                             std::round(content.centreY() - drawnHeight * 0.5f), drawnWidth,
+                             drawnHeight},
+                 withAlpha(white, tile.alpha));
+}
+
 void TilePainter::paintFallback(Canvas& canvas, const TileVisual& tile, const Rect& content) const {
+    if (tile.icon != nullptr) {
+        paintIcon(canvas, tile, content);
+        return;
+    }
     if (tile.loading) {
         paintLoading(canvas, tile, content);
         return;

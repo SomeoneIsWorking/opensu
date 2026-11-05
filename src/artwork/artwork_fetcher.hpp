@@ -1,7 +1,9 @@
 // artwork_fetcher — downloads missing artwork in the background: a Steam game's library
-// portrait from Steam's CDN, a GOG game's portrait cover from gamesdb (else its library tile),
-// a ROM's box art from libretro-thumbnails and an Epic game's key image from its own URL. Each file
-// is kept in the store and handed back for the shell to use.
+// portrait from Steam's CDN, else the hashed art `GetItems` names, a GOG game's portrait cover from
+// gamesdb (else its library tile), a ROM's box art from libretro-thumbnails and an Epic game's key
+// image from its own URL. A game the player added takes the Steam app it matches, by its id or its
+// exact title, then the box art `confidentMatch` is sure of, and reads its own icon from its files
+// meanwhile. Each file is kept in the store and handed back for the shell to use.
 #pragma once
 
 #include <condition_variable>
@@ -20,7 +22,10 @@
 #include "arcade_dat.hpp"
 #include "arcade_names.hpp"
 #include "artwork_store.hpp"
+#include "config/config.hpp"
 #include "library/game.hpp"
+#include "library/game_identify.hpp"
+#include "library/steam_items.hpp"
 #include "net/web_client.hpp"
 #include "rom_systems.hpp"
 
@@ -33,15 +38,32 @@ struct RemoteSources {
     std::string gogdb{"https://gamesdb.gog.com/platforms/gog/external_releases"};
     std::string libretroDatabase{libretroDatabaseUrl};
     std::vector<DatPin> arcadeDats{arcadeDatPins.begin(), arcadeDatPins.end()};
+    /// Steam's store (storesearch, appdetails).
+    std::string steamStore{library::identify::steamStore};
+    /// `GetItems` and the host of the art it names.
+    std::string steamItems{library::steam_items::itemsApi};
+    std::string steamAssets{library::steam_items::assetHost};
+    /// Where a `.desktop` entry's icon name is looked up.
+    std::vector<std::filesystem::path> iconThemes{};
+
+    /// The real sources, but for the stand-ins `config` names.
+    [[nodiscard]] static RemoteSources of(const config::Config& config);
 };
+
+/// The hashed art of Steam app `appId`, portrait before header; empty when it has none.
+[[nodiscard]] net::Result<std::vector<std::string>> steamArtUrls(const std::stop_token& stop,
+                                                                 const net::WebClient& web,
+                                                                 const RemoteSources& sources,
+                                                                 const std::string& appId);
 
 /// A game's art or the arcade names, now on disk.
 struct Fetched {
-    enum class Kind : std::uint8_t { Game, Names };
+    enum class Kind : std::uint8_t { Game, Names, Icon };
 
     Kind kind;
     /// The game's id; empty for the names, whose games are titled again by the next catalog read.
     std::string id;
+    /// The cover, or the game's own icon.
     std::filesystem::path artwork;
     /// False for a game whose art will not arrive this round: its source has none (a confirmed
     /// miss), or the round ended because the network was down. `artwork` is empty then.
@@ -86,7 +108,8 @@ class ArtworkFetcher {
 
   private:
     /// How one download ended; Stopped when the worker's stop ended it, keeping nothing.
-    enum class Outcome : std::uint8_t { Saved, Missing, Unreachable, Stopped };
+    /// Settled: there was only an icon to read.
+    enum class Outcome : std::uint8_t { Saved, Missing, Unreachable, Stopped, Settled };
 
     /// The arcade name listings, as queued work.
     struct NamesWork {};
@@ -102,6 +125,13 @@ class ArtworkFetcher {
                        const std::stop_token& stop);
     Outcome fetchGog(const library::Game& game, const std::stop_token& stop);
     Outcome fetchRom(const library::Game& game, const std::stop_token& stop);
+    Outcome fetchOwn(const library::Game& game, const std::stop_token& stop);
+    /// The box art the player picked.
+    Outcome fetchBoxPick(const library::Game& game, const std::stop_token& stop);
+    /// The box art of the game's title on whichever system `confidentMatch` finds it.
+    Outcome fetchBoxArt(const library::Game& game, const std::stop_token& stop);
+    /// Reads the game's own icon from its files and hands it over.
+    void keepIcon(const library::Game& game);
     Outcome keep(const library::Game& game, const std::string& url, const std::stop_token& stop);
     /// A system's libretro listing from the store or the server; null when unreachable or stopped.
     const std::vector<std::string>* index(const library::roms::RomSystem& system,

@@ -112,6 +112,11 @@ bool hasTag(const Parsed& parsed, std::string_view tag) {
 
 constexpr std::array<std::string_view, 4> preferredRegions{"usa", "world", "europe", "japan"};
 constexpr std::array<std::string_view, 5> unreleased{"beta", "demo", "proto", "sample", "kiosk"};
+/// Releases that are not the game a title names.
+constexpr std::array<std::string_view, 5> notTheGame{"hack", "pirate", "unl", "aftermarket",
+                                                     "homebrew"};
+/// The fewest words a title needs to be told from another game's.
+constexpr std::size_t fewestConfidentWords = 2;
 
 bool isUnreleased(const Parsed& parsed) {
     return std::ranges::any_of(parsed.tags, [](const std::string& tag) {
@@ -196,6 +201,29 @@ std::optional<std::string> bestMatch(std::string_view romName, std::span<const s
         }
     }
     return best;
+}
+
+std::optional<std::string> confidentMatch(std::string_view title,
+                                          std::span<const std::string> index) {
+    if (wordsOf(title).size() < fewestConfidentWords ||
+        title.find_first_of("([") != std::string_view::npos) {
+        return std::nullopt;
+    }
+    const std::string wanted = parse(title).title;
+    std::vector<std::string> same;
+    for (const std::string& name : index) {
+        const Parsed entry = parse(name);
+        const bool barred =
+            isUnreleased(entry) || std::ranges::any_of(entry.tags, [](const std::string& tag) {
+                return std::ranges::any_of(notTheGame, [&tag](std::string_view word) {
+                    return tag.starts_with(word);
+                });
+            });
+        if (entry.title == wanted && !barred) {
+            same.push_back(name);
+        }
+    }
+    return bestMatch(title, same);
 }
 
 std::vector<std::string> namesMatching(std::string_view term, std::span<const std::string> index,

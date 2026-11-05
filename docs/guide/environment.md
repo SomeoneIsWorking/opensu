@@ -37,6 +37,8 @@ All optional.
 | `OPENSU_SESSION` | The name of the session's scopes, default `opensu-<pid>`; a nested session sets it for the openSU inside. |
 | `OPENSU_SECRET_STORE` | `file` keeps secrets (the SteamGridDB key, LAN pairings) in an owner-only file under the config dir instead of the desktop keyring. |
 | `OPENSU_STEAMGRIDDB_API` | SteamGridDB's API root, for pointing a test run at a stand-in. |
+| `OPENSU_LIBRETRO_THUMBNAILS` | libretro-thumbnails' root, for pointing a test run at a stand-in. |
+| `OPENSU_STEAM_STAND_IN` | A root standing in for Steam's store, `/cdn`, `/items` (`GetItems`) and `/assets/`, for a test run. |
 | `OPENSU_GE_PROTON_RELEASE` | The GE-Proton release to install, as GitHub release JSON, for a test run; the latest when unset. |
 | `OPENSU_ROOT_STEP` | A harmless program session mode's install runs through pkexec in place of its installer, for a test run: polkit still asks openSU's agent, nothing is installed. |
 | `OPENSU_POLKIT_HELPER` | A program openSU's polkit agent runs in place of `polkit-agent-helper-1`, for a test run: it gets the user as its argument and polkit's cookie on stdin and writes the helper's lines (`PAM_TEXT_INFO`, `PAM_ERROR_MSG`, `PAM_PROMPT_ECHO_OFF`/`ON`, `SUCCESS`, `FAILURE`). It cannot answer polkit, so the action itself is refused. |

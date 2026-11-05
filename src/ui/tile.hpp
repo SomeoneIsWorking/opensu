@@ -31,6 +31,8 @@ struct Tile {
     /// Its artwork files as the loader brings them in; empty for none.
     gpu2d::ImageHandle portrait;
     gpu2d::ImageHandle wide;
+    /// The game's own icon, shown small while it has no art.
+    gpu2d::ImageHandle icon;
     /// Whether its files have been asked of the loader, or it has none to ask for.
     bool artRequested{false};
     /// Whether the artwork fetcher, or SteamGridDB's cover fitting, is downloading or has queued

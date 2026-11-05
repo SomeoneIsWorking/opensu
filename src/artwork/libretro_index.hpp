@@ -2,6 +2,7 @@
 // No-Intro and Redump titles ("Legend of Zelda, The - The Wind Waker (USA).png").
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <optional>
 #include <span>
@@ -17,6 +18,11 @@ namespace opensu::artwork {
 
 class ArtworkStore;
 
+/// The systems a PC game's title may have box art on, likeliest first: those PC games were ported
+/// to and from.
+inline constexpr std::array<std::string_view, 9> boxArtSystems{
+    "psx", "ps2", "dreamcast", "gc", "xbox", "ps3", "xbox360", "psp", "wii"};
+
 /// The thumbnail names in a Named_Boxarts directory listing, decoded and without `.png`.
 [[nodiscard]] std::vector<std::string> parseIndex(std::string_view html);
 
@@ -28,6 +34,14 @@ class ArtworkStore;
 /// prototype the ROM is not. Nothing when no entry has the same title.
 [[nodiscard]] std::optional<std::string> bestMatch(std::string_view romName,
                                                    std::span<const std::string> index);
+
+/// The box art of a game that is no ROM, known only by `title`, which it may share with another
+/// game: the index entry `bestMatch` ranks first among those of exactly that title, and only when
+/// the title has two words or more besides "the" and "and" and no bracket of its own. A demo, beta,
+/// prototype, hack, pirate, unlicensed, aftermarket or homebrew release never counts. A wrong cover
+/// is worse than the game's own icon, so anything less is nothing.
+[[nodiscard]] std::optional<std::string> confidentMatch(std::string_view title,
+                                                        std::span<const std::string> index);
 
 /// The entries of `index` whose title has every word of `term` (letters and digits, ignoring
 /// case, "the" and "and"), in listing order, `most` at most.

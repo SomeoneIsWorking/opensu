@@ -31,8 +31,8 @@ CoverFitter::~CoverFitter() {
 bool CoverFitter::wanted(const library::Game& game) const {
     overrides_.forgetOtherFit(game.id, lookupKey(steamGridDbGameOf(game)));
     const ArtworkStore::Clock::time_point now = ArtworkStore::Clock::now();
-    return (!game.artwork.empty() || store_.coverless(game, now)) && steamGridDb_.connected() &&
-           overrides_.wantsFit(game.id, now);
+    return game.boxArt.empty() && (!game.artwork.empty() || store_.coverless(game, now)) &&
+           steamGridDb_.connected() && overrides_.wantsFit(game.id, now);
 }
 
 void CoverFitter::request(const std::vector<library::Game>& games, CoverShape shape) {

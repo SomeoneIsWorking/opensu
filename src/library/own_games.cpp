@@ -290,6 +290,8 @@ Game gameOf(const Entry& entry) {
     game.title = entry.title;
     game.file = entry.file;
     game.artworkKey = entry.steamAppId;
+    game.iconSource = entry.icon;
+    game.iconIndex = entry.iconIndex;
     game.installed = true;
     game.fromGameFolder = entry.origin == Origin::Folder;
     if (entry.origin == Origin::Lutris) {

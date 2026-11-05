@@ -264,6 +264,8 @@ Config read() {
     value.retroControl = std::filesystem::path{env("OPENSU_RETRO_CONTROL")};
     value.executablePath = splitPaths(env("PATH"));
     value.steamGridDbApi = std::string{env("OPENSU_STEAMGRIDDB_API")};
+    value.libretroThumbnails = std::string{env("OPENSU_LIBRETRO_THUMBNAILS")};
+    value.steamStandIn = std::string{env("OPENSU_STEAM_STAND_IN")};
     value.geProtonRelease = std::string{env("OPENSU_GE_PROTON_RELEASE")};
     value.keyring = env("OPENSU_SECRET_STORE") != "file";
     for (const char* name : {"LC_ALL", "LC_MESSAGES", "LANG"}) {

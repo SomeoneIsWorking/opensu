@@ -27,8 +27,8 @@ std::string yearIn(std::string_view date) {
 
 } // namespace
 
-std::string releaseDateUrl(std::string_view appId) {
-    return "https://store.steampowered.com/api/appdetails?appids=" + std::string{appId} +
+std::string releaseDateUrl(std::string_view appId, std::string_view store) {
+    return std::string{store} + "/api/appdetails?appids=" + std::string{appId} +
            "&filters=release_date";
 }
 

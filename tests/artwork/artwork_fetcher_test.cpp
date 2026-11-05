@@ -157,6 +157,30 @@ class FakeSources {
                     "Street%20Fighter%20II_%20The%20World%20Warrior%20(World%20910522).png") {
             return lucent::http::Response::binary(200, "OK", "image/png", "sf2 flyer");
         }
+        if (path == "/store/api/storesearch/") {
+            return lucent::http::Response::json(
+                200, "OK",
+                R"({"items":[{"type":"app","id":4249140,"name":"Dino Crisis\u2122 2"},)"
+                R"({"type":"app","id":1,"name":"Dino Crisis 2 Soundtrack"}]})");
+        }
+        if (path == "/items") {
+            return lucent::http::Response::json(
+                200, "OK",
+                R"({"response":{"store_items":[{"appid":4249140,"success":1,"name":"Dino Crisis 2",)"
+                R"("assets":{"asset_url_format":"steam/apps/4249140/abc/${FILENAME}?t=1",)"
+                R"("library_capsule":"small.jpg","library_capsule_2x":"large.jpg",)"
+                R"("header":"head.jpg"}}]}})");
+        }
+        if (path == "/assets/steam/apps/4249140/abc/large.jpg") {
+            return lucent::http::Response::binary(200, "OK", "image/jpeg", "hashed portrait");
+        }
+        if (path == "/libretro/Nintendo%20-%20GameCube/Named_Boxarts/"
+                    "Super%20Mario%20Sunshine%20(Europe).png") {
+            return lucent::http::Response::binary(200, "OK", "image/png", "europe box");
+        }
+        if (path.starts_with("/libretro/") && path.ends_with("/Named_Boxarts/")) {
+            return lucent::http::Response::text(200, "OK", "");
+        }
         return lucent::http::Response::text(404, "Not Found", "");
     }
 
@@ -199,13 +223,13 @@ void testFetches(const fs::path& root) {
                "a GOG game gets the portrait cover gamesdb names");
         expect(read(store.pathFor(games[6])) == "gog tile",
                "a GOG game gamesdb has no cover for gets its library tile");
-        expect(fs::exists(store.pathFor(games[7]).string() + ".miss"),
+        expect(fs::exists(store.pathFor(games[7]).string() + ".missed"),
                "a GOG game with no cover anywhere is noted as a miss");
         expect(read(store.pathFor(games[0])) == "steam header",
                "a Steam game without a portrait gets its store header");
         expect(read(store.pathFor(games[1])) == "sunshine box",
                "a ROM gets the box art its title matches, USA first");
-        expect(fs::exists(store.pathFor(games[2]).string() + ".miss"),
+        expect(fs::exists(store.pathFor(games[2]).string() + ".missed"),
                "a ROM the listing lacks is noted as a miss");
         expect(store.pathFor(games[3]).empty(), "a system libretro lacks has no source");
     }
@@ -283,8 +307,60 @@ void testUnreachable(const fs::path& root) {
     const Game steam = game(Source::Steam, "steam:1", "1");
     fetcher.request({steam, game(Source::Steam, "steam:2", "2")});
     expect(waitFor(fetcher).empty(), "nothing arrives from a source that cannot be reached");
-    expect(!fs::exists(store.pathFor(steam).string() + ".miss"),
+    expect(!fs::exists(store.pathFor(steam).string() + ".missed"),
            "an unreachable source is not a miss, so the next run asks again");
+}
+
+void testOwnGames(const fs::path& root) {
+    FakeSources sources;
+    ArtworkStore store{root};
+    const std::string base = sources.base();
+    ArtworkFetcher fetcher{store,
+                           {.libretro = base + "/libretro",
+                            .steam = base + "/steam",
+                            .steamStore = base + "/store",
+                            .steamItems = base + "/items",
+                            .steamAssets = base + "/assets/"}};
+    const auto own = [](const std::string& id, std::string title, std::string key = {}) {
+        Game out = game(Source::Own, "own:" + id, id, std::move(key));
+        out.title = std::move(title);
+        return out;
+    };
+
+    const Game matched = own("1", "Dino Crisis 2", "4249140");
+    fetcher.request({matched});
+    expect(waitFor(fetcher).size() == 1 && read(store.pathFor(matched)) == "hashed portrait",
+           "an app the plain CDN paths 404 for shows the art GetItems names");
+
+    const Game titled = own("2", "DINO CRISIS 2");
+    fetcher.request({titled});
+    expect(waitFor(fetcher).size() == 1 && read(store.pathFor(titled)) == "hashed portrait",
+           "a title with no match on record finds the app of exactly that name, ignoring marks");
+
+    const Game near = own("3", "Dino Crisis");
+    fetcher.request({near});
+    expect(waitFor(fetcher).empty() && fs::exists(store.pathFor(near).string() + ".missed"),
+           "a store's near match is another game: no cover, and the miss is kept");
+
+    const Game boxed = own("4", "Super Mario Sunshine");
+    fetcher.request({boxed});
+    expect(waitFor(fetcher).size() == 1 && read(store.pathFor(boxed)) == "sunshine box",
+           "with no Steam match, box art of exactly the title comes from any system's listing");
+
+    const Game weak = own("5", "Sunshine");
+    fetcher.request({weak});
+    expect(waitFor(fetcher).empty(), "a one-word title is too weak for box art");
+
+    Game picked = own("6", "Anything At All");
+    picked.boxArt = "gc/Super Mario Sunshine (Europe)";
+    fetcher.request({picked});
+    expect(waitFor(fetcher).size() == 1 && read(store.pathFor(picked)) == "europe box",
+           "a picked box art is fetched whatever the title");
+
+    Game retitled = titled;
+    retitled.title = "Dino Crisis 3";
+    expect(store.pathFor(retitled) != store.pathFor(titled),
+           "another title looks again rather than keeping the old cover");
 }
 
 template <class Ready> bool eventually(const Ready& ready) {
@@ -358,6 +434,7 @@ int main() try {
         testArcadeNames(root / "names");
         testArcadeBoxArt(root / "arcade");
         testUnreachable(root / "offline");
+        testOwnGames(root / "own");
         testStages(root / "stages");
         testShelfPicksUpLateArtwork(root / "late");
         fs::remove_all(root);

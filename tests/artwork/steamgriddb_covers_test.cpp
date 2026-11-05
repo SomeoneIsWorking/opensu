@@ -202,6 +202,7 @@ void testAGameMatchedToASteamAppIsFittedAgain() {
     game.title = "Resident Evil 4 Remake";
     game.source = opensu::library::Source::Own;
     game.sourceId = "7";
+    rig.store.recordMiss(game);
 
     CoverFitter fitter{rig.overrides, rig.steamGridDb, rig.store};
     const auto settle = [&fitter] {

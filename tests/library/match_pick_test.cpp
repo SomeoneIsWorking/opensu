@@ -43,6 +43,20 @@ void storeGamesTakeASteamApp() {
     }
 }
 
+void anAddedGameTakesBoxArt() {
+    std::vector<Game> games{gameOf(Source::Own, "own:2", "2"), gameOf(Source::Gog, "gog:1", "1")};
+    games[0].artworkKey = "400";
+    SettingLayers layers;
+    for (const Game& game : games) {
+        layers.set(Layer{Layer::Kind::Game, game.id}, matchKey, "box:psx/Dino Crisis 2 (USA)");
+    }
+    applyMatchPicks(layers, games);
+    expect(games[0].boxArt == "psx/Dino Crisis 2 (USA)" && games[0].artworkKey.empty() &&
+               games[0].artwork.empty(),
+           "an added game shows the box art picked, in place of its Steam app");
+    expect(games[1].boxArt.empty(), "a store game has no box art to pick");
+}
+
 void aRomTakesABoxArtTitle() {
     std::vector<Game> games{gameOf(Source::Rom, "rom:/r/Mario.sfc", "snes"),
                             gameOf(Source::Rom, "rom:/r/Kirby.nsp", "switch")};
@@ -72,6 +86,7 @@ void aPickThatIsNoAppIdIsNone() {
 
 int main() try {
     storeGamesTakeASteamApp();
+    anAddedGameTakesBoxArt();
     aRomTakesABoxArtTitle();
     aPickThatIsNoAppIdIsNone();
     std::printf("match_pick: all checks passed\n");

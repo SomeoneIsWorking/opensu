@@ -17,6 +17,9 @@
 
 namespace opensu::library::identify {
 
+/// Steam's store.
+inline constexpr std::string_view steamStore = "https://store.steampowered.com";
+
 /// One app of a store search.
 struct StoreApp {
     std::string appId;
@@ -50,6 +53,8 @@ struct Guess {
     std::optional<own::Kind> kind;
     /// The Steam app matched; empty when none was.
     std::string steamAppId;
+    /// A `steam_appid.txt` says so, which a retyped title does not change.
+    bool appIdOnDisk{false};
     /// Where the title came from, in words for the player.
     std::string from;
 };
@@ -57,6 +62,10 @@ struct Guess {
 /// The ProductName, else FileDescription, in a Windows program's version resource; empty when it
 /// has none or only an engine's placeholder (`BootstrapPackagedGame`, `UnrealGame`).
 [[nodiscard]] std::string versionName(const std::filesystem::path& exe);
+
+/// Whether `dir`'s name may say what a game is: not a drive, its root, a home or what holds homes.
+/// Read as a path of either OS, whichever this one is.
+[[nodiscard]] bool mayNameAGame(const std::filesystem::path& dir);
 
 /// The file's own name as a title: separators as spaces, build suffixes (`_Steam`, `-Win64`,
 /// `-Shipping`) dropped; empty for a generic launcher name (`start.sh`, `AppRun`, `game`).
@@ -67,6 +76,11 @@ struct Guess {
 [[nodiscard]] Clues cluesOf(const std::filesystem::path& file,
                             const std::filesystem::path& stopAt = {});
 
+/// The app of `apps` called `title`, ignoring case, punctuation and trademark signs; a store's near
+/// matches are not the game.
+[[nodiscard]] std::optional<StoreApp> sameTitle(const std::vector<StoreApp>& apps,
+                                                std::string_view title);
+
 /// What `file` is: each clue searched until one names a store app (the app of a `steam_appid.txt`
 /// wins over a name), else the best clue. A shortcut's name, `shortcut`, is the first clue.
 [[nodiscard]] Guess identify(const std::filesystem::path& file, const StoreSearch& search,
@@ -76,6 +90,7 @@ struct Guess {
 [[nodiscard]] std::vector<StoreApp> parseStoreSearch(std::string_view json);
 
 /// Steam's store search for `name`, its punctuation turned to spaces, which the search needs.
-[[nodiscard]] std::string storeSearchUrl(std::string_view name);
+[[nodiscard]] std::string storeSearchUrl(std::string_view name,
+                                         std::string_view store = steamStore);
 
 } // namespace opensu::library::identify

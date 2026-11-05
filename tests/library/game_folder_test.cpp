@@ -94,8 +94,7 @@ void linkFieldsReadBack() {
            "the common path suffix follows the base path");
     LinkFields negative = fields;
     negative.iconIndex = -101;
-    expect(parsed(negative).iconIndex == -101,
-           "a resource id is negative");
+    expect(parsed(negative).iconIndex == -101, "a resource id is negative");
     LinkFields wide = fields;
     wide.target = "C:\\Oyunlar\\\xC5\x9E"
                   "eker\\game.exe";

@@ -1,6 +1,6 @@
 // steam_offers — Steam's limited-time free-to-keep games from its public store (no sign-in, no
 // key): the store search for specials whose price is now nothing gives the app ids (a row with
-// `data-discount="100"`), and `IStoreBrowseService/GetItems` says of each whether its best
+// `data-discount="100"`), and `library::steam_items` says of each whether its best
 // purchase option is free to keep (`is_free_to_keep`, a free-to-play game is not) and until when
 // (`free_to_keep_ends`), and its art.
 #pragma once
@@ -11,6 +11,7 @@
 #include <string_view>
 #include <vector>
 
+#include "library/steam_items.hpp"
 #include "offer.hpp"
 
 namespace opensu::giveaways::steam {
@@ -24,25 +25,9 @@ inline constexpr std::string_view searchUrl =
 /// when the answer is not the search's shape.
 [[nodiscard]] std::vector<std::uint32_t> parseSearch(std::string_view body);
 
-/// The `GetItems` request for `apps`.
-[[nodiscard]] std::string itemsUrl(const std::vector<std::uint32_t>& apps);
-
-/// One app as `GetItems` describes it.
-struct Item {
-    std::uint32_t app{0};
-    std::string name;
-    /// Steam's app type: 0 a game, 4 DLC.
-    int type{-1};
-    std::string storePath;
-    std::string headerUrl;
-    bool freeToKeep{false};
-    Seconds freeToKeepEnds{0};
-
-    bool operator==(const Item&) const = default;
-};
-
-/// The items of a `GetItems` answer. Throws `std::runtime_error` when it is not its shape.
-[[nodiscard]] std::vector<Item> parseItems(std::string_view body);
+using library::steam_items::Item;
+using library::steam_items::itemsUrl;
+using library::steam_items::parseItems;
 
 /// The item as an offer when it is a game or DLC free to keep.
 [[nodiscard]] std::optional<Offer> freeToKeep(const Item& item);

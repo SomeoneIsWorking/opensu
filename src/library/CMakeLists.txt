@@ -37,7 +37,7 @@ add_library(opensu_library STATIC
     emulator_game_list.cpp
     game_saves.cpp switch_saves.cpp mgba_saves.cpp ps1_cards.cpp save_formats.cpp
     save_copy.cpp ini_file.cpp
-    shell_link.cpp game_folder.cpp
+    shell_link.cpp game_folder.cpp pe_resources.cpp steam_items.cpp
     emulator_choice.cpp linked_play.cpp
     text_fold.cpp
     sections.cpp

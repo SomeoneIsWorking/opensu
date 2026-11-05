@@ -8,6 +8,10 @@ void ArtworkDelivery::restart() {
 
 void ArtworkDelivery::service() {
     for (const artwork::Fetched& fetched : fetcher_.take()) {
+        if (fetched.kind == artwork::Fetched::Kind::Icon) {
+            shell_.grid().setIcon(fetched.id, fetched.artwork);
+            continue;
+        }
         if (!fetched.saved) {
             shell_.grid().artworkSettled(fetched.id);
             if (fetched.kind == artwork::Fetched::Kind::Game) {

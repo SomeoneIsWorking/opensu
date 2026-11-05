@@ -1655,7 +1655,13 @@ adds it to `<data dir>/own-games.json` (`library::own::Records`). Entries are `o
 the Your games launcher, with the details page, Play, layered settings, last played, search and
 Choose artwork of any game; their details add Rename, Change file and Remove from library (only
 the entry goes). A Windows `.exe` runs through `wine::prepare` in its own prefix
-`<data dir>/wine-prefixes/own-<n>`; a matched Steam app gives the cover from Steam's CDN.
+`<data dir>/wine-prefixes/own-<n>`. Covers need no key (`ArtworkFetcher::fetchOwn`): the matched or
+exactly titled Steam app, from the CDN's plain paths else the hashed art `GetItems` names, then
+`artwork::confidentMatch`'s libretro box art, then the game's own icon (`artwork/game_icon`) drawn
+small and uncropped on the tile; SteamGridDB stays an optional upgrade. Match a different game offers
+box art too. Shown in hidden runs on a fresh profile, integrations off, no key
+(`scratch/owngames/covers.py`, `steamcover.py`): Steam's real art of app 4249140 for `DINO2.exe`, box
+art from a stand-in listing for the same game with no Steam match, icons from generated PE files.
 A games folder (`settings.gameFolders`, Add a game folder on Library and in Settings › Library) is
 read by `library::folder::scan` on every listing, nothing kept: each game is `own:folder-<hash of its
 path>`, so hiding it and its cover outlive the scan, and a deleted file takes its game with it.

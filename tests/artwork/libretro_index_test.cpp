@@ -75,6 +75,36 @@ void testMatches() {
     expect(!bestMatch("Xenoblade Chronicles 2", releaseIndex()), "a different title is no match");
 }
 
+void testConfidence() {
+    using opensu::artwork::confidentMatch;
+    const std::vector<std::string> index{
+        "Dino Crisis 2 (Japan)",
+        "Dino Crisis 2 (USA)",
+        "Dino Crisis 2 (USA) (Demo)",
+        "Dino Crisis (USA)",
+        "Doom (USA)",
+        "Space Race (USA) (Unl)",
+        "Star Quest (World) (Aftermarket) (Homebrew)",
+        "Moon Base (USA) (Beta)",
+        "Legend of Dragoon, The (USA)",
+    };
+    expect(confidentMatch("Dino Crisis 2", index) == "Dino Crisis 2 (USA)",
+           "exactly the title, ranked as a ROM is, never its demo");
+    expect(confidentMatch("dino crisis-2", index) == "Dino Crisis 2 (USA)",
+           "case and punctuation are not part of a title");
+    expect(confidentMatch("The Legend of Dragoon", index) == "Legend of Dragoon, The (USA)",
+           "\"The\" is not part of it either");
+    expect(!confidentMatch("Dino Crisis 3", index), "a nearly equal title is another game");
+    expect(!confidentMatch("Dino", index), "part of a title is another game");
+    expect(!confidentMatch("Doom", index), "one word could be any game's");
+    expect(!confidentMatch("The Doom", index), "the words that say nothing do not count");
+    expect(!confidentMatch("Dino Crisis 2 (Beta)", index),
+           "a title with brackets is no plain title");
+    expect(!confidentMatch("Space Race", index), "an unlicensed release is not the game");
+    expect(!confidentMatch("Star Quest", index), "nor is aftermarket or homebrew");
+    expect(!confidentMatch("Moon Base", index), "nor is a beta");
+}
+
 void testNames() {
     expect(opensu::artwork::thumbnailName("Mario & Luigi: Saga?") == "Mario _ Luigi_ Saga_",
            "libretro's file name characters");
@@ -90,6 +120,7 @@ void testNames() {
 int main() try {
     testParseIndex();
     testMatches();
+    testConfidence();
     testNames();
     std::printf("libretro_index: all checks passed\n");
     return 0;

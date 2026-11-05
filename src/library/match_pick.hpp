@@ -1,7 +1,8 @@
 // match_pick — what the player says a game is, for its artwork: the `match` setting at the game's
 // layer. A store game or one the player added is matched to a Steam app, whose covers it then
 // shows and SteamGridDB looks it up by; a ROM is matched to a libretro-thumbnails title of its
-// system, whose box art it then shows. The pick only changes artwork, never how the game runs.
+// system, whose box art it then shows, and an added game may be matched to any system's
+// (`boxArtPick`). The pick only changes artwork, never how the game runs.
 #pragma once
 
 #include <cstdint>
@@ -15,6 +16,8 @@ namespace opensu::library {
 
 /// The key the pick is kept under at the game layer.
 inline constexpr std::string_view matchKey = "match";
+/// What starts an added game's pick of box art.
+inline constexpr std::string_view boxArtPick = "box:";
 
 /// What a game can be matched to.
 enum class MatchKind : std::uint8_t {

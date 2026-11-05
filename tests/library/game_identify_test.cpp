@@ -201,6 +201,30 @@ void gamesAreIdentified(const fs::path& games) {
     expect(appIdOnly.steamAppId == "2050650", "steam_appid.txt gives the app without the store");
 }
 
+void foldersThatNameAGame() {
+    using opensu::library::identify::mayNameAGame;
+    expect(mayNameAGame("C:/Games/Dino Crisis 2"), "a folder on C: names a game");
+    expect(mayNameAGame("D:/Dino Crisis 2"), "and one at a drive's root");
+    expect(!mayNameAGame("D:/"), "a drive does not");
+    expect(!mayNameAGame("C:/Users"), "nor what holds the homes");
+    expect(!mayNameAGame("C:/Users/player"), "nor a home");
+    expect(mayNameAGame("C:/Users/player/Games/Dino"), "a folder in a home does");
+    expect(mayNameAGame("/mnt/games/Dino"), "and one deep enough here");
+    expect(!mayNameAGame("/home/player"), "a home here does not");
+    expect(!mayNameAGame("/home"), "nor what holds them");
+}
+
+void sameTitleIsExact() {
+    using opensu::library::identify::sameTitle;
+    using opensu::library::identify::StoreApp;
+    const std::vector<StoreApp> apps{{"1", "Dino Crisis 2 Soundtrack"},
+                                     {"2", "Dino Crisis\xE2\x84\xA2 2"}};
+    expect(sameTitle(apps, "DINO CRISIS 2").value_or(StoreApp{}).appId == "2",
+           "trademark signs and case do not count");
+    expect(!sameTitle(apps, "Dino Crisis"), "a near title is no match");
+    expect(!sameTitle(apps, "!!"), "a title of nothing matches nothing");
+}
+
 void storeAnswersAreRead() {
     const std::vector<identify::StoreApp> apps = identify::parseStoreSearch(
         R"({"total":2,"items":[{"type":"app","name":"Lies of P","id":1627720},)"
@@ -245,6 +269,8 @@ int main() try {
     versionResourceIsRead(scratch.path() / "programs");
     fileNamesAreTitles();
     gamesAreIdentified(scratch.path() / "Games");
+    foldersThatNameAGame();
+    sameTitleIsExact();
     storeAnswersAreRead();
     releaseYearsAreRead();
     std::printf("game_identify: all checks passed\n");

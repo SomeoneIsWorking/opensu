@@ -372,7 +372,7 @@ class ShellApp final {
     std::shared_ptr<const artwork::ConsoleTheme> consoleTheme_;
     std::string consoleThemeId_;
     std::shared_ptr<const artwork::IisuPack> consoleThemeIisu_;
-    artwork::ArtworkFetcher artworkFetcher_{artworkStore_, artwork::RemoteSources{},
+    artwork::ArtworkFetcher artworkFetcher_{artworkStore_, artwork::RemoteSources::of(environment_),
                                             library::roms::NameDb::under(environment_.cacheDir)};
     /// SteamGridDB's API, asked only with the player's key.
     artwork::SteamGridDb steamGridDb_{environment_.steamGridDbApi.empty()
@@ -400,8 +400,7 @@ class ShellApp final {
         GameMatchController::Parts{shell_.screens().navigator(), shell_.screens().chrome(),
                                    shell_.screens().images(), keyboardPad_, sounds_},
         GameMatchController::Places{environment_.cacheDir / "artwork" / "match",
-                                    artwork::RemoteSources{}.steam,
-                                    artwork::RemoteSources{}.libretro},
+                                    artwork::RemoteSources::of(environment_)},
         artworkStore_,
         GameMatchController::Hooks{
             [this](const std::string& text, bool isError) {

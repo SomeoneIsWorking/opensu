@@ -1,6 +1,7 @@
 // game_match_controller — Match a different game, from a game's details or "Choose artwork": for a
-// store game or one the player added, the Steam apps Steam's store search finds for its title;
-// for a ROM, the box art titles its system's libretro-thumbnails listing has for it. The title is
+// store game or one the player added, the Steam apps Steam's store search finds for its title,
+// and for an added game the box art titles libretro-thumbnails has on the systems PC games reach;
+// for a ROM, the box art titles its system's listing has for it. The title is
 // searched without its last words while nothing is found, or the player types a name; each
 // candidate's cover (and a Steam app's release year) arrives on a worker. A keeps the one picked
 // as the game's match (`library::matchKey`), which its cover and SteamGridDB lookup follow, and an
@@ -20,6 +21,7 @@
 
 #include "gpu2d/ui/navigator.hpp"
 
+#include "artwork/artwork_fetcher.hpp"
 #include "artwork/artwork_store.hpp"
 #include "audio/sdl_sound_player.hpp"
 #include "keyboard_pad.hpp"
@@ -45,16 +47,15 @@ class GameMatchController {
     struct Places {
         /// The candidates' covers, cache.
         std::filesystem::path covers;
-        /// Steam's CDN app root (`artwork::RemoteSources::steam`).
-        std::string steamCdn;
-        /// libretro-thumbnails' root (`artwork::RemoteSources::libretro`).
-        std::string libretro;
+        /// Steam's and libretro-thumbnails' roots.
+        artwork::RemoteSources sources;
     };
 
     struct Hooks {
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
-        /// The player picked `key` (a Steam app id, or a box art title), titled `title`, as what
+        /// The player picked `key` (a Steam app id, a box art title or an added game's
+        /// `boxArtPick`), titled `title`, as what
         /// `game` is.
         std::function<void(const library::Game& game, const std::string& key,
                            const std::string& title)>
@@ -63,9 +64,15 @@ class GameMatchController {
 
     /// One game the game could be: a Steam app, or a box art title.
     struct Candidate {
-        /// What is kept as the match: the app id, or the box art title.
+        /// What is kept as the match: the app id, the box art title, or an added game's
+        /// `boxArtPick` and `<system>/<title>`.
         std::string key;
         std::string title;
+        /// Box art's URL and the name its file is cached under; empty for a Steam app.
+        std::string boxArtUrl;
+        std::string boxArtFile;
+        /// The system of an added game's box art, as the player reads it.
+        std::string system;
         /// The year it came out on Steam; empty until known, when the store says none, and for a
         /// box art title.
         std::string year;
@@ -102,7 +109,7 @@ class GameMatchController {
     }
     /// What the game is matched to now; empty for none.
     [[nodiscard]] const std::string& current() const noexcept {
-        return game_.artworkKey;
+        return current_;
     }
     [[nodiscard]] library::MatchKind kind() const noexcept {
         return kind_;
@@ -129,6 +136,13 @@ class GameMatchController {
     void find(const std::stop_token& stop, const std::string& term, std::uint64_t generation);
     void findSteamApps(const std::stop_token& stop, const std::string& term, Found& found);
     void findBoxArt(const std::stop_token& stop, const std::string& term, Found& found);
+    /// The box art titles every system of `boxArtSystems` has for `term`.
+    void findOwnBoxArt(const std::stop_token& stop, const std::string& term, Found& found);
+    /// Each candidate's cover, and a Steam app's year, published as they arrive.
+    void complete(const std::stop_token& stop, Found& found);
+    /// The cover of Steam app `app`: the plain CDN's portrait or header, else its hashed art.
+    [[nodiscard]] std::filesystem::path steamCover(const std::stop_token& stop,
+                                                   const std::string& app) const;
     /// The file at `url` kept in the cache as `name`, downloaded when it is not there; empty when
     /// there is none or `stop` ended its download.
     [[nodiscard]] std::filesystem::path cached(const std::stop_token& stop, const std::string& url,
@@ -147,6 +161,8 @@ class GameMatchController {
     const artwork::ArtworkStore& listings_;
     Hooks hooks_;
     library::Game game_;
+    /// What the game is matched to now.
+    std::string current_;
     library::MatchKind kind_{library::MatchKind::None};
     std::string title_;
     std::string term_;

@@ -144,6 +144,15 @@ struct Game {
     /// The installed build is a Windows one this OS runs under Wine (`wine::prepare`); GOG, Epic
     /// and an added `.exe`. Never on Windows, which runs them itself (`windowsBuildsNative`).
     bool windowsInstall{false};
+    /// A picture of the game's own that a shortcut names: a file, or a theme icon's name; empty
+    /// for none, its program's own icon then standing in.
+    std::filesystem::path iconSource;
+    /// Which icon of `iconSource`, as a shortcut counts them.
+    std::int32_t iconIndex{0};
+    /// Its own icon on disk, drawn small on a tile with no cover; empty for none.
+    std::filesystem::path icon;
+    /// An added game's picked box art, `<system>/<title>` in libretro-thumbnails; empty for none.
+    std::string boxArt;
     /// A game a games folder holds: it comes and goes with its file, so it has no entry to rename,
     /// repoint or remove.
     bool fromGameFolder{false};

@@ -8,6 +8,7 @@
 
 #include "gpu2d/ui/screen.hpp"
 
+#include "artwork/artwork_fetcher.hpp"
 #include "import_picks_screen.hpp"
 #include "library/game_folder.hpp"
 #include "library/lutris_games.hpp"
@@ -50,7 +51,7 @@ std::string kindName(std::optional<library::own::Kind> kind) {
 /// The guess in words for the confirm card.
 std::string noteOf(const library::identify::Guess& guess) {
     const std::string match = guess.steamAppId.empty()
-                                  ? "No store match, so no cover yet"
+                                  ? "No store match yet: its cover is looked up by this title"
                                   : "Steam app " + guess.steamAppId + ", its cover from Steam";
     return kindName(guess.kind) + ". " + match + ". Title from " + guess.from + ".";
 }
@@ -63,7 +64,8 @@ OwnGamesController::Places OwnGamesController::Places::of(const config::Config& 
                   .home = config.home,
                   .steamRoots =
                       library::steam::Library::discover(config.home, config.steamRoots).roots(),
-                  .lutrisData = library::lutris::dataDir(config.xdgDataHome)};
+                  .lutrisData = library::lutris::dataDir(config.xdgDataHome),
+                  .steamStore = artwork::RemoteSources::of(config).steamStore};
 }
 
 OwnGamesController::OwnGamesController(Parts parts, Places places, Hooks hooks)
@@ -151,9 +153,9 @@ void OwnGamesController::identify(const fs::path& file) {
         entry.originId.clear();
         library::identify::Guess guess = library::identify::identify(
             entry.file,
-            [&web, &stop](const std::string& term) {
+            [this, &web, &stop](const std::string& term) {
                 const net::Result<std::string> answer =
-                    web.get(stop, library::identify::storeSearchUrl(term));
+                    web.get(stop, library::identify::storeSearchUrl(term, places_.steamStore));
                 if (answer.stopped()) {
                     return std::vector<library::identify::StoreApp>{};
                 }
@@ -191,10 +193,11 @@ void OwnGamesController::service() {
 void OwnGamesController::confirm(const Identified& identified) {
     const library::identify::Guess& guess = identified.guess;
     askTitle("Add " + identified.entry.file.filename().string() + "?", noteOf(guess), guess.title,
-             [this, entry = identified.entry,
-              steamAppId = guess.steamAppId](const std::string& title) mutable {
+             [this, entry = identified.entry, guess](const std::string& title) mutable {
                  entry.title = title;
-                 entry.steamAppId = steamAppId;
+                 // A retyped title is another game than the one the store matched.
+                 entry.steamAppId =
+                     title == guess.title || guess.appIdOnDisk ? guess.steamAppId : std::string{};
                  apply(
                      [this, &entry] {
                          records_.add(entry);

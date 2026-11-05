@@ -5,12 +5,15 @@
 #include <cctype>
 #include <cstdint>
 #include <fstream>
+#include <span>
 #include <system_error>
 #include <utility>
 
 #include <nlohmann/json.hpp>
 
+#include "fileio/checked_bytes.hpp"
 #include "net/web_client.hpp"
+#include "pe_resources.hpp"
 #include "titles.hpp"
 
 namespace opensu::library::identify {
@@ -23,10 +26,6 @@ using Bytes = std::vector<unsigned char>;
 constexpr int mostFolders = 4;
 /// The most clues looked up in the store.
 constexpr std::size_t mostSearches = 6;
-/// The most bytes of a resource section read.
-constexpr std::uint32_t mostResourceBytes = 32U << 20U;
-/// PE's resource type of a version resource.
-constexpr std::uint32_t versionResource = 16;
 
 /// Names of engines' placeholders, as `titleKey`s.
 constexpr std::array<std::string_view, 10> placeholderNames{
@@ -45,9 +44,11 @@ constexpr std::array<std::string_view, 13> innerFolders{
     "bin", "bin32", "bin64", "binaries", "win32",  "win64",  "x64",
     "x86", "x8664", "game",  "system",   "retail", "release"};
 /// Folders that hold games rather than being one, as `titleKey`s: the walk up stops there.
-constexpr std::array<std::string_view, 12> libraryFolders{
-    "games",        "appimages",       "applications", "apps",   "downloads", "desktop",
-    "programfiles", "programfilesx86", "drivec",       "common", "steamapps", "opt"};
+constexpr std::array<std::string_view, 18> libraryFolders{
+    "games",        "appimages",    "applications",    "apps",   "downloads",
+    "desktop",      "programfiles", "programfilesx86", "drivec", "common",
+    "steamapps",    "opt",          "goggames",        "gog",    "epicgames",
+    "steamlibrary", "steam",        "xboxgames"};
 
 template <std::size_t N>
 bool among(const std::array<std::string_view, N>& names, std::string_view name) {
@@ -61,61 +62,8 @@ std::string lowered(std::string text) {
     return text;
 }
 
-std::uint32_t le(const Bytes& bytes, std::size_t at, std::size_t width) {
-    std::uint32_t value = 0;
-    for (std::size_t i = 0; i < width && at + i < bytes.size(); ++i) {
-        value |= static_cast<std::uint32_t>(bytes[at + i]) << (8U * i);
-    }
-    return value;
-}
-
-Bytes readAt(std::ifstream& in, std::uint64_t offset, std::uint32_t size) {
-    Bytes bytes(size);
-    in.seekg(static_cast<std::streamoff>(offset));
-    in.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(size));
-    bytes.resize(static_cast<std::size_t>(std::max<std::streamsize>(in.gcount(), 0)));
-    in.clear();
-    return bytes;
-}
-
-void appendUtf8(std::string& out, std::uint32_t code) {
-    if (code < 0x80U) {
-        out += static_cast<char>(code);
-    } else if (code < 0x800U) {
-        out += static_cast<char>(0xC0U | (code >> 6U));
-        out += static_cast<char>(0x80U | (code & 0x3FU));
-    } else if (code < 0x10000U) {
-        out += static_cast<char>(0xE0U | (code >> 12U));
-        out += static_cast<char>(0x80U | ((code >> 6U) & 0x3FU));
-        out += static_cast<char>(0x80U | (code & 0x3FU));
-    } else {
-        out += static_cast<char>(0xF0U | (code >> 18U));
-        out += static_cast<char>(0x80U | ((code >> 12U) & 0x3FU));
-        out += static_cast<char>(0x80U | ((code >> 6U) & 0x3FU));
-        out += static_cast<char>(0x80U | (code & 0x3FU));
-    }
-}
-
-/// The UTF-16LE text at `at`, to its terminator or `end`.
-std::string utf16At(const Bytes& bytes, std::size_t at, std::size_t end) {
-    std::string out;
-    for (std::size_t i = at; i + 1 < std::min(end, bytes.size()); i += 2) {
-        std::uint32_t unit = le(bytes, i, 2);
-        if (unit == 0) {
-            break;
-        }
-        if (unit >= 0xD800U && unit < 0xDC00U && i + 3 < bytes.size()) {
-            const std::uint32_t low = le(bytes, i + 2, 2);
-            unit = 0x10000U + ((unit - 0xD800U) << 10U) + (low - 0xDC00U);
-            i += 2;
-        }
-        appendUtf8(out, unit);
-    }
-    return out;
-}
-
 /// The value of String `key` in a VS_VERSIONINFO block.
-std::string versionString(const Bytes& block, std::string_view key) {
+std::string versionString(std::span<const std::uint8_t> block, std::string_view key) {
     Bytes pattern;
     for (const char c : key) {
         pattern.push_back(static_cast<unsigned char>(c));
@@ -132,92 +80,14 @@ std::string versionString(const Bytes& block, std::string_view key) {
     if (keyAt < 6) {
         return {};
     }
-    const std::size_t end = keyAt - 6 + le(block, keyAt - 6, 2);
+    const fileio::CheckedBytes bytes{block};
+    const std::size_t end = keyAt - 6 + bytes.u16(keyAt - 6).value_or(0);
     const std::size_t valueAt = (keyAt + pattern.size() + 3) & ~static_cast<std::size_t>(3);
-    std::string value = utf16At(block, valueAt, end);
+    std::string value = end > valueAt ? bytes.utf16(valueAt, (end - valueAt) / 2) : std::string{};
     while (!value.empty() && value.back() == ' ') {
         value.pop_back();
     }
     return value;
-}
-
-/// The data of the first resource of type `type` in a resource section at `rva`.
-Bytes resourceOf(const Bytes& section, std::uint32_t rva, std::uint32_t type) {
-    std::uint32_t directory = 0;
-    for (int level = 0; level < 3; ++level) {
-        const std::uint32_t entries =
-            le(section, directory + 12, 2) + le(section, directory + 14, 2);
-        std::uint32_t next = 0;
-        bool found = false;
-        for (std::uint32_t i = 0; i < entries; ++i) {
-            const std::size_t entry = directory + 16 + (static_cast<std::size_t>(i) * 8);
-            if (level == 0 && le(section, entry, 4) != type) {
-                continue;
-            }
-            next = le(section, entry + 4, 4);
-            found = true;
-            break;
-        }
-        if (!found) {
-            return {};
-        }
-        if (level < 2) {
-            if ((next & 0x80000000U) == 0) {
-                return {};
-            }
-            directory = next & 0x7FFFFFFFU;
-        } else {
-            const std::uint32_t dataRva = le(section, next, 4);
-            const std::uint32_t size = le(section, next + 4, 4);
-            if (dataRva < rva || dataRva - rva + size > section.size()) {
-                return {};
-            }
-            const auto first = section.begin() + static_cast<std::ptrdiff_t>(dataRva - rva);
-            return Bytes{first, first + static_cast<std::ptrdiff_t>(size)};
-        }
-    }
-    return {};
-}
-
-/// An .exe's VS_VERSIONINFO block; empty when it has none.
-Bytes versionBlock(const fs::path& exe) {
-    std::ifstream in{exe, std::ios::binary};
-    if (!in) {
-        return {};
-    }
-    const Bytes dos = readAt(in, 0, 64);
-    if (dos.size() < 64 || dos[0] != 'M' || dos[1] != 'Z') {
-        return {};
-    }
-    const std::uint32_t pe = le(dos, 0x3C, 4);
-    const Bytes headers = readAt(in, pe, 4096);
-    if (headers.size() < 24 || le(headers, 0, 4) != 0x00004550U) {
-        return {};
-    }
-    const std::uint32_t sections = le(headers, 6, 2);
-    const std::uint32_t optionalSize = le(headers, 20, 2);
-    const std::size_t optional = 24;
-    const std::uint32_t magic = le(headers, optional, 2);
-    // The resource directory is data directory 2.
-    const std::size_t directories = optional + (magic == 0x20BU ? 112 : 96);
-    const std::uint32_t resourceRva = le(headers, directories + 16, 4);
-    if (resourceRva == 0) {
-        return {};
-    }
-    for (std::uint32_t i = 0; i < sections; ++i) {
-        const std::size_t header = optional + optionalSize + (static_cast<std::size_t>(i) * 40);
-        const std::uint32_t virtualAddress = le(headers, header + 12, 4);
-        const std::uint32_t rawSize = le(headers, header + 16, 4);
-        const std::uint32_t rawAt = le(headers, header + 20, 4);
-        if (resourceRva < virtualAddress || resourceRva >= virtualAddress + rawSize) {
-            continue;
-        }
-        const std::uint32_t skip = resourceRva - virtualAddress;
-        const Bytes section = readAt(in, static_cast<std::uint64_t>(rawAt) + skip,
-                                     std::min(rawSize - skip, mostResourceBytes));
-        return resourceOf(section, resourceRva, versionResource);
-    }
-    return {};
 }
 
 /// `name` without the trademark signs a store puts in titles.
@@ -228,11 +98,6 @@ std::string unmarked(std::string name) {
         }
     }
     return name;
-}
-
-std::size_t depthOf(const fs::path& dir) {
-    const fs::path relative = dir.relative_path();
-    return static_cast<std::size_t>(std::distance(relative.begin(), relative.end()));
 }
 
 /// The `Name=` of a .desktop entry in `dir` whose `Exec=` names `file`.
@@ -296,8 +161,29 @@ void addClue(std::vector<Clue>& names, std::string name, const char* from) {
 
 } // namespace
 
+bool mayNameAGame(const fs::path& dir) {
+    std::vector<std::string> parts;
+    for (const fs::path& part : dir.relative_path()) {
+        if (!part.empty()) {
+            parts.push_back(part.string());
+        }
+    }
+    const bool drive = dir.has_root_name() || (!parts.empty() && parts.front().ends_with(':'));
+    if (!dir.has_root_name() && drive) {
+        parts.erase(parts.begin());
+    }
+    if (drive && (parts.empty() || titleKey(parts.front()) != "users")) {
+        return !parts.empty();
+    }
+    return parts.size() > 2;
+}
+
 std::string versionName(const fs::path& exe) {
-    const Bytes block = versionBlock(exe);
+    const std::optional<pe::Resources> resources = pe::Resources::of(exe);
+    if (!resources) {
+        return {};
+    }
+    const std::span<const std::uint8_t> block = resources->at(pe::versionType, 0);
     if (block.empty()) {
         return {};
     }
@@ -349,7 +235,7 @@ Clues cluesOf(const fs::path& file, const fs::path& stopAt) {
     addClue(clues.names, desktopName(file.parent_path(), file), "its .desktop entry");
     fs::path dir = file.parent_path();
     for (int level = 0;
-         level < mostFolders && dir != stopAt && (!stopAt.empty() || depthOf(dir) > 2); ++level) {
+         level < mostFolders && dir != stopAt && (!stopAt.empty() || mayNameAGame(dir)); ++level) {
         if (clues.steamAppId.empty()) {
             clues.steamAppId = steamAppIdIn(dir);
         }
@@ -373,6 +259,14 @@ Clues cluesOf(const fs::path& file, const fs::path& stopAt) {
     return clues;
 }
 
+std::optional<StoreApp> sameTitle(const std::vector<StoreApp>& apps, std::string_view title) {
+    const std::string key = titleKey(unmarked(std::string{title}));
+    const auto found = std::ranges::find_if(apps, [&key](const StoreApp& app) {
+        return !key.empty() && titleKey(unmarked(app.title)) == key;
+    });
+    return found == apps.end() ? std::nullopt : std::optional{*found};
+}
+
 Guess identify(const fs::path& file, const StoreSearch& search, const std::string& shortcut) {
     Clues clues = cluesOf(file);
     if (!shortcut.empty()) {
@@ -384,6 +278,7 @@ Guess identify(const fs::path& file, const StoreSearch& search, const std::strin
     Guess guess{.title = clues.names.empty() ? file.stem().string() : clues.names.front().name,
                 .kind = own::kindOf(file),
                 .steamAppId = clues.steamAppId,
+                .appIdOnDisk = !clues.steamAppId.empty(),
                 .from = clues.names.empty() ? "the file's name" : clues.names.front().from};
     std::size_t searched = 0;
     for (const Clue& clue : clues.names) {
@@ -391,11 +286,11 @@ Guess identify(const fs::path& file, const StoreSearch& search, const std::strin
             break;
         }
         const std::vector<StoreApp> apps = search(clue.name);
-        const auto match = std::ranges::find_if(apps, [&](const StoreApp& app) {
-            return clues.steamAppId.empty() ? titleKey(app.title) == titleKey(clue.name)
-                                            : app.appId == clues.steamAppId;
-        });
-        if (match != apps.end()) {
+        const auto named = std::ranges::find(apps, clues.steamAppId, &StoreApp::appId);
+        const std::optional<StoreApp> match =
+            clues.steamAppId.empty() ? sameTitle(apps, clue.name)
+                                     : (named == apps.end() ? std::nullopt : std::optional{*named});
+        if (match) {
             guess.title = unmarked(match->title);
             guess.steamAppId = match->appId;
             guess.from = "Steam's store, from " + clue.from;
@@ -423,7 +318,7 @@ std::vector<StoreApp> parseStoreSearch(std::string_view json) {
     return apps;
 }
 
-std::string storeSearchUrl(std::string_view name) {
+std::string storeSearchUrl(std::string_view name, std::string_view store) {
     std::string term;
     for (const char c : name) {
         const auto byte = static_cast<unsigned char>(c);
@@ -437,7 +332,7 @@ std::string storeSearchUrl(std::string_view name) {
     while (!term.empty() && term.back() == ' ') {
         term.pop_back();
     }
-    return "https://store.steampowered.com/api/storesearch/?term=" + net::percentEncode(term) +
+    return std::string{store} + "/api/storesearch/?term=" + net::percentEncode(term) +
            "&l=english&cc=US";
 }
 

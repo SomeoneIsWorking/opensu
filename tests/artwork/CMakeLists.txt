@@ -8,6 +8,13 @@ target_link_libraries(artwork_fetcher_test PRIVATE opensu::artwork lucent::lucen
 opensu_warnings(artwork_fetcher_test)
 add_test(NAME artwork_fetcher COMMAND artwork_fetcher_test)
 
+add_executable(game_icon_test game_icon_test.cpp)
+target_link_libraries(game_icon_test PRIVATE opensu::artwork gpu2d::image lucent::lucent)
+target_include_directories(game_icon_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+target_compile_definitions(game_icon_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+opensu_warnings(game_icon_test)
+add_test(NAME game_icon COMMAND game_icon_test)
+
 add_executable(apk_archive_test apk_archive_test.cpp)
 target_link_libraries(apk_archive_test PRIVATE opensu::artwork ZLIB::ZLIB lucent::lucent
                                                Threads::Threads)

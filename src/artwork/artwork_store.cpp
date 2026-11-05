@@ -4,6 +4,7 @@
 #include <system_error>
 
 #include "fileio/atomic_write.hpp"
+#include "library/titles.hpp"
 #include "libretro_index.hpp"
 #include "lucent/log.h"
 #include "rom_systems.hpp"
@@ -15,7 +16,7 @@ namespace fs = std::filesystem;
 
 fs::path missMarker(const fs::path& file) {
     fs::path marker = file;
-    marker += ".miss";
+    marker += ".missed";
     return marker;
 }
 
@@ -80,8 +81,13 @@ fs::path ArtworkStore::pathFor(const library::Game& game) const {
     case library::Source::Gog:
         return game.sourceId.empty() ? fs::path{} : root_ / "gog" / (game.sourceId + ".jpg");
     case library::Source::Own:
-        // Without a Steam app, SteamGridDB's comes through `CoverFitter`.
-        return {};
+        if (game.sourceId.empty()) {
+            return {};
+        }
+        // Another pick or title is another file, and another look.
+        return root_ / "own" /
+               (game.boxArt.empty() ? game.sourceId + "-" + library::titleKey(game.title) + ".jpg"
+                                    : game.sourceId + "-" + thumbnailName(game.boxArt) + ".png");
     case library::Source::Remote:
         // Its host's cover comes with the listing.
         break;
@@ -103,7 +109,28 @@ void ArtworkStore::apply(std::vector<library::Game>& games) const {
     }
 }
 
+fs::path ArtworkStore::iconFor(const library::Game& game) const {
+    if (game.source != library::Source::Own || game.sourceId.empty()) {
+        return {};
+    }
+    return root_ / "icons" /
+           (game.sourceId + "-" + library::titleKey(game.file.stem().string()) + ".png");
+}
+
+bool ArtworkStore::wantsIcon(const library::Game& game) const {
+    const fs::path file = iconFor(game);
+    return game.artwork.empty() && !file.empty() && !isFile(file);
+}
+
+bool ArtworkStore::saveIcon(const library::Game& game, std::string_view png,
+                            std::string& error) const {
+    return saveAt(iconFor(game), game.title, png, error);
+}
+
 void ArtworkStore::giveStored(library::Game& game) const {
+    if (const fs::path icon = iconFor(game); !icon.empty() && isFile(icon)) {
+        game.icon = icon;
+    }
     if (!game.artwork.empty()) {
         return;
     }

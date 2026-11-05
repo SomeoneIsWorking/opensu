@@ -139,9 +139,19 @@ is `library::folder::notAGame`: a whole word of the name (so `Crash Bandicoot` s
 
 ## Artwork and SteamGridDB
 
-Covers come from Steam's CDN, the stores, gamesdb and the libretro thumbnails. With a SteamGridDB
-key, a cover Home's square tiles would crop or letterbox is replaced by SteamGridDB's square one
-(the original stays on disk), and a game's details page offers Choose artwork, a picker of
+Covers come from Steam's CDN, the stores, gamesdb and the libretro thumbnails, none of which needs a
+key. A game you added looks in order: the Steam app it matches, by the id on record or a store title
+exactly its own; box art of exactly its title from libretro-thumbnails on the systems PC games reach
+(PlayStation 1 to 3, Dreamcast, GameCube, Wii, Xbox, Xbox 360, PSP); then its own icon, drawn small in
+the middle of the tile: from the `.exe`, the icon a `.lnk` or `.desktop` names, an `.ico` beside the
+program, or a macOS `.icns`. A wrong cover is worse than the icon, so box art has to be sure:
+`artwork::confidentMatch` wants two words or more besides "the" and "and", no brackets in the title,
+the exact title, and never a demo, beta, prototype, hack, pirate, unlicensed, aftermarket or homebrew
+release. Match a different game offers Steam apps and those systems' box art for anything else.
+
+With a SteamGridDB key, a cover Home's square tiles would crop or letterbox is replaced by SteamGridDB's square one
+(the original stays on disk), a game with nothing else gets one by its title, and a game's details
+page offers Choose artwork, a picker of
 SteamGridDB's covers kept per game.
 
 ![A details page with its SteamGridDB cover](../screenshots/details.webp)

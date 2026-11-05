@@ -66,6 +66,8 @@ struct TileVisual {
     float ringDegrees{0.0f};
     /// Cover art, or null for none.
     const gpu2d::Texture* art{nullptr};
+    /// The game's own icon, drawn small in the middle of a tile with no art; null for none.
+    const gpu2d::Texture* icon{nullptr};
     /// The platform frame, or null for an unframed tile.
     const Platform* platform{nullptr};
     /// The ES-DE system whose drawing a console tile carries and whose glyph a framed tile's tab
@@ -114,6 +116,8 @@ class TilePainter {
                     std::string_view console, float alpha);
     void paintFallback(Canvas& canvas, const TileVisual& tile, const Rect& content) const;
     void paintLoading(Canvas& canvas, const TileVisual& tile, const Rect& content) const;
+    /// The icon centred at a whole multiple of its size, or shrunk to fit: never stretched.
+    static void paintIcon(Canvas& canvas, const TileVisual& tile, const Rect& content);
     /// A folder's card: a gradient with the mark, the name and the count centred on it.
     void paintCard(Canvas& canvas, const TileVisual& tile, const Rect& content, Colour from,
                    Colour to);

@@ -184,6 +184,13 @@ struct Config {
     /// The directories searched for a launch's program, from PATH.
     std::vector<std::filesystem::path> executablePath;
 
+    /// libretro-thumbnails' root, from OPENSU_LIBRETRO_THUMBNAILS, which points a test run at a
+    /// stand-in; empty for the real one.
+    std::string libretroThumbnails;
+    /// A stand-in for Steam's store, CDN and `GetItems`, from OPENSU_STEAM_STAND_IN; empty for
+    /// Steam's own.
+    std::string steamStandIn;
+
     /// SteamGridDB's API root, from OPENSU_STEAMGRIDDB_API, which points a test run at a stand-in;
     /// empty for SteamGridDB's own.
     std::string steamGridDbApi;

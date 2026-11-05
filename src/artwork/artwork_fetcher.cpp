@@ -1,10 +1,13 @@
 #include "artwork_fetcher.hpp"
 
 #include <algorithm>
+#include <charconv>
+#include <stdexcept>
 #include <utility>
 
 #include <nlohmann/json.hpp>
 
+#include "game_icon.hpp"
 #include "libretro_index.hpp"
 #include "lucent/log.h"
 #include "rom_systems.hpp"
@@ -44,6 +47,49 @@ std::string gogCoverUrl(const std::string& body) {
 
 } // namespace
 
+RemoteSources RemoteSources::of(const config::Config& config) {
+    RemoteSources sources;
+    if (!config.libretroThumbnails.empty()) {
+        sources.libretro = config.libretroThumbnails;
+    }
+    if (!config.steamStandIn.empty()) {
+        sources.steam = config.steamStandIn + "/cdn";
+        sources.steamStore = config.steamStandIn;
+        sources.steamItems = config.steamStandIn + "/items";
+        sources.steamAssets = config.steamStandIn + "/assets/";
+    }
+    sources.iconThemes = {config.xdgDataHome / "icons", "/usr/local/share/icons",
+                          "/usr/share/icons"};
+    return sources;
+}
+
+net::Result<std::vector<std::string>> steamArtUrls(const std::stop_token& stop,
+                                                   const net::WebClient& web,
+                                                   const RemoteSources& sources,
+                                                   const std::string& appId) {
+    std::uint32_t app = 0;
+    std::from_chars(appId.data(), appId.data() + appId.size(), app);
+    const std::string url = library::steam_items::itemsUrl({app}, sources.steamItems);
+    const net::Result<std::string> answer = web.get(stop, url);
+    if (!answer) {
+        return answer.as<std::vector<std::string>>("GetItems: ");
+    }
+    std::vector<std::string> urls;
+    try {
+        for (const library::steam_items::Item& item :
+             library::steam_items::parseItems(*answer, sources.steamAssets)) {
+            for (const std::string& art : {item.portraitUrl, item.headerUrl}) {
+                if (!art.empty()) {
+                    urls.push_back(art);
+                }
+            }
+        }
+    } catch (const std::runtime_error& error) {
+        lucent::warn("artwork", "Steam app {}: {}", appId, error.what());
+    }
+    return urls;
+}
+
 ArtworkFetcher::ArtworkFetcher(const ArtworkStore& store, const RemoteSources& sources,
                                library::roms::NameDb names)
     : store_{store}, sources_{sources}, names_{std::move(names)},
@@ -61,7 +107,7 @@ void ArtworkFetcher::request(const std::vector<library::Game>& games) {
     const ArtworkStore::Clock::time_point now = ArtworkStore::Clock::now();
     std::vector<Work> wanted;
     for (const library::Game& game : games) {
-        if (store_.wanted(game, now)) {
+        if (store_.wanted(game, now) || store_.wantsIcon(game)) {
             wanted.emplace_back(game);
         }
     }
@@ -195,6 +241,9 @@ void ArtworkFetcher::recordMiss(const Work& work) const {
 
 ArtworkFetcher::Outcome ArtworkFetcher::fetch(const library::Game& game,
                                               const std::stop_token& stop) {
+    if (game.source == library::Source::Own) {
+        return fetchOwn(game, stop);
+    }
     if (game.source != library::Source::Rom && !game.artworkKey.empty()) {
         // Matched to a Steam app: its covers, whatever the game's own source.
         return fetchSteam(game, game.artworkKey, stop);
@@ -212,6 +261,96 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetch(const library::Game& game,
     // A remote game's host sends its cover with the listing.
     case library::Source::Remote:
         return Outcome::Missing;
+    }
+    return Outcome::Missing;
+}
+
+void ArtworkFetcher::keepIcon(const library::Game& game) {
+    if (!store_.wantsIcon(game)) {
+        return;
+    }
+    const std::optional<std::string> png = gameIcon(game, sources_.iconThemes);
+    if (!png) {
+        return;
+    }
+    std::string error;
+    if (!store_.saveIcon(game, *png, error)) {
+        lucent::warn("artwork", "{}", error);
+        return;
+    }
+    const std::lock_guard lock{mutex_};
+    done_.push_back(Fetched{Fetched::Kind::Icon, game.id, store_.iconFor(game)});
+}
+
+ArtworkFetcher::Outcome ArtworkFetcher::fetchOwn(const library::Game& game,
+                                                 const std::stop_token& stop) {
+    keepIcon(game);
+    if (!store_.wanted(game, ArtworkStore::Clock::now())) {
+        return Outcome::Settled;
+    }
+    if (!game.boxArt.empty()) {
+        return fetchBoxPick(game, stop);
+    }
+    std::string appId = game.artworkKey;
+    if (appId.empty()) {
+        const std::string url = library::identify::storeSearchUrl(game.title, sources_.steamStore);
+        const net::Result<std::string> answer = web_.get(stop, url);
+        if (answer.stopped()) {
+            return Outcome::Stopped;
+        }
+        if (!answer) {
+            lucent::warn("artwork", "{}: {}", url, answer.error());
+            return Outcome::Unreachable;
+        }
+        if (const std::optional<library::identify::StoreApp> app = library::identify::sameTitle(
+                library::identify::parseStoreSearch(*answer), game.title)) {
+            appId = app->appId;
+        }
+    }
+    if (!appId.empty()) {
+        const Outcome steam = fetchSteam(game, appId, stop);
+        if (steam != Outcome::Missing) {
+            return steam;
+        }
+    }
+    return fetchBoxArt(game, stop);
+}
+
+ArtworkFetcher::Outcome ArtworkFetcher::fetchBoxPick(const library::Game& game,
+                                                     const std::stop_token& stop) {
+    const std::size_t slash = game.boxArt.find('/');
+    const library::roms::RomSystem* system =
+        slash == std::string::npos ? nullptr
+                                   : library::roms::systemByKey(game.boxArt.substr(0, slash));
+    if (system == nullptr) {
+        return Outcome::Missing;
+    }
+    return keep(game, boxArtUrl(sources_.libretro, *system, game.boxArt.substr(slash + 1)), stop);
+}
+
+ArtworkFetcher::Outcome ArtworkFetcher::fetchBoxArt(const library::Game& game,
+                                                    const std::stop_token& stop) {
+    for (const std::string_view key : boxArtSystems) {
+        const library::roms::RomSystem* system = library::roms::systemByKey(key);
+        if (system == nullptr) {
+            continue;
+        }
+        const std::vector<std::string>* names = index(*system, stop);
+        if (stop.stop_requested()) {
+            return Outcome::Stopped;
+        }
+        if (names == nullptr) {
+            return Outcome::Unreachable;
+        }
+        const std::optional<std::string> match = confidentMatch(game.title, *names);
+        if (!match) {
+            continue;
+        }
+        lucent::info("artwork", "{} takes box art {} of {}", game.id, *match, key);
+        const Outcome outcome = keep(game, boxArtUrl(sources_.libretro, *system, *match), stop);
+        if (outcome != Outcome::Missing) {
+            return outcome;
+        }
     }
     return Outcome::Missing;
 }
@@ -241,7 +380,25 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetchSteam(const library::Game& game,
     if (portrait != Outcome::Missing) {
         return portrait;
     }
-    return keep(game, base + "header.jpg", stop);
+    const Outcome header = keep(game, base + "header.jpg", stop);
+    if (header != Outcome::Missing) {
+        return header;
+    }
+    const net::Result<std::vector<std::string>> urls = steamArtUrls(stop, web_, sources_, appId);
+    if (urls.stopped()) {
+        return Outcome::Stopped;
+    }
+    if (!urls) {
+        lucent::warn("artwork", "{}", urls.error());
+        return Outcome::Unreachable;
+    }
+    for (const std::string& url : *urls) {
+        const Outcome art = keep(game, url, stop);
+        if (art != Outcome::Missing) {
+            return art;
+        }
+    }
+    return Outcome::Missing;
 }
 
 ArtworkFetcher::Outcome ArtworkFetcher::fetchGog(const library::Game& game,

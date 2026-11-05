@@ -30,10 +30,13 @@ void applyMatchPicks(const settings::SettingLayers& layers, std::vector<Game>& g
             continue;
         }
         const MatchKind kind = matchKindOf(game);
-        if (kind == MatchKind::None || (kind == MatchKind::SteamApp && !isSteamAppId(*pick))) {
+        const bool boxArt = game.source == Source::Own && pick->starts_with(boxArtPick);
+        if (kind == MatchKind::None ||
+            (kind == MatchKind::SteamApp && !boxArt && !isSteamAppId(*pick))) {
             continue;
         }
-        game.artworkKey = *pick;
+        game.boxArt = boxArt ? pick->substr(boxArtPick.size()) : std::string{};
+        game.artworkKey = boxArt ? std::string{} : *pick;
         game.artwork.clear();
         game.artworkWide.clear();
     }

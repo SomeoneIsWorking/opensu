@@ -91,6 +91,8 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
 
     /// Gives a game's tile artwork that arrived after the shelf was set.
     void setArtwork(std::string_view gameId, const std::filesystem::path& artwork);
+    /// Gives a game's tile its own icon.
+    void setIcon(std::string_view gameId, const std::filesystem::path& icon);
     /// Sets which games' artwork is downloading or queued, which is what a tile's spinner shows;
     /// every other game's is not.
     void setArtworkDownloading(const std::vector<std::string>& gameIds);

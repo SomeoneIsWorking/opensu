@@ -310,6 +310,18 @@ void HomeGrid::setArtwork(std::string_view gameId, const std::filesystem::path& 
     tile.artDownloading = false;
 }
 
+void HomeGrid::setIcon(std::string_view gameId, const std::filesystem::path& icon) {
+    const auto found = gameTiles_.find(std::string{gameId});
+    if (found == gameTiles_.end()) {
+        return;
+    }
+    Tile& tile = tiles_[found->second];
+    if (auto* game = std::get_if<library::Game>(&tile.item)) {
+        game->icon = icon;
+        artwork_.unload(tile);
+    }
+}
+
 void HomeGrid::setArtworkDownloading(const std::vector<std::string>& gameIds) {
     for (Tile& tile : tiles_) {
         tile.artDownloading = false;
@@ -694,6 +706,7 @@ std::string HomeGrid::pillTitle() const {
 
 void HomeGrid::fillContent(TileVisual& visual, const Tile& tile) const {
     visual.art = tile.art();
+    visual.icon = tile.icon.texture();
     visual.platform = tile.platform;
     visual.loading = tile.awaitingArt();
     if (const auto* game = std::get_if<library::Game>(&tile.item)) {

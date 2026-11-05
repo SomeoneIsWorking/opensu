@@ -1,9 +1,10 @@
 // artwork_store — downloaded artwork on disk: where each game's file goes, which games still
 // want one, the misses not to ask about again soon, and libretro's listings.
 //
-// Layout under the root: steam/<appid>.jpg, rom/<system>/<thumbnail name>.png; a `.miss` file
-// beside any that the source does not have, libretro/<system>.txt for a listing. switch/ is
-// library::roms::SwitchInfo's, a Switch game's own title and icon.
+// Layout under the root: steam/<appid>.jpg, rom/<system>/<thumbnail name>.png,
+// own/<id>-<title>.jpg; a `.missed` file beside any that the source does not have,
+// libretro/<system>.txt for a listing, icons/<id>-<file>.png for an added game's own icon. switch/
+// is library::roms::SwitchInfo's, a Switch game's own title and icon.
 #pragma once
 
 #include <chrono>
@@ -42,6 +43,13 @@ class ArtworkStore {
     /// Whether `game` has no art and none is coming: no source can supply it, or its source missed
     /// within `missLifetime` of `now`. A game whose download is still to come is not coverless.
     [[nodiscard]] bool coverless(const library::Game& game, Clock::time_point now) const;
+
+    /// The file an added game's own icon is kept in; empty for any other game.
+    [[nodiscard]] std::filesystem::path iconFor(const library::Game& game) const;
+    /// Whether `game` has no cover and its own icon has not been read from its files yet.
+    [[nodiscard]] bool wantsIcon(const library::Game& game) const;
+    /// Keeps `game`'s own icon. False with `error` on failure.
+    bool saveIcon(const library::Game& game, std::string_view png, std::string& error) const;
 
     /// Keeps a downloaded image, replacing the file whole. False with `error` on failure.
     bool save(const library::Game& game, std::string_view bytes, std::string& error) const;
