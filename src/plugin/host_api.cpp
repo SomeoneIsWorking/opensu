@@ -246,15 +246,18 @@ int httpGet(lua_State* state) {
     return LuaRuntime::of(state).await(
         state,
         [permissions = context.permissions, web = context.web, url = std::move(url),
-         headers = std::move(headers)](const std::stop_token& /*stop*/) -> Pusher {
+         headers = std::move(headers)](const std::stop_token& stop) -> Pusher {
             const net::WebClient::Guard guard{.maxBody = httpBodyLimit,
                                               .refusal = [&permissions](const std::string& hop) {
                                                   return permissions.urlRefusal(hop);
                                               }};
-            net::Result<net::WebClient::Answer> answer =
-                web->request(std::stop_token{}, url, headers, guard);
+            net::Result<net::WebClient::Answer> answer = web->request(stop, url, headers, guard);
+            if (answer.stopped()) {
+                // The pool is going: nothing is handed back.
+                return {};
+            }
             if (!answer) {
-                return failure(answer.stopped() ? "stopped" : answer.error());
+                return failure(answer.error());
             }
             return [answer = *std::move(answer)](lua_State* resumed) {
                 lua_createtable(resumed, 0, 2);

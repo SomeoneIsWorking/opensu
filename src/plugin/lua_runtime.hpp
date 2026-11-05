@@ -34,7 +34,7 @@ inline constexpr int hookInterval = 10'000;
 /// Pushes what a yielding call returns and says how many values.
 using Pusher = std::function<int(lua_State*)>;
 /// The work a yielding call has done off the plugin's thread, on that thread's stop; it hands back
-/// the call's results.
+/// the call's results, or no pusher once that stop ended it.
 using IoWork = std::function<Pusher(const std::stop_token&)>;
 
 /// Lua could not raise an error at all, so the state cannot be used again.

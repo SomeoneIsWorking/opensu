@@ -337,6 +337,10 @@ void PluginWorker::step(std::uint64_t id) {
                     return 2;
                 };
             }
+            if (!pusher) {
+                inbox->settle();
+                return;
+            }
             // Runs only while the worker's thread does, which the worker joins before it goes.
             inbox->post([this, id, pusher = std::move(pusher)]() mutable {
                 if (const auto waiting = running_.find(id); waiting != running_.end()) {
