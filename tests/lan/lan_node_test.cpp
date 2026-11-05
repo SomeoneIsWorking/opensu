@@ -168,6 +168,10 @@ struct Node {
               .changed =
                   [this] {
                       ++savesChanged;
+                  },
+              .seatOf =
+                  [this](const std::string& profile) {
+                      return profiles.seatOf(profile);
                   }}},
           profiles{root / name / "profiles.json"},
           node{lan::LanNode::Setup{
@@ -512,13 +516,14 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
     expect(pairUp(guest, host, true) == GuestPairing::Phase::Paired, "they pair");
 
     writeFile(hostSave, "saved on the den");
-    const std::uint64_t unshared = guest.sync.prepare(game, player);
+    const std::string own = guest.profiles.first().id;
+    const std::uint64_t unshared = guest.sync.prepare(game, own);
     expect(waitFor([&guest, unshared] {
                return guest.sync.prepared(unshared);
            }),
-           "a launch is let go at once while no profile is linked");
-    expect(!fs::exists(guestSave) && looksLike(guest, game, player, Standing::NotShared),
-           "and nothing is taken; the profile is not linked with the den");
+           "a launch as the attic's own profile is let go at once: it is linked with nothing");
+    expect(!fs::exists(guestSave) && looksLike(guest, game, own, Standing::NotShared),
+           "and nothing is taken from the den");
 
     const std::optional<std::vector<lan::wire::ListedProfile>> listed =
         guest.node.profilesOf(host.node.id(), error);
@@ -779,6 +784,10 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
             },
         .changed =
             [] {
+            },
+        .seatOf =
+            [&profiles](const std::string& profile) {
+                return profiles.seatOf(profile);
             }}};
     lan::LanListener listener{lan::LanListener::Sources{.book = book,
                                                         .pairing = pairing,

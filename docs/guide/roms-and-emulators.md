@@ -41,9 +41,10 @@ DuckStation and the built-in runner for PlayStation), the game's details page sh
 naming them. It opens a card: Copy from lists the
 emulators that hold a save of the game, Copy to every other one, each with its newest change and
 size, or "No save yet" (A lists them when there is more than one). Copy saves asks, then replaces
-the target's saves of that game with the source's: for Switch the current profile's save and the
-device save, for other consoles the game's save file or memory card. A target without one gets it
-made where that emulator makes it, for its current profile. The target's saves are backed up first
+the target's saves of that game with the source's: for Switch the save of the emulator user you
+play as ([profiles.md](profiles.md#switch-emulators)) and the device save, for other consoles the
+game's save file or memory card. A target without one gets it made where that emulator makes it,
+for that user. The target's saves are backed up first
 under `~/.local/state/opensu/save-backups/profiles/<profile>/<console>/<game>/<emulator>/<time>/`, and Undo copy on the same card puts the newest backup back exactly as it
 was and removes what the copy made. The row shows how far a copy or an undo is. Nothing is copied
 while either emulator is running: close it first, as the message says.

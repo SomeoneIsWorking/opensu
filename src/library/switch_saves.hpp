@@ -3,7 +3,9 @@
 // `<nand>/user/save/0000000000000000/<user>/<title id>` or Eden's newer
 // `user/save/account/<UUID>/<title id>/0`, its profiles in `profiles.dat` and the current one in
 // `qt-config.ini`; Ryujinx's line by each save folder's own attribute in `ExtraData0`, its
-// profiles in `system/Profiles.json`. Ryubing names a save folder by the save id its index
+// profiles in `system/Profiles.json`. A profile plays as the emulator user its seat picks: the
+// first seat the current user, each further one the next of the others in the emulator's order.
+// Ryubing names a save folder by the save id its index
 // (`imkvdb.arc`) gives it; Kenji-NX by game and profile, `<title id>/<user>`, read back from the
 // folders themselves.
 #pragma once
@@ -19,17 +21,18 @@
 namespace opensu::library::saves {
 
 /// The account and device saves of `titleId` under yuzu's NAND folder `nand`, unmeasured; the
-/// current profile is the one `<config>/qt-config.ini` picks.
+/// current one is that of the user `seat` plays as, `<config>/qt-config.ini` picking the first.
 [[nodiscard]] std::vector<SaveSlot> yuzuSlots(const std::filesystem::path& nand,
-                                              const std::filesystem::path& config,
+                                              const std::filesystem::path& config, std::size_t seat,
                                               std::string_view titleId);
 
 /// The account and device saves of `titleId` under Ryujinx's `bis` folder, unmeasured: every
 /// folder of `user/save`, or of a title's folder in it, whose `ExtraData0` names the title; the
-/// current profile is the open one of `<config>/system/Profiles.json`.
+/// current one is that of the user `seat` plays as, the open one of
+/// `<config>/system/Profiles.json` the first.
 [[nodiscard]] std::vector<SaveSlot> ryujinxSlots(const std::filesystem::path& bis,
                                                  const std::filesystem::path& config,
-                                                 std::string_view titleId);
+                                                 std::size_t seat, std::string_view titleId);
 
 /// A slot an emulator does not have yet, as it would make it.
 struct NewSlot {
@@ -38,9 +41,9 @@ struct NewSlot {
     std::vector<std::filesystem::path> touched;
 };
 
-/// Where `home`'s emulator would make its `kind` save of the title: the current profile's account
-/// save, or the device save; after `earlier`, the slots planned before it for the same copy.
-/// Nothing, with why in `error`, when it cannot be made here.
+/// Where `home`'s emulator would make its `kind` save of the title: the account save of the user
+/// the seat plays as, or the device save; after `earlier`, the slots planned before it for the same
+/// copy. Nothing, with why in `error`, when it cannot be made here.
 [[nodiscard]] std::optional<NewSlot> plannedSlot(const SaveHome& home, SlotKind kind,
                                                  const std::vector<NewSlot>& earlier,
                                                  std::string& error);

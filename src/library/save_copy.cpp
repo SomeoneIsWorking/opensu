@@ -184,9 +184,8 @@ std::vector<Pair> pairsOf(const EmulatorSaves& from, const EmulatorSaves& to, st
         if (target == nullptr && !to.home) {
             continue;
         }
-        // Another profile's save stays its own; the current profile's is made.
-        if (target != nullptr &&
-            (target->current || target->kind != SlotKind::Account || !to.home)) {
+        // The profile's own save is written over; one it lacks is made.
+        if (target != nullptr) {
             pairs.push_back(
                 Pair{.from = source, .to = *target, .made = std::nullopt, .converted = {}});
             continue;

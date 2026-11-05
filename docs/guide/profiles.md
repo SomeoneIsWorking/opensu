@@ -31,6 +31,15 @@ this openSU. Removing the pairing unlinks every profile linked with it.
 - With two or more profiles, openSU asks *Who is playing?* when it starts, the last one played as
   focused. B keeps it.
 
+## Switch emulators
+
+Eden, Ryujinx and the other Switch emulators keep a save per emulator user. The first profile plays
+as the emulator's current user; each further profile as the emulator's next user, skipping the
+current one, in the order the emulator lists them. Copy saves and save sharing use that user's
+save; a profile the emulator has no user for has none there, and Copy saves says to add a user in
+the emulator. The emulator still starts as its own current user, so switch the user in the emulator
+too when another profile plays. Device saves are shared by every profile.
+
 ## Where the saves are
 
 The built-in runner keeps each profile's saves in

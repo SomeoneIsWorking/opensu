@@ -85,6 +85,9 @@ class SaveSync {
             inUse;
         /// What `standings` gives changed; called on the sync's thread.
         std::function<void()> changed;
+        /// `profile`'s place in the order of profiles, which picks a Switch emulator's user
+        /// (`ProfileBook::seatOf`); nothing when it is not here. Called on the sync's thread.
+        std::function<std::optional<std::size_t>(const std::string& profile)> seatOf;
     };
     /// The targets of a group as they are now.
     using Targets = std::function<std::vector<std::shared_ptr<SaveTarget>>()>;

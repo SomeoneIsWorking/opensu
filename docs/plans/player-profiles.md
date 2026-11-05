@@ -59,9 +59,11 @@ in `ExtraData0`). A profile plays as one of the emulator's users by its place in
 order: the first profile is the emulator's current user (`qt-config.ini`'s `current_user`,
 Ryujinx's open profile), as before profiles; each further profile is the emulator's next user in
 its own list (`profiles.dat`, `Profiles.json`), skipping the current one. Copy saves and save sync
-read and write that user's account save (`SaveSlot::current` marks it). A profile the emulator has
-no user for has no account save there: Copy saves says to add a user in the emulator. Device saves
-are the console's, shared by every profile.
+read and write that user's account save (`SaveSlot::current` marks it); another user's account
+save is never the profile's, so the size and newest change Copy saves shows are the profile's own.
+A profile the emulator has no user for has no account save there: Copy saves says to add a user in
+the emulator. Device saves are the console's, shared by every profile. The emulator still starts as
+its own current user: openSU does not pick the user it launches as.
 
 ## LAN: profiles across paired openSUs
 
@@ -115,5 +117,9 @@ before and after, and the runner's `--saves` all use that profile.
 4. Done. LAN: the profile listing, Copy with the owner's question, links, linked-only sync, Unlink; the
    Share saves switch removed. Shown: copy and link between two hidden LAN openSUs with the question
    asked on the owner, and a linked profile's saves syncing while an unlinked one's do not.
-5. Switch emulators' user per profile.
+5. Done. Switch emulators' user per profile: `SaveHome::seat` from `ProfileBook::seatOf`, the
+   seat's user in `switch_saves`, only the profile's slots in `EmulatorSaves`. Shown: one hidden
+   openSU whose Eden has two users, Player 1 seeing and copying the first user's save and Ana the
+   second's, Ana's copy to a one-user Ryujinx refused with "add a user in it", then made for
+   Ryujinx's second user once it has one.
 6. Remote play as the linked or first profile.

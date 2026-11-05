@@ -57,6 +57,9 @@ SaveSharing::SaveSharing(save_sync::SaveSync::Setup setup, save_sync::EpicCloud:
         }
         return launch::runningRefusal(kept);
     };
+    setup.seatOf = [&profiles](const std::string& profile) {
+        return profiles.seatOf(profile);
+    };
     sync_ = std::make_unique<save_sync::SaveSync>(std::move(setup));
 }
 

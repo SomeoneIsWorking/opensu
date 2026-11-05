@@ -120,13 +120,18 @@ std::optional<SaveSync::Local> SaveSync::localOf(const library::Game& game,
         error = game.title + " keeps no saves openSU can find";
         return std::nullopt;
     }
+    const std::optional<std::size_t> seat = setup_.seatOf(profile);
+    if (!seat) {
+        error = "the profile is not here";
+        return std::nullopt;
+    }
     library::roms::EmulatorCatalog catalog;
     {
         const std::lock_guard lock{mutex_};
         catalog = catalog_;
     }
     Local local{.key = *key,
-                .all = library::saves::savesOf(game, catalog, setup_.runnerSaves, profile),
+                .all = library::saves::savesOf(game, catalog, setup_.runnerSaves, profile, *seat),
                 .launched = {},
                 .bundle = {},
                 .status = {}};

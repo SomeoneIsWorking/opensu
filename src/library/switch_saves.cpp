@@ -174,25 +174,59 @@ std::size_t yuzuCurrentIndex(const fs::path& config) {
     return error == std::errc{} ? index : 0;
 }
 
-/// The open profile's user id in Profiles.json, upper-case; empty when none is open.
-std::string ryujinxCurrentUser(const fs::path& config) {
-    const nlohmann::json root =
-        nlohmann::json::parse(readBytes(config / ryujinxProfiles), nullptr, false);
-    if (root.is_discarded() || !root.is_object() || !root.contains("profiles") ||
-        !root["profiles"].is_array()) {
+/// An emulator's users in its own order, and the one it has open; empty when it has none.
+struct Users {
+    std::vector<std::string> all;
+    std::string current;
+
+    /// The user `seat` plays as: the first seat the current user, each further one the next of
+    /// the others; empty when there are not that many.
+    [[nodiscard]] std::string ofSeat(std::size_t seat) const {
+        if (seat == 0) {
+            return current;
+        }
+        std::size_t left = seat;
+        for (const std::string& user : all) {
+            if (user != current && --left == 0) {
+                return user;
+            }
+        }
         return {};
     }
-    for (const nlohmann::json& profile : root["profiles"]) {
-        if (profile.is_object() && profile.value("account_state", "") == "Open" &&
-            profile.contains("user_id") && profile["user_id"].is_string()) {
-            std::string user = profile["user_id"].get<std::string>();
-            std::ranges::transform(user, user.begin(), [](unsigned char c) {
-                return static_cast<char>(std::toupper(c));
-            });
-            return user;
-        }
+};
+
+Users yuzuUsersOf(const fs::path& nand, const fs::path& config) {
+    Users users{.all = yuzuUsers(nand), .current = {}};
+    if (const std::size_t index = yuzuCurrentIndex(config); index < users.all.size()) {
+        users.current = users.all[index];
     }
-    return {};
+    return users;
+}
+
+/// Profiles.json's users, upper-case, with the open one current.
+Users ryujinxUsersOf(const fs::path& config) {
+    const nlohmann::json root =
+        nlohmann::json::parse(readBytes(config / ryujinxProfiles), nullptr, false);
+    Users users;
+    if (root.is_discarded() || !root.is_object() || !root.contains("profiles") ||
+        !root["profiles"].is_array()) {
+        return users;
+    }
+    for (const nlohmann::json& profile : root["profiles"]) {
+        if (!profile.is_object() || !profile.contains("user_id") ||
+            !profile["user_id"].is_string()) {
+            continue;
+        }
+        std::string user = profile["user_id"].get<std::string>();
+        std::ranges::transform(user, user.begin(), [](unsigned char c) {
+            return static_cast<char>(std::toupper(c));
+        });
+        if (users.current.empty() && profile.value("account_state", "") == "Open") {
+            users.current = user;
+        }
+        users.all.push_back(std::move(user));
+    }
+    return users;
 }
 
 /// The slot `folder`'s ExtraData0 describes, when it is `title`'s primary account or device save.
@@ -227,14 +261,13 @@ std::optional<SaveSlot> ryujinxSlot(const fs::path& folder, std::uint64_t title)
     return slot;
 }
 
-/// The profile a new account save is made for, as the emulator spells it; empty when it has none.
-std::string currentUser(const SaveHome& home) {
-    if (home.layout == roms::SaveLayout::RyujinxBis) {
-        return ryujinxCurrentUser(home.config);
-    }
-    const std::vector<std::string> users = yuzuUsers(home.folder);
-    const std::size_t index = yuzuCurrentIndex(home.config);
-    return index < users.size() ? users[index] : std::string{};
+/// The user a new account save is made for, as the emulator spells it; empty when it has none for
+/// the seat.
+std::string seatUser(const SaveHome& home) {
+    const Users users = home.layout == roms::SaveLayout::RyujinxBis
+                            ? ryujinxUsersOf(home.config)
+                            : yuzuUsersOf(home.folder, home.config);
+    return users.ofSeat(home.seat);
 }
 
 /// A user id spelled as 32 hex digits, its high 64 bits first.
@@ -388,11 +421,9 @@ std::optional<RyubingIndex> ryubingIndexOf(const fs::path& bis, std::uint64_t at
 
 } // namespace
 
-std::vector<SaveSlot> yuzuSlots(const fs::path& nand, const fs::path& config,
+std::vector<SaveSlot> yuzuSlots(const fs::path& nand, const fs::path& config, std::size_t seat,
                                 std::string_view titleId) {
-    const std::vector<std::string> users = yuzuUsers(nand);
-    const std::size_t index = yuzuCurrentIndex(config);
-    const std::string current = index < users.size() ? users[index] : std::string{};
+    const std::string current = yuzuUsersOf(nand, config).ofSeat(seat);
     // Each user's save of the title by its user folder's name; Eden's newer place wins.
     std::map<std::string, std::pair<fs::path, fs::path>> saves;
     const std::string title{titleId};
@@ -419,7 +450,7 @@ std::vector<SaveSlot> yuzuSlots(const fs::path& nand, const fs::path& config,
         slot.kind = name == yuzuDeviceUser ? SlotKind::Device : SlotKind::Account;
         if (slot.kind == SlotKind::Account) {
             slot.user = name;
-            slot.current = name == current;
+            slot.current = !current.empty() && name == current;
         }
         slot.root = where.first;
         slot.content = {where.second};
@@ -428,18 +459,19 @@ std::vector<SaveSlot> yuzuSlots(const fs::path& nand, const fs::path& config,
     return slots;
 }
 
-std::vector<SaveSlot> ryujinxSlots(const fs::path& bis, const fs::path& config,
+std::vector<SaveSlot> ryujinxSlots(const fs::path& bis, const fs::path& config, std::size_t seat,
                                    std::string_view titleId) {
     const std::optional<std::uint64_t> title = titleNumber(titleId);
     if (!title) {
         lucent::warn("saves", "{} is not a Switch title id", titleId);
         return {};
     }
-    const std::string current = ryujinxCurrentUser(config);
+    const std::string current = ryujinxUsersOf(config).ofSeat(seat);
     std::vector<SaveSlot> slots;
     const auto add = [&](const fs::path& folder) {
         if (std::optional<SaveSlot> slot = ryujinxSlot(folder, *title)) {
-            slot->current = slot->kind == SlotKind::Account && slot->user == current;
+            slot->current =
+                slot->kind == SlotKind::Account && !current.empty() && slot->user == current;
             slots.push_back(std::move(*slot));
         }
     };
@@ -472,10 +504,11 @@ std::optional<NewSlot> plannedSlot(const SaveHome& home, SlotKind kind,
     NewSlot planned;
     planned.slot.kind = kind;
     if (kind == SlotKind::Account) {
-        planned.slot.user = currentUser(home);
+        planned.slot.user = seatUser(home);
         planned.slot.current = true;
         if (planned.slot.user.empty()) {
-            error = "it has no user profile yet: start it once";
+            error = home.seat == 0 ? "it has no user profile yet: start it once"
+                                   : "it has no user for this profile: add a user in it";
             return std::nullopt;
         }
     }

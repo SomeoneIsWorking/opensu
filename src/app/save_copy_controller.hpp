@@ -88,10 +88,12 @@ class SaveCopyController final : public ui::RowActions {
     void run(const std::string& id, int step) override;
 
   private:
-    /// The game the card is open for and what its saves are found by.
+    /// The game the card is open for and what its saves are found by: the key, and the profile's
+    /// seat (`ProfileBook::seatOf`).
     struct Opened {
         library::Game game;
         library::saves::SaveKey key;
+        std::size_t seat{0};
     };
     /// What a read found: each emulator's saves and its newest backup.
     struct Found {
@@ -111,8 +113,10 @@ class SaveCopyController final : public ui::RowActions {
     /// Runs `job` on the worker; nothing while it is busy.
     template <std::invocable Job> void start(Work work, Job job);
     /// What a read of `game`'s saves through `catalog` finds. Worker only.
-    [[nodiscard]] Found find(const library::Game& game, const library::saves::SaveKey& key,
+    [[nodiscard]] Found find(const Opened& opened,
                              const library::roms::EmulatorCatalog& catalog) const;
+    /// What the active profile's saves of `game` are found by; nothing when openSU finds none.
+    [[nodiscard]] std::optional<Opened> openedFor(const library::Game& game) const;
     /// The places that can be copied from: those holding a save.
     [[nodiscard]] std::vector<std::size_t> sources() const;
     /// The places other than the source, in order.

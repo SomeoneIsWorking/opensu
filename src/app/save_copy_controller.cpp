@@ -83,13 +83,14 @@ template <std::invocable Job> void SaveCopyController::start(Work work, Job job)
 }
 
 SaveCopyController::Found
-SaveCopyController::find(const library::Game& game, const library::saves::SaveKey& key,
+SaveCopyController::find(const Opened& opened,
                          const library::roms::EmulatorCatalog& catalog) const {
-    Found found{.gameId = game.id, .saves = {}, .backups = {}};
-    found.saves = library::saves::savesOf(game, catalog, profiles_.runnerSaves(), key.profile);
+    Found found{.gameId = opened.game.id, .saves = {}, .backups = {}};
+    found.saves = library::saves::savesOf(opened.game, catalog, profiles_.runnerSaves(),
+                                          opened.key.profile, opened.seat);
     for (const EmulatorSaves& saves : found.saves) {
         if (std::optional<library::saves::SaveBackup> backup =
-                copier_.latest(key, saves.emulatorId)) {
+                copier_.latest(opened.key, saves.emulatorId)) {
             found.backups.emplace(saves.emulatorId, std::move(*backup));
         }
     }
@@ -97,18 +98,27 @@ SaveCopyController::find(const library::Game& game, const library::saves::SaveKe
 }
 
 void SaveCopyController::read(const library::Game& game) {
-    const std::optional<library::saves::SaveKey> key =
-        library::saves::keyOf(game, profiles_.book().active().id);
-    if (!key || work_ != Work::None) {
+    std::optional<Opened> opened = openedFor(game);
+    if (!opened || work_ != Work::None) {
         return;
     }
     reading_ = game.id;
-    // Copied here and moved in: the worker's job copies nothing.
-    Opened opened{.game = game, .key = *key};
     library::roms::EmulatorCatalog catalog = downloads_.setup().catalog;
-    start(Work::Reading, [this, opened = std::move(opened), catalog = std::move(catalog)] {
-        return Done{find(opened.game, opened.key, catalog), {}, false};
+    // Moved in: the worker's job copies nothing.
+    start(Work::Reading, [this, opened = std::move(*opened), catalog = std::move(catalog)] {
+        return Done{find(opened, catalog), {}, false};
     });
+}
+
+std::optional<SaveCopyController::Opened>
+SaveCopyController::openedFor(const library::Game& game) const {
+    const profiles::Profile active = profiles_.book().active();
+    std::optional<library::saves::SaveKey> key = library::saves::keyOf(game, active.id);
+    const std::optional<std::size_t> seat = profiles_.book().seatOf(active.id);
+    if (!key || !seat) {
+        return std::nullopt;
+    }
+    return Opened{.game = game, .key = std::move(*key), .seat = *seat};
 }
 
 std::string SaveCopyController::offer(const library::Game& game) const {
@@ -120,12 +130,11 @@ std::string SaveCopyController::offer(const library::Game& game) const {
 }
 
 void SaveCopyController::open(const library::Game& game) {
-    std::optional<library::saves::SaveKey> key =
-        library::saves::keyOf(game, profiles_.book().active().id);
-    if (isOpen() || !key || offer(game).empty()) {
+    std::optional<Opened> opened = openedFor(game);
+    if (isOpen() || !opened || offer(game).empty()) {
         return;
     }
-    opened_ = Opened{.game = game, .key = std::move(*key)};
+    opened_ = std::move(opened);
     // The newest saves are the ones the player most likely wants to carry over.
     const std::vector<std::size_t> held = sources();
     from_ = *std::ranges::max_element(held, {}, [this](std::size_t at) {
@@ -326,7 +335,7 @@ void SaveCopyController::copy(Opened opened) {
         if (!done.error) {
             done.said = from.emulatorName + "'s saves copied to " + to.emulatorName;
         }
-        done.found = find(opened.game, opened.key, catalog);
+        done.found = find(opened, catalog);
         return done;
     });
 }
@@ -348,7 +357,7 @@ void SaveCopyController::undo(Opened opened) {
               if (!done.error) {
                   done.said = to.emulatorName + "'s saves are back as they were";
               }
-              done.found = find(opened.game, opened.key, catalog);
+              done.found = find(opened, catalog);
               return done;
           });
 }

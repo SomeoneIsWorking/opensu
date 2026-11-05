@@ -60,7 +60,7 @@ undone while either emulator runs.
 1. Switch between two installed emulators, proven on the player's real saves with backups. Built
    (2026-11-04): `library::saves` (`game_saves`, `switch_saves`, `save_copy`) and Copy saves on
    the details page (`SaveCopyController`); a copy is slot by slot for the kinds both keep
-   (account save of the current profile, device save), the target's slots backed up whole under
+   (account save of the profile's emulator user, device save), the target's slots backed up whole under
    `<state dir>/save-backups/profiles/<profile>/<system>/<title id>/<emulator>/<UTC time>/` and put back by Undo copy.
    Proven on scratch copies of the player's Eden and Ryujinx data; Ryujinx is not installed here,
    so a stand-in on `PATH` stood for it. Then (2026-11-04): only an emulator holding a save is a

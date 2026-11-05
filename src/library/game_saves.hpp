@@ -60,7 +60,8 @@ struct SaveSlot {
     SlotKind kind{SlotKind::Account};
     /// The profile an account save belongs to, as the emulator spells it; empty otherwise.
     std::string user;
-    /// Whether it is the save of the emulator's current profile.
+    /// Whether it is the account save of the emulator user the profile plays as
+    /// (`SaveHome::seat`).
     bool current{false};
     /// What a backup copies whole and undo puts back: a save folder, or the runner's file.
     std::filesystem::path root;
@@ -80,6 +81,8 @@ struct SaveHome {
     std::filesystem::path folder;
     /// Its settings folder, where its current profile is chosen.
     std::filesystem::path config;
+    /// The profile's place in openSU's order, which picks the emulator user it plays as.
+    std::size_t seat{0};
     std::string titleId;
     /// What the game's control.nacp says of its saves; nothing when it is not known.
     std::optional<SwitchSaveData> saveData;
@@ -96,14 +99,15 @@ struct EmulatorSaves {
     /// the built-in runner.
     std::string processHint;
 
+    // Of the profile's slots: its user's account save, and the slots that are no account save.
     [[nodiscard]] std::uintmax_t bytes() const;
     [[nodiscard]] std::optional<std::chrono::system_clock::time_point> modified() const;
-    /// Whether a slot holds a file: only then is it a copy's source.
+    /// Whether a slot of the profile's holds a file: only then is it a copy's source.
     [[nodiscard]] bool holdsFiles() const {
         return modified().has_value();
     }
-    /// The slot of `kind` a copy reads or writes: the current profile's, else the only one; null
-    /// when there is none or several and none is current.
+    /// The slot of `kind` a copy reads or writes: an account save the profile's user's, any other
+    /// the only one; null when there is none, or several.
     [[nodiscard]] const SaveSlot* slotFor(SlotKind kind) const;
 };
 
@@ -118,14 +122,15 @@ inline constexpr std::string_view runnerSavesId = "built-in";
 [[nodiscard]] std::vector<SaveSlot> storedSlots(const SaveHome& home);
 
 /// Each installed emulator of `game` that keeps saves, in the game's emulator order, with the
-/// slots it keeps of the game for `profile`, none when it has none yet: standalone ones through
+/// slots it keeps of the game for `profile`, which sits `seat` in openSU's order
+/// (`ProfileBook::seatOf`), none when it has none yet: standalone ones through
 /// their catalog `SaveStore`, the built-in runner's `.srm` and state in the profile's folder under
 /// `runnerSaves` (`Config::savesDir`), both listed where the runner keeps them, holding a file or
 /// not.
 [[nodiscard]] std::vector<EmulatorSaves> savesOf(const Game& game,
                                                  const roms::EmulatorCatalog& catalog,
                                                  const std::filesystem::path& runnerSaves,
-                                                 std::string_view profile);
+                                                 std::string_view profile, std::size_t seat);
 
 /// Among `saves` (`savesOf(game)`), those of the emulator `game` starts with (`Game::emulator`);
 /// null when it keeps none there.

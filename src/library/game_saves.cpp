@@ -1,6 +1,7 @@
 #include "game_saves.hpp"
 
 #include <algorithm>
+#include <ranges>
 #include <system_error>
 #include <utility>
 
@@ -93,11 +94,16 @@ std::optional<SaveSlot> fileSlot(roms::SaveLayout layout, const fs::path& folder
     return SaveSlot{.kind = SlotKind::Memory, .root = *file, .content = {*file}, .format = format};
 }
 
+/// Whether `slot` is the profile's: an account save only when it is its user's.
+bool profiles(const SaveSlot& slot) {
+    return slot.kind != SlotKind::Account || slot.current;
+}
+
 } // namespace
 
 std::uintmax_t EmulatorSaves::bytes() const {
     std::uintmax_t total = 0;
-    for (const SaveSlot& slot : slots) {
+    for (const SaveSlot& slot : slots | std::views::filter(profiles)) {
         total += slot.bytes;
     }
     return total;
@@ -105,7 +111,7 @@ std::uintmax_t EmulatorSaves::bytes() const {
 
 std::optional<TimePoint> EmulatorSaves::modified() const {
     std::optional<TimePoint> newest;
-    for (const SaveSlot& slot : slots) {
+    for (const SaveSlot& slot : slots | std::views::filter(profiles)) {
         if (slot.modified && (!newest || *slot.modified > *newest)) {
             newest = slot.modified;
         }
@@ -116,7 +122,7 @@ std::optional<TimePoint> EmulatorSaves::modified() const {
 const SaveSlot* EmulatorSaves::slotFor(SlotKind kind) const {
     const SaveSlot* only = nullptr;
     std::size_t count = 0;
-    for (const SaveSlot& slot : slots) {
+    for (const SaveSlot& slot : slots | std::views::filter(profiles)) {
         if (slot.kind != kind) {
             continue;
         }
@@ -146,9 +152,10 @@ std::optional<SaveKey> keyOf(const Game& game, std::string_view profile) {
 }
 
 std::vector<SaveSlot> storedSlots(const SaveHome& home) {
-    std::vector<SaveSlot> slots = home.layout == roms::SaveLayout::YuzuNand
-                                      ? yuzuSlots(home.folder, home.config, home.titleId)
-                                      : ryujinxSlots(home.folder, home.config, home.titleId);
+    std::vector<SaveSlot> slots =
+        home.layout == roms::SaveLayout::YuzuNand
+            ? yuzuSlots(home.folder, home.config, home.seat, home.titleId)
+            : ryujinxSlots(home.folder, home.config, home.seat, home.titleId);
     std::ranges::for_each(slots, measure);
     return slots;
 }
@@ -172,7 +179,8 @@ bool copyable(const std::vector<EmulatorSaves>& saves) {
 }
 
 std::vector<EmulatorSaves> savesOf(const Game& game, const roms::EmulatorCatalog& catalog,
-                                   const fs::path& runnerSaves, std::string_view profile) {
+                                   const fs::path& runnerSaves, std::string_view profile,
+                                   std::size_t seat) {
     const std::optional<SaveKey> key = keyOf(game, profile);
     if (!key) {
         return {};
@@ -224,6 +232,7 @@ std::vector<EmulatorSaves> savesOf(const Game& game, const roms::EmulatorCatalog
         saves.home = SaveHome{.layout = entry->saves->layout,
                               .folder = folder,
                               .config = config,
+                              .seat = seat,
                               .titleId = key->game,
                               .saveData = game.switchSaveData};
         saves.slots = storedSlots(*saves.home);
