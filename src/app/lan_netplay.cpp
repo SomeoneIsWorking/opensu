@@ -105,9 +105,9 @@ void LanNetplay::play(const library::Game& game, const std::string& peerId) {
     const std::string name = lan_.peerName(peerId);
     const std::filesystem::path own =
         sessionSaveOf(retro::systemSaveFolder(hooks_.profileSaves(), game.sourceId), game.file, 0);
-    const bool asking =
-        lan_.askPeers([arrived = arrived_, game, peerId, name, own, facts = factsOf(game)](
-                          const lan::LanNode& node, const std::stop_token& stop) {
+    const bool asking = lan_.askPeers(
+        [arrived = arrived_, game = game, peerId = peerId, name = name, own = own,
+         facts = factsOf(game)](const lan::LanNode& node, const std::stop_token& stop) {
             std::string refusal;
             std::error_code failed;
             const secrets::crypto::Bytes salt =
@@ -281,7 +281,7 @@ void LanNetplay::answer(bool allow) {
     node->netplay().handOver(asked.peer.id, asked.rom.sha256, ownSave);
     node->netplay().accept(asked.peer.id, now);
     const bool pulling = lan_.askPeers(
-        [arrived = arrived_, asked, game, salt, ownSave = std::move(ownSave),
+        [arrived = arrived_, asked = asked, game = game, salt = salt, ownSave = std::move(ownSave),
          clock = asked.clockAt(now)](const lan::LanNode& node, const std::stop_token& stop) {
             std::string error;
             std::optional<std::string> guestSave =

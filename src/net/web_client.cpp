@@ -145,8 +145,7 @@ CURLcode perform(CURL* curl, const std::stop_token& stop) {
         }
     }
     curl_multi_remove_handle(multi.get(), curl);
-    // NOLINTNEXTLINE(clang-analyzer-core.StackAddressEscape): `wake` left the stop state as it
-    // ended
+    // NOLINTNEXTLINE(clang-analyzer-core.StackAddressEscape): `wake` has left `stop`
     return result;
 }
 

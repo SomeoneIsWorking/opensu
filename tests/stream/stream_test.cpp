@@ -396,6 +396,7 @@ double meanError(const Nv12& source, const stream::Picture& decoded) {
 /// A PyroWave rate a wired link carries.
 constexpr std::uint64_t pyroWaveRate = 150'000'000;
 
+#ifndef __APPLE__
 void picturesSurviveTheCodec() {
     const Nv12 source = testPicture(256, 144);
     const std::unique_ptr<stream::VideoEncoder> encoder =
@@ -440,6 +441,7 @@ void picturesSurviveTheCodec() {
     }
     expect(whole, "and the next frame drops it and decodes");
 }
+#endif
 
 /// Each hardware codec this machine both codes and decodes, over pictures that move: only key
 /// frames stand alone, and after a lost packet nothing decodes until the next key frame.

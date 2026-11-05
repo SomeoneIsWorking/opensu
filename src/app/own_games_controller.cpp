@@ -193,7 +193,7 @@ void OwnGamesController::service() {
 void OwnGamesController::confirm(const Identified& identified) {
     const library::identify::Guess& guess = identified.guess;
     askTitle("Add " + identified.entry.file.filename().string() + "?", noteOf(guess), guess.title,
-             [this, entry = identified.entry, guess](const std::string& title) mutable {
+             [this, entry = identified.entry, guess = guess](const std::string& title) mutable {
                  entry.title = title;
                  // A retyped title is another game than the one the store matched.
                  entry.steamAppId =

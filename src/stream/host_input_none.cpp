@@ -7,6 +7,7 @@ namespace opensu::stream {
 class HostInput::Devices {};
 
 HostInput::HostInput(const std::optional<std::string>& /*x11Display*/,
+                     // NOLINTNEXTLINE(performance-unnecessary-value-param): a real backend keeps it
                      std::shared_ptr<gamepad::VirtualPad> /*seat*/) {
     throw std::runtime_error{"this system cannot play a remote player's input into a game"};
 }

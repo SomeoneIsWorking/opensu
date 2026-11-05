@@ -840,8 +840,8 @@ class ShellApp final {
                 [this](const std::string& peerId, const lan::wire::Invitation& game,
                        std::function<void(std::string)> refused) {
                     return lan_.askPeers(
-                        [peerId, game, refused = std::move(refused)](const lan::LanNode& node,
-                                                                     const std::stop_token& stop) {
+                        [peerId = peerId, game = game, refused = std::move(refused)](
+                            const lan::LanNode& node, const std::stop_token& stop) {
                             std::string error;
                             if (!node.invite(stop, peerId, game, error) && !stop.stop_requested()) {
                                 refused(std::move(error));
