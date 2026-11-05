@@ -82,6 +82,14 @@ directory, so another checkout is named with `uv run --frozen --directory <check
 tools.check ...`. It refuses a run in another checkout's environment (`uv run --project`), a build
 tree configured from another checkout, and a lint whose file lists come out empty.
 
+`tools.check lint --changed [--base origin/main]` is the quick lint while working; plain `lint` stays
+the full check, which CI runs. It takes the files that differ from the merge base with `--base`,
+uncommitted and untracked ones included. clang-format and ruff get those files, clang-tidy the
+changed translation units and every one that includes a changed header, from `ninja -t deps`, so
+build first: a tree whose objects have no current record falls back to the full list and says so. A
+changed `.clang-tidy`, `.clang-format` or CMake file means the full list too. Nothing changed is a
+clean pass.
+
 ## By hand
 
 Building outside `tools.check` needs every package listed under Dependencies installed; a missing

@@ -1,5 +1,7 @@
 """Command line: `uv run --frozen python -m tools.check <step> [--platform P] [--build-dir D]
 [--gamescope M] [--jobs N]`, from the checkout to check (`--directory` for another one).
+`lint --changed [--base REF]` lints what changed against REF's merge base, uncommitted files
+included, and clang-tidy the translation units that reach it; plain `lint` is the full check.
 
 Steps run in order: deps (pinned Lucent and gpu2d, and vcpkg for Windows), configure, build, lint,
 test; `all` runs every one. On Linux every step but test runs in the build image (packaging/ci on
@@ -41,15 +43,23 @@ def install(plan: cmake.Plan, prefix: Path, destdir: Path | None, env: Mapping[s
     cmake.install_to(plan, prefix, INSTALL_COMPONENT, staged)
 
 
+def lint_step(plan: cmake.Plan, base: str | None, env: Mapping[str, str]) -> None:
+    """The full lint, or the changed files' against `base` when one is given."""
+    if base is None:
+        lint.all_checks(plan.cmake_dir, env, plan.jobs, plan.platform)
+    else:
+        lint.changed_checks(plan.cmake_dir, env, plan.jobs, plan.platform, base)
+
+
 def step_actions(
-    plan: cmake.Plan, prefix: Path, destdir: Path | None
+    plan: cmake.Plan, prefix: Path, destdir: Path | None, base: str | None
 ) -> dict[str, Callable[[Mapping[str, str]], None]]:
     return {
         "install": lambda env: install(plan, prefix, destdir, env),
         "deps": lambda env: cmake.prepare(plan, env),
         "configure": lambda env: cmake.configure(plan, env),
         "build": lambda env: cmake.build(plan, env),
-        "lint": lambda env: lint.all_checks(plan.cmake_dir, env, plan.jobs, plan.platform),
+        "lint": lambda env: lint_step(plan, base, env),
         "test": lambda env: cmake.test(plan, env),
     }
 
@@ -85,9 +95,21 @@ def main(argv: list[str] | None = None) -> int:
         default=cmake.DEFAULT_JOBS,
         help="compilers and clang-tidy processes run at once (default: one per core)",
     )
+    parser.add_argument(
+        "--changed",
+        action="store_true",
+        help="lint only: check what changed against --base, not every file",
+    )
+    parser.add_argument(
+        "--base", help=f"the ref --changed compares with (default {lint.DEFAULT_BASE})"
+    )
     args = parser.parse_args(argv)
     if args.jobs < 1:
         parser.error("--jobs must be at least 1")
+    if args.changed and args.step != "lint":
+        parser.error("--changed goes with the lint step")
+    if args.base is not None and not args.changed:
+        parser.error("--base goes with --changed")
     require_own_environment()
     plan = plan_from(args)
     cmake.require_own_tree(plan.cmake_dir)
@@ -109,10 +131,13 @@ def main(argv: list[str] | None = None) -> int:
         container.require_podman(env)
     prefix = Path(args.prefix).resolve()
     destdir = Path(args.destdir).resolve() if args.destdir else None
-    actions = step_actions(plan, prefix, destdir)
+    base = (args.base or lint.DEFAULT_BASE) if args.changed else None
+    actions = step_actions(plan, prefix, destdir, base)
     options = ["--gamescope", plan.gamescope, "--jobs", str(plan.jobs), "--prefix", str(prefix)]
     if destdir is not None:
         options += ["--destdir", str(destdir)]
+    if base is not None:
+        options += ["--changed", "--base", base]
     writes = [destdir or prefix] if args.step == "install" else []
     for step in STEPS if args.step == "all" else (args.step,):
         print(f"== {step}", flush=True)
