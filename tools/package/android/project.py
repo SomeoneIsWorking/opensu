@@ -14,7 +14,7 @@ def stage(layout: config.Layout, port: ModuleType) -> Path:
     if project.exists():
         shutil.rmtree(project)
     shutil.copytree(config.SOURCE / "app", project / "app")
-    for name in ("build.gradle", "settings.gradle"):
+    for name in ("build.gradle", "gradle.properties", "settings.gradle"):
         shutil.copy2(config.SOURCE / name, project / name)
     wrapper = project / "gradle" / "wrapper"
     wrapper.mkdir(parents=True)
