@@ -1,39 +1,33 @@
 # A quit waits for a worker's network call that ignores its stop
 
-Status: open.
+Status: closed.
 
 Found 2026-11-05 by reading, auditing every `net::WebClient` call after the artwork fetcher and
 giveaway feed fixes (`quit-waits-for-an-artwork-download.md`, `quit-waits-for-the-giveaway-feed.md`).
-Not reproduced yet. `ShellApp`'s members are destroyed one after another, each joining its worker,
-so each worker below that is mid-request holds the quit up until libcurl gives up (10 s to connect,
-30 s for the transfer, per call), and the waits add up. A `download` stops within about a second
-through its progress callback and is not listed.
+`ShellApp`'s members are destroyed one after another, each joining its worker, so a worker
+mid-request held the quit until libcurl gave up (10 s to connect, 30 s for the transfer, per call).
 
-Starts on its own:
+Cause: `net::WebClient`'s requests took the stop as an option (`Guard::stop`, a defaulted `get`
+argument, none on `head`), so each caller had to remember it; `Provider::list`, `SaveTarget`,
+`SaveShare`, `IoPool`'s jobs and `PeerClient` had no way to pass one.
 
-- `library/catalog_loader.cpp` `CatalogLoader::run` → `gog.cpp` `Provider::list`,
-  `gog_builds.cpp` `offeredBuild`, `gog_auth.cpp` `Auth::request`: `Provider::list()` takes no stop.
-- `lan/lan_node.cpp` `LanNode::work` → `fetch`, `coverOf`, `tell` → `peer_client.cpp`
-  `PeerClient::send`: the token is in `work`; `PeerClient` never sets `Guard::stop`.
-- `plugin/host_api.cpp` `httpGet`, on `plugin/io_pool.cpp` `IoPool`: a job is a
-  `std::function<void()>`, so the pool's token never reaches it.
-- `app/wine_runners.cpp` `runCheck` → `updateGeProton`, `updateUmu` (`emulator_release.cpp`
-  `EmulatorRelease::latest`), the checksum `get` and `updateDatabase`: the token is in scope.
-  Hidden runs never check, so it cannot be shown hidden.
-- `library/romset_lists.cpp` `RomsetLists::fetch` → `romset_dats.cpp` `fetchRelease` →
-  `EmulatorRelease::latest`.
-- `save_sync/save_sync.cpp` `SaveSync::run` → `lan/peer_save_target.cpp`,
-  `save_sync/webdav_share.cpp` `send`: `SaveTarget` takes no stop; it runs after every game exit.
+Fix (`docs/design/net.md`): every `WebClient` request takes a `std::stop_token` first, with no
+default, and a stopped one comes back `net::Stopped`, not a failure. The token is threaded through
+`Provider::list`, `SaveTarget`/`SaveShare`, `IoPool` jobs and `PeerClient`, and each worker passes
+its own and keeps and logs nothing of a stopped request: the catalog loader (GOG), the plugin I/O
+pool, the romset listings, the Wine runner check, save sync, the LAN node, pairing, ROM import and
+the play and ROM askers, the emulator update check, Choose artwork, the match search, the added
+game's lookup and the GOG install's token refresh. The GOG sign-in's code exchange keeps an explicit
+`std::stop_token{}`: it runs on the control channel's thread, which has no stop.
 
-Started by the player: `lan/guest_pairing.cpp` `pair`, `lan/rom_import.cpp` `fetchFile`,
-`app/emulator_downloads.cpp` (`runCheck`: `WebClient::head` has no stop, `EmulatorRelease::latest`,
-`libretro_cores.cpp` `index` and `infoArchive`; `installRelease`, `installCore`),
-`artwork/cover_offers.cpp` `CoverOffers::perform`, `app/game_match_controller.cpp`
-(`findSteamApps`, `cached`, `findBoxArt` → `boxArtNames` without its `stop`),
-`app/own_games_controller.cpp` `identify` (no token), `lan/lan_service.cpp`'s askers (no token),
-`app/gog_install_job.cpp` `arguments` and `app/sign_in.cpp` `complete` → `Auth::request`.
-
-Fix to make: every worker joined at quit passes its stop token to every `WebClient` call, as
-`ArtworkFetcher` and `readStores` do, and ends the item keeping nothing once it is requested.
-`WebClient::head`, `Provider::list`, `SaveTarget` and `IoPool`'s jobs take a stop first, each its own
-restructuring commit.
+Shown 2026-11-05, hidden, every request through a proxy that holds the worker's host
+(`scratch/netstop/proof/quit_proof.py`), quit to exit over three timed rounds, the held thread named
+by gdb in a fourth: GOG listing (`CatalogLoader::run` → `gog::Provider::list`) 0.032, 0.032,
+0.016 s; plugin `http.get` (`IoPool`) 0.032 s ×3; romset listing (`RomsetLists::run` →
+`RomsetDats::refresh`) 0.032 s ×3; LAN polling of an announced paired peer that never answers
+(`LanNode::work` → `fetch`) 0.032 s ×3; save sync to WebDAV after a game exit
+(`SaveSync::run` → `ShareTarget::unlock`) 0.032 s ×3. None logged a warning after the quit.
+The Wine runner check never runs hidden; `tests/app/wine_runners_test.cpp` holds its request on a
+slow loopback server and shows `reset()` ending it within 1 s, and fails without the token. The
+player-started workers (emulator update check, Choose artwork, match search, added-game lookup, LAN
+pairing, ROM import and play, GOG install) were not timed in the product.
