@@ -147,7 +147,7 @@ class WineRunners {
     /// Installs the latest umu-launcher unless it is installed; false when it failed.
     bool updateUmu(const std::stop_token& stop, CheckMode mode);
     /// Keeps the umu database's listing (`library::umu`); false when it failed.
-    bool updateDatabase(CheckMode mode);
+    bool updateDatabase(const std::stop_token& stop, CheckMode mode);
     /// A check could not finish: shown on Downloads unless `mode` is `Scheduled`, then only
     /// logged, so a refused lookup waits for the next scheduled check.
     void checkFailed(CheckMode mode, const std::string& id, const std::string& name,

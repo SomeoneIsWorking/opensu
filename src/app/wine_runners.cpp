@@ -174,7 +174,7 @@ void WineRunners::runCheck(const std::stop_token& stop, CheckMode mode) {
     }
     const bool ge = updateGeProton(stop, mode);
     const bool umu = !stop.stop_requested() && updateUmu(stop, mode);
-    const bool ids = !stop.stop_requested() && updateDatabase(mode);
+    const bool ids = !stop.stop_requested() && updateDatabase(stop, mode);
     measure();
     const std::lock_guard lock{mutex_};
     look_.checking = false;
@@ -191,9 +191,11 @@ void WineRunners::runCheck(const std::stop_token& stop, CheckMode mode) {
     }
 }
 
-bool WineRunners::updateDatabase(CheckMode mode) {
-    const net::Result<std::string> listing =
-        web_.get(std::stop_token{}, std::string{library::umu::databaseApi});
+bool WineRunners::updateDatabase(const std::stop_token& stop, CheckMode mode) {
+    const net::Result<std::string> listing = web_.get(stop, std::string{library::umu::databaseApi});
+    if (listing.stopped()) {
+        return false;
+    }
     if (!listing) {
         lucent::warn("wine", "the umu database cannot be read: {}", listing.error());
         checkFailed(mode, databaseId, "umu database", "Could not read the umu database");
@@ -221,7 +223,10 @@ bool WineRunners::updateDatabase(CheckMode mode) {
 bool WineRunners::updateGeProton(const std::stop_token& stop, CheckMode mode) {
     const library::roms::EmulatorRelease releases{web_};
     const net::Result<library::roms::ReleaseAsset> tarball =
-        releases.latest(std::stop_token{}, library::ge_proton::tarballSource(geApi_));
+        releases.latest(stop, library::ge_proton::tarballSource(geApi_));
+    if (tarball.stopped()) {
+        return false;
+    }
     if (!tarball) {
         lucent::warn("wine", "GE-Proton's release cannot be read: {}", tarball.error());
         checkFailed(mode, geId, "GE-Proton", "Could not check for GE-Proton");
@@ -240,13 +245,19 @@ bool WineRunners::updateGeProton(const std::stop_token& stop, CheckMode mode) {
         return true;
     }
     const net::Result<library::roms::ReleaseAsset> sums =
-        releases.latest(std::stop_token{}, library::ge_proton::checksumSource(geApi_));
+        releases.latest(stop, library::ge_proton::checksumSource(geApi_));
+    if (sums.stopped()) {
+        return false;
+    }
     if (!sums) {
         lucent::warn("wine", "GE-Proton's checksum file cannot be read: {}", sums.error());
         checkFailed(mode, geId, name, "Could not check for GE-Proton");
         return false;
     }
-    const net::Result<std::string> listing = web_.get(std::stop_token{}, sums->url);
+    const net::Result<std::string> listing = web_.get(stop, sums->url);
+    if (listing.stopped()) {
+        return false;
+    }
     const std::optional<std::string> sha512 =
         listing ? library::ge_proton::sha512Listed(*listing, tarball->name) : std::nullopt;
     if (!sha512) {
@@ -270,9 +281,11 @@ bool WineRunners::updateGeProton(const std::stop_token& stop, CheckMode mode) {
 
 bool WineRunners::updateUmu(const std::stop_token& stop, CheckMode mode) {
     const net::Result<library::roms::ReleaseAsset> zipapp =
-        library::roms::EmulatorRelease{web_}.latest(std::stop_token{},
-                                                    library::umu::zipappSource());
+        library::roms::EmulatorRelease{web_}.latest(stop, library::umu::zipappSource());
     const std::string name = zipapp ? "umu-launcher " + zipapp->version : "umu-launcher";
+    if (zipapp.stopped()) {
+        return false;
+    }
     if (!zipapp) {
         lucent::warn("wine", "umu-launcher's release cannot be read: {}", zipapp.error());
         checkFailed(mode, umuId, name, "Could not check for umu-launcher");

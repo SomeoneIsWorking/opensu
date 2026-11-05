@@ -1,15 +1,19 @@
 // A hidden run's WineRunners reads what is installed and starts nothing: no scheduled check while
-// GOG is signed in and GE-Proton is kept current, and Check now and Test are refused.
+// GOG is signed in and GE-Proton is kept current, and Check now and Test are refused. A check
+// waiting on GE-Proton's release when the runners go is ended by its stop, not by the answer.
 #include "wine_runners.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <thread>
 
 #include "host_services.hpp"
+#include "support/loopback_server.hpp"
 #include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
 
@@ -73,6 +77,27 @@ int main() try {
     expect(hidden.test("GE-Proton", {"env", "true"}) == app::hiddenRunRefusal,
            "the runner test is refused in a hidden run");
     expect(!hidden.look().checking && hidden.look().lastCheck.empty(), "nothing was checked");
+
+    std::atomic<bool> asked{false};
+    test::LoopbackServer release{[&asked](const lucent::http::Request&) {
+        asked = true;
+        std::this_thread::sleep_for(std::chrono::seconds{5});
+        return test::reply(200, "{}");
+    }};
+    const test::ScratchDir shown{OPENSU_TEST_SCRATCH, "wine_runners_shown"};
+    auto runners = std::make_unique<app::WineRunners>(
+        shown.path(), release.base() + "/release.json", false, signedIn());
+    settle(*runners);
+    expect(runners->checkNow().empty(), "Check now starts a check in a shown run");
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{5};
+    while (!asked && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds{5});
+    }
+    expect(asked, "the check asks for GE-Proton's release");
+    const auto begun = std::chrono::steady_clock::now();
+    runners.reset();
+    expect(std::chrono::steady_clock::now() - begun < std::chrono::seconds{1},
+           "the runners go at once, the check's request ended by its stop");
 
     std::puts("wine_runners: ok");
     return 0;
