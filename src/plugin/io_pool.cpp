@@ -19,7 +19,7 @@ IoPool::~IoPool() {
     wake_.notify_all();
 }
 
-void IoPool::post(std::function<void()> job) {
+void IoPool::post(Job job) {
     {
         const std::lock_guard lock{mutex_};
         jobs_.push_back(std::move(job));
@@ -29,7 +29,7 @@ void IoPool::post(std::function<void()> job) {
 
 void IoPool::run(const std::stop_token& stop) {
     while (true) {
-        std::function<void()> job;
+        Job job;
         {
             std::unique_lock lock{mutex_};
             if (!wake_.wait(lock, stop, [this] {
@@ -40,7 +40,7 @@ void IoPool::run(const std::stop_token& stop) {
             job = std::move(jobs_.front());
             jobs_.pop_front();
         }
-        job();
+        job(stop);
     }
 }
 

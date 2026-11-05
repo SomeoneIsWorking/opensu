@@ -326,10 +326,10 @@ void PluginWorker::step(std::uint64_t id) {
     case Activation::Status::Waiting: {
         IoWork work = found->second.activation->takeWork();
         inbox_->begin();
-        pool_.post([this, inbox = inbox_, work = std::move(work), id] {
+        pool_.post([this, inbox = inbox_, work = std::move(work), id](const std::stop_token& stop) {
             Pusher pusher;
             try {
-                pusher = work();
+                pusher = work(stop);
             } catch (const std::exception& thrown) {
                 pusher = [message = std::string{thrown.what()}](lua_State* state) {
                     lua_pushnil(state);

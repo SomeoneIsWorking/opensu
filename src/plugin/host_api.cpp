@@ -101,7 +101,9 @@ int titleKey(lua_State* state) {
 int fsRead(lua_State* state) {
     std::string path = checkedText(state, 1);
     return LuaRuntime::of(state).await(
-        state, [permissions = contextOf(state).permissions, path = std::move(path)]() -> Pusher {
+        state,
+        [permissions = contextOf(state).permissions,
+         path = std::move(path)](const std::stop_token& /*stop*/) -> Pusher {
             std::string error;
             const std::optional<fs::path> file = permissions.readable(path, error);
             if (!file) {
@@ -132,7 +134,9 @@ int fsRead(lua_State* state) {
 int fsStat(lua_State* state) {
     std::string path = checkedText(state, 1);
     return LuaRuntime::of(state).await(
-        state, [permissions = contextOf(state).permissions, path = std::move(path)]() -> Pusher {
+        state,
+        [permissions = contextOf(state).permissions,
+         path = std::move(path)](const std::stop_token& /*stop*/) -> Pusher {
             std::string error;
             const std::optional<fs::path> file = permissions.readable(path, error);
             if (!file) {
@@ -166,7 +170,9 @@ int fsStat(lua_State* state) {
 int fsList(lua_State* state) {
     std::string path = checkedText(state, 1);
     return LuaRuntime::of(state).await(
-        state, [permissions = contextOf(state).permissions, path = std::move(path)]() -> Pusher {
+        state,
+        [permissions = contextOf(state).permissions,
+         path = std::move(path)](const std::stop_token& /*stop*/) -> Pusher {
             std::string error;
             const std::optional<fs::path> dir = permissions.readable(path, error);
             if (!dir) {
@@ -240,7 +246,7 @@ int httpGet(lua_State* state) {
     return LuaRuntime::of(state).await(
         state,
         [permissions = context.permissions, web = context.web, url = std::move(url),
-         headers = std::move(headers)]() -> Pusher {
+         headers = std::move(headers)](const std::stop_token& /*stop*/) -> Pusher {
             const net::WebClient::Guard guard{.maxBody = httpBodyLimit,
                                               .refusal = [&permissions](const std::string& hop) {
                                                   return permissions.urlRefusal(hop);
