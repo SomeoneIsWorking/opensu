@@ -79,8 +79,8 @@ class CoverOffers {
     using Work = std::variant<List, Choose>;
 
     void run(const std::stop_token& stop);
-    void perform(const List& list);
-    void perform(const Choose& choose);
+    void perform(const std::stop_token& stop, const List& list);
+    void perform(const std::stop_token& stop, const Choose& choose);
     [[nodiscard]] bool current(std::uint64_t generation) const;
     void publish(const CoverListing& listing, std::uint64_t generation);
 

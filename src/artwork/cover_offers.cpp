@@ -98,17 +98,20 @@ void CoverOffers::run(const std::stop_token& stop) {
             queue_.erase(queue_.begin());
         }
         std::visit(
-            [this](const auto& job) {
-                perform(job);
+            [this, &stop](const auto& job) {
+                perform(stop, job);
             },
             work);
     }
 }
 
-void CoverOffers::perform(const List& list) {
+void CoverOffers::perform(const std::stop_token& stop, const List& list) {
     const library::Game& game = list.game;
     SteamGridDb::Covers covers =
-        steamGridDb_.covers(std::stop_token{}, web_, steamGridDbGameOf(game), std::nullopt);
+        steamGridDb_.covers(stop, web_, steamGridDbGameOf(game), std::nullopt);
+    if (stop.stop_requested()) {
+        return;
+    }
     CoverListing listing{game.id, covers.status, {}, covers.error, false};
     if (covers.covers.size() > mostOffers) {
         covers.covers.resize(mostOffers);
@@ -118,12 +121,15 @@ void CoverOffers::perform(const List& list) {
     }
     publish(listing, list.generation);
     for (CoverOffer& offer : listing.offers) {
-        if (!current(list.generation)) {
+        if (stop.stop_requested() || !current(list.generation)) {
             return;
         }
         const fs::path thumb = thumbDir_ / std::to_string(offer.cover.id);
         if (!isFile(thumb)) {
-            const net::Result<std::string> bytes = web_.get(std::stop_token{}, offer.cover.thumb);
+            const net::Result<std::string> bytes = web_.get(stop, offer.cover.thumb);
+            if (bytes.stopped()) {
+                return;
+            }
             std::string error = bytes.error();
             if (!bytes || !fileio::writeWhole(thumb, *bytes, error)) {
                 lucent::warn("artwork", "{}: {}", offer.cover.thumb, error);
@@ -137,12 +143,15 @@ void CoverOffers::perform(const List& list) {
     publish(listing, list.generation);
 }
 
-void CoverOffers::perform(const Choose& choose) {
+void CoverOffers::perform(const std::stop_token& stop, const Choose& choose) {
     CoverChoice choice{choose.gameId, false, {}};
     if (!choose.cover) {
         choice.kept = overrides_.chooseOwn(choose.gameId, choice.error);
     } else {
-        const net::Result<std::string> bytes = web_.get(std::stop_token{}, choose.cover->url);
+        const net::Result<std::string> bytes = web_.get(stop, choose.cover->url);
+        if (bytes.stopped()) {
+            return;
+        }
         choice.error = bytes.error();
         choice.kept = bytes && overrides_.choose(choose.gameId, *bytes, choice.error);
     }
