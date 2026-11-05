@@ -19,7 +19,6 @@
 #include "frame_png.hpp"
 #include "game_end.hpp"
 #include "gpu2d/gpu_error.hpp"
-#include "gpu2d/image/png_encoder.hpp"
 #include "input/chord_set.hpp"
 #include "input/key_names.hpp"
 #include "input/keyboard_bindings.hpp"
@@ -1210,7 +1209,7 @@ void ShellApp::serviceControlRequests() {
         return;
     }
     if (*wanted == FrameKind::Remote) {
-        bridge_.answerFrame(remotePicturePng());
+        bridge_.answerFrame(RemotePicture::png(remotePlay_.picture()));
         return;
     }
     std::string png;
@@ -1260,21 +1259,6 @@ void ShellApp::capRemoteLink(std::uint64_t bitsPerSecond) {
     remotePlay_.capLink(bitsPerSecond);
 }
 
-FramePng ShellApp::remotePicturePng() const {
-    const std::optional<stream::GuestVideo::Frame> frame = remotePlay_.picture();
-    if (!frame) {
-        return {};
-    }
-    std::string error;
-    std::string png =
-        gpu2d::image::encodePng(frame->picture.rgba, static_cast<unsigned>(frame->picture.width),
-                                static_cast<unsigned>(frame->picture.height), error);
-    if (png.empty()) {
-        lucent::error("remote", "could not encode frame {}: {}", frame->number, error);
-    }
-    return FramePng{.png = std::move(png), .number = frame->number};
-}
-
 bool ShellApp::remoteHasControls() {
     return remotePlay_.streaming() && !guideMenu_.isOpen() && !menusBlocked() &&
            !shell_.screens().navigator().active();
@@ -1301,27 +1285,19 @@ void ShellApp::sendRemoteInput() {
 
 display::Placed ShellApp::remotePlacement() const {
     const gpu2d::PixelSize window = window_->size();
-    if (!remotePicture_) {
-        return display::Placed{.x = 0, .y = 0, .width = window.width, .height = window.height};
-    }
-    return display::letterbox({.width = window.width, .height = window.height},
-                              static_cast<float>(remotePicture_->width()) /
-                                  static_cast<float>(remotePicture_->height()));
+    return remotePicture_->placement({.width = window.width, .height = window.height});
 }
 
 void ShellApp::showRemotePicture() {
     if (!remotePlay_.streaming()) {
-        remotePicture_.reset();
+        remotePicture_->clear();
         shell_.setPicture(std::nullopt);
         return;
     }
     if (std::optional<stream::GuestVideo::Frame> frame = remotePlay_.takePicture()) {
-        remotePicture_.emplace(window_->device(), frame->picture.rgba, frame->picture.width,
-                               frame->picture.height, gpu2d::Filter::Linear);
-        remotePictureNumber_ = frame->number;
-        remotePictureFresh_ = true;
+        remotePicture_->show(*frame);
     }
-    shell_.setPicture(remotePicture_ ? std::optional{remotePicture_->view()} : std::nullopt);
+    shell_.setPicture(remotePicture_->view());
 }
 
 /// Applies what the launch thread and the control channel asked for. Everything
@@ -1478,10 +1454,9 @@ int ShellApp::run() {
             window_->present([this](ui::Canvas& canvas, const gpu2d::Surface& target) {
                 shell_.draw(canvas, target);
             });
-        if (remotePictureFresh_) {
-            remotePlay_.presented(remotePictureNumber_, stream::wire::microsOf(presented.submitted),
+        if (const std::optional<std::uint32_t> shown = remotePicture_->takeFresh()) {
+            remotePlay_.presented(*shown, stream::wire::microsOf(presented.submitted),
                                   presented.drawn);
-            remotePictureFresh_ = false;
         }
         clock_.service(std::chrono::steady_clock::now());
     }
@@ -1499,6 +1474,7 @@ bool ShellApp::openWindow(const std::string& title, bool hidden) {
         window_ = std::make_unique<ShellWindow>(
             ShellWindow::Options{title, settings_.width, settings_.height, hidden});
         shell_.attach(window_->device());
+        remotePicture_ = std::make_unique<RemotePicture>(window_->device());
     } catch (const gpu2d::GpuError& error) {
         lucent::error("shell", "could not open a window: {}", error.what());
         window_.reset();

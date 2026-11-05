@@ -91,6 +91,7 @@
 #include "preferences.hpp"
 #include "profile_settings.hpp"
 #include "remote_input.hpp"
+#include "remote_picture.hpp"
 #include "remote_play.hpp"
 #include "retro/resume_file.hpp"
 #include "retro_session.hpp"
@@ -278,7 +279,7 @@ class ShellApp final {
     [[nodiscard]] bool menusBlocked();
     /// Ends the running game from a menu.
     void closeRunningGame();
-    /// Uploads the newest picture of a remote game and hands it to the shell to draw.
+    /// Shows the newest picture of a remote game and hands it to the shell to draw.
     void showRemotePicture();
     /// Whether a remote game has the player's controls: it streams and no menu is up.
     [[nodiscard]] bool remoteHasControls();
@@ -290,8 +291,6 @@ class ShellApp final {
     void postPointer(const PointerInjection& injected);
     /// Caps remote play's link for a test run; refused outside a hidden one.
     void capRemoteLink(std::uint64_t bitsPerSecond);
-    /// Remote play's newest picture as PNG, for the control channel; empty for none.
-    [[nodiscard]] FramePng remotePicturePng() const;
     /// Guide, or Guide + A on Volume: opens the Guide menu, or closes it.
     void toggleGuide(GuideMenuController::Landing landing);
     /// Closes the details, Settings, Devices and Downloads pages, which a Guide menu entry leaves.
@@ -388,11 +387,8 @@ class ShellApp final {
     /// What the control channel's threads and the loop hand each other.
     ControlBridge bridge_;
     ui::Shell shell_;
-    /// The remote game's newest picture on the window's device, which the shell draws; its host
-    /// frame number, and whether no frame has shown it yet.
-    std::optional<gpu2d::Texture> remotePicture_;
-    std::uint32_t remotePictureNumber_{0};
-    bool remotePictureFresh_{false};
+    /// The remote game's picture the shell draws, on the window's device once it is open.
+    std::unique_ptr<RemotePicture> remotePicture_;
     /// The player's controls while a remote game has them.
     RemoteInput remoteInput_;
     TopBarClock clock_{shell_, environment_.clock24Hour};
