@@ -83,6 +83,13 @@ machine), and for rollback later, `retro_serialize`/`retro_unserialize` every fr
   between machines in step); a mismatch ends the session with a desync message. Rollback (run ahead on
   predicted input, `retro_unserialize` and replay on a misprediction) is later and changes only
   the session.
+- **A cartridge's clock.** The core reads the host's time, which no two machines share, so a session
+  has its own: `/lan/netplay` carries the asker's Unix time and UTC offset, and the fork's
+  `GET_NETPLAY_CLOCK` hands them to every GBA of the session at load. Each runs `RTC_FAKE_EPOCH`
+  from that time with the emulated frames and shows it in that zone through `mRTCSource::localDate`
+  rather than the host's. A call of the fork's own, numbered clear of upstream's, because a core
+  option would show on the settings page and in `netplayDifference`. A frontend that answers
+  `GET_NETPLAY_CLIENT_INDEX` and not this call keeps the host's time.
 - **Starting state and saves.** Both sides boot from the same files, so no state crosses the
   link: the ROM must match by SHA-256 (the guest can import it from the host first,
   `lan/rom_import`), and each side hands the other its active profile's `.srm` for the game before
@@ -141,20 +148,26 @@ machine), and for rollback later, `retro_serialize`/`retro_unserialize` every fr
 - The asked side's runner binds a port of the system's choosing and reports it in its control file;
   the asker is told only then, so no port is held free between shell and runner. A second socket
   taking the session file's port ended the host's launch before; the file now names none.
-- `/lan/netplay` carries core revision, BIOS and options and the asked side refuses a difference,
-  or a clock cartridge, before its player is asked: each case shown with two hidden openSUs.
+- `/lan/netplay` carries core revision, BIOS and options and the asked side refuses a difference
+  before its player is asked: each case shown with two hidden openSUs.
+- Clock cartridges play. `python -m tools.link_rom --clock` builds the link ROM with a clock it reads
+  over the GPIO and draws, with a boot count kept in flash. Two hidden openSUs paired over Avahi, the
+  asked in Istanbul and the asker in New York by `TZ`: 5569 frames, 46 memory checks matched, both
+  frames at New York's time, a second behind real time after three seconds' wait on the question and
+  93 s of play. On the unfixed core the frames showed 19:54:23 and 11:54:23 and the session ended
+  with `the games differ` at frame 120. Each alone afterwards on the buildbot's core: its own time
+  and the boot count at 2, the asker's 131088-byte save fitted, where the runner refused it before.
 
 ## Risks
 
 - A session is refused at the ask, naming the difference, when the core revision, BIOS or any core
   option differ, even one that does not change emulation (a colour setting). The player sets both
   the same.
-- A GBA cartridge with a real-time clock is refused: the core reads the host's time, its
-  `mRTCGenericSource` can run a fake epoch from the frame count, and nothing but the Qt frontend
-  sets it. A commit on the fork's `opensu` branch that sets `RTC_FAKE_EPOCH` under
-  `GET_NETPLAY_CLIENT_INDEX` would let these games play, Pokémon's among them. `hasRealTimeClock`
-  knows the game codes of the core's overrides and Nintendo's RTC library; a homebrew clock is not
-  seen.
+- A session's clock runs with the emulated frames, so stalls put it behind real time by what they
+  cost, and frame 0 waits for the second runner: it starts a few seconds late. The game's own save
+  keeps no clock past the session: player 1's save RAM holds none, and the 16 bytes mGBA appends to
+  player 2's file are left out when the runner next loads it (`save_ram_fit`), so single play reads
+  the host's time again.
 - The core's watchdog asserts (`mASSERT`) when every player blocks; a hang in a game ends the
   runner, which the shell reports as a crash.
 - Three players in a four-player session do not link (reported on PR #318).

@@ -76,6 +76,15 @@ std::optional<NetplaySetup> netplaySetupOf(const std::string& text, std::string&
             return std::nullopt;
         }
     }
+    const auto clockMs = document.find("clockMs");
+    const auto utcOffset = document.find("utcOffset");
+    if (clockMs == document.end() || !clockMs->is_number_integer() || utcOffset == document.end() ||
+        !utcOffset->is_number_integer()) {
+        error = "the netplay file lacks its clock";
+        return std::nullopt;
+    }
+    setup.clock = {.epochMs = clockMs->get<std::int64_t>(),
+                   .utcOffset = utcOffset->get<std::int32_t>()};
     std::optional<std::vector<std::uint8_t>> send = keyOf(document, "sendKey");
     std::optional<std::vector<std::uint8_t>> receive = keyOf(document, "receiveKey");
     if (!send || !receive) {

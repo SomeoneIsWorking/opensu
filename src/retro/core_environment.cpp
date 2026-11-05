@@ -84,6 +84,12 @@ bool CoreEnvironment::answer(unsigned command, void* data) {
         }
         *static_cast<unsigned*>(data) = *netplaySlot_;
         return true;
+    case getNetplayClock:
+        if (!netplayClock_) {
+            return false;
+        }
+        *static_cast<NetplayClock*>(data) = *netplayClock_;
+        return true;
     case RETRO_ENVIRONMENT_GET_CORE_OPTIONS_VERSION:
         *static_cast<unsigned*>(data) = 2;
         return true;

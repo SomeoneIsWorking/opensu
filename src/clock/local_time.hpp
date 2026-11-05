@@ -3,6 +3,7 @@
 // (`local_time_win32.cpp`), picked in CMake.
 #pragma once
 
+#include <cstdint>
 #include <ctime>
 #include <string_view>
 
@@ -10,6 +11,9 @@ namespace opensu::clock {
 
 /// `moment` in the local time zone.
 [[nodiscard]] std::tm localTime(std::time_t moment);
+
+/// How far east of UTC the local time zone stands at `moment`, in seconds.
+[[nodiscard]] std::int32_t secondsEastOfUtc(std::time_t moment);
 
 /// Whether the player's locale shows a 24-hour clock; true when it cannot be read.
 [[nodiscard]] bool localeClock24Hour();

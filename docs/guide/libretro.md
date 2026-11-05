@@ -112,8 +112,9 @@ undone by it). Close game keeps no resume state.
 
 On a GBA game's details page, Play linked (2 players) runs two linked GBAs side by side on the mGBA
 link core, each pad its own player. Player 2's save is `<rom>.p2.srm` beside player 1's. Play with
-<name> does the same with a paired openSU ([LAN](lan.md)). Game Boy games do not link yet, and single
-play stays on the emulator you picked.
+<name> does the same with a paired openSU ([LAN](lan.md)), a cartridge's clock following the emulated
+game there rather than your computer's. Game Boy games do not link yet, and single play stays on the
+emulator you picked.
 
 ## On Android
 

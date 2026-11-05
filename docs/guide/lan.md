@@ -136,7 +136,9 @@ Up to four openSUs can play one game at once, each with its own controller as it
 On a GBA game's details page, Play with <name> asks a paired openSU to play it linked. It needs the
 same ROM there, and the mGBA link core (openSU ships it on Linux). Each of you plays as your own
 active profile on your own screen; each hands the other a copy of your save for the session and keeps only your own afterwards. The game
-ends for both when one leaves. Save state still works; Load state, Reset and Save and close do not
+ends for both when one leaves. A cartridge with a clock, as the Pokémon games have, shows the time
+and zone of whoever asked on both screens for the session, and your own again in single play. Save
+state still works; Load state, Reset and Save and close do not
 while you play. See [the built-in runner](libretro.md).
 
 ## What is shared, and with whom

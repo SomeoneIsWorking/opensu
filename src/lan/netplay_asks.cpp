@@ -1,10 +1,12 @@
 #include "netplay_asks.hpp"
 
 #include <cstddef>
+#include <ctime>
 #include <format>
 #include <map>
 #include <utility>
 
+#include "clock/local_time.hpp"
 #include "lucent/log.h"
 
 namespace opensu::lan {
@@ -48,6 +50,19 @@ std::string netplayDifference(const wire::NetplayFacts& here, const wire::Netpla
     return {};
 }
 
+wire::NetplayClock netplayClockNow() {
+    const auto now = std::chrono::system_clock::now();
+    const auto sinceEpoch = now.time_since_epoch();
+    return {.epochMs = std::chrono::duration_cast<std::chrono::milliseconds>(sinceEpoch).count(),
+            .utcOffset = clock::secondsEastOfUtc(std::chrono::system_clock::to_time_t(now))};
+}
+
+wire::NetplayClock NetplayAsks::Question::clockAt(Clock::time_point now) const {
+    wire::NetplayClock clock = rom.clock;
+    clock.epochMs += std::chrono::duration_cast<std::chrono::milliseconds>(now - arrived).count();
+    return clock;
+}
+
 void NetplayAsks::lapse(Clock::time_point now) {
     if (pending_ && now - pending_->started > patience) {
         pending_.reset();
@@ -67,7 +82,8 @@ bool NetplayAsks::ask(const Peer& peer, const wire::NetplayAsk& rom, Clock::time
     }
     wire::NetplayVerdict verdict;
     verdict.verdict = waiting;
-    pending_ = Pending{.peer = peer, .rom = rom, .started = now, .verdict = std::move(verdict)};
+    pending_ = Pending{
+        .peer = peer, .rom = rom, .arrived = now, .started = now, .verdict = std::move(verdict)};
     lucent::info("lan", "{} asks to play {} together", peer.name, rom.title);
     return true;
 }
@@ -92,7 +108,7 @@ std::optional<NetplayAsks::Question> NetplayAsks::question(Clock::time_point now
         now - pending_->started > patience) {
         return std::nullopt;
     }
-    return Question{.peer = pending_->peer, .rom = pending_->rom};
+    return Question{.peer = pending_->peer, .rom = pending_->rom, .arrived = pending_->arrived};
 }
 
 void NetplayAsks::accept(std::string_view peerId, Clock::time_point now) {
@@ -105,13 +121,15 @@ void NetplayAsks::accept(std::string_view peerId, Clock::time_point now) {
 }
 
 void NetplayAsks::allow(std::string_view peerId, std::uint16_t port,
-                        const secrets::crypto::Bytes& salt, Clock::time_point now) {
+                        const secrets::crypto::Bytes& salt, std::int64_t clockMs,
+                        Clock::time_point now) {
     const std::lock_guard lock{mutex_};
     lapse(now);
     if (pending_ && pending_->peer.id == peerId) {
         pending_->verdict.verdict = "allowed";
         pending_->verdict.port = port;
         pending_->verdict.salt = salt;
+        pending_->verdict.clockMs = clockMs;
     }
 }
 

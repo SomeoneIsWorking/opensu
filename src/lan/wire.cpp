@@ -52,6 +52,12 @@ std::optional<std::uint64_t> countField(const json& document, const char* key) {
     return found->get<std::uint64_t>();
 }
 
+/// A signed number field; zero when it is absent or not one.
+template <typename Number> Number signedField(const json& document, const char* key) {
+    const auto found = document.find(key);
+    return found != document.end() && found->is_number_integer() ? found->get<Number>() : Number{0};
+}
+
 } // namespace
 
 std::string textField(const json& document, const char* key) {
@@ -447,7 +453,9 @@ std::string write(const NetplayAsk& ask) {
                 {"salt", secrets::hexText(ask.salt)},
                 {"coreRevision", ask.facts.coreRevision},
                 {"options", ask.facts.options},
-                {"bios", ask.facts.bios}}
+                {"bios", ask.facts.bios},
+                {"clockMs", ask.clock.epochMs},
+                {"utcOffset", ask.clock.utcOffset}}
         .dump();
 }
 
@@ -464,7 +472,9 @@ std::optional<NetplayAsk> readNetplayAsk(std::string_view body) {
                    .salt = {},
                    .facts = {.coreRevision = textField(*document, "coreRevision"),
                              .options = {},
-                             .bios = textField(*document, "bios")}};
+                             .bios = textField(*document, "bios")},
+                   .clock = {.epochMs = signedField<std::int64_t>(*document, "clockMs"),
+                             .utcOffset = signedField<std::int32_t>(*document, "utcOffset")}};
     std::optional<secrets::crypto::Bytes> salt =
         bytesField(*document, "salt", secrets::crypto::nonceBytes);
     if (!salt || ask.console.empty() || ask.file.empty() || ask.size == 0 || ask.sha256.empty()) {
@@ -502,7 +512,8 @@ std::string write(const NetplayVerdict& verdict) {
     return json{{"verdict", verdict.verdict},
                 {"refusal", verdict.refusal},
                 {"port", verdict.port},
-                {"salt", secrets::hexText(verdict.salt)}}
+                {"salt", secrets::hexText(verdict.salt)},
+                {"clockMs", verdict.clockMs}}
         .dump();
 }
 
@@ -514,7 +525,8 @@ std::optional<NetplayVerdict> readNetplayVerdict(std::string_view body) {
     NetplayVerdict verdict{.verdict = textField(*document, "verdict"),
                            .refusal = textField(*document, "refusal"),
                            .port = 0,
-                           .salt = {}};
+                           .salt = {},
+                           .clockMs = signedField<std::int64_t>(*document, "clockMs")};
     if (verdict.verdict == "allowed") {
         const std::optional<std::uint64_t> port = countField(*document, "port");
         std::optional<secrets::crypto::Bytes> salt =

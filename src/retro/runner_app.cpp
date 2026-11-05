@@ -188,7 +188,7 @@ RunnerExit RunnerApp::run() {
             }
             return RunnerExit::LoadFailed;
         }
-        environment.setNetplaySlot(netplay->slot());
+        environment.joinNetplay(netplay->slot(), options_.netplay->clock);
         lucent::info("retro", "netplay: player {} of {} on UDP port {}", netplay->slot() + 1,
                      options_.netplay->session.players, netplay->port());
     }

@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 
+#include "core_environment.hpp"
 #include "joypad.hpp"
 #include "netplay/lan_transport.hpp"
 #include "netplay/session.hpp"
@@ -28,10 +29,12 @@ struct NetplaySetup {
     std::optional<stream::UdpAddress> peer;
     std::vector<std::uint8_t> sendKey;
     std::vector<std::uint8_t> receiveKey;
+    NetplayClock clock;
 };
 
 /// The JSON `text`: `{"slot": 0, "players": 2, "delay": 2, "port": 0, "peer": "192.168.1.2:4000",
-/// "sendKey": hex, "receiveKey": hex}`, `peer` optional. Nothing, with `error`, when malformed.
+/// "clockMs": 1793900000000, "utcOffset": 10800, "sendKey": hex, "receiveKey": hex}`, `peer`
+/// optional. Nothing, with `error`, when malformed.
 [[nodiscard]] std::optional<NetplaySetup> netplaySetupOf(const std::string& text,
                                                          std::string& error);
 

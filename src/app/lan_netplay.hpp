@@ -1,14 +1,15 @@
 // lan_netplay — two paired openSUs playing one ROM linked, on the shell's loop. As the asker: Play
 // with <name> hashes the ROM and hands over its save, asks, and waits (`play`). As the asked: the
 // question put to the player, the same ROM looked for by console, name and hash, and refused at
-// once when the core, its options or the BIOS differ or the cartridge has a clock. Each side takes
-// the other's save, writes both into a session folder of its own (never a profile's), writes the
-// session's file and starts `opensu-retro --netplay` as its own active profile: the asked side
-// first, its runner binding a UDP port of the system's choosing, which the asker is then told. When
-// the game ends only this side's player's save goes back into its profile (`ended`). The calls run
-// off the loop through `LanService::askPeers`.
+// once when the core, its options or the BIOS differ. Each side takes the other's save, writes
+// both into a session folder of its own (never a profile's), writes the session's file, with the
+// clock both run from, the asker's, and starts `opensu-retro --netplay` as its own active profile:
+// the asked side first, its runner binding a UDP port of the system's choosing, which the asker is
+// then told. When the game ends only this side's player's save goes back into its profile
+// (`ended`). The calls run off the loop through `LanService::askPeers`.
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <map>
@@ -81,6 +82,7 @@ class LanNetplay {
         lan::StreamKeys keys;
         /// What each side's save holds, by slot.
         std::string saves[2];
+        lan::wire::NetplayClock clock;
     };
     struct Arrived {
         std::mutex mutex;
@@ -91,6 +93,7 @@ class LanNetplay {
     struct Starting {
         std::string askerId;
         secrets::crypto::Bytes salt;
+        std::int64_t clockMs{0};
     };
     struct Running {
         std::string gameId;

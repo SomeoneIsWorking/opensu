@@ -3,6 +3,7 @@
 // `HardwareRender` answers. Anything else is refused.
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -13,6 +14,16 @@
 #include "hardware_render.hpp"
 
 namespace opensu::retro {
+
+/// The link core's own command, in its libretro.h and not libretro-common's.
+inline constexpr unsigned getNetplayClock = 256U | RETRO_ENVIRONMENT_EXPERIMENTAL;
+
+/// The time a netplay session's cartridges start from, as that command returns it: Unix time in
+/// milliseconds at the first frame and the seconds east of UTC their faces show.
+struct NetplayClock {
+    std::int64_t epochMs{0};
+    std::int32_t utcOffset{0};
+};
 
 class CoreEnvironment {
   public:
@@ -40,10 +51,11 @@ class CoreEnvironment {
     [[nodiscard]] std::optional<retro_system_timing> takeTiming();
     /// Geometry the core changed since the last call (SET_GEOMETRY or SET_SYSTEM_AV_INFO).
     [[nodiscard]] std::optional<retro_game_geometry> takeGeometry();
-    /// This machine is player `slot` of a netplay session, which
-    /// RETRO_ENVIRONMENT_GET_NETPLAY_CLIENT_INDEX answers from now on.
-    void setNetplaySlot(unsigned slot) noexcept {
+    /// This machine is player `slot` of a netplay session on `clock`, which
+    /// RETRO_ENVIRONMENT_GET_NETPLAY_CLIENT_INDEX and `getNetplayClock` answer from now on.
+    void joinNetplay(unsigned slot, NetplayClock clock) noexcept {
         netplaySlot_ = slot;
+        netplayClock_ = clock;
     }
 
   private:
@@ -55,6 +67,7 @@ class CoreEnvironment {
     std::optional<retro_system_timing> timing_;
     std::optional<retro_game_geometry> geometry_;
     std::optional<unsigned> netplaySlot_;
+    std::optional<NetplayClock> netplayClock_;
 };
 
 } // namespace opensu::retro

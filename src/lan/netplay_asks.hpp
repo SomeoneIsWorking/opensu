@@ -23,6 +23,9 @@ namespace opensu::lan {
 [[nodiscard]] std::string netplayDifference(const wire::NetplayFacts& here,
                                             const wire::NetplayFacts& there);
 
+/// This machine's clock now, as an asker offers it for a session.
+[[nodiscard]] wire::NetplayClock netplayClockNow();
+
 class NetplayAsks {
   public:
     using Clock = std::chrono::steady_clock;
@@ -40,6 +43,10 @@ class NetplayAsks {
     struct Question {
         Peer peer;
         wire::NetplayAsk rom;
+        Clock::time_point arrived;
+
+        /// The asker's clock at `now`, its offer run on since the ask arrived.
+        [[nodiscard]] wire::NetplayClock clockAt(Clock::time_point now) const;
 
         bool operator==(const Question&) const = default;
     };
@@ -48,10 +55,10 @@ class NetplayAsks {
     /// The player said yes to `peerId`'s ask: it is asked no more, and the asker keeps waiting
     /// until `allow` or `decline`, with a new `patience`.
     void accept(std::string_view peerId, Clock::time_point now);
-    /// Allows the waiting ask of `peerId`: the UDP port the session's runner here bound and this
-    /// side's salt.
+    /// Allows the waiting ask of `peerId`: the UDP port the session's runner here bound, this
+    /// side's salt and the time the session's clock starts from.
     void allow(std::string_view peerId, std::uint16_t port, const secrets::crypto::Bytes& salt,
-               Clock::time_point now);
+               std::int64_t clockMs, Clock::time_point now);
     /// Declines it, the asker told `refusal`.
     void decline(std::string_view peerId, std::string refusal, Clock::time_point now);
 
@@ -65,6 +72,7 @@ class NetplayAsks {
     struct Pending {
         Peer peer;
         wire::NetplayAsk rom;
+        Clock::time_point arrived;
         Clock::time_point started;
         wire::NetplayVerdict verdict;
         bool accepted{false};

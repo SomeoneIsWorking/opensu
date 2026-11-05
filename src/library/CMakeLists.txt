@@ -14,7 +14,6 @@ add_library(opensu_library STATIC
     gog_builds.cpp
     gog_installs.cpp
     roms.cpp
-    gba_cartridge.cpp
     rom_systems.cpp
     rom_titles.cpp
     param_sfo.cpp

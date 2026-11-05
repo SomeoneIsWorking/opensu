@@ -120,8 +120,8 @@ It never shares the loopback control channel's port.
 | `POST /lan/invite` | paired, signed | `{"game","title"}` → `{}`: the caller invites this openSU to its game running now; 409 with why when this one is in a game |
 | `POST /lan/library/news` | paired, signed | `{}` → `{}`: the caller's listing changed (who plays what there); this openSU reads it again |
 | `POST /lan/play/status` | paired, signed | `{"game"}` → `{"verdict","port","why"}`: `waiting`, `accepted` with the stream's port, or `declined` with why, for this caller's ask |
-| `POST /lan/netplay` | paired, signed | `{"console","file","title","size","sha256","salt","coreRevision","options","bios"}` → `{}`: asks to play that ROM together; the player here is asked |
-| `POST /lan/netplay/status` | paired, signed | `{"sha256"}` → `{"verdict","refusal","port","salt"}`: `waiting`, `declined` or `allowed` with the session's UDP port and the asked side's salt |
+| `POST /lan/netplay` | paired, signed | `{"console","file","title","size","sha256","salt","coreRevision","options","bios","clockMs","utcOffset"}` → `{}`: asks to play that ROM together; the player here is asked |
+| `POST /lan/netplay/status` | paired, signed | `{"sha256"}` → `{"verdict","refusal","port","salt","clockMs"}`: `waiting`, `declined` or `allowed` with the session's UDP port, the asked side's salt and the time the session's clock starts from |
 | `POST /lan/netplay/save` | paired, signed | `{"sha256"}` → the bytes of the save handed to the caller, once; both sides ask |
 
 Everything else, and any signed route that fails its check or whose body does not open, is 403.
@@ -384,18 +384,22 @@ none it declines by itself. The ask carries what the asker would run with, and t
 compares it (`lan::netplayDifference`, the first difference named for the asker): the link core's
 revision (the pin, `library::linkCoreRevision`, so builds of one pin on any OS agree), the SHA-256 of
 `gba_bios.bin` in the runner's system folder, and every core option resolved for the link core; an
-option set on one side and not the other counts. A cartridge with a real-time clock is refused too
-(`library::hasRealTimeClock`): mGBA reads the host's time and libretro gives a frontend no way to set
-it. A refusal comes back as `declined` with the reason before the player here is asked. Otherwise
+option set on one side and not the other counts. A refusal comes back as `declined` with the reason before the player here is asked. Otherwise
 its player gets Decline or Play. Play hands over its own save,
 takes the asker's, starts its runner and answers `allowed` with the UDP port the runner bound
 (`netplayPort` in its control file); until then the status stays `waiting`, and the ask is declined
 when the runner does not start. The asker then takes the host's save and starts its own. Both derive
 `lan::streamKeys` from the pairing's secret and both salts, the asker's first.
 
+A cartridge's clock must read the same on both machines, so the session has one, the asker's: the ask
+carries its Unix time in milliseconds and its zone's seconds east of UTC (`lan::netplayClockNow`).
+Play runs that time on by how long the ask waited (`NetplayAsks::Question::clockAt`) and `allowed`
+returns the result, so both runners start from one number and the in-game clock is the asker's real
+time. Both write it to the session's file.
+
 The asked side is player 1, the asker player 2. Both write `<rom stem>.srm` (player 1's) and
 `<rom stem>.p2.srm` into `<state>/netplay/saves/<system>`, emptied first, and the session's keys,
-slot and the asker's peer address into `<state>/netplay/session.json` (owner-only), and start `opensu-retro --netplay`
+slot, clock and the asker's peer address into `<state>/netplay/session.json` (owner-only), and start `opensu-retro --netplay`
 through the launch path as the active profile (`ShellApp::launchSession`), with no save sync before
 it. The asked side's runner learns its peer from the first datagram that opens. When the game ends
 each side's own player's file goes into its profile's `<rom stem>.srm`, then the shared saves push it

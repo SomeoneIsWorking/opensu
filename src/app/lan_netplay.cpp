@@ -14,7 +14,6 @@
 #include "fileio/atomic_write.hpp"
 #include "fileio/owner_only_write.hpp"
 #include "gpu2d/ui/screen.hpp"
-#include "library/gba_cartridge.hpp"
 #include "library/linked_play.hpp"
 #include "lucent/log.h"
 #include "retro/save_paths.hpp"
@@ -26,8 +25,6 @@ namespace {
 
 constexpr auto pollEvery = std::chrono::seconds{1};
 constexpr auto waitAtMost = std::chrono::seconds{125};
-constexpr std::string_view clockRefusal =
-    "the cartridge has a real-time clock, which each machine would read differently";
 
 std::string contentsOf(const std::filesystem::path& file) {
     std::ifstream in{file, std::ios::binary};
@@ -78,15 +75,12 @@ bool LanNetplay::refused(lan::LanNode& node, const lan::NetplayAsks::Question& a
                          const library::Game& game) {
     const lan::wire::NetplayFacts here = factsOf(game);
     const lan::wire::NetplayFacts& theirs = asked.rom.facts;
-    const bool clock = library::hasRealTimeClock(contentsOf(game.file));
-    const std::string toAsker =
-        clock ? std::string{clockRefusal} : lan::netplayDifference(here, theirs);
+    const std::string toAsker = lan::netplayDifference(here, theirs);
     if (toAsker.empty()) {
         return false;
     }
-    const std::string toPlayer =
-        clock ? std::string{clockRefusal} : lan::netplayDifference(theirs, here);
-    const std::string said = asked.peer.name + " cannot play " + asked.rom.title + ": " + toPlayer;
+    const std::string said = asked.peer.name + " cannot play " + asked.rom.title + ": " +
+                             lan::netplayDifference(theirs, here);
     lucent::info("lan", "{}", said);
     node.netplay().decline(asked.peer.id, toAsker, lan::NetplayAsks::Clock::now());
     hooks_.say(said, true);
@@ -124,7 +118,8 @@ void LanNetplay::play(const library::Game& game, const std::string& peerId) {
                                             .size = std::filesystem::file_size(game.file, failed),
                                             .sha256 = sha256Of(game.file),
                                             .salt = salt,
-                                            .facts = facts};
+                                            .facts = facts,
+                                            .clock = lan::netplayClockNow()};
             std::string ownSave = contentsOf(own);
             node.netplay().handOver(peerId, ask.sha256, ownSave);
             std::optional<Agreed> agreed;
@@ -158,7 +153,9 @@ void LanNetplay::play(const library::Game& game, const std::string& peerId) {
                                         .salt = {},
                                         .peer = *address + ":" + std::to_string(verdict->port),
                                         .keys = std::move(*keys),
-                                        .saves = {std::move(*hostSave), std::move(ownSave)}};
+                                        .saves = {std::move(*hostSave), std::move(ownSave)},
+                                        .clock = {.epochMs = verdict->clockMs,
+                                                  .utcOffset = ask.clock.utcOffset}};
                     }
                     break;
                 }
@@ -209,7 +206,7 @@ void LanNetplay::serviceStart() {
         return;
     }
     if (lan::LanNode* node = lan_.node(); node != nullptr) {
-        node->netplay().allow(starting_->askerId, *port, starting_->salt,
+        node->netplay().allow(starting_->askerId, *port, starting_->salt, starting_->clockMs,
                               lan::NetplayAsks::Clock::now());
     }
     starting_.reset();
@@ -283,9 +280,9 @@ void LanNetplay::answer(bool allow) {
         sessionSaveOf(retro::systemSaveFolder(hooks_.profileSaves(), game.sourceId), game.file, 0));
     node->netplay().handOver(asked.peer.id, asked.rom.sha256, ownSave);
     node->netplay().accept(asked.peer.id, now);
-    const bool pulling =
-        lan_.askPeers([arrived = arrived_, asked, game, salt, ownSave = std::move(ownSave)](
-                          const lan::LanNode& node, const std::stop_token& stop) {
+    const bool pulling = lan_.askPeers(
+        [arrived = arrived_, asked, game, salt, ownSave = std::move(ownSave),
+         clock = asked.clockAt(now)](const lan::LanNode& node, const std::stop_token& stop) {
             std::string error;
             std::optional<std::string> guestSave =
                 node.netplaySave(stop, asked.peer.id, asked.rom.sha256, error);
@@ -307,7 +304,8 @@ void LanNetplay::answer(bool allow) {
                                              .salt = salt,
                                              .peer = {},
                                              .keys = std::move(*keys),
-                                             .saves = {ownSave, std::move(*guestSave)}});
+                                             .saves = {ownSave, std::move(*guestSave)},
+                                             .clock = clock});
         });
     if (!pulling) {
         node->netplay().decline(asked.peer.id, "it could not take your save", now);
@@ -358,6 +356,8 @@ void LanNetplay::begin(Agreed agreed) {
     nlohmann::json session{
         {"slot", agreed.slot},
         {"players", 2},
+        {"clockMs", agreed.clock.epochMs},
+        {"utcOffset", agreed.clock.utcOffset},
         {"sendKey", secrets::hexText(host ? agreed.keys.host : agreed.keys.guest)},
         {"receiveKey", secrets::hexText(host ? agreed.keys.guest : agreed.keys.host)}};
     if (!agreed.peer.empty()) {
@@ -381,7 +381,8 @@ void LanNetplay::begin(Agreed agreed) {
         return;
     }
     if (host) {
-        starting_ = Starting{.askerId = agreed.askerId, .salt = agreed.salt};
+        starting_ = Starting{
+            .askerId = agreed.askerId, .salt = agreed.salt, .clockMs = agreed.clock.epochMs};
     }
     running_ = Running{
         .gameId = agreed.game.id,

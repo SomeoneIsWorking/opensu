@@ -231,6 +231,15 @@ struct NetplayFacts {
     bool operator==(const NetplayFacts&) const = default;
 };
 
+/// The clock a session's cartridges run from, the asker's: Unix time in milliseconds at the first
+/// frame and the seconds east of UTC that their faces show.
+struct NetplayClock {
+    std::int64_t epochMs{0};
+    std::int32_t utcOffset{0};
+
+    bool operator==(const NetplayClock&) const = default;
+};
+
 struct NetplayAsk {
     std::string console;
     /// The ROM's file name.
@@ -240,6 +249,7 @@ struct NetplayAsk {
     std::string sha256;
     secrets::crypto::Bytes salt;
     NetplayFacts facts;
+    NetplayClock clock;
 
     bool operator==(const NetplayAsk&) const = default;
 };
@@ -260,6 +270,9 @@ struct NetplayVerdict {
     std::string refusal;
     std::uint16_t port{0};
     secrets::crypto::Bytes salt;
+    /// `NetplayClock::epochMs` as the asked side started with it: the ask's, plus what the player
+    /// took to answer.
+    std::int64_t clockMs{0};
 };
 [[nodiscard]] std::string write(const NetplayVerdict& verdict);
 [[nodiscard]] std::optional<NetplayVerdict> readNetplayVerdict(std::string_view body);

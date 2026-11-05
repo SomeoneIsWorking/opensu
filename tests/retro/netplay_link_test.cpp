@@ -12,7 +12,8 @@ namespace {
 using opensu::retro::netplaySetupOf;
 using opensu::test::expect;
 
-constexpr std::string_view keys = R"("sendKey": "0011", "receiveKey": "2233")";
+constexpr std::string_view keys =
+    R"("clockMs": 1793900000000, "utcOffset": -18000, "sendKey": "0011", "receiveKey": "2233")";
 
 std::string file(const std::string& start) {
     return start + std::string{keys} + "}";
@@ -31,6 +32,7 @@ void readsTheFile() {
     expect(setup.port == 4000, "the port");
     expect(setup.peer.has_value(), "the peer");
     expect(setup.sendKey.size() == 2 && setup.sendKey[1] == 0x11, "the key sent with");
+    expect(setup.clock.epochMs == 1793900000000 && setup.clock.utcOffset == -18000, "the clock");
 }
 
 void peerIsOptional() {
@@ -45,7 +47,8 @@ void refuses() {
     expect(!netplaySetupOf(file(R"({"slot": 2, "players": 2, )"), error), "a slot past the end");
     expect(!netplaySetupOf(file(R"({"slot": 0, "players": 1, )"), error), "one player");
     expect(!netplaySetupOf(file(R"({"peer": "nowhere", )"), error), "a peer with no port");
-    expect(!netplaySetupOf(R"({"slot": 0, "players": 2})", error), "no keys");
+    expect(!netplaySetupOf(R"({"slot": 0, "players": 2})", error), "no clock");
+    expect(!netplaySetupOf(R"({"clockMs": 1, "utcOffset": 0})", error), "no keys");
     expect(!error.empty(), "the refusal says why");
 }
 

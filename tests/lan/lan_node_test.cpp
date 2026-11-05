@@ -618,7 +618,8 @@ void askedToPlayTogether(const lan::LanNode& guest, lan::LanNode& host) {
                                     .salt = guestSalt,
                                     .facts = {.coreRevision = "72bea0c51b68",
                                               .options = {{"mgba_frameskip", "1"}},
-                                              .bios = "ee"}};
+                                              .bios = "ee"},
+                                    .clock = {.epochMs = 1793900000000, .utcOffset = -18000}};
     lan::wire::NetplayFacts same = ask.facts;
     expect(lan::netplayDifference(ask.facts, same).empty(), "the same facts agree");
     same.bios.clear();
@@ -658,12 +659,16 @@ void askedToPlayTogether(const lan::LanNode& guest, lan::LanNode& host) {
     const std::optional<lan::wire::NetplayVerdict> starting =
         guest.netplayStatus(never, host.id(), ask.sha256, error);
     expect(starting && starting->verdict == "waiting", "the attic waits for the den's runner");
-    host.netplay().allow(guest.id(), 4000, hostSalt, Clock::now());
+    const lan::NetplayAsks::Question late{.peer = {}, .rom = ask, .arrived = Clock::time_point{}};
+    expect(late.clockAt(Clock::time_point{} + std::chrono::seconds{30}) ==
+               lan::wire::NetplayClock{.epochMs = 1793900030000, .utcOffset = -18000},
+           "the asker's clock runs on while the den's player answers");
+    host.netplay().allow(guest.id(), 4000, hostSalt, 1793900030000, Clock::now());
     const std::optional<lan::wire::NetplayVerdict> allowed =
         guest.netplayStatus(never, host.id(), ask.sha256, error);
     expect(allowed && allowed->verdict == "allowed" && allowed->port == 4000 &&
-               allowed->salt == hostSalt,
-           "the attic hears it is allowed, with the port and the salt");
+               allowed->salt == hostSalt && allowed->clockMs == 1793900030000,
+           "the attic hears it is allowed, with the port, the salt and the clock");
     expect(guest.netplaySave(never, host.id(), ask.sha256, error) == "host save",
            "the attic takes the den's save");
     expect(host.netplaySave(never, guest.id(), ask.sha256, error) == "guest save",

@@ -236,15 +236,20 @@ source beside the pads. Under `--netplay` the core reads `NetplayLink` instead (
 screen is its joystick mode, the right stick moving its cursor and R2 touching.
 
 **Netplay.** `--netplay <file>` makes this runner one machine of a session. The file is owner-only
-JSON: `{"slot": 0, "players": 2, "delay": 2, "port": 0, "peer": "192.168.1.2:4000", "sendKey": hex,
-"receiveKey": hex}`; port 0 binds one of the system's choosing, reported in the control file, and
-without `peer` the runner learns it from the first datagram that opens. Every
+JSON: `{"slot": 0, "players": 2, "delay": 2, "port": 0, "peer": "192.168.1.2:4000", "clockMs": <Unix
+ms>, "utcOffset": <seconds east of UTC>, "sendKey": hex, "receiveKey": hex}`, a file without the clock
+refused; port 0 binds one of the system's choosing, reported in the control file, and without `peer`
+the runner learns it from the first datagram that opens. Every
 machine runs every player, so each must load the same ROM, core and options. Each frame the runner
 reads its pad (all of it, as port 0) for frame `f + delay`, sends it repeating the last 16 frames,
 and runs frame `f` only when every slot's input for it is in, resending every 8 ms while it waits.
 Every 120 frames each side sends the
 CRC-32 of `RETRO_MEMORY_SYSTEM_RAM`, not `retro_serialize`: mGBA's state holds its creation time. A
-core with no system RAM compares nothing. `GET_NETPLAY_CLIENT_INDEX` answers the slot. The session ends
+core with no system RAM compares nothing. `GET_NETPLAY_CLIENT_INDEX` answers the slot and the link
+core's own `GET_NETPLAY_CLOCK` (256 | experimental, `retro::getNetplayClock`) the file's `clockMs` and
+`utcOffset`, which the core asks for at load: each GBA's clock then runs from that time with the
+emulated frames (`RTC_FAKE_EPOCH`) and shows it in that zone, whatever the host's clock and zone, so
+a game with a real-time clock reads the same on every machine. The session ends
 on Leave (SIGTERM or quit), on 5 s of silence (20 s before the first frame) or on a differing CRC;
 the runner logs `netplay: <how> after <n> frames, <n> stalls, <n> state checks matched`, writes its
 save RAM and exits 0. Load state, reset, a core option's change and Save and close answer 409: one
