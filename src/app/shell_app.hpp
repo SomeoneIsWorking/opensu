@@ -831,6 +831,30 @@ class ShellApp final {
             .speaker =
                 [this] {
                     return sounds_.live(stream::audioRate, stream::audioChannels);
+                },
+            .invite =
+                [this](const std::string& peerId, const lan::wire::Invitation& game,
+                       std::function<void(std::string)> refused) {
+                    return lan_.askPeers(
+                        [peerId, game, refused = std::move(refused)](const lan::LanNode& node,
+                                                                     const std::stop_token& stop) {
+                            std::string error;
+                            if (!node.invite(stop, peerId, game, error) && !stop.stop_requested()) {
+                                refused(std::move(error));
+                            }
+                        });
+                },
+            .join =
+                [this](const std::string& hostId, const std::string& gameId) {
+                    const auto found = std::ranges::find_if(games_, [&](const library::Game& game) {
+                        return game.source == library::Source::Remote && game.hostId == hostId &&
+                               game.sourceId == gameId;
+                    });
+                    return found != games_.end() && launch(*found, {}, {});
+                },
+            .name =
+                [this] {
+                    return lan_.name();
                 }}};
     /// The ROM folders as LAN import writes into them; the import's thread shares it.
     std::shared_ptr<const library::roms::RomTree> romTree_{library::roms::openRomTree()};
@@ -888,6 +912,10 @@ class ShellApp final {
                           .playStatus =
                               [this](const lan::Peer& peer, const std::string& game) {
                                   return remotePlay_.playStatus(peer, game);
+                              },
+                          .invited =
+                              [this](const lan::Peer& peer, const lan::wire::Invitation& game) {
+                                  return remotePlay_.invited(peer, game);
                               }}};
     /// What play together asks the player here.
     TogetherQuestions togetherQuestions_{shell_.screens().navigator(), sounds_, remotePlay_};
@@ -1225,6 +1253,7 @@ class ShellApp final {
                 [this] {
                     const bool inGame = shell_.inGame();
                     const bool remote = remotePlay_.streaming();
+                    const bool here = inGame && !remote;
                     return GuideContext{
                         .inGame = inGame,
                         .remote = remote,
@@ -1234,7 +1263,12 @@ class ShellApp final {
                             inGame && !remote && !layered_.sectionsOf(launches_.game()).empty(),
                         .loginSession = settings_.loginSession,
                         .sessionInstalled =
-                            !settings_.loginSession && host_.session && host_.session->installed()};
+                            !settings_.loginSession && host_.session && host_.session->installed(),
+                        .takesGuests = here && lan_.node() != nullptr && remotePlay_.takesGuests(),
+                        .invitable = here ? remotePlay_.notGuests(lan_.announced())
+                                          : std::vector<lan::Peer>{},
+                        .guests = here ? remotePlay_.guests() : std::vector<lan::Peer>{},
+                        .closesWithGuest = here && remotePlay_.closesWithGuest()};
                 },
             .showSection =
                 [this](library::Section section) {
@@ -1288,6 +1322,14 @@ class ShellApp final {
             .playAs =
                 [this](const std::string& id) {
                     switchProfile(id);
+                },
+            .invite =
+                [this](const lan::Peer& peer) {
+                    remotePlay_.invite(peer);
+                },
+            .kick =
+                [this](const std::string& peerId) {
+                    remotePlay_.kick(peerId);
                 }}};
     /// Whether the pointer drove the shell last frame, so leaving is said once.
     bool pointerIn_{false};

@@ -1,7 +1,7 @@
 // together_questions — what play together asks the player here, one dialog at a time, over
 // whatever is shown, a running game included: a guest's ask to join the game that runs here
-// ("Let <guest> join?", Decline focused), answered into `RemotePlay`, which lets the guest in. The
-// dialog closes by itself when the ask lapses or is answered elsewhere.
+// ("Let <guest> join?") and a host's invitation to its game ("Play with <host>?"), Decline focused,
+// answered into `RemotePlay`. The dialog closes by itself when the question lapses.
 #pragma once
 
 #include <optional>
@@ -25,14 +25,24 @@ class TogetherQuestions {
     void service();
 
   private:
+    /// The question a dialog shows.
+    struct Question {
+        bool invitation{false};
+        lan::Peer peer;
+        std::string title;
+
+        bool operator==(const Question&) const = default;
+    };
+
+    [[nodiscard]] std::optional<Question> next() const;
     void answer(bool allow);
     void close();
 
     gpu2d::ui::Navigator& navigator_;
     audio::SdlSoundPlayer& sounds_;
     RemotePlay& remote_;
-    /// The ask the dialog shows, and the dialog's title while it is open.
-    std::optional<RemotePlay::JoinQuestion> asked_;
+    /// The question the dialog shows, and the dialog's title while it is open.
+    std::optional<Question> asked_;
     std::string title_;
 };
 

@@ -82,6 +82,14 @@ struct Rig {
                          .playAs =
                              [this](const std::string& id) {
                                  calls.push_back("playAs " + id);
+                             },
+                         .invite =
+                             [this](const lan::Peer& peer) {
+                                 calls.push_back("invite " + peer.name);
+                             },
+                         .kick =
+                             [this](const std::string& peerId) {
+                                 calls.push_back("kick " + peerId);
                              }}} {
     }
 
@@ -175,6 +183,30 @@ void gameStepsAskFirst() {
     rig.choose("guide.gameSettings");
     expect(rig.calls.back() == "gameSettings" && rig.controller.isOpen(),
            "the game's settings open over the menu, which Back returns to");
+}
+
+void togetherPagesInviteAndKick() {
+    Rig rig{app::GuideContext{.inGame = true,
+                              .title = "Roboquest",
+                              .takesGuests = true,
+                              .invitable = {lan::Peer{"attic", "Attic"}},
+                              .guests = {lan::Peer{"loft", "Loft"}}}};
+    rig.open();
+    expect(rig.places() == std::vector<std::string>{"guide.resume", "guide.closeGame",
+                                                    "guide.invite", "guide.players",
+                                                    "guide.devices", "guide.downloads",
+                                                    "guide.settings", "guide.power"},
+           "over a game that takes guests: Invite to play, and Players with guests in it");
+    rig.choose("guide.invite");
+    rig.choose("guide.invite/attic");
+    expect(rig.calls == std::vector<std::string>{"invite Attic"} && rig.controller.isOpen(),
+           "picking a peer invites it and goes back to the menu");
+    rig.choose("guide.players");
+    rig.choose("guide.kick/loft");
+    expect(rig.calls.size() == 1, "Kick asks first");
+    rig.confirm();
+    expect(rig.calls.back() == "kick loft" && !rig.controller.isOpen(),
+           "confirmed, the guest goes and the menu closes");
 }
 
 void quickChangesSitBesideThePlaces() {
@@ -289,6 +321,7 @@ void withoutPowerOrSessionOnlyQuitIsLeft() {
 int main() try {
     homePlacesReachTheirHooks();
     gameStepsAskFirst();
+    togetherPagesInviteAndKick();
     quickChangesSitBesideThePlaces();
     profileRowPlaysAsTheNextProfile();
     withoutAMixerVolumeSaysWhy();

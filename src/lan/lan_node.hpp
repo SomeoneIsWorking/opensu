@@ -65,6 +65,8 @@ class LanNode {
         decltype(LanListener::Sources::play) play;
         /// How a peer's ask to join the game here stands (`LanListener::Sources::playStatus`).
         decltype(LanListener::Sources::playStatus) playStatus;
+        /// A peer invites this one to its game (`LanListener::Sources::invited`).
+        decltype(LanListener::Sources::invited) invited;
         /// Where ROMs being imported are staged, where each one taken goes, and when an import's
         /// progress changes (`RomImport::Setup`; this node gives its id and the hosts' links).
         RomImport::Setup roms;
@@ -211,6 +213,10 @@ class LanNode {
                                                         std::span<const std::uint8_t> guestSalt,
                                                         std::span<const std::uint8_t> hostSalt,
                                                         std::string& error) const;
+    /// Invites the paired, announced openSU `peerId` to `game` running here. Blocks for the call,
+    /// so never on the loop. False with `error` when it is gone or will not be asked.
+    [[nodiscard]] bool invite(const std::stop_token& stop, const std::string& peerId,
+                              const wire::Invitation& game, std::string& error) const;
 
     /// Forgets `peerId` here, and tells it to forget this one when it is announced. False with
     /// `error` when it could not be forgotten here.

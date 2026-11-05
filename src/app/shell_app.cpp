@@ -716,6 +716,10 @@ bool ShellApp::launch(const library::Game& game, std::vector<std::string> enviro
         offerInstall(game);
         return false;
     }
+    if (remotePlay_.waiting()) {
+        shell_.setToast("Still waiting for " + remotePlay_.game().hostName + " to let you in");
+        return false;
+    }
     if (launches_.running() || remotePlay_.playing()) {
         shell_.setToast("a game is already running", true);
         return false;

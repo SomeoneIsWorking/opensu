@@ -327,7 +327,8 @@ void theSwitchAppliesAChange(const fs::path& root) {
                                    },
                                .romsChanged = {},
                                .play = {},
-                               .playStatus = {}}};
+                               .playStatus = {},
+                               .invited = {}}};
     int emulatorChanges = 0;
     app::IntegrationSwitch integrationSwitch{
         inForce,

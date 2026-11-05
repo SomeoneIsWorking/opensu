@@ -113,6 +113,10 @@ Up to four openSUs can play one game at once, each with its own controller as it
 
 - Press Play on the game another openSU is running. Its player is asked to let you in;
   you wait until they answer, up to two minutes.
+- Or the player there invites you: open the Guide in the game and pick **Invite to play**, then the
+  openSU. It is asked **Play with** that openSU, and **Join** starts playing. An invitation lasts two
+  minutes.
+- **Players** in the same Guide shows who has joined, each with **Kick**.
 - Everyone sees that openSU's picture. The controller is yours alone; only the openSU the game
   was started for also plays it with a keyboard and mouse.
 - The saves are the profile's the game was started as. Nothing syncs to you.

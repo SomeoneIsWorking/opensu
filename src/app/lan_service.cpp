@@ -92,6 +92,7 @@ void LanService::start() {
                                                                    .profiles = places_.profiles,
                                                                    .play = hooks_.play,
                                                                    .playStatus = hooks_.playStatus,
+                                                                   .invited = hooks_.invited,
                                                                    .roms = std::move(roms)});
     } catch (const std::runtime_error& error) {
         lucent::error("lan", "LAN cannot start: {}", error.what());
@@ -171,6 +172,14 @@ bool LanService::askToPlay(std::string hostId, std::string gameId, std::string p
         }
     }};
     return true;
+}
+
+std::vector<lan::Peer> LanService::announced() const {
+    std::vector<lan::Peer> peers;
+    std::ranges::copy_if(paired_, std::back_inserter(peers), [this](const lan::Peer& peer) {
+        return std::ranges::find(seen_, peer.id, &lan::Sighting::id) != seen_.end();
+    });
+    return peers;
 }
 
 std::string LanService::peerName(const std::string& peerId) const {

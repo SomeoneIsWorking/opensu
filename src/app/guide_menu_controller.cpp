@@ -19,6 +19,10 @@ constexpr const char* closeGameId = "guide.closeGame";
 constexpr const char* saveAndCloseId = "guide.saveAndClose";
 constexpr const char* resumedId = "guide.resumed";
 constexpr const char* gameSettingsId = "guide.gameSettings";
+constexpr std::string_view inviteId = "guide.invite";
+constexpr std::string_view playersId = "guide.players";
+constexpr std::string_view invitePrefix = "guide.invite/";
+constexpr std::string_view kickPrefix = "guide.kick/";
 constexpr const char* saveStateId = "guide.saveState";
 constexpr const char* loadStateId = "guide.loadState";
 constexpr const char* resetGameId = "guide.resetGame";
@@ -122,6 +126,13 @@ std::vector<SettingsRow> GuideMenuController::places() const {
         if (retroStatus_) {
             rows.push_back(action(saveAndCloseId, "Save and close"));
         }
+        if (context_.takesGuests) {
+            rows.push_back(ui::makePage(std::string{inviteId}, "Invite to play", {}, {}));
+        }
+        if (!context_.guests.empty()) {
+            rows.push_back(ui::makePage(std::string{playersId}, "Players", {},
+                                        std::to_string(context_.guests.size())));
+        }
         if (context_.gameSettings) {
             rows.push_back(ui::makePage(gameSettingsId, "Game settings", {}, {}));
         }
@@ -221,6 +232,46 @@ std::vector<SettingsRow> GuideMenuController::power() const {
     return rows;
 }
 
+std::vector<SettingsRow> GuideMenuController::invitable() const {
+    std::vector<SettingsRow> rows;
+    rows.reserve(context_.invitable.size() + 1);
+    for (const lan::Peer& peer : context_.invitable) {
+        rows.push_back(action(std::string{invitePrefix} + peer.id, peer.name));
+    }
+    if (rows.empty()) {
+        rows.push_back(ui::makeRow("guide.inviteNone", RowKind::Info, "No one to invite",
+                                   "Paired openSUs on the LAN show here.", {}));
+    }
+    return rows;
+}
+
+std::vector<SettingsRow> GuideMenuController::players() const {
+    std::vector<SettingsRow> rows;
+    rows.reserve(context_.guests.size() + 1);
+    for (const lan::Peer& peer : context_.guests) {
+        rows.push_back(asking(std::string{kickPrefix} + peer.id, "Kick " + peer.name,
+                              context_.closesWithGuest
+                                  ? peer.name +
+                                        " leaves and the game closes, as it was started for them; "
+                                        "anything it has not saved is lost."
+                                  : peer.name + " leaves the game; it goes on here.",
+                              "Kick"));
+    }
+    if (rows.empty()) {
+        rows.push_back(ui::makeRow("guide.playersNone", RowKind::Info, "No guests", {}, {}));
+    }
+    return rows;
+}
+
+void GuideMenuController::closePage(std::string_view id) {
+    for (const gpu2d::ui::Screen* screen : navigator_.screens()) {
+        if (screen->id() == id) {
+            navigator_.closeFrom(*screen);
+            return;
+        }
+    }
+}
+
 void GuideMenuController::leave(const std::function<void()>& then) {
     close();
     then();
@@ -261,6 +312,8 @@ void GuideMenuController::run(const std::string& id, int step) {
         leave(hooks_.openDownloads);
     } else if (id == settingsId) {
         leave(hooks_.openSettings);
+    } else if (id.starts_with(invitePrefix) || id.starts_with(kickPrefix)) {
+        runTogether(id);
     } else {
         runPower(id);
     }
@@ -286,6 +339,20 @@ void GuideMenuController::runGame(const std::string& id) {
     const RetroSession::Outcome outcome = retro_.perform(command);
     hooks_.say(outcome.text, outcome.error);
     read();
+}
+
+void GuideMenuController::runTogether(const std::string& id) {
+    if (id.starts_with(kickPrefix)) {
+        hooks_.kick(id.substr(kickPrefix.size()));
+        close();
+        return;
+    }
+    const std::string peerId = id.substr(invitePrefix.size());
+    const auto peer = std::ranges::find(context_.invitable, peerId, &lan::Peer::id);
+    if (peer != context_.invitable.end()) {
+        hooks_.invite(*peer);
+    }
+    closePage(inviteId);
 }
 
 void GuideMenuController::runPower(const std::string& id) {
@@ -333,7 +400,19 @@ void GuideMenuController::openPage(const std::string& id) {
     if (id == gameSettingsId) {
         hooks_.openGameSettings();
     } else if (id == powerId) {
-        navigator_.push(std::make_unique<GuidePowerScreen>(*this));
+        navigator_.push(std::make_unique<GuideListScreen>(*this, powerId, "Power", [this] {
+            return power();
+        }));
+    } else if (id == inviteId) {
+        context_ = hooks_.context();
+        navigator_.push(std::make_unique<GuideListScreen>(*this, id, "Invite to play", [this] {
+            return invitable();
+        }));
+    } else if (id == playersId) {
+        context_ = hooks_.context();
+        navigator_.push(std::make_unique<GuideListScreen>(*this, id, "Players", [this] {
+            return players();
+        }));
     }
 }
 

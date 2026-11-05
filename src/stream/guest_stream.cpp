@@ -322,7 +322,7 @@ void GuestStream::handle(const Opened& opened, std::uint64_t receivedUs) {
         break;
     case PacketKind::End:
         if (const std::optional<wire::End> end = wire::readEnd(opened.payload)) {
-            finish("the host ended it: " + end->reason);
+            finish(end->reason);
         }
         break;
     case PacketKind::Ping:

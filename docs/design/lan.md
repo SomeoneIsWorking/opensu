@@ -117,6 +117,7 @@ It never shares the loopback control channel's port.
 | `POST /lan/roms/file` | paired, signed | `{"kind","root","path"}` → `{"bytes","sha256"}`; `sha256` is empty while the host still hashes the file |
 | `POST /lan/roms/chunk` | paired, signed | `{"kind","root","path","offset","length"}` → at most 2 MiB of the file from `offset`, as raw bytes |
 | `POST /lan/play` | paired, signed | `{"game","profile","salt"}` → `{"port","salt","waiting","joined"}`: the host streams that listed game to the caller, played as `profile` (the caller's active one) when it is linked with the caller, else as the host's first profile; `joined` when the game already ran there, `waiting` (no port yet) while its player is asked; 404 for a game it does not list, 409 with why when it will not (another game running, four guests, outside Gamescope, no capture) |
+| `POST /lan/invite` | paired, signed | `{"game","title"}` → `{}`: the caller invites this openSU to its game running now; 409 with why when this one is in a game |
 | `POST /lan/play/status` | paired, signed | `{"game"}` → `{"verdict","port","why"}`: `waiting`, `accepted` with the stream's port, or `declined` with why, for this caller's ask |
 | `POST /lan/netplay` | paired, signed | `{"console","file","title","size","sha256","salt","coreRevision","options","bios"}` → `{}`: asks to play that ROM together; the player here is asked |
 | `POST /lan/netplay/status` | paired, signed | `{"sha256"}` → `{"verdict","refusal","port","salt"}`: `waiting`, `declined` or `allowed` with the session's UDP port and the asked side's salt |
@@ -290,6 +291,14 @@ that profile's; the host's own active profile does not change.
   joined guest syncs no saves on either side; its Guide reads Leave game, and leaving ends only
   its own stream, its pad and its port in the game. The saves stay the profile's the game
   started as. See `docs/plans/remote-play-together.md` for why.
+- Inviting: Guide › Invite to play (a game here, inside Gamescope, under four guests) lists the
+  paired, announced openSUs not in the game and `RemotePlay::invite` posts `/lan/invite` (a
+  refusal comes back as a toast). `TogetherQuestions` asks that player, Decline focused; Join plays
+  the game by the catalog's entry. The host keeps the invitation for 120 s, for that peer and game:
+  its `/lan/play` is let in at the first poll with no question. Guide › Players lists the guests
+  with Kick, which asks first and ends the stream with "<host> removed you".
+- A game the player started here is streamed from the first guest on: the same capture, and the
+  sound from the default output's monitor, so the guests hear what this computer plays.
 - Codec and link (`stream::LinkRate`, owned by `HostStream`): the host offers what it codes
   (`encodableHere`: PyroWave where built, and each of AV1, HEVC and H.264 its VA-API driver
   encodes) and each guest Report says what it decodes. Once the guest joins, the pacer sends

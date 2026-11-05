@@ -103,10 +103,39 @@ after are the profile's alone.
 - One host game at a time, as now; a guest plays one remote game at a time.
 - Guide › Players on the host lists each guest in join order with Kick, which asks first. Kick ends
   that guest's stream ("<host> removed you"), and its pad goes.
+- An invitation stands for its 120 s whatever the guest's player answers there: the host's player
+  approved that peer for that game, so Decline only closes the question, and the guest pressing
+  Play afterwards is let in without another. Nothing tells the host of a Decline.
 - The game ending ends every guest's stream. A guest leaving frees its pad and the game goes on; a
   game started for a guest closes when its last guest leaves, a host's own game never does.
 - A guest's Guide reads Leave game when it joined (the game goes on there) and End remote play when
   the game was started for it.
+
+### Handoff
+
+Requested 2026-11-05: start a game on the PC and continue it on another device. A seat is a player
+in the game: its pad, its profile, the device playing it.
+
+- **Taking over.** While a game runs, a paired device whose active profile is linked with a seat's
+  takes that seat: no question, the link is the approval. The pad stays, so the game keeps its
+  player and port, and only the stream moves: the old device's ends with "Continued on <device>".
+  Anything else, an unlinked profile or a linked one with no seat, asks as above.
+- **The host's own seat.** A game the player started here is a seat of the profile it was started
+  as. A linked device takes it as well: the first pad's virtual pad is lent to that stream
+  (`PadSource::lendPad`), so it plays the same port, and the real pad rests until the seat is let
+  go; with no pad held the guest's own pad takes the lowest free port. The keys and pointer come
+  with it. The host's screen goes on showing the game.
+- **A dropped guest.** A guest that goes quiet (5 s) leaves its seat held for 120 s (`seatHold`): the
+  pad stays at rest and a game started for it does not close. 120 s is the time a question waits
+  here, and covers a laptop waking or walking to the next room; much longer and a game with
+  nobody in it holds the host. Its profile takes it back from any device, without a question when
+  linked; the same device with an unlinked profile asks, then gets the same seat. A guest that left
+  or was kicked holds nothing. The host's Kick frees a held seat, and a held seat counts toward the
+  four.
+- **Continue here.** `/lan/library` lists with each running game the profiles in its seats. A change
+  posts `/lan/library/news` to the paired, announced openSUs, which read the listing again. The
+  details page of such a game reads Continue here instead of Play while the profile played there
+  has a seat in it.
 
 ## Owners
 
@@ -135,5 +164,9 @@ after are the profile's alone.
    game's screen.
 2. Invitations, the Guide's Invite to play and Players with Kick, a game the host plays itself
    (its output's monitor), Leave game; every dialog and Guide page shown in frames.
+3. Continue on another device (see Handoff): a linked profile's device takes over a seat, the host's
+   own included; a dropped guest's seat held; Continue here in Library. Shown with two hidden guests
+   of one linked profile: the first plays, the second continues, the pad and port the same, the
+   runner the same process and its frame numbers going on.
 </content>
 </invoke>

@@ -106,11 +106,11 @@ Response LanListener::handle(const Request& request) {
           path.starts_with(coverPrefix))) ||
         (request.method == "POST" &&
          (path == "/lan/unpair" || path == wire::playRoute || path == wire::playStatusRoute ||
-          path.starts_with(savesPrefix) || path == wire::romFileRoute ||
-          path == wire::romChunkRoute || path == wire::profileCopyRoute ||
-          path == wire::profileCopyStatusRoute || path == wire::profileUnlinkRoute ||
-          path == wire::netplayRoute || path == wire::netplayStatusRoute ||
-          path == wire::netplaySaveRoute));
+          path == wire::inviteRoute || path.starts_with(savesPrefix) ||
+          path == wire::romFileRoute || path == wire::romChunkRoute ||
+          path == wire::profileCopyRoute || path == wire::profileCopyStatusRoute ||
+          path == wire::profileUnlinkRoute || path == wire::netplayRoute ||
+          path == wire::netplayStatusRoute || path == wire::netplaySaveRoute));
     if (!peerPath) {
         return refused(notFound, "Not Found", "no such route");
     }
@@ -134,6 +134,8 @@ Response LanListener::handle(const Request& request) {
         } else if (path == wire::netplayRoute || path == wire::netplayStatusRoute ||
                    path == wire::netplaySaveRoute) {
             answer = netplayRoute(path, *body, *verified);
+        } else if (path == wire::inviteRoute) {
+            answer = inviteRoute(*body, *verified);
         } else if (path == wire::profileCopyRoute || path == wire::profileCopyStatusRoute ||
                    path == wire::profileUnlinkRoute) {
             answer = profilesRoute(path, *body, *verified);
@@ -366,8 +368,7 @@ Response LanListener::playRoute(std::string_view body, const Signed& verified) {
     secrets::wipeBytes(keys.host.data(), keys.host.size());
     secrets::wipeBytes(keys.guest.data(), keys.guest.size());
     if (outcome.waiting) {
-        lucent::info("lan", "{} asks to join {} here; the player is asked", verified.peer.name,
-                     game->title);
+        lucent::info("lan", "{} waits to join {} here", verified.peer.name, game->title);
         return Response::json(ok, "OK",
                               wire::write(wire::PlayAnswer{
                                   .port = 0, .salt = salt, .waiting = true, .joined = true}));
@@ -429,6 +430,20 @@ Response LanListener::netplayRoute(std::string_view path, std::string_view body,
         return refused(notFound, "Not Found", "no save is handed over for that ROM");
     }
     return Response::binary(ok, "OK", "application/octet-stream", std::move(*save));
+}
+
+Response LanListener::inviteRoute(std::string_view body, const Signed& verified) {
+    const std::optional<wire::Invitation> invitation = wire::readInvitation(body);
+    if (!invitation) {
+        return refused(badRequest, "Bad Request", "not an invitation");
+    }
+    const std::optional<std::string> refusal =
+        sources_.invited ? sources_.invited(verified.peer, *invitation)
+                         : std::optional<std::string>{"this openSU does not offer remote play"};
+    if (refusal) {
+        return refused(conflict, "Conflict", *refusal);
+    }
+    return Response::json(ok, "OK", "{}");
 }
 
 Response LanListener::pair(const Request& request) {

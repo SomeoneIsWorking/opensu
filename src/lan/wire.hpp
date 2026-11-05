@@ -188,6 +188,14 @@ struct GameRef {
 };
 [[nodiscard]] std::string write(const GameRef& ref);
 [[nodiscard]] std::optional<GameRef> readGameRef(std::string_view body);
+/// `POST /lan/invite`: the host's player invites this openSU to its game running now.
+inline constexpr std::string_view inviteRoute = "/lan/invite";
+struct Invitation {
+    std::string game;
+    std::string title;
+};
+[[nodiscard]] std::string write(const Invitation& invitation);
+[[nodiscard]] std::optional<Invitation> readInvitation(std::string_view body);
 /// `waiting`, `declined` (with why, when the player allowed it and the host could not) or
 /// `accepted`, with the stream's port.
 struct PlayVerdict {

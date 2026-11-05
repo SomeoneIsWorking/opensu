@@ -75,7 +75,7 @@ std::string GuideMenuScreen::initialFocus() const {
     return landing_ == GuideMenuController::Landing::Volume ? "guide.volume" : std::string{};
 }
 
-std::unique_ptr<tk::Widget> GuidePowerScreen::build(const tk::Theme& theme) {
+std::unique_ptr<tk::Widget> GuideListScreen::build(const tk::Theme& theme) {
     const tk::Spacing& spacing = theme.spacing;
     auto root = std::make_unique<tk::Centre>(spacing.dialogWidth);
     root->pad(tk::Insets::all(spacing.pad));
@@ -84,13 +84,13 @@ std::unique_ptr<tk::Widget> GuidePowerScreen::build(const tk::Theme& theme) {
     card.add<tk::Label>(title(), tk::TextRole::Title);
     tk::Column& rows = card.add<tk::Column>();
     rows.space(spacing.gap);
-    for (const ui::SettingsRow& row : controller_.power()) {
+    for (const ui::SettingsRow& row : rows_()) {
         ui::addRow(rows, row, controller_);
     }
     return root;
 }
 
-void GuidePowerScreen::paintBackdrop(tk::Painter& painter, const gpu2d::Rect& viewport) const {
+void GuideListScreen::paintBackdrop(tk::Painter& painter, const gpu2d::Rect& viewport) const {
     paintScrim(painter, viewport);
 }
 

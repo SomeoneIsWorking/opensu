@@ -1,10 +1,13 @@
 // guide_menu_screen — the Guide menu on the interface toolkit: a panel down the left edge over the
 // dimmed home screen or game, its places in a column and the changes made in place on a card
-// beside them, so Right from any place reaches Volume. Power opens its own list over the menu.
+// beside them, so Right from any place reaches Volume. Power, Invite to play and Players each
+// open a list over the menu.
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "gpu2d/ui/screen.hpp"
@@ -38,11 +41,12 @@ class GuideMenuScreen final : public gpu2d::ui::Screen {
     GuideMenuController::Landing landing_;
 };
 
-/// Power's list: Sleep, Restart, Shut down and the way out of openSU, over the menu.
-class GuidePowerScreen final : public gpu2d::ui::Screen {
+/// A list of the menu's rows over the menu, a card with a title.
+class GuideListScreen final : public gpu2d::ui::Screen {
   public:
-    explicit GuidePowerScreen(GuideMenuController& controller)
-        : Screen{"guide.power", "Power"}, controller_{controller} {
+    GuideListScreen(GuideMenuController& controller, std::string id, std::string title,
+                    std::function<std::vector<ui::SettingsRow>()> rows)
+        : Screen{std::move(id), std::move(title)}, controller_{controller}, rows_{std::move(rows)} {
     }
 
     [[nodiscard]] std::unique_ptr<gpu2d::ui::Widget> build(const gpu2d::ui::Theme& theme) override;
@@ -53,6 +57,7 @@ class GuidePowerScreen final : public gpu2d::ui::Screen {
 
   private:
     GuideMenuController& controller_;
+    std::function<std::vector<ui::SettingsRow>()> rows_;
 };
 
 } // namespace opensu::app

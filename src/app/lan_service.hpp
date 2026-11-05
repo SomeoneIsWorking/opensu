@@ -65,6 +65,8 @@ class LanService {
         /// listener's thread.
         decltype(lan::LanNode::Setup::play) play;
         decltype(lan::LanNode::Setup::playStatus) playStatus;
+        /// A paired peer invites this one to its game; on the listener's thread.
+        decltype(lan::LanNode::Setup::invited) invited;
     };
 
     /// On from the start when `active`. The question and the card go on `navigator`.
@@ -95,6 +97,8 @@ class LanService {
     void share(const std::vector<library::Game>& games);
     /// Offers the ROMs and BIOS files of `contents` to paired peers to import.
     void shareRoms(lan::RomShelf::Contents contents);
+    /// The paired openSUs on the LAN now.
+    [[nodiscard]] std::vector<lan::Peer> announced() const;
     /// The name the paired openSU `peerId` goes by, or "that openSU" when it is not paired.
     [[nodiscard]] std::string peerName(const std::string& peerId) const;
     /// Runs `work` on the node off the loop, its stop token asked to stop as the node goes, which

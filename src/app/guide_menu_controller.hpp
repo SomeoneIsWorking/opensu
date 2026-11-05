@@ -7,12 +7,14 @@
 // the session switch through `host::SessionMode`. Every step that throws something away (Close
 // game, Load state, Reset game, Restart, Shut down, the session switch) asks first, one rule. Save
 // and close keeps the game where it is for its next start, and the menu says when a game resumed.
+// Over a game here, Invite to play and Players hold who may join and who has, with Kick.
 #pragma once
 
 #include <cstdint>
 #include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "gpu2d/ui/navigator.hpp"
@@ -21,6 +23,7 @@
 #include "brightness_control.hpp"
 #include "host/power.hpp"
 #include "host/session_mode.hpp"
+#include "lan/peer_book.hpp"
 #include "library/sections.hpp"
 #include "preferences.hpp"
 #include "profiles/profile_book.hpp"
@@ -47,6 +50,13 @@ struct GuideContext {
     /// Session mode is installed: Power offers Switch to session mode, else Install session
     /// mode. Outside the login session only.
     bool sessionInstalled{false};
+    /// The game here can take a guest: Invite to play, listing `invitable`.
+    bool takesGuests{false};
+    std::vector<lan::Peer> invitable{};
+    /// Who plays the game here: Players.
+    std::vector<lan::Peer> guests{};
+    /// The game was started for the one guest there is, and closes as it goes.
+    bool closesWithGuest{false};
 };
 
 class GuideMenuController final : public ui::RowActions {
@@ -73,6 +83,10 @@ class GuideMenuController final : public ui::RowActions {
         std::function<void(const std::string& text, bool error)> say;
         /// Plays as the profile `id` from now on (`ShellApp::switchProfile`).
         std::function<void(const std::string& id)> playAs;
+        /// Invites `peer` to the game here (`RemotePlay::invite`).
+        std::function<void(const lan::Peer& peer)> invite;
+        /// Removes the guest `peerId` from the game here (`RemotePlay::kick`).
+        std::function<void(const std::string& peerId)> kick;
     };
 
     struct Services {
@@ -122,6 +136,10 @@ class GuideMenuController final : public ui::RowActions {
     [[nodiscard]] std::vector<ui::SettingsRow> quick() const;
     /// Sleep, Restart, Shut down and the way out of openSU.
     [[nodiscard]] std::vector<ui::SettingsRow> power() const;
+    /// The paired openSUs on the LAN that are not in the game here.
+    [[nodiscard]] std::vector<ui::SettingsRow> invitable() const;
+    /// The game's guests, each with Kick.
+    [[nodiscard]] std::vector<ui::SettingsRow> players() const;
     void run(const std::string& id, int step) override;
     void setLevel(const std::string& id, int level) override;
     void openPage(const std::string& id) override;
@@ -131,10 +149,13 @@ class GuideMenuController final : public ui::RowActions {
     [[nodiscard]] const gpu2d::ui::Screen* menu() const;
     /// Reads what the rows show that is slow to read: the game's state, the brightness.
     void read();
+    /// Closes the page `id` opened over the menu.
+    void closePage(std::string_view id);
     /// Closes the menu, then does `then`.
     void leave(const std::function<void()>& then);
     void runGame(const std::string& id);
     void runPower(const std::string& id);
+    void runTogether(const std::string& id);
     /// Plays as the profile `step` places from the active one, wrapping.
     void stepProfile(int step);
     /// Tells the player why a change was refused; `what` names it, when it is not plain.

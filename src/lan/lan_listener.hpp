@@ -73,6 +73,11 @@ class LanListener {
         /// the listener's thread.
         std::function<std::optional<wire::PlayVerdict>(const Peer& peer, const std::string& game)>
             playStatus;
+        /// A peer invites this one to its game running now; why it will not be asked, or nothing.
+        /// Called on the listener's thread.
+        std::function<std::optional<std::string>(const Peer& peer,
+                                                 const wire::Invitation& invitation)>
+            invited;
     };
 
     /// Listens on `port`, or a free one when it is 0, once started.
@@ -125,6 +130,8 @@ class LanListener {
     /// `/lan/play/status`, `body` opened.
     [[nodiscard]] lucent::http::Response playStatusRoute(std::string_view body,
                                                          const Signed& verified);
+    /// `/lan/invite`, `body` opened.
+    [[nodiscard]] lucent::http::Response inviteRoute(std::string_view body, const Signed& verified);
     [[nodiscard]] std::optional<Signed> verify(const lucent::http::Request& request);
 
     Sources sources_;

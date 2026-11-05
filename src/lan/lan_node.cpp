@@ -72,7 +72,8 @@ LanNode::LanNode(Setup setup)
                                              wake();
                                          },
                                      .play = std::move(setup.play),
-                                     .playStatus = std::move(setup.playStatus)},
+                                     .playStatus = std::move(setup.playStatus),
+                                     .invited = std::move(setup.invited)},
                 setup.port} {
     if (!listener_.start()) {
         problem_ = setup.port == 0 ? std::string{"no port can be had to listen on"}
@@ -316,6 +317,12 @@ std::optional<RomImport::Link> LanNode::linkTo(const std::string& hostId, std::s
         return std::nullopt;
     }
     return RomImport::Link{Endpoint{host->address, host->port}, std::move(*secret)};
+}
+
+bool LanNode::invite(const std::stop_token& stop, const std::string& peerId,
+                     const wire::Invitation& game, std::string& error) const {
+    return askHost(stop, peerId, "POST", wire::inviteRoute, wire::write(game), largestNotice, error)
+        .has_value();
 }
 
 std::optional<std::string> LanNode::askHost(const std::stop_token& stop, const std::string& hostId,

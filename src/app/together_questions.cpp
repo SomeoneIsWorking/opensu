@@ -8,8 +8,21 @@
 
 namespace opensu::app {
 
+std::optional<TogetherQuestions::Question> TogetherQuestions::next() const {
+    if (std::optional<RemotePlay::JoinQuestion> join = remote_.joinQuestion()) {
+        return Question{
+            .invitation = false, .peer = std::move(join->peer), .title = std::move(join->title)};
+    }
+    if (std::optional<RemotePlay::Invited> invited = remote_.invitation()) {
+        return Question{.invitation = true,
+                        .peer = std::move(invited->peer),
+                        .title = std::move(invited->title)};
+    }
+    return std::nullopt;
+}
+
 void TogetherQuestions::service() {
-    std::optional<RemotePlay::JoinQuestion> question = remote_.joinQuestion();
+    std::optional<Question> question = next();
     if (question == asked_) {
         return;
     }
@@ -26,27 +39,34 @@ void TogetherQuestions::service() {
                                                     },
                                                 .kind = gpu2d::ui::ButtonKind::Normal,
                                                 .exits = true});
-    choices.push_back(gpu2d::ui::Dialog::Choice{.label = "Let in",
+    const bool invitation = asked_->invitation;
+    choices.push_back(gpu2d::ui::Dialog::Choice{.label = invitation ? "Join" : "Let in",
                                                 .chosen =
                                                     [this] {
                                                         answer(true);
                                                     },
                                                 .kind = gpu2d::ui::ButtonKind::Primary,
                                                 .exits = false});
-    const std::string& guest = asked_->peer.name;
-    title_ = "Let " + guest + " join?";
+    const std::string& peer = asked_->peer.name;
+    title_ = invitation ? "Play with " + peer + "?" : "Let " + peer + " join?";
     sounds_.play(audio::Effect::Open);
     navigator_.push(std::make_unique<gpu2d::ui::Dialog>(
         title_,
-        guest + " asks to join " + asked_->title + ". Let in, " + guest +
-            " sees the game and plays it with their own controller as the next player. The saves "
-            "stay this profile's.",
+        invitation
+            ? peer + " invites you to play " + asked_->title +
+                  ". You see the game from there and play it with your own controller as the "
+                  "next player. Its saves stay there."
+            : peer + " asks to join " + asked_->title + ". Let in, " + peer +
+                  " sees the game and plays it with their own controller as the next player. The "
+                  "saves stay this profile's.",
         std::move(choices), 0));
 }
 
 void TogetherQuestions::answer(bool allow) {
     title_.clear();
-    if (asked_) {
+    if (asked_ && asked_->invitation) {
+        remote_.answerInvitation(asked_->peer.id, allow);
+    } else if (asked_) {
         remote_.answerJoin(asked_->peer.id, allow);
     }
 }

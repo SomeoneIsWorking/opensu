@@ -226,6 +226,15 @@ struct Node {
                   joinVerdicts.erase(joinVerdicts.begin());
                   return verdict;
               },
+              .invited = [this](const lan::Peer& peer,
+                                const lan::wire::Invitation& game) -> std::optional<std::string> {
+                  const std::lock_guard lock{mutex};
+                  if (!refuseInvite.empty()) {
+                      return refuseInvite;
+                  }
+                  invitedTo = peer.name + " " + game.game + " " + game.title;
+                  return std::nullopt;
+              },
               .roms = lan::RomImport::Setup{.selfId = {},
                                             .staging = state / "lan-roms",
                                             .link = {},
@@ -264,6 +273,8 @@ struct Node {
     lan::StreamKeys playKeys;
     /// While any are left, an ask to play waits and each `/lan/play/status` takes the next.
     std::vector<lan::wire::PlayVerdict> joinVerdicts;
+    std::string refuseInvite;
+    std::string invitedTo;
     fs::path saves;
     fs::path state;
     save_sync::SaveSync sync;
@@ -471,6 +482,19 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
                playError) &&
                playError == "its player declined",
            "a guest the host's player declines is told so");
+    std::string inviteError;
+    expect(host.node.invite(std::stop_token{}, guest.node.id(),
+                            lan::wire::Invitation{"game-1", "Host game"}, inviteError),
+           "a host's invitation reaches a paired guest");
+    {
+        const std::lock_guard lock{guest.mutex};
+        expect(guest.invitedTo.ends_with("game-1 Host game"), "with the game and its title");
+        guest.refuseInvite = "it is in a game";
+    }
+    expect(!host.node.invite(std::stop_token{}, guest.node.id(),
+                             lan::wire::Invitation{"game-1", "Host game"}, inviteError) &&
+               inviteError == "it is in a game",
+           "a guest that will not be asked says why");
     expect(waitFor([&host] {
                return host.remote->games().size() == 1 &&
                       host.remote->games().front().title == "Guest game";
@@ -966,7 +990,8 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
                                                             [](const lan::Peer&) {
                                                             },
                                                         .play = {},
-                                                        .playStatus = {}},
+                                                        .playStatus = {},
+                                                        .invited = {}},
                               0};
     const secrets::crypto::Bytes secret = secrets::crypto::randomBytes(secrets::crypto::keyBytes);
     const std::string peer = secrets::hexText(secrets::crypto::randomBytes(lan::peerIdBytes));

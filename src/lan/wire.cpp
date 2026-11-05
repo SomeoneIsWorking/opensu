@@ -387,6 +387,23 @@ std::optional<GameRef> readGameRef(std::string_view body) {
     return GameRef{std::move(game)};
 }
 
+std::string write(const Invitation& invitation) {
+    return json{{"game", invitation.game}, {"title", invitation.title}}.dump();
+}
+
+std::optional<Invitation> readInvitation(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    std::string game = textField(*document, "game");
+    std::string title = textField(*document, "title");
+    if (game.empty() || title.empty()) {
+        return std::nullopt;
+    }
+    return Invitation{std::move(game), std::move(title)};
+}
+
 std::string write(const PlayVerdict& verdict) {
     return json{{"verdict", verdict.verdict}, {"port", verdict.port}, {"why", verdict.why}}.dump();
 }
