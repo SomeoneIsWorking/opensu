@@ -4,7 +4,7 @@
 add_library(opensu_retro_saves STATIC save_paths.cpp resume_file.cpp)
 add_library(opensu::retro_saves ALIAS opensu_retro_saves)
 target_include_directories(opensu_retro_saves PUBLIC "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(opensu_retro_saves PRIVATE nlohmann_json::nlohmann_json opensu::fileio)
+target_link_libraries(opensu_retro_saves PRIVATE nlohmann_json::nlohmann_json opensu::fileio opensu::zip)
 target_compile_features(opensu_retro_saves PUBLIC cxx_std_20)
 opensu_warnings(opensu_retro_saves)
 

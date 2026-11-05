@@ -74,4 +74,12 @@ bool SaveMemory::flush(std::span<const std::byte> ram) {
     return true;
 }
 
+bool SaveMemory::keep(std::span<const std::byte> ram) {
+    std::error_code missing;
+    if (!ram.empty() && std::filesystem::file_size(file_, missing) != ram.size()) {
+        written_.clear();
+    }
+    return flush(ram);
+}
+
 } // namespace opensu::retro

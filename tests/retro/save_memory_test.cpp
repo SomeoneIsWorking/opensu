@@ -54,6 +54,24 @@ void roundTrip(const std::filesystem::path& dir) {
     expect(again == ram, "a load restores the RAM");
 }
 
+void keptWhole(const std::filesystem::path& dir) {
+    const std::filesystem::path file = dir / "kept.srm";
+    std::array<std::byte, 4> ram{std::byte{7}, std::byte{7}, std::byte{7}, std::byte{7}};
+    SaveMemory saves{file};
+    saves.load(ram);
+    expect(saves.keep(ram) && read(file) == "\x07\x07\x07\x07",
+           "RAM no frame changed is written for a resume state to go with");
+    write(file, "ab");
+    SaveMemory shorter{file};
+    shorter.load(ram);
+    expect(shorter.keep(ram) && read(file) == "ab\x07\x07",
+           "and a smaller file is made all of the RAM");
+    const std::filesystem::path none = dir / "none.srm";
+    SaveMemory empty{none};
+    expect(empty.keep({}) && !std::filesystem::exists(none),
+           "a core without save RAM keeps no file");
+}
+
 void smallerFile(const std::filesystem::path& dir) {
     const std::filesystem::path file = dir / "short.srm";
     write(file, "ab");
@@ -155,6 +173,7 @@ void failedWrite(const std::filesystem::path& dir) {
 int main() try {
     const ScratchDir scratch{OPENSU_TEST_SCRATCH, "save_memory"};
     roundTrip(scratch.path());
+    keptWhole(scratch.path());
     smallerFile(scratch.path());
     largerFile(scratch.path());
     anotherCoresLayout(scratch.path());

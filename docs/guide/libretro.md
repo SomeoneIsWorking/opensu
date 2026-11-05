@@ -94,11 +94,13 @@ toasted by name, and a game that fails to load by its reason.
 
 Save and close keeps the game where it is in a resume state of its own
 (`<rom>.resume` beside the profile's `.srm`, never your Save state slot; each profile has
-its own), writes its save RAM and closes it. Starting
+its own), writes its save RAM and closes it. It travels with the game's save to paired openSUs and
+shared folders, so Play on another machine picks the game up where you left it; a game that keeps
+no save of its own resumes only on the machine it was closed on. Starting
 the game again puts you back there; the Guide menu then shows "Resumed session" with
 the date. The resume
-state is used once: it is removed as it loads, so a game that crashes later starts from its own
-save next time. While one is waiting, the game's details page reads "Resumes from <date>" and
+state is used once: it is removed as it loads, on every machine once they next sync, so a game
+that crashes later starts from its own save next time. While one is waiting, the game's details page reads "Resumes from <date>" and
 offers Start fresh, which throws it away and starts the game from the beginning. A resume state is
 not loaded, and the Guide menu says why, when another core wrote it (it is kept for that core),
 when the core refuses it, or when the game's save changed since (a copied or synced save is never

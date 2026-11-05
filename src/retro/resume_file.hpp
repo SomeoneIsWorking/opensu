@@ -11,6 +11,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace opensu::retro {
@@ -42,6 +43,12 @@ struct ResumeContents {
 
 /// The header alone; nothing when there is no file or it is not a resume state.
 [[nodiscard]] std::optional<ResumeHeader> readResumeHeader(const std::filesystem::path& file);
+
+/// The CRC-32 a header keeps of `saveRam`.
+[[nodiscard]] std::uint32_t saveRamCrc(std::string_view saveRam);
+
+/// Whether `resume`, a resume file's bytes, was taken with `saveRam`, a save file's bytes.
+[[nodiscard]] bool resumeGoesWith(std::string_view resume, std::string_view saveRam);
 
 /// Removes `file`; true when it is gone, also when it was never there.
 [[nodiscard]] bool discardResume(const std::filesystem::path& file, std::string& error);

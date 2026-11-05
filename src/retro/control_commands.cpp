@@ -70,14 +70,16 @@ std::string framePng(Presenter& presenter, std::string& error) {
 }
 
 ControlAnswer ControlCommands::suspend() {
-    if (!parts_.saves.flush(parts_.core.saveRam())) {
+    // The state first: a sync reading between the two finds the old save and leaves the state out.
+    ControlAnswer answer = answerOf(parts_.resume.suspend(parts_.core));
+    if (answer.status != 200) {
+        return answer;
+    }
+    if (!parts_.saves.keep(parts_.core.saveRam())) {
         return {500, "the game's save was not written"};
     }
-    ControlAnswer answer = answerOf(parts_.resume.suspend(parts_.core));
-    if (answer.status == 200) {
-        suspended_ = true;
-        lucent::info("retro", "saved and waiting to be closed");
-    }
+    suspended_ = true;
+    lucent::info("retro", "saved and waiting to be closed");
     return answer;
 }
 

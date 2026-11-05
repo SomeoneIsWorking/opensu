@@ -279,7 +279,7 @@ void readsTheRunnersFiles() {
     const std::vector<EmulatorSaves> found =
         savesOf(game, rig.catalog(), rig.saves, player, firstSeat);
     expect(found.size() == 1 && found[0].emulatorId == runnerSavesId &&
-               found[0].slots.size() == 2 && found[0].bytes() == 32 &&
+               found[0].slots.size() == 3 && found[0].bytes() == 32 &&
                found[0].slotFor(SlotKind::Memory)->modified,
            "the runner's .srm is found by the ROM's name under its system's folder");
     const SaveSlot* state = found[0].slotFor(SlotKind::State);
@@ -292,6 +292,43 @@ void readsTheRunnersFiles() {
     const std::optional<SaveKey> key = keyOf(game, player);
     expect(key && key->system == "gba" && key->game == "Minish Cap",
            "a ROM's saves are keyed by its system and name");
+}
+
+void aResumeStateGoesWithItsSave() {
+    const Rig rig;
+    Game game;
+    game.source = Source::Rom;
+    game.sourceId = "gba";
+    game.file = "/r/Minish Cap.gba";
+    game.emulatorOptions = {installed("mGBA (built-in)", "mgba-core")};
+    constexpr std::string_view other = "fedcba9876543210fedcba9876543210";
+    const fs::path there = rig.saves / "profiles" / std::string{other} / "gba";
+    const fs::path here = rig.runner / "gba";
+    const SaveKey key = opensu::test::need(keyOf(game, player), "the game has a key");
+    const SaveCopier copier{rig.scratch.path() / "state"};
+    CopyProgress progress;
+    const auto copy = [&] {
+        const std::vector<EmulatorSaves> from = savesOf(game, rig.catalog(), rig.saves, other, 1);
+        const std::vector<EmulatorSaves> to =
+            savesOf(game, rig.catalog(), rig.saves, player, firstSeat);
+        return copier.copy(key, from[0], to[0], std::chrono::system_clock::now(), progress);
+    };
+    write(there / "Minish Cap.srm", "new");
+    write(there / "Minish Cap.resume", "state of new");
+    write(here / "Minish Cap.srm", "old");
+    expect(copy().empty() && read(here / "Minish Cap.srm") == "new" &&
+               read(here / "Minish Cap.resume") == "state of new",
+           "a copy carries the save and its resume state together");
+
+    fs::remove(there / "Minish Cap.resume");
+    write(there / "Minish Cap.srm", "newer");
+    expect(copy().empty() && read(here / "Minish Cap.srm") == "newer" &&
+               !fs::exists(here / "Minish Cap.resume"),
+           "a save without one removes the state that went with the save replaced");
+    expect(copier.undo(key, runnerSavesId, progress).empty() &&
+               read(here / "Minish Cap.srm") == "new" &&
+               read(here / "Minish Cap.resume") == "state of new",
+           "and undo puts both back");
 }
 
 void copiesBackedUpAndUndoes() {
@@ -652,6 +689,7 @@ void seatsPlayAsTheEmulatorsOtherUsers() {
 int main() try {
     readsBothLayouts();
     readsTheRunnersFiles();
+    aResumeStateGoesWithItsSave();
     copiesBackedUpAndUndoes();
     makesTheSlotRyubingWould();
     makesTheSlotKenjiWould();

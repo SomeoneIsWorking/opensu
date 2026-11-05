@@ -208,7 +208,8 @@ Saves cross for a profile linked with the peer, while the peer is announced.
   profile's saves; a peer's news or ask for any linked profile is answered. The saves taken are copied over the ones here by
   `library::saves::SaveCopier`, so a Switch save made by Eden on one side lands in Ryujinx's
   format on the other through the same code as Copy saves; other consoles' saves go runner to
-  runner.
+  runner. The runner's resume state crosses only with its save RAM
+  ([Save and close](libretro.md)), and a save taken without one removes the one here.
 - The record (`save-sync.json`, state dir, shared with the folder and WebDAV targets): per profile and game a change counter, raised whenever the content
   hash here changes, the hash (SHA-256 over each file's slot kind, path and bytes; times do not
   count), and per target (a peer's id) the hash both held when they last synced.

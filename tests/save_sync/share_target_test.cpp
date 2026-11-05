@@ -1,16 +1,23 @@
 // A folder share as two openSUs see it: saves sealed by one open for the other with the same
 // passphrase, never with another, and a changed or swapped file is refused.
 
+#include <array>
 #include <chrono>
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 
+#include "library/game_saves.hpp"
+#include "retro/resume_file.hpp"
 #include "save_sync/folder_share.hpp"
+#include "save_sync/save_bundle.hpp"
 #include "save_sync/share_target.hpp"
 #include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
@@ -37,6 +44,64 @@ std::unique_ptr<save_sync::ShareTarget> targetOn(const fs::path& folder, std::st
 std::string bytesOf(const fs::path& file) {
     std::ifstream in{file, std::ios::binary};
     return {std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
+}
+
+void aResumeStateRidesOnlyWithItsSave(const fs::path& root) {
+    using library::saves::SlotKind;
+    const auto slot = [](SlotKind kind, const fs::path& file) {
+        return library::saves::SaveSlot{.kind = kind,
+                                        .user = {},
+                                        .current = true,
+                                        .root = file,
+                                        .content = {file},
+                                        .format = kind == SlotKind::Memory
+                                                      ? library::saves::SaveFormat::SaveRam
+                                                      : library::saves::SaveFormat::AsIs,
+                                        .bytes = 0,
+                                        .modified = std::chrono::system_clock::now()};
+    };
+    const fs::path folder = root / "resume";
+    fs::create_directories(folder);
+    const fs::path memory = folder / "game.srm";
+    const fs::path resume = folder / "game.resume";
+    const auto writeSave = [&memory](std::string_view bytes) {
+        std::ofstream{memory, std::ios::binary} << bytes;
+    };
+    writeSave("save RAM");
+    std::string error;
+    const std::array state{std::byte{1}};
+    expect(retro::writeResume(resume,
+                              retro::ResumeHeader{.core = "mgba",
+                                                  .coreLabel = "mGBA",
+                                                  .coreVersion = "1",
+                                                  .saved = std::chrono::system_clock::now(),
+                                                  .saveRam = retro::saveRamCrc("save RAM")},
+                              state, error),
+           "a resume state is written");
+    const library::saves::EmulatorSaves both{
+        .emulatorId = "runner",
+        .emulatorName = "Runner",
+        .slots = {slot(SlotKind::Memory, memory), slot(SlotKind::Resume, resume)},
+        .home = std::nullopt,
+        .processHint = {}};
+    const library::saves::EmulatorSaves alone{.emulatorId = "runner",
+                                              .emulatorName = "Runner",
+                                              .slots = {slot(SlotKind::Resume, resume)},
+                                              .home = std::nullopt,
+                                              .processHint = {}};
+    const auto sent = [&error](const library::saves::EmulatorSaves& saves) {
+        const std::optional<save_sync::SaveBundle> bundle = save_sync::bundleOf(saves, error);
+        return bundle ? bundle->files.size() : std::size_t{99};
+    };
+    const std::optional<save_sync::SaveBundle> together = save_sync::bundleOf(both, error);
+    const std::optional<save_sync::SaveBundle> read =
+        together ? save_sync::readBundle(save_sync::write(*together)) : std::nullopt;
+    expect(together && together->files.size() == 2, "a resume state rides with its save");
+    expect(read && together && read->hash() == together->hash(),
+           "and reads back on the other side");
+    writeSave("another save");
+    expect(sent(both) == 1, "one the save moved on from stays behind");
+    expect(sent(alone) == 0, "and one with no save beside it never goes alone");
 }
 
 void sealedSavesOpenOnlyWithThePassphrase(const fs::path& root) {
@@ -100,6 +165,7 @@ void sealedSavesOpenOnlyWithThePassphrase(const fs::path& root) {
 int main() try {
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "share-target"};
     sealedSavesOpenOnlyWithThePassphrase(scratch.path());
+    aResumeStateRidesOnlyWithItsSave(scratch.path());
     std::printf("share_target: all checks passed\n");
     return 0;
 } catch (...) {

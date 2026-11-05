@@ -1,7 +1,8 @@
 // save_bundle — a game's saves as they are shared with a target (`SaveTarget`): the files of each
 // slot a copy carries (`library::saves::copiedSlots`), by slot kind and path inside the slot, with
-// their bytes and modification times; its content hash, which says whether two openSUs hold the
-// same saves; and the bundle written out under a staging folder as saves a copy can take
+// their bytes and modification times, a resume state only beside the save RAM it was taken with;
+// its content hash, which says whether two openSUs hold the same saves; and the bundle written out
+// under a staging folder as saves a copy can take
 // (`library::saves::SaveCopier`). Paths from another openSU are checked: relative, no `..`.
 #pragma once
 

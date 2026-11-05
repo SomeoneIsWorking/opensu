@@ -7,6 +7,6 @@ add_library(opensu::save_sync ALIAS opensu_save_sync)
 target_include_directories(opensu_save_sync PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_link_libraries(opensu_save_sync
     PUBLIC opensu::library opensu::net opensu::secrets lucent::lucent nlohmann_json::nlohmann_json
-    PRIVATE opensu::clock opensu::command opensu::fileio)
+    PRIVATE opensu::clock opensu::command opensu::fileio opensu::retro_saves)
 target_compile_features(opensu_save_sync PUBLIC cxx_std_20)
 opensu_warnings(opensu_save_sync)

@@ -31,6 +31,10 @@ class SaveMemory {
     /// cartridge's save type). False, logged, when the write fails; the next call tries again.
     bool flush(std::span<const std::byte> ram);
 
+    /// `flush`, and the file made all of `ram` even when no byte changed: a resume state goes to
+    /// another machine with the file it was taken on.
+    bool keep(std::span<const std::byte> ram);
+
     [[nodiscard]] const std::filesystem::path& file() const {
         return file_;
     }

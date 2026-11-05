@@ -180,9 +180,10 @@ the menu on that row. A game that resumed shows "Resumed session" with the date 
 caption; one whose resume state was refused shows "Not resumed" with the reason.
 
 **Save and close.** Save and close posts `/suspend`, then closes the game the way Close game does
-(the scope stopped, SIGTERM). The runner writes the save RAM first, then the resume state
+(the scope stopped, SIGTERM). The runner writes the resume state
 `<rom stem>.resume` (`retro::resumeStateFile`) in the profile's system folder beside the `.srm`,
-never the player's `.state` slot, so each profile has its own, and runs no
+never the player's `.state` slot, so each profile has its own, then the save RAM, all of it even
+when no frame changed it (`SaveMemory::keep`), and runs no
 more frames, so the state and the `.srm` are of the same frame; a refusal keeps the game running
 and is toasted. The next start of the game, on any launch, loads it once the core has the game, its
 save RAM and (a GPU core) its context, before the first frame, and removes it. It is loaded only
@@ -200,7 +201,19 @@ keeps no resume state: its confirm says unsaved play is lost, and a setting that
 would make Close mean two things. The details page reads the header (`retro::readResumeHeader` on
 `library::saves::runnerResumeFile` for the active profile): a Resume fact "Resumes from <date>", or "Kept by <core>, which
 <game> does not start on" when the game's core is another, and Start fresh, which asks first,
-removes the state and starts the game. Copy saves and LAN sharing never carry it.
+removes the state and starts the game.
+
+**The resume state travels with the save.** It is a save slot (`SlotKind::Resume`), so Copy saves
+and every sync target carry it. A bundle holds it only beside the save RAM whose CRC-32 its header
+names (`save_sync::bundleOf`, `retro::resumeGoesWith`): the state is written before the `.srm`, so
+a sync reading between the two sends the old save alone, and a state the save moved on from stays
+here. Save RAM taken without a state removes the state here (`SaveCopier::copy`, kept in the
+backup): one machine's resume, which removes its file, reaches the other as a bundle without it at
+that machine's next sync, and the file is gone on both. The checks above run on the machine that
+loads it. A game with no save RAM keeps its state on the machine that wrote it: with no file left
+after the resume, the rule that no save takes the other side's would bring the state back. A
+standalone emulator keeps no resume state, so a peer launching the game in one takes the save
+alone, and its next sync removes the state here.
 
 **Input.** The runner reads every evdev pad without grabbing it. While the shell holds the real
 pads during a game, the only pad that moves is the shell's virtual Xbox 360 pad, so the Guide

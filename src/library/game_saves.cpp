@@ -53,15 +53,16 @@ fs::path runnerFolder(const fs::path& saves, std::string_view profile, const Gam
     return retro::systemSaveFolder(retro::profileSaveFolder(saves, profile), game.sourceId);
 }
 
-/// The runner's save RAM and state of `game` for `profile`, each where the runner keeps it whether
-/// it is there yet or not.
+/// The runner's save RAM, state and resume state of `game` for `profile`, each where the runner
+/// keeps it whether it is there yet or not.
 std::vector<SaveSlot> runnerSlots(const fs::path& saves, std::string_view profile,
                                   const Game& game) {
     const fs::path folder = runnerFolder(saves, profile, game);
     std::vector<SaveSlot> slots;
     for (const auto& [kind, file] :
          {std::pair{SlotKind::Memory, retro::saveMemoryFile(folder, game.file)},
-          std::pair{SlotKind::State, retro::saveStateFile(folder, game.file)}}) {
+          std::pair{SlotKind::State, retro::saveStateFile(folder, game.file)},
+          std::pair{SlotKind::Resume, retro::resumeStateFile(folder, game.file)}}) {
         slots.push_back(
             SaveSlot{.kind = kind,
                      .root = file,

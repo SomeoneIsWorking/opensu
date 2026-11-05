@@ -24,7 +24,8 @@ using json = nlohmann::json;
 using TimePoint = std::chrono::system_clock::time_point;
 
 constexpr std::string_view manifestFile = "backup.json";
-constexpr std::array kinds{SlotKind::Account, SlotKind::Device, SlotKind::Memory, SlotKind::State};
+constexpr std::array kinds{SlotKind::Account, SlotKind::Device, SlotKind::Memory, SlotKind::State,
+                           SlotKind::Resume};
 
 /// A slot copied over another, or over one made for it.
 struct Pair {
@@ -228,6 +229,19 @@ std::vector<Pair> pairsOf(const EmulatorSaves& from, const EmulatorSaves& to, st
     return pairs;
 }
 
+/// `to`'s resume state when `pairs` replace its save RAM and bring none: it went with that save.
+const SaveSlot* outdatedResume(const std::vector<Pair>& pairs, const EmulatorSaves& to) {
+    const auto copied = [&pairs](SlotKind kind) {
+        return std::ranges::any_of(pairs, [kind](const Pair& pair) {
+            return pair.to.kind == kind;
+        });
+    };
+    const SaveSlot* resume = to.slotFor(SlotKind::Resume);
+    const bool outdated = resume != nullptr && resume->modified && copied(SlotKind::Memory) &&
+                          !copied(SlotKind::Resume);
+    return outdated ? resume : nullptr;
+}
+
 } // namespace
 
 fs::path newBackupFolder(const fs::path& parent, TimePoint now) {
@@ -286,6 +300,10 @@ std::string SaveCopier::copy(const SaveKey& key, const EmulatorSaves& from, cons
             }
         }
     }
+    const SaveSlot* outdated = outdatedResume(pairs, to);
+    if (outdated != nullptr) {
+        keep.push_back(outdated->root);
+    }
     std::uintmax_t total = 0;
     for (const fs::path& root : keep) {
         total += treeBytes(root);
@@ -339,6 +357,9 @@ std::string SaveCopier::copy(const SaveKey& key, const EmulatorSaves& from, cons
                     replaceWith(pair.from->content.front(), target, progress);
                 }
             }
+        }
+        if (outdated != nullptr) {
+            fs::remove(outdated->root);
         }
     } catch (const fs::filesystem_error& failure) {
         try {

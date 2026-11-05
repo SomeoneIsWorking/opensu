@@ -41,6 +41,8 @@ enum class SlotKind : std::uint8_t {
     Memory,
     /// The built-in runner's state slot.
     State,
+    /// The resume state Save and close left, which goes with the save RAM it was taken with.
+    Resume,
 };
 
 /// How a save RAM file is laid out, where emulators of one console differ (`save_formats`).
@@ -139,8 +141,7 @@ inline constexpr std::string_view runnerSavesId = "built-in";
                                                  const roms::EmulatorCatalog& catalog);
 
 /// Where the built-in runner keeps the resume state Save and close leaves of ROM `game` for
-/// `profile`, in the profile's folder under `runnerSaves`; kept apart from its saves, which copies
-/// and syncs never take it with.
+/// `profile`, in the profile's folder under `runnerSaves`.
 [[nodiscard]] std::filesystem::path runnerResumeFile(const std::filesystem::path& runnerSaves,
                                                      std::string_view profile, const Game& game);
 

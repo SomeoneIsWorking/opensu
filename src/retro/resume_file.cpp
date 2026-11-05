@@ -3,12 +3,13 @@
 #include <cstring>
 #include <fstream>
 #include <iterator>
-#include <string_view>
+#include <sstream>
 #include <system_error>
 
 #include <nlohmann/json.hpp>
 
 #include "fileio/atomic_write.hpp"
+#include "zip/zip_archive.hpp"
 
 namespace opensu::retro {
 namespace {
@@ -91,6 +92,16 @@ std::optional<ResumeHeader> readResumeHeader(const fs::path& file) {
         return std::nullopt;
     }
     return headerOn(in);
+}
+
+std::uint32_t saveRamCrc(std::string_view saveRam) {
+    return zip::crc32Of(saveRam);
+}
+
+bool resumeGoesWith(std::string_view resume, std::string_view saveRam) {
+    std::istringstream in{std::string{resume}};
+    const std::optional<ResumeHeader> header = headerOn(in);
+    return header && header->saveRam == saveRamCrc(saveRam);
 }
 
 bool discardResume(const fs::path& file, std::string& error) {

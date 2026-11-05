@@ -15,6 +15,7 @@
 #include "json_text.hpp"
 #include "library/save_copy.hpp"
 #include "library/save_formats.hpp"
+#include "retro/resume_file.hpp"
 #include "secrets/crypto.hpp"
 #include "secrets/secret.hpp"
 
@@ -30,7 +31,8 @@ using TimePoint = std::chrono::system_clock::time_point;
 
 constexpr std::array kindKeys{
     std::pair{SlotKind::Account, "account"}, std::pair{SlotKind::Device, "device"},
-    std::pair{SlotKind::Memory, "memory"}, std::pair{SlotKind::State, "state"}};
+    std::pair{SlotKind::Memory, "memory"}, std::pair{SlotKind::State, "state"},
+    std::pair{SlotKind::Resume, "resume"}};
 /// A header names a few thousand files at most.
 constexpr std::size_t largestHeader = std::size_t{16} * 1024 * 1024;
 
@@ -162,6 +164,15 @@ std::optional<SaveBundle> bundleOf(const EmulatorSaves& saves, std::string& erro
     } catch (const fs::filesystem_error& failure) {
         error = failure.what();
         return std::nullopt;
+    }
+    const auto fileOf = [&bundle](SlotKind kind) {
+        return std::ranges::find(bundle.files, kind, &BundleFile::kind);
+    };
+    if (const auto resume = fileOf(SlotKind::Resume); resume != bundle.files.end()) {
+        const auto memory = fileOf(SlotKind::Memory);
+        if (memory == bundle.files.end() || !retro::resumeGoesWith(resume->bytes, memory->bytes)) {
+            bundle.files.erase(resume);
+        }
     }
     return bundle;
 }

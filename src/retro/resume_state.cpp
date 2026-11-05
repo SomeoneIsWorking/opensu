@@ -7,7 +7,6 @@
 
 #include "lucent/log.h"
 #include "resume_file.hpp"
-#include "zip/zip_archive.hpp"
 
 namespace opensu::retro {
 namespace {
@@ -15,8 +14,7 @@ namespace {
 using Clock = std::chrono::system_clock;
 
 std::uint32_t crcOf(std::span<const std::byte> bytes) {
-    return zip::crc32Of(
-        std::string_view{reinterpret_cast<const char*>(bytes.data()), bytes.size()});
+    return saveRamCrc(std::string_view{reinterpret_cast<const char*>(bytes.data()), bytes.size()});
 }
 
 std::string labelOf(const ResumeHeader& header) {
