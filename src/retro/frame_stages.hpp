@@ -29,8 +29,10 @@ class FrameStages {
         Present,
         /// Sleeping to the next frame's time.
         Sleep,
+        /// The GPU drawing the shader preset, measured on the GPU.
+        Shader,
     };
-    static constexpr std::size_t stageCount = 7;
+    static constexpr std::size_t stageCount = 8;
 
     /// How often a line is logged.
     static constexpr Clock::duration window = std::chrono::seconds{5};

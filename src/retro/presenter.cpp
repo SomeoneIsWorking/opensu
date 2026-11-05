@@ -450,8 +450,8 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
     begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     check(vkBeginCommandBuffer(commands_, &begin), "vkBeginCommandBuffer");
     if (compositor_->record(commands_, frame, uploadPending_,
-                            DrawTarget{targets_[index].image, targets_[index].framebuffer},
-                            extent_)) {
+                            DrawTarget{targets_[index].image, targets_[index].framebuffer}, extent_,
+                            stages)) {
         uploadPending_ = false;
     }
     if (overlay != nullptr && overlay->width == extent_.width &&

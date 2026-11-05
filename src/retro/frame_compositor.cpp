@@ -8,6 +8,7 @@
 #include "display/letterbox.hpp"
 #include "frame_filter.hpp"
 #include "fullscreen_pipeline.hpp"
+#include "lucent/log.h"
 
 namespace opensu::retro {
 namespace {
@@ -32,6 +33,30 @@ VkRect2D clipped(VkRect2D rect, VkExtent2D extent) {
     inside.extent = {static_cast<std::uint32_t>(std::max<std::int64_t>(right - left, 0)),
                      static_cast<std::uint32_t>(std::max<std::int64_t>(bottom - top, 0))};
     return inside;
+}
+
+/// Sets the viewport to `rect` and the scissor to its part inside `extent`; nothing when none of
+/// it is inside.
+std::optional<VkViewport> placeViewport(VkCommandBuffer commands, VkRect2D rect,
+                                        VkExtent2D extent) {
+    const VkRect2D scissor = clipped(rect, extent);
+    if (scissor.extent.width == 0 || scissor.extent.height == 0) {
+        return std::nullopt;
+    }
+    VkViewport viewport{};
+    viewport.x = static_cast<float>(rect.offset.x);
+    viewport.y = static_cast<float>(rect.offset.y);
+    viewport.width = static_cast<float>(rect.extent.width);
+    viewport.height = static_cast<float>(rect.extent.height);
+    viewport.maxDepth = 1.0F;
+    vkCmdSetViewport(commands, 0, 1, &viewport);
+    vkCmdSetScissor(commands, 0, 1, &scissor);
+    return viewport;
+}
+
+/// `size` times `scale`, at least one pixel.
+std::uint32_t scaled(std::uint32_t size, float scale) {
+    return std::max(1U, static_cast<std::uint32_t>(std::lround(static_cast<float>(size) * scale)));
 }
 
 } // namespace
@@ -100,7 +125,7 @@ FrameCompositor::FrameCompositor(VkInstance instance, VulkanDevice& device, VkFo
                                  VkImageLayout finalLayout, const settings::VideoSettings& video,
                                  const std::filesystem::path& librashader)
     : device_{device}, vk_{device.handle()}, video_{video}, format_{format},
-      finalLayout_{finalLayout},
+      finalLayout_{finalLayout}, scale_{video.shaderResolution}, timer_{device},
       // librashader copies the frame into a preset's OriginalHistory.
       texture_{device, VK_IMAGE_USAGE_TRANSFER_SRC_BIT} {
     try {
@@ -110,6 +135,7 @@ FrameCompositor::FrameCompositor(VkInstance instance, VulkanDevice& device, VkFo
         if (!video_.shaderPreset.empty()) {
             chain_ =
                 std::make_unique<ShaderChain>(librashader, video_.shaderPreset, instance, device_);
+            noteUntimed();
         }
     } catch (...) {
         release();
@@ -123,6 +149,7 @@ FrameCompositor::~FrameCompositor() {
 
 void FrameCompositor::release() {
     device_.waitIdle();
+    reduced_.reset();
     chain_.reset();
     destroyPipeline();
     vkDestroyRenderPass(vk_, renderPass_, nullptr);
@@ -146,11 +173,25 @@ void FrameCompositor::change(const settings::VideoSettings& video, VkInstance in
     }
     check(device_.waitIdle(), "vkDeviceWaitIdle");
     destroyPipeline();
+    const bool rescale = !samePreset || video.shaderResolution != video_.shaderResolution;
     video_ = video;
     if (!samePreset) {
         chain_ = std::move(chain);
     }
+    if (rescale) {
+        scale_.reset(video_.shaderResolution);
+        if (chain_) {
+            noteUntimed();
+        }
+    }
     createPipeline();
+}
+
+void FrameCompositor::noteUntimed() const {
+    if (scale_.timed() && !timer_.available()) {
+        lucent::warn("retro", "the GPU's queue keeps no timestamps, so the shader preset stays at "
+                              "full resolution");
+    }
 }
 
 void FrameCompositor::createPipeline() {
@@ -188,14 +229,34 @@ void FrameCompositor::recordUpload(VkCommandBuffer commands, const FrameImage& f
 void FrameCompositor::recordChain(VkCommandBuffer commands, const DrawTarget& target,
                                   VkExtent2D extent, const FrameImage& frame,
                                   const ChainImage& source) {
+    timer_.recordStart(commands);
+    const VkRect2D rect = placeFrame(extent, frame, video_);
+    if (scale_.scale() < 1.0F) {
+        recordReducedChain(commands, target, extent, frame, source, rect);
+    } else {
+        recordFullChain(commands, target, extent, frame, source, rect);
+    }
+    timer_.recordEnd(commands);
+}
+
+void FrameCompositor::takeShaderTime(const FrameImage& frame, FrameStages& stages) {
+    // The presenter waited for the last frame's fence, so its times are in.
+    if (const std::optional<std::chrono::nanoseconds> spent = timer_.take()) {
+        stages.add(FrameStages::Stage::Shader, *spent);
+        scale_.add(*spent, frame.interval);
+    }
+}
+
+void FrameCompositor::recordFullChain(VkCommandBuffer commands, const DrawTarget& target,
+                                      VkExtent2D extent, const FrameImage& frame,
+                                      const ChainImage& source, VkRect2D rect) {
     // The chain clears the whole target itself, so what it held before is not kept.
     imageBarrier(commands, target.image, VK_IMAGE_LAYOUT_UNDEFINED,
                  VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                  VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
                  VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                  VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-    chain_->record(commands, source, ChainImage{target.image, format_, extent},
-                   placeFrame(extent, frame, video_), frame.aspect);
+    chain_->record(commands, source, ChainImage{target.image, format_, extent}, rect, frame.aspect);
     const bool readBack = finalLayout_ == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     imageBarrier(commands, target.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, finalLayout_,
                  VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -204,13 +265,26 @@ void FrameCompositor::recordChain(VkCommandBuffer commands, const DrawTarget& ta
                  readBack ? VK_ACCESS_TRANSFER_READ_BIT : 0);
 }
 
-void FrameCompositor::recordDraw(VkCommandBuffer commands, const DrawTarget& target,
-                                 VkExtent2D extent, const FrameImage& frame,
-                                 const ChainImage& source, bool ready) {
-    if (chain_ && ready) {
-        recordChain(commands, target, extent, frame, source);
-        return;
+void FrameCompositor::recordReducedChain(VkCommandBuffer commands, const DrawTarget& target,
+                                         VkExtent2D extent, const FrameImage& frame,
+                                         const ChainImage& source, VkRect2D rect) {
+    if (!reduced_) {
+        reduced_ = std::make_unique<ReducedOutput>(device_, format_, renderPass_);
     }
+    const VkExtent2D size{scaled(rect.extent.width, scale_.scale()),
+                          scaled(rect.extent.height, scale_.scale())};
+    const ChainImage output = reduced_->recordBegin(commands, size);
+    chain_->record(commands, source, output, VkRect2D{{0, 0}, size}, frame.aspect);
+    reduced_->recordEnd(commands);
+    beginPass(commands, target, extent);
+    if (placeViewport(commands, rect, extent)) {
+        reduced_->recordDraw(commands);
+    }
+    vkCmdEndRenderPass(commands);
+}
+
+void FrameCompositor::beginPass(VkCommandBuffer commands, const DrawTarget& target,
+                                VkExtent2D extent) const {
     VkClearValue black{};
     black.color = {{0.0F, 0.0F, 0.0F, 1.0F}};
     VkRenderPassBeginInfo begin{};
@@ -221,26 +295,28 @@ void FrameCompositor::recordDraw(VkCommandBuffer commands, const DrawTarget& tar
     begin.clearValueCount = 1;
     begin.pClearValues = &black;
     vkCmdBeginRenderPass(commands, &begin, VK_SUBPASS_CONTENTS_INLINE);
-    const VkRect2D rect = placeFrame(extent, frame, video_);
-    const VkRect2D scissor = clipped(rect, extent);
-    if (ready && scissor.extent.width > 0 && scissor.extent.height > 0) {
-        VkViewport viewport{};
-        viewport.x = static_cast<float>(rect.offset.x);
-        viewport.y = static_cast<float>(rect.offset.y);
-        viewport.width = static_cast<float>(rect.extent.width);
-        viewport.height = static_cast<float>(rect.extent.height);
-        viewport.maxDepth = 1.0F;
+}
+
+void FrameCompositor::recordDraw(VkCommandBuffer commands, const DrawTarget& target,
+                                 VkExtent2D extent, const FrameImage& frame,
+                                 const ChainImage& source, bool ready) {
+    if (chain_ && ready) {
+        recordChain(commands, target, extent, frame, source);
+        return;
+    }
+    beginPass(commands, target, extent);
+    const std::optional<VkViewport> viewport =
+        ready ? placeViewport(commands, placeFrame(extent, frame, video_), extent) : std::nullopt;
+    if (viewport) {
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
         const VkDescriptorSet set = input_->set();
         vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1,
                                 &set, 0, nullptr);
-        vkCmdSetViewport(commands, 0, 1, &viewport);
-        vkCmdSetScissor(commands, 0, 1, &scissor);
         const auto texelsWide = static_cast<float>(source.extent.width);
         const auto texelsHigh = static_cast<float>(source.extent.height);
         const FramePush push = framePush(video_, {texelsWide, texelsHigh},
-                                         {wholeScale(viewport.width, texelsWide, false),
-                                          wholeScale(viewport.height, texelsHigh, false)});
+                                         {wholeScale(viewport->width, texelsWide, false),
+                                          wholeScale(viewport->height, texelsHigh, false)});
         vkCmdPushConstants(commands, pipelineLayout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0, push.size,
                            push.bytes.data());
         vkCmdDraw(commands, 3, 1, 0, 0);
@@ -319,7 +395,8 @@ void FrameCompositor::recordCoreImage(VkCommandBuffer commands, const DrawTarget
 }
 
 bool FrameCompositor::record(VkCommandBuffer commands, const FrameImage& frame, bool upload,
-                             const DrawTarget& target, VkExtent2D extent) {
+                             const DrawTarget& target, VkExtent2D extent, FrameStages& stages) {
+    takeShaderTime(frame, stages);
     if (frame.gpu) {
         recordCoreImage(commands, target, extent, frame, *frame.gpu);
         return false;

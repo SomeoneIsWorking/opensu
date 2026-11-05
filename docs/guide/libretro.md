@@ -54,6 +54,10 @@ Every built-in core's game has, under Video:
 - **Filter**: None, Scanlines, LCD grid or CRT (a port of crt-lottes), drawn on the game's own pixel
   grid.
 - **Shader preset**: a RetroArch slang preset, which replaces Sampling and Filter.
+- **Shader resolution** (shown with a preset): Auto (the default) draws the preset at a lower
+  resolution, down to half, only while the GPU cannot finish a frame in time, and at full
+  resolution again once it can; a PC that keeps up never changes. Full always draws it at the
+  screen's resolution, however slow.
 
 The presets come from libretro's slang shader pack (about 54 MB, each shader under its own
 licence): Settings › Emulators › Shader presets downloads it into `<data>/opensu/shaders/slang/`,

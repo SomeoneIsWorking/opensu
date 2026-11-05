@@ -111,8 +111,12 @@ void picksMoveOnce(const fs::path& root) {
 }
 
 void launchFile() {
-    const VideoSettings video{Aspect::FourThree, IntegerScale::Overscale, Sampling::SharpBilinear,
-                              Filter::LcdGrid, "/data/shaders/slang/crt/crt-royale.slangp"};
+    const VideoSettings video{Aspect::FourThree,
+                              IntegerScale::Overscale,
+                              Sampling::SharpBilinear,
+                              Filter::LcdGrid,
+                              "/data/shaders/slang/crt/crt-royale.slangp",
+                              ShaderResolution::Full};
     std::string error;
     expect(parseVideoJson(videoJson(video), error) == video, "the launch file round trips");
     expect(parseVideoJson("{}", error) == VideoSettings{}, "a key it lacks keeps its default");

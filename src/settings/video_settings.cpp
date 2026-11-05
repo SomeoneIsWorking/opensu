@@ -19,6 +19,9 @@ const ChoiceKey& samplingKey() {
 const ChoiceKey& filterKey() {
     return videoKeys[3];
 }
+const ChoiceKey& shaderResolutionKey() {
+    return videoKeys[4];
+}
 
 } // namespace
 
@@ -48,6 +51,13 @@ void declareVideo(Schema& schema) {
     shader.section = section;
     shader.type = SettingType::Path;
     schema.add(std::move(shader));
+    Setting resolution = choiceSetting(
+        shaderResolutionKey(),
+        "Auto draws the preset at a lower resolution while the GPU cannot keep up", section);
+    resolution.shownWhen = [](const SettingLookup& applies) {
+        return !applies(shaderKey).empty();
+    };
+    schema.add(std::move(resolution));
 }
 
 Resolved resolveShader(const SettingLayers& layers, const LayerKeys& keys) {
@@ -68,6 +78,7 @@ VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
         .sampling = static_cast<Sampling>(index(samplingKey())),
         .filter = static_cast<Filter>(index(filterKey())),
         .shaderPreset = shader.empty() ? std::filesystem::path{} : presets / shader,
+        .shaderResolution = static_cast<ShaderResolution>(index(shaderResolutionKey())),
     };
 }
 
@@ -81,6 +92,8 @@ std::string videoJson(const VideoSettings& video) {
         {std::string{samplingKey().key}, spelling(samplingKey(), video.sampling)},
         {std::string{filterKey().key}, spelling(filterKey(), video.filter)},
         {std::string{shaderKey}, video.shaderPreset.string()},
+        {std::string{shaderResolutionKey().key},
+         spelling(shaderResolutionKey(), video.shaderResolution)},
     };
     return document.dump();
 }
@@ -120,6 +133,7 @@ std::optional<VideoSettings> parseVideoJson(std::string_view text, std::string& 
         .sampling = static_cast<Sampling>(chosen[2]),
         .filter = static_cast<Filter>(chosen[3]),
         .shaderPreset = std::move(shader),
+        .shaderResolution = static_cast<ShaderResolution>(chosen[4]),
     };
 }
 

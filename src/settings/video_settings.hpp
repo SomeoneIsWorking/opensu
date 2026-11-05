@@ -1,5 +1,5 @@
 // video_settings — how opensu-retro shows a game's frame: its aspect, integer scaling, sampling,
-// filter and shader preset.
+// filter, shader preset and the resolution the preset is drawn at.
 // The keys and choices the setting layers keep them under, a game's values resolved from those
 // layers, and their JSON: the per-launch file the shell writes and `opensu-retro --settings`
 // reads, and the body of the runner's `POST /video`. A shader
@@ -56,6 +56,13 @@ enum class Filter : std::uint8_t {
     Crt,
 };
 
+/// The resolution a shader preset's chain is drawn at.
+enum class ShaderResolution : std::uint8_t {
+    /// Lower while the GPU cannot keep up, full again once it can.
+    Auto,
+    Full,
+};
+
 struct VideoSettings {
     Aspect aspect{Aspect::Core};
     IntegerScale integer{IntegerScale::Off};
@@ -63,6 +70,7 @@ struct VideoSettings {
     Filter filter{Filter::None};
     /// A slang preset (`.slangp`) run in place of the sampling and filter; empty for none.
     std::filesystem::path shaderPreset;
+    ShaderResolution shaderResolution{ShaderResolution::Auto};
 
     bool operator==(const VideoSettings&) const = default;
 };
@@ -91,12 +99,18 @@ inline constexpr std::array<ChoiceText, 4> filterChoices{{
     {"crt", "CRT"},
 }};
 
+inline constexpr std::array<ChoiceText, 2> shaderResolutionChoices{{
+    {"auto", "Auto"},
+    {"full", "Full"},
+}};
+
 /// The video settings, each with its choices in the order of its enum.
-inline constexpr std::array<ChoiceKey, 4> videoKeys{{
+inline constexpr std::array<ChoiceKey, 5> videoKeys{{
     {"video.aspect", "Aspect", aspectChoices},
     {"video.integer", "Integer scale", integerChoices},
     {"video.sampling", "Sampling", samplingChoices},
     {"video.filter", "Filter", filterChoices},
+    {"video.shader-resolution", "Shader resolution", shaderResolutionChoices},
 }};
 
 /// The shader preset: a `.slangp` path relative to the shader pack, or "" for none at this layer.
@@ -107,7 +121,8 @@ inline constexpr std::string_view shaderLabel = "Shader preset";
 inline constexpr std::string_view videoSection = "Video";
 
 /// Declares the video settings in `schema`: Aspect, Integer scale, Sampling and Filter (both
-/// hidden while a shader preset applies, which replaces them), then the shader preset.
+/// hidden while a shader preset applies, which replaces them), the shader preset, then Shader
+/// resolution (shown only while a preset applies).
 void declareVideo(Schema& schema);
 
 /// `keys`' video settings, each from its winning layer; a kept value that is no choice is

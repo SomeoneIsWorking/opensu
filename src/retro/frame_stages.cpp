@@ -11,7 +11,7 @@ namespace opensu::retro {
 namespace {
 
 constexpr std::array<const char*, FrameStages::stageCount> stageNames{
-    "core", "audio", "fence", "acquire", "record", "present", "sleep"};
+    "core", "audio", "fence", "acquire", "record", "present", "sleep", "shader"};
 
 double milliseconds(FrameStages::Clock::duration spent) {
     return std::chrono::duration<double, std::milli>(spent).count();

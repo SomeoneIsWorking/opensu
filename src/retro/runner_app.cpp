@@ -453,10 +453,11 @@ RunnerExit RunnerApp::run() {
         if (touchShown) {
             overlay = touch->image();
         }
+        FrameImage shown =
+            coreImage.value_or(FrameImage{video.rgba(), video.width(), video.height(), aspect, {}});
+        shown.interval = std::chrono::duration_cast<std::chrono::nanoseconds>(interval);
         try {
-            presenter->present(coreImage.value_or(FrameImage{
-                                   video.rgba(), video.width(), video.height(), aspect, {}}),
-                               coreImageFresh || pixelsFresh, hardware.takeSync(),
+            presenter->present(shown, coreImageFresh || pixelsFresh, hardware.takeSync(),
                                overlay ? &*overlay : nullptr, stages);
         } catch (const VulkanError& failure) {
             lucent::error("retro", "{}", failure.what());

@@ -60,6 +60,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/frame_filter.*` | The fragment shader for a sampling and filter, the built-in filters' parameters (`scanlineGrid`, `lcdGrid`, `crtLottes`) and the push block each draw hands the shader |
 | `src/retro/librashader_library.*` | librashader opened by its path (`Config::librashader`), ABI and API checked, its calls with their errors as `ShaderError`; a missing file refuses the preset |
 | `src/retro/shader_chain.*` | One slang preset built on the runner's device (render passes, one frame in flight) and recorded from the frame image into the placed rectangle; history (cleared on the first frame), feedback and LUTs are librashader's |
+| `src/retro/shader_scale.*`, `gpu_timer.*`, `reduced_output.*` | The Shader resolution setting at run time: the preset's GPU time per frame from two timestamps (logged as the `shader` stage), the scale it is drawn at (Full: always 100 %; Auto: 100/85/70/60/50 % against the core's frame interval, each step logged), and below 100 % the image the chain draws into and its bilinear draw into the placed rectangle |
 | `src/retro/vulkan_device.*` | The Vulkan instance (validation layer and its error count on request) and the one device and graphics queue, made through a GPU core's context negotiation when it has one (its `get_application_info`; `create_instance`, `create_device2` or `create_device` with the runner's extensions and layers added), `destroy_device` before the instance goes; the queue's lock, held for every submit, present and device wait |
 | `src/retro/png_encoder.*` | RGBA to PNG bytes through libpng |
 | `src/retro/shaders/frame.{vert,frag}`, `sharp_bilinear.frag`, `frame_grid.glsl`, `crt_lottes.frag` | The frame's shaders (sharp-bilinear: integer prescale then bilinear; `frame_grid.glsl`: the scanline and LCD-grid bands both sampling shaders apply; crt-lottes), compiled by glslc at build time into SPIR-V headers under the build tree |
@@ -96,7 +97,8 @@ the runner's callback trampolines reach the one loaded core through a single poi
 
 `retro` depends on `gamepad`, `fileio`, Lucent, nlohmann/json, SDL3, the Vulkan loader and libpng;
 `config` is read by `main.cpp` only. Nothing outside `retro` and the `opensu-retro` executable links
-it. Only `presenter`, `frame_compositor`, `shader_chain`, `librashader_library`, `vulkan_device`
+it. Only `presenter`, `frame_compositor`, `shader_chain`, `gpu_timer`, `reduced_output`,
+`librashader_library`, `vulkan_device`
 and `hardware_render` (and through it `core_environment`) include Vulkan, only the last two
 `libretro_vulkan.h`, and only `presenter` uses SDL video; `audio_output` includes SDL audio;
 `joypad` uses SDL's scancode values only.
@@ -108,7 +110,8 @@ and `hardware_render` (and through it `core_environment`) include Vulkan, only t
 <rom>`. `--option` sets a core option for this run: the core's value for that key when it offers
 it, else (a warning logged) its default. `--settings` names a JSON
 object of resolved video settings (`{"video.aspect": "4:3", "video.integer": "off",
-"video.sampling": "nearest", "video.filter": "none", "video.shader": "<absolute .slangp path>"}`);
+"video.sampling": "nearest", "video.filter": "none", "video.shader": "<absolute .slangp path>",
+"video.shader-resolution": "auto"}`);
 a key it lacks keeps its default, a value that is no choice is exit 1. The runner never reads `game-settings.json`. `--saves` defaults to
 `<data>/opensu/saves/<core name>/` (the core file's stem without `_libretro`; the launcher passes
 the active profile's system folder), `--system` to `<data>/opensu/system/`, both from `config::Config`. `--hidden`,
@@ -260,6 +263,21 @@ time means the GPU is the limit: one frame is in flight, so a preset slower than
 halves the rate and drains the audio queue. On a Kirin T90A tablet at 2800x1840 with mGBA,
 crt-1tap-bloom (26 passes) runs at 33/s (frame p50 29 ms, fence 16-20 ms, audio queued 0), crt-1tap
 and None hold 59.7/s (frame 16.7/17.2/17.4 ms, fence 0, audio queued 40-50 ms).
+
+**Shader resolution.** The `shader` stage is the preset's own GPU time (two timestamps around the
+chain, read after the next frame's fence). Under Auto, `ShaderScale` steps the chain to 85, 70, 60
+or 50 % of the placed rectangle when a 30-frame median passes 90 % of the core's frame interval,
+logging `shader resolution down to 70% (GPU 20.0 ms of a 16.7 ms frame)`, and back up one step
+after four windows whose median, grown by the area the step adds, stays under 75 %. Below 100 % the
+chain draws into `ReducedOutput`'s image of the rectangle's scaled size, its whole viewport, so its
+viewport passes shrink with it, and that image is drawn bilinearly into the rectangle; at 100 % the
+chain draws into the target as before. librashader sizes viewport passes by the output image, the
+whole target, not the rectangle, so at full resolution a letterboxed frame costs as much as a
+stretched one. A queue without timestamps keeps Auto at 100 % and says so. To check:
+`opensu-retro --hidden` with `OPENSU_WIDTH`/`OPENSU_HEIGHT` as the target size. On an RX 6700 XT,
+crt-1tap-bloom at 1280x800 takes 0.5-1.4 ms and Auto never steps; at 16384x4096 Full runs at 31/s
+(shader 30.7 ms) and Auto steps to 85, 70 and 60 % within 1.3 s and holds 59.7/s (shader 11.6 ms),
+then back up to 70 % once `POST /video` changes Stretch to Core.
 
 **Saves.** `<saves>/<rom stem>.srm`, loaded after the game and before the first frame, checked
 once a second and at exit, and written only when the RAM differs from what was last loaded or

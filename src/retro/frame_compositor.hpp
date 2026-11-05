@@ -2,10 +2,13 @@
 // or, from a Vulkan core, its own image read where it is, drawn at the aspect, integer scale,
 // sampling and filter of the game's video settings, the rest of the target black. With a shader
 // preset, `shader_chain` draws the placed rectangle from either in place of the sampling and
-// filter. The presenter owns the window, the targets and the submission; this owns the render pass
-// every target's framebuffer is made for. `frame_filter` picks the built-in shader.
+// filter, at the resolution `shader_scale` holds: below full, into `reduced_output`'s image, then
+// drawn into the rectangle. The presenter owns the window, the targets and the submission; this
+// owns the render pass every target's framebuffer is made for. `frame_filter` picks the built-in
+// shader.
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -14,9 +17,13 @@
 
 #include <vulkan/vulkan.h>
 
+#include "frame_stages.hpp"
 #include "fullscreen_pipeline.hpp"
+#include "gpu_timer.hpp"
+#include "reduced_output.hpp"
 #include "settings/video_settings.hpp"
 #include "shader_chain.hpp"
+#include "shader_scale.hpp"
 #include "streamed_texture.hpp"
 #include "vulkan_device.hpp"
 
@@ -33,13 +40,15 @@ struct CoreImage {
 };
 
 /// A frame to show, `width` by `height` and displayed `aspect` wide per unit high: rows of RGBA
-/// pixels, top first, or a Vulkan core's image in `gpu`.
+/// pixels, top first, or a Vulkan core's image in `gpu`. It is on screen for `interval`, the
+/// GPU's budget for drawing it.
 struct FrameImage {
     std::span<const std::uint8_t> rgba;
     unsigned width{0};
     unsigned height{0};
     float aspect{0.0F};
     std::optional<CoreImage> gpu;
+    std::chrono::nanoseconds interval{};
 };
 
 /// The largest rectangle of `aspect` centred in `extent`; all of it when `aspect` is not positive.
@@ -83,9 +92,10 @@ class FrameCompositor {
 
     /// Records drawing `frame` into `target` of `extent`, uploading it first when `upload` and the
     /// frame is whole. Reports whether it uploaded. A core's image is read where it is, and the
-    /// core's next writes to it wait for that read. Throws VulkanError or ShaderError.
+    /// core's next writes to it wait for that read. The GPU time of the last frame's shader preset
+    /// goes to `stages`. Throws VulkanError or ShaderError.
     bool record(VkCommandBuffer commands, const FrameImage& frame, bool upload,
-                const DrawTarget& target, VkExtent2D extent);
+                const DrawTarget& target, VkExtent2D extent, FrameStages& stages);
 
   private:
     /// Everything the constructor made, in reverse; safe when partly made.
@@ -107,9 +117,21 @@ class FrameCompositor {
     void recordDraw(VkCommandBuffer commands, const DrawTarget& target, VkExtent2D extent,
                     const FrameImage& frame, const ChainImage& source, bool ready);
     /// The preset's passes from `source` into `target`, which ends in the render pass's final
-    /// layout.
+    /// layout, at the scale `scale_` holds, timed.
     void recordChain(VkCommandBuffer commands, const DrawTarget& target, VkExtent2D extent,
                      const FrameImage& frame, const ChainImage& source);
+    /// The passes drawn straight into `rect` of `target`.
+    void recordFullChain(VkCommandBuffer commands, const DrawTarget& target, VkExtent2D extent,
+                         const FrameImage& frame, const ChainImage& source, VkRect2D rect);
+    /// The passes drawn into the reduced output at `scale_`, then it into `rect` of `target`.
+    void recordReducedChain(VkCommandBuffer commands, const DrawTarget& target, VkExtent2D extent,
+                            const FrameImage& frame, const ChainImage& source, VkRect2D rect);
+    /// Begins the render pass on `target`, cleared black.
+    void beginPass(VkCommandBuffer commands, const DrawTarget& target, VkExtent2D extent) const;
+    /// Under Auto, says once when the GPU cannot be timed, so the scale stays full.
+    void noteUntimed() const;
+    /// The last frame's shader time to `stages` and `scale_`, once its commands are done.
+    void takeShaderTime(const FrameImage& frame, FrameStages& stages);
     [[nodiscard]] ChainImage textureImage() const;
 
     VulkanDevice& device_;
@@ -119,6 +141,10 @@ class FrameCompositor {
     VkImageLayout finalLayout_{VK_IMAGE_LAYOUT_UNDEFINED};
     /// The shader preset's chain; none without a preset.
     std::unique_ptr<ShaderChain> chain_;
+    ShaderScale scale_;
+    GpuTimer timer_;
+    /// Made when the chain is first drawn below full resolution.
+    std::unique_ptr<ReducedOutput> reduced_;
     VkRenderPass renderPass_{VK_NULL_HANDLE};
     /// Made again with the pipeline: its sampler follows the video settings.
     std::unique_ptr<SampledInput> input_;

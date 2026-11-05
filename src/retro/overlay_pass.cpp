@@ -6,7 +6,7 @@ namespace opensu::retro {
 namespace {
 
 constexpr std::uint32_t overlayCode[] = {
-#include "overlay.frag.inc"
+#include "sampled.frag.inc"
 };
 
 } // namespace
