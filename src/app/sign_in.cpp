@@ -41,6 +41,7 @@ SignInResult StoreSignIn::open(Store store) {
 SignInResult StoreSignIn::complete(Store store, std::string_view code) {
     if (store == Store::Gog) {
         try {
+            // The player's own call, answered on the control channel's thread, which has no stop.
             gog_.signIn(std::stop_token{}, code);
         } catch (const std::exception& error) {
             lucent::warn("signin", "GOG: {}", error.what());
