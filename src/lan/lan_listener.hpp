@@ -20,6 +20,7 @@
 
 #include "host_pairing.hpp"
 #include "lucent/http.h"
+#include "netplay_asks.hpp"
 #include "pairing_keys.hpp"
 #include "peer_book.hpp"
 #include "profile_copies.hpp"
@@ -55,6 +56,8 @@ class LanListener {
         profiles::ProfileBook& profiles;
         /// The copies of them asked for, each put to the player.
         ProfileCopies& copies;
+        /// The asks to play a ROM together, and the saves handed over for one.
+        NetplayAsks& netplay;
         RomShelf& roms;
         /// The name this openSU goes by now.
         std::function<std::string()> name;
@@ -114,6 +117,9 @@ class LanListener {
     /// `/lan/profiles/copy`, `/copy/status` and `/unlink`, `body` opened.
     [[nodiscard]] lucent::http::Response profilesRoute(std::string_view path, std::string_view body,
                                                        const Signed& verified);
+    /// `/lan/netplay`, `/status` and `/save`, `body` opened.
+    [[nodiscard]] lucent::http::Response netplayRoute(std::string_view path, std::string_view body,
+                                                      const Signed& verified);
     /// `/lan/play`, `body` opened.
     [[nodiscard]] lucent::http::Response playRoute(std::string_view body, const Signed& verified);
     /// `/lan/play/status`, `body` opened.

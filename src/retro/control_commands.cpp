@@ -22,6 +22,11 @@ ControlAnswer answerOf(const StateOutcome& outcome) {
     return {500, outcome.reason};
 }
 
+bool changesTheGame(ControlCommand command) {
+    return command == ControlCommand::LoadState || command == ControlCommand::Reset ||
+           command == ControlCommand::Option || command == ControlCommand::Suspend;
+}
+
 std::string optionsJson(const CoreOptions& options) {
     nlohmann::json list = nlohmann::json::array();
     for (const CoreOptions::Option& option : options.options()) {
@@ -77,6 +82,9 @@ ControlAnswer ControlCommands::suspend() {
 }
 
 ControlAnswer ControlCommands::perform(const ControlRequest& request) {
+    if (parts_.netplay && changesTheGame(request.command)) {
+        return {409, "not while playing together"};
+    }
     ControlAnswer answer;
     switch (request.command) {
     case ControlCommand::SaveState:

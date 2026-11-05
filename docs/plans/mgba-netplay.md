@@ -62,8 +62,8 @@ machine), and for rollback later, `retro_serialize`/`retro_unserialize` every fr
   go there, each its own commit; the player's branches are never rewritten.
 - **Single play keeps the official core.** In one-player mode the fork runs the same emulation as
   libretro/mgba master (one commit behind, which is the one that quiets its per-transfer debug log)
-  with the same state format; it is not better, and pinned it would fall behind the buildbot's
-  nightly updates. It is picked only for a multiplayer launch.
+  with the same state format; on the link ROM both take 0.6/0.7/0.8 ms a frame (p50/p95/p99), so it
+  is not better, and pinned it would fall behind the buildbot's nightly updates. It is picked only for a multiplayer launch.
 - **Core-agnostic netplay.** The session and the transport know nothing of mGBA:
   - `netplay::Session` (new, `src/netplay/`): the peers and which player slot (port) each drives,
     each slot's input per frame, frame sync, the start state, a desync check and the end. mGBA is
@@ -117,8 +117,8 @@ machine), and for rollback later, `retro_serialize`/`retro_unserialize` every fr
    saves copied back. Shown with two hidden openSUs paired over Avahi: both screens' bands from
    both players, frame pacing and stalls measured, a state CRC compared, one side killed and the
    other ending cleanly.
-7. UI: the details page's "Play linked" for GBA games (split screen) and the Guide's
-   "Play with <paired openSU>" over a running GBA game; the fork's core picked for both.
+7. UI: the details page's "Play linked (2 players)" and "Play with <paired openSU>" for GBA games;
+   the fork's core picked for both, whatever the game's single-play pick.
 8. Game Boy link (a fork change: mGBA's GB SIO lockstep in the core's cooperative scheduler),
    then Windows, macOS and Android builds of the fork.
 9. Later, each its own plan: rollback in the session; any core's netplay through the same session
@@ -133,9 +133,16 @@ machine), and for rollback later, `retro_serialize`/`retro_unserialize` every fr
   frame p50/p95/p99 16.7/16.8/16.8 ms, 2159 frames, 7 and 3 stalls, 17 memory checks matched; each
   side's A shows on both screens; SIGTERM ends the other at once, `kill -9` after 5 s, a different
   ROM at frame 120 on both.
+- Steps 6 and 7 landed. Two hidden openSUs paired over Avahi on one machine, both directions: asked,
+  approved on the other's screen, saves swapped into both session folders, each side's A on the
+  other's frame; 59.7 fps, frame p50/p95/p99 16.7/16.8/16.8 ms, 2 stalls in 1787 frames, 14 memory
+  checks matched; `kill -9` on one runner ends the other 5.0 s later, each save back in its own
+  profile; Decline told to the asker. Not shown: two physical machines.
 
 ## Risks
 
+- Each side's core options and BIOS come from its own settings. A difference that changes emulation
+  ends the session with a desync message rather than being refused at the ask.
 - A GBA cartridge with a real-time clock reads the host's clock and desyncs across machines;
   the start state carries the RTC, and the session would have to fix its source.
 - The core's watchdog asserts (`mASSERT`) when every player blocks; a hang in a game ends the

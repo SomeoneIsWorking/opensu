@@ -571,6 +571,55 @@ bool holdsCopy(const fs::path& folder, const std::string& bytes) {
     return false;
 }
 
+void askedToPlayTogether(const lan::LanNode& guest, lan::LanNode& host) {
+    using Clock = lan::NetplayAsks::Clock;
+    const std::stop_token never;
+    std::string error;
+    const secrets::crypto::Bytes guestSalt(secrets::crypto::nonceBytes, 1);
+    const secrets::crypto::Bytes hostSalt(secrets::crypto::nonceBytes, 2);
+    const lan::wire::NetplayAsk ask{.console = "gba",
+                                    .file = "link.gba",
+                                    .title = "Link",
+                                    .size = 1024,
+                                    .sha256 = "abcd",
+                                    .salt = guestSalt};
+    guest.netplay().handOver(host.id(), ask.sha256, "guest save");
+    expect(guest.askNetplay(never, host.id(), ask, error), "the attic asks to play together");
+    const std::optional<lan::NetplayAsks::Question> asked = host.netplay().question(Clock::now());
+    expect(asked && asked->peer.id == guest.id() && asked->rom == ask, "the den's player is asked");
+    const std::optional<lan::wire::NetplayVerdict> waiting =
+        guest.netplayStatus(never, host.id(), ask.sha256, error);
+    expect(waiting && waiting->verdict == "waiting", "the attic waits for the answer");
+    expect(!guest.netplaySave(never, host.id(), ask.sha256, error),
+           "the den hands over nothing before it allows");
+    host.netplay().handOver(guest.id(), ask.sha256, "host save");
+    host.netplay().allow(guest.id(), 4000, hostSalt, Clock::now());
+    const std::optional<lan::wire::NetplayVerdict> allowed =
+        guest.netplayStatus(never, host.id(), ask.sha256, error);
+    expect(allowed && allowed->verdict == "allowed" && allowed->port == 4000 &&
+               allowed->salt == hostSalt,
+           "the attic hears it is allowed, with the port and the salt");
+    expect(!host.netplay().question(Clock::now()), "the den's player is asked no more");
+    expect(guest.netplaySave(never, host.id(), ask.sha256, error) == "host save",
+           "the attic takes the den's save");
+    expect(host.netplaySave(never, guest.id(), ask.sha256, error) == "guest save",
+           "the den takes the attic's");
+    expect(!host.netplaySave(never, guest.id(), ask.sha256, error), "each save is taken once");
+    const auto guestKeys = guest.netplayKeys(host.id(), guestSalt, hostSalt, error);
+    const auto hostKeys = host.netplayKeys(guest.id(), guestSalt, hostSalt, error);
+    expect(guestKeys && hostKeys && guestKeys->host == hostKeys->host &&
+               guestKeys->guest == hostKeys->guest && hostKeys->host != hostKeys->guest,
+           "both derive the session's keys, one per sender");
+
+    expect(guest.askNetplay(never, host.id(), ask, error), "asked again");
+    host.netplay().decline(guest.id(), "it does not have this ROM", Clock::now());
+    const std::optional<lan::wire::NetplayVerdict> declined =
+        guest.netplayStatus(never, host.id(), ask.sha256, error);
+    expect(declined && declined->verdict == "declined" &&
+               declined->refusal == "it does not have this ROM",
+           "a refusal says why");
+}
+
 void sharedSavesFollowThePlayer(const fs::path& root) {
     using Standing = save_sync::TargetSaves::Standing;
     Directory directory;
@@ -631,6 +680,7 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
                guest.profiles.linked(player, host.node.id()),
            "and keeps the copy, linked with the den");
     expect(guest.sync.sharing(game), "so the game's saves are shared");
+    askedToPlayTogether(guest.node, host.node);
     expect(looksLike(guest, game, player, Standing::NewerThere), "the den's save is newer");
     const std::uint64_t ticket = guest.sync.prepare(game, player);
     expect(waitFor([&guest, ticket] {
@@ -868,12 +918,14 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
             [&profiles](const std::string& profile) {
                 return profiles.seatOf(profile);
             }}};
+    lan::NetplayAsks netplay;
     lan::LanListener listener{lan::LanListener::Sources{.book = book,
                                                         .pairing = pairing,
                                                         .library = library,
                                                         .saves = saves,
                                                         .profiles = profiles,
                                                         .copies = copies,
+                                                        .netplay = netplay,
                                                         .roms = shelf,
                                                         .name =
                                                             [] {

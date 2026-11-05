@@ -20,6 +20,11 @@ add_executable(shelf_test shelf_test.cpp)
 target_link_libraries(shelf_test PRIVATE opensu::library)
 add_test(NAME shelf COMMAND shelf_test)
 
+add_executable(linked_play_test linked_play_test.cpp)
+target_link_libraries(linked_play_test PRIVATE opensu::library)
+target_include_directories(linked_play_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../ui" "${CMAKE_CURRENT_SOURCE_DIR}/../support")
+add_test(NAME linked_play COMMAND linked_play_test)
+
 add_executable(gog_test gog_test.cpp)
 target_link_libraries(gog_test PRIVATE opensu::library)
 opensu_warnings(gog_test)

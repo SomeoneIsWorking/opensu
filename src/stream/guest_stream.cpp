@@ -334,6 +334,7 @@ void GuestStream::handle(const Opened& opened, std::uint64_t receivedUs) {
     case PacketKind::Report:
     case PacketKind::KeyFrame:
     case PacketKind::Mapping:
+    case PacketKind::Netplay:
         break;
     }
 }

@@ -288,6 +288,7 @@ void HostStream::handle(const Opened& opened) {
     case PacketKind::Video:
     case PacketKind::Audio:
     case PacketKind::Probe:
+    case PacketKind::Netplay:
         break;
     }
 }

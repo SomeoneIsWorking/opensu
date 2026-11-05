@@ -98,6 +98,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `assets/emulators.json`, `src/library/emulator_catalog.*` | A built-in emulator is an entry with `"core": "<name>_libretro"` and no launchers or release; `"coreOptions"` the core options it starts with (a GPU core's Vulkan renderer) |
 | `src/library/emulators.*` | A built-in emulator is installed when its core is found and `opensu-retro` is beside `opensu` (`config::retroRunnerBeside`); it starts as `opensu-retro --core <core> [--option <key>=<value>]... <rom>`, with `--hidden` from a hidden shell |
 | `src/app/emulator_downloads.*`, `emulator_settings.*`, `details_controller.*` | Download, update check, update and removal of a core and of the shader pack, on the same paths as an AppImage; the Shader presets rows; the details page's video sources, Game settings button and Clear |
+| `src/library/linked_play.*`, `src/app/lan_netplay.*` | A game on the link core: split screen and netplay commands (`linkable`, `splitScreenGame`, `netplayGame`); the shell's half of a session (Play with <name>, the question, saves, the session's file) |
 | `src/app/retro_session.*` | The shell's side of the control channel: each launch's control file, the port read from it, the requests (`setVideo` for `POST /video`), the load failure handed over and the file removed |
 | `src/app/guide_menu_controller.*` | Save and close, Game settings, Save state, Load state and Reset game while the running game answers on a control channel; the resumed or refused row |
 | `src/app/game_end.*`, `src/launch/handoff.*` | How a game ended (`Hooks::ended`, the scope's exit status) and the toast it gets |
@@ -232,7 +233,9 @@ CRC-32 of `RETRO_MEMORY_SYSTEM_RAM`, not `retro_serialize`: mGBA's state holds i
 core with no system RAM compares nothing. `GET_NETPLAY_CLIENT_INDEX` answers the slot. The session ends
 on Leave (SIGTERM or quit), on 5 s of silence (20 s before the first frame) or on a differing CRC;
 the runner logs `netplay: <how> after <n> frames, <n> stalls, <n> state checks matched`, writes its
-save RAM and exits 0.
+save RAM and exits 0. Load state, reset, a core option's change and Save and close answer 409: one
+machine alone would leave the other. In the shell `app/lan_netplay` writes the file and runs the
+session (`docs/design/lan.md`).
 
 **Video settings.** Aspect (`core`: the core's `aspect_ratio`; `4:3`; `pixel`: 1:1 pixels;
 `stretch`: the whole target), integer scale (`off`; `on`: the largest whole multiple of the frame's

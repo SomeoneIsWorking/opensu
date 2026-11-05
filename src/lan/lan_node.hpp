@@ -28,6 +28,7 @@
 #include "host_pairing.hpp"
 #include "lan_listener.hpp"
 #include "net/web_client.hpp"
+#include "netplay_asks.hpp"
 #include "peer_book.hpp"
 #include "peer_client.hpp"
 #include "profile_copies.hpp"
@@ -184,6 +185,33 @@ class LanNode {
               const std::string& profile, const std::function<void()>& waiting,
               std::string& error) const;
 
+    /// The asks to play a ROM together, this one's and the paired openSUs'.
+    [[nodiscard]] NetplayAsks& netplay() const noexcept {
+        return netplay_;
+    }
+    /// Asks the paired, announced `hostId` to play `ask`'s ROM together. Each of these blocks for
+    /// the call, so never on the loop.
+    [[nodiscard]] bool askNetplay(const std::stop_token& stop, const std::string& hostId,
+                                  const wire::NetplayAsk& ask, std::string& error) const;
+    /// How that ask stands.
+    [[nodiscard]] std::optional<wire::NetplayVerdict> netplayStatus(const std::stop_token& stop,
+                                                                    const std::string& hostId,
+                                                                    const std::string& sha256,
+                                                                    std::string& error) const;
+    /// The save `peerId` handed over for the session on `sha256`.
+    [[nodiscard]] std::optional<std::string> netplaySave(const std::stop_token& stop,
+                                                         const std::string& peerId,
+                                                         const std::string& sha256,
+                                                         std::string& error) const;
+    /// Where the announced `peerId` is.
+    [[nodiscard]] std::optional<std::string> addressOf(const std::string& peerId,
+                                                       std::string& error) const;
+    /// A session's keys from the pairing with `peerId` and both salts.
+    [[nodiscard]] std::optional<StreamKeys> netplayKeys(const std::string& peerId,
+                                                        std::span<const std::uint8_t> guestSalt,
+                                                        std::span<const std::uint8_t> hostSalt,
+                                                        std::string& error) const;
+
     /// Forgets `peerId` here, and tells it to forget this one when it is announced. False with
     /// `error` when it could not be forgotten here.
     [[nodiscard]] bool forget(const std::string& peerId, std::string& error);
@@ -227,6 +255,8 @@ class LanNode {
     save_sync::SaveSync& saves_;
     profiles::ProfileBook& profiles_;
     ProfileCopies copies_{profiles_};
+    /// Mutable: a worker holding a const node hands saves over through it; it locks itself.
+    mutable NetplayAsks netplay_;
     RomShelf shelf_;
     LanListener listener_;
     std::string problem_;

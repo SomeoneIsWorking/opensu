@@ -408,6 +408,79 @@ std::optional<PlayVerdict> readPlayVerdict(std::string_view body) {
     return verdict;
 }
 
+std::string write(const NetplayAsk& ask) {
+    return json{{"console", ask.console}, {"file", ask.file},
+                {"title", ask.title},     {"size", ask.size},
+                {"sha256", ask.sha256},   {"salt", secrets::hexText(ask.salt)}}
+        .dump();
+}
+
+std::optional<NetplayAsk> readNetplayAsk(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    NetplayAsk ask{.console = textField(*document, "console"),
+                   .file = textField(*document, "file"),
+                   .title = textField(*document, "title"),
+                   .size = countField(*document, "size").value_or(0),
+                   .sha256 = textField(*document, "sha256"),
+                   .salt = {}};
+    std::optional<secrets::crypto::Bytes> salt =
+        bytesField(*document, "salt", secrets::crypto::nonceBytes);
+    if (!salt || ask.console.empty() || ask.file.empty() || ask.size == 0 || ask.sha256.empty()) {
+        return std::nullopt;
+    }
+    ask.salt = std::move(*salt);
+    return ask;
+}
+
+std::string write(const NetplayRom& rom) {
+    return json{{"sha256", rom.sha256}}.dump();
+}
+
+std::optional<NetplayRom> readNetplayRom(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    std::string sha256 = textField(*document, "sha256");
+    if (sha256.empty()) {
+        return std::nullopt;
+    }
+    return NetplayRom{std::move(sha256)};
+}
+
+std::string write(const NetplayVerdict& verdict) {
+    return json{{"verdict", verdict.verdict},
+                {"refusal", verdict.refusal},
+                {"port", verdict.port},
+                {"salt", secrets::hexText(verdict.salt)}}
+        .dump();
+}
+
+std::optional<NetplayVerdict> readNetplayVerdict(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    NetplayVerdict verdict{.verdict = textField(*document, "verdict"),
+                           .refusal = textField(*document, "refusal"),
+                           .port = 0,
+                           .salt = {}};
+    if (verdict.verdict == "allowed") {
+        const std::optional<std::uint64_t> port = countField(*document, "port");
+        std::optional<secrets::crypto::Bytes> salt =
+            bytesField(*document, "salt", secrets::crypto::nonceBytes);
+        if (!port || *port == 0 || *port > 0xffff || !salt) {
+            return std::nullopt;
+        }
+        verdict.port = static_cast<std::uint16_t>(*port);
+        verdict.salt = std::move(*salt);
+    }
+    return verdict.verdict.empty() ? std::nullopt : std::optional{std::move(verdict)};
+}
+
 namespace {
 
 json filesOf(const std::vector<RomFile>& files) {

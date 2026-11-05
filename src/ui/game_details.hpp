@@ -35,6 +35,9 @@ inline constexpr std::string_view detailsControlsId = "details.controls";
 inline constexpr std::string_view detailsSavesId = "details.saves";
 inline constexpr std::string_view detailsSyncSavesId = "details.syncSaves";
 inline constexpr std::string_view detailsStartFreshId = "details.startFresh";
+inline constexpr std::string_view detailsLinkedId = "details.linked";
+/// A Play with row's id: this and the paired openSU's id.
+inline constexpr std::string_view detailsPlayWithPrefix = "details.playWith:";
 inline constexpr std::string_view detailsBackId = "details.back";
 /// The Emulator choice's option while the game has no emulator picked.
 inline constexpr std::string_view noEmulator = "None";
@@ -92,6 +95,14 @@ struct GameSettingsView {
     /// What the Resume fact reads while Save and close left the game a resume state ("Resumes
     /// from 2026-11-04 18:09"), with the Start fresh row; empty, and neither, while there is none.
     std::string resume;
+    /// Whether the game can run on the link core: the Play linked row.
+    bool linked{false};
+    /// The paired openSUs to play it with, one Play with row each.
+    struct Partner {
+        std::string id;
+        std::string name;
+    };
+    std::vector<Partner> partners;
 };
 
 /// What the page says about the facts' setting `label` reading `value`.

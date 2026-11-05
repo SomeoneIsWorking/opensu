@@ -108,7 +108,9 @@ Response LanListener::handle(const Request& request) {
          (path == "/lan/unpair" || path == wire::playRoute || path == wire::playStatusRoute ||
           path.starts_with(savesPrefix) || path == wire::romFileRoute ||
           path == wire::romChunkRoute || path == wire::profileCopyRoute ||
-          path == wire::profileCopyStatusRoute || path == wire::profileUnlinkRoute));
+          path == wire::profileCopyStatusRoute || path == wire::profileUnlinkRoute ||
+          path == wire::netplayRoute || path == wire::netplayStatusRoute ||
+          path == wire::netplaySaveRoute));
     if (!peerPath) {
         return refused(notFound, "Not Found", "no such route");
     }
@@ -129,6 +131,9 @@ Response LanListener::handle(const Request& request) {
             answer = playRoute(*body, *verified);
         } else if (path == wire::playStatusRoute) {
             answer = playStatusRoute(*body, *verified);
+        } else if (path == wire::netplayRoute || path == wire::netplayStatusRoute ||
+                   path == wire::netplaySaveRoute) {
+            answer = netplayRoute(path, *body, *verified);
         } else if (path == wire::profileCopyRoute || path == wire::profileCopyStatusRoute ||
                    path == wire::profileUnlinkRoute) {
             answer = profilesRoute(path, *body, *verified);
@@ -391,6 +396,39 @@ Response LanListener::playStatusRoute(std::string_view body, const Signed& verif
         return refused(notFound, "Not Found", "no ask to join that game is waiting");
     }
     return Response::json(ok, "OK", wire::write(*verdict));
+}
+
+Response LanListener::netplayRoute(std::string_view path, std::string_view body,
+                                   const Signed& verified) {
+    const auto now = NetplayAsks::Clock::now();
+    if (path == wire::netplayRoute) {
+        const std::optional<wire::NetplayAsk> asked = wire::readNetplayAsk(body);
+        if (!asked) {
+            return refused(badRequest, "Bad Request", "not an ask to play together");
+        }
+        std::string refusal;
+        if (!sources_.netplay.ask(verified.peer, *asked, now, refusal)) {
+            return refused(conflict, "Conflict", refusal);
+        }
+        return Response::json(ok, "OK", "{}");
+    }
+    const std::optional<wire::NetplayRom> rom = wire::readNetplayRom(body);
+    if (!rom) {
+        return refused(badRequest, "Bad Request", "not a ROM's hash");
+    }
+    if (path == wire::netplayStatusRoute) {
+        const std::optional<wire::NetplayVerdict> verdict =
+            sources_.netplay.status(verified.peer.id, rom->sha256, now);
+        if (!verdict) {
+            return refused(notFound, "Not Found", "no such ask is under way");
+        }
+        return Response::json(ok, "OK", wire::write(*verdict));
+    }
+    std::optional<std::string> save = sources_.netplay.takeSave(verified.peer.id, rom->sha256);
+    if (!save) {
+        return refused(notFound, "Not Found", "no save is handed over for that ROM");
+    }
+    return Response::binary(ok, "OK", "application/octet-stream", std::move(*save));
 }
 
 Response LanListener::pair(const Request& request) {

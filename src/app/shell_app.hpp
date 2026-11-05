@@ -59,6 +59,7 @@
 #include "interface_sounds.hpp"
 #include "keyboard_pad.hpp"
 #include "lan/remote_library.hpp"
+#include "lan_netplay.hpp"
 #include "lan_profiles.hpp"
 #include "lan_roms.hpp"
 #include "lan_service.hpp"
@@ -214,10 +215,15 @@ class ShellApp final {
     /// game is asked of it. False when it was refused.
     bool launch(const library::Game& game, std::vector<std::string> environment,
                 const std::string& profile);
-    /// Starts `game` now as `profile`, `extra` added to its environment; false when it was
-    /// refused.
+    /// Starts `game` now as `profile` with `saves` as its save folder, `extra` added to its
+    /// environment; false when it was refused.
     bool startLaunch(const library::Game& game, std::vector<std::string> extra,
-                     const std::string& profile);
+                     const std::string& profile, const std::filesystem::path& saves);
+    /// Starts a netplay session's `game` as the active profile with its saves in `saves`, never
+    /// synced with the profile's; false when it was refused.
+    bool launchSession(const library::Game& game, const std::filesystem::path& saves);
+    /// The folder `profile`'s games save in.
+    [[nodiscard]] std::filesystem::path profileRunnerSaves(const std::string& profile) const;
     /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update.
     void cancelLaunch();
     /// Where the active profile's resume state of ROM `game` is kept.
@@ -699,6 +705,12 @@ class ShellApp final {
                                  },
                                  [this](const library::Game& game) {
                                      return startFresh(game);
+                                 },
+                                 [this] {
+                                     return lanNetplay_.partners();
+                                 },
+                                 [this](const library::Game& game, const std::string& peerId) {
+                                     lanNetplay_.play(game, peerId);
                                  }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),
@@ -966,6 +978,27 @@ class ShellApp final {
                                                     [this] {
                                                         settingsScreen_.refresh();
                                                     }}};
+    /// Playing a ROM linked with a paired openSU.
+    LanNetplay lanNetplay_{
+        lan_, shell_.screens().navigator(), sounds_,
+        LanNetplay::Places{.sessionSaves = files_.stateDir() / "netplay" / "saves",
+                           .sessionFile = files_.stateDir() / "netplay" / "session.json"},
+        LanNetplay::Hooks{
+            .say =
+                [this](const std::string& text, bool isError) {
+                    shell_.setToast(text, isError);
+                },
+            .games = [this]() -> const std::vector<library::Game>& {
+                return games_;
+            },
+            .profileSaves =
+                [this] {
+                    return profileRunnerSaves(profiles_.book().active().id);
+                },
+            .launch =
+                [this](const library::Game& game, const std::filesystem::path& saves) {
+                    return launchSession(game, saves);
+                }}};
     /// The plugins, their play time and the Settings screen's Plugins category.
     PluginService plugins_{environment_, preferences_, integrations_.current().plugins,
                            PluginService::Hooks{[this](const std::string& text, bool isError) {

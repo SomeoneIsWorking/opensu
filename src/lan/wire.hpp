@@ -198,6 +198,45 @@ struct PlayVerdict {
 /// Nothing when `body` is not one, or an accepted one has no port.
 [[nodiscard]] std::optional<PlayVerdict> readPlayVerdict(std::string_view body);
 
+/// `POST /lan/netplay`: a paired openSU asks to play a ROM both have, linked, with its half of the
+/// session's salt. Its answer is `{}`; the player here is asked.
+inline constexpr std::string_view netplayRoute = "/lan/netplay";
+/// `POST /lan/netplay/status` with a `NetplayRom`: how the ask stands.
+inline constexpr std::string_view netplayStatusRoute = "/lan/netplay/status";
+/// `POST /lan/netplay/save` with a `NetplayRom`: the save the asked side handed over, as bytes.
+inline constexpr std::string_view netplaySaveRoute = "/lan/netplay/save";
+struct NetplayAsk {
+    std::string console;
+    /// The ROM's file name.
+    std::string file;
+    std::string title;
+    std::uint64_t size{0};
+    std::string sha256;
+    secrets::crypto::Bytes salt;
+
+    bool operator==(const NetplayAsk&) const = default;
+};
+[[nodiscard]] std::string write(const NetplayAsk& ask);
+/// Nothing when `body` is not one.
+[[nodiscard]] std::optional<NetplayAsk> readNetplayAsk(std::string_view body);
+
+struct NetplayRom {
+    std::string sha256;
+};
+[[nodiscard]] std::string write(const NetplayRom& rom);
+[[nodiscard]] std::optional<NetplayRom> readNetplayRom(std::string_view body);
+
+/// "waiting", "declined" with why when it says, or "allowed" with the UDP port of the session and
+/// the asked side's half of the salt.
+struct NetplayVerdict {
+    std::string verdict;
+    std::string refusal;
+    std::uint16_t port{0};
+    secrets::crypto::Bytes salt;
+};
+[[nodiscard]] std::string write(const NetplayVerdict& verdict);
+[[nodiscard]] std::optional<NetplayVerdict> readNetplayVerdict(std::string_view body);
+
 /// The routes of ROM import, for paired peers.
 inline constexpr std::string_view romListRoute = "/lan/roms";
 inline constexpr std::string_view romFileRoute = "/lan/roms/file";

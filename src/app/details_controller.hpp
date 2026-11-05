@@ -81,6 +81,10 @@ class DetailsController final : public ui::RowActions {
         std::function<std::optional<retro::ResumeHeader>(const library::Game& game)> resume;
         /// Throws that state away: empty when it is gone, else why not.
         std::function<std::string(const library::Game& game)> startFresh;
+        /// The paired openSUs a linked game can be played with now.
+        std::function<std::vector<ui::GameSettingsView::Partner>()> partners;
+        /// Asks the paired openSU `peerId` to play `game` linked.
+        std::function<void(const library::Game& game, const std::string& peerId)> playWith;
     };
 
     /// What the rows act on.

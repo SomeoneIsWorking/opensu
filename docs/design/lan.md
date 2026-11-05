@@ -110,6 +110,9 @@ It never shares the loopback control channel's port.
 | `POST /lan/roms/chunk` | paired, signed | `{"kind","root","path","offset","length"}` → at most 2 MiB of the file from `offset`, as raw bytes |
 | `POST /lan/play` | paired, signed | `{"game","profile","salt"}` → `{"port","salt","waiting","joined"}`: the host streams that listed game to the caller, played as `profile` (the caller's active one) when it is linked with the caller, else as the host's first profile; `joined` when the game already ran there, `waiting` (no port yet) while its player is asked; 404 for a game it does not list, 409 with why when it will not (another game running, four guests, outside Gamescope, no capture) |
 | `POST /lan/play/status` | paired, signed | `{"game"}` → `{"verdict","port","why"}`: `waiting`, `accepted` with the stream's port, or `declined` with why, for this caller's ask |
+| `POST /lan/netplay` | paired, signed | `{"console","file","title","size","sha256","salt"}` → `{}`: asks to play that ROM together; the player here is asked |
+| `POST /lan/netplay/status` | paired, signed | `{"sha256"}` → `{"verdict","refusal","port","salt"}`: `waiting`, `declined` or `allowed` with the session's UDP port and the asked side's salt |
+| `POST /lan/netplay/save` | paired, signed | `{"sha256"}` → the bytes of the save handed to the caller, once; both sides ask |
 
 Everything else, and any signed route that fails its check or whose body does not open, is 403.
 The saves routes are 403 too, sealed, for a profile not linked with the caller. The
@@ -329,6 +332,24 @@ that profile's; the host's own active profile does not change.
   it, as a local game's virtual pad is played. Guide
   opens this openSU's own menu, whose Close game row reads End remote play.
 
+## Playing a ROM together
+
+Play with <name> on a linkable game's details page (`app::LanNetplay::play`) hashes the ROM, hands
+its active profile's save to the peer (`lan::NetplayAsks::handOver`) and asks `/lan/netplay`, then
+polls the status. The asked side looks for the same ROM by console, file name, size and SHA-256; with
+none it declines by itself, else its player gets Decline or Play. Play picks a free UDP port, hands
+over its own save, then answers `allowed`. Each side then takes the other's save and derives
+`lan::streamKeys` from the pairing's secret and both salts, the asker's first.
+
+The asked side is player 1, the asker player 2. Both write `<rom stem>.srm` (player 1's) and
+`<rom stem>.p2.srm` into `<state>/netplay/saves/<system>`, emptied first, and the session's keys,
+slot and port into `<state>/netplay/session.json` (owner-only), and start `opensu-retro --netplay`
+through the launch path as the active profile (`ShellApp::launchSession`), with no save sync before
+it. The asked side's runner learns its peer from the first datagram that opens. When the game ends
+each side's own player's file goes into its profile's `<rom stem>.srm`, then the shared saves push it
+as after any game; the session's file is removed. A shell killed mid-session leaves the profile's save as it
+was. The runner's contract is `docs/design/libretro.md`, the session `src/netplay/`.
+
 ## ROM import
 
 The host offers what its catalog reads from its ROM folders, and the BIOS files its runner has for
@@ -425,6 +446,13 @@ Library on both sides.
   the guest hears silence.
 
 ## Checking it
+
+Playing together: `askedToPlayTogether` in `lan_node_test.cpp`. In the product, pair two `--hidden`
+openSUs with different `lanName`s and a ROM folder holding the same `tools/link_rom` ROM, put a
+different `<rom stem>.srm` in each one's `<runtime>/opensu/hidden-<pid>/saves/profiles/<id>/gba`, take
+Play with <name>, answer on the other. The runners' control ports are in the shells' logs; a button
+on one shows on the other's `/frame.png`, and on the end the log's `netplay:` line and each profile's
+save, unswapped, say the rest.
 
 `tests/lan/lan_node_test.cpp` runs two nodes and a stranger in one process on loopback, with a
 stand-in directory in place of Avahi, and two more sharing a runner game's saves: a profile

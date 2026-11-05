@@ -119,6 +119,14 @@ Up to four openSUs can play one game at once, each with its own controller as it
 - Triggers are on or off, not pressure-sensitive, and the game uses the default controls, not a
   mapping you made for it.
 
+## Playing a game together
+
+On a GBA game's details page, Play with <name> asks a paired openSU to play it linked. It needs the
+same ROM there, and the mGBA link core (openSU ships it on Linux). Each of you plays as your own
+active profile on your own screen; each hands the other a copy of your save for the session and keeps only your own afterwards. The game
+ends for both when one leaves. Save state still works; Load state, Reset and Save and close do not
+while you play. See [the built-in runner](libretro.md).
+
 ## What is shared, and with whom
 
 - An openSU you have not paired with learns only this one's name. Everything else is refused.

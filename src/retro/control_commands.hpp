@@ -30,6 +30,8 @@ class ControlCommands {
         CoreOptions& options;
         /// Whether the run is hidden, the only one whose frame is read back.
         bool hidden;
+        /// Whether the run is a netplay session, whose machines must stay the same.
+        bool netplay;
     };
 
     explicit ControlCommands(Parts parts) : parts_{parts} {

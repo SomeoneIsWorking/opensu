@@ -10,6 +10,7 @@
 
 #include "details_screen.hpp"
 #include "library/emulator_choice.hpp"
+#include "library/linked_play.hpp"
 #include "library/rom_systems.hpp"
 #include "library/wine.hpp"
 #include "lucent/text.h"
@@ -92,6 +93,10 @@ ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) co
                           ? "Resumes from " + ui::momentText(kept->saved)
                           : "Kept by " + (kept->coreLabel.empty() ? kept->core : kept->coreLabel) +
                                 ", which " + game.title + " does not start on";
+    }
+    if (library::linkable(game)) {
+        view.linked = true;
+        view.partners = hooks_.partners();
     }
     view.copySaves = hooks_.copySavesOffer(game);
     const SharedSaves::View shared = hooks_.sharedSaves(game);
@@ -214,6 +219,12 @@ void DetailsController::run(const std::string& id, int step) {
         hooks_.remove(*game);
     } else if (id == ui::detailsSyncSavesId) {
         hooks_.syncSaves(*game);
+    } else if (id == ui::detailsLinkedId) {
+        if (const std::optional<library::Game> linked = library::splitScreenGame(*game)) {
+            hooks_.launch(*linked);
+        }
+    } else if (id.starts_with(ui::detailsPlayWithPrefix)) {
+        hooks_.playWith(*game, id.substr(ui::detailsPlayWithPrefix.size()));
     } else if (id == ui::detailsStartFreshId) {
         if (const std::string refused = hooks_.startFresh(*game); !refused.empty()) {
             hooks_.say(refused, true);

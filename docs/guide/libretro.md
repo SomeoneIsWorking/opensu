@@ -106,6 +106,13 @@ undone by it). Close game keeps no resume state.
 
 ![The Guide menu over a game](../screenshots/guide-game.webp)
 
+## Two players
+
+On a GBA game's details page, Play linked (2 players) runs two linked GBAs side by side on the mGBA
+link core, each pad its own player. Player 2's save is `<rom>.p2.srm` beside player 1's. Play with
+<name> does the same with a paired openSU ([LAN](lan.md)). Game Boy games do not link yet, and single
+play stays on the emulator you picked.
+
 ## On Android
 
 The runner is a second Activity in a process of its own. Cores come from the buildbot's

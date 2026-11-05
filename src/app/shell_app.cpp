@@ -728,16 +728,29 @@ bool ShellApp::launch(const library::Game& game, std::vector<std::string> enviro
     const auto held = std::make_shared<const HeldLaunch>(
         HeldLaunch{.game = game, .environment = environment, .profile = profile});
     if (saveSharing_.before(game, profile, [this, held] {
-            static_cast<void>(startLaunch(held->game, held->environment, held->profile));
+            static_cast<void>(startLaunch(held->game, held->environment, held->profile,
+                                          profileRunnerSaves(held->profile)));
         })) {
         shell_.setToast("Syncing " + game.title + "'s saves first");
         return true;
     }
-    return startLaunch(game, std::move(environment), profile);
+    return startLaunch(game, std::move(environment), profile, profileRunnerSaves(profile));
+}
+
+bool ShellApp::launchSession(const library::Game& game, const std::filesystem::path& saves) {
+    if (launches_.running() || remotePlay_.playing() || saveSharing_.holding()) {
+        shell_.setToast("a game is already running", true);
+        return false;
+    }
+    return startLaunch(game, {}, profiles_.book().active().id, saves);
+}
+
+std::filesystem::path ShellApp::profileRunnerSaves(const std::string& profile) const {
+    return retro::profileSaveFolder(profiles_.runnerSaves(), profile);
 }
 
 bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> extra,
-                           const std::string& profile) {
+                           const std::string& profile, const std::filesystem::path& saves) {
     library::Game started = game;
     const library::wine::Prepared wine = wineSettings_.prepare(started);
     if (!wine.refusal.empty()) {
@@ -745,10 +758,9 @@ bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> e
         return false;
     }
     std::string control = retro_.begin();
-    if (const std::string refused =
-            prepareRetroLaunch(started, gameSettings_.layers(), emulatorSettings_.catalog(),
-                               retro_.settingsFile(), emulatorDownloads_.shaderPack().root(),
-                               retro::profileSaveFolder(profiles_.runnerSaves(), profile));
+    if (const std::string refused = prepareRetroLaunch(
+            started, gameSettings_.layers(), emulatorSettings_.catalog(), retro_.settingsFile(),
+            emulatorDownloads_.shaderPack().root(), saves);
         !refused.empty()) {
         static_cast<void>(retro_.end());
         shell_.setToast("cannot write " + game.title + "'s settings: " + refused, true);
@@ -1308,6 +1320,7 @@ void ShellApp::serviceRequests() {
     const bool launching = launches_.running();
     saveSharing_.playing(launching ? &launches_.game() : nullptr);
     if (const std::optional<library::Game> ended = launches_.takeEnded()) {
+        lanNetplay_.ended(*ended);
         saveSharing_.ended(*ended, playingAs_);
     }
     if (padOwner_.held() && !launching) {
@@ -1417,6 +1430,7 @@ int ShellApp::run() {
         lan_.service();
         lanRoms_.service();
         lanProfiles_.service();
+        lanNetplay_.service();
         saveSharing_.service();
         remotePlay_.service(launches_.running() || saveSharing_.holding(),
                             launches_.running() ? &launches_.game() : nullptr);

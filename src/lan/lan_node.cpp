@@ -28,6 +28,7 @@ constexpr std::size_t largestNotice = std::size_t{16} * 1024;
 /// player, a little past the host's own patience.
 constexpr std::chrono::seconds playPoll{1};
 constexpr std::chrono::seconds playPatience{130};
+constexpr std::size_t largestSave = std::size_t{4} * 1024 * 1024;
 /// How often the worker looks at who is announced.
 constexpr std::chrono::seconds lookEvery{2};
 /// How often the paired peers' games are asked for again while nothing changes.
@@ -60,6 +61,7 @@ LanNode::LanNode(Setup setup)
                                      .saves = saves_,
                                      .profiles = profiles_,
                                      .copies = copies_,
+                                     .netplay = netplay_,
                                      .roms = shelf_,
                                      .name =
                                          [this] {
@@ -244,6 +246,61 @@ LanNode::askToPlay(const std::stop_token& stop, const std::string& hostId,
     }
     secrets::wipeBytes(secret->data(), secret->size());
     return offer;
+}
+
+bool LanNode::askNetplay(const std::stop_token& stop, const std::string& hostId,
+                         const wire::NetplayAsk& ask, std::string& error) const {
+    return askHost(stop, hostId, "POST", wire::netplayRoute, wire::write(ask), largestNotice, error)
+        .has_value();
+}
+
+std::optional<wire::NetplayVerdict> LanNode::netplayStatus(const std::stop_token& stop,
+                                                           const std::string& hostId,
+                                                           const std::string& sha256,
+                                                           std::string& error) const {
+    const std::optional<std::string> body =
+        askHost(stop, hostId, "POST", wire::netplayStatusRoute,
+                wire::write(wire::NetplayRom{sha256}), largestNotice, error);
+    if (!body) {
+        return std::nullopt;
+    }
+    std::optional<wire::NetplayVerdict> verdict = wire::readNetplayVerdict(*body);
+    if (!verdict) {
+        error = "its answer is not a verdict";
+    }
+    return verdict;
+}
+
+std::optional<std::string> LanNode::netplaySave(const std::stop_token& stop,
+                                                const std::string& peerId,
+                                                const std::string& sha256,
+                                                std::string& error) const {
+    return askHost(stop, peerId, "POST", wire::netplaySaveRoute,
+                   wire::write(wire::NetplayRom{sha256}), largestSave, error);
+}
+
+std::optional<std::string> LanNode::addressOf(const std::string& peerId, std::string& error) const {
+    const std::vector<Sighting> seen = sightings();
+    const auto peer = std::ranges::find(seen, peerId, &Sighting::id);
+    if (peer == seen.end()) {
+        error = "that openSU is not on the LAN now";
+        return std::nullopt;
+    }
+    return peer->address;
+}
+
+std::optional<StreamKeys> LanNode::netplayKeys(const std::string& peerId,
+                                               std::span<const std::uint8_t> guestSalt,
+                                               std::span<const std::uint8_t> hostSalt,
+                                               std::string& error) const {
+    std::optional<secrets::crypto::Bytes> secret = book_.secretOf(peerId);
+    if (!secret) {
+        error = "that openSU is not paired with this one";
+        return std::nullopt;
+    }
+    StreamKeys keys = streamKeys(*secret, guestSalt, hostSalt);
+    secrets::wipeBytes(secret->data(), secret->size());
+    return keys;
 }
 
 std::optional<RomImport::Link> LanNode::linkTo(const std::string& hostId, std::string& why) const {

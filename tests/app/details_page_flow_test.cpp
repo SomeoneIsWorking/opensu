@@ -181,6 +181,11 @@ struct Rig {
                          },
                          [](const library::Game&) {
                              return std::string{};
+                         },
+                         [] {
+                             return std::vector<ui::GameSettingsView::Partner>{};
+                         },
+                         [](const library::Game&, const std::string&) {
                          }}} {
     }
 

@@ -263,7 +263,8 @@ RunnerExit RunnerApp::run() {
                               .resume = resume,
                               .presenter = *presenter,
                               .options = environment.options(),
-                              .hidden = options_.hidden}};
+                              .hidden = options_.hidden,
+                              .netplay = netplay != nullptr}};
 
     std::unique_ptr<TouchLayer> touch =
         handoff ? std::make_unique<TouchLayer>(options_.touchArt) : nullptr;

@@ -199,6 +199,13 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
         fresh.confirmVerb = "Start";
         actions.push_back(std::move(fresh));
     }
+    if (settings.linked) {
+        actions.push_back(action(detailsLinkedId, "Play linked (2 players)"));
+    }
+    for (const GameSettingsView::Partner& partner : settings.partners) {
+        actions.push_back(
+            action(std::string{detailsPlayWithPrefix} + partner.id, "Play with " + partner.name));
+    }
     if (updatable) {
         actions.push_back(action(detailsUpdateId, "Update"));
     }
