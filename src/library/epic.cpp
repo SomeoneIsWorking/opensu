@@ -169,7 +169,7 @@ Provider::Provider() : binary_{"legendary"} {
 Provider::Provider(std::string binary) : binary_{std::move(binary)} {
 }
 
-std::vector<Game> Provider::list() {
+std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
     const std::vector<Owned> owned = parseOwned(run({"list", "--json"}));
     const auto installs = parseInstalls(run({"list-installed", "--json"}));
 

@@ -287,7 +287,7 @@ Game gameOf(const Entry& entry) {
     return game;
 }
 
-std::vector<Game> Provider::list() {
+std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
     std::vector<Entry> entries = records_.all();
     if (entries.empty()) {
         throw SourceAbsent{"no games added"};

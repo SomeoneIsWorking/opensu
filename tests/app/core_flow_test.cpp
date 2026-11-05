@@ -75,7 +75,7 @@ struct Rig {
 
     [[nodiscard]] library::Game game() const {
         library::roms::Provider provider{{root / "ROM"}, setup(), library::roms::NameDb{}, {}, {}};
-        std::vector<library::Game> games = provider.list();
+        std::vector<library::Game> games = provider.list(std::stop_token{});
         library::applyEmulatorPicks(gameSettings.layers(), games);
         return games.at(0);
     }

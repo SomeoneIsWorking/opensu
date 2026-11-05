@@ -202,7 +202,7 @@ class CountingProvider final : public library::Provider {
     [[nodiscard]] library::Source source() const override {
         return source_;
     }
-    [[nodiscard]] std::vector<library::Game> list() override {
+    [[nodiscard]] std::vector<library::Game> list(const std::stop_token& /*stop*/) override {
         return {};
     }
 

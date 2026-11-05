@@ -516,7 +516,7 @@ std::vector<Game> Library::list() const {
 Provider::Provider(Library library) : library_{std::move(library)} {
 }
 
-std::vector<Game> Provider::list() {
+std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
     return library_.list();
 }
 

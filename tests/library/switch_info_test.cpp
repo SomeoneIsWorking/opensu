@@ -439,7 +439,7 @@ void titlesProviderGames() {
         opensu::library::roms::NameDb{},
         {},
         rig.info()};
-    const std::vector<Game> games = provider.list();
+    const std::vector<Game> games = provider.list(std::stop_token{});
     expect(games.size() == 1 && games[0].title == "Kirby Star Allies" &&
                games[0].artworkKey == "Kirby Star Allies" && readFile(games[0].artwork) == jpeg(),
            "a Switch game folder is titled and shown by its base file's own control data");

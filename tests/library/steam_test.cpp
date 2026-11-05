@@ -151,7 +151,7 @@ int main() try {
     expect(rootCount == 1, "the install root appears once");
 
     opensu::library::steam::Provider provider{library};
-    const std::vector<Game> games = provider.list();
+    const std::vector<Game> games = provider.list(std::stop_token{});
 
     // Four games: the three manifests in the root that are games, plus the extra
     // library's. The Steam component is not a game.

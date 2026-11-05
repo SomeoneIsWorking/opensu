@@ -43,7 +43,7 @@ class Provider final : public library::Provider {
     /// An arcade zip's emulator is the one its romset matches (`applyRomsets`); a listing not
     /// kept yet is fetched in the background and never waited on.
     /// The emulators are searched for on every call, so one installed since shows.
-    [[nodiscard]] std::vector<Game> list() override;
+    [[nodiscard]] std::vector<Game> list(const std::stop_token& stop) override;
 
     [[nodiscard]] const std::vector<std::filesystem::path>& roots() const noexcept {
         return roots_;

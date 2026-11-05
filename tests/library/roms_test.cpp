@@ -265,7 +265,7 @@ void providerLists(const Fixture& f) {
                       names,
                       {},
                       {}};
-    const std::vector<Game> before = provider.list();
+    const std::vector<Game> before = provider.list(std::stop_token{});
     expect(find(before, "sf2") != nullptr && find(before, "unlisted") != nullptr,
            "an arcade short name is its own title until the listing is kept");
 
@@ -274,7 +274,7 @@ void providerLists(const Fixture& f) {
                               {"black", "Wrong System Entry"}},
                       error),
            "the arcade listing is kept");
-    const std::vector<Game> games = provider.list();
+    const std::vector<Game> games = provider.list(std::stop_token{});
 
     expect(games.size() == 12, "every game of every known system is listed once");
     const Game* bloodborne = find(games, "Bloodborne");

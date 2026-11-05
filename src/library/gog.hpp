@@ -36,7 +36,7 @@ class Provider final : public library::Provider {
 
     /// Lists the owned games, a page of GOG's answer per request. Throws NotSignedIn when there
     /// is no usable sign-in, and std::runtime_error when GOG cannot be reached or answers wrongly.
-    [[nodiscard]] std::vector<Game> list() override;
+    [[nodiscard]] std::vector<Game> list(const std::stop_token& stop) override;
 
   private:
     /// Marks `game` installed and says how it launches, when opensu installed it.

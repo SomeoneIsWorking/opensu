@@ -69,7 +69,7 @@ class FakeProvider final : public opensu::library::Provider {
     [[nodiscard]] Source source() const override {
         return source_;
     }
-    [[nodiscard]] std::vector<Game> list() override {
+    [[nodiscard]] std::vector<Game> list(const std::stop_token& /*stop*/) override {
         if (gate_ != nullptr) {
             gate_->wait();
         }

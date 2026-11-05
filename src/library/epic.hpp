@@ -46,7 +46,7 @@ class Provider final : public library::Provider {
     /// Lists owned titles, installed or not. Throws when Legendary is missing or has no saved
     /// credentials, which is an ordinary state the catalog reports rather than a
     /// failure to start with.
-    [[nodiscard]] std::vector<Game> list() override;
+    [[nodiscard]] std::vector<Game> list(const std::stop_token& stop) override;
 
   private:
     /// Legendary's stdout for `arguments`. Throws as `list` does.

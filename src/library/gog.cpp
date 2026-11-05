@@ -105,7 +105,7 @@ void Provider::checkUpdate(Game& game, const Installed& install,
     }
 }
 
-std::vector<Game> Provider::list() {
+std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
     const std::vector<std::string> headers{"Authorization: Bearer " + auth_.accessToken()};
     const std::map<std::string, Installed, std::less<>> installs =
         InstallRecords{setup_.paths.records}.all();

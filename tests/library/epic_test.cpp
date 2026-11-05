@@ -85,7 +85,7 @@ void testUpdates(const fs::path& dir) {
                                              (fixtures / "list-installed.json").string() +
                                              "' ;;\n"
                                              "*) exit 2 ;;\nesac\n");
-    const std::vector<Game> games = Provider{legendary.string()}.list();
+    const std::vector<Game> games = Provider{legendary.string()}.list(std::stop_token{});
     const Game* fortnite = find(games, "epic:Fortnite");
     expect(fortnite != nullptr && fortnite->installed && fortnite->updateAvailable,
            "an installed version older than the offered build has an update");
@@ -136,7 +136,7 @@ list-installed) echo '[{"app_name":"Fortnite","title":"Fortnite","install_path":
 *) exit 2 ;;
 esac
 )");
-    const std::vector<Game> games = Provider{legendary.string()}.list();
+    const std::vector<Game> games = Provider{legendary.string()}.list(std::stop_token{});
     expect(games.size() == 4, "every owned title but the installed DLC is listed");
     const Game* fortnite = find(games, "epic:Fortnite");
     expect(fortnite != nullptr && fortnite->installed, "an installed title is installed");
@@ -162,7 +162,7 @@ esac
     const fs::path signedOut = writeStub(dir, "signed-out", "exit 1\n");
     bool threw = false;
     try {
-        static_cast<void>(Provider{signedOut.string()}.list());
+        static_cast<void>(Provider{signedOut.string()}.list(std::stop_token{}));
     } catch (const SourceAbsent&) {
         expect(false, "signed out is not absent");
     } catch (const std::runtime_error&) {
@@ -172,7 +172,7 @@ esac
 
     bool absent = false;
     try {
-        static_cast<void>(Provider{(dir / "missing").string()}.list());
+        static_cast<void>(Provider{(dir / "missing").string()}.list(std::stop_token{}));
     } catch (const SourceAbsent&) {
         absent = true;
     }

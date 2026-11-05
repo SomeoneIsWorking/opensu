@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <stdexcept>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -215,12 +216,13 @@ class Provider {
   public:
     virtual ~Provider() = default;
     [[nodiscard]] virtual Source source() const = 0;
-    [[nodiscard]] virtual std::vector<Game> list() = 0;
+    /// The store's games; a listing that waits on the network ends once `stop` is requested.
+    [[nodiscard]] virtual std::vector<Game> list(const std::stop_token& stop) = 0;
 };
 
 /// Reads one provider. A provider that fails is reported in the status, with no games, so one
 /// broken store cannot empty the grid. Blocks as long as the provider does.
-[[nodiscard]] SourceListing readProvider(Provider& provider);
+[[nodiscard]] SourceListing readProvider(Provider& provider, const std::stop_token& stop);
 
 /// The providers of every store the catalog reads, in the order the stores are shown.
 class Catalog {

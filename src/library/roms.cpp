@@ -122,7 +122,7 @@ Provider::Provider(std::vector<fs::path> roots, EmulatorSetup emulators, NameDb 
       switch_{std::move(switchInfo)} {
 }
 
-std::vector<Game> Provider::list() {
+std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
     std::vector<Game> games;
     const NameMap arcade = names_.load();
     const Emulators emulators = emulators_.discover();

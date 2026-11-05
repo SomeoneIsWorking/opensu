@@ -20,7 +20,7 @@ class RemoteProvider final : public library::Provider {
         return library::Source::Remote;
     }
 
-    [[nodiscard]] std::vector<library::Game> list() override {
+    [[nodiscard]] std::vector<library::Game> list(const std::stop_token& /*stop*/) override {
         return library_->games();
     }
 

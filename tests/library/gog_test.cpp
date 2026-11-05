@@ -250,14 +250,14 @@ void testLibrary() {
 
     bool signedOut = false;
     try {
-        (void)provider.list();
+        (void)provider.list(std::stop_token{});
     } catch (const NotSignedIn&) {
         signedOut = true;
     }
     expect(signedOut && gog.libraryRequests() == 0, "without a sign-in nothing is requested");
 
     TokenStore::under(dir).save(Token{"ACCESS-1", "REFRESH-1", "4242", 4'000'000'000});
-    const std::vector<Game> games = provider.list();
+    const std::vector<Game> games = provider.list(std::stop_token{});
     expect(gog.libraryRequests() == 2, "a request reads each page");
     expect(games.size() == 2, "a product without a title is skipped");
     expect(games[0].id == "gog:1207658930" && games[0].sourceId == "1207658930" &&
@@ -280,7 +280,7 @@ void testLibrary() {
     records.add("1207658930",
                 Installed{.path = dir / "gog-games/1207658930/Alpha", .platform = "linux"});
     records.add("2", Installed{.path = dir / "gog-games/2/Beta", .platform = "windows"});
-    const std::vector<Game> installed = provider.list();
+    const std::vector<Game> installed = provider.list(std::stop_token{});
     expect(
         installed[0].installed && installed[0].processHint == "Alpha" &&
             installed[0].launch.program == "gogdl" &&
@@ -305,7 +305,7 @@ void testLibrary() {
     fs::create_directories(dir / "gog-games/2/Beta");
     std::ofstream{dir / "gog-games/2/Beta/goggame-2.info"}
         << R"({"buildId":"B-OLD","gameId":"2","rootGameId":"2","name":"Beta"})";
-    const std::vector<Game> behind = provider.list();
+    const std::vector<Game> behind = provider.list(std::stop_token{});
     expect(gog.buildRequests() == 2, "one request per installed game with a known build");
     expect(behind[0].updateAvailable,
            "a Linux install older than GOG's Linux installer version has an update");
@@ -317,12 +317,12 @@ void testLibrary() {
                                         .build = "1.2.0"});
     records.add(
         "2", Installed{.path = dir / "gog-games/2/Beta", .platform = "windows", .build = "B-NEW"});
-    const std::vector<Game> current = provider.list();
+    const std::vector<Game> current = provider.list(std::stop_token{});
     expect(!current[0].updateAvailable && !current[1].updateAvailable,
            "an install of the offered build has no update");
 
     gog.failBuilds(true);
-    const std::vector<Game> unknown = provider.list();
+    const std::vector<Game> unknown = provider.list(std::stop_token{});
     expect(unknown.size() == 2 && unknown[0].installed && !unknown[0].updateAvailable,
            "a builds answer GOG will not give leaves the listing whole and shows no update");
     gog.failBuilds(false);
@@ -330,7 +330,7 @@ void testLibrary() {
     TokenStore::under(dir).save(Token{"WRONG", "REFRESH-1", "4242", 4'000'000'000});
     bool failed = false;
     try {
-        (void)provider.list();
+        (void)provider.list(std::stop_token{});
     } catch (const std::runtime_error&) {
         failed = true;
     }
