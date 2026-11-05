@@ -30,14 +30,17 @@ class PeerSaveTarget final : public save_sync::SaveTarget {
         return peer_.name;
     }
     [[nodiscard]] bool reachable() const override;
-    [[nodiscard]] Held status(const library::saves::SaveKey& key) override;
-    [[nodiscard]] std::optional<save_sync::SaveBundle> fetch(const library::saves::SaveKey& key,
+    [[nodiscard]] Held status(const std::stop_token& stop,
+                              const library::saves::SaveKey& key) override;
+    [[nodiscard]] std::optional<save_sync::SaveBundle> fetch(const std::stop_token& stop,
+                                                             const library::saves::SaveKey& key,
                                                              std::string& error) override;
-    [[nodiscard]] Given give(const library::saves::SaveKey& key,
+    [[nodiscard]] Given give(const std::stop_token& stop, const library::saves::SaveKey& key,
                              const save_sync::SaveBundle& bundle,
                              const save_sync::SaveStatus& status, bool picked,
                              std::string& error) override;
-    void took(const library::saves::SaveKey& key, const save_sync::SaveStatus& status) override;
+    void took(const std::stop_token& stop, const library::saves::SaveKey& key,
+              const save_sync::SaveStatus& status) override;
 
   private:
     /// `route` asked with `body`; nothing, with `error`, when it is not announced, its secret is

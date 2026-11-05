@@ -39,23 +39,29 @@ class ShareTarget final : public SaveTarget {
         return name_;
     }
     [[nodiscard]] bool reachable() const override;
-    [[nodiscard]] Held status(const library::saves::SaveKey& key) override;
-    [[nodiscard]] std::optional<SaveBundle> fetch(const library::saves::SaveKey& key,
+    [[nodiscard]] Held status(const std::stop_token& stop,
+                              const library::saves::SaveKey& key) override;
+    [[nodiscard]] std::optional<SaveBundle> fetch(const std::stop_token& stop,
+                                                  const library::saves::SaveKey& key,
                                                   std::string& error) override;
-    [[nodiscard]] Given give(const library::saves::SaveKey& key, const SaveBundle& bundle,
-                             const SaveStatus& status, bool picked, std::string& error) override;
-    void took(const library::saves::SaveKey& /*key*/, const SaveStatus& /*status*/) override {
+    [[nodiscard]] Given give(const std::stop_token& stop, const library::saves::SaveKey& key,
+                             const SaveBundle& bundle, const SaveStatus& status, bool picked,
+                             std::string& error) override;
+    void took(const std::stop_token& /*stop*/, const library::saves::SaveKey& /*key*/,
+              const SaveStatus& /*status*/) override {
     }
 
   private:
-    /// The key, read or made on first use; null, with `error`, when the share cannot be read or
-    /// the passphrase does not open it.
-    [[nodiscard]] const secrets::crypto::Bytes* unlock(std::string& error);
-    /// `name`'s file opened; nothing with `error` when it cannot be read or opened, and nothing
-    /// with an empty `error` when it is not there.
-    [[nodiscard]] std::optional<std::string> opened(const std::string& name, std::string& error);
-    [[nodiscard]] bool sealed(const std::string& name, const std::string& plain,
-                              std::string& error);
+    /// The key, read or made on first use; null, with `error`, when the share cannot be read,
+    /// `stop` ended the reading or the passphrase does not open it.
+    [[nodiscard]] const secrets::crypto::Bytes* unlock(const std::stop_token& stop,
+                                                       std::string& error);
+    /// `name`'s file opened; nothing with `error` when it cannot be read or opened or `stop` ended
+    /// the reading, and nothing with an empty `error` when it is not there.
+    [[nodiscard]] std::optional<std::string> opened(const std::stop_token& stop,
+                                                    const std::string& name, std::string& error);
+    [[nodiscard]] bool sealed(const std::stop_token& stop, const std::string& name,
+                              const std::string& plain, std::string& error);
 
     std::string id_;
     std::string name_;

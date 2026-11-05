@@ -64,29 +64,24 @@ std::string WebDavShare::urlOf(const std::string& name) const {
     return url;
 }
 
-std::optional<net::WebClient::Answer> WebDavShare::send(const std::string& method,
-                                                        const std::string& name,
-                                                        std::optional<std::string> body,
-                                                        const std::vector<std::string>& headers,
-                                                        std::string& error) const {
+net::Result<net::WebClient::Answer>
+WebDavShare::send(const std::stop_token& stop, const std::string& method, const std::string& name,
+                  std::optional<std::string> body, const std::vector<std::string>& headers) const {
     const net::WebClient::Guard guard{
         .maxBody = largestBundle * 2, .refusal = refusalOf, .progress = {}};
-    net::Result<net::WebClient::Answer> answer = web_.request(
-        std::stop_token{}, urlOf(name), headers, guard,
+    return web_.request(
+        stop, urlOf(name), headers, guard,
         net::WebClient::Sent{
             .method = method, .body = std::move(body), .user = user_, .password = password_});
-    if (!answer) {
-        error = answer.stopped() ? "stopped" : answer.error();
-        return std::nullopt;
-    }
-    return *std::move(answer);
 }
 
-SaveShare::Read WebDavShare::read(const std::string& name) const {
-    std::string error;
-    std::optional<net::WebClient::Answer> answer = send("GET", name, std::nullopt, {}, error);
+SaveShare::Read WebDavShare::read(const std::stop_token& stop, const std::string& name) const {
+    net::Result<net::WebClient::Answer> answer = send(stop, "GET", name, std::nullopt, {});
+    if (answer.stopped()) {
+        return Read{.kind = Read::Kind::Stopped, .bytes = {}};
+    }
     if (!answer) {
-        return Read{.kind = Read::Kind::Failed, .bytes = std::move(error)};
+        return Read{.kind = Read::Kind::Failed, .bytes = answer.error()};
     }
     if (answer->status == notFound) {
         return Read{.kind = Read::Kind::Missing, .bytes = {}};
@@ -97,12 +92,14 @@ SaveShare::Read WebDavShare::read(const std::string& name) const {
     return Read{.kind = Read::Kind::Found, .bytes = std::move(answer->body)};
 }
 
-bool WebDavShare::makeFolders(const std::string& name, std::string& error) const {
+bool WebDavShare::makeFolders(const std::stop_token& stop, const std::string& name,
+                              std::string& error) const {
     for (std::size_t slash = name.find('/'); slash != std::string::npos;
          slash = name.find('/', slash + 1)) {
-        const std::optional<net::WebClient::Answer> answer =
-            send("MKCOL", name.substr(0, slash + 1), std::nullopt, {}, error);
+        const net::Result<net::WebClient::Answer> answer =
+            send(stop, "MKCOL", name.substr(0, slash + 1), std::nullopt, {});
         if (!answer) {
+            error = answer.error();
             return false;
         }
         // 405: it is there already.
@@ -115,17 +112,18 @@ bool WebDavShare::makeFolders(const std::string& name, std::string& error) const
     return true;
 }
 
-bool WebDavShare::write(const std::string& name, const std::string& bytes,
-                        std::string& error) const {
+bool WebDavShare::write(const std::stop_token& stop, const std::string& name,
+                        const std::string& bytes, std::string& error) const {
     const std::string part = name + ".part";
-    std::optional<net::WebClient::Answer> answer = send("PUT", part, bytes, {}, error);
+    net::Result<net::WebClient::Answer> answer = send(stop, "PUT", part, bytes, {});
     if (answer && answer->status == conflict) {
-        if (!makeFolders(name, error)) {
+        if (!makeFolders(stop, name, error)) {
             return false;
         }
-        answer = send("PUT", part, bytes, {}, error);
+        answer = send(stop, "PUT", part, bytes, {});
     }
     if (!answer) {
+        error = answer.error();
         return false;
     }
     if (!succeeded(answer->status)) {
@@ -133,8 +131,9 @@ bool WebDavShare::write(const std::string& name, const std::string& bytes,
         return false;
     }
     answer =
-        send("MOVE", part, std::nullopt, {"Destination: " + urlOf(name), "Overwrite: T"}, error);
+        send(stop, "MOVE", part, std::nullopt, {"Destination: " + urlOf(name), "Overwrite: T"});
     if (!answer) {
+        error = answer.error();
         return false;
     }
     if (!succeeded(answer->status)) {

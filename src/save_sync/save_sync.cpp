@@ -394,7 +394,7 @@ std::optional<TargetSaves> SaveSync::syncWith(const Job& job, SaveTarget& target
         return standing;
     }
     standing.ours = local->status;
-    const SaveTarget::Held held = target.status(local->key);
+    const SaveTarget::Held held = target.status(std::stop_token{}, local->key);
     switch (held.kind) {
     case SaveTarget::Held::Kind::NoGame:
         return std::nullopt;
@@ -405,6 +405,8 @@ std::optional<TargetSaves> SaveSync::syncWith(const Job& job, SaveTarget& target
         standing.problem = held.problem;
         lucent::warn("saves", "{} {}: {}", local->key.system, local->key.game, standing.problem);
         return standing;
+    case SaveTarget::Held::Kind::Stopped:
+        return std::nullopt;
     case SaveTarget::Held::Kind::Saves:
         break;
     }
@@ -431,8 +433,11 @@ std::optional<TargetSaves> SaveSync::syncWith(const Job& job, SaveTarget& target
         if (job.lookOnly) {
             return standing;
         }
-        const SaveTarget::Given given =
-            target.give(local->key, local->bundle, local->status, job.pick == Pick::Ours, error);
+        const SaveTarget::Given given = target.give(std::stop_token{}, local->key, local->bundle,
+                                                    local->status, job.pick == Pick::Ours, error);
+        if (given == SaveTarget::Given::Stopped) {
+            return std::nullopt;
+        }
         if (given == SaveTarget::Given::Failed) {
             standing.standing = Standing::Failed;
             standing.problem = error;
@@ -457,7 +462,7 @@ std::optional<TargetSaves> SaveSync::syncWith(const Job& job, SaveTarget& target
     if (job.lookOnly) {
         return standing;
     }
-    const std::optional<SaveBundle> bundle = target.fetch(local->key, error);
+    const std::optional<SaveBundle> bundle = target.fetch(std::stop_token{}, local->key, error);
     if (!bundle || bundle->hash() != theirs.hash) {
         standing.standing = Standing::Failed;
         standing.problem = bundle ? target.name() + "'s saves changed while they were taken"
@@ -475,7 +480,7 @@ std::optional<TargetSaves> SaveSync::syncWith(const Job& job, SaveTarget& target
     }
     standing.standing = Standing::InSync;
     standing.ours = theirs;
-    target.took(local->key, theirs);
+    target.took(std::stop_token{}, local->key, theirs);
     return standing;
 }
 

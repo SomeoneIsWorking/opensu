@@ -14,9 +14,9 @@ class FolderShare final : public SaveShare {
 
     [[nodiscard]] std::string where() const override;
     [[nodiscard]] bool reachable() const override;
-    [[nodiscard]] Read read(const std::string& name) const override;
-    [[nodiscard]] bool write(const std::string& name, const std::string& bytes,
-                             std::string& error) const override;
+    [[nodiscard]] Read read(const std::stop_token& stop, const std::string& name) const override;
+    [[nodiscard]] bool write(const std::stop_token& stop, const std::string& name,
+                             const std::string& bytes, std::string& error) const override;
 
   private:
     std::filesystem::path root_;

@@ -23,7 +23,7 @@ bool FolderShare::reachable() const {
     return fs::is_directory(root_, ec);
 }
 
-SaveShare::Read FolderShare::read(const std::string& name) const {
+SaveShare::Read FolderShare::read(const std::stop_token& /*stop*/, const std::string& name) const {
     const fs::path file = root_ / name;
     std::error_code ec;
     if (!fs::exists(file, ec)) {
@@ -37,8 +37,8 @@ SaveShare::Read FolderShare::read(const std::string& name) const {
     return Read{.kind = Read::Kind::Found, .bytes = std::move(bytes)};
 }
 
-bool FolderShare::write(const std::string& name, const std::string& bytes,
-                        std::string& error) const {
+bool FolderShare::write(const std::stop_token& /*stop*/, const std::string& name,
+                        const std::string& bytes, std::string& error) const {
     return fileio::writeWhole(root_ / name, bytes, error);
 }
 

@@ -1,10 +1,11 @@
 // save_target — a place a game's saves are shared with (`SaveSync`): a paired openSU on the LAN,
 // or a folder or WebDAV share the player picked. It says how its copy of a game's saves stands,
-// hands it over, and takes this one's.
+// hands it over, and takes this one's. Each call is made on the sync's stop, which ends it.
 #pragma once
 
 #include <cstdint>
 #include <optional>
+#include <stop_token>
 #include <string>
 
 #include "library/game_saves.hpp"
@@ -26,6 +27,8 @@ class SaveTarget {
             NotShared,
             /// It could not be asked (`problem`).
             Failed,
+            /// The stop ended the asking.
+            Stopped,
         };
         Kind kind{Kind::Failed};
         SaveStatus status;
@@ -39,6 +42,8 @@ class SaveTarget {
         Told,
         /// It holds them now.
         Kept,
+        /// The stop ended the giving.
+        Stopped,
     };
 
     SaveTarget() = default;
@@ -54,16 +59,20 @@ class SaveTarget {
     /// Whether it can be asked now; one that cannot stands as offline.
     [[nodiscard]] virtual bool reachable() const = 0;
 
-    [[nodiscard]] virtual Held status(const library::saves::SaveKey& key) = 0;
-    /// Its copy of `key`'s saves; nothing, with `error`, when they cannot be had.
-    [[nodiscard]] virtual std::optional<SaveBundle> fetch(const library::saves::SaveKey& key,
-                                                          std::string& error) = 0;
+    [[nodiscard]] virtual Held status(const std::stop_token& stop,
+                                      const library::saves::SaveKey& key) = 0;
+    /// Its copy of `key`'s saves; nothing, with `error`, when they cannot be had or `stop` ended
+    /// the taking.
+    [[nodiscard]] virtual std::optional<SaveBundle>
+    fetch(const std::stop_token& stop, const library::saves::SaveKey& key, std::string& error) = 0;
     /// This openSU's `bundle` of `key`, at `status`; `picked` when the player chose it over the
     /// target's in a conflict.
-    [[nodiscard]] virtual Given give(const library::saves::SaveKey& key, const SaveBundle& bundle,
+    [[nodiscard]] virtual Given give(const std::stop_token& stop,
+                                     const library::saves::SaveKey& key, const SaveBundle& bundle,
                                      const SaveStatus& status, bool picked, std::string& error) = 0;
     /// Its saves of `key`, at `status`, were taken here.
-    virtual void took(const library::saves::SaveKey& key, const SaveStatus& status) = 0;
+    virtual void took(const std::stop_token& stop, const library::saves::SaveKey& key,
+                      const SaveStatus& status) = 0;
 };
 
 } // namespace opensu::save_sync

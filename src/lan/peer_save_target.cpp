@@ -69,7 +69,8 @@ std::optional<net::WebClient::Answer> PeerSaveTarget::call(std::string_view rout
     return answer;
 }
 
-save_sync::SaveTarget::Held PeerSaveTarget::status(const SaveKey& key) {
+save_sync::SaveTarget::Held PeerSaveTarget::status(const std::stop_token& /*stop*/,
+                                                   const SaveKey& key) {
     if (!profiles_.linked(key.profile, peer_.id)) {
         return Held{.kind = Held::Kind::NotShared, .status = {}, .problem = {}};
     }
@@ -94,7 +95,8 @@ save_sync::SaveTarget::Held PeerSaveTarget::status(const SaveKey& key) {
     return Held{.kind = Held::Kind::Saves, .status = std::move(*theirs), .problem = {}};
 }
 
-std::optional<save_sync::SaveBundle> PeerSaveTarget::fetch(const SaveKey& key, std::string& error) {
+std::optional<save_sync::SaveBundle> PeerSaveTarget::fetch(const std::stop_token& /*stop*/,
+                                                           const SaveKey& key, std::string& error) {
     const std::optional<net::WebClient::Answer> answer =
         call(wire::saveGetRoute, wire::write(askFor(key)), save_sync::largestBundle, error);
     if (!answer || answer->status != ok) {
@@ -108,7 +110,8 @@ std::optional<save_sync::SaveBundle> PeerSaveTarget::fetch(const SaveKey& key, s
     return bundle;
 }
 
-save_sync::SaveTarget::Given PeerSaveTarget::give(const SaveKey& key,
+save_sync::SaveTarget::Given PeerSaveTarget::give(const std::stop_token& /*stop*/,
+                                                  const SaveKey& key,
                                                   const save_sync::SaveBundle& /*bundle*/,
                                                   const save_sync::SaveStatus& /*status*/,
                                                   bool picked, std::string& error) {
@@ -123,7 +126,8 @@ save_sync::SaveTarget::Given PeerSaveTarget::give(const SaveKey& key,
     return Given::Told;
 }
 
-void PeerSaveTarget::took(const SaveKey& key, const save_sync::SaveStatus& status) {
+void PeerSaveTarget::took(const std::stop_token& /*stop*/, const SaveKey& key,
+                          const save_sync::SaveStatus& status) {
     wire::SaveAsk record = askFor(key);
     record.hash = status.hash;
     record.counter = status.counter;

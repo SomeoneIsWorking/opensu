@@ -22,17 +22,18 @@ class WebDavShare final : public SaveShare {
 
     [[nodiscard]] std::string where() const override;
     [[nodiscard]] bool reachable() const override;
-    [[nodiscard]] Read read(const std::string& name) const override;
-    [[nodiscard]] bool write(const std::string& name, const std::string& bytes,
-                             std::string& error) const override;
+    [[nodiscard]] Read read(const std::stop_token& stop, const std::string& name) const override;
+    [[nodiscard]] bool write(const std::stop_token& stop, const std::string& name,
+                             const std::string& bytes, std::string& error) const override;
 
   private:
-    /// `method` of `name` with `body`; nothing, with `error`, when it did not arrive.
-    [[nodiscard]] std::optional<net::WebClient::Answer>
-    send(const std::string& method, const std::string& name, std::optional<std::string> body,
-         const std::vector<std::string>& headers, std::string& error) const;
+    /// `method` of `name` with `body`.
+    [[nodiscard]] net::Result<net::WebClient::Answer>
+    send(const std::stop_token& stop, const std::string& method, const std::string& name,
+         std::optional<std::string> body, const std::vector<std::string>& headers) const;
     /// Makes each folder `name` lies in that is missing.
-    [[nodiscard]] bool makeFolders(const std::string& name, std::string& error) const;
+    [[nodiscard]] bool makeFolders(const std::stop_token& stop, const std::string& name,
+                                   std::string& error) const;
     [[nodiscard]] std::string urlOf(const std::string& name) const;
 
     const net::WebClient& web_;

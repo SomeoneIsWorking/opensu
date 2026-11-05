@@ -52,16 +52,19 @@ void sealedSavesOpenOnlyWithThePassphrase(const fs::path& root) {
         .counter = 3, .hash = bundle.hash(), .bytes = bundle.bytes(), .modified = 1700000000};
 
     const auto attic = targetOn(folder, "correct horse");
-    expect(attic->status(kirby).kind == SaveTarget::Held::Kind::Saves &&
-               attic->status(kirby).status.hash.empty(),
+    expect(attic->status(std::stop_token{}, kirby).kind == SaveTarget::Held::Kind::Saves &&
+               attic->status(std::stop_token{}, kirby).status.hash.empty(),
            "an empty share holds no saves of the game");
     std::string error;
-    expect(attic->give(kirby, bundle, status, false, error) == SaveTarget::Given::Kept,
+    expect(attic->give(std::stop_token{}, kirby, bundle, status, false, error) ==
+               SaveTarget::Given::Kept,
            "the share keeps what it is given");
 
     const auto den = targetOn(folder, "correct horse");
-    expect(den->status(kirby).status == status, "another openSU reads the same status");
-    const std::optional<save_sync::SaveBundle> fetched = den->fetch(kirby, error);
+    expect(den->status(std::stop_token{}, kirby).status == status,
+           "another openSU reads the same status");
+    const std::optional<save_sync::SaveBundle> fetched =
+        den->fetch(std::stop_token{}, kirby, error);
     expect(fetched && fetched->hash() == bundle.hash(), "and the same saves");
 
     std::string sealed;
@@ -72,7 +75,7 @@ void sealedSavesOpenOnlyWithThePassphrase(const fs::path& root) {
            "the saves are not in the share in the clear");
 
     const auto study = targetOn(folder, "another passphrase");
-    const SaveTarget::Held refused = study->status(kirby);
+    const SaveTarget::Held refused = study->status(std::stop_token{}, kirby);
     expect(refused.kind == SaveTarget::Held::Kind::Failed &&
                refused.problem.find("passphrase") != std::string::npos,
            "another passphrase does not open the share");
@@ -87,7 +90,8 @@ void sealedSavesOpenOnlyWithThePassphrase(const fs::path& root) {
         }
     }
     fs::copy_file(bundleFile, statusFile, fs::copy_options::overwrite_existing);
-    expect(targetOn(folder, "correct horse")->status(kirby).kind == SaveTarget::Held::Kind::Failed,
+    expect(targetOn(folder, "correct horse")->status(std::stop_token{}, kirby).kind ==
+               SaveTarget::Held::Kind::Failed,
            "a file put in another's place does not open");
 }
 

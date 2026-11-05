@@ -49,7 +49,7 @@ bool ShareTarget::reachable() const {
     return share_->reachable();
 }
 
-const secrets::crypto::Bytes* ShareTarget::unlock(std::string& error) {
+const secrets::crypto::Bytes* ShareTarget::unlock(const std::stop_token& stop, std::string& error) {
     if (key_) {
         return &*key_;
     }
@@ -57,7 +57,11 @@ const secrets::crypto::Bytes* ShareTarget::unlock(std::string& error) {
         error = "no passphrase is set for " + name_;
         return nullptr;
     }
-    const SaveShare::Read read = share_->read(keyFile());
+    const SaveShare::Read read = share_->read(stop, keyFile());
+    if (read.kind == SaveShare::Read::Kind::Stopped) {
+        error = "stopped";
+        return nullptr;
+    }
     if (read.kind == SaveShare::Read::Kind::Failed) {
         error = name_ + " cannot be read: " + read.bytes;
         return nullptr;
@@ -73,7 +77,7 @@ const secrets::crypto::Bytes* ShareTarget::unlock(std::string& error) {
             {"nonce", secrets::hexText(nonce)},
             {"check", secrets::hexText(std::span{
                           reinterpret_cast<const std::uint8_t*>(check.data()), check.size()})}};
-        if (!share_->write(keyFile(), document.dump(2) + "\n", error)) {
+        if (!share_->write(stop, keyFile(), document.dump(2) + "\n", error)) {
             secrets::wipeBytes(key.data(), key.size());
             return nullptr;
         }
@@ -100,14 +104,19 @@ const secrets::crypto::Bytes* ShareTarget::unlock(std::string& error) {
     return &key_.emplace(std::move(key));
 }
 
-std::optional<std::string> ShareTarget::opened(const std::string& name, std::string& error) {
+std::optional<std::string> ShareTarget::opened(const std::stop_token& stop, const std::string& name,
+                                               std::string& error) {
     error.clear();
-    const secrets::crypto::Bytes* key = unlock(error);
+    const secrets::crypto::Bytes* key = unlock(stop, error);
     if (key == nullptr) {
         return std::nullopt;
     }
-    const SaveShare::Read read = share_->read(name);
+    const SaveShare::Read read = share_->read(stop, name);
     if (read.kind == SaveShare::Read::Kind::Missing) {
+        return std::nullopt;
+    }
+    if (read.kind == SaveShare::Read::Kind::Stopped) {
+        error = "stopped";
         return std::nullopt;
     }
     if (read.kind == SaveShare::Read::Kind::Failed) {
@@ -128,8 +137,9 @@ std::optional<std::string> ShareTarget::opened(const std::string& name, std::str
     return plain;
 }
 
-bool ShareTarget::sealed(const std::string& name, const std::string& plain, std::string& error) {
-    const secrets::crypto::Bytes* key = unlock(error);
+bool ShareTarget::sealed(const std::stop_token& stop, const std::string& name,
+                         const std::string& plain, std::string& error) {
+    const secrets::crypto::Bytes* key = unlock(stop, error);
     if (key == nullptr) {
         return false;
     }
@@ -137,12 +147,15 @@ bool ShareTarget::sealed(const std::string& name, const std::string& plain, std:
         secrets::crypto::randomBytes(secrets::crypto::sealNonceBytes);
     std::string bytes{secrets::crypto::asText(nonce)};
     bytes += secrets::crypto::seal(*key, nonce, name, plain);
-    return share_->write(name, bytes, error);
+    return share_->write(stop, name, bytes, error);
 }
 
-SaveTarget::Held ShareTarget::status(const SaveKey& key) {
+SaveTarget::Held ShareTarget::status(const std::stop_token& stop, const SaveKey& key) {
     std::string error;
-    const std::optional<std::string> text = opened(fileOf(key, ".status"), error);
+    const std::optional<std::string> text = opened(stop, fileOf(key, ".status"), error);
+    if (stop.stop_requested()) {
+        return Held{.kind = Held::Kind::Stopped, .status = {}, .problem = {}};
+    }
     if (!error.empty()) {
         return Held{.kind = Held::Kind::Failed, .status = {}, .problem = std::move(error)};
     }
@@ -158,8 +171,9 @@ SaveTarget::Held ShareTarget::status(const SaveKey& key) {
     return Held{.kind = Held::Kind::Saves, .status = std::move(*status), .problem = {}};
 }
 
-std::optional<SaveBundle> ShareTarget::fetch(const SaveKey& key, std::string& error) {
-    const std::optional<std::string> bytes = opened(fileOf(key, ".bundle"), error);
+std::optional<SaveBundle> ShareTarget::fetch(const std::stop_token& stop, const SaveKey& key,
+                                             std::string& error) {
+    const std::optional<std::string> bytes = opened(stop, fileOf(key, ".bundle"), error);
     if (!bytes) {
         if (error.empty()) {
             error = "it holds no saves of the game";
@@ -173,10 +187,14 @@ std::optional<SaveBundle> ShareTarget::fetch(const SaveKey& key, std::string& er
     return bundle;
 }
 
-SaveTarget::Given ShareTarget::give(const SaveKey& key, const SaveBundle& bundle,
-                                    const SaveStatus& status, bool /*picked*/, std::string& error) {
-    if (!sealed(fileOf(key, ".bundle"), write(bundle), error) ||
-        !sealed(fileOf(key, ".status"), write(status), error)) {
+SaveTarget::Given ShareTarget::give(const std::stop_token& stop, const SaveKey& key,
+                                    const SaveBundle& bundle, const SaveStatus& status,
+                                    bool /*picked*/, std::string& error) {
+    if (!sealed(stop, fileOf(key, ".bundle"), write(bundle), error) ||
+        !sealed(stop, fileOf(key, ".status"), write(status), error)) {
+        if (stop.stop_requested()) {
+            return Given::Stopped;
+        }
         error = name_ + " did not take the saves: " + error;
         return Given::Failed;
     }
