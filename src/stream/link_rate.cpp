@@ -30,7 +30,7 @@ constexpr std::uint32_t queueGrownUs = 2'000;
 constexpr std::uint64_t probeAnswerUs = 400'000;
 /// The first wait for another probe on a hardware codec, and the longest it grows to.
 constexpr std::uint64_t firstProbeGapUs = 10'000'000;
-constexpr std::uint64_t longestProbeGapUs = 60'000'000;
+constexpr std::uint64_t longestProbeGapUs = 20'000'000;
 /// The reports a judgement spans, and how long a new plan settles before the next one.
 constexpr std::uint64_t windowUs = 1'000'000;
 constexpr std::uint64_t settleUs = 1'500'000;

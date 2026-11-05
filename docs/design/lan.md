@@ -245,7 +245,7 @@ that profile's; the host's own active profile does not change.
   40 Mbit/s. While running, each second of reports is judged: over 5 % lost (1 % on a
   hardware codec, which decodes nothing from a loss to the next key frame) replans at what was
   delivered; under 1 % (0.1 % on hardware) raises the rate (×1.25 PyroWave, ×1.15 hardware). On a
-  hardware codec a probe every 10 s (doubling to 60 s each time one fails) ramps what the host
+  hardware codec a probe every 10 s (doubling to 20 s each time one fails) ramps what the host
   sends, video and probe datagrams together, from the plan's rate up to 131 Mbit/s over two seconds
   (geometrically, as BBR's bandwidth probe grows) and holds it 200 ms; it stops at the first report
   of a queue grown by 2 ms or of more than 1 % lost, so on a slower link it stops just past the
