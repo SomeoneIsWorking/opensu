@@ -106,7 +106,7 @@ void libraryTools(const fs::path& root) {
     saved.view.search = "not kept";
     saved.view.hiddenOnly = true;
     saved.hidden.set(hades(), true);
-    saved.home.set("console:gc", false, true);
+    saved.home.set("console:gc", true, false);
     saved.home.set("title:hades", true, false);
     saved.lastPlayed.record("epic:celeste", std::chrono::system_clock::from_time_t(1700000000));
     std::string error;

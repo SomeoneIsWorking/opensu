@@ -401,7 +401,7 @@ Settings Store::load() const {
     std::vector<std::string> hidden;
     read.texts(hiddenKey, hidden, "no game is hidden");
     settings.hidden = library::HiddenGames{std::move(hidden)};
-    read.homeChoices(homeKey, settings.home, "Home holds the installed games");
+    read.homeChoices(homeKey, settings.home, "Home holds the installed games and consoles");
     library::PlayHistory::Entries played;
     read.times(lastPlayedKey, played, "no launch is remembered");
     settings.lastPlayed = library::PlayHistory{std::move(played)};

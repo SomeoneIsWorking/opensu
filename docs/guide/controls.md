@@ -26,22 +26,22 @@ everywhere, and on Android touch: a click or tap focuses and presses.
 
 ## Home and Library
 
-Home holds every store game and game of your own installed on this computer, plus whatever you
-add to it; Library holds everything: the stores, Giveaways, the add tiles (Add a game, Add a ROM
-folder, Set up <integration>), All games and one tile per console.
+Home holds every console you have ROMs for and every store game and game of your own installed on
+this computer, plus whatever you add to it; Library holds everything: the stores, Giveaways, the
+add tiles (Add a game, Add a ROM folder, Set up <integration>), All games and one tile per console.
 
 - While Home has nothing on it, as on a fresh start, it shows the add tiles too. Once a game or
   console is on Home they leave it and stay in Library.
 
 - **Add to Home** puts any game on Home (a ROM, a game not installed yet, a game on another openSU
-  on the LAN) or a console, which opens its ROMs from Home as it does in Library. **Remove from
-  Home** takes it off again, an installed game too; its place in Library stays. Both are in the
-  tile's menu (Select or a right click) and on a game's details page.
-- Consoles you added come first, in Library's order, then the games in the sort the Start menu
-  picks (Recently played by default: installed first, then the latest played, then by name).
+  on the LAN) or a console you took off. **Remove from Home** takes it off again, an installed game
+  or a console too; its place in Library stays. A console opens its ROMs from Home as it does in
+  Library. Both are in the tile's menu (Select or a right click) and on a game's details page.
+- Consoles come first, in Library's order, then the games in the sort the Start menu picks
+  (Recently played by default: installed first, then the latest played, then by name).
 - A hidden game stays off Home whatever you chose; the Start menu's filters narrow Home too.
-- An installed game you never took off stays on Home, and a game you install later joins it unless
-  you took it off before.
+- An installed game or a console you never took off stays on Home, and a game you install later or
+  a console whose first ROM you add joins it unless you took it off before.
 - Settings › Library says what Home shows. The choices are kept in `settings.json` (`home`).
 
 Settings › Controls › Shortcuts sets the key for every action (and the pad chord for those that

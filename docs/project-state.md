@@ -95,9 +95,10 @@ Visible deltas from the baseline:
   recorded by openSU. Library's icon size is iiSU's slider (levels 1 to 20, default 9) in the
   options for all three layouts. START also opens the options on Home now, and Y opens the
   details page.
-- Home's rule is one function (`library::homeShelf`): the consoles the player added, in Library's
-  order, then the installed store titles the player did not take off and every game the player
-  added (a ROM, a title not installed, a LAN game), in the library's sort; hidden games stay off.
+- Home's rule is one function (`library::homeShelf`): every console with a ROM the player did not
+  take off, in Library's order, then the installed store titles the player did not take off and
+  every game the player added (a ROM, a title not installed, a LAN game), in the library's sort;
+  hidden games stay off.
   Add to Home and Remove from Home are in a game's or console's menu and on the details page, kept
   in `settings.json` `home` only while they differ from the default; Settings › Library says what
   Home shows. Checked 2026-11-04 in hidden runs on the real library with pad and mouse (a ROM and

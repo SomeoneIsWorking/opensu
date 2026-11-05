@@ -81,7 +81,7 @@ std::optional<std::pair<std::string, bool>> homeSlotOf(const std::vector<Game>& 
         return std::pair{choiceKey(preferred), onHomeByDefault(preferred)};
     }
     if (const auto* console = std::get_if<Console>(&item)) {
-        return std::pair{HomeChoices::consoleKey(console->system), false};
+        return std::pair{HomeChoices::consoleKey(console->system), consoleOnHomeByDefault};
     }
     return std::nullopt;
 }
@@ -156,7 +156,7 @@ std::vector<ShelfItem> homeShelf(const std::vector<Game>& games,
                                  const std::vector<AddTile>& adds, const HomeChoices& choices) {
     std::vector<ShelfItem> shelf;
     for (Console& console : consoles(games)) {
-        if (choices.holds(HomeChoices::consoleKey(console.system), false)) {
+        if (choices.holds(HomeChoices::consoleKey(console.system), consoleOnHomeByDefault)) {
             shelf.emplace_back(std::move(console));
         }
     }

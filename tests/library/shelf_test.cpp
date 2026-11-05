@@ -102,18 +102,22 @@ std::vector<Source> stores(std::initializer_list<Source> list) {
 
 void testHomeShelf() {
     const std::vector<ShelfItem> home = opensu::library::homeShelf(library(), {}, {}, {});
-    // Hades (Steam), Celeste (Epic), Only Steam: the installed titles, each once.
-    expect(home.size() == 3, "Home holds only the installed titles");
-    expect(gameAt(home, 0)->id == "steam:hades" && gameAt(home, 1)->id == "epic:celeste" &&
-               gameAt(home, 2)->id == "steam:solo",
+    // GameCube, PS2, then Hades (Steam), Celeste (Epic), Only Steam: the installed titles once.
+    expect(home.size() == 5, "Home holds the consoles and the installed titles");
+    expect(*consoleAt(home, 0) == Console{"gc", "GameCube", 1} &&
+               *consoleAt(home, 1) == Console{"ps2", "PlayStation 2", 2},
+           "every console with a ROM comes first, in Library's order");
+    expect(gameAt(home, 2)->id == "steam:hades" && gameAt(home, 3)->id == "epic:celeste" &&
+               gameAt(home, 4)->id == "steam:solo",
            "Home keeps each installed title as the copy installed here");
-    expect(gameAt(home, 0)->ownedIn == stores({Source::Steam, Source::Gog, Source::Epic}),
+    expect(gameAt(home, 2)->ownedIn == stores({Source::Steam, Source::Gog, Source::Epic}),
            "an installed title lists every store that owns it");
     expect(std::ranges::none_of(home,
                                 [](const ShelfItem& item) {
-                                    return std::get<Game>(item).source == Source::Rom;
+                                    const Game* rom = std::get_if<Game>(&item);
+                                    return rom != nullptr && rom->source == Source::Rom;
                                 }),
-           "no ROM and no folder is on Home");
+           "no ROM and no other folder is on Home");
     expect(opensu::library::homeShelf({}, {}, {}, {}).empty(),
            "nothing installed is an empty Home");
 }
@@ -122,16 +126,20 @@ void testHomeChoices() {
     const std::vector<Game> games = library();
     HomeChoices choices;
     opensu::library::setOnHome(games, games.at(2), true, choices);
-    opensu::library::setOnHome(games, Console{"ps2", "PlayStation 2", 2}, true, choices);
+    opensu::library::setOnHome(games, Console{"gc", "GameCube", 1}, false, choices);
     opensu::library::setOnHome(games, games.at(9), true, choices);
     opensu::library::setOnHome(games, games.at(4), false, choices);
     const std::vector<ShelfItem> home = opensu::library::homeShelf(games, {}, {}, choices);
-    // PS2, then Hades, the GC ROM, Celeste, Tunic in the games' order; Only Steam taken off.
+    // PS2, then Hades, the GC ROM, Celeste, Tunic in the games' order; GameCube and Only Steam
+    // taken off.
     expect(home.size() == 5 && consoleAt(home, 0) != nullptr &&
                consoleAt(home, 0)->system == "ps2" && gameAt(home, 1)->id == "steam:hades" &&
                gameAt(home, 2)->id == "rom:gc-a" && gameAt(home, 3)->id == "epic:celeste" &&
                gameAt(home, 4)->id == "gog:tunic",
-           "added consoles first, then added and installed games in the games' order");
+           "consoles not taken off first, then added and installed games in the games' order");
+    expect(opensu::library::onHome(games, Console{"gc", "GameCube", 1}, choices) == false &&
+               opensu::library::onHome(games, Console{"ps2", "PlayStation 2", 2}, choices) == true,
+           "a console taken off is off Home, one never touched is on it");
     expect(opensu::library::onHome(games, games.at(6), choices) == true,
            "a title's other copy is on Home with the title");
     expect(opensu::library::onHome(games, games.at(4), choices) == false &&
@@ -160,12 +168,21 @@ void testEmptyHome() {
     expect(opensu::library::homeShelf({}, loading, oneAdd(), {}).empty(),
            "but not while a store's first listing is still out");
     const std::vector<ShelfItem> home = opensu::library::homeShelf(library(), listed, oneAdd(), {});
-    expect(home.size() == 3 &&
+    expect(home.size() == 5 &&
                std::ranges::none_of(home,
                                     [](const ShelfItem& item) {
                                         return std::holds_alternative<AddTile>(item);
                                     }),
            "a Home with a game leaves the add tiles to Library");
+    const std::vector<Game> roms{game(Source::Rom, "rom:gc-a", "gc")};
+    const std::vector<ShelfItem> romsOnly = opensu::library::homeShelf(roms, listed, oneAdd(), {});
+    expect(romsOnly.size() == 1 && *consoleAt(romsOnly, 0) == Console{"gc", "GameCube", 1},
+           "a folder of ROMs alone puts its console on Home in place of the add tiles");
+    HomeChoices removed;
+    opensu::library::setOnHome(roms, Console{"gc", "GameCube", 1}, false, removed);
+    const std::vector<ShelfItem> bare = opensu::library::homeShelf(roms, listed, oneAdd(), removed);
+    expect(bare.size() == 1 && std::holds_alternative<AddTile>(bare.at(0)),
+           "with that console taken off, Home holds the add tiles again");
 }
 
 void testLibraryShelf() {
@@ -290,7 +307,7 @@ void testBrowser() {
     ShelfBrowser browser;
     expect(browser.section() == Section::Home, "the browser starts on Home");
     expect(!browser.back().has_value(), "back at a section's top goes nowhere");
-    expect(browser.shelf(library(), allReady(), oneAdd(), {}).size() == 3, "Home's shelf");
+    expect(browser.shelf(library(), allReady(), oneAdd(), {}).size() == 5, "Home's shelf");
 
     expect(cycleFrom(browser, 1, 2) == 0 && browser.section() == Section::Library,
            "R1 reaches Library, first visit at its first slot");

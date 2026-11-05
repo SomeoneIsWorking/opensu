@@ -1,6 +1,7 @@
 // home_choices — what the player put on Home or took off it, against what Home holds unasked
-// (`onHomeByDefault`): a game by its `choiceKey`, a console by its system. A choice is kept only
-// while it differs from the default, so a game the player never touched follows the default.
+// (`onHomeByDefault`, `consoleOnHomeByDefault`): a game by its `choiceKey`, a console by its
+// system. A choice is kept only while it differs from the default, so a game the player never
+// touched follows the default.
 #pragma once
 
 #include <cstdint>
@@ -25,6 +26,8 @@ enum class HomeChoice : std::uint8_t {
 /// Whether `game`, a title's preferred copy, is on Home unless the player chose otherwise: a store
 /// game or one of the player's own, installed on this machine.
 [[nodiscard]] bool onHomeByDefault(const Game& game) noexcept;
+/// A console, which has at least one ROM, is on Home unless the player took it off.
+inline constexpr bool consoleOnHomeByDefault = true;
 
 class HomeChoices {
   public:
