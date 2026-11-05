@@ -135,9 +135,8 @@ std::vector<SettingsRow> GuideMenuController::places() const {
             rows.push_back(asking(resetGameId, "Reset game",
                                   "The game starts over; play it has not saved is lost.", "Reset"));
             if (retroStatus_->resumedFrom) {
-                rows.push_back(ui::makeRow(resumedId, RowKind::Info, "Resumed",
-                                           "From " + ui::momentText(*retroStatus_->resumedFrom),
-                                           {}));
+                rows.push_back(ui::makeRow(resumedId, RowKind::Info, "Resumed from Save and close",
+                                           ui::momentText(*retroStatus_->resumedFrom), {}));
             } else if (!retroStatus_->resumeRefused.empty()) {
                 rows.push_back(ui::makeRow(resumedId, RowKind::Info, "Not resumed",
                                            retroStatus_->resumeRefused, {}));
