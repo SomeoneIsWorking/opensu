@@ -32,7 +32,8 @@ class EpicInstallJob final : public CliInstallJob {
     }
 
   private:
-    std::vector<std::string> arguments(const std::string& appName) override;
+    std::vector<std::string> arguments(const std::stop_token& stop,
+                                       const std::string& appName) override;
     std::optional<double> progressIn(std::string_view line) const override;
     std::optional<std::string> failureIn(std::string_view line) const override;
 

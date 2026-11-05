@@ -56,7 +56,8 @@ class GogInstallJob final : public CliInstallJob {
   private:
     /// Where gogdl is told to put game `gameId`.
     [[nodiscard]] std::filesystem::path gameRoot(const std::string& gameId) const;
-    std::vector<std::string> arguments(const std::string& gameId) override;
+    std::vector<std::string> arguments(const std::stop_token& stop,
+                                       const std::string& gameId) override;
     std::optional<double> progressIn(std::string_view line) const override;
     std::optional<std::string> failureIn(std::string_view line) const override;
     std::optional<std::string> ended(const std::string& gameId, bool installed) override;

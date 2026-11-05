@@ -18,7 +18,8 @@ EpicInstallJob::~EpicInstallJob() {
     halt();
 }
 
-std::vector<std::string> EpicInstallJob::arguments(const std::string& appName) {
+std::vector<std::string> EpicInstallJob::arguments(const std::stop_token& /*stop*/,
+                                                   const std::string& appName) {
     if (update_) {
         // An alias of install that refuses a game not installed (--update-only); legendary keeps
         // the install's folder, platform and chosen packs.

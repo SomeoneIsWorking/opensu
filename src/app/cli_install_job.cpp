@@ -5,6 +5,7 @@
 
 #include "launch/command.hpp"
 #include "launch/launch_progress.hpp"
+#include "library/game.hpp"
 #include "lucent/log.h"
 
 namespace opensu::app {
@@ -21,7 +22,9 @@ void CliInstallJob::run(const std::stop_token& stop, const std::string& appId) {
     post(Report{.line = "Starting the download"});
     std::vector<std::string> args;
     try {
-        args = arguments(appId);
+        args = arguments(stop, appId);
+    } catch (const library::RequestStopped&) {
+        return;
     } catch (const std::runtime_error& error) {
         post(Report{.finished = true, .failure = error.what()});
         return;

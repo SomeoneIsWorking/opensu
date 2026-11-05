@@ -4,6 +4,7 @@
 #pragma once
 
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -20,8 +21,10 @@ class CliInstallJob : public InstallJob {
     ~CliInstallJob() = default;
 
     /// The downloader's arguments for installing `appId`. Runs on the job's thread before the
-    /// program starts; a std::runtime_error fails the install with its message.
-    virtual std::vector<std::string> arguments(const std::string& appId) = 0;
+    /// program starts; a std::runtime_error fails the install with its message, and a
+    /// library::RequestStopped of a request `stop` ended drops it.
+    virtual std::vector<std::string> arguments(const std::stop_token& stop,
+                                               const std::string& appId) = 0;
 
     /// How far the install is, from one line of the downloader's output.
     virtual std::optional<double> progressIn(std::string_view line) const = 0;

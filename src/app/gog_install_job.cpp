@@ -43,7 +43,8 @@ fs::path GogInstallJob::gameRoot(const std::string& gameId) const {
     return paths_.gameRoot(folder_, gameId);
 }
 
-std::vector<std::string> GogInstallJob::arguments(const std::string& gameId) {
+std::vector<std::string> GogInstallJob::arguments(const std::stop_token& stop,
+                                                  const std::string& gameId) {
     if (updating_) {
         platform_ = updating_->platform;
     } else if (const std::string_view platform = library::gogInstallPlatform(builds_);
@@ -54,7 +55,7 @@ std::vector<std::string> GogInstallJob::arguments(const std::string& gameId) {
                                  " build of this game"};
     }
     // Refreshes the token when it is about to expire; NotSignedIn is a runtime_error.
-    (void)auth_.accessToken(std::stop_token{});
+    (void)auth_.accessToken(stop);
     const std::optional<library::gog::Token> token = store_.load();
     if (!token) {
         throw std::runtime_error{"GOG is not signed in"};
