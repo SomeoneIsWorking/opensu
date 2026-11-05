@@ -140,18 +140,24 @@ void OwnGamesController::chooseFile() {
 
 void OwnGamesController::identify(const fs::path& file) {
     hooks_.say("Looking up " + file.filename().string(), false);
-    identifier_ = std::jthread{[this, file = file] {
+    identifier_ = std::jthread{[this, file = file](const std::stop_token& stop) {
         const net::WebClient web;
         library::identify::Guess guess =
-            library::identify::identify(file, [&web](const std::string& term) {
+            library::identify::identify(file, [&web, &stop](const std::string& term) {
                 const net::Result<std::string> answer =
-                    web.get(std::stop_token{}, library::identify::storeSearchUrl(term));
+                    web.get(stop, library::identify::storeSearchUrl(term));
+                if (answer.stopped()) {
+                    return std::vector<library::identify::StoreApp>{};
+                }
                 if (!answer) {
                     lucent::warn("own-games", "Steam store search: {}", answer.error());
                     return std::vector<library::identify::StoreApp>{};
                 }
                 return library::identify::parseStoreSearch(*answer);
             });
+        if (stop.stop_requested()) {
+            return;
+        }
         lucent::info("own-games", "{} is {} (Steam app {}), from {}", file.string(), guess.title,
                      guess.steamAppId.empty() ? "none" : guess.steamAppId, guess.from);
         const std::lock_guard lock{mutex_};
