@@ -312,6 +312,10 @@ class ScreenCapture::Stream {
     spa_video_info_raw format_{};
 };
 
+std::string ScreenCapture::missing() {
+    return {};
+}
+
 ScreenCapture::ScreenCapture(Setup setup) : stream_{std::make_unique<Stream>(std::move(setup))} {
 }
 

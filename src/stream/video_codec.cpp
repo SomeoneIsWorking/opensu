@@ -33,6 +33,13 @@ std::unique_ptr<VideoEncoder> openEncoder(VideoCodec codec) {
                                          : backend::openHardwareEncoder(codec);
 }
 
+std::string decoderMissing() {
+    if (backend::pyroWaveBuilt() || backend::hardwareDecoders() != 0) {
+        return {};
+    }
+    return "this openSU is built without a video decoder for remote play";
+}
+
 std::unique_ptr<VideoDecoder> openDecoder(VideoCodec codec) {
     return codec == VideoCodec::PyroWave ? backend::openPyroWaveDecoder()
                                          : backend::openHardwareDecoder(codec);

@@ -431,8 +431,16 @@ Library on both sides.
   or when its details open and Sync saves now is pressed.
 - A game whose emulator keeps no saves openSU can find (store games, standalone emulators of
   consoles other than the Switch) shares none.
-- Remote play is Linux only both ways (PipeWire, uinput, XTest, PyroWave and VA-API built for
-  Linux); Windows, macOS and Android guests are not built.
+- Only Linux hosts remote play: a host needs Gamescope's PipeWire stream, a PipeWire sink for the
+  game's sound, uinput and XTest. Windows and macOS have none of these and no backend for their
+  own capture, sound or virtual pads, so `stream::hostingMissing` says so and `LanService::share`
+  lists nothing there: no guest is offered their games.
+- Windows and macOS are guests: Winsock or POSIX UDP, Opus from vcpkg and PyroWave from the
+  third-party prefix. PyroWave needs Vulkan with subgroup size control, which is checked when a
+  session opens its decoder; VA-API is Linux only, so PyroWave is their one codec.
+- Android builds no part of remote play (no UDP backend, Opus or PyroWave):
+  `stream::playingMissing` keeps remote games out of its catalog and `hostingMissing` its own games
+  off the listing.
 - Hardware codecs need a VA-API driver that encodes (host) or decodes (guest) them. Fedora's own
   Mesa encodes none and decodes only AV1 there; RPM Fusion's `mesa-va-drivers-freeworld` adds
   H.264 and HEVC. The AppImage is built without them (`OPENSU_BUILD_VAAPI=OFF`: libavcodec's
@@ -478,7 +486,8 @@ reaches `done` for each game, the guest's library shows them and they play. Kill
 PID during a large file and start it again: the guest's log says "goes on from byte". A signed,
 sealed `/lan/roms/chunk` for `../x` or an unlisted file gets 403 and the host logs the refusal.
 
-Remote play: `tests/stream/stream_test.cpp` checks sealing and replay, the payloads, a host and a
+Remote play: `tests/stream/stream_test.cpp`, which CI also runs on Windows and macOS, checks what
+each system reaches (`remote_reach`), sealing and replay, the payloads, a host and a
 guest session over loopback UDP (the mapping sent, the opening probe planning PyroWave), PyroWave
 round trips and a lost packet, each hardware codec this machine codes and decodes over moving
 pictures with a lost packet held until the next key frame, `LinkRate`'s choices (a whole probe,

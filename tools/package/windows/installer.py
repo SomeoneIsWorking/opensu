@@ -19,7 +19,7 @@ def stage(plan: cmake.Plan, layout: config.Layout, env: Mapping[str, str]) -> Pa
         shutil.rmtree(layout.stage)
     cmake.install_to(plan, layout.stage, INSTALL_COMPONENT, env)
     for required in ("bin/opensu.exe", "bin/opensu-retro.exe", "bin/SDL3.dll",
-                     "share/opensu"):  # fmt: skip
+                     "bin/libpyrowave-shared-1.dll", "share/opensu"):  # fmt: skip
         if not (layout.stage / required).exists():
             raise RuntimeError(f"the stage has no {required}")
     return layout.stage

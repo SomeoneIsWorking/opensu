@@ -3,8 +3,8 @@
 # slow link); what the host's Gamescope shows (`screen_capture`, PipeWire) coded with PyroWave or a
 # hardware codec through VA-API (`video_codec`); the game's sound from a sink of its own
 # (`game_sound`) coded with Opus (`audio_codec`); and the guest's pad, keys and pointer played into
-# the game (`host_input`). Linux builds all of it; elsewhere each of those refuses, and so does a
-# session.
+# the game (`host_input`). Linux builds all of it; Windows and macOS build the guest's end, and their
+# host's parts refuse; Android builds neither (`remote_reach` says so to the owners that offer it).
 # Sealed datagrams on a UDP socket, apart so the runner's netplay takes them without the rest.
 add_library(opensu_datagram STATIC packet_seal.cpp)
 add_library(opensu::datagram ALIAS opensu_datagram)
@@ -13,15 +13,18 @@ target_include_directories(opensu_datagram PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
 target_link_libraries(opensu_datagram PRIVATE opensu::secrets opensu::fileio)
 target_compile_features(opensu_datagram PUBLIC cxx_std_20)
 opensu_warnings(opensu_datagram)
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    target_sources(opensu_datagram PRIVATE udp_socket_posix.cpp)
-else()
+if(ANDROID)
     target_sources(opensu_datagram PRIVATE udp_socket_none.cpp)
+elseif(WIN32)
+    target_sources(opensu_datagram PRIVATE udp_socket_winsock.cpp)
+    target_link_libraries(opensu_datagram PRIVATE ws2_32)
+else()
+    target_sources(opensu_datagram PRIVATE udp_socket_posix.cpp)
 endif()
 
 add_library(opensu_stream STATIC stream_wire.cpp link_rate.cpp link_cap.cpp token_bucket.cpp
-    host_stream.cpp audience.cpp guest_stream.cpp video_codec.cpp picture_colour.cpp host_video.cpp
-    guest_video.cpp host_audio.cpp guest_audio.cpp)
+    host_stream.cpp audience.cpp guest_stream.cpp remote_reach.cpp video_codec.cpp picture_colour.cpp
+    host_video.cpp guest_video.cpp host_audio.cpp guest_audio.cpp)
 add_library(opensu::stream ALIAS opensu_stream)
 target_include_directories(opensu_stream PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/..")
@@ -39,18 +42,23 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         opensu_missing_package("openSU needs libXtst to play a remote player's keys and pointer"
             FEDORA libXtst-devel DEBIAN libxtst-dev)
     endif()
+    target_sources(opensu_stream PRIVATE pipewire_session.cpp screen_capture_pipewire.cpp
+        game_sound_pipewire.cpp host_input.cpp)
+    target_link_libraries(opensu_stream PRIVATE PkgConfig::PIPEWIRE PkgConfig::XTST)
+else()
+    target_sources(opensu_stream PRIVATE screen_capture_none.cpp game_sound_none.cpp
+        host_input_none.cpp)
+endif()
+if(ANDROID)
+    target_sources(opensu_stream PRIVATE audio_codec_none.cpp)
+else()
     pkg_check_modules(OPUS IMPORTED_TARGET opus)
     if(NOT OPUS_FOUND)
-        opensu_missing_package("openSU needs libopus to send a game's sound to a remote player"
+        opensu_missing_package("openSU needs libopus to carry a game's sound to a remote player"
             FEDORA opus-devel DEBIAN libopus-dev)
     endif()
-    target_sources(opensu_stream PRIVATE pipewire_session.cpp
-        screen_capture_pipewire.cpp game_sound_pipewire.cpp host_input.cpp audio_codec_opus.cpp)
-    target_link_libraries(opensu_stream
-        PRIVATE PkgConfig::PIPEWIRE PkgConfig::XTST PkgConfig::OPUS)
-else()
-    target_sources(opensu_stream PRIVATE screen_capture_none.cpp
-        game_sound_none.cpp host_input_none.cpp audio_codec_none.cpp)
+    target_sources(opensu_stream PRIVATE audio_codec_opus.cpp)
+    target_link_libraries(opensu_stream PRIVATE PkgConfig::OPUS)
 endif()
 # The hardware codecs come from the system's libavcodec, whose library version differs between
 # distributions, so a package built on one and run on another builds without them.

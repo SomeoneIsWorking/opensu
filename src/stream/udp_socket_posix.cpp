@@ -6,6 +6,7 @@
 #include <system_error>
 
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <poll.h>
 #include <sys/socket.h>
@@ -27,9 +28,13 @@ sockaddr_in socketAddress(const UdpAddress& address) {
 
 } // namespace
 
+std::string udpMissing() {
+    return {};
+}
+
 class UdpSocket::Descriptor {
   public:
-    Descriptor() noexcept : fd{::socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0)} {
+    Descriptor() noexcept : fd{opened()} {
     }
     ~Descriptor() {
         if (fd >= 0) {
@@ -42,6 +47,20 @@ class UdpSocket::Descriptor {
     Descriptor& operator=(Descriptor&&) = delete;
 
     const int fd;
+
+  private:
+    /// A UDP socket closed on exec; macOS has no SOCK_CLOEXEC, so it is set right after.
+    static int opened() noexcept {
+#ifdef SOCK_CLOEXEC
+        return ::socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+#else
+        const int fd = ::socket(AF_INET, SOCK_DGRAM, 0);
+        if (fd >= 0) {
+            ::fcntl(fd, F_SETFD, FD_CLOEXEC);
+        }
+        return fd;
+#endif
+    }
 };
 
 std::optional<UdpAddress> udpAddress(const std::string& dotted, std::uint16_t port) {
@@ -74,7 +93,8 @@ UdpSocket::~UdpSocket() = default;
 
 bool UdpSocket::send(const UdpAddress& to, std::string_view bytes) const noexcept {
     const sockaddr_in raw = socketAddress(to);
-    return ::sendto(descriptor_->fd, bytes.data(), bytes.size(), MSG_NOSIGNAL,
+    // A datagram socket never raises SIGPIPE.
+    return ::sendto(descriptor_->fd, bytes.data(), bytes.size(), 0,
                     reinterpret_cast<const sockaddr*>(&raw),
                     sizeof raw) == static_cast<ssize_t>(bytes.size());
 }

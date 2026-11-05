@@ -38,7 +38,7 @@ LAN when none is). Linux to Linux works the same. Protocol and owners: `docs/des
    picker, a new folder was made and allowed, and the homebrew ROM arrived in
    `openSU-LAN-test/Game Boy/` with the source's SHA-256, showed in the Game Boy shelf and ran on
    the built-in mGBA after its download (frames `t21-game.png`, `t22-game-later.png`).
-3. Windows and macOS discovery (DNS-SD through `DnsServiceRegister`/`DnsServiceBrowse` and
-   `dns_sd.h`); the rest of import is portable already.
+3. Windows and macOS discovery. Built (2026-11-05): `dns_sd_windns.cpp` and `dns_sd_bonjour.cpp`;
+   the rest of import is portable already.
 4. An Android host offering ROMs from a picked folder (reading ranges through
    `ContentResolver.openFileDescriptor`).

@@ -1,10 +1,29 @@
 # PyroWave, remote play's video codec (Vulkan compute wavelets, intra-only): the C API of the pinned
 # fork, `libpyrowave-shared`, built with CMake against the part of Granite it needs (volk and the
-# Vulkan headers), at the Granite commit PyroWave's own checkout script pins. Both are MIT.
+# Vulkan headers), at the Granite commit PyroWave's own checkout script pins. Both are MIT. It is
+# built with this prefix's own compilers: the Windows toolchain file, macOS's SDK and target.
 
 set(root "${CMAKE_BINARY_DIR}/pyrowave")
 set(stage "${root}/prefix")
-set(library "${CMAKE_SHARED_LIBRARY_PREFIX}pyrowave-shared${CMAKE_SHARED_LIBRARY_SUFFIX}.1")
+# The file the loader finds at run time, and on Windows the import library openSU links.
+if(WIN32)
+    set(runtime "bin/libpyrowave-shared-1.dll")
+    set(import_library "lib/pyrowave-shared.lib")
+elseif(APPLE)
+    set(runtime "lib/libpyrowave-shared.1.dylib")
+    set(import_library "")
+else()
+    set(runtime "lib/libpyrowave-shared.so.1")
+    set(import_library "")
+endif()
+
+set(forwarded "")
+foreach(variable IN ITEMS CMAKE_TOOLCHAIN_FILE CMAKE_OSX_ARCHITECTURES CMAKE_OSX_DEPLOYMENT_TARGET
+                          CMAKE_OSX_SYSROOT)
+    if(DEFINED ${variable})
+        list(APPEND forwarded "-D${variable}=${${variable}}")
+    endif()
+endforeach()
 
 ExternalProject_Add(opensu_granite_source
     GIT_REPOSITORY "${OPENSU_GRANITE_REPOSITORY}"
@@ -30,6 +49,7 @@ ExternalProject_Add(opensu_pyrowave
         "-DCMAKE_BUILD_TYPE=Release"
         "-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}"
         "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+        ${forwarded}
         "-DCMAKE_INSTALL_PREFIX=${stage}"
         "-DCMAKE_INSTALL_LIBDIR=lib"
         "-DPYROWAVE_GRANITE_DIR=${root}/granite"
@@ -42,13 +62,21 @@ file(CONFIGURE OUTPUT "${root}/OpensuPyroWaveConfig.cmake" @ONLY CONTENT [=[
 # PyroWave from openSU's shared third-party prefix, at the commit openSU pins.
 get_filename_component(_opensu_prefix "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
 set(OpensuPyroWave_COMMIT "@OPENSU_PYROWAVE_COMMIT@")
-set(OpensuPyroWave_LIBRARY "${_opensu_prefix}/lib/@library@")
-set(OpensuPyroWave_SONAME "@library@")
+set(OpensuPyroWave_LIBRARY "${_opensu_prefix}/@runtime@")
+get_filename_component(OpensuPyroWave_SONAME "@runtime@" NAME)
+if("@import_library@" STREQUAL "")
+    set(OpensuPyroWave_IMPORT_LIBRARY "")
+else()
+    set(OpensuPyroWave_IMPORT_LIBRARY "${_opensu_prefix}/@import_library@")
+endif()
 set(OpensuPyroWave_INCLUDE_DIR "${_opensu_prefix}/include")
 unset(_opensu_prefix)
 ]=])
 # Its pkg-config file names the stage; openSU reads the CMake package below.
 install(DIRECTORY "${stage}/lib/" DESTINATION lib
     FILES_MATCHING PATTERN "*pyrowave-shared*" PATTERN "pkgconfig" EXCLUDE)
+if(WIN32)
+    install(DIRECTORY "${stage}/bin/" DESTINATION bin FILES_MATCHING PATTERN "*pyrowave-shared*")
+endif()
 install(DIRECTORY "${stage}/include/" DESTINATION include)
 install(FILES "${root}/OpensuPyroWaveConfig.cmake" DESTINATION lib/cmake/OpensuPyroWave)

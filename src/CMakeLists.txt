@@ -61,7 +61,7 @@ target_link_libraries(opensu
 )
 opensu_windowed(opensu)
 # PyroWave is linked from openSU's own library directory, where it is installed.
-if(TARGET opensu::pyrowave)
+if(TARGET opensu::pyrowave AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set_property(TARGET opensu APPEND PROPERTY INSTALL_RPATH "\$ORIGIN/../${OPENSU_PYROWAVE_DIR}")
 endif()
 # Assets sit at share/opensu (Resources/opensu on macOS) beside the executable's directory, in the

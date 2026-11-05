@@ -104,7 +104,11 @@ def stage(plan: cmake.Plan, layout: config.Layout, version: str, env: Mapping[st
     for name in config.EXECUTABLES:
         if not (layout.contents / "MacOS" / name).is_file():
             raise RuntimeError(f"the stage has no Contents/MacOS/{name}")
-    for required in ("Resources/opensu", "Frameworks/librashader.dylib"):
+    for required in (
+        "Resources/opensu",
+        "Frameworks/librashader.dylib",
+        "Frameworks/libpyrowave-shared.1.dylib",
+    ):
         if not (layout.contents / required).exists():
             raise RuntimeError(f"the stage has no Contents/{required}")
     write_info(layout.contents, version)

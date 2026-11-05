@@ -31,6 +31,7 @@
 #include "lucent/log.h"
 #include "retro/save_paths.hpp"
 #include "retro_launch.hpp"
+#include "stream/remote_reach.hpp"
 #include "ui/interface_input.hpp"
 #include "ui/section_view.hpp"
 
@@ -279,7 +280,7 @@ void ShellApp::romFoldersChanged() {
 library::Catalog ShellApp::catalogOf(const library::CatalogStores& stores) {
     library::Catalog catalog = library::makeCatalog(resolved_, settings_.hidden,
                                                     files_.ownGamesFile(), romsetLists_, stores);
-    if (stores.lan) {
+    if (stores.lan && stream::playingMissing().empty()) {
         catalog.add(lan::remoteProvider(remoteGames_));
     }
     return catalog;

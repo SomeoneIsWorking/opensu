@@ -9,6 +9,10 @@ constexpr const char* missing = "this system has no Opus to code remote play's s
 
 } // namespace
 
+std::string audioCodecMissing() {
+    return missing;
+}
+
 class AudioEncoder::Codec {};
 class AudioDecoder::Codec {};
 

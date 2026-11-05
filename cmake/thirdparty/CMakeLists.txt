@@ -1,5 +1,5 @@
 # The third-party code openSU builds against or ships, each from its pinned commit, installed into
-# one prefix outside every openSU build tree: PyroWave with Granite (Linux), librashader, the
+# one prefix outside every openSU build tree: PyroWave with Granite, librashader, the
 # Gamescope fork (Linux) and the mGBA link core (Linux). tools/check (`thirdparty.py`) configures
 # this with the compilers or toolchain an openSU tree uses and installs it under a directory named
 # for those, the build image and these files, so each revision, toolchain and image is built once. Each installs a CMake
@@ -12,8 +12,10 @@ include(ExternalProject)
 include("${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty.cmake")
 find_package(Git REQUIRED)
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+if(NOT ANDROID)
     include("${CMAKE_CURRENT_SOURCE_DIR}/PyroWave.cmake")
+endif()
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     include("${CMAKE_CURRENT_SOURCE_DIR}/Gamescope.cmake")
     include("${CMAKE_CURRENT_SOURCE_DIR}/MgbaLink.cmake")
 endif()

@@ -9,6 +9,7 @@
 #include <functional>
 #include <memory>
 #include <span>
+#include <string>
 
 namespace opensu::stream {
 
@@ -32,6 +33,9 @@ class ScreenCapture {
         /// Each frame, on the capture's thread; the planes are Gamescope's only during the call.
         std::function<void(const CapturedFrame&)> frame;
     };
+
+    /// Why this system has no stream to capture; empty where it has.
+    [[nodiscard]] static std::string missing();
 
     /// Connects to the stream; throws `std::runtime_error` saying why it cannot.
     explicit ScreenCapture(Setup setup);

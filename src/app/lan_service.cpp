@@ -7,6 +7,7 @@
 
 #include "lan/dns_sd.hpp"
 #include "lucent/log.h"
+#include "stream/remote_reach.hpp"
 #include "ui/progress_screen.hpp"
 
 namespace opensu::app {
@@ -115,7 +116,8 @@ void LanService::stop() {
 }
 
 void LanService::share(const std::vector<library::Game>& games) {
-    shared_ = games;
+    // The listing is what a guest may ask to stream.
+    shared_ = stream::hostingMissing().empty() ? games : std::vector<library::Game>{};
     if (node_ != nullptr) {
         node_->share(shared_);
     }

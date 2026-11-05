@@ -27,6 +27,7 @@
 #include "stream/link_cap.hpp"
 #include "stream/link_rate.hpp"
 #include "stream/packet_seal.hpp"
+#include "stream/remote_reach.hpp"
 #include "stream/stream_wire.hpp"
 #include "stream/token_bucket.hpp"
 #include "stream/udp_socket.hpp"
@@ -754,6 +755,15 @@ void theBucketHoldsBackWhatItsRateHasNoRoomFor() {
     expect(!bucket.take(20'000, 10'000'000), "it never holds more than its depth");
 }
 
+void thisSystemReachesWhatItBuilds() {
+    expect(stream::playingMissing().empty(), "every desktop plays a host's game");
+#ifdef __linux__
+    expect(stream::hostingMissing().empty(), "Linux hosts");
+#else
+    expect(!stream::hostingMissing().empty(), "and only Linux has a screen to stream");
+#endif
+}
+
 } // namespace
 
 int main() try {
@@ -766,6 +776,7 @@ int main() try {
     theLinkPicksTheCodec();
     theCapQueuesAndDropsWhatTheRateHasNoRoomFor();
     theBucketHoldsBackWhatItsRateHasNoRoomFor();
+    thisSystemReachesWhatItBuilds();
     soundSurvivesTheCodec();
     std::printf("stream: all checks passed\n");
     return 0;

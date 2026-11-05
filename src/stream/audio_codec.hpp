@@ -16,6 +16,9 @@ inline constexpr int audioChannels = 2;
 /// Samples per channel in one packet: 10 ms.
 inline constexpr std::size_t audioFrame = 480;
 
+/// Why this build codes no sound; empty when it has Opus.
+[[nodiscard]] std::string audioCodecMissing();
+
 class AudioEncoder {
   public:
     /// Throws `std::runtime_error` when Opus refuses.

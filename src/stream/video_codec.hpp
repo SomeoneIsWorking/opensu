@@ -105,6 +105,8 @@ class VideoDecoder {
     /// Whether a loss left it waiting for a key frame, decoding nothing until one comes.
     [[nodiscard]] virtual bool awaitingKey() const noexcept = 0;
 };
+/// Why this build decodes no video at all; empty when it has a decoder.
+[[nodiscard]] std::string decoderMissing();
 /// A decoder for `codec`; throws `std::runtime_error` saying why there is none.
 [[nodiscard]] std::unique_ptr<VideoDecoder> openDecoder(VideoCodec codec);
 

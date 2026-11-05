@@ -19,6 +19,10 @@ constexpr std::size_t largestPacket = 4000;
 
 } // namespace
 
+std::string audioCodecMissing() {
+    return {};
+}
+
 class AudioEncoder::Codec {
   public:
     Codec() {

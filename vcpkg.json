@@ -15,6 +15,10 @@
     "nlohmann-json",
     "openssl",
     {
+      "name": "opus",
+      "platform": "windows | osx"
+    },
+    {
       "name": "pkgconf",
       "host": true
     },

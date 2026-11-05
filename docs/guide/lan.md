@@ -92,8 +92,10 @@ a save. Other games match by ROM name on the built-in emulators.
 Press Play on another openSU's game in Library. That openSU starts the game and sends its picture
 and sound here, and your controller, keyboard and mouse play it.
 
-- Both openSUs run on Linux. The one with the game must run as a session in Gamescope (openSU's
-  own session, or `opensu` started inside `gamescope`); otherwise it says it cannot stream.
+- The openSU with the game runs on Linux, as a session in Gamescope (openSU's own session, or
+  `opensu` started inside `gamescope`); otherwise it says it cannot stream. The one you play on can
+  run Linux, Windows or macOS. Windows and macOS share no games to play remotely, and Android
+  neither shares them nor lists them.
 - Use a wired gigabit network: the picture takes around 50 Mbit/s for simple games and up to
   200 Mbit/s for busy ones. Wi-Fi is not supported yet.
 - Allow UDP in your firewall between the two computers: each session uses a free UDP port on the
