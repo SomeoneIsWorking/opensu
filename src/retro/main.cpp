@@ -2,8 +2,8 @@
 // openSU launches like any other.
 //
 //   opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--settings <file>]
-//                [--option <key>=<value>]... [--players N] [--hidden] [--validate] [--frames N]
-//                [--frame-png <file>] <rom>
+//                [--option <key>=<value>]... [--players N] [--netplay <file>] [--hidden]
+//                [--validate] [--frames N] [--frame-png <file>] <rom>
 //
 // Exit status: 0 on quit, 1 for a bad command line or a window, Vulkan or frame-file failure, 2
 // when the core, the game or its save cannot be loaded, 3 when --validate saw Vulkan validation
@@ -68,7 +68,7 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
             options.validation = true;
         } else if (arg == "--core" || arg == "--saves" || arg == "--system" ||
                    arg == "--settings" || arg == "--frame-png" || arg == "--frames" ||
-                   arg == "--option" || arg == "--players") {
+                   arg == "--option" || arg == "--players" || arg == "--netplay") {
             const std::optional<std::string> given = value();
             if (!given) {
                 return std::nullopt;
@@ -95,6 +95,16 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
                                                      given->substr(equals + 1));
             } else if (arg == "--frame-png") {
                 options.framePng = *given;
+            } else if (arg == "--netplay") {
+                std::ifstream in{*given, std::ios::binary};
+                const std::string text{std::istreambuf_iterator<char>{in},
+                                       std::istreambuf_iterator<char>{}};
+                std::string error;
+                options.netplay = opensu::retro::netplaySetupOf(text, error);
+                if (!options.netplay) {
+                    lucent::error("retro", "{}: {}", *given, error);
+                    return std::nullopt;
+                }
             } else if (arg == "--players") {
                 unsigned players = 0;
                 const auto [end, error] =
@@ -127,7 +137,8 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
         lucent::error("retro",
                       "usage: opensu-retro --core <path.so> [--saves <dir>] "
                       "[--system <dir>] [--settings <file>] [--option <key>=<value>]... "
-                      "[--players N] [--hidden] [--validate] [--frames N] [--frame-png <file>] "
+                      "[--players N] [--netplay <file>] [--hidden] [--validate] [--frames N] "
+                      "[--frame-png <file>] "
                       "<rom>");
         return std::nullopt;
     }

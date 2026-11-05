@@ -16,6 +16,7 @@
 #include "audio_sink.hpp"
 #include "core_environment.hpp"
 #include "joypad.hpp"
+#include "port_input.hpp"
 #include "shared_library.hpp"
 #include "video_frame.hpp"
 
@@ -40,7 +41,7 @@ struct CoreHost {
     CoreEnvironment& environment;
     VideoFrame& video;
     AudioSink& audio;
-    const Joypad& joypad;
+    const PortInput& input;
 };
 
 class Core {
@@ -74,6 +75,8 @@ class Core {
 
     /// The core's save RAM; empty when it has none.
     [[nodiscard]] std::span<std::byte> saveRam();
+    /// The console's main memory, where the core exposes it; empty otherwise.
+    [[nodiscard]] std::span<std::byte> systemRam();
 
     /// The game's geometry and timing as the core reported them at load.
     [[nodiscard]] const retro_system_av_info& avInfo() const {
@@ -94,6 +97,9 @@ class Core {
     [[nodiscard]] std::int16_t input(const InputQuery& query) const;
 
   private:
+    /// The core's memory `id` (RETRO_MEMORY_*), empty when it exposes none.
+    [[nodiscard]] std::span<std::byte> memory(unsigned id) const;
+
     struct Api {
         void (*init)();
         void (*deinit)();

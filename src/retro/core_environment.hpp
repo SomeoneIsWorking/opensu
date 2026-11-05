@@ -40,6 +40,11 @@ class CoreEnvironment {
     [[nodiscard]] std::optional<retro_system_timing> takeTiming();
     /// Geometry the core changed since the last call (SET_GEOMETRY or SET_SYSTEM_AV_INFO).
     [[nodiscard]] std::optional<retro_game_geometry> takeGeometry();
+    /// This machine is player `slot` of a netplay session, which
+    /// RETRO_ENVIRONMENT_GET_NETPLAY_CLIENT_INDEX answers from now on.
+    void setNetplaySlot(unsigned slot) noexcept {
+        netplaySlot_ = slot;
+    }
 
   private:
     std::string systemDir_;
@@ -49,6 +54,7 @@ class CoreEnvironment {
     HardwareRender hardware_;
     std::optional<retro_system_timing> timing_;
     std::optional<retro_game_geometry> geometry_;
+    std::optional<unsigned> netplaySlot_;
 };
 
 } // namespace opensu::retro

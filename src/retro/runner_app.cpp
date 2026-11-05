@@ -5,6 +5,7 @@
 #include <exception>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <thread>
 #include <utility>
@@ -85,6 +86,23 @@ std::unique_ptr<AudioOutput> openAudio(AudioSink& sink, bool hidden) {
 }
 
 /// The control channel's pad holds `held` alone: what it held before is let go.
+/// How long a frame waits for the other machines before the loop serves its window again.
+constexpr std::chrono::milliseconds netplayWait{2};
+
+std::string_view endOf(netplay::SessionEnd end) {
+    switch (end) {
+    case netplay::SessionEnd::None:
+        return "left";
+    case netplay::SessionEnd::Left:
+        return "the other player left";
+    case netplay::SessionEnd::Quiet:
+        return "the other player went quiet";
+    case netplay::SessionEnd::Desync:
+        return "the games differ";
+    }
+    return "ended";
+}
+
 void holdControlPad(Joypad& joypad, const ControlInput& held) {
     const std::string source = held.pad.empty() ? "control" : "control:" + held.pad;
     if (held.leave) {
@@ -154,10 +172,26 @@ RunnerExit RunnerApp::run() {
     HardwareRender& hardware = environment.hardware();
     VideoFrame video;
     AudioSink sink{outputRate, audioTarget};
-    Joypad joypad{options_.players};
+    Joypad joypad{options_.netplay ? 1 : options_.players};
+    std::unique_ptr<NetplayLink> netplay;
+    if (options_.netplay) {
+        try {
+            netplay = std::make_unique<NetplayLink>(*options_.netplay, joypad);
+        } catch (const std::system_error& failure) {
+            lucent::error("retro", "netplay cannot start: {}", failure.what());
+            if (!options_.control.empty()) {
+                ControlServer::reportLoadFailure(options_.control, failure.what());
+            }
+            return RunnerExit::LoadFailed;
+        }
+        environment.setNetplaySlot(netplay->slot());
+        lucent::info("retro", "netplay: player {} of {} on UDP port {}", netplay->slot() + 1,
+                     options_.netplay->session.players, netplay->port());
+    }
     std::unique_ptr<Core> core;
     try {
-        core = std::make_unique<Core>(options_.core, CoreHost{environment, video, sink, joypad});
+        const PortInput& input = netplay ? static_cast<const PortInput&>(*netplay) : joypad;
+        core = std::make_unique<Core>(options_.core, CoreHost{environment, video, sink, input});
         core->loadGame(options_.rom);
     } catch (const CoreError& failure) {
         std::string reason = failure.what();
@@ -337,10 +371,22 @@ RunnerExit RunnerApp::run() {
             std::this_thread::sleep_until(next);
             continue;
         }
+        if (netplay) {
+            const bool ready = netplay->ready(netplayWait);
+            if (netplay->ended() != netplay::SessionEnd::None) {
+                break;
+            }
+            if (!ready) {
+                continue;
+            }
+        }
         const Clock::time_point started = Clock::now();
         core->run();
         stages.add(FrameStages::Stage::Core, Clock::now() - started);
         ++frame;
+        if (netplay) {
+            netplay->ran(*core);
+        }
         if (control) {
             control->publish(frame, state.exists());
         }
@@ -399,6 +445,11 @@ RunnerExit RunnerApp::run() {
     const auto millisecondsOf = [&sink](std::size_t frames) {
         return frames * 1000 / static_cast<std::size_t>(sink.outputRate());
     };
+    if (netplay) {
+        netplay->leave();
+        lucent::info("retro", "netplay: {} after {} frames, {} stalls, {} state checks matched",
+                     endOf(netplay->ended()), frame, netplay->stalls(), netplay->matched());
+    }
     lucent::info("retro", "ran {} frames; sound: {} ms played as silence, {} ms dropped", frame,
                  millisecondsOf(sink.underrunFrames()), millisecondsOf(sink.overrunFrames()));
     saves.flush(core->saveRam());

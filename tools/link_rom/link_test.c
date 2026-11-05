@@ -15,6 +15,7 @@ enum {
     siomltSend = 0x0400012a,
     keyinput = 0x04000130,
     rcnt = 0x04000134,
+    ewram = 0x02000000,
     vram = 0x06000000,
 };
 
@@ -99,6 +100,9 @@ int main(void) {
             fillRow(row, progress, white, 0);
         }
         REG16(siomltSend) = playerColours[id] ^ ((keys & keyA) ? blue : 0);
+        // Kept in main memory too, where a frontend comparing two machines looks.
+        REG32(ewram) = progress;
+        REG32(ewram + 4) = REG16(siomulti) | ((uint32_t)REG16(siomulti + 2) << 16);
         // Started after the read: the registers hold the last transfer only once it is done.
         if (parent && (control & busy) == 0) {
             REG16(siocnt) = control | busy;

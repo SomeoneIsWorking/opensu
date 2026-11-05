@@ -78,6 +78,12 @@ bool CoreEnvironment::answer(unsigned command, void* data) {
         return true;
     case RETRO_ENVIRONMENT_GET_INPUT_BITMASKS:
         return true;
+    case RETRO_ENVIRONMENT_GET_NETPLAY_CLIENT_INDEX:
+        if (!netplaySlot_) {
+            return false;
+        }
+        *static_cast<unsigned*>(data) = *netplaySlot_;
+        return true;
     case RETRO_ENVIRONMENT_GET_CORE_OPTIONS_VERSION:
         *static_cast<unsigned*>(data) = 2;
         return true;

@@ -79,7 +79,8 @@ machine), and for rollback later, `retro_serialize`/`retro_unserialize` every fr
   while it runs frame `f`, each datagram repeating the last 16 frames so a loss costs nothing; a
   frame runs only when every slot's input for it is in, else that machine waits. `d` comes from
   the measured round trip (2 frames on a wired LAN). Every 120 frames each side sends the CRC-32
-  of `retro_serialize`; a mismatch ends the session with a desync message. Rollback (run ahead on
+  of the core's system RAM (mGBA's states hold their creation time, so `retro_serialize` differs
+  between machines in step); a mismatch ends the session with a desync message. Rollback (run ahead on
   predicted input, `retro_unserialize` and replay on a misprediction) is later and changes only
   the session.
 - **Starting state and saves.** Both sides boot from the same files, so no state crosses the
@@ -105,7 +106,7 @@ machine), and for rollback later, `retro_serialize`/`retro_unserialize` every fr
    catalog entry `mgba-link-core` for GBA (Linux).
 3. Runner input per port: pads by first arrival, the control channel's named pads; four ports.
 4. Splitscreen proof: a hidden runner, two named control pads, the link ROM side by side, A held
-   on player 2 turning its band blue on both screens; frames looked at.
+   on player 2 turning its band cyan on both screens; frames looked at.
 5. Split `packet_seal` and `udp_socket` out of `stream` into a small library the runner can link
    without PipeWire and the codecs (its own commit). `netplay::Session`, `netplay::Transport` and
    the LAN transport; the runner's `--netplay` (the session's address, keys and slot from a file
@@ -123,6 +124,15 @@ machine), and for rollback later, `retro_serialize`/`retro_unserialize` every fr
 9. Later, each its own plan: rollback in the session; any core's netplay through the same session
    (input replication works for every deterministic core; netpacket cores as a second client); a
    WAN transport.
+
+## Progress
+
+- Steps 1 to 4 landed. The splitscreen proof drove two named control-channel pads: a hidden runner
+  reads no evdev pads, so uinput pads would not have reached it.
+- Step 5 landed. Two hidden runners over loopback, hand-written session files: 59.7 fps on both,
+  frame p50/p95/p99 16.7/16.8/16.8 ms, 2159 frames, 7 and 3 stalls, 17 memory checks matched; each
+  side's A shows on both screens; SIGTERM ends the other at once, `kill -9` after 5 s, a different
+  ROM at frame 120 on both.
 
 ## Risks
 

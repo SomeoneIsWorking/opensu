@@ -10,6 +10,7 @@
 #include <optional>
 
 #include "core_options.hpp"
+#include "netplay_link.hpp"
 #include "settings/video_settings.hpp"
 
 namespace opensu::retro {
@@ -53,6 +54,8 @@ struct RunnerOptions {
     OptionValues coreOptions;
     /// The ports pads are spread over (`Joypad`); 1 puts every pad on port 0.
     unsigned players{1};
+    /// The netplay session this run is one machine of; its pads are then all one player.
+    std::optional<NetplaySetup> netplay;
     /// The touch controls' art, where the runner draws its own (`shell_handoff`).
     std::filesystem::path touchArt;
 };

@@ -1,8 +1,8 @@
-// packet_seal — remote play's datagrams, each sealed on its own: a clear header (version, kind and
-// the sender's packet counter), then the payload under ChaCha20-Poly1305 with the session's key for
-// that sender (`lan::streamKeys`) and the counter as its nonce, the header authenticated with it.
-// The opener takes each counter once: anything older than its window, or already seen, is dropped,
-// so a datagram heard on the LAN cannot be played again.
+// packet_seal — remote play's and netplay's datagrams, each sealed on its own: a clear header
+// (version, kind and the sender's packet counter), then the payload under ChaCha20-Poly1305 with
+// the session's key for that sender (`lan::streamKeys`) and the counter as its nonce, the header
+// authenticated with it. The opener takes each counter once: anything older than its window, or
+// already seen, is dropped, so a datagram heard on the LAN cannot be played again.
 #pragma once
 
 #include <bitset>
@@ -41,6 +41,8 @@ enum class PacketKind : std::uint8_t {
     KeyFrame = 11,
     /// The guest's mapping for the remote pad.
     Mapping = 12,
+    /// A netplay session's message (`netplay::Session`).
+    Netplay = 13,
 };
 
 /// Bytes a sealed datagram adds to its payload: the header and the tag.

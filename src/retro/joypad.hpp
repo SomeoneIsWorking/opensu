@@ -14,13 +14,14 @@
 
 #include "gamepad/event.hpp"
 #include "gamepad/pad_translator.hpp"
+#include "port_input.hpp"
 
 namespace opensu::retro {
 
 /// The most ports a launch spreads pads over.
 inline constexpr unsigned maxPlayers = 8;
 
-class Joypad {
+class Joypad final : public PortInput {
   public:
     /// The ports pads are spread over; at least one.
     explicit Joypad(unsigned players = 1) : players_{players == 0 ? 1 : players} {
@@ -40,12 +41,9 @@ class Joypad {
     /// Where the sticks of the pad named `source` stand now.
     void sticks(const std::string& source, const gamepad::Sticks& sticks);
 
-    /// One button's state on `port`, or with RETRO_DEVICE_ID_JOYPAD_MASK every button as bits.
-    [[nodiscard]] std::int16_t state(unsigned port, unsigned id) const;
-    /// One stick axis on `port` (RETRO_DEVICE_INDEX_ANALOG_LEFT or _RIGHT,
-    /// RETRO_DEVICE_ID_ANALOG_X or _Y) from -32768 to 32767, y down: of the port's pads, the one
-    /// furthest from centre.
-    [[nodiscard]] std::int16_t analog(unsigned port, unsigned index, unsigned id) const;
+    [[nodiscard]] std::int16_t state(unsigned port, unsigned id) const override;
+    /// Of the port's pads, the one furthest from centre.
+    [[nodiscard]] std::int16_t analog(unsigned port, unsigned index, unsigned id) const override;
     /// The port `source` plays on, or nothing when every port is taken.
     [[nodiscard]] std::optional<unsigned> portOf(const std::string& source) const;
 

@@ -370,6 +370,8 @@ Design: `docs/design/libretro.md`. `opensu_retro` and the `opensu-retro` executa
 | `src/retro/video_frame.*` | 0RGB1555, XRGB8888, RGB565 to RGBA; duplicate frames |
 | `src/retro/audio_sink.*` | Resampling ring with ±0.5 % dynamic rate control |
 | `src/retro/audio_output.*` | The sink on the SDL playback device, or drained by the clock when hidden |
+| `src/retro/port_input.hpp` | What a core's input reads (`PortInput`): the `Joypad`, or the `NetplayLink` in a session |
+| `src/retro/netplay_link.*` | `--netplay`: the session file read (`netplaySetupOf`), this machine's pad into `netplay::Session` each frame, what the core reads taken from it, the system RAM's CRC-32 every `checkInterval` frames |
 | `src/retro/joypad.*` | `gamepad::Button` and SDL scancodes to `RETRO_DEVICE_JOYPAD`; the pads' and the control pads' sticks to `RETRO_DEVICE_ANALOG` (analogue stick, touch cursor); the ports (`--players`, at most `maxPlayers`): one puts every source on port 0, more give each pad the lowest free port when it is first heard from until it leaves, the keyboard on port 0; the shell's launches have five, the player here and remote play's four guests |
 | `src/retro/save_memory.*` | Save RAM: load (another core's layout fitted by `save_ram_fit`, a smaller `.srm` into the RAM's start; a larger or unreadable one a `SaveError`, never written over), change check, atomic `.srm` write |
 | `src/retro/save_ram_fit.*` | Another core's `.srm` of the same cartridge fitted to this core's save RAM (`fittedSaveRam`: MBC2's packed 0x100 and one-cell-per-byte 0x2000, a larger file with a blank tail) |
@@ -391,6 +393,15 @@ Design: `docs/design/libretro.md`. `opensu_retro` and the `opensu-retro` executa
 | `src/retro/vulkan_device.*` | Vulkan instance (optional validation; portability enumeration where the loader offers it, so MoltenVK is listed), device (VK_KHR_portability_subset where the device has it) and graphics queue, made through a GPU core's context negotiation (create_instance, create_device2, create_device) when it has one; the queue lock for submit, present and device wait; memory, image views, 2D image descriptions, shader modules and layout barriers for its owners |
 | `src/retro/shaders/` | GLSL for the frame (nearest/bilinear, `sampled.frag` the image as it is for the overlay and the reduced shader output, sharp bilinear, the scanline and LCD-grid bands on the source pixel grid in `frame_grid.glsl`, crt-lottes), compiled by glslc into SPIR-V headers in the build tree (gpu2d's `gpu2d_compile_shaders`) |
 | `tests/retro/` | Fake cores (`fake_core.cpp`, built three times: serializing, crashing, stateless), unit tests of each owner, `core_test`, and `runner_test` running `opensu-retro --hidden` end to end, its control channel included |
+
+## Netplay
+
+| Path | Owns |
+| --- | --- |
+| `src/netplay/session.*` | Core-agnostic lockstep (`Session`): each slot's input per frame, sent `delay` frames ahead and repeating the last 16, frame gating and resends, the memory check, how the session ended (`SessionEnd`) |
+| `src/netplay/transport.hpp` | Datagrams to and from the peer (`Transport`); the seam a WAN transport plugs into |
+| `src/netplay/lan_transport.*` | `Transport` over `stream::UdpSocket` with `PacketSeal`: the peer given or learned from the first datagram that opens |
+| `tests/netplay/` | Two sessions over an in-memory transport: delay, loss, leaving, silence, a differing check |
 
 ## Plugins
 

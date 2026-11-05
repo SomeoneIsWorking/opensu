@@ -10,7 +10,7 @@ Retro systems play inside openSU with one fixed controller mapping in the runner
 saves that survive any crash, and the Guide overlay and quick menu working as they do over any
 game. A core that crashes ends its game, never the shell.
 
-Non-goals for now: rewind, run-ahead, netplay, achievements, cores that draw with OpenGL, GLES or
+Non-goals for now: rewind, run-ahead, rollback netplay, achievements, cores that draw with OpenGL, GLES or
 Direct3D (refused by name; the runner has no GL path), anything a standalone emulator already does
 better (Switch, PS2 and later, Wii U, GameCube/Wii, Xbox, Xbox 360).
 
@@ -47,6 +47,9 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `cmake/Libretro.cmake` | `libretro.h` and `libretro_vulkan.h` (MIT) from libretro-common at a pinned commit, SHA-256 checked |
 | `cmake/Librashader.cmake`, `cmake/thirdparty/` | librashader from the `SomeoneIsWorking/librashader` fork at the commit `cmake/ThirdParty.cmake` pins: its header (MIT, SHA-256 checked), and `librashader-capi` built with cargo (Rust 1.88 or newer; for Windows or an Android ABI cross-built for its target) once into the shared third-party prefix, found there, staged in the build tree as `<libdir>/opensu/librashader.so` and installed; the APK carries it beside the runner |
 | `cmake/MgbaLink.cmake`, `cmake/thirdparty/MgbaLink.cmake` | The mGBA link core (`SomeoneIsWorking/mgba` at the `opensu` branch commit `cmake/ThirdParty.cmake` pins; libretro/mgba PR #318's splitscreen multiplayer) built with mGBA's CMake (`-DLIBMGBA_ONLY=ON -DBUILD_LIBRETRO=ON`) once into the shared prefix, installed there renamed `mgba_link_libretro`, staged as `<libdir>/opensu/cores/mgba_link_libretro.so` and installed (Linux); `docs/plans/mgba-netplay.md` |
+| `src/retro/port_input.hpp` | What a core's input reads (`PortInput`): `Joypad`, or `NetplayLink` in a session |
+| `src/retro/netplay_link.*` | `--netplay`: the session file read (`netplaySetupOf`), this machine's pad into `netplay::Session` each frame, the core's input from it, the system RAM's CRC-32 to compare |
+| `src/netplay/` | The session and its transport, no core or LAN knowledge above the seam (`docs/plans/mgba-netplay.md`) |
 | `src/retro/core.*` | One loaded core: `dlopen`, the `retro_*` symbols, init/load/run/unload in order, the callback trampolines |
 | `src/retro/core_environment.*` | The environment commands answered: directories, pixel format, core options, log, input descriptors, geometry and timing changes, the hardware-render commands (through its `HardwareRender`); anything else is refused |
 | `src/retro/core_options.*` | The core's option definitions (v0 variables, v1, v2) and their current values: the defaults, except a value the launch chose (`--option`) that the core offers for that key |
@@ -105,12 +108,13 @@ it. Only `presenter`, `frame_compositor`, `shader_chain`, `gpu_timer`, `reduced_
 `librashader_library`, `vulkan_device`
 and `hardware_render` (and through it `core_environment`) include Vulkan, only the last two
 `libretro_vulkan.h`, and only `presenter` uses SDL video; `audio_output` includes SDL audio;
-`joypad` uses SDL's scancode values only.
+`joypad` uses SDL's scancode values only. `netplay` (below) links `opensu::datagram` alone, not
+`stream`, so the runner carries no PipeWire or codecs.
 
 ## 4. Contracts
 
 **Command line.** `opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--settings
-<file>] [--option <key>=<value>]... [--players N] [--hidden] [--validate] [--frames N] [--frame-png <file>]
+<file>] [--option <key>=<value>]... [--players N] [--netplay <file>] [--hidden] [--validate] [--frames N] [--frame-png <file>]
 <rom>`. `--option` sets a core option for this run: the core's value for that key when it offers
 it, else (a warning logged) its default. `--settings` names a JSON
 object of resolved video settings (`{"video.aspect": "4:3", "video.integer": "off",
@@ -214,8 +218,21 @@ guests, each guest's `RemotePad` one more evdev pad. An analogue trigger is L2 o
 (`gamepad::triggerPressAt`). Both sticks are also `RETRO_DEVICE_ANALOG` (`gamepad::Pads::sticks`,
 on the virtual pad's -32768 to 32767, y down; of several pads, each axis the one furthest out);
 `RETRO_DEVICE_INDEX_ANALOG_BUTTON` reads 0. The control channel's pad (`POST /input`) is one more
-source beside the pads. There is no mouse, so `RETRO_DEVICE_POINTER` reads 0: melonDS DS's touch
+source beside the pads. Under `--netplay` the core reads `NetplayLink` instead (next section). There is no mouse, so `RETRO_DEVICE_POINTER` reads 0: melonDS DS's touch
 screen is its joystick mode, the right stick moving its cursor and R2 touching.
+
+**Netplay.** `--netplay <file>` makes this runner one machine of a session. The file is owner-only
+JSON: `{"slot": 0, "players": 2, "delay": 2, "port": 0, "peer": "192.168.1.2:4000", "sendKey": hex,
+"receiveKey": hex}`; without `peer` the runner learns it from the first datagram that opens. Every
+machine runs every player, so each must load the same ROM, core and options. Each frame the runner
+reads its pad (all of it, as port 0) for frame `f + delay`, sends it repeating the last 16 frames,
+and runs frame `f` only when every slot's input for it is in, resending every 8 ms while it waits.
+Every 120 frames each side sends the
+CRC-32 of `RETRO_MEMORY_SYSTEM_RAM`, not `retro_serialize`: mGBA's state holds its creation time. A
+core with no system RAM compares nothing. `GET_NETPLAY_CLIENT_INDEX` answers the slot. The session ends
+on Leave (SIGTERM or quit), on 5 s of silence (20 s before the first frame) or on a differing CRC;
+the runner logs `netplay: <how> after <n> frames, <n> stalls, <n> state checks matched`, writes its
+save RAM and exits 0.
 
 **Video settings.** Aspect (`core`: the core's `aspect_ratio`; `4:3`; `pixel`: 1:1 pixels;
 `stretch`: the whole target), integer scale (`off`; `on`: the largest whole multiple of the frame's
@@ -412,6 +429,7 @@ nothing more of a zip whose stamps all hold.
   save RAM round trip and atomic write, a smaller save into the RAM's start and a larger or
   unreadable one refused untouched, environment answers (an OpenGL context refused by name, a
   Vulkan one taken, Vulkan preferred).
+- `netplay_link_test`: the session file and what it refuses; `tests/netplay` the session itself.
 - `core_test` loads the fake core through `Core` with the real owners: frames, samples, the
   joypad and save RAM reach them, a second core and a missing library or ROM are `CoreError`s.
 - `runner_test` runs `opensu-retro --hidden --validate --frames 30 --frame-png` against the fake
