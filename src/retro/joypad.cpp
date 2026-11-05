@@ -58,17 +58,45 @@ std::optional<unsigned> Joypad::idOfKey(int scancode) {
     return std::nullopt;
 }
 
+std::optional<unsigned> Joypad::portOf(const std::string& source) const {
+    if (players_ == 1) {
+        return 0U;
+    }
+    const auto found = ports_.find(source);
+    return found == ports_.end() ? std::nullopt : std::optional<unsigned>{found->second};
+}
+
+std::optional<unsigned> Joypad::join(const std::string& source) {
+    if (const std::optional<unsigned> port = portOf(source)) {
+        return port;
+    }
+    for (unsigned port = 0; port < players_; ++port) {
+        if (std::ranges::none_of(ports_, [port](const auto& taken) {
+                return taken.second == port;
+            })) {
+            ports_.emplace(source, port);
+            return port;
+        }
+    }
+    return std::nullopt;
+}
+
+void Joypad::release(const std::string& source) {
+    pads_.erase(source);
+}
+
 void Joypad::apply(const gamepad::Event& event) {
     if (event.kind == gamepad::Event::Kind::Disconnected) {
-        pads_.erase(event.source);
+        release(event.source);
         sticks_.erase(event.source);
+        ports_.erase(event.source);
         return;
     }
     if (event.kind != gamepad::Event::Kind::Button) {
         return;
     }
     const std::optional<unsigned> id = idOf(event.button);
-    if (!id) {
+    if (!id || !join(event.source)) {
         return;
     }
     auto pad = pads_.find(event.source);
@@ -80,14 +108,19 @@ void Joypad::apply(const gamepad::Event& event) {
 }
 
 void Joypad::sticks(const std::string& source, const gamepad::Sticks& sticks) {
+    // A resting stick is no input, so a pad joins by moving one.
+    if (sticks != gamepad::Sticks{}) {
+        join(source);
+    } else if (!sticks_.contains(source)) {
+        return;
+    }
     sticks_.insert_or_assign(source, sticks);
 }
 
 void Joypad::hold(const std::string& source, std::span<const gamepad::Button> held) {
+    release(source);
     gamepad::Event event;
     event.source = source;
-    event.kind = gamepad::Event::Kind::Disconnected;
-    apply(event);
     event.kind = gamepad::Event::Kind::Button;
     event.pressed = true;
     for (const gamepad::Button button : held) {
@@ -102,12 +135,12 @@ void Joypad::key(int scancode, bool down) {
     }
 }
 
-std::uint16_t Joypad::mask() const {
+std::uint16_t Joypad::mask(unsigned port) const {
     std::uint16_t bits = 0;
     for (std::size_t id = 0; id < buttons; ++id) {
-        bool held = keys_[id];
+        bool held = port == 0 && keys_[id];
         for (const auto& [source, presses] : pads_) {
-            held = held || presses[id] > 0;
+            held = held || (presses[id] > 0 && portOf(source) == port);
         }
         if (held) {
             bits = static_cast<std::uint16_t>(bits | (1U << id));
@@ -116,8 +149,8 @@ std::uint16_t Joypad::mask() const {
     return bits;
 }
 
-std::int16_t Joypad::state(unsigned id) const {
-    const std::uint16_t bits = mask();
+std::int16_t Joypad::state(unsigned port, unsigned id) const {
+    const std::uint16_t bits = mask(port);
     if (id == RETRO_DEVICE_ID_JOYPAD_MASK) {
         return static_cast<std::int16_t>(bits);
     }
@@ -127,7 +160,7 @@ std::int16_t Joypad::state(unsigned id) const {
     return static_cast<std::int16_t>((bits >> id) & 1U);
 }
 
-std::int16_t Joypad::analog(unsigned index, unsigned id) const {
+std::int16_t Joypad::analog(unsigned port, unsigned index, unsigned id) const {
     // RETRO_DEVICE_INDEX_ANALOG_BUTTON, analogue buttons, is not reported.
     if (index > RETRO_DEVICE_INDEX_ANALOG_RIGHT || id > RETRO_DEVICE_ID_ANALOG_Y) {
         return 0;
@@ -136,6 +169,9 @@ std::int16_t Joypad::analog(unsigned index, unsigned id) const {
     const bool x = id == RETRO_DEVICE_ID_ANALOG_X;
     std::int32_t furthest = 0;
     for (const auto& [source, sticks] : sticks_) {
+        if (portOf(source) != port) {
+            continue;
+        }
         const std::int32_t value =
             left ? (x ? sticks.leftX : sticks.leftY) : (x ? sticks.rightX : sticks.rightY);
         if (std::abs(value) > std::abs(furthest)) {

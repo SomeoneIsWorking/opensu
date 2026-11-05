@@ -2,7 +2,7 @@
 // openSU launches like any other.
 //
 //   opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--settings <file>]
-//                [--option <key>=<value>]... [--hidden] [--validate] [--frames N]
+//                [--option <key>=<value>]... [--players N] [--hidden] [--validate] [--frames N]
 //                [--frame-png <file>] <rom>
 //
 // Exit status: 0 on quit, 1 for a bad command line or a window, Vulkan or frame-file failure, 2
@@ -25,6 +25,7 @@
 #include "config/config.hpp"
 #include "lucent/log.h"
 
+#include "retro/joypad.hpp"
 #include "retro/runner_app.hpp"
 #include "retro/save_paths.hpp"
 #include "settings/video_settings.hpp"
@@ -67,7 +68,7 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
             options.validation = true;
         } else if (arg == "--core" || arg == "--saves" || arg == "--system" ||
                    arg == "--settings" || arg == "--frame-png" || arg == "--frames" ||
-                   arg == "--option") {
+                   arg == "--option" || arg == "--players") {
             const std::optional<std::string> given = value();
             if (!given) {
                 return std::nullopt;
@@ -94,6 +95,17 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
                                                      given->substr(equals + 1));
             } else if (arg == "--frame-png") {
                 options.framePng = *given;
+            } else if (arg == "--players") {
+                unsigned players = 0;
+                const auto [end, error] =
+                    std::from_chars(given->data(), given->data() + given->size(), players);
+                if (error != std::errc{} || end != given->data() + given->size() || players == 0 ||
+                    players > opensu::retro::maxPlayers) {
+                    lucent::error("retro", "--players takes 1 to {}, not {}",
+                                  opensu::retro::maxPlayers, *given);
+                    return std::nullopt;
+                }
+                options.players = players;
             } else {
                 std::uint64_t frames = 0;
                 const auto [end, error] =
@@ -112,9 +124,11 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
         }
     }
     if (options.core.empty() || !rom) {
-        lucent::error("retro", "usage: opensu-retro --core <path.so> [--saves <dir>] "
-                               "[--system <dir>] [--settings <file>] [--option <key>=<value>]... "
-                               "[--hidden] [--validate] [--frames N] [--frame-png <file>] <rom>");
+        lucent::error("retro",
+                      "usage: opensu-retro --core <path.so> [--saves <dir>] "
+                      "[--system <dir>] [--settings <file>] [--option <key>=<value>]... "
+                      "[--players N] [--hidden] [--validate] [--frames N] [--frame-png <file>] "
+                      "<rom>");
         return std::nullopt;
     }
     if (options.framePng && !options.hidden) {

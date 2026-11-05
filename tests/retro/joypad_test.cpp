@@ -52,15 +52,15 @@ void mapping() {
 void state() {
     Joypad joypad;
     joypad.apply(press(Button::A, true, "/dev/input/event3"));
-    expect(joypad.state(RETRO_DEVICE_ID_JOYPAD_B) == 1, "a held button reads 1");
-    expect(joypad.state(RETRO_DEVICE_ID_JOYPAD_A) == 0, "another button reads 0");
+    expect(joypad.state(0, RETRO_DEVICE_ID_JOYPAD_B) == 1, "a held button reads 1");
+    expect(joypad.state(0, RETRO_DEVICE_ID_JOYPAD_A) == 0, "another button reads 0");
     joypad.key(SDL_SCANCODE_RETURN, true);
-    expect(joypad.state(RETRO_DEVICE_ID_JOYPAD_MASK) ==
+    expect(joypad.state(0, RETRO_DEVICE_ID_JOYPAD_MASK) ==
                ((1 << RETRO_DEVICE_ID_JOYPAD_B) | (1 << RETRO_DEVICE_ID_JOYPAD_START)),
            "the mask holds pad and keyboard buttons");
     joypad.key(SDL_SCANCODE_RETURN, false);
     joypad.apply(press(Button::A, false, "/dev/input/event3"));
-    expect(joypad.state(RETRO_DEVICE_ID_JOYPAD_MASK) == 0, "released buttons read 0");
+    expect(joypad.state(0, RETRO_DEVICE_ID_JOYPAD_MASK) == 0, "released buttons read 0");
 }
 
 void twoSources() {
@@ -69,40 +69,75 @@ void twoSources() {
     joypad.apply(press(Button::Up, true, "pad"));
     joypad.apply(press(Button::Up, true, "pad"));
     joypad.apply(press(Button::Up, false, "pad"));
-    expect(joypad.state(RETRO_DEVICE_ID_JOYPAD_UP) == 1, "Up stays held by its other source");
+    expect(joypad.state(0, RETRO_DEVICE_ID_JOYPAD_UP) == 1, "Up stays held by its other source");
     joypad.apply(press(Button::Up, false, "pad"));
-    expect(joypad.state(RETRO_DEVICE_ID_JOYPAD_UP) == 0, "Up is released by both");
+    expect(joypad.state(0, RETRO_DEVICE_ID_JOYPAD_UP) == 0, "Up is released by both");
     joypad.apply(press(Button::Start, true, "one"));
     joypad.apply(press(Button::Start, true, "two"));
     joypad.apply(press(Button::Start, false, "one"));
-    expect(joypad.state(RETRO_DEVICE_ID_JOYPAD_START) == 1, "a second pad keeps Start held");
+    expect(joypad.state(0, RETRO_DEVICE_ID_JOYPAD_START) == 1, "a second pad keeps Start held");
     Event gone;
     gone.kind = Event::Kind::Disconnected;
     gone.source = "two";
     joypad.apply(gone);
-    expect(joypad.state(RETRO_DEVICE_ID_JOYPAD_START) == 0, "a pad leaving lets its buttons go");
+    expect(joypad.state(0, RETRO_DEVICE_ID_JOYPAD_START) == 0, "a pad leaving lets its buttons go");
     joypad.apply(press(Button::Guide, true, "one"));
-    expect(joypad.state(RETRO_DEVICE_ID_JOYPAD_MASK) == 0, "Guide reaches no core button");
+    expect(joypad.state(0, RETRO_DEVICE_ID_JOYPAD_MASK) == 0, "Guide reaches no core button");
 }
 
 void sticks() {
     Joypad joypad;
     joypad.sticks("one", {.leftX = 1000, .leftY = -20000, .rightX = 0, .rightY = 0});
     joypad.sticks("two", {.leftX = -3000, .leftY = 0, .rightX = 0, .rightY = 32767});
-    expect(joypad.analog(RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X) == -3000,
+    expect(joypad.analog(0, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X) == -3000,
            "of two pads the stick further out wins");
-    expect(joypad.analog(RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y) == -20000,
+    expect(joypad.analog(0, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y) == -20000,
            "the left stick's y");
-    expect(joypad.analog(RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y) == 32767,
+    expect(joypad.analog(0, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y) == 32767,
            "the right stick's y");
-    expect(joypad.analog(RETRO_DEVICE_INDEX_ANALOG_BUTTON, RETRO_DEVICE_ID_JOYPAD_R2) == 0,
+    expect(joypad.analog(0, RETRO_DEVICE_INDEX_ANALOG_BUTTON, RETRO_DEVICE_ID_JOYPAD_R2) == 0,
            "analogue buttons read 0");
     Event gone;
     gone.kind = Event::Kind::Disconnected;
     gone.source = "two";
     joypad.apply(gone);
-    expect(joypad.analog(RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y) == 0,
+    expect(joypad.analog(0, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y) == 0,
            "a pad leaving centres its sticks");
+}
+
+void players() {
+    Joypad joypad{2};
+    joypad.sticks("one", {});
+    expect(!joypad.portOf("one"), "a pad that has done nothing plays on no port yet");
+    joypad.apply(press(Button::Start, true, "two"));
+    joypad.apply(press(Button::A, true, "one"));
+    expect(joypad.portOf("two") == 0U && joypad.portOf("one") == 1U,
+           "each pad takes the lowest free port when first heard from");
+    expect(joypad.state(0, RETRO_DEVICE_ID_JOYPAD_MASK) == (1 << RETRO_DEVICE_ID_JOYPAD_START) &&
+               joypad.state(1, RETRO_DEVICE_ID_JOYPAD_MASK) == (1 << RETRO_DEVICE_ID_JOYPAD_B),
+           "and each port reads only its own pad");
+    joypad.key(SDL_SCANCODE_X, true);
+    expect(joypad.state(0, RETRO_DEVICE_ID_JOYPAD_A) == 1 &&
+               joypad.state(1, RETRO_DEVICE_ID_JOYPAD_A) == 0,
+           "the keyboard is port 0");
+    joypad.apply(press(Button::Up, true, "three"));
+    expect(!joypad.portOf("three") && joypad.state(0, RETRO_DEVICE_ID_JOYPAD_UP) == 0 &&
+               joypad.state(1, RETRO_DEVICE_ID_JOYPAD_UP) == 0,
+           "a pad beyond the players plays on none");
+    joypad.hold("one", {});
+    expect(joypad.portOf("one") == 1U && joypad.state(1, RETRO_DEVICE_ID_JOYPAD_MASK) == 0,
+           "a pad letting go keeps its port");
+    joypad.sticks("one", {.leftX = 4000, .leftY = 0, .rightX = 0, .rightY = 0});
+    expect(joypad.analog(1, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X) == 4000 &&
+               joypad.analog(0, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X) == 0,
+           "sticks are per port too");
+    Event gone;
+    gone.kind = Event::Kind::Disconnected;
+    gone.source = "two";
+    joypad.apply(gone);
+    joypad.apply(press(Button::Up, true, "three"));
+    expect(joypad.portOf("three") == 0U && joypad.portOf("one") == 1U,
+           "a pad leaving frees its port for the next, and the others keep theirs");
 }
 
 } // namespace
@@ -112,6 +147,7 @@ int main() try {
     state();
     twoSources();
     sticks();
+    players();
     std::printf("joypad: all checks passed\n");
     return 0;
 } catch (...) {

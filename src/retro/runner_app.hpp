@@ -51,6 +51,8 @@ struct RunnerOptions {
     std::filesystem::path librashader;
     /// Core option values chosen for this launch (a GPU core's renderer among them).
     OptionValues coreOptions;
+    /// The ports pads are spread over (`Joypad`); 1 puts every pad on port 0.
+    unsigned players{1};
     /// The touch controls' art, where the runner draws its own (`shell_handoff`).
     std::filesystem::path touchArt;
 };

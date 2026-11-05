@@ -51,14 +51,27 @@ bool readStick(const nlohmann::json& posted, std::int32_t& x, std::int32_t& y) {
     return true;
 }
 
-/// The body of `POST /input`: `{"buttons": ["r2"], "left": [x, y], "right": [x, y]}`, each
-/// part optional; nothing when malformed or naming Guide, which belongs to the shell.
+/// The body of `POST /input`: `{"pad": "two", "buttons": ["r2"], "left": [x, y], "right": [x, y]}`
+/// or `{"pad": "two", "leave": true}`, each part optional; nothing when malformed or naming Guide,
+/// which belongs to the shell.
 std::optional<ControlInput> readInput(const std::string& body) {
     const nlohmann::json posted = nlohmann::json::parse(body, nullptr, false);
     if (!posted.is_object()) {
         return std::nullopt;
     }
     ControlInput input;
+    if (const auto pad = posted.find("pad"); pad != posted.end()) {
+        if (!pad->is_string() || pad->get<std::string>().empty()) {
+            return std::nullopt;
+        }
+        input.pad = pad->get<std::string>();
+    }
+    if (const auto leave = posted.find("leave"); leave != posted.end()) {
+        if (!leave->is_boolean()) {
+            return std::nullopt;
+        }
+        input.leave = leave->get<bool>();
+    }
     if (const auto buttons = posted.find("buttons"); buttons != posted.end()) {
         if (!buttons->is_array()) {
             return std::nullopt;
@@ -171,9 +184,9 @@ void ControlServer::serve(const std::function<ControlAnswer(const ControlRequest
     }
 }
 
-std::optional<ControlInput> ControlServer::takeInput() {
+std::vector<ControlInput> ControlServer::takeInput() {
     const std::lock_guard lock{mutex_};
-    return std::exchange(input_, std::nullopt);
+    return std::exchange(input_, {});
 }
 
 void ControlServer::reportLoadFailure(const std::filesystem::path& file,
@@ -245,10 +258,11 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
         std::optional<ControlInput> input = readInput(request.body);
         if (!input) {
             return text(400, "Bad Request",
-                        R"(expected {"buttons": [names], "left": [x, y], "right": [x, y]})");
+                        R"(expected {"pad": name, "buttons": [names], "left": [x, y], )"
+                        R"("right": [x, y], "leave": true})");
         }
         const std::lock_guard lock{mutex_};
-        input_ = std::move(input);
+        input_.push_back(std::move(*input));
         return text(200, "OK", "held");
     }
     if (path == "/frame.png") {

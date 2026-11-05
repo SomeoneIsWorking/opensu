@@ -59,10 +59,13 @@ struct ControlAnswer {
     std::string json{};
 };
 
-/// What `POST /input` holds on the control pad until the next one: its buttons and sticks.
+/// What `POST /input` holds on a control pad until the next one: its buttons and sticks, or its
+/// leaving. Each named pad is a pad of its own; the unnamed one is the control pad.
 struct ControlInput {
+    std::string pad;
     std::vector<gamepad::Button> buttons;
     gamepad::Sticks sticks;
+    bool leave{false};
 };
 
 class ControlServer {
@@ -92,7 +95,7 @@ class ControlServer {
     void serve(const std::function<ControlAnswer(const ControlRequest&)>& perform);
 
     /// The control pad's input posted since the last call, if any. Frame loop only.
-    [[nodiscard]] std::optional<ControlInput> takeInput();
+    [[nodiscard]] std::vector<ControlInput> takeInput();
 
     /// Leaves `{"error": reason}` in `file` for the shell, which removes it; logged when it cannot.
     static void reportLoadFailure(const std::filesystem::path& file, const std::string& reason);
@@ -121,7 +124,7 @@ class ControlServer {
     bool hasState_{false};
     ResumeReport resume_;
     bool announced_{false};
-    std::optional<ControlInput> input_;
+    std::vector<ControlInput> input_;
     /// Last, so its handler threads stop before the members they use go.
     lucent::http::Server server_;
 };

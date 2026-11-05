@@ -86,8 +86,16 @@ std::unique_ptr<AudioOutput> openAudio(AudioSink& sink, bool hidden) {
 
 /// The control channel's pad holds `held` alone: what it held before is let go.
 void holdControlPad(Joypad& joypad, const ControlInput& held) {
-    joypad.hold("control", held.buttons);
-    joypad.sticks("control", held.sticks);
+    const std::string source = held.pad.empty() ? "control" : "control:" + held.pad;
+    if (held.leave) {
+        gamepad::Event gone;
+        gone.kind = gamepad::Event::Kind::Disconnected;
+        gone.source = source;
+        joypad.apply(gone);
+        return;
+    }
+    joypad.hold(source, held.buttons);
+    joypad.sticks(source, held.sticks);
     lucent::info("retro", "control pad holds {} buttons, left stick {},{}, right stick {},{}",
                  held.buttons.size(), held.sticks.leftX, held.sticks.leftY, held.sticks.rightX,
                  held.sticks.rightY);
@@ -146,7 +154,7 @@ RunnerExit RunnerApp::run() {
     HardwareRender& hardware = environment.hardware();
     VideoFrame video;
     AudioSink sink{outputRate, audioTarget};
-    Joypad joypad;
+    Joypad joypad{options_.players};
     std::unique_ptr<Core> core;
     try {
         core = std::make_unique<Core>(options_.core, CoreHost{environment, video, sink, joypad});
@@ -317,8 +325,8 @@ RunnerExit RunnerApp::run() {
         }
 
         if (control) {
-            if (const std::optional<ControlInput> held = control->takeInput()) {
-                holdControlPad(joypad, *held);
+            for (const ControlInput& held : control->takeInput()) {
+                holdControlPad(joypad, held);
             }
             control->serve([&commands](const ControlRequest& request) {
                 return commands.perform(request);

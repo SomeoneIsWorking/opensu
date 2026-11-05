@@ -195,14 +195,11 @@ void Core::audio(std::span<const std::int16_t> interleaved) {
 }
 
 std::int16_t Core::input(const InputQuery& query) const {
-    if (query.port != 0) {
-        return 0;
-    }
     switch (query.device & RETRO_DEVICE_MASK) {
     case RETRO_DEVICE_JOYPAD:
-        return host_.joypad.state(query.id);
+        return host_.joypad.state(query.port, query.id);
     case RETRO_DEVICE_ANALOG:
-        return host_.joypad.analog(query.index, query.id);
+        return host_.joypad.analog(query.port, query.index, query.id);
     default:
         return 0;
     }
