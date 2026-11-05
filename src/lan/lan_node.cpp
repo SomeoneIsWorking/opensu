@@ -93,7 +93,7 @@ LanNode::LanNode(Setup setup)
         return linkTo(host, why);
     };
     imports_ = std::make_unique<RomImport>(std::move(roms), web_);
-    saves_.setTargets(std::string{savesGroup}, [this] {
+    saves_.setTargets(savesGroup, [this] {
         std::vector<std::shared_ptr<save_sync::SaveTarget>> targets;
         for (Peer& peer : book_.paired()) {
             targets.push_back(
@@ -109,7 +109,7 @@ LanNode::LanNode(Setup setup)
 }
 
 LanNode::~LanNode() {
-    saves_.setTargets(std::string{savesGroup}, {});
+    saves_.setTargets(savesGroup, {});
     imports_.reset();
     worker_.request_stop();
     wake_.notify_all();

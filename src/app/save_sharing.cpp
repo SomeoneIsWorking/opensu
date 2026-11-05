@@ -86,14 +86,14 @@ void SaveSharing::share(const settings::Settings& settings) {
         break;
     }
     if (share == nullptr) {
-        sync_->setTargets(std::string{shareGroup}, {});
+        sync_->setTargets(shareGroup, {});
         return;
     }
     const std::string id = "share:" + share->where();
     lucent::info("saves", "sharing saves with {} at {}", name, share->where());
     const auto target = std::make_shared<save_sync::ShareTarget>(
         id, name, std::move(share), secretOf(secrets_, sharePassphraseSecret));
-    sync_->setTargets(std::string{shareGroup}, [target] {
+    sync_->setTargets(shareGroup, [target] {
         return std::vector<std::shared_ptr<save_sync::SaveTarget>>{target};
     });
 }

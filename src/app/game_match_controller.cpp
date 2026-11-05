@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <string_view>
 #include <system_error>
 #include <utility>
 
@@ -174,21 +175,27 @@ void GameMatchController::findSteamApps(const std::stop_token& stop, const std::
 void GameMatchController::findBoxArt(const std::stop_token& stop, const std::string& term,
                                      Found& found) {
     const library::roms::RomSystem* system = library::roms::systemByKey(game_.sourceId);
-    const net::WebClient web;
-    net::Result<std::vector<std::string>> names = net::Failure{"no libretro system"};
-    if (system != nullptr) {
-        names = artwork::boxArtNames(stop, web, listings_, *system, places_.libretro);
+    const auto unlisted = [this, &found](std::string_view why) {
+        lucent::warn("match", "libretro-thumbnails listing: {}", why);
+        found.searched = true;
+        found.error = "libretro-thumbnails cannot be reached";
+        publish(found);
+    };
+    if (system == nullptr) {
+        unlisted("no libretro system");
+        return;
     }
+    const net::WebClient web;
+    net::Result<std::vector<std::string>> names =
+        artwork::boxArtNames(stop, web, listings_, *system, places_.libretro);
     if (names.stopped()) {
         return;
     }
-    found.searched = true;
     if (!names) {
-        lucent::warn("match", "libretro-thumbnails listing: {}", names.error());
-        found.error = "libretro-thumbnails cannot be reached";
-        publish(found);
+        unlisted(names.error());
         return;
     }
+    found.searched = true;
     std::vector<std::string> titles;
     for (std::string asked = term; !asked.empty() && titles.empty();) {
         titles = artwork::namesMatching(asked, *names, mostCandidates);

@@ -27,6 +27,7 @@
 #include <set>
 #include <stop_token>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -106,7 +107,7 @@ class SaveSync {
     void know(const std::vector<library::Game>& games, library::roms::EmulatorCatalog catalog);
     /// `targets` lists `group`'s targets from now on; an empty one drops the group. Returns once
     /// no sync uses the group's earlier targets.
-    void setTargets(const std::string& group, Targets targets);
+    void setTargets(std::string_view group, Targets targets);
 
     // A target asks, on its own threads.
     /// The version of `key`'s saves here; nothing when no game here has that key.

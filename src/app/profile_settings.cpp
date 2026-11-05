@@ -118,7 +118,7 @@ void ProfileSettings::askUnlink(std::string_view link) {
                            "Both keep " + profile->name +
                                " as a profile of their own, with the saves each has now; "
                                "from then on its saves no longer sync.",
-                           "Unlink", [this, id = profile->id, peer] {
+                           "Unlink", [this, id = profile->id, peer = peer] {
                                hooks_.unlink(id, peer);
                            }));
 }

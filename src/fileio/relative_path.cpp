@@ -4,7 +4,7 @@
 
 namespace opensu::fileio {
 
-bool staysInside(std::string_view path) noexcept {
+bool staysInside(std::string_view path) {
     if (path.empty()) {
         return true;
     }

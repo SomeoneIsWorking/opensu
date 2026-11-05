@@ -50,23 +50,23 @@ void LanProfiles::ask(const std::string& peerId) {
     if (listing.asking) {
         return;
     }
-    const bool asked = lan_.askPeers(
-        [arrived = arrived_, peerId](const lan::LanNode& node, const std::stop_token& stop) {
-            Listing answer;
-            std::string error;
-            std::optional<std::vector<lan::wire::ListedProfile>> got =
-                node.profilesOf(stop, peerId, error);
-            if (stop.stop_requested()) {
-                return;
-            }
-            if (got) {
-                answer.profiles = std::move(*got);
-            } else {
-                answer.error = error.empty() ? std::string{"it did not answer"} : std::move(error);
-            }
-            const std::lock_guard lock{arrived->mutex};
-            arrived->listings.emplace_back(peerId, std::move(answer));
-        });
+    const bool asked = lan_.askPeers([arrived = arrived_, peerId = peerId](
+                                         const lan::LanNode& node, const std::stop_token& stop) {
+        Listing answer;
+        std::string error;
+        std::optional<std::vector<lan::wire::ListedProfile>> got =
+            node.profilesOf(stop, peerId, error);
+        if (stop.stop_requested()) {
+            return;
+        }
+        if (got) {
+            answer.profiles = std::move(*got);
+        } else {
+            answer.error = error.empty() ? std::string{"it did not answer"} : std::move(error);
+        }
+        const std::lock_guard lock{arrived->mutex};
+        arrived->listings.emplace_back(peerId, std::move(answer));
+    });
     listing.asking = asked;
     if (!asked) {
         listing.error =
@@ -132,7 +132,7 @@ void LanProfiles::run(const std::string& id) {
 }
 
 void LanProfiles::copy(const std::string& peerId, const lan::wire::ListedProfile& profile) {
-    const bool asked = lan_.askPeers([arrived = arrived_, peerId, profile](
+    const bool asked = lan_.askPeers([arrived = arrived_, peerId = peerId, profile = profile](
                                          const lan::LanNode& node, const std::stop_token& stop) {
         Arrived::Copy outcome{.peerId = peerId, .profile = std::nullopt, .refusal = {}};
         std::string error;
@@ -211,8 +211,9 @@ void LanProfiles::unlink(const std::string& profileId, const std::string& peerId
         hooks_.refresh();
         return;
     }
-    const bool asked = lan_.askPeers([arrived = arrived_, peerId, profileId,
-                                      host](const lan::LanNode& node, const std::stop_token& stop) {
+    const bool asked = lan_.askPeers([arrived = arrived_, peerId = peerId, profileId = profileId,
+                                      host = host](const lan::LanNode& node,
+                                                   const std::stop_token& stop) {
         std::string why;
         const bool done = node.unlink(stop, peerId, profileId, why);
         const std::lock_guard lock{arrived->mutex};

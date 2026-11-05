@@ -145,8 +145,8 @@ void LanRoms::ask(const std::string& peerId) {
         return;
     }
     const bool asked = lan_.askRoms(
-        peerId, [arrived = arrived_, peerId](std::optional<std::vector<lan::wire::RomConsole>> got,
-                                             std::string error) {
+        peerId, [arrived = arrived_, peerId = peerId](
+                    std::optional<std::vector<lan::wire::RomConsole>> got, std::string error) {
             Listing answer;
             if (got) {
                 answer.consoles = std::move(*got);
@@ -496,7 +496,7 @@ void LanRoms::startImport(const std::string& peerId) {
     request.refusal = [](const fs::path& folder) {
         return settings::refusal(folder, settings::Need::Write);
     };
-    request.done = [this, peerId](const std::optional<fs::path>& folder) {
+    request.done = [this, peerId = peerId](const std::optional<fs::path>& folder) {
         if (!folder) {
             return;
         }

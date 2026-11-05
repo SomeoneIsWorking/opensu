@@ -9,6 +9,6 @@ namespace opensu::fileio {
 
 /// Whether `path` stays inside the folder it is taken under: empty, or relative and `/`-separated
 /// with no empty, `.` or `..` step, no backslash, drive colon or NUL.
-[[nodiscard]] bool staysInside(std::string_view path) noexcept;
+[[nodiscard]] bool staysInside(std::string_view path);
 
 } // namespace opensu::fileio

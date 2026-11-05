@@ -74,13 +74,13 @@ void SaveSync::know(const std::vector<library::Game>& games,
     catalog_ = std::move(catalog);
 }
 
-void SaveSync::setTargets(const std::string& group, Targets targets) {
+void SaveSync::setTargets(std::string_view group, Targets targets) {
     {
         const std::lock_guard lock{mutex_};
         if (targets) {
-            groups_.insert_or_assign(group, std::move(targets));
-        } else {
-            groups_.erase(group);
+            groups_.insert_or_assign(std::string{group}, std::move(targets));
+        } else if (const auto found = groups_.find(group); found != groups_.end()) {
+            groups_.erase(found);
         }
     }
     const std::lock_guard between{job_};
