@@ -181,6 +181,13 @@ std::filesystem::path librashaderBeside(const std::filesystem::path& executable)
     return executable.parent_path().parent_path() / OPENSU_LIBRASHADER_RELATIVE;
 }
 
+std::filesystem::path shippedCoresBeside(const std::filesystem::path& executable) {
+    if (executable.empty()) {
+        return {};
+    }
+    return executable.parent_path().parent_path() / OPENSU_SHIPPED_CORES_RELATIVE;
+}
+
 Config read() {
     Config value;
     // Windows sets USERPROFILE, not HOME.
@@ -200,6 +207,7 @@ Config read() {
     value.gamescope = layout.gamescope;
     value.retroRunner = layout.retroRunner;
     value.librashader = layout.librashader;
+    value.shippedCores = layout.shippedCores;
     const auto base = [&value](const char* variable, const char* fallback) {
         const std::string_view set = env(variable);
         return set.empty() ? value.home / fallback : std::filesystem::path{set};

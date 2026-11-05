@@ -40,6 +40,11 @@ void shippedCatalogParses() {
                mgba->serves("gb") && mgba->serves("gbc") && mgba->serves("gba") &&
                mgba->launchers.empty() && !mgba->release && mgba->downloadable(),
            "a built-in emulator names its core and is downloadable");
+    const EmulatorEntry* link = catalog.find("mgba-link-core");
+    expect(link != nullptr && link->core == "mgba_link_libretro" && link->shipped &&
+               link->serves("gba") && !link->serves("gb") && !link->downloadable() &&
+               !mgba->shipped,
+           "the mGBA link core ships with openSU, for GBA, and is never downloaded");
     expect(catalog.find("mgba") != nullptr && !catalog.find("mgba")->builtIn(),
            "the standalone mGBA stays beside it");
     for (const char* id : {"fbneo-core", "mame2003-plus-core", "mame2010-core", "mame-core"}) {

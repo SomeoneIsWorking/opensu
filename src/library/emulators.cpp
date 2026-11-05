@@ -140,6 +140,9 @@ std::optional<EmulatorInstall> locateCore(const EmulatorEntry& entry,
     }
     const std::string file = core->file.string();
     const bool ours = core->downloaded.has_value();
+    const InstallSource source = ours            ? InstallSource::DownloadedCore
+                                 : core->shipped ? InstallSource::ShippedCore
+                                                 : InstallSource::Core;
     std::vector<std::string> command{search.runner.string(), "--core", file};
     if (search.hiddenRunner) {
         command.emplace_back("--hidden");
@@ -149,7 +152,7 @@ std::optional<EmulatorInstall> locateCore(const EmulatorEntry& entry,
     }
     command.emplace_back("{rom}");
     return EmulatorInstall{entry.id,
-                           ours ? InstallSource::DownloadedCore : InstallSource::Core,
+                           source,
                            file,
                            ours ? core->downloaded->date : std::string{},
                            std::move(command),
@@ -229,6 +232,8 @@ std::string_view label(InstallSource source) {
         return "Android app";
     case InstallSource::DownloadedCore:
         return "libretro buildbot";
+    case InstallSource::ShippedCore:
+        return "openSU";
     case InstallSource::Core:
         return "Core";
     }
@@ -241,7 +246,8 @@ bool downloadedByOpensu(InstallSource source) noexcept {
 
 EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& dataDir,
                                         std::vector<fs::path> executablePath, fs::path runner,
-                                        fs::path system, bool hiddenRunner) {
+                                        fs::path system, const fs::path& shippedCores,
+                                        bool hiddenRunner) {
     FuseSupport fuse = FuseSupport::detect(executablePath);
     return EmulatorSearch{
         .executablePath = std::move(executablePath),
@@ -250,7 +256,7 @@ EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& da
         .androidApps = installedAndroidApps(),
         .downloads = DownloadedEmulators::under(dataDir).root(),
         .fuse = std::move(fuse),
-        .cores = CoreSearch::standard(home, dataDir),
+        .cores = CoreSearch::standard(home, dataDir, shippedCores),
         .runner = std::move(runner),
         .system = std::move(system),
         .hiddenRunner = hiddenRunner,
@@ -261,7 +267,7 @@ EmulatorSetup EmulatorSetup::standard(const config::Config& config, bool hidden,
     return EmulatorSetup{.catalog = EmulatorCatalog::shipped(config.assetsDir, config.home),
                          .search = EmulatorSearch::standard(
                              config.home, config.dataDir, config.executablePath, config.retroRunner,
-                             config.retroSystemDir,
+                             config.retroSystemDir, config.shippedCores,
                              // Inside a Gamescope its window reaches that Gamescope's screen alone.
                              hidden && !config.insideGamescope),
                          .overrides = config.emulators,
@@ -284,7 +290,7 @@ Emulators Emulators::discover(EmulatorCatalog catalog, const EmulatorSearch& sea
                          install->problem);
         }
         for (const std::string& system : entry.systems) {
-            if (install->problem.empty() && !found.commands_.contains(system)) {
+            if (install->problem.empty() && !entry.shipped && !found.commands_.contains(system)) {
                 lucent::info("roms", "{} runs {} games: {}", entry.name, system,
                              install->command.front());
                 found.commands_.emplace(system, install->command);

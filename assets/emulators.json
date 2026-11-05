@@ -255,6 +255,14 @@
       "withoutBios": "hle"
     },
     {
+      "id": "mgba-link-core",
+      "name": "mGBA link (built-in)",
+      "systems": ["gba"],
+      "core": "mgba_link_libretro",
+      "withoutBios": "hle",
+      "shipped": true
+    },
+    {
       "id": "gambatte-core",
       "name": "Gambatte (built-in)",
       "systems": ["gb", "gbc"],

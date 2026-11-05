@@ -42,6 +42,17 @@ std::string text(const json& object, const char* key, const std::string& where, 
     return found->get<std::string>();
 }
 
+bool flag(const json& object, const char* key, const std::string& where) {
+    const auto found = object.find(key);
+    if (found == object.end()) {
+        return false;
+    }
+    if (!found->is_boolean()) {
+        throw Malformed{where + ": \"" + key + "\" is not true or false"};
+    }
+    return found->get<bool>();
+}
+
 std::vector<std::string> words(const json& object, const char* key, const std::string& where) {
     const auto found = object.find(key);
     if (found == object.end()) {
@@ -185,6 +196,7 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::size_t inde
         checkCore(object, entry.core, where);
         entry.romsets = romsetsOf(object, where);
         entry.coreOptions = coreOptionsOf(object, where);
+        entry.shipped = flag(object, "shipped", where);
         const std::string without = text(object, "withoutBios", where, false);
         const std::optional<WithoutBios> mode =
             without.empty() ? WithoutBios::Needed : withoutBiosNamed(without);
@@ -201,9 +213,9 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::size_t inde
         return entry;
     }
     if (object.contains("withoutBios") || object.contains("biosScan") ||
-        object.contains("coreOptions")) {
-        throw Malformed{where + ": \"withoutBios\", \"biosScan\" and \"coreOptions\" are for a "
-                                "built-in emulator's core"};
+        object.contains("coreOptions") || object.contains("shipped")) {
+        throw Malformed{where + ": \"withoutBios\", \"biosScan\", \"coreOptions\" and \"shipped\" "
+                                "are for a built-in emulator's core"};
     }
     const auto launchers = object.find("launchers");
     if (launchers == object.end() || !launchers->is_array() || launchers->empty()) {

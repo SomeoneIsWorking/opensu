@@ -46,13 +46,14 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | --- | --- |
 | `cmake/Libretro.cmake` | `libretro.h` and `libretro_vulkan.h` (MIT) from libretro-common at a pinned commit, SHA-256 checked |
 | `cmake/Librashader.cmake`, `cmake/thirdparty/` | librashader from the `SomeoneIsWorking/librashader` fork at the commit `cmake/ThirdParty.cmake` pins: its header (MIT, SHA-256 checked), and `librashader-capi` built with cargo (Rust 1.88 or newer; for Windows or an Android ABI cross-built for its target) once into the shared third-party prefix, found there, staged in the build tree as `<libdir>/opensu/librashader.so` and installed; the APK carries it beside the runner |
+| `cmake/MgbaLink.cmake`, `cmake/thirdparty/MgbaLink.cmake` | The mGBA link core (`SomeoneIsWorking/mgba` at the `opensu` branch commit `cmake/ThirdParty.cmake` pins; libretro/mgba PR #318's splitscreen multiplayer) built with mGBA's CMake (`-DLIBMGBA_ONLY=ON -DBUILD_LIBRETRO=ON`) once into the shared prefix, installed there renamed `mgba_link_libretro`, staged as `<libdir>/opensu/cores/mgba_link_libretro.so` and installed (Linux); `docs/plans/mgba-netplay.md` |
 | `src/retro/core.*` | One loaded core: `dlopen`, the `retro_*` symbols, init/load/run/unload in order, the callback trampolines |
 | `src/retro/core_environment.*` | The environment commands answered: directories, pixel format, core options, log, input descriptors, geometry and timing changes, the hardware-render commands (through its `HardwareRender`); anything else is refused |
 | `src/retro/core_options.*` | The core's option definitions (v0 variables, v1, v2) and their current values: the defaults, except a value the launch chose (`--option`) that the core offers for that key |
 | `src/retro/hardware_render.*` | A GPU core: `SET_HW_RENDER` (Vulkan taken, any other context refused with its name kept as the load failure's reason), `GET_PREFERRED_HW_RENDER` (Vulkan), the context negotiation interface kept for the device, `GET_HW_RENDER_INTERFACE` (`retro_hw_render_interface_vulkan` on the presenter's instance, device and queue), `set_image`, semaphores, command buffers, the signal semaphore, the queue lock, the sync index; `context_reset` once the presenter is up, `context_destroy` before the game is unloaded; the image of each `RETRO_HW_FRAME_BUFFER_VALID` frame, kept for duplicated frames |
 | `src/retro/video_frame.*` | A frame in the core's pixel format (0RGB1555, XRGB8888, RGB565) to RGBA, duplicate frames kept |
 | `src/retro/audio_sink.*` | The core's samples into a ring, resampled with dynamic rate control so the buffer stays near its target |
-| `src/retro/joypad.*` | The pads' controls (`gamepad::Button`) and the keyboard to `RETRO_DEVICE_JOYPAD` state, one fixed mapping; the pads' sticks (`gamepad::Sticks`) to `RETRO_DEVICE_ANALOG` |
+| `src/retro/joypad.*` | The pads' controls (`gamepad::Button`) and the keyboard to `RETRO_DEVICE_JOYPAD` state, one fixed mapping; the pads' sticks (`gamepad::Sticks`) to `RETRO_DEVICE_ANALOG`; which port each pad plays on (**Input**) |
 | `src/retro/save_memory.*` | The core's save RAM: loaded before the first frame (a smaller file into its start; a larger or unreadable one refused and never written over), written atomically when it changes (checked once a second) and at exit |
 | `src/retro/audio_output.*` | Where the sink's frames go: the default playback device (SDL audio stream, pulled on SDL's thread), or, hidden, drained by the clock at the output rate with nothing played |
 | `src/retro/presenter.*` | The only owner of the SDL window and Vulkan presentation: window events, swapchain (recreated on resize or out-of-date), each frame's command buffer, submission (a GPU core's semaphores waited, its command buffers first, its signal semaphore signalled) and present; hidden, an offscreen image instead of a swapchain, read back for `--frame-png`; the wait on the last frame a core's `wait_sync_index` is |
@@ -84,7 +85,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/app/core_option_store.*` | Each core's option definitions as last seen, for editing while nothing runs |
 | `src/app/shader_preset_tree.*` | The shader pack's folder tree and a preset's label; the picker is `ShaderPresetScreen` in `layered_editor` |
 | `src/library/shader_pack.*` | libretro's `shaders_slang.zip`: the latest build (HEAD: `Last-Modified` and size), the download checked by length and each member's CRC-32, unpacked into `<data>/opensu/shaders/slang/` with its record, removal, the presets it holds |
-| `src/library/libretro_cores.*` | Finding a core and its info file; core downloads from the libretro buildbot under `<data>/opensu/cores/`, with their info and record |
+| `src/library/libretro_cores.*` | Finding a core (openSU's downloads, the cores it ships, RetroArch's and the system's folders) and its info file; core downloads from the libretro buildbot under `<data>/opensu/cores/`, with their info and record |
 | `src/library/core_bios.*` | A core's BIOS files from its core info, what it does without them, which are in the system folder |
 | `src/library/romset_dat.*` | An arcade core's ROM-set listing: a Logiqx datafile or MAME `-listxml` parsed, its line format under the cache |
 | `src/library/romset_dats.*` | The arcade cores' listings fetched over HTTPS from the catalog's `"romsets"` and kept under `<cache>/romsets/` for 30 days |
@@ -109,7 +110,7 @@ and `hardware_render` (and through it `core_environment`) include Vulkan, only t
 ## 4. Contracts
 
 **Command line.** `opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--settings
-<file>] [--option <key>=<value>]... [--hidden] [--validate] [--frames N] [--frame-png <file>]
+<file>] [--option <key>=<value>]... [--players N] [--hidden] [--validate] [--frames N] [--frame-png <file>]
 <rom>`. `--option` sets a core option for this run: the core's value for that key when it offers
 it, else (a warning logged) its default. `--settings` names a JSON
 object of resolved video settings (`{"video.aspect": "4:3", "video.integer": "off",
@@ -155,7 +156,7 @@ cannot be set up (exit 1), it writes `{"error": "<reason>"}` there instead and l
 | `POST /reset` | 200 after `retro_reset` |
 | `POST /video` | 200 once the video settings in the body (`settings::videoJson`, the `--settings` file's format) are drawn from the next frame; 400 for a body that does not parse; 409 with the reason when the shader preset cannot be built, the settings drawn before kept |
 | `GET /frame.png` | The last frame shown as PNG, letterboxing included (hidden runs only; 409 otherwise) |
-| `POST /input` | 200: the control pad holds `{"buttons": [names], "left": [x, y], "right": [x, y]}` (each part optional, sticks from -1 to 1, y down) until the next post, `{}` letting go; 400 for anything else or Guide |
+| `POST /input` | 200: a control pad holds `{"pad": name, "buttons": [names], "left": [x, y], "right": [x, y]}` (each part optional, sticks from -1 to 1, y down) until its next post, `{}` letting go, `{"pad": name, "leave": true}` leaving; without `"pad"` it is the one control pad, each name a pad of its own; 400 for anything else or Guide |
 
 Every route but `GET /status` and `POST /input` is queued for the frame loop, which runs it between frames, never beside `retro_run`;
 the request waits for the answer, and is answered 503 when the loop has not taken it within 3 s or
@@ -203,7 +204,12 @@ through the same translator (`gamepad::Pads` with `OwnVirtualPads::Read`, never 
 positions follow the Xbox layout: A (bottom) is libretro's B, B is A, X (left) is Y, Y is X; L1/R1
 are L/R, L2/R2, L3/R3, Select, Start and the d-pad and left stick are themselves; Guide reaches no
 core. Keyboard: arrows, Z (B), X (A), A (Y), S (X), Q/W (L/R), Enter (Start), Right Shift (Select);
-Escape quits. Port 0 only. An analogue trigger is L2 or R2 past half its travel
+Escape quits. With `--players 1` (the default) every pad, the keyboard, the touch layer and the
+control pads are port 0. With `--players N` each pad (a real or virtual evdev pad, the touch layer,
+each named control pad) takes the lowest free port of the N when it first presses a button or
+moves a stick, keeps it until it leaves, and a pad beyond N plays on none; the keyboard is port 0.
+In the shell a Game claim gives each real pad its own virtual pad, so each player's pad is a port
+of its own. An analogue trigger is L2 or R2 past half its travel
 (`gamepad::triggerPressAt`). Both sticks are also `RETRO_DEVICE_ANALOG` (`gamepad::Pads::sticks`,
 on the virtual pad's -32768 to 32767, y down; of several pads, each axis the one furthest out);
 `RETRO_DEVICE_INDEX_ANALOG_BUTTON` reads 0. The control channel's pad (`POST /input`) is one more

@@ -9,6 +9,8 @@ set(OPENSU_LIBRASHADER_REPOSITORY "https://github.com/SomeoneIsWorking/librashad
 set(OPENSU_LIBRASHADER_COMMIT "41211fab77a19f4387d55ffffcb713ca1db7cf32")
 set(OPENSU_GAMESCOPE_REPOSITORY "https://github.com/SomeoneIsWorking/gamescope.git")
 set(OPENSU_GAMESCOPE_COMMIT "93e22887f846ba1445d7d99794f573c90ec04a08")
+set(OPENSU_MGBA_LINK_REPOSITORY "https://github.com/SomeoneIsWorking/mgba.git")
+set(OPENSU_MGBA_LINK_COMMIT "72bea0c51b68989169343f0dcc20e91319c7602a")
 
 # Finds `package` (its variables set in the caller's scope); a prefix built from other pins is
 # refused rather than shipped.

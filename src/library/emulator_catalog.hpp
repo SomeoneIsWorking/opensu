@@ -114,6 +114,9 @@ struct EmulatorEntry {
     BiosScan biosScan{BiosScan::Listed};
     /// Core options it starts with (`"coreOptions"`): a GPU core's Vulkan renderer.
     std::vector<CoreOption> coreOptions;
+    /// Its core ships with openSU (`"shipped"`) rather than coming from the buildbot; it serves a
+    /// game only when picked.
+    bool shipped{false};
 
     [[nodiscard]] bool serves(std::string_view system) const;
     [[nodiscard]] bool builtIn() const noexcept {
@@ -122,9 +125,9 @@ struct EmulatorEntry {
     /// Its name without the catalog's " (built-in)" mark, where the context says it is the core:
     /// "mGBA" for "mGBA (built-in)".
     [[nodiscard]] std::string_view shortName() const noexcept;
-    /// Whether openSU can download it: an official AppImage or a core.
+    /// Whether openSU can download it: an official AppImage or a buildbot core.
     [[nodiscard]] bool downloadable() const noexcept {
-        return release.has_value() || builtIn();
+        return release.has_value() || (builtIn() && !shipped);
     }
 };
 

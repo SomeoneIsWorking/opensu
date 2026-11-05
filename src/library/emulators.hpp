@@ -5,8 +5,9 @@
 // it is in one of the usual folders, its Flatpak is installed, or its Android app is; the first
 // found is the one that runs. A built-in emulator is installed when its core is found
 // (`libretro_cores`) and runs on openSU's runner, `opensu-retro`. The first emulator of the catalog
-// found for a system serves it, and an override from configuration replaces the search for its
-// system.
+// found for a system serves it, except a core openSU ships, which serves a game only when picked
+// (the mGBA link core, for linked play); an override from configuration replaces the search for
+// its system.
 #pragma once
 
 #include <cstdint>
@@ -52,14 +53,15 @@ struct EmulatorSearch {
 
     /// PATH, then openSU's downloads under `dataDir`, ~/Applications, ~/AppImages and
     /// ~/.local/bin for AppImages, then the user's and the system's Flatpak installations; cores
-    /// as `CoreSearch::standard` looks for them, run by `runner` with BIOS files in `system`,
+    /// as `CoreSearch::standard` looks for them (openSU's own in `shippedCores`), run by `runner`
+    /// with BIOS files in `system`,
     /// hidden when `hiddenRunner`; the shell names each launch's saves folder
     /// (`prepareRetroLaunch`).
-    [[nodiscard]] static EmulatorSearch standard(const std::filesystem::path& home,
-                                                 const std::filesystem::path& dataDir,
-                                                 std::vector<std::filesystem::path> executablePath,
-                                                 std::filesystem::path runner,
-                                                 std::filesystem::path system, bool hiddenRunner);
+    [[nodiscard]] static EmulatorSearch
+    standard(const std::filesystem::path& home, const std::filesystem::path& dataDir,
+             std::vector<std::filesystem::path> executablePath, std::filesystem::path runner,
+             std::filesystem::path system, const std::filesystem::path& shippedCores,
+             bool hiddenRunner);
 };
 
 /// How an emulator got onto this machine.
@@ -75,6 +77,8 @@ enum class InstallSource : std::uint8_t {
     AndroidApp,
     /// A core openSU downloaded from the libretro buildbot.
     DownloadedCore,
+    /// A core openSU ships (`config::Config::shippedCores`).
+    ShippedCore,
     /// A core in RetroArch's or the system's core folder.
     Core,
 };

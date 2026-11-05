@@ -1,7 +1,8 @@
 // install_layout — where openSU's own files are on this OS: the shell's executable, the shipped
-// assets, the Gamescope fork, the libretro runner and librashader. One backend per OS, picked in
-// CMakeLists.txt: beside the executable on the desktop (`install_layout_beside.cpp`), the APK's
-// native library folder and the Activity's files on Android (`install_layout_android.cpp`).
+// assets, the Gamescope fork, the libretro runner, librashader and the cores it ships. One backend
+// per OS, picked in CMakeLists.txt: beside the executable on the desktop
+// (`install_layout_beside.cpp`), the APK's native library folder and the Activity's files on
+// Android (`install_layout_android.cpp`).
 #pragma once
 
 #include <filesystem>
@@ -21,6 +22,8 @@ struct InstallLayout {
     std::filesystem::path retroRunner;
     /// The librashader the runner loads for a shader preset.
     std::filesystem::path librashader;
+    /// The folder of the libretro cores openSU ships.
+    std::filesystem::path shippedCores;
 };
 
 /// This install's layout; `assets` (OPENSU_ASSETS) replaces the shipped assets folder when set.

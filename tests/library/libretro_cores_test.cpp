@@ -77,7 +77,7 @@ void listingIsRead() {
 }
 
 void lookupOrder(const fs::path& root) {
-    const CoreSearch search{root / "ours", {root / "retroarch", root / "system"}, {}};
+    const CoreSearch search{root / "ours", {}, {root / "retroarch", root / "system"}, {}};
     expect(!search.find("mgba_libretro"), "no core anywhere is not found");
     put(root / "system" / lib("mgba_libretro"), "system");
     expect(need(search.find("mgba_libretro"), "found").file ==
@@ -98,7 +98,7 @@ void lookupOrder(const fs::path& root) {
     expect(ours.file == root / "ours" / lib("mgba_libretro") && ours.downloaded &&
                ours.downloaded->date == "2026-10-01" && read(ours.file) == "ours",
            "openSU's download comes first, with its record");
-    const CoreSearch infos{root / "mine", {}, {root / "info"}};
+    const CoreSearch infos{root / "mine", {}, {}, {root / "info"}};
     put(root / "info" / "mgba_libretro.info", "theirs");
     fs::create_directories(root / "mine");
     expect(infos.info("mgba_libretro") == "theirs", "a core installed another way has its info");
@@ -110,12 +110,15 @@ void lookupOrder(const fs::path& root) {
 
 /// Linux's standard search (`core_search_linux.cpp`); other OSes look in openSU's folder alone.
 void linuxStandardSearch() {
-    const CoreSearch standard = CoreSearch::standard("/home/p", "/data/opensu");
+    const CoreSearch standard =
+        CoreSearch::standard("/home/p", "/data/opensu", "/opt/opensu/lib64/opensu/cores");
     expect(standard.downloads == "/data/opensu/cores" &&
+               standard.shipped == "/opt/opensu/lib64/opensu/cores" &&
                standard.folders == std::vector<fs::path>{"/home/p/.config/retroarch/cores",
                                                          "/usr/lib64/libretro", "/usr/lib/libretro",
                                                          "/usr/lib/x86_64-linux-gnu/libretro"},
-           "the standard search is openSU's, RetroArch's, then the system's folders");
+           "the standard search is openSU's downloads and its own, RetroArch's, then the "
+           "system's folders");
     expect(standard.infoFolders ==
                std::vector<fs::path>{"/home/p/.config/retroarch/info", "/usr/share/libretro/info"},
            "info files are looked for in RetroArch's and the system's info folders");
@@ -212,7 +215,7 @@ void foundCoreIsAnEmulator(const fs::path& root) {
     entry.core = "mgba_libretro";
     const EmulatorCatalog catalog{{entry}};
     EmulatorSearch search;
-    search.cores = CoreSearch{root / "cores", {root / "system"}, {}};
+    search.cores = CoreSearch{root / "cores", {}, {root / "system"}, {}};
     search.runner = root / "bin" / "opensu-retro";
     const fs::path rom = root / "Kirby.gba";
 
@@ -259,6 +262,42 @@ void foundCoreIsAnEmulator(const fs::path& root) {
            "openSU's download is used first, from the libretro buildbot, with its date");
 }
 
+void shippedCoreServesWhenPicked(const fs::path& root) {
+    EmulatorEntry official;
+    official.id = "gba-core";
+    official.name = "GBA (built-in)";
+    official.systems = {"gba"};
+    official.core = "mgba_libretro";
+    EmulatorEntry link = official;
+    link.id = "gba-link-core";
+    link.name = "GBA link (built-in)";
+    link.core = "mgba_link_libretro";
+    link.shipped = true;
+    const EmulatorCatalog catalog{{link, official}};
+    EmulatorSearch search;
+    search.cores = CoreSearch{root / "cores", root / "shipped", {root / "system"}, {}};
+    search.runner = root / "bin" / "opensu-retro";
+    put(search.runner, "#!/bin/sh\n");
+    fs::permissions(search.runner, fs::perms::owner_all);
+    put(root / "shipped" / lib("mgba_link_libretro"), "core");
+    const fs::path rom = root / "Kirby.gba";
+
+    const Emulators found = Emulators::discover(catalog, search, {});
+    const EmulatorInstall* install = found.installed("gba-link-core");
+    expect(install != nullptr && install->source == InstallSource::ShippedCore &&
+               label(install->source) == "openSU" && !downloadedByOpensu(install->source),
+           "a core openSU ships is installed, as openSU's, not a download to remove");
+    expect(!found.launch("gba", rom), "it does not serve its system unpicked, first or not");
+    const std::vector<EmulatorOption> options = found.options("gba", rom);
+    expect(options.size() == 2 && options[0].installed && !options[0].downloadable &&
+               !options[1].installed && options[1].downloadable,
+           "it is offered installed and never downloaded, beside the buildbot's to download");
+
+    put(root / "system" / lib("mgba_libretro"), "core");
+    expect(Emulators::discover(catalog, search, {}).chosenName("gba") == "GBA (built-in)",
+           "the buildbot's core serves the system once it is found");
+}
+
 } // namespace
 
 int main(int argc, char** argv) try {
@@ -274,6 +313,7 @@ int main(int argc, char** argv) try {
         downloadChecksAndSwitches(scratch.path() / "download");
         cancelKeepsNothing(scratch.path() / "cancel");
         foundCoreIsAnEmulator(scratch.path() / "emulator");
+        shippedCoreServesWhenPicked(scratch.path() / "shipped");
         std::puts("libretro_cores: ok");
         return 0;
     } catch (const std::exception& error) {

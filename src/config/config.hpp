@@ -78,6 +78,10 @@ struct Config {
     /// openSU was built without it.
     std::filesystem::path librashader;
 
+    /// The libretro cores openSU ships (the mGBA link core); see `shippedCoresBeside`. Empty
+    /// where it ships none.
+    std::filesystem::path shippedCores;
+
     /// The XDG base directories, each `$XDG_<NAME>_HOME` or its default under `home`. Plugins
     /// name their read paths relative to these (`{xdg_cache}` and so on).
     std::filesystem::path xdgCacheHome;
@@ -220,6 +224,11 @@ struct Config {
 /// `<prefix>/<libdir>/opensu/librashader.so` for `<prefix>/bin/opensu-retro`, and
 /// `<build>/<libdir>/opensu/librashader.so` in the build tree. Empty when `executable` is empty.
 [[nodiscard]] std::filesystem::path librashaderBeside(const std::filesystem::path& executable);
+
+/// Where the cores openSU ships sit for an executable at `executable`:
+/// `<prefix>/<libdir>/opensu/cores` for `<prefix>/bin/opensu`, `<build>/<libdir>/opensu/cores` in
+/// the build tree. Empty when `executable` is empty.
+[[nodiscard]] std::filesystem::path shippedCoresBeside(const std::filesystem::path& executable);
 
 /// Reads the environment into a configuration. Values that cannot be parsed fall back to the
 /// default and are reported. `main` reads it once and hands the value to whoever needs it.
