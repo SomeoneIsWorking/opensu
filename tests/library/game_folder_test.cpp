@@ -34,6 +34,11 @@ void write(const fs::path& file, const std::string& text = "x") {
     out << text;
 }
 
+void writeProgram(const fs::path& file, const std::string& text) {
+    write(file, text);
+    fs::permissions(file, fs::perms::owner_all);
+}
+
 void writeLink(const fs::path& file, const LinkFields& fields) {
     const std::vector<std::uint8_t> bytes = shellLinkBytes(fields);
     write(file, std::string{bytes.begin(), bytes.end()});
@@ -230,11 +235,6 @@ void aShortcutBesideItsFolderIsOneGame(const fs::path& root) {
 }
 
 #ifndef _WIN32
-void writeProgram(const fs::path& file, const std::string& text) {
-    write(file, text);
-    fs::permissions(file, fs::perms::owner_all);
-}
-
 void linuxFolder(const fs::path& root) {
     const fs::path games = root / "linux";
     const std::string elf = std::string{"\x7F"} + "ELF\x02\x01\x01";
@@ -299,14 +299,24 @@ void aFolderGameLaunches(const fs::path& root) {
            "a game of the player's own");
     expect(game.fromGameFolder, "it says it came from a folder");
     expect(game.launch.program == exe.string(), "started from its file");
+}
+
+void theProviderListsThisOsGames(const fs::path& root) {
+    const fs::path games = root / "listing";
+    // The provider scans for the OS it runs on, and macOS takes only bundles.
+    const fs::path program = folder::thisHost() == Host::Mac
+                                 ? games / "Dino.app" / "Contents" / "MacOS" / "Dino"
+                                 : games / "Dino Crisis 2" / "DINO2.exe";
+    writeProgram(program, "#!/bin/sh\n");
 
     const own::Records records{root / "records.json"};
     own::Provider provider{records, root / "no-lutris", {games}};
     const std::vector<opensu::library::Game> listed = provider.list(std::stop_token{});
-    expect(listed.size() == 1 && listed.front().id == game.id,
+    expect(listed.size() == 1 && listed.front().file == program && listed.front().fromGameFolder,
            "the provider lists a folder's games");
-    records.add(own::Entry{.id = {}, .title = "Kept", .file = exe});
-    expect(provider.list(std::stop_token{}).size() == 1,
+    records.add(own::Entry{.id = {}, .title = "Kept", .file = program});
+    const std::vector<opensu::library::Game> kept = provider.list(std::stop_token{});
+    expect(kept.size() == 1 && !kept.front().fromGameFolder,
            "a game added by hand is not listed twice");
 }
 
@@ -325,6 +335,7 @@ int main() try {
     macFolder(root);
 #endif
     aFolderGameLaunches(root);
+    theProviderListsThisOsGames(root);
     std::printf("game_folder: all checks passed\n");
     return 0;
 } catch (...) {
