@@ -83,7 +83,7 @@ class LanNode {
     LanNode& operator=(LanNode&&) = delete;
 
     struct Status {
-        /// The name it is announced under.
+        /// The service instance it is announced as: its name unless another has that one.
         std::string name;
         std::uint16_t port{0};
         /// Why it cannot be found or reached; empty when it can.

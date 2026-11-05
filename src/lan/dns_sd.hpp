@@ -4,7 +4,9 @@
 // the shell Activity; `dns_sd_bonjour.cpp` on macOS, mDNSResponder through dns_sd.h on a thread of
 // its own; `dns_sd_windns.cpp` on Windows, dnsapi.dll's DNS-SD calls (Windows 10 version 1809 and
 // newer). A service's TXT record carries its peer id (`id`), name (`name`) and protocol version
-// (`v`); its own announcement is never listed.
+// (`v`); its own announcement is never listed. A peer is its id, the key its pairing is kept under.
+// Its name is only what it is shown as, and two may share one: a clash on the LAN renames the
+// service instance a backend announces, never the TXT name.
 #pragma once
 
 #include <cstdint>
@@ -43,7 +45,7 @@ class ServiceDiscovery {
 
     /// The other openSUs announced now, one per peer id. Callable from any thread.
     [[nodiscard]] virtual std::vector<Sighting> sightings() const = 0;
-    /// The name this one is announced under, which a clash on the LAN may have changed.
+    /// The service instance this one is announced as, which a clash on the LAN may have changed.
     [[nodiscard]] virtual std::string announcedName() const = 0;
 };
 

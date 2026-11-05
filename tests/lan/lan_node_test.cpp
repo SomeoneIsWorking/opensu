@@ -1105,15 +1105,17 @@ void bothSidesDeriveOneSecret() {
            "a pairing past its time lapses");
 }
 
-/// Two openSUs announced and found through this system's own DNS-SD daemon, as the product finds
-/// them, pair and list each other's games.
+/// Two openSUs of one name announced and found through this system's own DNS-SD daemon, as the
+/// product finds them, pair and list each other's games.
 void systemDiscoveryPairs(const fs::path& root) {
-    Node host{root, "System host", lan::startDiscovery};
-    Node guest{root, "System guest", lan::startDiscovery};
+    Node host{root, "System twin", lan::startDiscovery};
+    Node guest{root, "System twin", lan::startDiscovery};
     std::printf("host: %s\nguest: %s\n", host.node.status().problem.c_str(),
                 guest.node.status().problem.c_str());
     expect(host.node.status().problem.empty() && guest.node.status().problem.empty(),
            "both are announced");
+    expect(host.node.status().name != guest.node.status().name,
+           "the later one is announced under the daemon's next name");
     host.node.share({installedGame("own:1", "Announced game", {})});
     const auto sees = [](const Node& node, const std::string& id) {
         const std::vector<lan::Sighting> seen = node.node.sightings();

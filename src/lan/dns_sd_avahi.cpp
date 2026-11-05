@@ -34,6 +34,7 @@ constexpr const char* serverPath = "/";
 constexpr const char* serverInterface = "org.freedesktop.Avahi.Server";
 constexpr const char* groupInterface = "org.freedesktop.Avahi.EntryGroup";
 constexpr const char* browserInterface = "org.freedesktop.Avahi.ServiceBrowser";
+constexpr const char* collisionError = "org.freedesktop.Avahi.CollisionError";
 // avahi-common/address.h and defs.h.
 constexpr std::int32_t anyInterface = -1;
 constexpr std::int32_t ipv4 = 0;
@@ -328,14 +329,39 @@ class AvahiDiscovery final : public ServiceDiscovery {
         return true;
     }
 
-    /// Adds the service under the name now chosen and commits it.
+    /// Adds the service and commits it, under the name now chosen or, while another service of
+    /// this machine's Avahi holds that one, Avahi's next.
     std::string announce() {
+        for (;;) {
+            BusError error;
+            const int code = addService(error);
+            if (code >= 0) {
+                break;
+            }
+            if (sd_bus_error_has_name(error.get(), collisionError) == 0) {
+                return "Avahi cannot announce this openSU: " + error.text(code);
+            }
+            if (std::string failed = takeNextName(); !failed.empty()) {
+                return failed;
+            }
+        }
+        BusError commitError;
+        const int code = sd_bus_call_method(bus_.get(), avahiName, group_.c_str(), groupInterface,
+                                            "Commit", commitError.get(), nullptr, "");
+        if (code < 0) {
+            return "Avahi cannot announce this openSU: " + commitError.text(code);
+        }
+        return {};
+    }
+
+    /// `AddService` under the name now chosen; negative with `error` when it was refused.
+    int addService(BusError& error) {
         sd_bus_message* raw = nullptr;
         int code = sd_bus_message_new_method_call(bus_.get(), &raw, avahiName, group_.c_str(),
                                                   groupInterface, "AddService");
         const Message call{raw};
         if (code < 0) {
-            return std::string{"Avahi cannot announce this openSU: "} + std::strerror(-code);
+            return code;
         }
         const std::string name = announcedName();
         const std::array<std::string, 3> txt{"id=" + self_.id, "name=" + self_.name,
@@ -354,49 +380,44 @@ class AvahiDiscovery final : public ServiceDiscovery {
         if (code >= 0) {
             code = sd_bus_message_close_container(call.get());
         }
-        BusError error;
         if (code >= 0) {
             code = sd_bus_call(bus_.get(), call.get(), 0, error.get(), nullptr);
         }
-        if (code < 0) {
-            return "Avahi cannot announce this openSU: " + error.text(code);
-        }
-        BusError commitError;
-        code = sd_bus_call_method(bus_.get(), avahiName, group_.c_str(), groupInterface, "Commit",
-                                  commitError.get(), nullptr, "");
-        if (code < 0) {
-            return "Avahi cannot announce this openSU: " + commitError.text(code);
-        }
-        return {};
+        return code;
     }
 
-    /// Another service on the LAN has the name: Avahi's next one ("name #2") is announced.
-    void renameAfterCollision() {
+    /// The name now chosen is taken: Avahi's next one ("name #2") is chosen. Why not, when not.
+    std::string takeNextName() {
         BusError error;
         sd_bus_message* reply = nullptr;
         const std::string was = announcedName();
-        int code =
+        const int code =
             sd_bus_call_method(bus_.get(), avahiName, serverPath, serverInterface,
                                "GetAlternativeServiceName", error.get(), &reply, "s", was.c_str());
         const Message owned{reply};
         const char* next = nullptr;
         if (code < 0 || sd_bus_message_read(reply, "s", &next) < 0) {
-            lucent::warn("lan", "{} is taken on the LAN and Avahi has no other name: {}", was,
-                         error.text(code));
-            return;
-        }
-        {
-            const std::lock_guard lock{mutex_};
-            name_ = next;
-        }
-        BusError resetError;
-        code = sd_bus_call_method(bus_.get(), avahiName, group_.c_str(), groupInterface, "Reset",
-                                  resetError.get(), nullptr, "");
-        if (code < 0) {
-            lucent::warn("lan", "Avahi cannot rename this openSU: {}", resetError.text(code));
-            return;
+            return was + " is taken on the LAN and Avahi has no other name: " + error.text(code);
         }
         lucent::info("lan", "{} is taken on the LAN; announcing as {}", was, next);
+        const std::lock_guard lock{mutex_};
+        name_ = next;
+        return {};
+    }
+
+    /// Another machine on the LAN has the name.
+    void renameAfterCollision() {
+        if (const std::string failed = takeNextName(); !failed.empty()) {
+            lucent::warn("lan", "{}", failed);
+            return;
+        }
+        BusError error;
+        const int code = sd_bus_call_method(bus_.get(), avahiName, group_.c_str(), groupInterface,
+                                            "Reset", error.get(), nullptr, "");
+        if (code < 0) {
+            lucent::warn("lan", "Avahi cannot rename this openSU: {}", error.text(code));
+            return;
+        }
         if (const std::string failed = announce(); !failed.empty()) {
             lucent::warn("lan", "{}", failed);
         }

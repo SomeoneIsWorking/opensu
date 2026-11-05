@@ -45,9 +45,17 @@ Each node announces `_opensu._tcp` on its listener's port with TXT `id` (its 32-
 Every backend keeps only IPv4 resolutions of the same protocol and skips its own id; an openSU on
 the same machine resolves on every interface, loopback included, and the first one is listed.
 
+A peer is its id: pairings, saves, profile links and listings all go by it, and machines that share
+a default hostname stay apart. The DNS-SD service instance has to be unique on the LAN, so each
+backend renames it on a clash; the TXT `name`, which is what peers list and pair under, stays the
+player's, and two openSUs of one name show as that name twice, told apart by address. Settings ›
+LAN shows the instance this one is announced as.
+
 On Linux, `dns_sd_avahi.cpp` uses Avahi's D-Bus API (`EntryGroupNew`/`AddService`/`Commit`,
 `ServiceBrowserNew`, `ResolveService`) over sd-bus on the node's own thread. A name clash takes
-Avahi's alternative name.
+Avahi's alternative name (`GetAlternativeServiceName`, "name #2"), for both ways Avahi reports one:
+`AddService` refused with `CollisionError` when this machine's daemon holds the name, and the group
+going to `AVAHI_ENTRY_GROUP_COLLISION` when another machine does.
 
 On Android, `dns_sd_android.cpp` calls the Activity over JNI, and `LanDiscovery.java` registers
 and browses through `NsdManager`, resolving one service at a time (NSD allows one resolve at a

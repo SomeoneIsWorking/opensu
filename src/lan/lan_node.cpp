@@ -162,7 +162,7 @@ bool LanNode::pair(const std::string& peerId, std::string& refusal) {
         refusal = "that openSU is no longer on the LAN";
         return false;
     }
-    asking_ = std::make_unique<GuestPairing>(web_, book_, Peer{book_.id(), status().name}, *host);
+    asking_ = std::make_unique<GuestPairing>(web_, book_, Peer{book_.id(), name_}, *host);
     return true;
 }
 
