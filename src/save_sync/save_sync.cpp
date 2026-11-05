@@ -138,7 +138,8 @@ std::optional<SaveSync::Local> SaveSync::localOf(const library::Game& game,
     const library::saves::EmulatorSaves* launched =
         library::saves::launchedSaves(local.all, game, catalog);
     if (launched == nullptr) {
-        error = "the emulator " + game.title + " starts with keeps no saves openSU can find";
+        error = game.emulator.empty() ? "no emulator runs this game yet"
+                                      : game.emulator + " keeps no saves openSU can find";
         return std::nullopt;
     }
     local.launched = *launched;
