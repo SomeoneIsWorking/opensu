@@ -409,9 +409,15 @@ std::optional<PlayVerdict> readPlayVerdict(std::string_view body) {
 }
 
 std::string write(const NetplayAsk& ask) {
-    return json{{"console", ask.console}, {"file", ask.file},
-                {"title", ask.title},     {"size", ask.size},
-                {"sha256", ask.sha256},   {"salt", secrets::hexText(ask.salt)}}
+    return json{{"console", ask.console},
+                {"file", ask.file},
+                {"title", ask.title},
+                {"size", ask.size},
+                {"sha256", ask.sha256},
+                {"salt", secrets::hexText(ask.salt)},
+                {"coreRevision", ask.facts.coreRevision},
+                {"options", ask.facts.options},
+                {"bios", ask.facts.bios}}
         .dump();
 }
 
@@ -425,13 +431,24 @@ std::optional<NetplayAsk> readNetplayAsk(std::string_view body) {
                    .title = textField(*document, "title"),
                    .size = countField(*document, "size").value_or(0),
                    .sha256 = textField(*document, "sha256"),
-                   .salt = {}};
+                   .salt = {},
+                   .facts = {.coreRevision = textField(*document, "coreRevision"),
+                             .options = {},
+                             .bios = textField(*document, "bios")}};
     std::optional<secrets::crypto::Bytes> salt =
         bytesField(*document, "salt", secrets::crypto::nonceBytes);
     if (!salt || ask.console.empty() || ask.file.empty() || ask.size == 0 || ask.sha256.empty()) {
         return std::nullopt;
     }
     ask.salt = std::move(*salt);
+    if (const auto options = document->find("options");
+        options != document->end() && options->is_object()) {
+        for (const auto& [key, value] : options->items()) {
+            if (value.is_string()) {
+                ask.facts.options.emplace(key, value.get<std::string>());
+            }
+        }
+    }
     return ask;
 }
 

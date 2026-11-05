@@ -1,7 +1,8 @@
 // lan_netplay — two paired openSUs playing one ROM linked, on the shell's loop. As the asker: Play
 // with <name> hashes the ROM and hands over its save, asks, and waits (`play`). As the asked: the
-// question put to the player, the same ROM looked for by console, name and hash. Each side takes the
-// other's save, writes both into a session folder of its own (never a profile's), writes the
+// question put to the player, the same ROM looked for by console, name and hash, and refused at
+// once when the core, its options or the BIOS differ or the cartridge has a clock. Each side takes
+// the other's save, writes both into a session folder of its own (never a profile's), writes the
 // session's file and starts `opensu-retro --netplay` as its own active profile: the asked side
 // first, its runner binding a UDP port of the system's choosing, which the asker is then told. When
 // the game ends only this side's player's save goes back into its profile (`ended`). The calls run
@@ -10,6 +11,7 @@
 
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -44,6 +46,10 @@ class LanNetplay {
         std::function<std::filesystem::path()> profileSaves;
         /// Starts `game` with `saves` as its save folder; false when it was refused.
         std::function<bool(const library::Game& game, const std::filesystem::path& saves)> launch;
+        /// The core options the link core would run `game` with here.
+        std::function<std::map<std::string, std::string>(const library::Game& game)> linkOptions;
+        /// The runner's system folder, where the link core looks for its BIOS.
+        std::function<std::filesystem::path()> biosFolder;
         /// The UDP port the session's runner bound; nothing until it says.
         std::function<std::optional<std::uint16_t>()> sessionPort;
     };
@@ -92,6 +98,12 @@ class LanNetplay {
         std::filesystem::path profile;
     };
 
+    /// What this side would run `game` with.
+    [[nodiscard]] lan::wire::NetplayFacts factsOf(const library::Game& game) const;
+    /// Refuses the ask now put to this side when `game` cannot be played with its facts, in the
+    /// words of each side; true when it did.
+    [[nodiscard]] bool refused(lan::LanNode& node, const lan::NetplayAsks::Question& asked,
+                               const library::Game& game);
     void serviceQuestion();
     void serviceStart();
     void answer(bool allow);

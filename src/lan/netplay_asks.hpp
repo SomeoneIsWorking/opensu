@@ -18,6 +18,11 @@
 
 namespace opensu::lan {
 
+/// The first thing `there`, an asker's, differs in from `here`, in words for the asker: "its core
+/// option mgba_frameskip is 1, yours 2". Empty when they agree.
+[[nodiscard]] std::string netplayDifference(const wire::NetplayFacts& here,
+                                            const wire::NetplayFacts& there);
+
 class NetplayAsks {
   public:
     using Clock = std::chrono::steady_clock;

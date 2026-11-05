@@ -26,6 +26,7 @@
 #include "keyboard_pad.hpp"
 #include "launcher_status.hpp"
 #include "library/emulator_choice.hpp"
+#include "library/linked_play.hpp"
 #include "library/match_pick.hpp"
 #include "library/titles.hpp"
 #include "lucent/log.h"
@@ -744,6 +745,14 @@ bool ShellApp::launchSession(const library::Game& game, const std::filesystem::p
         return false;
     }
     return startLaunch(game, {}, profiles_.book().active().id, saves);
+}
+
+std::map<std::string, std::string> ShellApp::linkOptionsOf(const library::Game& game) const {
+    const std::optional<library::Game> linked = library::netplayGame(game, {});
+    if (!linked) {
+        return {};
+    }
+    return settings::resolveCoreOptions(gameSettings_.layers(), library::layerKeysOf(*linked));
 }
 
 std::filesystem::path ShellApp::profileRunnerSaves(const std::string& profile) const {

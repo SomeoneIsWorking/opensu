@@ -222,6 +222,8 @@ class ShellApp final {
     /// Starts a netplay session's `game` as the active profile with its saves in `saves`, never
     /// synced with the profile's; false when it was refused.
     bool launchSession(const library::Game& game, const std::filesystem::path& saves);
+    /// The core options `game` would run with on the link core.
+    [[nodiscard]] std::map<std::string, std::string> linkOptionsOf(const library::Game& game) const;
     /// The folder `profile`'s games save in.
     [[nodiscard]] std::filesystem::path profileRunnerSaves(const std::string& profile) const;
     /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update.
@@ -998,6 +1000,14 @@ class ShellApp final {
             .launch =
                 [this](const library::Game& game, const std::filesystem::path& saves) {
                     return launchSession(game, saves);
+                },
+            .linkOptions =
+                [this](const library::Game& game) {
+                    return linkOptionsOf(game);
+                },
+            .biosFolder =
+                [this] {
+                    return emulatorSettings_.biosFolder();
                 },
             .sessionPort =
                 [this] {

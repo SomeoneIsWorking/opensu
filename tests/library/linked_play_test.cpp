@@ -1,4 +1,5 @@
 // A game on the link core: what makes it linkable and the command each way of playing gets.
+#include "library/gba_cartridge.hpp"
 #include "library/linked_play.hpp"
 
 #include <algorithm>
@@ -75,6 +76,14 @@ int main() try {
     linkableNeedsTheCore();
     splitScreen();
     netplay();
+    std::string rom(0x200, '\0');
+    expect(!library::hasRealTimeClock(rom), "a blank cartridge has no clock");
+    rom.replace(0xAC, 4, "BPEE");
+    expect(library::hasRealTimeClock(rom), "a game code the core gives a clock has one");
+    rom.replace(0xAC, 4, "XXXX");
+    rom.replace(0x100, 8, "SIIRTC_V");
+    expect(library::hasRealTimeClock(rom), "Nintendo's RTC library in a ROM is a clock");
+    expect(!library::hasRealTimeClock("short"), "a ROM too short for a header has none");
     std::printf("linked_play: all checks passed\n");
     return 0;
 } catch (...) {

@@ -14,6 +14,7 @@ add_library(opensu_library STATIC
     gog_builds.cpp
     gog_installs.cpp
     roms.cpp
+    gba_cartridge.cpp
     rom_systems.cpp
     rom_titles.cpp
     param_sfo.cpp
@@ -140,6 +141,8 @@ else()
     set(opensu_gog_own_platform "linux")
     set(opensu_gog_platforms_text "Linux or Windows")
 endif()
+set_source_files_properties(linked_play.cpp PROPERTIES
+    COMPILE_DEFINITIONS "OPENSU_MGBA_LINK_COMMIT=\"${OPENSU_MGBA_LINK_COMMIT}\"")
 target_compile_definitions(opensu_library PUBLIC
     OPENSU_CORE_BUILDBOT_FOLDER="${opensu_core_folder}"
     OPENSU_CORE_LIBRARY_SUFFIX="${opensu_core_suffix}"

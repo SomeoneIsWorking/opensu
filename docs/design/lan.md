@@ -118,7 +118,7 @@ It never shares the loopback control channel's port.
 | `POST /lan/roms/chunk` | paired, signed | `{"kind","root","path","offset","length"}` → at most 2 MiB of the file from `offset`, as raw bytes |
 | `POST /lan/play` | paired, signed | `{"game","profile","salt"}` → `{"port","salt","waiting","joined"}`: the host streams that listed game to the caller, played as `profile` (the caller's active one) when it is linked with the caller, else as the host's first profile; `joined` when the game already ran there, `waiting` (no port yet) while its player is asked; 404 for a game it does not list, 409 with why when it will not (another game running, four guests, outside Gamescope, no capture) |
 | `POST /lan/play/status` | paired, signed | `{"game"}` → `{"verdict","port","why"}`: `waiting`, `accepted` with the stream's port, or `declined` with why, for this caller's ask |
-| `POST /lan/netplay` | paired, signed | `{"console","file","title","size","sha256","salt"}` → `{}`: asks to play that ROM together; the player here is asked |
+| `POST /lan/netplay` | paired, signed | `{"console","file","title","size","sha256","salt","coreRevision","options","bios"}` → `{}`: asks to play that ROM together; the player here is asked |
 | `POST /lan/netplay/status` | paired, signed | `{"sha256"}` → `{"verdict","refusal","port","salt"}`: `waiting`, `declined` or `allowed` with the session's UDP port and the asked side's salt |
 | `POST /lan/netplay/save` | paired, signed | `{"sha256"}` → the bytes of the save handed to the caller, once; both sides ask |
 
@@ -345,7 +345,14 @@ that profile's; the host's own active profile does not change.
 Play with <name> on a linkable game's details page (`app::LanNetplay::play`) hashes the ROM, hands
 its active profile's save to the peer (`lan::NetplayAsks::handOver`) and asks `/lan/netplay`, then
 polls the status. The asked side looks for the same ROM by console, file name, size and SHA-256; with
-none it declines by itself, else its player gets Decline or Play. Play hands over its own save,
+none it declines by itself. The ask carries what the asker would run with, and the asked side
+compares it (`lan::netplayDifference`, the first difference named for the asker): the link core's
+revision (the pin, `library::linkCoreRevision`, so builds of one pin on any OS agree), the SHA-256 of
+`gba_bios.bin` in the runner's system folder, and every core option resolved for the link core; an
+option set on one side and not the other counts. A cartridge with a real-time clock is refused too
+(`library::hasRealTimeClock`): mGBA reads the host's time and libretro gives a frontend no way to set
+it. A refusal comes back as `declined` with the reason before the player here is asked. Otherwise
+its player gets Decline or Play. Play hands over its own save,
 takes the asker's, starts its runner and answers `allowed` with the UDP port the runner bound
 (`netplayPort` in its control file); until then the status stays `waiting`, and the ask is declined
 when the runner does not start. The asker then takes the host's save and starts its own. Both derive

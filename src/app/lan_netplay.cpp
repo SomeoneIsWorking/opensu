@@ -14,6 +14,7 @@
 #include "fileio/atomic_write.hpp"
 #include "fileio/owner_only_write.hpp"
 #include "gpu2d/ui/screen.hpp"
+#include "library/gba_cartridge.hpp"
 #include "library/linked_play.hpp"
 #include "lucent/log.h"
 #include "retro/save_paths.hpp"
@@ -25,6 +26,8 @@ namespace {
 
 constexpr auto pollEvery = std::chrono::seconds{1};
 constexpr auto waitAtMost = std::chrono::seconds{125};
+constexpr std::string_view clockRefusal =
+    "the cartridge has a real-time clock, which each machine would read differently";
 
 std::string contentsOf(const std::filesystem::path& file) {
     std::ifstream in{file, std::ios::binary};
@@ -62,6 +65,34 @@ LanNetplay::LanNetplay(LanService& lan, gpu2d::ui::Navigator& navigator,
       hooks_{std::move(hooks)} {
 }
 
+lan::wire::NetplayFacts LanNetplay::factsOf(const library::Game& game) const {
+    const std::filesystem::path bios = hooks_.biosFolder() / library::linkCoreBios;
+    std::error_code failed;
+    return lan::wire::NetplayFacts{
+        .coreRevision = std::string{library::linkCoreRevision()},
+        .options = hooks_.linkOptions(game),
+        .bios = std::filesystem::is_regular_file(bios, failed) ? sha256Of(bios) : std::string{}};
+}
+
+bool LanNetplay::refused(lan::LanNode& node, const lan::NetplayAsks::Question& asked,
+                         const library::Game& game) {
+    const lan::wire::NetplayFacts here = factsOf(game);
+    const lan::wire::NetplayFacts& theirs = asked.rom.facts;
+    const bool clock = library::hasRealTimeClock(contentsOf(game.file));
+    const std::string toAsker =
+        clock ? std::string{clockRefusal} : lan::netplayDifference(here, theirs);
+    if (toAsker.empty()) {
+        return false;
+    }
+    const std::string toPlayer =
+        clock ? std::string{clockRefusal} : lan::netplayDifference(theirs, here);
+    const std::string said = asked.peer.name + " cannot play " + asked.rom.title + ": " + toPlayer;
+    lucent::info("lan", "{}", said);
+    node.netplay().decline(asked.peer.id, toAsker, lan::NetplayAsks::Clock::now());
+    hooks_.say(said, true);
+    return true;
+}
+
 std::vector<ui::GameSettingsView::Partner> LanNetplay::partners() const {
     std::vector<ui::GameSettingsView::Partner> partners;
     const lan::LanNode* node = lan_.node();
@@ -80,66 +111,68 @@ void LanNetplay::play(const library::Game& game, const std::string& peerId) {
     const std::string name = lan_.peerName(peerId);
     const std::filesystem::path own =
         sessionSaveOf(retro::systemSaveFolder(hooks_.profileSaves(), game.sourceId), game.file, 0);
-    const bool asking = lan_.askPeers([arrived = arrived_, game, peerId, name,
-                                       own](const lan::LanNode& node, const std::stop_token& stop) {
-        std::string refusal;
-        std::error_code failed;
-        const secrets::crypto::Bytes salt =
-            secrets::crypto::randomBytes(secrets::crypto::nonceBytes);
-        const lan::wire::NetplayAsk ask{.console = game.sourceId,
-                                        .file = game.file.filename().string(),
-                                        .title = game.title,
-                                        .size = std::filesystem::file_size(game.file, failed),
-                                        .sha256 = sha256Of(game.file),
-                                        .salt = salt};
-        std::string ownSave = contentsOf(own);
-        node.netplay().handOver(peerId, ask.sha256, ownSave);
-        std::optional<Agreed> agreed;
-        if (node.askNetplay(stop, peerId, ask, refusal)) {
-            const auto until = std::chrono::steady_clock::now() + waitAtMost;
-            refusal = "no answer came";
-            while (!stop.stop_requested() && std::chrono::steady_clock::now() < until) {
-                std::this_thread::sleep_for(pollEvery);
-                const std::optional<lan::wire::NetplayVerdict> verdict =
-                    node.netplayStatus(stop, peerId, ask.sha256, refusal);
-                if (!verdict) {
+    const bool asking =
+        lan_.askPeers([arrived = arrived_, game, peerId, name, own, facts = factsOf(game)](
+                          const lan::LanNode& node, const std::stop_token& stop) {
+            std::string refusal;
+            std::error_code failed;
+            const secrets::crypto::Bytes salt =
+                secrets::crypto::randomBytes(secrets::crypto::nonceBytes);
+            const lan::wire::NetplayAsk ask{.console = game.sourceId,
+                                            .file = game.file.filename().string(),
+                                            .title = game.title,
+                                            .size = std::filesystem::file_size(game.file, failed),
+                                            .sha256 = sha256Of(game.file),
+                                            .salt = salt,
+                                            .facts = facts};
+            std::string ownSave = contentsOf(own);
+            node.netplay().handOver(peerId, ask.sha256, ownSave);
+            std::optional<Agreed> agreed;
+            if (node.askNetplay(stop, peerId, ask, refusal)) {
+                const auto until = std::chrono::steady_clock::now() + waitAtMost;
+                refusal = "no answer came";
+                while (!stop.stop_requested() && std::chrono::steady_clock::now() < until) {
+                    std::this_thread::sleep_for(pollEvery);
+                    const std::optional<lan::wire::NetplayVerdict> verdict =
+                        node.netplayStatus(stop, peerId, ask.sha256, refusal);
+                    if (!verdict) {
+                        break;
+                    }
+                    if (verdict->verdict == "declined") {
+                        refusal = verdict->refusal.empty() ? "it was declined" : verdict->refusal;
+                        break;
+                    }
+                    if (verdict->verdict != "allowed") {
+                        continue;
+                    }
+                    std::optional<std::string> hostSave =
+                        node.netplaySave(stop, peerId, ask.sha256, refusal);
+                    std::optional<std::string> address = node.addressOf(peerId, refusal);
+                    std::optional<lan::StreamKeys> keys =
+                        node.netplayKeys(peerId, salt, verdict->salt, refusal);
+                    if (hostSave && address && keys) {
+                        agreed = Agreed{.game = game,
+                                        .slot = 1,
+                                        .peerName = name,
+                                        .askerId = {},
+                                        .salt = {},
+                                        .peer = *address + ":" + std::to_string(verdict->port),
+                                        .keys = std::move(*keys),
+                                        .saves = {std::move(*hostSave), std::move(ownSave)}};
+                    }
                     break;
                 }
-                if (verdict->verdict == "declined") {
-                    refusal = verdict->refusal.empty() ? "it was declined" : verdict->refusal;
-                    break;
-                }
-                if (verdict->verdict != "allowed") {
-                    continue;
-                }
-                std::optional<std::string> hostSave =
-                    node.netplaySave(stop, peerId, ask.sha256, refusal);
-                std::optional<std::string> address = node.addressOf(peerId, refusal);
-                std::optional<lan::StreamKeys> keys =
-                    node.netplayKeys(peerId, salt, verdict->salt, refusal);
-                if (hostSave && address && keys) {
-                    agreed = Agreed{.game = game,
-                                    .slot = 1,
-                                    .peerName = name,
-                                    .askerId = {},
-                                    .salt = {},
-                                    .peer = *address + ":" + std::to_string(verdict->port),
-                                    .keys = std::move(*keys),
-                                    .saves = {std::move(*hostSave), std::move(ownSave)}};
-                }
-                break;
             }
-        }
-        if (stop.stop_requested()) {
-            return;
-        }
-        const std::lock_guard lock{arrived->mutex};
-        if (agreed) {
-            arrived->agreed.push_back(std::move(*agreed));
-        } else {
-            arrived->refusals.push_back("No game with " + name + ": " + refusal);
-        }
-    });
+            if (stop.stop_requested()) {
+                return;
+            }
+            const std::lock_guard lock{arrived->mutex};
+            if (agreed) {
+                arrived->agreed.push_back(std::move(*agreed));
+            } else {
+                arrived->refusals.push_back("No game with " + name + ": " + refusal);
+            }
+        });
     if (!asking) {
         hooks_.say("Cannot ask " + name + " now; try again", true);
         return;
@@ -194,10 +227,15 @@ void LanNetplay::serviceQuestion() {
     if (!asked_) {
         return;
     }
-    if (romOf(hooks_.games(), asked_->rom) == nullptr) {
-        node->netplay().decline(asked_->peer.id, "it does not have this ROM",
+    const lan::NetplayAsks::Question& asked = *asked_;
+    const library::Game* game = romOf(hooks_.games(), asked.rom);
+    if (game == nullptr) {
+        node->netplay().decline(asked.peer.id, "it does not have this ROM",
                                 lan::NetplayAsks::Clock::now());
-        hooks_.say(asked_->peer.name + " asked to play " + asked_->rom.title + ", not here", true);
+        hooks_.say(asked.peer.name + " asked to play " + asked.rom.title + ", not here", true);
+        return;
+    }
+    if (refused(*node, asked, *game)) {
         return;
     }
     std::vector<gpu2d::ui::Dialog::Choice> choices;
@@ -215,7 +253,7 @@ void LanNetplay::serviceQuestion() {
                                                     },
                                                 .kind = gpu2d::ui::ButtonKind::Primary,
                                                 .exits = true});
-    questionTitle_ = "Play " + asked_->rom.title + " with " + asked_->peer.name + "?";
+    questionTitle_ = "Play " + asked.rom.title + " with " + asked.peer.name + "?";
     sounds_.play(audio::Effect::Open);
     navigator_.push(std::make_unique<gpu2d::ui::Dialog>(
         questionTitle_, "Each of you plays as your own profile and keeps your own save.",

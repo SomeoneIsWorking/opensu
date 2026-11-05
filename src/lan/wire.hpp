@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -205,6 +206,17 @@ inline constexpr std::string_view netplayRoute = "/lan/netplay";
 inline constexpr std::string_view netplayStatusRoute = "/lan/netplay/status";
 /// `POST /lan/netplay/save` with a `NetplayRom`: the save the asked side handed over, as bytes.
 inline constexpr std::string_view netplaySaveRoute = "/lan/netplay/save";
+/// What both machines of a session must have the same, or their games part: on each side, the link
+/// core's revision, the options it would run with and the BIOS it would boot (its SHA-256, empty
+/// for none).
+struct NetplayFacts {
+    std::string coreRevision;
+    std::map<std::string, std::string> options;
+    std::string bios;
+
+    bool operator==(const NetplayFacts&) const = default;
+};
+
 struct NetplayAsk {
     std::string console;
     /// The ROM's file name.
@@ -213,6 +225,7 @@ struct NetplayAsk {
     std::uint64_t size{0};
     std::string sha256;
     secrets::crypto::Bytes salt;
+    NetplayFacts facts;
 
     bool operator==(const NetplayAsk&) const = default;
 };

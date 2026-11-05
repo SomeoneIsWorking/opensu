@@ -13,6 +13,11 @@ namespace opensu::library {
 /// The catalog's id of the core that links players.
 inline constexpr std::string_view linkCoreId = "mgba-link-core";
 
+/// The revision of the link core this openSU ships, which every machine of a session must run.
+[[nodiscard]] std::string_view linkCoreRevision() noexcept;
+/// The BIOS the link core boots, in the runner's system folder, when it is there.
+inline constexpr std::string_view linkCoreBios = "gba_bios.bin";
+
 /// Whether `game` can run on the link core here.
 [[nodiscard]] bool linkable(const Game& game);
 

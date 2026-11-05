@@ -582,7 +582,34 @@ void askedToPlayTogether(const lan::LanNode& guest, lan::LanNode& host) {
                                     .title = "Link",
                                     .size = 1024,
                                     .sha256 = "abcd",
-                                    .salt = guestSalt};
+                                    .salt = guestSalt,
+                                    .facts = {.coreRevision = "72bea0c51b68",
+                                              .options = {{"mgba_frameskip", "1"}},
+                                              .bios = "ee"}};
+    lan::wire::NetplayFacts same = ask.facts;
+    expect(lan::netplayDifference(ask.facts, same).empty(), "the same facts agree");
+    same.bios.clear();
+    expect(lan::netplayDifference(ask.facts, same) == "it has a GBA BIOS and you do not",
+           "a BIOS on one side is named");
+    expect(lan::netplayDifference(same, ask.facts) == "it has no GBA BIOS and you do",
+           "and the other way");
+    same.bios = "ff";
+    expect(lan::netplayDifference(ask.facts, same) == "its GBA BIOS is not the same file as yours",
+           "another BIOS is named");
+    same = ask.facts;
+    same.coreRevision = "0123456789ab";
+    expect(lan::netplayDifference(ask.facts, same) ==
+               "its link core is revision 72bea0c51, yours 012345678",
+           "another core revision is named");
+    same = ask.facts;
+    same.options["mgba_frameskip"] = "2";
+    expect(lan::netplayDifference(ask.facts, same) ==
+               "its core option mgba_frameskip is 1, yours 2",
+           "another value of an option is named");
+    same.options = {{"mgba_solar", "on"}, {"mgba_frameskip", "1"}};
+    expect(lan::netplayDifference(ask.facts, same) ==
+               "its core option mgba_solar is not set, yours on",
+           "an option set on one side is named");
     guest.netplay().handOver(host.id(), ask.sha256, "guest save");
     expect(guest.askNetplay(never, host.id(), ask, error), "the attic asks to play together");
     const std::optional<lan::NetplayAsks::Question> asked = host.netplay().question(Clock::now());

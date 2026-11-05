@@ -1,5 +1,8 @@
 #include "netplay_asks.hpp"
 
+#include <cstddef>
+#include <format>
+#include <map>
 #include <utility>
 
 #include "lucent/log.h"
@@ -8,8 +11,42 @@ namespace opensu::lan {
 namespace {
 
 constexpr std::string_view waiting = "waiting";
+constexpr std::size_t shownRevisionBytes = 9;
+
+std::string revisionText(const std::string& revision) {
+    return revision.empty() ? "unknown" : revision.substr(0, shownRevisionBytes);
+}
+
+std::string optionText(const std::map<std::string, std::string>& options, const std::string& key) {
+    const auto found = options.find(key);
+    return found == options.end() ? "not set" : found->second;
+}
 
 } // namespace
+
+std::string netplayDifference(const wire::NetplayFacts& here, const wire::NetplayFacts& there) {
+    if (here.coreRevision != there.coreRevision) {
+        return "its link core is revision " + revisionText(here.coreRevision) + ", yours " +
+               revisionText(there.coreRevision);
+    }
+    if (here.bios != there.bios) {
+        if (here.bios.empty()) {
+            return "it has no GBA BIOS and you do";
+        }
+        return there.bios.empty() ? "it has a GBA BIOS and you do not"
+                                  : "its GBA BIOS is not the same file as yours";
+    }
+    std::map<std::string, std::string> all = here.options;
+    all.insert(there.options.begin(), there.options.end());
+    for (const auto& [key, value] : all) {
+        const std::string theirs = optionText(here.options, key);
+        const std::string yours = optionText(there.options, key);
+        if (theirs != yours) {
+            return std::format("its core option {} is {}, yours {}", key, theirs, yours);
+        }
+    }
+    return {};
+}
 
 void NetplayAsks::lapse(Clock::time_point now) {
     if (pending_ && now - pending_->started > patience) {

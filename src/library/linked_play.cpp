@@ -28,6 +28,10 @@ std::optional<Game> onLinkCore(const Game& game, std::initializer_list<std::stri
 
 } // namespace
 
+std::string_view linkCoreRevision() noexcept {
+    return OPENSU_MGBA_LINK_COMMIT;
+}
+
 bool linkable(const Game& game) {
     return game.source == Source::Rom && game.installed && linkCoreOf(game) != nullptr;
 }

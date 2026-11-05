@@ -141,13 +141,20 @@ machine), and for rollback later, `retro_serialize`/`retro_unserialize` every fr
 - The asked side's runner binds a port of the system's choosing and reports it in its control file;
   the asker is told only then, so no port is held free between shell and runner. A second socket
   taking the session file's port ended the host's launch before; the file now names none.
+- `/lan/netplay` carries core revision, BIOS and options and the asked side refuses a difference,
+  or a clock cartridge, before its player is asked: each case shown with two hidden openSUs.
 
 ## Risks
 
-- Each side's core options and BIOS come from its own settings. A difference that changes emulation
-  ends the session with a desync message rather than being refused at the ask.
-- A GBA cartridge with a real-time clock reads the host's clock and desyncs across machines;
-  the start state carries the RTC, and the session would have to fix its source.
+- A session is refused at the ask, naming the difference, when the core revision, BIOS or any core
+  option differ, even one that does not change emulation (a colour setting). The player sets both
+  the same.
+- A GBA cartridge with a real-time clock is refused: the core reads the host's time, its
+  `mRTCGenericSource` can run a fake epoch from the frame count, and nothing but the Qt frontend
+  sets it. A commit on the fork's `opensu` branch that sets `RTC_FAKE_EPOCH` under
+  `GET_NETPLAY_CLIENT_INDEX` would let these games play, Pokémon's among them. `hasRealTimeClock`
+  knows the game codes of the core's overrides and Nintendo's RTC library; a homebrew clock is not
+  seen.
 - The core's watchdog asserts (`mASSERT`) when every player blocks; a hang in a game ends the
   runner, which the shell reports as a crash.
 - Three players in a four-player session do not link (reported on PR #318).
