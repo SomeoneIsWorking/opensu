@@ -9,6 +9,7 @@
 
 #include "fileio/atomic_write.hpp"
 #include "lucent/log.h"
+#include "lucent/text.h"
 #include "pairing_keys.hpp"
 #include "peer_save_target.hpp"
 #include "secrets/secret.hpp"
@@ -53,6 +54,7 @@ LanNode::LanNode(Setup setup)
                                      .library = library_,
                                      .saves = saves_,
                                      .profiles = profiles_,
+                                     .copies = copies_,
                                      .roms = shelf_,
                                      .name =
                                          [this] {
@@ -86,12 +88,10 @@ LanNode::LanNode(Setup setup)
     saves_.setTargets(std::string{savesGroup}, [this] {
         std::vector<std::shared_ptr<save_sync::SaveTarget>> targets;
         for (Peer& peer : book_.paired()) {
-            if (peer.sharesSaves) {
-                targets.push_back(
-                    std::make_shared<PeerSaveTarget>(std::move(peer), book_, web_, [this] {
-                        return sightings();
-                    }));
-            }
+            targets.push_back(
+                std::make_shared<PeerSaveTarget>(std::move(peer), book_, profiles_, web_, [this] {
+                    return sightings();
+                }));
         }
         return targets;
     });
@@ -220,29 +220,91 @@ std::optional<RomImport::Link> LanNode::linkTo(const std::string& hostId, std::s
     return RomImport::Link{Endpoint{host->address, host->port}, std::move(*secret)};
 }
 
-std::optional<std::vector<wire::RomConsole>> LanNode::romsOf(const std::string& hostId,
-                                                             std::string& error) const {
+std::optional<std::string> LanNode::askHost(const std::string& hostId, std::string_view method,
+                                            std::string_view route, const std::string& body,
+                                            std::size_t largest, std::string& error) const {
     std::optional<RomImport::Link> link = linkTo(hostId, error);
     if (!link) {
         return std::nullopt;
     }
     const PeerClient client{web_, link->endpoint};
-    const std::optional<net::WebClient::Answer> answer =
-        client.call("GET", wire::romListRoute, {}, PeerClient::Signer{book_.id(), link->secret},
-                    largestListing, error);
+    std::optional<net::WebClient::Answer> answer = client.call(
+        method, route, body, PeerClient::Signer{book_.id(), link->secret}, largest, error);
     secrets::wipeBytes(link->secret.data(), link->secret.size());
     if (!answer) {
         return std::nullopt;
     }
     if (answer->status != ok) {
-        error = "HTTP " + std::to_string(answer->status);
+        const std::string why{lucent::text::trim(answer->body)};
+        error = why.empty() ? "HTTP " + std::to_string(answer->status) : why;
         return std::nullopt;
     }
-    std::optional<std::vector<wire::RomConsole>> consoles = wire::readRomListing(answer->body);
+    return std::move(answer->body);
+}
+
+std::optional<std::vector<wire::RomConsole>> LanNode::romsOf(const std::string& hostId,
+                                                             std::string& error) const {
+    const std::optional<std::string> body =
+        askHost(hostId, "GET", wire::romListRoute, {}, largestListing, error);
+    if (!body) {
+        return std::nullopt;
+    }
+    std::optional<std::vector<wire::RomConsole>> consoles = wire::readRomListing(*body);
     if (!consoles) {
         error = "its answer is not a ROM listing";
     }
     return consoles;
+}
+
+std::optional<std::vector<wire::ListedProfile>> LanNode::profilesOf(const std::string& hostId,
+                                                                    std::string& error) const {
+    const std::optional<std::string> body =
+        askHost(hostId, "GET", wire::profilesRoute, {}, largestNotice, error);
+    if (!body) {
+        return std::nullopt;
+    }
+    std::optional<std::vector<wire::ListedProfile>> listed = wire::readProfileListing(*body);
+    if (!listed) {
+        error = "its answer is not a list of profiles";
+    }
+    return listed;
+}
+
+bool LanNode::askCopy(const std::string& hostId, const std::string& profileId,
+                      std::string& error) const {
+    return askHost(hostId, "POST", wire::profileCopyRoute, wire::write(wire::ProfileAsk{profileId}),
+                   largestNotice, error)
+        .has_value();
+}
+
+std::optional<wire::CopyVerdict> LanNode::copyStatus(const std::string& hostId,
+                                                     const std::string& profileId,
+                                                     std::string& error) const {
+    const std::optional<std::string> body =
+        askHost(hostId, "POST", wire::profileCopyStatusRoute,
+                wire::write(wire::ProfileAsk{profileId}), largestNotice, error);
+    if (!body) {
+        return std::nullopt;
+    }
+    std::optional<wire::CopyVerdict> verdict = wire::readCopyVerdict(*body);
+    if (!verdict) {
+        error = "its answer is not a copy's verdict";
+    }
+    return verdict;
+}
+
+bool LanNode::unlink(const std::string& peerId, const std::string& profileId,
+                     std::string& error) const {
+    if (!profiles_.link(profileId, peerId, false, error)) {
+        return false;
+    }
+    std::string told;
+    if (!askHost(peerId, "POST", wire::profileUnlinkRoute, wire::write(wire::ProfileAsk{profileId}),
+                 largestNotice, told)) {
+        lucent::warn("lan", "{} was not told the profile {} is unlinked: {}", peerId, profileId,
+                     told);
+    }
+    return true;
 }
 
 bool LanNode::forget(const std::string& peerId, std::string& error) {
@@ -252,6 +314,10 @@ bool LanNode::forget(const std::string& peerId, std::string& error) {
             secrets::wipeBytes(secret->data(), secret->size());
         }
         return false;
+    }
+    std::string kept;
+    if (!profiles_.forgetPeer(peerId, kept)) {
+        lucent::warn("lan", "the profiles linked with {} stay linked: {}", peerId, kept);
     }
     const std::vector<Sighting> seen = sightings();
     const auto peer = std::ranges::find(seen, peerId, &Sighting::id);

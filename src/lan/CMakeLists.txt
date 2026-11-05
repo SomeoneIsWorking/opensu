@@ -4,7 +4,8 @@
 # Activity on Android; elsewhere it is not built yet and says so.
 add_library(opensu_lan STATIC pairing_keys.cpp request_signature.cpp peer_book.cpp wire.cpp
             shared_library.cpp remote_library.cpp peer_client.cpp host_pairing.cpp guest_pairing.cpp
-            peer_save_target.cpp rom_shelf.cpp rom_import.cpp lan_listener.cpp lan_node.cpp)
+            peer_save_target.cpp profile_copies.cpp rom_shelf.cpp rom_import.cpp lan_listener.cpp
+            lan_node.cpp)
 add_library(opensu::lan ALIAS opensu_lan)
 target_include_directories(opensu_lan PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_lan

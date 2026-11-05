@@ -112,7 +112,7 @@ before and after, and the runner's `--saves` all use that profile.
 3. Done. Settings › Profiles (add, rename, picture), the Guide's Profile row and the picker at
    start. A picture is shown by its colour's name; the picker's buttons are the names.
    Shown: two profiles on one machine keeping separate saves for the same ROM.
-4. LAN: the profile listing, Copy with the owner's question, links, linked-only sync, Unlink; the
+4. Done. LAN: the profile listing, Copy with the owner's question, links, linked-only sync, Unlink; the
    Share saves switch removed. Shown: copy and link between two hidden LAN openSUs with the question
    asked on the owner, and a linked profile's saves syncing while an unlinked one's do not.
 5. Switch emulators' user per profile.

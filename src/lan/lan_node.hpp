@@ -1,7 +1,8 @@
 // lan_node — this openSU on the LAN while the player has LAN on: its book of paired peers, its
 // listener, its DNS-SD announcement and browsing, the pairing it hosts and the one it asks for,
-// its paired peers it shares saves with as targets of `save_sync::SaveSync` (`PeerSaveTarget`,
-// the group `lan`), and a worker that keeps the paired peers' games in
+// its paired peers as targets of `save_sync::SaveSync` for the profiles linked with each
+// (`PeerSaveTarget`, the group `lan`), the copies of its profiles they ask for (`ProfileCopies`)
+// and those it asks of them, and a worker that keeps the paired peers' games in
 // `RemoteLibrary` while they are announced (again when one comes or goes, a pairing changes, and
 // every minute), their covers cached under `coverCache`; a paired peer's request to play a game
 // here goes to `play`, and this one asks a host to play one of its games (`askToPlay`). It offers
@@ -29,6 +30,7 @@
 #include "net/web_client.hpp"
 #include "peer_book.hpp"
 #include "peer_client.hpp"
+#include "profile_copies.hpp"
 #include "remote_library.hpp"
 #include "rom_import.hpp"
 #include "rom_shelf.hpp"
@@ -51,10 +53,11 @@ class LanNode {
         /// What `remote` lists changed, or a peer unpaired itself; called on a thread of the
         /// node's.
         std::function<void()> changed;
-        /// The shared saves the paired peers the player shares them with are targets of while the
-        /// node runs; it outlives the node.
+        /// The shared saves the paired peers are targets of while the node runs; it outlives the
+        /// node.
         save_sync::SaveSync& saves;
-        /// The profiles here, whose saves the peers are asked for and given.
+        /// The profiles here, copied to the peers, whose linked ones' saves they are asked for and
+        /// given.
         profiles::ProfileBook& profiles;
         /// A paired peer asks to play a listed game here (`LanListener::Sources::play`); empty
         /// refuses every such request.
@@ -91,15 +94,39 @@ class LanNode {
     [[nodiscard]] std::vector<Peer> paired() const {
         return book_.paired();
     }
+    [[nodiscard]] std::optional<Peer> find(const std::string& peerId) const {
+        return book_.find(peerId);
+    }
     /// Shares the installed games among `games` with paired peers from now on.
     void share(const std::vector<library::Game>& games) {
         library_.share(games);
     }
-    /// Shares saves with `peerId` from now on, or no longer. False with `error` when that could
-    /// not be kept.
-    [[nodiscard]] bool shareSaves(const std::string& peerId, bool on, std::string& error) {
-        return book_.shareSaves(peerId, on, error);
+    /// The copy of a profile here a paired peer asks for that waits for the player.
+    [[nodiscard]] std::optional<ProfileCopies::Question> copyQuestion() const {
+        return copies_.question(ProfileCopies::Clock::now());
     }
+    /// The player's answer to `peerId`'s ask for `profileId`. False with `error` when an allowed
+    /// copy's link could not be kept, which the peer is then told was declined.
+    [[nodiscard]] bool answerCopy(const std::string& peerId, const std::string& profileId,
+                                  bool allow, std::string& error) {
+        return copies_.decide(peerId, profileId, allow, ProfileCopies::Clock::now(), error);
+    }
+
+    // Asked of the paired, announced openSU `hostId`. Each blocks for the call, so never on the
+    // loop, and is nothing or false with `error` when it is gone, unpaired or refuses.
+    /// Its profiles, each saying whether it is linked with this one.
+    [[nodiscard]] std::optional<std::vector<wire::ListedProfile>>
+    profilesOf(const std::string& hostId, std::string& error) const;
+    /// Asks it for a copy of its profile `profileId`, which its player is asked about.
+    [[nodiscard]] bool askCopy(const std::string& hostId, const std::string& profileId,
+                               std::string& error) const;
+    /// How the ask for `profileId` stands there.
+    [[nodiscard]] std::optional<wire::CopyVerdict>
+    copyStatus(const std::string& hostId, const std::string& profileId, std::string& error) const;
+    /// Drops the link of `profileId` with `peerId` here, then tells it to drop it too when it is
+    /// announced; both keep the profile. False with `error` when it could not be dropped here.
+    [[nodiscard]] bool unlink(const std::string& peerId, const std::string& profileId,
+                              std::string& error) const;
 
     /// Offers the ROMs and BIOS files of `contents` to paired peers from now on.
     void shareRoms(RomShelf::Contents contents) {
@@ -168,6 +195,11 @@ class LanNode {
     /// Where the paired, announced `hostId` listens and the pairing's secret; nothing with why.
     [[nodiscard]] std::optional<RomImport::Link> linkTo(const std::string& hostId,
                                                         std::string& why) const;
+    /// `method` `route` with `body` asked of `hostId`: the answer's body when it says OK, at most
+    /// `largest` bytes; nothing with `error` otherwise.
+    [[nodiscard]] std::optional<std::string>
+    askHost(const std::string& hostId, std::string_view method, std::string_view route,
+            const std::string& body, std::size_t largest, std::string& error) const;
 
     net::WebClient web_;
     std::filesystem::path coverCache_;
@@ -179,6 +211,7 @@ class LanNode {
     SharedLibrary library_;
     save_sync::SaveSync& saves_;
     profiles::ProfileBook& profiles_;
+    ProfileCopies copies_{profiles_};
     RomShelf shelf_;
     LanListener listener_;
     std::string problem_;

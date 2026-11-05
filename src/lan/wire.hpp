@@ -88,7 +88,46 @@ inline constexpr std::size_t coverTokenBytes = 16;
 /// out, and covers that are not tokens dropped.
 [[nodiscard]] std::optional<std::vector<ListedGame>> readListing(std::string_view body);
 
-/// The routes a paired peer that shares saves asks.
+/// The routes of profile copies, for paired peers.
+inline constexpr std::string_view profilesRoute = "/lan/profiles";
+inline constexpr std::string_view profileCopyRoute = "/lan/profiles/copy";
+inline constexpr std::string_view profileCopyStatusRoute = "/lan/profiles/copy/status";
+inline constexpr std::string_view profileUnlinkRoute = "/lan/profiles/unlink";
+
+/// One profile of `GET /lan/profiles`, and the one a copy takes.
+struct ListedProfile {
+    std::string id;
+    std::string name;
+    std::uint8_t picture{0};
+    /// It is linked with the openSU that asked.
+    bool linked{false};
+
+    bool operator==(const ListedProfile&) const = default;
+};
+/// `{"profiles":[{"id","name","picture","linked"}]}`.
+[[nodiscard]] std::string write(const std::vector<ListedProfile>& profiles);
+/// A listing read back; nothing when `body` is not one. Entries without a profile id or a name
+/// are left out, a picture past the last one wraps.
+[[nodiscard]] std::optional<std::vector<ListedProfile>> readProfileListing(std::string_view body);
+
+/// `POST /lan/profiles/copy`, `/copy/status` and `/unlink`: which profile of the host.
+struct ProfileAsk {
+    std::string profile;
+};
+[[nodiscard]] std::string write(const ProfileAsk& ask);
+/// Nothing when `body` is not one or its profile is not a profile id.
+[[nodiscard]] std::optional<ProfileAsk> readProfileAsk(std::string_view body);
+
+/// The answer to `/copy/status`: `waiting`, `accepted` (with the profile) or `declined`.
+struct CopyVerdict {
+    std::string verdict;
+    ListedProfile profile;
+};
+[[nodiscard]] std::string write(const CopyVerdict& verdict);
+/// Nothing when `body` is not one, or an accepted one carries no profile.
+[[nodiscard]] std::optional<CopyVerdict> readCopyVerdict(std::string_view body);
+
+/// The routes a paired peer asks for the saves of a profile linked with it.
 inline constexpr std::string_view saveStatusRoute = "/lan/saves/status";
 inline constexpr std::string_view saveGetRoute = "/lan/saves/get";
 inline constexpr std::string_view saveNewsRoute = "/lan/saves/news";

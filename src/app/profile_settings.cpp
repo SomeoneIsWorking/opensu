@@ -17,6 +17,7 @@ constexpr std::string_view addId = "profiles.add";
 constexpr std::string_view namePrefix = "profiles.name.";
 constexpr std::string_view picturePrefix = "profiles.picture.";
 constexpr std::string_view playPrefix = "profiles.play.";
+constexpr std::string_view unlinkPrefix = "profiles.unlink.";
 constexpr std::string_view nameCardId = "profile-name";
 
 std::string rowOf(std::string_view prefix, const std::string& profileId) {
@@ -47,6 +48,12 @@ ui::SettingsCategory ProfileSettings::page() const {
                                             "Play as " + profile.name,
                                             "Games load and keep its saves from now on", ""));
         }
+        for (const std::string& peer : profile.links) {
+            page.rows.push_back(ui::makeRow(
+                std::string{unlinkPrefix} + profile.id + ":" + peer, RowKind::Action,
+                "Linked with " + hooks_.peerName(peer),
+                "Its saves stay the same on both; Unlink keeps each as its own profile", "Unlink"));
+        }
     }
     page.rows.push_back(ui::makeHeading("New"));
     page.rows.push_back(ui::makeRow(std::string{addId}, RowKind::Action, "Add profile",
@@ -56,7 +63,7 @@ ui::SettingsCategory ProfileSettings::page() const {
 
 bool ProfileSettings::owns(const std::string& id) {
     return id == addId || id.starts_with(namePrefix) || id.starts_with(picturePrefix) ||
-           id.starts_with(playPrefix);
+           id.starts_with(playPrefix) || id.starts_with(unlinkPrefix);
 }
 
 void ProfileSettings::run(const std::string& id, int step) {
@@ -90,7 +97,30 @@ void ProfileSettings::run(const std::string& id, int step) {
     }
     if (id.starts_with(playPrefix)) {
         hooks_.play(id.substr(playPrefix.size()));
+        return;
     }
+    if (id.starts_with(unlinkPrefix)) {
+        askUnlink(id.substr(unlinkPrefix.size()));
+    }
+}
+
+void ProfileSettings::askUnlink(std::string_view link) {
+    const std::size_t colon = link.find(':');
+    const std::optional<profiles::Profile> profile = profiles_.find(link.substr(0, colon));
+    if (colon == std::string_view::npos || !profile) {
+        return;
+    }
+    const std::string peer{link.substr(colon + 1)};
+    const std::string host = hooks_.peerName(peer);
+    sounds_.play(audio::Effect::Open);
+    navigator_.push(
+        gpu2d::ui::confirm("Unlink " + profile->name + " from " + host + "?",
+                           "Both keep " + profile->name +
+                               " as a profile of their own, with the saves each has now; "
+                               "from then on its saves no longer sync.",
+                           "Unlink", [this, id = profile->id, peer] {
+                               hooks_.unlink(id, peer);
+                           }));
 }
 
 void ProfileSettings::askName(std::string profileId) {

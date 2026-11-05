@@ -12,6 +12,17 @@ openSU starts with one profile, *Player 1*, and asks nothing until you add anoth
 - **Play as** *name*: makes it the profile games play as from now on. The one you play as reads
   *Playing now*.
 - **Add profile**: names a new profile, with saves of its own, empty until it plays.
+- **Linked with** *name*: a profile copied to or from another openSU on the LAN. Its saves stay
+  the same on both. **Unlink** asks first, then both keep it as a profile of their own with the
+  saves each has, no longer synced.
+
+## Profiles on the LAN
+
+Settings › LAN › Profiles on *name* lists another paired openSU's profiles. **Copy** asks it for
+one: the other openSU asks its player, Decline first, as pairing does. Allowed, the profile is
+copied here with its saves and linked with that openSU; from then on its saves follow whoever
+played it last ([lan.md](lan.md#shared-saves)). A profile not linked with it keeps its saves to
+this openSU. Removing the pairing unlinks every profile linked with it.
 
 ## Switching
 

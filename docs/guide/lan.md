@@ -31,8 +31,9 @@ while that openSU is on and on the network, and are checked again every minute.
 - **Found here**: other openSUs on the network you have not paired with.
 - **Paired**: the ones you have. Remove forgets the pairing here and tells the other openSU to
   forget it too. Its games leave Library on both sides. Pairing again shows a new code.
-- **Share saves with <name>**: under each paired openSU, off until you turn it on. Saves are
-  shared only when both openSUs have it on for each other.
+- **Profiles on <name>**: under each paired openSU, its profiles. **Copy** asks it for a copy
+  of one; the other openSU asks its player, as pairing does. Allowed, the copy is a profile here
+  linked with it ([Shared saves](#shared-saves)).
 - **ROMs on <name>**: under each paired openSU, its ROMs to copy here
   ([Importing ROMs](#importing-roms)).
 
@@ -62,13 +63,16 @@ soon as it arrives. Each file is checked against the other openSU's copy before 
 
 ## Shared saves
 
-For a game installed on both openSUs, the saves of the emulator it starts with follow you:
+Saves follow a profile ([profiles.md](profiles.md)). A profile copied from another openSU is
+linked with it, and only a linked profile's saves are shared with it. For a game installed on both
+openSUs, the saves of the emulator it starts with follow the profile you play as:
 
 - Before the game starts, openSU takes the other one's saves if they are newer ("Syncing ...'s
   saves first").
 - After the game ends, the other openSU takes yours.
 - The game's details page says how its saves stand under **Saves**: In sync with Desk, Newer on
-  Desk, Conflict with Desk, or Desk cannot be reached. **Sync saves now** syncs at once.
+  Desk, Conflict with Desk, Desk cannot be reached, or This profile is not linked with Desk.
+  **Sync saves now** syncs at once.
 - If you played on both since they last synced, nothing is replaced. The row says **Pick which
   save to keep** and shows each side's date and size. B cancels.
 - The saves replaced are always backed up first, as Copy saves does, under
@@ -100,8 +104,8 @@ and sound here, and your controller, keyboard and mouse play it.
 
 - An openSU you have not paired with learns only this one's name. Everything else is refused.
 - A paired openSU sees the titles and covers of your installed games, the ROMs in your ROM
-  folders and the BIOS files for their consoles (and can copy them), and the saves of the games
-  you share saves for, nothing more. It can start one of those games here to play it remotely;
+  folders and the BIOS files for their consoles (and can copy them), your profiles' names and
+  colours, and the saves of the profiles linked with it, nothing more. It can start one of those games here to play it remotely;
   this screen then shows a notice naming it.
 - Pairings are kept in your desktop's keyring when there is one, otherwise in an owner-only file
   in openSU's config folder.

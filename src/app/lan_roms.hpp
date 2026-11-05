@@ -117,7 +117,6 @@ class LanRoms {
     [[nodiscard]] ui::SettingsCategory hostPage(const std::string& peerId) const;
     [[nodiscard]] ui::SettingsCategory consolePage(const std::string& peerId,
                                                    const std::string& system) const;
-    [[nodiscard]] std::string hostName(const std::string& peerId) const;
     /// The BIOS files `peerId` has that the runner here lacks for the consoles picked.
     [[nodiscard]] std::vector<OfferedBios> offeredBios(const std::string& peerId) const;
     void ask(const std::string& peerId);

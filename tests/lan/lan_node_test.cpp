@@ -49,6 +49,7 @@
 #include "secrets/secret.hpp"
 #include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
+#include "ui/check.hpp"
 
 namespace {
 
@@ -499,11 +500,9 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
     guest.node.share({game});
     host.sync.know({game}, runnerCatalog());
     guest.sync.know({game}, runnerCatalog());
-    // One player's profile on both: the den's, which the attic holds a copy of.
+    // One player's profile on both: the den's, which the attic copies.
     const std::string player = host.profiles.first().id;
     std::string error;
-    expect(guest.profiles.adopt(host.profiles.first(), host.node.id(), error),
-           "the attic holds the den's profile");
     const fs::path hostSave = host.saves / "profiles" / player / "gb" / "Test.srm";
     const fs::path guestSave = guest.saves / "profiles" / player / "gb" / "Test.srm";
     expect(waitFor([&guest] {
@@ -517,17 +516,38 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
     expect(waitFor([&guest, unshared] {
                return guest.sync.prepared(unshared);
            }),
-           "a launch is let go at once while no peer shares saves");
-    expect(!fs::exists(guestSave) && guest.sync.standings(game.id, player).empty(),
-           "and nothing is taken or shown");
+           "a launch is let go at once while no profile is linked");
+    expect(!fs::exists(guestSave) && looksLike(guest, game, player, Standing::NotShared),
+           "and nothing is taken; the profile is not linked with the den");
 
-    expect(guest.node.shareSaves(host.node.id(), true, error),
-           "the attic shares saves with the den");
+    const std::optional<std::vector<lan::wire::ListedProfile>> listed =
+        guest.node.profilesOf(host.node.id(), error);
+    expect(listed && listed->size() == 1 && listed->front().id == player &&
+               listed->front().name == "Player 1" && !listed->front().linked,
+           "the attic lists the den's profile, not linked");
+    expect(guest.node.askCopy(host.node.id(), player, error), "the attic asks for a copy of it");
+    const std::optional<lan::ProfileCopies::Question> asked = host.node.copyQuestion();
+    expect(asked && asked->peer.id == guest.node.id() && asked->profile.id == player,
+           "the den's player is asked");
+    const std::optional<lan::wire::CopyVerdict> waiting =
+        guest.node.copyStatus(host.node.id(), player, error);
+    expect(waiting && waiting->verdict == "waiting", "the attic waits for the answer");
+    expect(host.node.answerCopy(guest.node.id(), player, true, error) &&
+               host.profiles.linked(player, guest.node.id()),
+           "the den's player allows it, and the den links its profile with the attic");
+    const lan::wire::CopyVerdict allowed =
+        test::need(guest.node.copyStatus(host.node.id(), player, error), "a verdict");
+    expect(allowed.verdict == "accepted" && allowed.profile.id == player &&
+               allowed.profile.name == "Player 1",
+           "the attic hears it is allowed, with the profile");
+    expect(guest.profiles.adopt(profiles::Profile{.id = allowed.profile.id,
+                                                  .name = allowed.profile.name,
+                                                  .picture = allowed.profile.picture,
+                                                  .links = {}},
+                                host.node.id(), error) &&
+               guest.profiles.linked(player, host.node.id()),
+           "and keeps the copy, linked with the den");
     expect(guest.sync.sharing(game), "so the game's saves are shared");
-    expect(looksLike(guest, game, player, Standing::NotShared),
-           "while the den does not share back, it says so");
-
-    expect(host.node.shareSaves(guest.node.id(), true, error), "the den shares back");
     expect(looksLike(guest, game, player, Standing::NewerThere), "the den's save is newer");
     const std::uint64_t ticket = guest.sync.prepare(game, player);
     expect(waitFor([&guest, ticket] {
@@ -582,9 +602,19 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
                looksLike(guest, game, player, Standing::InSync),
            "and the two are in sync again");
 
-    expect(guest.node.shareSaves(host.node.id(), false, error), "the attic stops sharing");
-    expect(looksLike(host, game, player, Standing::NotShared),
-           "and the den hears it no longer shares");
+    const std::string other =
+        test::need(host.profiles.add("Ana", error), "a second profile on the den").id;
+    writeFile(host.saves / "profiles" / other / "gb" / "Test.srm", "Ana's on the den");
+    expect(looksLike(host, game, other, Standing::NotShared),
+           "a profile of the den's not linked with the attic does not sync with it");
+
+    expect(guest.node.unlink(host.node.id(), player, error) &&
+               !guest.profiles.linked(player, host.node.id()),
+           "the attic unlinks the copy");
+    expect(!host.profiles.linked(player, guest.node.id()) && guest.profiles.find(player) &&
+               host.profiles.find(player),
+           "the den is told and unlinks it too; both keep the profile");
+    expect(looksLike(host, game, player, Standing::NotShared), "and its saves no longer sync");
 }
 
 /// The signed routes, asked directly of a listener.
@@ -736,7 +766,8 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
     library.share({installedGame("own:1", "Shared game", {})});
     lan::RomShelf shelf;
     const net::WebClient web;
-    const profiles::ProfileBook profiles{root / "signed" / "profiles.json"};
+    profiles::ProfileBook profiles{root / "signed" / "profiles.json"};
+    lan::ProfileCopies copies{profiles};
     save_sync::SaveSync saves{save_sync::SaveSync::Setup{
         .versionsFile = root / "signed" / "save-sync.json",
         .backups = root / "signed",
@@ -754,6 +785,7 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
                                                         .library = library,
                                                         .saves = saves,
                                                         .profiles = profiles,
+                                                        .copies = copies,
                                                         .roms = shelf,
                                                         .name =
                                                             [] {

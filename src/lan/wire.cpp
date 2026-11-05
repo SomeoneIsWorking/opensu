@@ -212,6 +212,95 @@ std::optional<std::vector<ListedGame>> readListing(std::string_view body) {
     return games;
 }
 
+namespace {
+
+json profileEntry(const ListedProfile& profile) {
+    return json{{"id", profile.id},
+                {"name", profile.name},
+                {"picture", profile.picture},
+                {"linked", profile.linked}};
+}
+
+std::optional<ListedProfile> profileOf(const json& entry) {
+    if (!entry.is_object()) {
+        return std::nullopt;
+    }
+    ListedProfile profile{.id = textField(entry, "id"),
+                          .name = shownName(textField(entry, "name")),
+                          .picture = static_cast<std::uint8_t>(
+                              countField(entry, "picture").value_or(0) % profiles::pictureCount),
+                          .linked = entry.value("linked", false)};
+    if (!profiles::isProfileId(profile.id) || profile.name.empty()) {
+        return std::nullopt;
+    }
+    return profile;
+}
+
+} // namespace
+
+std::string write(const std::vector<ListedProfile>& profiles) {
+    json list = json::array();
+    for (const ListedProfile& profile : profiles) {
+        list.push_back(profileEntry(profile));
+    }
+    return json{{"profiles", list}}.dump();
+}
+
+std::optional<std::vector<ListedProfile>> readProfileListing(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document || !document->contains("profiles") || !(*document)["profiles"].is_array()) {
+        return std::nullopt;
+    }
+    std::vector<ListedProfile> listed;
+    for (const json& entry : (*document)["profiles"]) {
+        if (std::optional<ListedProfile> profile = profileOf(entry)) {
+            listed.push_back(std::move(*profile));
+        }
+    }
+    return listed;
+}
+
+std::string write(const ProfileAsk& ask) {
+    return json{{"profile", ask.profile}}.dump();
+}
+
+std::optional<ProfileAsk> readProfileAsk(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    ProfileAsk ask{textField(*document, "profile")};
+    if (!profiles::isProfileId(ask.profile)) {
+        return std::nullopt;
+    }
+    return ask;
+}
+
+std::string write(const CopyVerdict& verdict) {
+    json document{{"verdict", verdict.verdict}};
+    if (!verdict.profile.id.empty()) {
+        document["profile"] = profileEntry(verdict.profile);
+    }
+    return document.dump();
+}
+
+std::optional<CopyVerdict> readCopyVerdict(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    CopyVerdict verdict{.verdict = textField(*document, "verdict"), .profile = {}};
+    if (document->contains("profile")) {
+        if (std::optional<ListedProfile> profile = profileOf((*document)["profile"])) {
+            verdict.profile = std::move(*profile);
+        }
+    }
+    if (verdict.verdict == "accepted" && verdict.profile.id.empty()) {
+        return std::nullopt;
+    }
+    return verdict;
+}
+
 std::string write(const SaveAsk& ask) {
     return json{{"system", ask.system}, {"game", ask.game}, {"profile", ask.profile},
                 {"picked", ask.picked}, {"hash", ask.hash}, {"counter", ask.counter}}

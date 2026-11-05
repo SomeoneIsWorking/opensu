@@ -59,6 +59,7 @@
 #include "interface_sounds.hpp"
 #include "keyboard_pad.hpp"
 #include "lan/remote_library.hpp"
+#include "lan_profiles.hpp"
 #include "lan_roms.hpp"
 #include "lan_service.hpp"
 #include "lan_settings.hpp"
@@ -879,6 +880,14 @@ class ShellApp final {
                                .play =
                                    [this](const std::string& id) {
                                        switchProfile(id);
+                                   },
+                               .peerName =
+                                   [this](const std::string& peerId) {
+                                       return lan_.peerName(peerId);
+                                   },
+                               .unlink =
+                                   [this](const std::string& profileId, const std::string& peerId) {
+                                       lanProfiles_.unlink(profileId, peerId);
                                    }}};
     /// Settings › LAN.
     LanSettings lanSettings_{
@@ -915,6 +924,20 @@ class ShellApp final {
                                         [this] {
                                             settingsScreen_.refresh();
                                         }}};
+    /// Profiles copied to and from paired openSUs, and their links.
+    LanProfiles lanProfiles_{lan_,
+                             profiles_.book(),
+                             saveSharing_.engine(),
+                             shell_.screens().navigator(),
+                             sounds_,
+                             LanProfiles::Hooks{.say =
+                                                    [this](const std::string& text, bool isError) {
+                                                        shell_.setToast(text, isError);
+                                                    },
+                                                .refresh =
+                                                    [this] {
+                                                        settingsScreen_.refresh();
+                                                    }}};
     /// The plugins, their play time and the Settings screen's Plugins category.
     PluginService plugins_{environment_, preferences_, integrations_.current().plugins,
                            PluginService::Hooks{[this](const std::string& text, bool isError) {
@@ -1009,11 +1032,26 @@ class ShellApp final {
     SettingsController settingsScreen_{
         shell_.screens().navigator(),
         shell_.screens().chrome(),
-        SettingsController::Services{
-            paths_, shortcutEditor_, shell_.shortcuts(), emulatorSettings_, layerSettings_,
-            layered_, steamLibrarySettings_, pluginSettings_, chordSettings_, mappings_,
-            wineSettings_, integrationSettings_, artworkSettings_, interfaceSoundSettings_,
-            lanSettings_, lanRoms_, saveSettings_, profileSettings_, integrations_},
+        SettingsController::Services{paths_,
+                                     shortcutEditor_,
+                                     shell_.shortcuts(),
+                                     emulatorSettings_,
+                                     layerSettings_,
+                                     layered_,
+                                     steamLibrarySettings_,
+                                     pluginSettings_,
+                                     chordSettings_,
+                                     mappings_,
+                                     wineSettings_,
+                                     integrationSettings_,
+                                     artworkSettings_,
+                                     interfaceSoundSettings_,
+                                     lanSettings_,
+                                     lanRoms_,
+                                     lanProfiles_,
+                                     saveSettings_,
+                                     profileSettings_,
+                                     integrations_},
         sounds_,
         preferences_,
         environment_,

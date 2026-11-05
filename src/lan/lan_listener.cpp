@@ -7,6 +7,7 @@
 #include <iterator>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 #include "lucent/log.h"
 #include "secrets/secret.hpp"
@@ -101,10 +102,13 @@ Response LanListener::handle(const Request& request) {
     }
     const bool peerPath =
         (request.method == "GET" &&
-         (path == "/lan/library" || path == wire::romListRoute || path.starts_with(coverPrefix))) ||
+         (path == "/lan/library" || path == wire::romListRoute || path == wire::profilesRoute ||
+          path.starts_with(coverPrefix))) ||
         (request.method == "POST" &&
          (path == "/lan/unpair" || path == wire::playRoute || path.starts_with(savesPrefix) ||
-          path == wire::romFileRoute || path == wire::romChunkRoute));
+          path == wire::romFileRoute || path == wire::romChunkRoute ||
+          path == wire::profileCopyRoute || path == wire::profileCopyStatusRoute ||
+          path == wire::profileUnlinkRoute));
     if (!peerPath) {
         return refused(notFound, "Not Found", "no such route");
     }
@@ -123,6 +127,9 @@ Response LanListener::handle(const Request& request) {
             answer = savesRoute(path, *body, *verified);
         } else if (path == wire::playRoute) {
             answer = playRoute(*body, *verified);
+        } else if (path == wire::profileCopyRoute || path == wire::profileCopyStatusRoute ||
+                   path == wire::profileUnlinkRoute) {
+            answer = profilesRoute(path, *body, *verified);
         } else if (path == wire::romFileRoute || path == wire::romChunkRoute) {
             answer = romsRoute(path, *body, *verified);
         } else {
@@ -175,6 +182,16 @@ Response LanListener::peerRoute(const Request& request, const Signed& verified) 
     if (path == wire::romListRoute) {
         return Response::json(ok, "OK", wire::write(sources_.roms.listing()));
     }
+    if (path == wire::profilesRoute) {
+        std::vector<wire::ListedProfile> listed;
+        for (const profiles::Profile& profile : sources_.profiles.all()) {
+            listed.push_back(wire::ListedProfile{.id = profile.id,
+                                                 .name = profile.name,
+                                                 .picture = profile.picture,
+                                                 .linked = profile.linkedWith(verified.peer.id)});
+        }
+        return Response::json(ok, "OK", wire::write(listed));
+    }
     if (path == "/lan/unpair") {
         std::string error;
         if (!sources_.book.forget(verified.peer.id, error)) {
@@ -183,6 +200,10 @@ Response LanListener::peerRoute(const Request& request, const Signed& verified) 
             return refused(conflict, "Conflict", "it could not be forgotten");
         }
         lucent::info("lan", "{} unpaired from this openSU", verified.peer.name);
+        if (!sources_.profiles.forgetPeer(verified.peer.id, error)) {
+            lucent::warn("lan", "the profiles linked with {} stay linked: {}", verified.peer.name,
+                         error);
+        }
         sources_.unpaired(verified.peer);
         return Response::json(ok, "OK", "{}");
     }
@@ -204,17 +225,14 @@ Response LanListener::peerRoute(const Request& request, const Signed& verified) 
 
 Response LanListener::savesRoute(std::string_view path, std::string_view body,
                                  const Signed& verified) {
-    if (!verified.peer.sharesSaves) {
-        lucent::info("lan", "refused {} from {}: saves are not shared with it", path,
-                     verified.peer.name);
-        return refused(forbidden, "Forbidden", "saves are not shared with this openSU");
-    }
     const std::optional<wire::SaveAsk> ask = wire::readSaveAsk(body);
     if (!ask) {
         return refused(badRequest, "Bad Request", "not a game's saves");
     }
-    if (!sources_.profiles.find(ask->profile)) {
-        return refused(notFound, "Not Found", "no profile here has those saves");
+    if (!sources_.profiles.linked(ask->profile, verified.peer.id)) {
+        lucent::info("lan", "refused {} from {}: that profile is not linked with it", path,
+                     verified.peer.name);
+        return refused(forbidden, "Forbidden", "that profile is not linked with this openSU");
     }
     const library::saves::SaveKey key{ask->system, ask->game, ask->profile};
     if (path == wire::saveStatusRoute) {
@@ -245,6 +263,49 @@ Response LanListener::savesRoute(std::string_view path, std::string_view body,
         return Response::json(ok, "OK", "{}");
     }
     return refused(notFound, "Not Found", "no such route");
+}
+
+Response LanListener::profilesRoute(std::string_view path, std::string_view body,
+                                    const Signed& verified) {
+    const std::optional<wire::ProfileAsk> ask = wire::readProfileAsk(body);
+    if (!ask) {
+        return refused(badRequest, "Bad Request", "not a profile");
+    }
+    const auto now = ProfileCopies::Clock::now();
+    if (path == wire::profileCopyRoute) {
+        std::string refusal;
+        if (!sources_.copies.ask(verified.peer, ask->profile, now, refusal)) {
+            if (!sources_.profiles.find(ask->profile)) {
+                return refused(notFound, "Not Found", refusal);
+            }
+            return refused(conflict, "Conflict", refusal);
+        }
+        return Response::json(ok, "OK", "{}");
+    }
+    if (path == wire::profileCopyStatusRoute) {
+        const std::optional<ProfileCopies::Status> status =
+            sources_.copies.status(verified.peer.id, ask->profile, now);
+        if (!status) {
+            return refused(notFound, "Not Found", "no copy of that profile is asked for");
+        }
+        wire::CopyVerdict verdict{.verdict = std::string{key(status->verdict)}, .profile = {}};
+        if (status->verdict == Verdict::Accepted) {
+            verdict.profile = wire::ListedProfile{.id = status->profile.id,
+                                                  .name = status->profile.name,
+                                                  .picture = status->profile.picture,
+                                                  .linked = true};
+        }
+        return Response::json(ok, "OK", wire::write(verdict));
+    }
+    std::string error;
+    if (!sources_.profiles.linked(ask->profile, verified.peer.id)) {
+        return Response::json(ok, "OK", "{}");
+    }
+    if (!sources_.profiles.link(ask->profile, verified.peer.id, false, error)) {
+        return refused(conflict, "Conflict", error);
+    }
+    lucent::info("lan", "{} unlinked the profile {}", verified.peer.name, ask->profile);
+    return Response::json(ok, "OK", "{}");
 }
 
 Response LanListener::romsRoute(std::string_view path, std::string_view body,

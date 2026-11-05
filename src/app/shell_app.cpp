@@ -1392,6 +1392,7 @@ int ShellApp::run() {
         plugins_.service();
         lan_.service();
         lanRoms_.service();
+        lanProfiles_.service();
         saveSharing_.service();
         remotePlay_.service(launches_.running() || saveSharing_.holding());
         delivery_.service();

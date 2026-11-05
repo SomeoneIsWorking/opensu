@@ -38,8 +38,6 @@ inline constexpr std::size_t longestName = 63;
 struct Peer {
     std::string id;
     std::string name;
-    /// Whether the player shares saves with it (Settings › LAN); off until turned on.
-    bool sharesSaves{false};
 
     bool operator==(const Peer&) const = default;
 };
@@ -67,9 +65,6 @@ class PeerBook {
     /// `error` when the secret or the file could not be kept; the book is then as it was.
     [[nodiscard]] bool remember(const Peer& peer, const secrets::crypto::Bytes& secret,
                                 std::string& error);
-    /// Shares saves with `id` from now on, or no longer. False with `error` when it is not paired
-    /// or the file could not be kept.
-    [[nodiscard]] bool shareSaves(std::string_view id, bool on, std::string& error);
     /// Forgets `id` and its secret. False with `error` when either could not be cleared.
     [[nodiscard]] bool forget(std::string_view id, std::string& error);
 

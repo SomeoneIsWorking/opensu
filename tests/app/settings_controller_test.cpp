@@ -141,11 +141,26 @@ struct Rig {
                          }},
           controller{screens.navigator,
                      chrome,
-                     app::SettingsController::Services{
-                         paths, shortcutEditor, shortcuts, emulatorSettings, layerSettings, layered,
-                         steamLibrarySettings, pluginSettings, chordSettings, mappings, wine,
-                         integrationSettings, artworkSettings, interfaceSoundSettings, lanSettings,
-                         lanRoms, saveSettings, profileSettings, inForce},
+                     app::SettingsController::Services{paths,
+                                                       shortcutEditor,
+                                                       shortcuts,
+                                                       emulatorSettings,
+                                                       layerSettings,
+                                                       layered,
+                                                       steamLibrarySettings,
+                                                       pluginSettings,
+                                                       chordSettings,
+                                                       mappings,
+                                                       wine,
+                                                       integrationSettings,
+                                                       artworkSettings,
+                                                       interfaceSoundSettings,
+                                                       lanSettings,
+                                                       lanRoms,
+                                                       lanProfiles,
+                                                       saveSettings,
+                                                       profileSettings,
+                                                       inForce},
                      sounds,
                      preferences,
                      config,
@@ -459,6 +474,20 @@ struct Rig {
                             .biosFolder = {},
                             .reloadCatalog = {},
                             .refresh = {}}};
+    app::LanProfiles lanProfiles{
+        lan,
+        profiles,
+        sharing.engine(),
+        screens.navigator,
+        sounds,
+        app::LanProfiles::Hooks{.say =
+                                    [this](const std::string& text, bool error) {
+                                        said.push_back({text, error});
+                                    },
+                                .refresh =
+                                    [this] {
+                                        controller.refresh();
+                                    }}};
     app::SaveSettings saveSettings{app::SaveSettings::Services{.sharing = sharing,
                                                                .preferences = preferences,
                                                                .paths = paths,
@@ -469,19 +498,28 @@ struct Rig {
                                    }};
     app::ProfileSettings profileSettings{
         profiles, screens.navigator, pad, sounds,
-        app::ProfileSettings::Hooks{.changed =
-                                        [this] {
-                                            controller.refresh();
-                                        },
-                                    .say =
-                                        [this](const std::string& text, bool error) {
-                                            said.push_back({text, error});
-                                        },
-                                    .play =
-                                        [this](const std::string& id) {
-                                            std::string error;
-                                            static_cast<void>(profiles.activate(id, error));
-                                        }}};
+        app::ProfileSettings::Hooks{
+            .changed =
+                [this] {
+                    controller.refresh();
+                },
+            .say =
+                [this](const std::string& text, bool error) {
+                    said.push_back({text, error});
+                },
+            .play =
+                [this](const std::string& id) {
+                    std::string error;
+                    static_cast<void>(profiles.activate(id, error));
+                },
+            .peerName =
+                [this](const std::string& peerId) {
+                    return lan.peerName(peerId);
+                },
+            .unlink =
+                [this](const std::string& profileId, const std::string& peerId) {
+                    lanProfiles.unlink(profileId, peerId);
+                }}};
     ui::MappingPage mappingPage;
     app::MappingEditor mappings{
         mappingPage, settings::MappingStore{config.configDir / settings::mappingsFile}, sounds,

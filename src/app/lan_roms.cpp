@@ -128,17 +128,6 @@ std::string LanRoms::gameKey(std::uint32_t root, const std::string& entry) {
     return std::to_string(root) + ":" + entry;
 }
 
-std::string LanRoms::hostName(const std::string& peerId) const {
-    if (const lan::LanNode* node = lan_.node()) {
-        for (const lan::Peer& peer : node->paired()) {
-            if (peer.id == peerId) {
-                return peer.name;
-            }
-        }
-    }
-    return "that openSU";
-}
-
 void LanRoms::opening(const std::string& id) {
     if (!id.starts_with(pagePrefix)) {
         return;
@@ -182,10 +171,10 @@ void LanRoms::service() {
     bool show = !listings.empty();
     for (auto& [peerId, listing] : listings) {
         if (listing.error.empty()) {
-            lucent::info("lan", "{} offers ROMs of {} consoles", hostName(peerId),
+            lucent::info("lan", "{} offers ROMs of {} consoles", lan_.peerName(peerId),
                          listing.consoles.size());
         } else {
-            lucent::warn("lan", "the ROMs of {} cannot be listed: {}", hostName(peerId),
+            lucent::warn("lan", "the ROMs of {} cannot be listed: {}", lan_.peerName(peerId),
                          listing.error);
         }
         listings_[peerId] = std::move(listing);
@@ -284,7 +273,7 @@ ui::SettingsCategory LanRoms::hostsPage() const {
 }
 
 ui::SettingsCategory LanRoms::hostPage(const std::string& peerId) const {
-    const std::string host = hostName(peerId);
+    const std::string host = lan_.peerName(peerId);
     ui::SettingsCategory page{pageOf(peerId), "ROMs on " + host, {}};
     const auto listing = listings_.find(peerId);
     const auto picks = picks_.find(peerId);
@@ -500,7 +489,7 @@ void LanRoms::startImport(const std::string& peerId) {
             return;
         }
     }
-    const std::string host = hostName(peerId);
+    const std::string host = lan_.peerName(peerId);
     PathEditor::Request request;
     request.title = "A ROM folder for the games from " + host;
     request.start = home_;
@@ -541,7 +530,7 @@ void LanRoms::importInto(const std::string& peerId, const fs::path& folder) {
     if (node == nullptr || listing == listings_.end() || picks == picks_.end()) {
         return;
     }
-    const std::string host = hostName(peerId);
+    const std::string host = lan_.peerName(peerId);
     std::vector<RomImport::Item> items;
     std::map<std::string, std::string> folders;
     for (const lan::wire::RomConsole& console : listing->second.consoles) {

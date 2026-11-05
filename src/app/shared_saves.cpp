@@ -42,7 +42,7 @@ std::string factOf(const save_sync::TargetSaves& saves) {
     case Standing::Offline:
         return peer + " cannot be reached";
     case Standing::NotShared:
-        return peer + " does not share saves with this openSU";
+        return "This profile is not linked with " + peer;
     case Standing::Failed:
         break;
     }

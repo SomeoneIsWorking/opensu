@@ -103,6 +103,10 @@ void LanService::stop() {
     if (romAsker_.joinable()) {
         romAsker_.join();
     }
+    peerAsker_.request_stop();
+    if (peerAsker_.joinable()) {
+        peerAsker_.join();
+    }
     closeQuestion();
     closeCard();
     node_.reset();
@@ -162,25 +166,28 @@ bool LanService::askToPlay(std::string hostId, std::string gameId, PlayAnswer an
     return true;
 }
 
-void LanService::shareSaves(const std::string& peerId, bool on) {
-    if (node_ == nullptr) {
-        return;
+std::string LanService::peerName(const std::string& peerId) const {
+    if (node_ != nullptr) {
+        if (const std::optional<lan::Peer> peer = node_->find(peerId)) {
+            return peer->name;
+        }
     }
-    const std::vector<lan::Peer> peers = node_->paired();
-    const auto peer = std::ranges::find(peers, peerId, &lan::Peer::id);
-    if (peer == peers.end()) {
-        return;
+    return "that openSU";
+}
+
+bool LanService::askPeers(std::function<void(const lan::LanNode&, const std::stop_token&)> work) {
+    if (node_ == nullptr || askingPeers_->exchange(true)) {
+        return false;
     }
-    std::string error;
-    if (!node_->shareSaves(peerId, on, error)) {
-        hooks_.say("Cannot change sharing with " + peer->name + ": " + error, true);
-        return;
+    if (peerAsker_.joinable()) {
+        peerAsker_.join();
     }
-    lucent::info("lan", "saves {} with {}", on ? "shared" : "no longer shared", peer->name);
-    hooks_.say(on ? "Saves are shared with " + peer->name
-                  : "Saves are no longer shared with " + peer->name,
-               false);
-    hooks_.peersChanged();
+    peerAsker_ = std::jthread{[node = node_.get(), asking = askingPeers_,
+                               work = std::move(work)](const std::stop_token& stop) {
+        work(*node, stop);
+        asking->store(false);
+    }};
+    return true;
 }
 
 void LanService::pair(const std::string& peerId) {

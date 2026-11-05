@@ -1,6 +1,7 @@
-// peer_save_target — a paired openSU the player shares saves with, as a `save_sync::SaveTarget`:
+// peer_save_target — a paired openSU as a `save_sync::SaveTarget` for the profiles linked with it:
 // asked over its signed save routes (`/lan/saves/status`, `/get`, `/news`, `/synced`) while it is
-// announced. Saves given to it are told of (`/news`), and it takes them itself.
+// announced. Saves given to it are told of (`/news`), and it takes them itself. A profile not
+// linked with it is not shared, and it is not asked.
 #pragma once
 
 #include <functional>
@@ -11,6 +12,7 @@
 #include "dns_sd.hpp"
 #include "net/web_client.hpp"
 #include "peer_book.hpp"
+#include "profiles/profile_book.hpp"
 #include "save_sync/save_target.hpp"
 
 namespace opensu::lan {
@@ -18,8 +20,8 @@ namespace opensu::lan {
 class PeerSaveTarget final : public save_sync::SaveTarget {
   public:
     /// `online` lists the openSUs announced now.
-    PeerSaveTarget(Peer peer, const PeerBook& book, const net::WebClient& web,
-                   std::function<std::vector<Sighting>()> online);
+    PeerSaveTarget(Peer peer, const PeerBook& book, const profiles::ProfileBook& profiles,
+                   const net::WebClient& web, std::function<std::vector<Sighting>()> online);
 
     [[nodiscard]] std::string id() const override {
         return peer_.id;
@@ -47,6 +49,7 @@ class PeerSaveTarget final : public save_sync::SaveTarget {
 
     Peer peer_;
     const PeerBook& book_;
+    const profiles::ProfileBook& profiles_;
     const net::WebClient& web_;
     std::function<std::vector<Sighting>()> online_;
 };

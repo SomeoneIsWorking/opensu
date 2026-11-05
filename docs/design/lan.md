@@ -27,8 +27,11 @@ Module rows are in `docs/codemap.md` under LAN and Remote play.
   id and name, the cached cover, `installed`, no launch). `library::libraryShelf` gives each host
   a launcher (`launcher:lan:<peer id>`), sorted by name, after Your games. Home leaves remote games
   out. The details page shows "On <host>", Play, Game settings and Hide game.
-- The node adds the peers the player shares saves with to `save_sync::SaveSync` (owned by the
-  shell's `app::SaveSharing`) as `PeerSaveTarget`s; see [Shared saves](#shared-saves).
+- The node adds its paired peers to `save_sync::SaveSync` (owned by the shell's
+  `app::SaveSharing`) as `PeerSaveTarget`s, each sharing only the profiles linked with it; the
+  copies of profiles asked of this one are `lan::ProfileCopies` (in the node), and
+  `app::LanProfiles` (on the shell's loop) asks the player and asks peers for theirs. See
+  [Profiles](#profiles) and [Shared saves](#shared-saves).
 - `app::RemotePlay` (on the shell's loop, both ways) runs remote play's sessions; see
   [Remote play](#remote-play).
 - `lan::RomShelf` (in the node) serves the catalog's ROM files and BIOS files to paired peers, and
@@ -67,17 +70,21 @@ It never shares the loopback control channel's port.
 | `GET /lan/library` | paired, signed | `[{"id","title","cover"}]`, installed local games only |
 | `GET /lan/cover/<token>` | paired, signed | one listed cover, at most 16 MiB |
 | `POST /lan/unpair` | paired, signed | the caller forgets this openSU; this one forgets it |
-| `POST /lan/saves/status` | sharing saves, signed | `{"system","game","profile"}` → `{"counter","hash","bytes","modified"}`; 404 when no profile here has that id or no game that key |
-| `POST /lan/saves/get` | sharing saves, signed | the same ask → the saves as a bundle (below), at most 512 MiB |
-| `POST /lan/saves/news` | sharing saves, signed | the caller holds newer saves of the game (`picked`: the player there chose them in a conflict); this one pulls them |
-| `POST /lan/saves/synced` | sharing saves, signed | the caller took `hash` (`counter`) of the game from here |
+| `GET /lan/profiles` | paired, signed | `{"profiles":[{"id","name","picture","linked"}]}`: this openSU's profiles, `linked` with the caller |
+| `POST /lan/profiles/copy` | paired, signed | `{"profile"}`: the caller asks for a copy; the player here is asked. 404 for no such profile, 409 while another ask waits |
+| `POST /lan/profiles/copy/status` | paired, signed | the same ask → `{"verdict","profile"}`: `waiting`, `accepted` (with the profile) or `declined`; 404 when none is under way |
+| `POST /lan/profiles/unlink` | paired, signed | the caller unlinked its copy of `profile`; this one unlinks it too |
+| `POST /lan/saves/status` | linked profile, signed | `{"system","game","profile"}` → `{"counter","hash","bytes","modified"}`; 404 when no game here has that key |
+| `POST /lan/saves/get` | linked profile, signed | the same ask → the saves as a bundle (below), at most 512 MiB |
+| `POST /lan/saves/news` | linked profile, signed | the caller holds newer saves of the game (`picked`: the player there chose them in a conflict); this one pulls them |
+| `POST /lan/saves/synced` | linked profile, signed | the caller took `hash` (`counter`) of the game from here |
 | `GET /lan/roms` | paired, signed | the ROM listing (below), at most 8 MiB |
 | `POST /lan/roms/file` | paired, signed | `{"kind","root","path"}` → `{"bytes","sha256"}`; `sha256` is empty while the host still hashes the file |
 | `POST /lan/roms/chunk` | paired, signed | `{"kind","root","path","offset","length"}` → at most 2 MiB of the file from `offset`, as raw bytes |
 | `POST /lan/play` | paired, signed | `{"game","salt"}` → `{"port","salt"}`: the host streams that listed game to the caller; 404 for a game it does not list, 409 with why when it will not (busy, outside Gamescope, no capture) |
 
 Everything else, and any signed route that fails its check or whose body does not open, is 403.
-The saves routes are 403 too, sealed, while this openSU does not share saves with the caller. The
+The saves routes are 403 too, sealed, for a profile not linked with the caller. The
 ROM routes are 403 for any path that is not a file the host lists (below).
 
 ## Pairing
@@ -133,16 +140,33 @@ The headers (route, peer id, time, nonce, `Content-Type: application/octet-strea
 in clear. The secret is long-lived: someone who later learns it can open recorded traffic (no
 forward secrecy).
 
+## Profiles
+
+A profile ([player profiles](../plans/player-profiles.md), `profiles::ProfileBook`) is shared by
+copying it, which its owner allows, as pairing is:
+
+1. Settings › LAN › Profiles on X lists X's profiles (`GET /lan/profiles`, `LanNode::profilesOf`).
+2. Copy asks X (`/copy`); X's player is asked "Copy <name> to <this>?", Decline focused, for up to
+   120 s (`ProfileCopies::patience`); one ask waits at a time.
+3. Allowed, X links its profile with this openSU in its book first, then answers. This one polls
+   `/copy/status` every second; on `accepted` it adopts the profile with the same id, linked with
+   X (`ProfileBook::adopt`), and syncs every known game's saves for it (`SaveSync::syncAll`), which
+   pulls X's.
+4. Unlink (Settings › Profiles, on either side) drops the link here and tells the other
+   (`/unlink`), which drops it too. Each keeps the profile with the saves it has. Removing a
+   pairing, on either side, drops every link with that peer (`ProfileBook::forgetPeer`).
+
+Only linked profiles' saves cross: `PeerSaveTarget::status` says NotShared for a profile not
+linked with its peer without asking it, and the listener's save routes refuse one with 403.
+
 ## Shared saves
 
-Settings › LAN has a Share saves switch per paired openSU, off by default (`"shareSaves"` in
-`lan.json`). Saves cross only while both sides have it on and the peer is announced.
+Saves cross for a profile linked with the peer, while the peer is announced.
 
 - Which saves: those of the emulator the game starts with (`library::saves::launchedSaves`), the
   slots a copy carries (`copiedSlots`), matched across openSUs by `SaveKey` (console and Switch
-  title id, or the ROM's name for the runner, and the profile's id). The node syncs the active
-  profile's saves; another openSU's profiles are not in the book here until a copy links one
-  ([player profiles](../plans/player-profiles.md)), so until then its asks are 404. The saves taken are copied over the ones here by
+  title id, or the ROM's name for the runner, and the profile's id). The shell syncs the active
+  profile's saves; a peer's news or ask for any linked profile is answered. The saves taken are copied over the ones here by
   `library::saves::SaveCopier`, so a Switch save made by Eden on one side lands in Ryujinx's
   format on the other through the same code as Copy saves; other consoles' saves go runner to
   runner.
@@ -167,13 +191,13 @@ Settings › LAN has a Share saves switch per paired openSU, off by default (`"s
   pulls over its own) and Keep X's (pulls).
 - The engine is `save_sync::SaveSync`, the same for every target ([cloud saves](../plans/cloud-saves.md)):
   the LAN is one group of targets (`PeerSaveTarget`), listed afresh each sync from the paired
-  peers that share saves, and dropped when the node stops.
+  peers, and dropped when the node stops.
 - The work runs on `SaveSync`'s thread, one game at a time; no lock is held while a peer is asked,
   so two openSUs syncing each other cannot deadlock. A hidden run keeps the record, staging and
   backups in its own folder (`PlayerFiles::stateDir`).
 
 The Saves fact on the details page shows the peer most worth attention: Conflict with X, Newer on
-X, the reason a sync failed, Newer here than on X, X does not share saves with this openSU, X cannot
+X, the reason a sync failed, Newer here than on X, This profile is not linked with X, X cannot
 be reached, In sync with X.
 
 ## Remote play
@@ -346,9 +370,9 @@ Library on both sides.
 ## Checking it
 
 `tests/lan/lan_node_test.cpp` runs two nodes and a stranger in one process on loopback, with a
-stand-in directory in place of Avahi, and two more sharing a runner game's saves: pulled before a
-launch, pushed after, a conflict left alone until picked, a pick refused while the emulator runs,
-the replaced saves backed up. In the product, start two or three `--hidden` openSUs, each with its
+stand-in directory in place of Avahi, and two more sharing a runner game's saves: a profile
+listed, copied with the owner's answer and linked, its saves pulled before a launch, pushed after, a conflict left alone until picked, a pick refused while the emulator runs,
+the replaced saves backed up, an unlinked profile not shared, Unlink on both. In the product, start two or three `--hidden` openSUs, each with its
 own `HOME` and the XDG dirs under it and `"integrations": {"lan": true}` in its settings. Drive
 Settings › LAN through each control channel. `/state` reports `lanSeen`, `lanPaired`, `lanCode`
 and, with a details page open, `lanSaves` (its Saves fact); `/frame.png` shows the code on both

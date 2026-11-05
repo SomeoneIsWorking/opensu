@@ -35,9 +35,11 @@ std::string describe(const std::optional<net::WebClient::Answer>& answer,
 
 } // namespace
 
-PeerSaveTarget::PeerSaveTarget(Peer peer, const PeerBook& book, const net::WebClient& web,
+PeerSaveTarget::PeerSaveTarget(Peer peer, const PeerBook& book,
+                               const profiles::ProfileBook& profiles, const net::WebClient& web,
                                std::function<std::vector<Sighting>()> online)
-    : peer_{std::move(peer)}, book_{book}, web_{web}, online_{std::move(online)} {
+    : peer_{std::move(peer)}, book_{book}, profiles_{profiles}, web_{web},
+      online_{std::move(online)} {
 }
 
 bool PeerSaveTarget::reachable() const {
@@ -68,6 +70,9 @@ std::optional<net::WebClient::Answer> PeerSaveTarget::call(std::string_view rout
 }
 
 save_sync::SaveTarget::Held PeerSaveTarget::status(const SaveKey& key) {
+    if (!profiles_.linked(key.profile, peer_.id)) {
+        return Held{.kind = Held::Kind::NotShared, .status = {}, .problem = {}};
+    }
     std::string error;
     const std::optional<net::WebClient::Answer> answer =
         call(wire::saveStatusRoute, wire::write(askFor(key)), largestNote, error);

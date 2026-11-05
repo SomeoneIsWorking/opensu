@@ -125,6 +125,8 @@ class SaveSync {
     [[nodiscard]] bool prepared(std::uint64_t ticket) const;
     /// Syncs `game` with every target: after it ended, and from "Sync now".
     void sync(const library::Game& game, const std::string& profile);
+    /// Syncs every game known with every target: a profile just linked takes its saves.
+    void syncAll(const std::string& profile);
     /// Finds how `game`'s saves stand with each target, for `standings`.
     void look(const library::Game& game, const std::string& profile);
     /// Whether `game` has saves to share and a target can be asked now.

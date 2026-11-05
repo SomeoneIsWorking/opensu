@@ -17,6 +17,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -92,8 +93,12 @@ class LanService {
     void share(const std::vector<library::Game>& games);
     /// Offers the ROMs and BIOS files of `contents` to paired peers to import.
     void shareRoms(lan::RomShelf::Contents contents);
-    /// Shares saves with `peerId` from now on, or no longer, and says so.
-    void shareSaves(const std::string& peerId, bool on);
+    /// The name the paired openSU `peerId` goes by, or "that openSU" when it is not paired.
+    [[nodiscard]] std::string peerName(const std::string& peerId) const;
+    /// Runs `work` on the node off the loop, its stop token asked to stop as the node goes, which
+    /// waits for it. False while LAN is off or another such call is under way.
+    [[nodiscard]] bool
+    askPeers(std::function<void(const lan::LanNode&, const std::stop_token&)> work);
 
     /// Starts pairing with the openSU announced as `peerId` and shows its card.
     void pair(const std::string& peerId);
@@ -171,6 +176,9 @@ class LanService {
     /// A request for a host's ROMs under way; joined before the node goes.
     std::jthread romAsker_;
     std::shared_ptr<std::atomic<bool>> askingRoms_{std::make_shared<std::atomic<bool>>(false)};
+    /// A call of `askPeers` under way; stopped and joined before the node goes.
+    std::jthread peerAsker_;
+    std::shared_ptr<std::atomic<bool>> askingPeers_{std::make_shared<std::atomic<bool>>(false)};
 };
 
 } // namespace opensu::app

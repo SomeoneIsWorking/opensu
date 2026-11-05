@@ -3,12 +3,13 @@
 // all an unpaired openSU learns) and the three pairing calls. Everything else is for paired peers
 // only, signed, its body and answer sealed (`request_signature`): `GET /lan/library` (the shared
 // listing), `GET /lan/cover/<token>` (one shared cover), `POST /lan/unpair` (the peer forgets this
-// one, and this one it), and for a peer the player shares saves with the save routes
-// (`save_sync::SaveSync`: `/lan/saves/status`, `/get`, `/news`, `/synced`), and `POST /lan/play`,
-// which asks to play a listed game here over remote play (`play`), and ROM import's routes
-// (`RomShelf`: `GET /lan/roms`, `POST /lan/roms/file`, `/chunk`). A request that fails its
-// signature, comes late, repeats or does not open is refused with 403, as are the save routes of
-// a peer saves are not shared with; they answer 404 for a profile this openSU does not have.
+// one, and this one it), the profiles (`GET /lan/profiles`, a copy asked of the player through
+// `ProfileCopies`: `POST /lan/profiles/copy`, `/copy/status`, and `/unlink`), the save routes of a
+// profile linked with the peer (`save_sync::SaveSync`: `/lan/saves/status`, `/get`, `/news`,
+// `/synced`), `POST /lan/play`, which asks to play a listed game here over remote play (`play`),
+// and ROM import's routes (`RomShelf`: `GET /lan/roms`, `POST /lan/roms/file`, `/chunk`). A request
+// that fails its signature, comes late, repeats or does not open is refused with 403, as are the
+// save routes of a profile not linked with the peer.
 #pragma once
 
 #include <cstdint>
@@ -19,6 +20,7 @@
 #include "lucent/http.h"
 #include "pairing_keys.hpp"
 #include "peer_book.hpp"
+#include "profile_copies.hpp"
 #include "profiles/profile_book.hpp"
 #include "request_signature.hpp"
 #include "rom_shelf.hpp"
@@ -34,8 +36,10 @@ class LanListener {
         HostPairing& pairing;
         const SharedLibrary& library;
         save_sync::SaveSync& saves;
-        /// The profiles here: the save routes answer only for one of them.
-        const profiles::ProfileBook& profiles;
+        /// The profiles here: the save routes answer only for one linked with the caller.
+        profiles::ProfileBook& profiles;
+        /// The copies of them asked for, each put to the player.
+        ProfileCopies& copies;
         RomShelf& roms;
         /// The name this openSU goes by now.
         std::function<std::string()> name;
@@ -88,6 +92,9 @@ class LanListener {
     /// `/lan/roms/file` and `/chunk`, `body` opened.
     [[nodiscard]] lucent::http::Response romsRoute(std::string_view path, std::string_view body,
                                                    const Signed& verified);
+    /// `/lan/profiles/copy`, `/copy/status` and `/unlink`, `body` opened.
+    [[nodiscard]] lucent::http::Response profilesRoute(std::string_view path, std::string_view body,
+                                                       const Signed& verified);
     /// `/lan/play`, `body` opened.
     [[nodiscard]] lucent::http::Response playRoute(std::string_view body, const Signed& verified);
     [[nodiscard]] std::optional<Signed> verify(const lucent::http::Request& request);

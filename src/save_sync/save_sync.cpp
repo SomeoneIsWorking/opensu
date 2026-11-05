@@ -238,6 +238,17 @@ void SaveSync::sync(const library::Game& game, const std::string& profile) {
               .ticket = 0});
 }
 
+void SaveSync::syncAll(const std::string& profile) {
+    std::vector<library::Game> games;
+    {
+        const std::lock_guard lock{mutex_};
+        games = games_;
+    }
+    for (const library::Game& game : games) {
+        sync(game, profile);
+    }
+}
+
 void SaveSync::look(const library::Game& game, const std::string& profile) {
     queue(Job{.game = game,
               .profile = profile,
