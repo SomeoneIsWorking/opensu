@@ -337,7 +337,7 @@ on the same rule.
 | `src/giveaways/epic_offers.*` | Epic's `freeGamesPromotions` listing: offers whose promotion is 100% off, now or upcoming, their store page slug and wide art |
 | `src/giveaways/gog_offers.*` | GOG: the catalogue search (`catalog.gog.com/v1/catalog`) parsed to products, discounted-to-free products, the homepage's giveaway section (`sections.gog.com`) and its product |
 | `src/giveaways/steam_offers.*` | Steam: the store search for free specials (app ids from its HTML rows), `IStoreBrowseService/GetItems` parsed to items (free-to-keep option and end, header art) |
-| `src/giveaways/offer_feed.*` | One read of every store through `net::WebClient` (`readStores`), each store's offers or why it failed |
+| `src/giveaways/offer_feed.*` | One read of every store through `net::WebClient` (`readStores`), each store's offers or why it failed; a requested stop ends the download under way and leaves that store and the rest out |
 | `src/giveaways/giveaway_board.*` | The offers as last read, on a worker: read at start when stale, every 6 hours, 30 minutes after a failure and on request; a failed store keeps its previous offers; the cache (`<cache>/giveaways/offers.json`) and each offer's art downloaded to `<cache>/giveaways/art/`; a generation per change |
 | `src/giveaways/offer_list.*` | What the Giveaways screen shows (`shownOffers`): ended offers left out, turned-on stores first, free now before upcoming, soonest end first, Owned from the library by store id or title; the ends-in text (`whenText`, `spanText`) |
 

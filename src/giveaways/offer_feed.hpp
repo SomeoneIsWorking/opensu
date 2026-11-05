@@ -19,6 +19,7 @@ struct StoreRead {
 };
 
 /// Epic's, GOG's and Steam's offers now, in that order. Blocks; run it off the frame loop.
+/// A requested `stop` ends the store read under way at once and leaves it and the rest out.
 [[nodiscard]] std::vector<StoreRead> readStores(const net::WebClient& web,
                                                 const std::stop_token& stop);
 
