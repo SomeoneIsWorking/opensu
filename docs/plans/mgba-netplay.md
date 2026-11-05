@@ -138,6 +138,9 @@ machine), and for rollback later, `retro_serialize`/`retro_unserialize` every fr
   other's frame; 59.7 fps, frame p50/p95/p99 16.7/16.8/16.8 ms, 2 stalls in 1787 frames, 14 memory
   checks matched; `kill -9` on one runner ends the other 5.0 s later, each save back in its own
   profile; Decline told to the asker. Not shown: two physical machines.
+- The asked side's runner binds a port of the system's choosing and reports it in its control file;
+  the asker is told only then, so no port is held free between shell and runner. A second socket
+  taking the session file's port ended the host's launch before; the file now names none.
 
 ## Risks
 

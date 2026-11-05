@@ -51,10 +51,20 @@ NetplayAsks::status(std::string_view peerId, std::string_view sha256, Clock::tim
 
 std::optional<NetplayAsks::Question> NetplayAsks::question(Clock::time_point now) const {
     const std::lock_guard lock{mutex_};
-    if (!pending_ || pending_->verdict.verdict != waiting || now - pending_->started > patience) {
+    if (!pending_ || pending_->accepted || pending_->verdict.verdict != waiting ||
+        now - pending_->started > patience) {
         return std::nullopt;
     }
     return Question{.peer = pending_->peer, .rom = pending_->rom};
+}
+
+void NetplayAsks::accept(std::string_view peerId, Clock::time_point now) {
+    const std::lock_guard lock{mutex_};
+    lapse(now);
+    if (pending_ && pending_->peer.id == peerId) {
+        pending_->accepted = true;
+        pending_->started = now;
+    }
 }
 
 void NetplayAsks::allow(std::string_view peerId, std::uint16_t port,

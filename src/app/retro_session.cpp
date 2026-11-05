@@ -82,6 +82,19 @@ std::optional<std::uint16_t> RetroSession::port() {
     return port_;
 }
 
+std::optional<std::uint16_t> RetroSession::netplayPort() {
+    const std::lock_guard lock{mutex_};
+    if (file_.empty()) {
+        return std::nullopt;
+    }
+    const nlohmann::json control = readControl(file_);
+    if (!control.is_object() || !control.contains("netplayPort") ||
+        !control["netplayPort"].is_number_unsigned()) {
+        return std::nullopt;
+    }
+    return control["netplayPort"].get<std::uint16_t>();
+}
+
 std::optional<RetroSession::Status> RetroSession::status() {
     const std::optional<std::uint16_t> at = port();
     if (!at) {

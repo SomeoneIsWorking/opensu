@@ -19,7 +19,6 @@
 #include "retro/save_paths.hpp"
 #include "secrets/crypto.hpp"
 #include "secrets/secret.hpp"
-#include "stream/udp_socket.hpp"
 
 namespace opensu::app {
 namespace {
@@ -34,12 +33,6 @@ std::string contentsOf(const std::filesystem::path& file) {
 
 std::string sha256Of(const std::filesystem::path& rom) {
     return secrets::hexText(secrets::crypto::sha256(contentsOf(rom)));
-}
-
-/// A free UDP port for the runner to bind.
-std::uint16_t freeUdpPort() {
-    const stream::UdpSocket socket{0};
-    return socket.port();
 }
 
 /// Player 1's save is the frontend's; the core keeps the others' by player.
@@ -128,7 +121,8 @@ void LanNetplay::play(const library::Game& game, const std::string& peerId) {
                     agreed = Agreed{.game = game,
                                     .slot = 1,
                                     .peerName = name,
-                                    .port = 0,
+                                    .askerId = {},
+                                    .salt = {},
                                     .peer = *address + ":" + std::to_string(verdict->port),
                                     .keys = std::move(*keys),
                                     .saves = {std::move(*hostSave), std::move(ownSave)}};
@@ -156,6 +150,7 @@ void LanNetplay::play(const library::Game& game, const std::string& peerId) {
 
 void LanNetplay::service() {
     serviceQuestion();
+    serviceStart();
     std::vector<Agreed> agreed;
     std::vector<std::string> refusals;
     {
@@ -170,6 +165,21 @@ void LanNetplay::service() {
     for (Agreed& session : agreed) {
         begin(std::move(session));
     }
+}
+
+void LanNetplay::serviceStart() {
+    if (!starting_) {
+        return;
+    }
+    const std::optional<std::uint16_t> port = hooks_.sessionPort();
+    if (!port) {
+        return;
+    }
+    if (lan::LanNode* node = lan_.node(); node != nullptr) {
+        node->netplay().allow(starting_->askerId, *port, starting_->salt,
+                              lan::NetplayAsks::Clock::now());
+    }
+    starting_.reset();
 }
 
 void LanNetplay::serviceQuestion() {
@@ -230,14 +240,13 @@ void LanNetplay::answer(bool allow) {
         return;
     }
     const library::Game game = *found;
-    const std::uint16_t port = freeUdpPort();
     const secrets::crypto::Bytes salt = secrets::crypto::randomBytes(secrets::crypto::nonceBytes);
     std::string ownSave = contentsOf(
         sessionSaveOf(retro::systemSaveFolder(hooks_.profileSaves(), game.sourceId), game.file, 0));
     node->netplay().handOver(asked.peer.id, asked.rom.sha256, ownSave);
-    node->netplay().allow(asked.peer.id, port, salt, now);
+    node->netplay().accept(asked.peer.id, now);
     const bool pulling =
-        lan_.askPeers([arrived = arrived_, asked, game, port, salt, ownSave = std::move(ownSave)](
+        lan_.askPeers([arrived = arrived_, asked, game, salt, ownSave = std::move(ownSave)](
                           const lan::LanNode& node, const std::stop_token& stop) {
             std::string error;
             std::optional<std::string> guestSave =
@@ -249,18 +258,21 @@ void LanNetplay::answer(bool allow) {
             }
             const std::lock_guard lock{arrived->mutex};
             if (!guestSave || !keys) {
+                node.netplay().decline(asked.peer.id, error, lan::NetplayAsks::Clock::now());
                 arrived->refusals.push_back("No game with " + asked.peer.name + ": " + error);
                 return;
             }
             arrived->agreed.push_back(Agreed{.game = game,
                                              .slot = 0,
                                              .peerName = asked.peer.name,
-                                             .port = port,
+                                             .askerId = asked.peer.id,
+                                             .salt = salt,
                                              .peer = {},
                                              .keys = std::move(*keys),
                                              .saves = {ownSave, std::move(*guestSave)}});
         });
     if (!pulling) {
+        node->netplay().decline(asked.peer.id, "it could not take your save", now);
         hooks_.say("Cannot reach " + asked.peer.name + " now; try again", true);
     }
 }
@@ -278,9 +290,17 @@ void LanNetplay::closeQuestion() {
     questionTitle_.clear();
 }
 
+void LanNetplay::tellAsker(const std::string& askerId, const std::string& why) {
+    lan::LanNode* node = lan_.node();
+    if (node != nullptr && !askerId.empty()) {
+        node->netplay().decline(askerId, why, lan::NetplayAsks::Clock::now());
+    }
+}
+
 void LanNetplay::begin(Agreed agreed) {
     const auto refuse = [this, &agreed](const std::string& why) {
         hooks_.say("No game with " + agreed.peerName + ": " + why, true);
+        tellAsker(agreed.askerId, why);
     };
     std::error_code failed;
     std::filesystem::remove_all(places_.sessionSaves, failed);
@@ -300,7 +320,6 @@ void LanNetplay::begin(Agreed agreed) {
     nlohmann::json session{
         {"slot", agreed.slot},
         {"players", 2},
-        {"port", agreed.port},
         {"sendKey", secrets::hexText(host ? agreed.keys.host : agreed.keys.guest)},
         {"receiveKey", secrets::hexText(host ? agreed.keys.guest : agreed.keys.host)}};
     if (!agreed.peer.empty()) {
@@ -320,7 +339,11 @@ void LanNetplay::begin(Agreed agreed) {
                  agreed.slot + 1);
     if (!hooks_.launch(*game, places_.sessionSaves)) {
         std::filesystem::remove(places_.sessionFile, failed);
+        tellAsker(agreed.askerId, "its game did not start");
         return;
+    }
+    if (host) {
+        starting_ = Starting{.askerId = agreed.askerId, .salt = agreed.salt};
     }
     running_ = Running{
         .gameId = agreed.game.id,
@@ -337,6 +360,10 @@ void LanNetplay::ended(const library::Game& game) {
     }
     const Running session = *running_;
     running_.reset();
+    if (starting_) {
+        tellAsker(starting_->askerId, "its game did not start");
+        starting_.reset();
+    }
     std::error_code failed;
     std::filesystem::remove(places_.sessionFile, failed);
     if (!std::filesystem::exists(session.own, failed)) {

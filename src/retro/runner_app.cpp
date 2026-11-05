@@ -120,12 +120,16 @@ void holdControlPad(Joypad& joypad, const ControlInput& held) {
 }
 
 /// The control channel when the shell asked for one and it listens; none otherwise.
-std::unique_ptr<ControlServer> openControl(const RunnerOptions& options, const Core& core) {
+std::unique_ptr<ControlServer> openControl(const RunnerOptions& options, const Core& core,
+                                           const NetplayLink* netplay) {
     if (options.control.empty()) {
         return nullptr;
     }
     auto control =
         std::make_unique<ControlServer>(options.control, core.name(), options.rom.string());
+    if (netplay != nullptr) {
+        control->announceNetplayPort(netplay->port());
+    }
     if (!control->start()) {
         return nullptr;
     }
@@ -253,7 +257,7 @@ RunnerExit RunnerApp::run() {
     const ResumeReport resumed = resume.resume(*core);
     const std::unique_ptr<AudioOutput> audio = openAudio(sink, options_.hidden);
     const std::unique_ptr<gamepad::PadSource> pads = options_.hidden ? nullptr : openPads();
-    const std::unique_ptr<ControlServer> control = openControl(options_, *core);
+    const std::unique_ptr<ControlServer> control = openControl(options_, *core, netplay.get());
     if (control) {
         control->reportResume(resumed);
     }

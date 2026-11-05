@@ -593,13 +593,17 @@ void askedToPlayTogether(const lan::LanNode& guest, lan::LanNode& host) {
     expect(!guest.netplaySave(never, host.id(), ask.sha256, error),
            "the den hands over nothing before it allows");
     host.netplay().handOver(guest.id(), ask.sha256, "host save");
+    host.netplay().accept(guest.id(), Clock::now());
+    expect(!host.netplay().question(Clock::now()), "the den's player is asked no more");
+    const std::optional<lan::wire::NetplayVerdict> starting =
+        guest.netplayStatus(never, host.id(), ask.sha256, error);
+    expect(starting && starting->verdict == "waiting", "the attic waits for the den's runner");
     host.netplay().allow(guest.id(), 4000, hostSalt, Clock::now());
     const std::optional<lan::wire::NetplayVerdict> allowed =
         guest.netplayStatus(never, host.id(), ask.sha256, error);
     expect(allowed && allowed->verdict == "allowed" && allowed->port == 4000 &&
                allowed->salt == hostSalt,
            "the attic hears it is allowed, with the port and the salt");
-    expect(!host.netplay().question(Clock::now()), "the den's player is asked no more");
     expect(guest.netplaySave(never, host.id(), ask.sha256, error) == "host save",
            "the attic takes the den's save");
     expect(host.netplaySave(never, guest.id(), ask.sha256, error) == "guest save",

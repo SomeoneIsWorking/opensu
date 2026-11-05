@@ -139,7 +139,10 @@ bool ControlServer::start() {
         lucent::error("retro", "the control channel cannot listen");
         return false;
     }
-    const nlohmann::json announce{{"port", server_.port()}, {"pid", launch::ownProcessId()}};
+    nlohmann::json announce{{"port", server_.port()}, {"pid", launch::ownProcessId()}};
+    if (netplayPort_) {
+        announce["netplayPort"] = *netplayPort_;
+    }
     std::string error;
     if (!fileio::writeWhole(file_, announce.dump(), error)) {
         lucent::error("retro", "cannot announce the control channel: {}", error);

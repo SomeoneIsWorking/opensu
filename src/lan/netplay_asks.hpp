@@ -40,7 +40,11 @@ class NetplayAsks {
     };
     [[nodiscard]] std::optional<Question> question(Clock::time_point now) const;
 
-    /// Allows the waiting ask of `peerId`: the session's UDP port here and this side's salt.
+    /// The player said yes to `peerId`'s ask: it is asked no more, and the asker keeps waiting
+    /// until `allow` or `decline`, with a new `patience`.
+    void accept(std::string_view peerId, Clock::time_point now);
+    /// Allows the waiting ask of `peerId`: the UDP port the session's runner here bound and this
+    /// side's salt.
     void allow(std::string_view peerId, std::uint16_t port, const secrets::crypto::Bytes& salt,
                Clock::time_point now);
     /// Declines it, the asker told `refusal`.
@@ -58,6 +62,7 @@ class NetplayAsks {
         wire::NetplayAsk rom;
         Clock::time_point started;
         wire::NetplayVerdict verdict;
+        bool accepted{false};
     };
     struct Handed {
         std::string peerId;

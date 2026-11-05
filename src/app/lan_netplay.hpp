@@ -1,10 +1,11 @@
 // lan_netplay — two paired openSUs playing one ROM linked, on the shell's loop. As the asker: Play
 // with <name> hashes the ROM and hands over its save, asks, and waits (`play`). As the asked: the
-// question put to the player, the same ROM looked for by console, name and hash. Allowed, each side
-// takes the other's save, writes both into a session folder of its own (never a profile's), writes
-// the session's file and starts `opensu-retro --netplay` as its own active profile. When the game
-// ends only this side's player's save goes back into its profile (`ended`). The calls run off the
-// loop through `LanService::askPeers`.
+// question put to the player, the same ROM looked for by console, name and hash. Each side takes the
+// other's save, writes both into a session folder of its own (never a profile's), writes the
+// session's file and starts `opensu-retro --netplay` as its own active profile: the asked side
+// first, its runner binding a UDP port of the system's choosing, which the asker is then told. When
+// the game ends only this side's player's save goes back into its profile (`ended`). The calls run
+// off the loop through `LanService::askPeers`.
 #pragma once
 
 #include <filesystem>
@@ -43,6 +44,8 @@ class LanNetplay {
         std::function<std::filesystem::path()> profileSaves;
         /// Starts `game` with `saves` as its save folder; false when it was refused.
         std::function<bool(const library::Game& game, const std::filesystem::path& saves)> launch;
+        /// The UDP port the session's runner bound; nothing until it says.
+        std::function<std::optional<std::uint16_t>()> sessionPort;
     };
 
     LanNetplay(LanService& lan, gpu2d::ui::Navigator& navigator, audio::SdlSoundPlayer& sounds,
@@ -64,8 +67,10 @@ class LanNetplay {
         library::Game game;
         unsigned slot{0};
         std::string peerName;
-        /// The asked side's own port, or the address the asker sends to.
-        std::uint16_t port{0};
+        /// The asker's id and the salt it is told, on the asked side only.
+        std::string askerId;
+        secrets::crypto::Bytes salt;
+        /// The address the asker sends to.
         std::string peer;
         lan::StreamKeys keys;
         /// What each side's save holds, by slot.
@@ -76,6 +81,11 @@ class LanNetplay {
         std::vector<Agreed> agreed;
         std::vector<std::string> refusals;
     };
+    /// The asked side's session, its runner started, the asker not told yet.
+    struct Starting {
+        std::string askerId;
+        secrets::crypto::Bytes salt;
+    };
     struct Running {
         std::string gameId;
         std::filesystem::path own;
@@ -83,9 +93,12 @@ class LanNetplay {
     };
 
     void serviceQuestion();
+    void serviceStart();
     void answer(bool allow);
     void closeQuestion();
     void begin(Agreed agreed);
+    /// Declines `askerId`'s ask with `why`; an asker's own side has none to tell.
+    void tellAsker(const std::string& askerId, const std::string& why);
 
     LanService& lan_;
     gpu2d::ui::Navigator& navigator_;
@@ -95,6 +108,7 @@ class LanNetplay {
     std::shared_ptr<Arrived> arrived_{std::make_shared<Arrived>()};
     std::optional<lan::NetplayAsks::Question> asked_;
     std::string questionTitle_;
+    std::optional<Starting> starting_;
     std::optional<Running> running_;
 };
 

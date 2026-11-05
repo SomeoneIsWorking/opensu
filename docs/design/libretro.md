@@ -148,7 +148,7 @@ Other ends keep the launch's own toast (`<title> closed`, or its failure).
 (`<runtime>` is `$XDG_RUNTIME_DIR`) in every launch's environment; `config::Config::retroControl` is
 how the runner reads it. With it set, once the game has loaded and the window is up, the runner
 listens on a free loopback port (`lucent::http::Server`, port 0) and writes
-`{"port": N, "pid": P}` to that file atomically (`fileio::writeWhole`); it removes the file when it
+`{"port": N, "pid": P}`, with `"netplayPort"` for a session's bound UDP port, to that file atomically (`fileio::writeWhole`); it removes the file when it
 exits. When the core or game cannot be loaded (exit 2), or the presenter or its shader preset
 cannot be set up (exit 1), it writes `{"error": "<reason>"}` there instead and leaves it; the shell reads it once the launch is over and deletes it. Routes:
 
@@ -224,7 +224,8 @@ screen is its joystick mode, the right stick moving its cursor and R2 touching.
 
 **Netplay.** `--netplay <file>` makes this runner one machine of a session. The file is owner-only
 JSON: `{"slot": 0, "players": 2, "delay": 2, "port": 0, "peer": "192.168.1.2:4000", "sendKey": hex,
-"receiveKey": hex}`; without `peer` the runner learns it from the first datagram that opens. Every
+"receiveKey": hex}`; port 0 binds one of the system's choosing, reported in the control file, and
+without `peer` the runner learns it from the first datagram that opens. Every
 machine runs every player, so each must load the same ROM, core and options. Each frame the runner
 reads its pad (all of it, as port 0) for frame `f + delay`, sends it repeating the last 16 frames,
 and runs frame `f` only when every slot's input for it is in, resending every 8 ms while it waits.

@@ -345,13 +345,15 @@ that profile's; the host's own active profile does not change.
 Play with <name> on a linkable game's details page (`app::LanNetplay::play`) hashes the ROM, hands
 its active profile's save to the peer (`lan::NetplayAsks::handOver`) and asks `/lan/netplay`, then
 polls the status. The asked side looks for the same ROM by console, file name, size and SHA-256; with
-none it declines by itself, else its player gets Decline or Play. Play picks a free UDP port, hands
-over its own save, then answers `allowed`. Each side then takes the other's save and derives
+none it declines by itself, else its player gets Decline or Play. Play hands over its own save,
+takes the asker's, starts its runner and answers `allowed` with the UDP port the runner bound
+(`netplayPort` in its control file); until then the status stays `waiting`, and the ask is declined
+when the runner does not start. The asker then takes the host's save and starts its own. Both derive
 `lan::streamKeys` from the pairing's secret and both salts, the asker's first.
 
 The asked side is player 1, the asker player 2. Both write `<rom stem>.srm` (player 1's) and
 `<rom stem>.p2.srm` into `<state>/netplay/saves/<system>`, emptied first, and the session's keys,
-slot and port into `<state>/netplay/session.json` (owner-only), and start `opensu-retro --netplay`
+slot and the asker's peer address into `<state>/netplay/session.json` (owner-only), and start `opensu-retro --netplay`
 through the launch path as the active profile (`ShellApp::launchSession`), with no save sync before
 it. The asked side's runner learns its peer from the first datagram that opens. When the game ends
 each side's own player's file goes into its profile's `<rom stem>.srm`, then the shared saves push it

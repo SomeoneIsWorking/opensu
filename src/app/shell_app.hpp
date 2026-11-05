@@ -998,6 +998,10 @@ class ShellApp final {
             .launch =
                 [this](const library::Game& game, const std::filesystem::path& saves) {
                     return launchSession(game, saves);
+                },
+            .sessionPort =
+                [this] {
+                    return retro_.netplayPort();
                 }}};
     /// The plugins, their play time and the Settings screen's Plugins category.
     PluginService plugins_{environment_, preferences_, integrations_.current().plugins,

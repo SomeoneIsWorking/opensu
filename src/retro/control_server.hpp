@@ -85,6 +85,10 @@ class ControlServer {
     /// Listens on a free loopback port and writes `{"port": N, "pid": P}` to the control file.
     /// False, logged, when either fails; the game then runs without a channel.
     [[nodiscard]] bool start();
+    /// Names the UDP port a netplay session is bound to in the control file; before `start`.
+    void announceNetplayPort(std::uint16_t port) noexcept {
+        netplayPort_ = port;
+    }
 
     /// What /status reports from now on. Frame loop only.
     void publish(std::uint64_t frame, bool hasState);
@@ -114,6 +118,7 @@ class ControlServer {
     [[nodiscard]] lucent::http::Response run(ControlRequest request);
 
     std::filesystem::path file_;
+    std::optional<std::uint16_t> netplayPort_;
     std::string core_;
     std::string rom_;
     std::mutex mutex_;

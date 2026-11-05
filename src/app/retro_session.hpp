@@ -55,6 +55,8 @@ class RetroSession {
         settings::CoreOptionDefinition definition;
         std::string value;
     };
+    /// The UDP port the running game's netplay session bound; nothing until it says.
+    [[nodiscard]] std::optional<std::uint16_t> netplayPort();
     /// The running core's options; none when it does not answer.
     [[nodiscard]] std::vector<CoreOption> options();
     [[nodiscard]] std::string setOption(const std::string& key, const std::string& value);
