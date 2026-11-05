@@ -8,9 +8,13 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
+#include "net/result.hpp"
 #include "net/web_client.hpp"
 
 namespace opensu::lan {
@@ -21,18 +25,17 @@ struct Endpoint {
     std::uint16_t port{0};
 };
 
+/// Each of its requests ends, Stopped, when `stop` is requested.
 class PeerClient {
   public:
-    PeerClient(const net::WebClient& web, Endpoint endpoint)
-        : web_{web}, endpoint_{std::move(endpoint)} {
+    PeerClient(const net::WebClient& web, Endpoint endpoint, std::stop_token stop)
+        : web_{web}, endpoint_{std::move(endpoint)}, stop_{std::move(stop)} {
     }
 
-    /// A POST of `body` to `target`, signed by no one; nothing with `error` when it did not
-    /// arrive or the answer is over `largest` bytes.
-    [[nodiscard]] std::optional<net::WebClient::Answer> post(std::string_view target,
-                                                             const std::string& body,
-                                                             std::size_t largest,
-                                                             std::string& error) const;
+    /// A POST of `body` to `target`, signed by no one; a failure when it did not arrive or the
+    /// answer is over `largest` bytes.
+    [[nodiscard]] net::Result<net::WebClient::Answer>
+    post(std::string_view target, const std::string& body, std::size_t largest) const;
 
     /// Who is asking and with what: this openSU's peer id and the pairing's secret.
     struct Signer {
@@ -41,19 +44,21 @@ class PeerClient {
     };
 
     /// `method` (GET, or POST with `body` sealed) of `target`, signed by `signer`; the answer as
-    /// it opens. Nothing with `error` when it did not arrive, the answer is over `largest` bytes or
-    /// was not sealed by the host with the same secret for this request.
-    [[nodiscard]] std::optional<net::WebClient::Answer>
+    /// it opens. A failure when it did not arrive, the answer is over `largest` bytes or was not
+    /// sealed by the host with the same secret for this request.
+    [[nodiscard]] net::Result<net::WebClient::Answer>
     call(std::string_view method, std::string_view target, const std::string& body,
-         const Signer& signer, std::size_t largest, std::string& error) const;
+         const Signer& signer, std::size_t largest) const;
 
   private:
-    [[nodiscard]] std::optional<net::WebClient::Answer>
-    send(std::string_view target, const std::vector<std::string>& headers,
-         const std::optional<std::string>& post, std::size_t largest, std::string& error) const;
+    [[nodiscard]] net::Result<net::WebClient::Answer> send(std::string_view target,
+                                                           const std::vector<std::string>& headers,
+                                                           const std::optional<std::string>& post,
+                                                           std::size_t largest) const;
 
     const net::WebClient& web_;
     Endpoint endpoint_;
+    std::stop_token stop_;
 };
 
 } // namespace opensu::lan

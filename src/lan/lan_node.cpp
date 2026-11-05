@@ -183,14 +183,16 @@ std::optional<LanNode::PlayOffer> LanNode::askToPlay(const std::string& hostId,
         return std::nullopt;
     }
     const secrets::crypto::Bytes salt = secrets::crypto::randomBytes(secrets::crypto::nonceBytes);
-    const PeerClient client{web_, Endpoint{host->address, host->port}};
-    const std::optional<net::WebClient::Answer> answer =
+    const PeerClient client{web_, Endpoint{host->address, host->port}, std::stop_token{}};
+    const net::Result<net::WebClient::Answer> answer =
         client.call("POST", wire::playRoute, wire::write(wire::PlayRequest{gameId, profile, salt}),
-                    PeerClient::Signer{book_.id(), *secret}, largestNotice, error);
+                    PeerClient::Signer{book_.id(), *secret}, largestNotice);
     std::optional<wire::PlayAnswer> offered;
-    if (answer && answer->status == ok) {
+    if (!answer) {
+        error = answer.error();
+    } else if (answer->status == ok) {
         offered = wire::readPlayAnswer(answer->body);
-    } else if (answer) {
+    } else {
         error = answer->body.empty() ? "HTTP " + std::to_string(answer->status) : answer->body;
         while (!error.empty() && error.back() == '\n') {
             error.pop_back();
@@ -229,11 +231,12 @@ std::optional<std::string> LanNode::askHost(const std::string& hostId, std::stri
     if (!link) {
         return std::nullopt;
     }
-    const PeerClient client{web_, link->endpoint};
-    std::optional<net::WebClient::Answer> answer = client.call(
-        method, route, body, PeerClient::Signer{book_.id(), link->secret}, largest, error);
+    const PeerClient client{web_, link->endpoint, std::stop_token{}};
+    net::Result<net::WebClient::Answer> answer =
+        client.call(method, route, body, PeerClient::Signer{book_.id(), link->secret}, largest);
     secrets::wipeBytes(link->secret.data(), link->secret.size());
     if (!answer) {
+        error = answer.error();
         return std::nullopt;
     }
     if (answer->status != ok) {
@@ -415,18 +418,16 @@ std::vector<library::Game> LanNode::fetch(const std::vector<Sighting>& online, b
             continue;
         }
         const Peer host{sighting.id, sighting.name};
-        const PeerClient client{web_, Endpoint{sighting.address, sighting.port}};
-        std::string error;
-        const std::optional<net::WebClient::Answer> answer =
-            client.call("GET", "/lan/library", {}, PeerClient::Signer{book_.id(), *secret},
-                        largestListing, error);
+        const PeerClient client{web_, Endpoint{sighting.address, sighting.port}, std::stop_token{}};
+        const net::Result<net::WebClient::Answer> answer = client.call(
+            "GET", "/lan/library", {}, PeerClient::Signer{book_.id(), *secret}, largestListing);
         std::optional<std::vector<wire::ListedGame>> listing;
         if (answer && answer->status == ok) {
             listing = wire::readListing(answer->body);
         }
         if (!listing) {
             lucent::warn("lan", "the games of {} cannot be listed: {}", host.name,
-                         answer ? "HTTP " + std::to_string(answer->status) : error);
+                         answer ? "HTTP " + std::to_string(answer->status) : answer.error());
             secrets::wipeBytes(secret->data(), secret->size());
             complete = false;
             continue;
@@ -461,15 +462,14 @@ fs::path LanNode::coverOf(const Peer& host, const PeerClient& client,
             return cached;
         }
     }
-    std::string error;
-    const std::optional<net::WebClient::Answer> answer =
-        client.call("GET", "/lan/cover/" + token, {}, PeerClient::Signer{book_.id(), secret},
-                    largestCover, error);
+    const net::Result<net::WebClient::Answer> answer = client.call(
+        "GET", "/lan/cover/" + token, {}, PeerClient::Signer{book_.id(), secret}, largestCover);
     if (!answer || answer->status != ok) {
         lucent::warn("lan", "a cover of {} cannot be had: {}", host.name,
-                     answer ? "HTTP " + std::to_string(answer->status) : error);
+                     answer ? "HTTP " + std::to_string(answer->status) : answer.error());
         return {};
     }
+    std::string error;
     fs::path file = folder / (token + std::string{extensionOf(answer->header("Content-Type"))});
     if (!fileio::writeWhole(file, answer->body, error)) {
         lucent::warn("lan", "a cover of {} cannot be kept: {}", host.name, error);
@@ -479,14 +479,12 @@ fs::path LanNode::coverOf(const Peer& host, const PeerClient& client,
 }
 
 void LanNode::tell(const Notice& notice) const {
-    const PeerClient client{web_, notice.endpoint};
-    std::string error;
-    const std::optional<net::WebClient::Answer> answer =
-        client.call("POST", "/lan/unpair", "{}", PeerClient::Signer{book_.id(), notice.secret},
-                    largestNotice, error);
+    const PeerClient client{web_, notice.endpoint, std::stop_token{}};
+    const net::Result<net::WebClient::Answer> answer = client.call(
+        "POST", "/lan/unpair", "{}", PeerClient::Signer{book_.id(), notice.secret}, largestNotice);
     if (!answer || answer->status != ok) {
         lucent::info("lan", "the unpaired openSU at {} was not told: {}", notice.endpoint.address,
-                     answer ? "HTTP " + std::to_string(answer->status) : error);
+                     answer ? "HTTP " + std::to_string(answer->status) : answer.error());
     }
 }
 

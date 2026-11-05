@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "dns_sd.hpp"
+#include "net/result.hpp"
 #include "net/web_client.hpp"
 #include "peer_book.hpp"
 #include "profiles/profile_book.hpp"
@@ -43,12 +44,12 @@ class PeerSaveTarget final : public save_sync::SaveTarget {
               const save_sync::SaveStatus& status) override;
 
   private:
-    /// `route` asked with `body`; nothing, with `error`, when it is not announced, its secret is
-    /// gone or the call did not arrive.
-    [[nodiscard]] std::optional<net::WebClient::Answer> call(std::string_view route,
-                                                             const std::string& body,
-                                                             std::size_t largest,
-                                                             std::string& error) const;
+    /// `route` asked with `body`; a failure when it is not announced, its secret is gone or the
+    /// call did not arrive.
+    [[nodiscard]] net::Result<net::WebClient::Answer> call(const std::stop_token& stop,
+                                                           std::string_view route,
+                                                           const std::string& body,
+                                                           std::size_t largest) const;
 
     Peer peer_;
     const PeerBook& book_;

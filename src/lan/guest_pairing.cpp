@@ -82,15 +82,16 @@ void GuestPairing::run(const std::stop_token& stop) {
 }
 
 GuestPairing::Phase GuestPairing::pair(const std::stop_token& stop, std::string& problem) {
-    const PeerClient client{web_, Endpoint{host_.address, host_.port}};
+    const PeerClient client{web_, Endpoint{host_.address, host_.port}, std::stop_token{}};
     const secrets::crypto::KeyPair ours;
     const secrets::crypto::Bytes nonce = secrets::crypto::randomBytes(secrets::crypto::nonceBytes);
-    std::optional<net::WebClient::Answer> answer =
+    net::Result<net::WebClient::Answer> answer =
         client.post("/lan/pair",
                     wire::write(wire::PairRequest{self_.id, self_.name,
                                                   pairingCommitment(ours.publicKey(), nonce)}),
-                    largestAnswer, problem);
+                    largestAnswer);
     if (!answer) {
+        problem = answer.error();
         return Phase::Failed;
     }
     if (answer->status != ok) {
@@ -117,11 +118,9 @@ GuestPairing::Phase GuestPairing::pair(const std::stop_token& stop, std::string&
     secrets::wipeBytes(shared->data(), shared->size());
     answer = client.post("/lan/pair/reveal",
                          wire::write(wire::PairReveal{self_.id, ours.publicKey(), nonce}),
-                         largestAnswer, problem);
+                         largestAnswer);
     if (!answer || answer->status != ok) {
-        if (answer) {
-            problem = host_.name + " refused: " + answer->body;
-        }
+        problem = answer ? host_.name + " refused: " + answer->body : answer.error();
         secrets::wipeBytes(secret.data(), secret.size());
         return Phase::Failed;
     }
@@ -135,9 +134,8 @@ GuestPairing::Phase GuestPairing::pair(const std::stop_token& stop, std::string&
     Phase ended = Phase::Failed;
     problem = host_.name + " did not answer in time";
     while (std::chrono::steady_clock::now() < until && pause(stop, pollEvery)) {
-        std::string error;
-        answer = client.post("/lan/pair/status", wire::write(wire::PairPoll{self_.id}),
-                             largestAnswer, error);
+        answer =
+            client.post("/lan/pair/status", wire::write(wire::PairPoll{self_.id}), largestAnswer);
         if (!answer || answer->status != ok) {
             continue;
         }

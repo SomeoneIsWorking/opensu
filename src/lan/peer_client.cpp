@@ -14,36 +14,30 @@ constexpr long forbidden = 403;
 
 } // namespace
 
-std::optional<net::WebClient::Answer> PeerClient::send(std::string_view target,
-                                                       const std::vector<std::string>& headers,
-                                                       const std::optional<std::string>& post,
-                                                       std::size_t largest,
-                                                       std::string& error) const {
+net::Result<net::WebClient::Answer> PeerClient::send(std::string_view target,
+                                                     const std::vector<std::string>& headers,
+                                                     const std::optional<std::string>& post,
+                                                     std::size_t largest) const {
     const std::string url =
         "http://" + endpoint_.address + ":" + std::to_string(endpoint_.port) + std::string{target};
     const net::WebClient::Guard guard{
         .maxBody = largest, .refusal = [allowed = std::string_view{url}](const std::string& hop) {
             return hop == allowed ? std::string{} : "an openSU sends nowhere else";
         }};
-    net::Result<net::WebClient::Answer> answer =
-        web_.request(std::stop_token{}, url, headers, guard,
-                     net::WebClient::Sent{.method = {}, .body = post, .user = {}, .password = {}});
-    if (!answer) {
-        error = answer.stopped() ? "stopped" : answer.error();
-        return std::nullopt;
-    }
-    return *std::move(answer);
+    return web_.request(
+        stop_, url, headers, guard,
+        net::WebClient::Sent{.method = {}, .body = post, .user = {}, .password = {}});
 }
 
-std::optional<net::WebClient::Answer> PeerClient::post(std::string_view target,
-                                                       const std::string& body, std::size_t largest,
-                                                       std::string& error) const {
-    return send(target, {"Content-Type: application/json"}, body, largest, error);
+net::Result<net::WebClient::Answer>
+PeerClient::post(std::string_view target, const std::string& body, std::size_t largest) const {
+    return send(target, {"Content-Type: application/json"}, body, largest);
 }
 
-std::optional<net::WebClient::Answer>
-PeerClient::call(std::string_view method, std::string_view target, const std::string& body,
-                 const Signer& signer, std::size_t largest, std::string& error) const {
+net::Result<net::WebClient::Answer> PeerClient::call(std::string_view method,
+                                                     std::string_view target,
+                                                     const std::string& body, const Signer& signer,
+                                                     std::size_t largest) const {
     const std::int64_t now = unixSeconds(std::chrono::system_clock::now());
     const std::string nonce =
         secrets::hexText(secrets::crypto::randomBytes(secrets::crypto::nonceBytes));
@@ -58,18 +52,18 @@ PeerClient::call(std::string_view method, std::string_view target, const std::st
         std::string{peerHeader} + ": " + std::string{signer.selfId},
         std::string{timeHeader} + ": " + std::to_string(now),
         std::string{nonceHeader} + ": " + nonce, std::string{signatureHeader} + ": " + signature};
-    std::optional<net::WebClient::Answer> answer =
+    net::Result<net::WebClient::Answer> answer =
         send(target, headers, posts ? std::optional<std::string>{sent} : std::nullopt,
-             largest + secrets::crypto::sealNonceBytes + secrets::crypto::sealTagBytes, error);
+             largest + secrets::crypto::sealNonceBytes + secrets::crypto::sealTagBytes);
     if (!answer) {
-        return std::nullopt;
+        return answer;
     }
     std::optional<std::string> opened = openBody(signer.secret, facts, Direction::Answer,
                                                  static_cast<int>(answer->status), answer->body);
     if (!opened) {
-        error = answer->status == forbidden ? "it refused: it is not paired with this openSU"
-                                            : "the answer is not sealed by the openSU paired with";
-        return std::nullopt;
+        return net::Failure{answer->status == forbidden
+                                ? "it refused: it is not paired with this openSU"
+                                : "the answer is not sealed by the openSU paired with"};
     }
     answer->body = std::move(*opened);
     return answer;

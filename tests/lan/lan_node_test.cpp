@@ -414,7 +414,7 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
 
     net::WebClient web;
     std::string error;
-    const lan::PeerClient toHost{web, host.endpoint()};
+    const lan::PeerClient toHost{web, host.endpoint(), std::stop_token{}};
     const auto hello =
         web.get(std::stop_token{},
                 "http://127.0.0.1:" + std::to_string(host.endpoint().port) + "/lan/hello");
@@ -424,12 +424,12 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
     const secrets::crypto::Bytes guessed = secrets::crypto::randomBytes(secrets::crypto::keyBytes);
     const std::string strangerId = stranger.node.id();
     const auto refused = toHost.call("GET", "/lan/library", {},
-                                     lan::PeerClient::Signer{strangerId, guessed}, 1 << 20, error);
-    expect(!refused && error.find("not paired") != std::string::npos,
+                                     lan::PeerClient::Signer{strangerId, guessed}, 1 << 20);
+    expect(!refused && refused.error().find("not paired") != std::string::npos,
            "an unpaired openSU is refused the library");
     const std::string guestId = guest.node.id();
-    const auto forged = toHost.call("GET", "/lan/library", {},
-                                    lan::PeerClient::Signer{guestId, guessed}, 1 << 20, error);
+    const auto forged =
+        toHost.call("GET", "/lan/library", {}, lan::PeerClient::Signer{guestId, guessed}, 1 << 20);
     expect(!forged, "a request in the guest's name without its secret is refused");
 
     expect(host.node.forget(guest.node.id(), error), "the host forgets the guest");

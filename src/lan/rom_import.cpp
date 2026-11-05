@@ -256,16 +256,17 @@ bool RomImport::fetchFile(const Item& item, const File& file, std::uint64_t befo
     if (!link) {
         return false;
     }
-    const PeerClient client{web_, link->endpoint};
+    const PeerClient client{web_, link->endpoint, std::stop_token{}};
     const PeerClient::Signer signer{setup_.selfId, link->secret};
     const auto wipe = [&] {
         secrets::wipeBytes(link->secret.data(), link->secret.size());
     };
     wire::RomAsk ask{file.kind, file.root, file.path, 0, 0};
     const auto askFacts = [&]() -> std::optional<wire::RomFacts> {
-        const std::optional<net::WebClient::Answer> answer =
-            client.call("POST", wire::romFileRoute, wire::write(ask), signer, largestFacts, error);
+        const net::Result<net::WebClient::Answer> answer =
+            client.call("POST", wire::romFileRoute, wire::write(ask), signer, largestFacts);
         if (!answer) {
+            error = answer.error();
             return std::nullopt;
         }
         if (answer->status != ok) {
@@ -315,10 +316,11 @@ bool RomImport::fetchFile(const Item& item, const File& file, std::uint64_t befo
             }
             ask.offset = have;
             ask.length = wire::romChunkBytes;
-            const std::optional<net::WebClient::Answer> answer = client.call(
-                "POST", wire::romChunkRoute, wire::write(ask), signer, wire::romChunkBytes, error);
+            const net::Result<net::WebClient::Answer> answer = client.call(
+                "POST", wire::romChunkRoute, wire::write(ask), signer, wire::romChunkBytes);
             if (!answer) {
                 wipe();
+                error = answer.error();
                 return false;
             }
             if (answer->status != ok) {
