@@ -4,7 +4,8 @@
 // cell; `GBMBCInit`) and gambatte keeps one to a byte in an 8 KiB bank (`Mbc2`, `rambanks`), and a
 // file longer than the RAM whose bytes past it hold nothing (all 0x00 or all 0xFF), such as
 // gambatte's 128 KiB for a cartridge mGBA gives 64 KiB, or mGBA's 128 KiB before it knew the
-// save's type.
+// save's type, or whose 16 bytes past it are the clock mGBA appends to a save file of its own, as
+// player 2's of the link core.
 #pragma once
 
 #include <cstddef>

@@ -1,6 +1,6 @@
 // Save RAM: the round trip, writing only what changed, the atomic replace, a smaller file loaded
-// into the start, another core's layout fitted (MBC2's packing, blank bytes past the RAM), and a
-// larger or unreadable file refused and left as it is.
+// into the start, another core's layout fitted (MBC2's packing, blank bytes past the RAM, mGBA's
+// clock), and a larger or unreadable file refused and left as it is.
 #include "save_memory.hpp"
 
 #include <array>
@@ -131,6 +131,12 @@ void anotherCoresLayout(const std::filesystem::path& dir) {
     expect(ram[0] == std::byte{'a'} && ram[2] == std::byte{0xFF},
            "a longer file whose bytes past the RAM hold nothing loads its start");
     expect(read(padded).size() == 8, "and is left as it is until the game writes");
+
+    const std::filesystem::path clocked = dir / "clocked.srm";
+    write(clocked, "ab34" + std::string(16, '\x26'));
+    SaveMemory{clocked}.load(ram);
+    expect(ram[0] == std::byte{'a'} && ram[3] == std::byte{'4'},
+           "the clock mGBA appends to a save file of its own is left out");
 }
 
 void unreadableFile(const std::filesystem::path& dir) {

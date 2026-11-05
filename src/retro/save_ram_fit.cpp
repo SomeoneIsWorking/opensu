@@ -12,6 +12,8 @@ constexpr std::size_t gambatteBank = 0x2000;
 constexpr unsigned nibble = 0x0F;
 constexpr unsigned unwiredBits = 0xF0;
 constexpr unsigned nibbleBits = 4;
+/// `GBASavedataRTCBuffer`, which no libretro save RAM holds.
+constexpr std::size_t mgbaClockBytes = 16;
 
 bool blank(std::span<const std::byte> bytes) {
     return std::ranges::all_of(bytes,
@@ -47,7 +49,8 @@ std::optional<std::vector<std::byte>> fittedSaveRam(std::span<const std::byte> f
         }
         return cells;
     }
-    if (file.size() > ramBytes && ramBytes > 0 && blank(file.subspan(ramBytes))) {
+    if (file.size() > ramBytes && ramBytes > 0 &&
+        (file.size() == ramBytes + mgbaClockBytes || blank(file.subspan(ramBytes)))) {
         return std::vector<std::byte>{file.begin(), file.begin() + static_cast<long>(ramBytes)};
     }
     return std::nullopt;
