@@ -80,6 +80,8 @@ class EvdevPads final : public PadSource {
 
     /// Keeps `count` virtual pads, making or ending them, and returns their nodes once applied;
     /// fewer when uinput refuses one. 0 lets every kept pad go. Any thread.
+    std::shared_ptr<VirtualPad> lendPad() override;
+    void returnPad() override;
     std::vector<std::filesystem::path> keepVirtualPads(std::size_t count) override;
 
   private:
@@ -91,7 +93,7 @@ class EvdevPads final : public PadSource {
         /// The game's view of this pad, under Game and Away: a kept pad, or `made`.
         VirtualPad* output{nullptr};
         /// The virtual pad made for this pad when no kept one was free.
-        std::unique_ptr<VirtualPad> made;
+        std::shared_ptr<VirtualPad> made;
         bool grabbed{false};
         /// The virtual pad follows the pad, rather than resting.
         bool live{false};
@@ -105,6 +107,8 @@ class EvdevPads final : public PadSource {
         ForwardMap map;
         /// How many virtual pads are kept.
         std::size_t keep{0};
+        /// The first pad's virtual pad is lent to a remote player.
+        bool lent{false};
         /// Bumped per request, so a caller can wait for its own to be applied.
         std::uint64_t serial{0};
     };
@@ -134,12 +138,14 @@ class EvdevPads final : public PadSource {
 
     // Reading thread only.
     std::vector<std::unique_ptr<Pad>> pads_;
-    std::vector<std::unique_ptr<VirtualPad>> kept_;
+    std::vector<std::shared_ptr<VirtualPad>> kept_;
     Wanted applied_;
     bool missed_{false};
 
     device::ControllerBatteries batteries_;
     mutable std::mutex mutex_;
+    /// The virtual pad lent, as the reading thread last left it.
+    std::shared_ptr<VirtualPad> lentPad_;
     std::condition_variable appliedChanged_;
     Wanted wanted_;
     std::uint64_t appliedSerial_{0};

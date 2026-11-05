@@ -175,6 +175,8 @@ class LanNode {
         Endpoint stream;
         StreamKeys keys;
         bool joined{false};
+        /// This one took over a seat of its profile.
+        bool continued{false};
     };
     /// Asks the paired, announced openSU `hostId` to start its game `gameId` (its own id) as
     /// `profile`, this one's active profile, and stream it here, or to let this one join it while
@@ -213,6 +215,9 @@ class LanNode {
                                                         std::span<const std::uint8_t> guestSalt,
                                                         std::span<const std::uint8_t> hostSalt,
                                                         std::string& error) const;
+    /// The game `id` runs here with `profiles` in its seats (an empty id, none runs): listed so,
+    /// and the paired, announced openSUs are told to read the listing again.
+    void playing(std::string id, std::vector<std::string> profiles);
     /// Invites the paired, announced openSU `peerId` to `game` running here. Blocks for the call,
     /// so never on the loop. False with `error` when it is gone or will not be asked.
     [[nodiscard]] bool invite(const std::stop_token& stop, const std::string& peerId,
@@ -258,6 +263,8 @@ class LanNode {
     std::string name_;
     HostPairing pairing_{book_.id()};
     SharedLibrary library_;
+    /// The paired peers are to be told the listing changed.
+    bool newsDue_{false};
     save_sync::SaveSync& saves_;
     profiles::ProfileBook& profiles_;
     ProfileCopies copies_{profiles_};

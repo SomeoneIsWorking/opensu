@@ -119,7 +119,8 @@ class XDisplay {
 
 class HostInput::Devices {
   public:
-    explicit Devices(const std::optional<std::string>& x11Display) {
+    Devices(const std::optional<std::string>& x11Display, std::shared_ptr<gamepad::VirtualPad> seat)
+        : pad{std::move(seat)} {
         if (x11Display) {
             display_.emplace(*x11Display);
         }
@@ -194,14 +195,19 @@ class HostInput::Devices {
     std::optional<wire::MouseState> mouse_;
 };
 
-HostInput::HostInput(const std::optional<std::string>& x11Display)
-    : devices_{std::make_unique<Devices>(x11Display)} {
+HostInput::HostInput(const std::optional<std::string>& x11Display,
+                     std::shared_ptr<gamepad::VirtualPad> seat)
+    : devices_{std::make_unique<Devices>(x11Display, std::move(seat))} {
     if (x11Display) {
         lucent::info("remote", "the guest's keys and pointer go to X display {}", *x11Display);
     }
 }
 
 HostInput::~HostInput() {
+    devices_->release();
+}
+
+void HostInput::rest() {
     devices_->release();
 }
 

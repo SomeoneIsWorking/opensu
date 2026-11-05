@@ -299,6 +299,13 @@ void SdlPads::setBlocked(bool /*blocked*/) {
 void SdlPads::setChords(ChordTriggers /*chords*/) {
 }
 
+std::shared_ptr<VirtualPad> SdlPads::lendPad() {
+    return nullptr;
+}
+
+void SdlPads::returnPad() {
+}
+
 std::vector<std::filesystem::path> SdlPads::keepVirtualPads(std::size_t /*count*/) {
     return {};
 }

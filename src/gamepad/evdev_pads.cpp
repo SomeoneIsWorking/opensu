@@ -132,6 +132,20 @@ void EvdevPads::setChords(ChordTriggers chords) {
     awaitApplied(lock, ++wanted_.serial);
 }
 
+std::shared_ptr<VirtualPad> EvdevPads::lendPad() {
+    std::unique_lock lock{mutex_};
+    wanted_.lent = true;
+    awaitApplied(lock, ++wanted_.serial);
+    return lentPad_;
+}
+
+void EvdevPads::returnPad() {
+    std::unique_lock lock{mutex_};
+    wanted_.lent = false;
+    awaitApplied(lock, ++wanted_.serial);
+    lentPad_.reset();
+}
+
 std::vector<std::filesystem::path> EvdevPads::keepVirtualPads(std::size_t count) {
     std::unique_lock lock{mutex_};
     wanted_.keep = count;
@@ -257,7 +271,13 @@ bool EvdevPads::apply(Pad& pad, const Wanted& wanted) {
             pad.output = pad.made.get();
         }
     }
-    const bool live = pad.output && wanted.claim == Claim::Game && !wanted.blocked;
+    const bool lent = wanted.lent && &pad == pads_.front().get();
+    if (lent && pad.output != nullptr) {
+        const auto kept = std::ranges::find(kept_, pad.output, &std::shared_ptr<VirtualPad>::get);
+        const std::lock_guard lock{mutex_};
+        lentPad_ = kept != kept_.end() ? *kept : pad.made;
+    }
+    const bool live = pad.output && wanted.claim == Claim::Game && !wanted.blocked && !lent;
     if (live != pad.live) {
         write(pad, live ? pad.translator.resume() : pad.translator.rest());
         pad.live = live;
@@ -329,7 +349,8 @@ void EvdevPads::run(const std::stop_token& stop) {
         if (keepChanged) {
             keep(wanted.keep);
         }
-        if (keepChanged || wanted.claim != applied_.claim || wanted.blocked != applied_.blocked) {
+        if (keepChanged || wanted.claim != applied_.claim || wanted.blocked != applied_.blocked ||
+            wanted.lent != applied_.lent) {
             missed_ = false;
             for (const auto& pad : pads_) {
                 if (!apply(*pad, wanted)) {

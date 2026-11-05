@@ -7,7 +7,8 @@ namespace opensu::lan {
 namespace {
 
 bool sameListing(const library::Game& a, const library::Game& b) {
-    return a.id == b.id && a.title == b.title && a.hostName == b.hostName && a.artwork == b.artwork;
+    return a.id == b.id && a.title == b.title && a.hostName == b.hostName &&
+           a.artwork == b.artwork && a.playingAs == b.playingAs;
 }
 
 class RemoteProvider final : public library::Provider {
@@ -39,6 +40,7 @@ library::Game remoteGame(const Peer& host, const wire::ListedGame& listed,
     game.title = listed.title;
     game.hostId = host.id;
     game.hostName = host.name;
+    game.playingAs = listed.playingAs;
     game.installed = true;
     game.artwork = cover;
     return game;

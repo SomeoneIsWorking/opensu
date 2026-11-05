@@ -156,6 +156,9 @@ struct Rig {
                                       [](const library::Game&) {
                                           return false;
                                       },
+                                      [](const library::Game&) {
+                                          return false;
+                                      },
                                       [](const library::Game&, bool) {
                                       },
                                       [](const library::Game&, const std::string&) {

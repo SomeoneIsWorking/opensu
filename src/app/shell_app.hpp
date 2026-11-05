@@ -626,89 +626,93 @@ class ShellApp final {
         sounds_,
         DetailsController::Services{preferences_, gameSettings_, emulatorDownloads_,
                                     uninstallPrompt_, updateRequest_},
-        DetailsController::Hooks{[this] {
-                                     return shell_.grid().focusedGame();
-                                 },
-                                 [this](const std::string& id) {
-                                     return shownGame(id);
-                                 },
-                                 [this](const library::Game& game) {
-                                     static_cast<void>(
-                                         launch(game, {}, profiles_.book().active().id));
-                                 },
-                                 [this](const library::Game& game, bool hidden) {
-                                     setHidden(game, hidden);
-                                 },
-                                 [this](const library::Game& game) {
-                                     return onHome(game).value_or(false);
-                                 },
-                                 [this](const library::Game& game, bool on) {
-                                     setOnHome(game, on);
-                                 },
-                                 [this](const library::Game& game, const std::string& name) {
-                                     chooseEmulator(game, name);
-                                 },
-                                 [this](const std::string& text, bool isError) {
-                                     shell_.setToast(text, isError);
-                                 },
-                                 [this](const library::Game& game) {
-                                     mappings_.openGame(game);
-                                 },
-                                 [this](const library::Game& game) {
-                                     openGameSettings(game, EditorLook::Page);
-                                 },
-                                 [this](const library::Game& game) -> std::optional<std::size_t> {
-                                     if (!layered_.offers(game)) {
-                                         return std::nullopt;
-                                     }
-                                     return layered_.kept(game);
-                                 },
-                                 [this](const library::Game& game) {
-                                     covers_.choose(game.id);
-                                 },
-                                 [this](const library::Game& game) {
-                                     ownGames_.rename(game);
-                                 },
-                                 [this](const library::Game& game) {
-                                     ownGames_.changeFile(game);
-                                 },
-                                 [this](const library::Game& game) {
-                                     ownGames_.remove(game);
-                                 },
-                                 [this](const std::string& id) {
-                                     return shell_.grid().artworkDownloading(id);
-                                 },
-                                 [this](const library::Game& game) {
-                                     gameMatch_.open(game);
-                                 },
-                                 [this](const library::Game& game) {
-                                     saveCopy_.read(game);
-                                     saveSharing_.look(game);
-                                 },
-                                 [this](const library::Game& game) {
-                                     return saveCopy_.offer(game);
-                                 },
-                                 [this](const library::Game& game) {
-                                     saveCopy_.open(game);
-                                 },
-                                 [this](const library::Game& game) {
-                                     return sharedSaves_.view(game);
-                                 },
-                                 [this](const library::Game& game) {
-                                     sharedSaves_.act(game);
-                                 },
-                                 [this](const library::Game& game) {
-                                     return resumeOf(game);
-                                 },
-                                 [this](const library::Game& game) {
-                                     return startFresh(game);
-                                 },
-                                 [this] {
-                                     return lanNetplay_.partners();
-                                 },
-                                 [this](const library::Game& game, const std::string& peerId) {
-                                     lanNetplay_.play(game, peerId);
-                                 }}};
+        DetailsController::Hooks{
+            [this] {
+                return shell_.grid().focusedGame();
+            },
+            [this](const std::string& id) {
+                return shownGame(id);
+            },
+            [this](const library::Game& game) {
+                static_cast<void>(launch(game, {}, profiles_.book().active().id));
+            },
+            [this](const library::Game& game, bool hidden) {
+                setHidden(game, hidden);
+            },
+            [this](const library::Game& game) {
+                return onHome(game).value_or(false);
+            },
+            [this](const library::Game& game) {
+                return std::ranges::find(game.playingAs, profiles_.book().active().id) !=
+                       game.playingAs.end();
+            },
+            [this](const library::Game& game, bool on) {
+                setOnHome(game, on);
+            },
+            [this](const library::Game& game, const std::string& name) {
+                chooseEmulator(game, name);
+            },
+            [this](const std::string& text, bool isError) {
+                shell_.setToast(text, isError);
+            },
+            [this](const library::Game& game) {
+                mappings_.openGame(game);
+            },
+            [this](const library::Game& game) {
+                openGameSettings(game, EditorLook::Page);
+            },
+            [this](const library::Game& game) -> std::optional<std::size_t> {
+                if (!layered_.offers(game)) {
+                    return std::nullopt;
+                }
+                return layered_.kept(game);
+            },
+            [this](const library::Game& game) {
+                covers_.choose(game.id);
+            },
+            [this](const library::Game& game) {
+                ownGames_.rename(game);
+            },
+            [this](const library::Game& game) {
+                ownGames_.changeFile(game);
+            },
+            [this](const library::Game& game) {
+                ownGames_.remove(game);
+            },
+            [this](const std::string& id) {
+                return shell_.grid().artworkDownloading(id);
+            },
+            [this](const library::Game& game) {
+                gameMatch_.open(game);
+            },
+            [this](const library::Game& game) {
+                saveCopy_.read(game);
+                saveSharing_.look(game);
+            },
+            [this](const library::Game& game) {
+                return saveCopy_.offer(game);
+            },
+            [this](const library::Game& game) {
+                saveCopy_.open(game);
+            },
+            [this](const library::Game& game) {
+                return sharedSaves_.view(game);
+            },
+            [this](const library::Game& game) {
+                sharedSaves_.act(game);
+            },
+            [this](const library::Game& game) {
+                return resumeOf(game);
+            },
+            [this](const library::Game& game) {
+                return startFresh(game);
+            },
+            [this] {
+                return lanNetplay_.partners();
+            },
+            [this](const library::Game& game, const std::string& peerId) {
+                lanNetplay_.play(game, peerId);
+            }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),
                           VolumeControl::Hooks{[this](const audio::VolumeState& state) {
@@ -855,6 +859,18 @@ class ShellApp final {
             .name =
                 [this] {
                     return lan_.name();
+                },
+            .lendPad =
+                [this] {
+                    return pads_->lendPad();
+                },
+            .returnPad =
+                [this] {
+                    pads_->returnPad();
+                },
+            .seats =
+                [this](std::string id, std::vector<std::string> profiles) {
+                    lan_.playing(std::move(id), std::move(profiles));
                 }}};
     /// The ROM folders as LAN import writes into them; the import's thread shares it.
     std::shared_ptr<const library::roms::RomTree> romTree_{library::roms::openRomTree()};
@@ -906,8 +922,9 @@ class ShellApp final {
                               },
                           .play =
                               [this](const lan::Peer& peer, const std::string& game,
-                                     const std::string& profile, const lan::StreamKeys& keys) {
-                                  return remotePlay_.offer(peer, game, profile, keys);
+                                     const std::string& profile, bool linked,
+                                     const lan::StreamKeys& keys) {
+                                  return remotePlay_.offer(peer, game, profile, linked, keys);
                               },
                           .playStatus =
                               [this](const lan::Peer& peer, const std::string& game) {

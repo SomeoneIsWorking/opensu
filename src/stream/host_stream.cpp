@@ -213,6 +213,7 @@ void HostStream::receive(const std::stop_token& stop) {
         const Clock::time_point now = Clock::now();
         if (!got) {
             if (joined_ ? now - heard > quietLimit : now - started > joinLimit) {
+                dropped_ = joined_.load();
                 finish(joined_ ? "the guest stopped answering" : "the guest never came");
             }
             continue;

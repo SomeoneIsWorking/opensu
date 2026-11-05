@@ -50,7 +50,9 @@ RemotePlay::~RemotePlay() {
     const std::lock_guard lock{hostMutex_};
     if (hosted_) {
         for (const std::unique_ptr<Guest>& guest : hosted_->guests) {
-            guest->stream->end("openSU closed");
+            if (guest->stream) {
+                guest->stream->end("openSU closed");
+            }
         }
     }
     for (Ask& ask : asks_) {
@@ -58,16 +60,11 @@ RemotePlay::~RemotePlay() {
     }
 }
 
-std::uint16_t RemotePlay::admit(Hosted& hosted, const lan::Peer& peer, const lan::StreamKeys& keys,
-                                bool withKeys) {
-    auto guest = std::make_unique<Guest>();
-    guest->peer = peer;
-    guest->input = std::make_unique<stream::HostInput>(withKeys ? std::optional{screen_.x11Display}
-                                                                : std::nullopt);
-    stream::HostInput& player = *guest->input;
-    guest->stream = std::make_unique<stream::HostStream>(
+std::uint16_t RemotePlay::openStream(Hosted& hosted, Guest& guest, const lan::StreamKeys& keys) {
+    stream::HostInput& player = *guest.input;
+    guest.stream = std::make_unique<stream::HostStream>(
         stream::HostStream::Setup{.keys = keys,
-                                  .guest = peer.name,
+                                  .guest = guest.peer.name,
                                   .pad =
                                       [&player](const stream::wire::PadState& state) {
                                           player.pad(state);
@@ -85,18 +82,83 @@ std::uint16_t RemotePlay::admit(Hosted& hosted, const lan::Peer& peer, const lan
                                           player.mapping(mapping);
                                       },
                                   .encoders = stream::encodableHere()});
-    const std::uint16_t port = guest->stream->port();
-    lucent::info("remote", "{} is guest {} of {}, its pad {}, its stream on UDP port {}", peer.name,
-                 hosted.guests.size() + 1, hosted.title.empty() ? hosted.gameId : hosted.title,
-                 player.padNode(), port);
-    hosted.audience.add(*guest->stream);
+    hosted.audience.add(*guest.stream);
+    return guest.stream->port();
+}
+
+std::uint16_t RemotePlay::admit(Hosted& hosted, const Seat& seat, const lan::StreamKeys& keys) {
+    auto guest = std::make_unique<Guest>();
+    static_cast<Seat&>(*guest) = seat;
+    guest->input = std::make_unique<stream::HostInput>(
+        seat.withKeys ? std::optional{screen_.x11Display} : std::nullopt,
+        seat.own ? hooks_.lendPad() : nullptr);
+    const std::uint16_t port = openStream(hosted, *guest, keys);
+    lucent::info("remote", "{} is guest {} of {}, its pad {}, its stream on UDP port {}",
+                 seat.peer.name, hosted.guests.size() + 1,
+                 hosted.title.empty() ? hosted.gameId : hosted.title, guest->input->padNode(),
+                 port);
     hosted.guests.push_back(std::move(guest));
     return port;
 }
 
-void RemotePlay::hostOwnGame(const Ask& ask) {
+std::uint16_t RemotePlay::takeOver(Hosted& hosted, Guest& guest, const lan::Peer& peer,
+                                   const lan::StreamKeys& keys) {
+    if (guest.stream) {
+        hosted.audience.remove(*guest.stream);
+        guest.stream->end("Continued on " + peer.name);
+        guest.stream.reset();
+    }
+    guest.input->rest();
+    const std::string from = guest.peer.name;
+    guest.peer = peer;
+    const std::uint16_t port = openStream(hosted, guest, keys);
+    lucent::info("remote", "{} continues {} from {} on its pad {}, its stream on UDP port {}",
+                 peer.name, hosted.title, from, guest.input->padNode(), port);
+    const std::lock_guard lock{*answerMutex_};
+    news_->emplace_back(peer.name + " continues " + hosted.title, false);
+    return port;
+}
+
+std::optional<lan::PlayOutcome> RemotePlay::continueSeat(const lan::Peer& peer,
+                                                         const std::string& gameId,
+                                                         const std::string& profile,
+                                                         const lan::StreamKeys& keys) {
+    if (hosted_ ? hosted_->gameId != gameId : !busy_ || runningId_ != gameId) {
+        return std::nullopt;
+    }
+    const auto continued = [](std::uint16_t port, bool joined) {
+        return lan::PlayOutcome{
+            .port = port, .waiting = false, .joined = joined, .continued = true, .refusal = {}};
+    };
+    if (hosted_) {
+        Hosted& hosted = *hosted_;
+        const auto seat = std::ranges::find_if(hosted.guests, [&profile](const auto& guest) {
+            return guest->linked && guest->profile == profile;
+        });
+        if (seat != hosted.guests.end()) {
+            const bool started = hosted.forGuest && seat == hosted.guests.begin();
+            return continued(takeOver(hosted, **seat, peer, keys), !started);
+        }
+        if (hosted.forGuest || hosted.guests.size() >= maxGuests) {
+            return std::nullopt;
+        }
+    }
+    if (profile != runningProfile_) {
+        return std::nullopt;
+    }
+    if (!hosted_) {
+        hostOwnGame(gameId);
+    }
+    const std::uint16_t port =
+        admit(*hosted_,
+              Seat{.peer = peer, .profile = profile, .linked = true, .withKeys = true, .own = true},
+              keys);
+    return continued(port, true);
+}
+
+void RemotePlay::hostOwnGame(const std::string& gameId) {
     auto hosted = std::make_unique<Hosted>();
-    hosted->gameId = ask.gameId;
+    hosted->gameId = gameId;
     hosted->title = runningTitle_;
     hosted->launched = true;
     hosted->video = std::make_unique<stream::HostVideo>(hosted->audience, screen_.gamescopeSocket);
@@ -106,6 +168,7 @@ void RemotePlay::hostOwnGame(const Ask& ask) {
 }
 
 lan::PlayOutcome RemotePlay::waitFor(const lan::Peer& peer, const std::string& gameId,
+                                     const std::string& profile, bool linked,
                                      const lan::StreamKeys& keys) {
     const auto found = std::ranges::find(asks_, peer.id, [](const Ask& ask) {
         return ask.peer.id;
@@ -123,36 +186,56 @@ lan::PlayOutcome RemotePlay::waitFor(const lan::Peer& peer, const std::string& g
     }
     asks_.push_back(Ask{.peer = peer,
                         .gameId = gameId,
+                        .profile = profile,
+                        .linked = linked,
                         .keys = keys,
                         .at = Clock::now(),
                         .verdict = invited ? Ask::Verdict::Allowed : Ask::Verdict::Waiting,
                         .why = {}});
     lucent::info("remote", "{} {} the game here", peer.name,
                  invited ? "takes its invitation to" : "asks to join");
-    return lan::PlayOutcome{.port = std::nullopt, .waiting = true, .joined = true, .refusal = {}};
+    return lan::PlayOutcome{
+        .port = std::nullopt, .waiting = true, .joined = true, .continued = false, .refusal = {}};
 }
 
 lan::PlayOutcome RemotePlay::offer(const lan::Peer& peer, const std::string& gameId,
-                                   const std::string& profile, const lan::StreamKeys& keys) {
+                                   const std::string& profile, bool linked,
+                                   const lan::StreamKeys& keys) {
     const std::lock_guard lock{hostMutex_};
     const auto refuse = [](std::string why) {
-        return lan::PlayOutcome{
-            .port = std::nullopt, .waiting = false, .joined = false, .refusal = std::move(why)};
+        return lan::PlayOutcome{.port = std::nullopt,
+                                .waiting = false,
+                                .joined = false,
+                                .continued = false,
+                                .refusal = std::move(why)};
     };
+    if (linked) {
+        try {
+            if (std::optional<lan::PlayOutcome> seat = continueSeat(peer, gameId, profile, keys)) {
+                return *seat;
+            }
+        } catch (const std::runtime_error& failure) {
+            lucent::warn("remote", "{} cannot continue here: {}", peer.name, failure.what());
+            return refuse(failure.what());
+        }
+    }
     if (hosted_) {
         const Hosted& hosted = *hosted_;
         if (hosted.gameId != gameId) {
             return refuse("it is streaming " + hosted.title + " now");
         }
         if (std::ranges::any_of(hosted.guests, [&peer](const std::unique_ptr<Guest>& guest) {
-                return guest->peer.id == peer.id;
+                return guest->peer.id == peer.id && guest->stream;
             })) {
             return refuse("this openSU plays it there already");
         }
-        if (hosted.guests.size() >= maxGuests) {
+        if (hosted.guests.size() >= maxGuests &&
+            std::ranges::none_of(hosted.guests, [&peer](const std::unique_ptr<Guest>& guest) {
+                return guest->peer.id == peer.id;
+            })) {
             return refuse(hosted.title + " has four guests there");
         }
-        return waitFor(peer, gameId, keys);
+        return waitFor(peer, gameId, profile, linked, keys);
     }
     if (screen_.gamescopeSocket.empty()) {
         return refuse("it does not run inside Gamescope, whose screen it would stream");
@@ -162,20 +245,25 @@ lan::PlayOutcome RemotePlay::offer(const lan::Peer& peer, const std::string& gam
             return refuse(runningTitle_.empty() ? "a game is already running there"
                                                 : "it is playing " + runningTitle_ + " now");
         }
-        return waitFor(peer, gameId, keys);
+        return waitFor(peer, gameId, profile, linked, keys);
     }
     try {
         auto hosted = std::make_unique<Hosted>();
         hosted->gameId = gameId;
         hosted->profile = profile;
         hosted->forGuest = true;
-        const std::uint16_t port = admit(*hosted, peer, keys, true);
+        const std::uint16_t port = admit(
+            *hosted,
+            Seat{
+                .peer = peer, .profile = profile, .linked = linked, .withKeys = true, .own = false},
+            keys);
         hosted->video =
             std::make_unique<stream::HostVideo>(hosted->audience, screen_.gamescopeSocket);
         hosted->audio = std::make_unique<stream::HostAudio>(
             hosted->audience, "opensu.remote." + std::to_string(port));
         hosted_ = std::move(hosted);
-        return lan::PlayOutcome{.port = port, .waiting = false, .joined = false, .refusal = {}};
+        return lan::PlayOutcome{
+            .port = port, .waiting = false, .joined = false, .continued = false, .refusal = {}};
     } catch (const std::runtime_error& failure) {
         lucent::warn("remote", "cannot stream to {}: {}", peer.name, failure.what());
         return refuse(failure.what());
@@ -202,14 +290,26 @@ std::optional<lan::wire::PlayVerdict> RemotePlay::playStatus(const lan::Peer& pe
     if (ask.verdict == Ask::Verdict::Allowed) {
         try {
             if (!hosted_) {
-                hostOwnGame(ask);
+                hostOwnGame(ask.gameId);
             }
+            const auto held = std::ranges::find_if(hosted_->guests, [&ask](const auto& guest) {
+                return guest->peer.id == ask.peer.id && !guest->stream;
+            });
             if (hosted_->gameId != ask.gameId) {
                 verdict.why = "it is streaming " + hosted_->title + " now";
+            } else if (held != hosted_->guests.end()) {
+                verdict.port = takeOver(*hosted_, **held, ask.peer, ask.keys);
+                verdict.verdict = "accepted";
             } else if (hosted_->guests.size() >= maxGuests) {
                 verdict.why = hosted_->title + " has four guests there";
             } else {
-                verdict.port = admit(*hosted_, ask.peer, ask.keys, false);
+                verdict.port = admit(*hosted_,
+                                     Seat{.peer = ask.peer,
+                                          .profile = ask.profile,
+                                          .linked = ask.linked,
+                                          .withKeys = false,
+                                          .own = false},
+                                     ask.keys);
                 verdict.verdict = "accepted";
             }
         } catch (const std::runtime_error& failure) {
@@ -318,9 +418,9 @@ void RemotePlay::invite(const lan::Peer& peer) {
     }();
     const bool told = hooks_.invite(
         peer.id, game,
-        [mutex = answerMutex_, refusals = refusals_, name = peer.name](const std::string& why) {
+        [mutex = answerMutex_, news = news_, name = peer.name](const std::string& why) {
             const std::lock_guard lock{*mutex};
-            refusals->push_back(name + " cannot join: " + why);
+            news->emplace_back(name + " cannot join: " + why, true);
         });
     if (!told) {
         hooks_.say("Cannot invite " + peer.name + " now: LAN is off or busy", true);
@@ -342,7 +442,9 @@ void RemotePlay::kick(const std::string& peerId) {
         return;
     }
     (*found)->kicked = true;
-    (*found)->stream->end(hooks_.name() + " removed you");
+    if ((*found)->stream) {
+        (*found)->stream->end(hooks_.name() + " removed you");
+    }
     lucent::info("remote", "the player removed {}", (*found)->peer.name);
     hooks_.say("Removed " + (*found)->peer.name, false);
 }
@@ -424,25 +526,72 @@ void RemotePlay::end() {
     }
 }
 
-void RemotePlay::service(bool busy, const library::Game* running) {
+void RemotePlay::service(bool busy, const library::Game* running, const std::string& profile) {
     busy_ = busy;
     occupied_ = busy || playing();
     {
         const std::lock_guard lock{*answerMutex_};
-        for (const std::string& refusal : *refusals_) {
-            hooks_.say(refusal, true);
+        for (const auto& [text, error] : *news_) {
+            hooks_.say(text, error);
         }
-        refusals_->clear();
+        news_->clear();
     }
-    serviceHost(running);
+    serviceHost(running, profile);
     serviceGuest();
 }
 
-void RemotePlay::serviceHost(const library::Game* running) {
+RemotePlay::GuestList::iterator RemotePlay::free(Hosted& hosted, GuestList::iterator at) {
+    const bool own = (*at)->own;
+    if ((*at)->stream) {
+        hosted.audience.remove(*(*at)->stream);
+    }
+    GuestList::iterator next = hosted.guests.erase(at);
+    if (own) {
+        hooks_.returnPad();
+    }
+    return next;
+}
+
+void RemotePlay::hold(Hosted& hosted, Guest& guest) {
+    hosted.audience.remove(*guest.stream);
+    guest.stream.reset();
+    guest.input->rest();
+    guest.heldSince = Clock::now();
+    lucent::info("remote", "{} went quiet; its seat in {} is held for {} s", guest.peer.name,
+                 hosted.title, seatHold.count());
+    hooks_.say(guest.peer.name + " dropped; their seat is held", false);
+}
+
+void RemotePlay::publishSeats() {
+    std::pair<std::string, std::vector<std::string>> seats{runningId_, {}};
+    if (!runningId_.empty()) {
+        if (!hosted_ || !hosted_->forGuest) {
+            seats.second.push_back(runningProfile_);
+        }
+        if (hosted_) {
+            for (const std::unique_ptr<Guest>& guest : hosted_->guests) {
+                if (guest->linked) {
+                    seats.second.push_back(guest->profile);
+                }
+            }
+        }
+        std::ranges::sort(seats.second);
+        const auto [gone, end] = std::ranges::unique(seats.second);
+        seats.second.erase(gone, end);
+    }
+    if (seats != published_) {
+        published_ = seats;
+        hooks_.seats(std::move(seats.first), std::move(seats.second));
+    }
+}
+
+void RemotePlay::serviceHost(const library::Game* running, const std::string& profile) {
     const std::lock_guard lock{hostMutex_};
     runningId_ = running != nullptr ? running->id : std::string{};
     runningTitle_ = running != nullptr ? running->title : std::string{};
+    runningProfile_ = running != nullptr ? profile : std::string{};
     lapseAsks();
+    publishSeats();
     if (!hosted_) {
         return;
     }
@@ -471,13 +620,30 @@ void RemotePlay::serviceHost(const library::Game* running) {
         !hosted.launched || (hosted.forGuest ? busy_.load() : runningId_ == hosted.gameId);
     if (!on) {
         for (const std::unique_ptr<Guest>& guest : hosted.guests) {
-            guest->stream->end("the game ended");
+            if (guest->stream) {
+                guest->stream->end("the game ended");
+            }
         }
     }
     std::vector<std::pair<std::string, std::string>> left;
     for (auto it = hosted.guests.begin(); it != hosted.guests.end();) {
-        const std::optional<std::string> over = (*it)->stream->over();
+        Guest& guest = **it;
+        if (!guest.stream) {
+            if (on && !guest.kicked && Clock::now() - guest.heldSince < seatHold) {
+                ++it;
+                continue;
+            }
+            lucent::info("remote", "the seat {} held in {} is free", guest.peer.name, hosted.title);
+            it = free(hosted, it);
+            continue;
+        }
+        const std::optional<std::string> over = guest.stream->over();
         if (!over) {
+            ++it;
+            continue;
+        }
+        if (on && !guest.kicked && guest.stream->dropped()) {
+            hold(hosted, guest);
             ++it;
             continue;
         }
@@ -485,8 +651,7 @@ void RemotePlay::serviceHost(const library::Game* running) {
         if (!(*it)->kicked && on) {
             left.emplace_back((*it)->peer.name, *over);
         }
-        hosted.audience.remove(*(*it)->stream);
-        it = hosted.guests.erase(it);
+        it = free(hosted, it);
     }
     for (const auto& [name, why] : left) {
         hooks_.say(hosted.forGuest && hosted.guests.empty() && left.size() == 1
@@ -572,9 +737,12 @@ void RemotePlay::serviceGuest() {
             return;
         }
         joined_ = answer->offer->joined;
+        const bool continued = answer->offer->continued;
         lucent::info("remote", "{} {} on {} at {}:{}", joined_ ? "joined" : "playing", game_.title,
                      game_.hostName, answer->offer->stream.address, answer->offer->stream.port);
-        if (joined_) {
+        if (continued) {
+            hooks_.say("Continued " + game_.title + " here", false);
+        } else if (joined_) {
             hooks_.say("Joined " + game_.title + " on " + game_.hostName, false);
         }
         return;
@@ -671,6 +839,10 @@ RemotePlay::Glance RemotePlay::glance() const {
         std::vector<std::string> names;
         for (const std::unique_ptr<Guest>& guest : hosted_->guests) {
             names.push_back(guest->peer.name);
+            if (!guest->stream) {
+                ++glance.held;
+                continue;
+            }
             if (!glance.video.empty()) {
                 glance.video += " | ";
             }

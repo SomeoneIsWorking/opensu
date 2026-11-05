@@ -191,7 +191,7 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
         facts.push_back(detailsFact("Resume", settings.resume));
     }
 
-    details.launch = game.installed ? "Play" : "Install";
+    details.launch = !game.installed ? "Install" : settings.continues ? "Continue here" : "Play";
     std::vector<SettingsRow>& actions = details.actions;
     if (!settings.resume.empty() && game.installed) {
         SettingsRow fresh = action(detailsStartFreshId, "Start fresh");

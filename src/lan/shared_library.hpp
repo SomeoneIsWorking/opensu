@@ -22,11 +22,16 @@ class SharedLibrary {
     /// Shares the installed games among `games` from now on.
     void share(const std::vector<library::Game>& games);
 
+    /// The game `id` runs here with these profiles in its seats; an empty id, none runs.
+    void playing(std::string id, std::vector<std::string> profiles);
+
     [[nodiscard]] std::vector<wire::ListedGame> listing() const;
     /// The cover file `token` stands for; nothing for a token not shared now.
     [[nodiscard]] std::optional<std::filesystem::path> cover(std::string_view token) const;
 
   private:
+    std::string playingId_;
+    std::vector<std::string> playingAs_;
     mutable std::mutex mutex_;
     std::vector<wire::ListedGame> games_;
     std::map<std::string, std::filesystem::path, std::less<>> covers_;

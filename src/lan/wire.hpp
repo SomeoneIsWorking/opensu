@@ -73,6 +73,8 @@ struct ListedGame {
     std::string title;
     /// Its cover's token (`isCoverToken`); empty when it has none.
     std::string cover;
+    /// While it runs there, the profiles (linked copies keep the id) playing a seat in it.
+    std::vector<std::string> playingAs;
 
     bool operator==(const ListedGame&) const = default;
 };
@@ -175,6 +177,8 @@ struct PlayAnswer {
     secrets::crypto::Bytes salt;
     bool waiting{false};
     bool joined{false};
+    /// The caller took over a seat in the game that runs there.
+    bool continued{false};
 };
 [[nodiscard]] std::string write(const PlayAnswer& answer);
 /// Nothing when `body` is not one, or one not waiting has no port.
@@ -188,6 +192,8 @@ struct GameRef {
 };
 [[nodiscard]] std::string write(const GameRef& ref);
 [[nodiscard]] std::optional<GameRef> readGameRef(std::string_view body);
+/// `POST /lan/library/news`: what the caller lists changed, so it is read again.
+inline constexpr std::string_view libraryNewsRoute = "/lan/library/news";
 /// `POST /lan/invite`: the host's player invites this openSU to its game running now.
 inline constexpr std::string_view inviteRoute = "/lan/invite";
 struct Invitation {

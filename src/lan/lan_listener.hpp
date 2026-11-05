@@ -41,6 +41,8 @@ struct PlayOutcome {
     bool waiting{false};
     /// The game was running here already, and goes on when the peer leaves.
     bool joined{false};
+    /// The peer took over a seat of its profile.
+    bool continued{false};
     /// Why it will not, when it will not.
     std::string refusal;
 };
@@ -64,10 +66,10 @@ class LanListener {
         /// A peer unpaired itself; called on the listener's thread.
         std::function<void(const Peer&)> unpaired;
         /// A peer asks to play `game`, which this one lists, here as `profile`: the one the peer
-        /// asked for when it is linked with the peer, else the first; `keys` seal that session.
-        /// Called on the listener's thread.
+        /// asked for when it is linked with the peer (`linked`), else the first; `keys` seal that
+        /// session. Called on the listener's thread.
         std::function<PlayOutcome(const Peer& peer, const std::string& game,
-                                  const std::string& profile, const StreamKeys& keys)>
+                                  const std::string& profile, bool linked, const StreamKeys& keys)>
             play;
         /// How the peer's waiting ask to join `game` stands; nothing when it has none. Called on
         /// the listener's thread.
@@ -78,6 +80,8 @@ class LanListener {
         std::function<std::optional<std::string>(const Peer& peer,
                                                  const wire::Invitation& invitation)>
             invited;
+        /// A peer's listing changed; called on the listener's thread.
+        std::function<void()> libraryNews;
     };
 
     /// Listens on `port`, or a free one when it is 0, once started.

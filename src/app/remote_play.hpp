@@ -15,7 +15,12 @@
 // the Guide menu (`end`) or the host does. One session at a time either way. The player here
 // invites a paired openSU to the game that runs here (`invite`), which lets it in without asking
 // for 120 s; that openSU's player is asked (`invited`, `invitation`, `answerInvitation`) and Join
-// plays the game as above. `kick` ends one guest's stream.
+// plays the game as above. `kick` ends one guest's stream. A seat is a player in the game: its
+// pad, its profile and who plays it. A device whose profile is linked with a seat's takes it over
+// without a question: the pad stays, so the game keeps its player, and the stream moves
+// (`takeOver`). That goes for the seat of the player here as well, whose pad is lent. A guest that
+// goes quiet leaves its seat held for `seatHold`, the game and pad waiting, for its profile to
+// come back from any device.
 #pragma once
 
 #include <atomic>
@@ -27,9 +32,11 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "audio/live_sound.hpp"
+#include "gamepad/virtual_pad.hpp"
 #include "lan/lan_listener.hpp"
 #include "lan/lan_node.hpp"
 #include "library/game.hpp"
@@ -50,6 +57,8 @@ class RemotePlay {
     static constexpr std::size_t maxGuests = 4;
     /// How long a guest's ask to join waits for the player.
     static constexpr std::chrono::seconds askPatience{120};
+    /// How long a seat waits for its player once the guest went quiet.
+    static constexpr std::chrono::seconds seatHold{120};
 
     struct Hooks {
         /// Tells the player something; `error` marks a refusal.
@@ -81,6 +90,12 @@ class RemotePlay {
         std::function<bool(const std::string& hostId, const std::string& gameId)> join;
         /// The name this openSU goes by.
         std::function<std::string()> name;
+        /// The first pad's virtual pad for a player who continues from another openSU, and given
+        /// back (`gamepad::PadSource::lendPad`, `returnPad`).
+        std::function<std::shared_ptr<gamepad::VirtualPad>()> lendPad;
+        std::function<void()> returnPad;
+        /// The game `id` runs here with `profiles` in its seats; an empty id, none runs.
+        std::function<void(std::string id, std::vector<std::string> profiles)> seats;
     };
 
     /// Where a host's game is shown: the Wayland socket of the Gamescope this openSU runs in, whose
@@ -97,11 +112,12 @@ class RemotePlay {
     RemotePlay(RemotePlay&&) = delete;
     RemotePlay& operator=(RemotePlay&&) = delete;
 
-    /// `peer` asks to play `gameId` here as `profile`, its session sealed with `keys`: the UDP
-    /// port the stream takes packets on, waiting while the player is asked to let it join the game
-    /// that runs here, or a refusal. On the LAN listener's thread.
+    /// `peer` asks to play `gameId` here as `profile`, `linked` with it or not, its session sealed
+    /// with `keys`: the UDP port the stream takes packets on, waiting while the player is asked to
+    /// let it join the game that runs here, or a refusal. On the LAN listener's thread.
     [[nodiscard]] lan::PlayOutcome offer(const lan::Peer& peer, const std::string& gameId,
-                                         const std::string& profile, const lan::StreamKeys& keys);
+                                         const std::string& profile, bool linked,
+                                         const lan::StreamKeys& keys);
     /// How `peer`'s ask to join `gameId` stands; let in now, with the port, when the player allowed
     /// it. Nothing when it has no ask. On the LAN listener's thread.
     [[nodiscard]] std::optional<lan::wire::PlayVerdict> playStatus(const lan::Peer& peer,
@@ -182,9 +198,9 @@ class RemotePlay {
     }
 
     /// Starts a queued game, ends what is over, lets go of guests who left and passes news on;
-    /// `busy` says whether a game here runs or is on its way, `running` is the one that runs.
-    /// Every frame, main loop only.
-    void service(bool busy, const library::Game* running);
+    /// `busy` says whether a game here runs or is on its way, `running` is the one that runs,
+    /// played as `profile`. Every frame, main loop only.
+    void service(bool busy, const library::Game* running, const std::string& profile);
 
     /// The player's controls as they stand, for the host's game; sent when they changed. Main
     /// loop only.
@@ -215,27 +231,43 @@ class RemotePlay {
         std::string video;
         /// On a guest, how its sound came (`GuestAudio::summary`).
         std::string audio;
-        /// On a host, how many guests play and whose ask to join waits for the player.
+        /// On a host, how many seats guests have, how many of them wait for their player, and
+        /// whose ask to join waits for the player here.
         std::size_t guests{0};
+        std::size_t held{0};
         std::string asking;
     };
     [[nodiscard]] Glance glance() const;
 
   private:
-    /// One guest of the host's session: who, its pad and the stream it plays over.
-    struct Guest {
+    /// A seat of the host's session as it is given.
+    struct Seat {
         lan::Peer peer;
+        /// The profile here it plays as, and whether that is linked with the guest's.
+        std::string profile;
+        bool linked{false};
+        /// It takes the keys and pointer too.
+        bool withKeys{false};
+        /// It is the seat of the player here, on a pad lent by the pads here.
+        bool own{false};
+    };
+    /// One guest of the host's session: who, its pad and the stream it plays over.
+    struct Guest : Seat {
         /// Before the stream, whose thread plays the guest's input into it.
         std::unique_ptr<stream::HostInput> input;
+        /// Null while the seat is held.
         std::unique_ptr<stream::HostStream> stream;
         /// The player here removed it, and was told so.
         bool kicked{false};
+        /// When the guest went quiet, while the seat is held.
+        std::chrono::steady_clock::time_point heldSince{};
     };
+    using GuestList = std::vector<std::unique_ptr<Guest>>;
     /// The host's session: the guests in join order and what is sent to them.
     struct Hosted {
         /// Before what sends to it.
         stream::Audience audience;
-        std::vector<std::unique_ptr<Guest>> guests;
+        GuestList guests;
         std::unique_ptr<stream::HostVideo> video;
         std::unique_ptr<stream::HostAudio> audio;
         std::string gameId;
@@ -252,6 +284,8 @@ class RemotePlay {
         enum class Verdict : std::uint8_t { Waiting, Allowed, Declined };
         lan::Peer peer;
         std::string gameId;
+        std::string profile;
+        bool linked{false};
         lan::StreamKeys keys;
         std::chrono::steady_clock::time_point at;
         Verdict verdict{Verdict::Waiting};
@@ -264,50 +298,62 @@ class RemotePlay {
         std::chrono::steady_clock::time_point at;
     };
 
-    /// Makes `peer` a guest of `hosted` over a stream sealed with `keys`, the keys and pointer
-    /// through X when `withKeys`; its UDP port. Throws `std::runtime_error` when it cannot.
-    /// Holding `hostMutex_`.
-    std::uint16_t admit(Hosted& hosted, const lan::Peer& peer, const lan::StreamKeys& keys,
-                        bool withKeys);
+    /// Makes `seat` a guest of `hosted` over a stream sealed with `keys`; its UDP port. Throws
+    /// `std::runtime_error` when it cannot. Holding `hostMutex_`.
+    std::uint16_t admit(Hosted& hosted, const Seat& seat, const lan::StreamKeys& keys);
+    /// Opens `guest`'s stream on the pad it has; its UDP port. Holding `hostMutex_`.
+    std::uint16_t openStream(Hosted& hosted, Guest& guest, const lan::StreamKeys& keys);
+    /// `peer` takes over `guest`'s seat: the pad stays and the stream moves, the device that had
+    /// it told so; the new stream's UDP port. Holding `hostMutex_`.
+    std::uint16_t takeOver(Hosted& hosted, Guest& guest, const lan::Peer& peer,
+                           const lan::StreamKeys& keys);
+    /// The seat `profile`, linked with `peer`, can take over in `gameId`, taken: how that went, or
+    /// nothing when it has none. Holding `hostMutex_`.
+    std::optional<lan::PlayOutcome> continueSeat(const lan::Peer& peer, const std::string& gameId,
+                                                 const std::string& profile,
+                                                 const lan::StreamKeys& keys);
     /// The player's own game, streamed: its picture and this computer's output. Throws
     /// `std::runtime_error` when it cannot be captured. Holding `hostMutex_`.
-    void hostOwnGame(const Ask& ask);
+    void hostOwnGame(const std::string& gameId);
     /// `peer` waits for the player; its ask is kept with `keys`. Holding `hostMutex_`.
     lan::PlayOutcome waitFor(const lan::Peer& peer, const std::string& gameId,
-                             const lan::StreamKeys& keys);
+                             const std::string& profile, bool linked, const lan::StreamKeys& keys);
     /// Asks that waited too long are declined, and answers no guest came for are dropped. Holding
     /// `hostMutex_`.
     void lapseAsks();
-    void serviceHost(const library::Game* running);
+    /// Lets go of the guest at `at`, giving back the pad of the seat of the player here; the guest
+    /// after it. Holding `hostMutex_`.
+    GuestList::iterator free(Hosted& hosted, GuestList::iterator at);
+    /// Keeps the seat of the guest that went quiet at `guest`. Holding `hostMutex_`.
+    void hold(Hosted& hosted, Guest& guest);
+    /// Tells the paired openSUs when who may continue what changed. Holding `hostMutex_`.
+    void publishSeats();
+    void serviceHost(const library::Game* running, const std::string& profile);
     void serviceGuest();
     /// Ends the guest's session here, the stream first.
     void drop();
 
     Screen screen_;
     Hooks hooks_;
-    /// Whether a game here runs or is on its way, as the loop last saw; read by `offer`.
-    std::atomic<bool> busy_{false};
     /// Taken by the listener's thread to offer and let in, by the loop to run the session.
     mutable std::mutex hostMutex_;
     std::unique_ptr<Hosted> hosted_;
     std::vector<Ask> asks_;
     std::vector<Sent> sent_;
     std::vector<Invited> received_;
-    /// Whether a game plays here or from another, as the loop last saw; read by `invited`.
-    std::atomic<bool> occupied_{false};
-    /// The game that runs here as the loop last saw, its id and title.
+    /// The game that runs here as the loop last saw, its id, title and profile.
     std::string runningId_;
     std::string runningTitle_;
+    std::string runningProfile_;
+    /// The seats as last told to the paired openSUs.
+    std::pair<std::string, std::vector<std::string>> published_;
 
     library::Game game_;
     stream::wire::PadMapping mapping_;
     /// The cap a test run set, kept for the next session.
     std::uint64_t linkCap_{0};
-    bool asking_{false};
-    bool joined_{false};
-    /// Whether the host's player is asked now, set by the asking thread; and whether it was said.
+    /// Whether the host's player is asked now, set by the asking thread.
     std::shared_ptr<std::atomic<bool>> waiting_{std::make_shared<std::atomic<bool>>(false)};
-    bool saidWaiting_{false};
     /// What the host answered, left by the asking thread for the loop.
     struct Answer {
         std::optional<lan::LanNode::PlayOffer> offer;
@@ -315,12 +361,21 @@ class RemotePlay {
     };
     std::shared_ptr<std::mutex> answerMutex_{std::make_shared<std::mutex>()};
     std::shared_ptr<std::optional<Answer>> answer_{std::make_shared<std::optional<Answer>>()};
-    /// Invitations refused, said on the loop; under `answerMutex_`.
-    std::shared_ptr<std::vector<std::string>> refusals_{
-        std::make_shared<std::vector<std::string>>()};
+    /// What other threads have for the player, and whether it is an error, said on the loop; under
+    /// `answerMutex_`.
+    std::shared_ptr<std::vector<std::pair<std::string, bool>>> news_{
+        std::make_shared<std::vector<std::pair<std::string, bool>>>()};
+    /// Whether a game here runs or is on its way, as the loop last saw; read by `offer`.
+    std::atomic<bool> busy_{false};
+    /// Whether a game plays here or from another, as the loop last saw; read by `invited`.
+    std::atomic<bool> occupied_{false};
+    bool asking_{false};
+    bool joined_{false};
+    /// Whether `waiting_` was said.
+    bool saidWaiting_{false};
+    stream::PictureMemory pictures_{stream::PictureMemory::Cpu};
     /// Before the stream, whose thread feeds them; the speaker before the sound that plays on it.
     std::unique_ptr<stream::GuestVideo> video_;
-    stream::PictureMemory pictures_{stream::PictureMemory::Cpu};
     std::unique_ptr<audio::LiveSound> speaker_;
     std::unique_ptr<stream::GuestAudio> audio_;
     std::unique_ptr<stream::GuestStream> guest_;

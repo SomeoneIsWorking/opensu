@@ -73,7 +73,11 @@ LanNode::LanNode(Setup setup)
                                          },
                                      .play = std::move(setup.play),
                                      .playStatus = std::move(setup.playStatus),
-                                     .invited = std::move(setup.invited)},
+                                     .invited = std::move(setup.invited),
+                                     .libraryNews =
+                                         [this] {
+                                             wake();
+                                         }},
                 setup.port} {
     if (!listener_.start()) {
         problem_ = setup.port == 0 ? std::string{"no port can be had to listen on"}
@@ -243,7 +247,8 @@ LanNode::askToPlay(const std::stop_token& stop, const std::string& hostId,
     if (offered && offered->port != 0) {
         offer = PlayOffer{.stream = Endpoint{host->address, offered->port},
                           .keys = streamKeys(*secret, salt, offered->salt),
-                          .joined = offered->joined};
+                          .joined = offered->joined,
+                          .continued = offered->continued};
     }
     secrets::wipeBytes(secret->data(), secret->size());
     return offer;
@@ -317,6 +322,15 @@ std::optional<RomImport::Link> LanNode::linkTo(const std::string& hostId, std::s
         return std::nullopt;
     }
     return RomImport::Link{Endpoint{host->address, host->port}, std::move(*secret)};
+}
+
+void LanNode::playing(std::string id, std::vector<std::string> profiles) {
+    library_.playing(std::move(id), std::move(profiles));
+    {
+        const std::lock_guard lock{mutex_};
+        newsDue_ = true;
+    }
+    wake();
 }
 
 bool LanNode::invite(const std::stop_token& stop, const std::string& peerId,
@@ -460,6 +474,7 @@ void LanNode::work(const std::stop_token& stop) {
     while (!stop.stop_requested()) {
         std::vector<Notice> notices;
         bool woken = false;
+        bool news = false;
         {
             std::unique_lock lock{mutex_};
             if (!first) {
@@ -468,6 +483,7 @@ void LanNode::work(const std::stop_token& stop) {
                 });
             }
             woken = std::exchange(woken_, false);
+            news = std::exchange(newsDue_, false);
             notices.swap(notices_);
         }
         first = false;
@@ -482,6 +498,14 @@ void LanNode::work(const std::stop_token& stop) {
         std::erase_if(online, [this](const Sighting& sighting) {
             return !book_.find(sighting.id);
         });
+        for (const Sighting& sighting : online) {
+            std::string error;
+            if (news && !askHost(stop, sighting.id, "POST", wire::libraryNewsRoute, "{}",
+                                 largestNotice, error)) {
+                lucent::info("lan", "{} was not told the listing changed: {}", sighting.name,
+                             error);
+            }
+        }
         std::vector<std::string> ids;
         ids.reserve(online.size());
         for (const Sighting& sighting : online) {

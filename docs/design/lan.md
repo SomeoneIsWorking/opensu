@@ -116,8 +116,9 @@ It never shares the loopback control channel's port.
 | `GET /lan/roms` | paired, signed | the ROM listing (below), at most 8 MiB |
 | `POST /lan/roms/file` | paired, signed | `{"kind","root","path"}` → `{"bytes","sha256"}`; `sha256` is empty while the host still hashes the file |
 | `POST /lan/roms/chunk` | paired, signed | `{"kind","root","path","offset","length"}` → at most 2 MiB of the file from `offset`, as raw bytes |
-| `POST /lan/play` | paired, signed | `{"game","profile","salt"}` → `{"port","salt","waiting","joined"}`: the host streams that listed game to the caller, played as `profile` (the caller's active one) when it is linked with the caller, else as the host's first profile; `joined` when the game already ran there, `waiting` (no port yet) while its player is asked; 404 for a game it does not list, 409 with why when it will not (another game running, four guests, outside Gamescope, no capture) |
+| `POST /lan/play` | paired, signed | `{"game","profile","salt"}` → `{"port","salt","waiting","joined","continued"}`: the host streams that listed game to the caller, played as `profile` (the caller's active one) when it is linked with the caller, else as the host's first profile; `joined` when the game already ran there, `waiting` (no port yet) while its player is asked; 404 for a game it does not list, 409 with why when it will not (another game running, four guests, outside Gamescope, no capture) |
 | `POST /lan/invite` | paired, signed | `{"game","title"}` → `{}`: the caller invites this openSU to its game running now; 409 with why when this one is in a game |
+| `POST /lan/library/news` | paired, signed | `{}` → `{}`: the caller's listing changed (who plays what there); this openSU reads it again |
 | `POST /lan/play/status` | paired, signed | `{"game"}` → `{"verdict","port","why"}`: `waiting`, `accepted` with the stream's port, or `declined` with why, for this caller's ask |
 | `POST /lan/netplay` | paired, signed | `{"console","file","title","size","sha256","salt","coreRevision","options","bios"}` → `{}`: asks to play that ROM together; the player here is asked |
 | `POST /lan/netplay/status` | paired, signed | `{"sha256"}` → `{"verdict","refusal","port","salt"}`: `waiting`, `declined` or `allowed` with the session's UDP port and the asked side's salt |
@@ -297,6 +298,22 @@ that profile's; the host's own active profile does not change.
   the game by the catalog's entry. The host keeps the invitation for 120 s, for that peer and game:
   its `/lan/play` is let in at the first poll with no question. Guide › Players lists the guests
   with Kick, which asks first and ends the stream with "<host> removed you".
+- Continuing (`Seat`, `Guest` in `RemotePlay`): a seat is a player in the game, its pad, profile
+  and device. `/lan/play` from a paired device whose active profile is linked with a seat's takes
+  that seat with no question and answers `continued`: the pad stays, so the game keeps its port,
+  and a new `HostStream` replaces the old one, which ends with "Continued on <device>". A game
+  started here is a seat of the profile it was started as: the first pad's virtual pad is lent to
+  the stream (`PadSource::lendPad`, `returnPad`) and the real pad rests until the guest leaves;
+  with no pad held the guest's own takes the lowest free port. An unlinked profile, or a linked
+  one with no seat, asks as above.
+- A dropped seat: a stream gone quiet (`HostStream::dropped`, 5 s) leaves its pad at rest and its
+  seat held for `seatHold` (120 s), and a game started for it stays open. The profile takes it
+  back from any device; Kick frees it; a held seat counts toward the four. When the hold runs
+  out the seat is freed as if the guest left, closing a game started for it with nobody left.
+- Continue here: `/lan/library` lists with a running game the profiles in its seats (`playingAs`,
+  `SharedLibrary::playing`). `LanNode` posts `/lan/library/news` to the paired, announced openSUs
+  when they change, and they read the listing again. The details page reads Continue here while
+  the active profile is in `library::Game::playingAs`.
 - A game the player started here is streamed from the first guest on: the same capture, and the
   sound from the default output's monitor, so the guests hear what this computer plays.
 - Codec and link (`stream::LinkRate`, owned by `HostStream`): the host offers what it codes
@@ -446,6 +463,7 @@ Library on both sides.
 
 ## Known limits
 
+- A guest waiting on `/lan/play/status` cannot cancel; the ask lapses after 120 s.
 - Who talks to whom, when, which routes and how much crosses the LAN in clear; what is said does
   not. No forward secrecy: the pairing's secret opens recorded traffic.
 - Anyone on the LAN can see that an openSU runs, its name and id, and can ask to pair. The host's

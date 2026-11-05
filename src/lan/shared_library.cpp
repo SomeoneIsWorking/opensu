@@ -42,7 +42,7 @@ void SharedLibrary::share(const std::vector<library::Game>& games) {
         if (!game.installed || game.source == library::Source::Remote) {
             continue;
         }
-        wire::ListedGame entry{game.id, game.title, coverToken(game)};
+        wire::ListedGame entry{game.id, game.title, coverToken(game), {}};
         if (!entry.cover.empty()) {
             covers.emplace(entry.cover, game.artwork);
         }
@@ -54,9 +54,21 @@ void SharedLibrary::share(const std::vector<library::Game>& games) {
     covers_ = std::move(covers);
 }
 
+void SharedLibrary::playing(std::string id, std::vector<std::string> profiles) {
+    const std::lock_guard lock{mutex_};
+    playingId_ = std::move(id);
+    playingAs_ = std::move(profiles);
+}
+
 std::vector<wire::ListedGame> SharedLibrary::listing() const {
     const std::lock_guard lock{mutex_};
-    return games_;
+    std::vector<wire::ListedGame> games = games_;
+    for (wire::ListedGame& game : games) {
+        if (game.id == playingId_) {
+            game.playingAs = playingAs_;
+        }
+    }
+    return games;
 }
 
 std::optional<fs::path> SharedLibrary::cover(std::string_view token) const {

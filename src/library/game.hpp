@@ -112,6 +112,9 @@ struct Game {
     /// for a game on this machine.
     std::string hostId;
     std::string hostName;
+    /// A remote game running there: the profiles playing a seat in it, which one of them here can
+    /// continue.
+    std::vector<std::string> playingAs;
 
     /// Whether the title can be launched now.
     bool installed{false};

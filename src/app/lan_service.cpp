@@ -174,6 +174,12 @@ bool LanService::askToPlay(std::string hostId, std::string gameId, std::string p
     return true;
 }
 
+void LanService::playing(std::string id, std::vector<std::string> profiles) {
+    if (node_ != nullptr) {
+        node_->playing(std::move(id), std::move(profiles));
+    }
+}
+
 std::vector<lan::Peer> LanService::announced() const {
     std::vector<lan::Peer> peers;
     std::ranges::copy_if(paired_, std::back_inserter(peers), [this](const lan::Peer& peer) {

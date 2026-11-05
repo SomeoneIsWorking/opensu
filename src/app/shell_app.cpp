@@ -1181,6 +1181,7 @@ void ShellApp::publishSnapshot() {
     next.remotePlay = remote.state;
     next.remotePeer = remote.peer;
     next.remoteGuests = remote.guests;
+    next.remoteHeld = remote.held;
     next.remoteAsk = remote.asking;
     next.remoteRoundTripUs = remote.roundTripUs;
     next.remoteBytesPerSecond = remote.bytesPerSecond;
@@ -1439,7 +1440,7 @@ int ShellApp::run() {
         lanNetplay_.service();
         saveSharing_.service();
         remotePlay_.service(launches_.running() || saveSharing_.holding(),
-                            launches_.running() ? &launches_.game() : nullptr);
+                            launches_.running() ? &launches_.game() : nullptr, playingAs_);
         togetherQuestions_.service();
         delivery_.service();
         covers_.service();

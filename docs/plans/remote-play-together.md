@@ -13,6 +13,8 @@ Together does.
 - A guest joins by asking (Play on a game the host is playing, which the host's player allows) or
   by an invitation (the host's Guide › Invite to play, which the guest's player accepts).
 - The host's Guide › Players shows who is connected, with Kick.
+- A paired device with a linked profile continues a running game: Continue here on the game's
+  details page takes over that profile's seat, the host's own included, and the game goes on.
 
 ## Decisions
 
@@ -168,5 +170,3 @@ in the game: its pad, its profile, the device playing it.
    own included; a dropped guest's seat held; Continue here in Library. Shown with two hidden guests
    of one linked profile: the first plays, the second continues, the pad and port the same, the
    runner the same process and its frame numbers going on.
-</content>
-</invoke>

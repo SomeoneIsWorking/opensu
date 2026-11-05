@@ -11,14 +11,19 @@
 
 #include "stream_wire.hpp"
 
+namespace opensu::gamepad {
+class VirtualPad;
+}
+
 namespace opensu::stream {
 
 class HostInput {
   public:
-    /// Opens the virtual pad, and the X display `x11Display` when there is one for the keys and
-    /// pointer (without, they are dropped); throws `std::runtime_error` (or `std::system_error`
-    /// for uinput) saying why it cannot.
-    explicit HostInput(const std::optional<std::string>& x11Display);
+    /// Opens a virtual pad, or plays `seat`, one lent by the pads here, and the X display
+    /// `x11Display` when there is one for the keys and pointer (without, they are dropped); throws
+    /// `std::runtime_error` (or `std::system_error` for uinput) saying why it cannot.
+    HostInput(const std::optional<std::string>& x11Display,
+              std::shared_ptr<gamepad::VirtualPad> seat);
     ~HostInput();
     HostInput(const HostInput&) = delete;
     HostInput& operator=(const HostInput&) = delete;
@@ -29,6 +34,8 @@ class HostInput {
     void keys(const wire::KeyState& state);
     void mouse(const wire::MouseState& state);
     void mapping(const wire::PadMapping& mapping);
+    /// Lets go of everything held, as the stream that played it ended.
+    void rest();
     /// The evdev node of the guest's pad here.
     [[nodiscard]] std::string padNode() const;
 

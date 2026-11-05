@@ -10,7 +10,9 @@
 
 namespace opensu::gamepad {
 
-RemotePad::RemotePad() : translator_{VirtualPad::capabilities()} {
+RemotePad::RemotePad(std::shared_ptr<VirtualPad> seat)
+    : pad_{seat ? std::move(seat) : std::make_shared<VirtualPad>()},
+      translator_{VirtualPad::capabilities()} {
 }
 
 void RemotePad::setMapping(ForwardMap map, std::chrono::milliseconds holdDelay) {
@@ -65,7 +67,7 @@ void RemotePad::follow(const PadSnapshot& pad) {
     if (forward.back().type != EV_SYN) {
         forward.push_back(PadEvent{EV_SYN, SYN_REPORT, 0});
     }
-    pad_.write(forward);
+    pad_->write(forward);
 }
 
 void RemotePad::rest() {

@@ -70,6 +70,10 @@ class HostStream {
     void end(std::string_view reason);
     /// Why the session is over; nothing while it runs. Any thread.
     [[nodiscard]] std::optional<std::string> over() const;
+    /// Whether it is over because a guest that had joined went quiet.
+    [[nodiscard]] bool dropped() const noexcept {
+        return dropped_;
+    }
     /// Whether the guest has been heard.
     [[nodiscard]] bool joined() const noexcept {
         return joined_.load();
@@ -108,6 +112,8 @@ class HostStream {
     PacketSeal seal_;
     std::optional<UdpAddress> guest_;
     std::atomic<bool> joined_{false};
+    /// Over because a guest that had joined went quiet.
+    std::atomic<bool> dropped_{false};
     mutable std::mutex overMutex_;
     std::optional<std::string> over_;
     mutable std::mutex linkMutex_;

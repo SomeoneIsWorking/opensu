@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <utility>
 
 #include "pad_translator.hpp"
@@ -31,8 +32,9 @@ struct PadSnapshot {
 
 class RemotePad {
   public:
-    /// Creates the virtual pad; throws `std::system_error` when uinput is unavailable.
-    RemotePad();
+    /// Plays `seat`, a pad lent by this openSU's own pads, or else creates a virtual pad; throws
+    /// `std::system_error` when uinput is unavailable.
+    explicit RemotePad(std::shared_ptr<VirtualPad> seat);
 
     /// Plays the pad with `map` from now on, a modifier alone a tap for `holdDelay`.
     void setMapping(ForwardMap map, std::chrono::milliseconds holdDelay);
@@ -42,11 +44,11 @@ class RemotePad {
     void rest();
     /// The virtual pad's evdev node.
     [[nodiscard]] const std::filesystem::path& node() const noexcept {
-        return pad_.node();
+        return pad_->node();
     }
 
   private:
-    VirtualPad pad_;
+    std::shared_ptr<VirtualPad> pad_;
     /// The other side's pad as a pad that reads like the virtual one, through the mapping.
     PadTranslator translator_;
     /// The state given to the translator last, by (type, code).

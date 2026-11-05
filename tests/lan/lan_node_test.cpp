@@ -200,21 +200,30 @@ struct Node {
               .saves = sync,
               .profiles = profiles,
               .play = [this](const lan::Peer& peer, const std::string& game,
-                             const std::string& profile,
+                             const std::string& profile, bool /*linked*/,
                              const lan::StreamKeys& keys) -> lan::PlayOutcome {
                   const std::lock_guard lock{mutex};
                   if (!refusePlay.empty()) {
                       return {.port = std::nullopt,
                               .waiting = false,
                               .joined = false,
+                              .continued = false,
                               .refusal = refusePlay};
                   }
                   played = peer.name + " " + game + " " + profile;
                   playKeys = keys;
                   if (!joinVerdicts.empty()) {
-                      return {.port = std::nullopt, .waiting = true, .joined = true, .refusal = {}};
+                      return {.port = std::nullopt,
+                              .waiting = true,
+                              .joined = true,
+                              .continued = false,
+                              .refusal = {}};
                   }
-                  return {.port = streamPort, .waiting = false, .joined = false, .refusal = {}};
+                  return {.port = streamPort,
+                          .waiting = false,
+                          .joined = false,
+                          .continued = false,
+                          .refusal = {}};
               },
               .playStatus = [this](const lan::Peer& /*peer*/, const std::string& /*game*/)
                   -> std::optional<lan::wire::PlayVerdict> {
@@ -991,7 +1000,8 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
                                                             },
                                                         .play = {},
                                                         .playStatus = {},
-                                                        .invited = {}},
+                                                        .invited = {},
+                                                        .libraryNews = {}},
                               0};
     const secrets::crypto::Bytes secret = secrets::crypto::randomBytes(secrets::crypto::keyBytes);
     const std::string peer = secrets::hexText(secrets::crypto::randomBytes(lan::peerIdBytes));
@@ -1030,6 +1040,13 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
     const auto listing = opened ? lan::wire::readListing(*opened) : std::nullopt;
     expect(listing && listing->size() == 1 && listing->front().title == "Shared game",
            "sealed with the pairing's secret for this request, it holds the shared listing");
+    lan::wire::ListedGame seated;
+    seated.id = "game";
+    seated.title = "Seated game";
+    seated.playingAs = {"profile"};
+    const auto seats = lan::wire::readListing(lan::wire::write({seated}));
+    expect(seats && seats->front().playingAs == std::vector<std::string>{"profile"},
+           "a running game's listing says who plays it");
 
     expect(listener.handle(request(secret, now, nonce)).status == 403, "a repeat is refused");
     const std::string fresh =

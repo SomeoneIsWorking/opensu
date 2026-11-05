@@ -95,6 +95,8 @@ struct GameSettingsView {
     /// What the Resume fact reads while Save and close left the game a resume state ("Resumes
     /// from 2026-11-04 18:09"), with the Start fresh row; empty, and neither, while there is none.
     std::string resume;
+    /// The game runs on another openSU with a seat of the profile played here: Continue here.
+    bool continues{false};
     /// Whether the game can run on the link core: the Play linked row.
     bool linked{false};
     /// The paired openSUs to play it with, one Play with row each.

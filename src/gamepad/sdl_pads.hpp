@@ -67,6 +67,8 @@ class SdlPads final : public PadSource {
     void claim(Claim claim) override;
     void setBlocked(bool blocked) override;
     void setChords(ChordTriggers chords) override;
+    std::shared_ptr<VirtualPad> lendPad() override;
+    void returnPad() override;
     std::vector<std::filesystem::path> keepVirtualPads(std::size_t count) override;
 
   private:

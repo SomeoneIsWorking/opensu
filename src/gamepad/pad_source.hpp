@@ -51,6 +51,8 @@ enum class OwnVirtualPads : std::uint8_t {
     Read,
 };
 
+class VirtualPad;
+
 class PadSource {
   public:
     PadSource() = default;
@@ -88,6 +90,12 @@ class PadSource {
     virtual void setBlocked(bool blocked) = 0;
     /// The chords whose buttons never reach the game (`ChordGate`); returns once applied.
     virtual void setChords(ChordTriggers chords) = 0;
+    /// Takes the first pad's virtual pad from it, for a player on another openSU to play the seat:
+    /// it rests for the pad until `returnPad`. Null when no virtual pad serves a game. Returns once
+    /// applied.
+    virtual std::shared_ptr<VirtualPad> lendPad() = 0;
+    /// The pad plays its virtual pad again. Returns once applied.
+    virtual void returnPad() = 0;
     /// Keeps `count` virtual pads, making or ending them, and returns their nodes once applied;
     /// fewer when they cannot be made. 0 lets every kept pad go. Any thread.
     virtual std::vector<std::filesystem::path> keepVirtualPads(std::size_t count) = 0;

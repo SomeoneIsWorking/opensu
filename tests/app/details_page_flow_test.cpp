@@ -125,6 +125,9 @@ struct Rig {
                          [this](const library::Game&) {
                              return onHome;
                          },
+                         [](const library::Game&) {
+                             return false;
+                         },
                          [this](const library::Game&, bool on) {
                              calls.push_back(on ? "add home" : "remove home");
                          },

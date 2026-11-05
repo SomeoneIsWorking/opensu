@@ -44,6 +44,8 @@ class DetailsController final : public ui::RowActions {
         std::function<void(const library::Game& game, bool hidden)> setHidden;
         /// Whether `game` is on Home.
         std::function<bool(const library::Game& game)> onHome;
+        /// Whether `game`, running on another openSU, has a seat of the profile played here.
+        std::function<bool(const library::Game& game)> continues;
         /// Puts `game` on Home or takes it off, and shows the shelf again.
         std::function<void(const library::Game& game, bool on)> setOnHome;
         /// Runs ROM `game` on emulator `name` from now on.

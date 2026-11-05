@@ -97,6 +97,8 @@ class LanService {
     void share(const std::vector<library::Game>& games);
     /// Offers the ROMs and BIOS files of `contents` to paired peers to import.
     void shareRoms(lan::RomShelf::Contents contents);
+    /// The game `id` runs here with `profiles` in its seats; the paired openSUs hear of it.
+    void playing(std::string id, std::vector<std::string> profiles);
     /// The paired openSUs on the LAN now.
     [[nodiscard]] std::vector<lan::Peer> announced() const;
     /// The name the paired openSU `peerId` goes by, or "that openSU" when it is not paired.

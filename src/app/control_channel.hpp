@@ -144,6 +144,7 @@ struct ShellSnapshot {
     std::string remotePlay;
     std::string remotePeer;
     std::size_t remoteGuests{0};
+    std::size_t remoteHeld{0};
     std::string remoteAsk;
     std::size_t remoteRoundTripUs{0};
     std::size_t remoteBytesPerSecond{0};

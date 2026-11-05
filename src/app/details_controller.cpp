@@ -57,6 +57,7 @@ const ui::GameDetails* DetailsController::details() const {
 
 ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) const {
     ui::GameSettingsView view;
+    view.continues = hooks_.continues(game);
     const settings::SettingLayers& layers = gameSettings_.layers();
     if (!game.emulatorOptions.empty()) {
         view.emulatorSource = emulatorSourceText(library::pickFor(layers, game).source, game);

@@ -184,6 +184,9 @@ std::string write(const std::vector<ListedGame>& games) {
         if (!game.cover.empty()) {
             entry["cover"] = game.cover;
         }
+        if (!game.playingAs.empty()) {
+            entry["playingAs"] = game.playingAs;
+        }
         list.push_back(std::move(entry));
     }
     return json{{"games", list}}.dump();
@@ -199,8 +202,16 @@ std::optional<std::vector<ListedGame>> readListing(std::string_view body) {
         if (!entry.is_object()) {
             continue;
         }
-        ListedGame game{textField(entry, "id"), textField(entry, "title"),
-                        textField(entry, "cover")};
+        ListedGame game{
+            textField(entry, "id"), textField(entry, "title"), textField(entry, "cover"), {}};
+        if (const auto playing = entry.find("playingAs");
+            playing != entry.end() && playing->is_array()) {
+            for (const json& profile : *playing) {
+                if (profile.is_string()) {
+                    game.playingAs.push_back(profile.get<std::string>());
+                }
+            }
+        }
         if (game.id.empty() || game.title.empty()) {
             continue;
         }
@@ -349,7 +360,8 @@ std::string write(const PlayAnswer& answer) {
     return json{{"port", answer.port},
                 {"salt", secrets::hexText(answer.salt)},
                 {"waiting", answer.waiting},
-                {"joined", answer.joined}}
+                {"joined", answer.joined},
+                {"continued", answer.continued}}
         .dump();
 }
 
@@ -368,7 +380,8 @@ std::optional<PlayAnswer> readPlayAnswer(std::string_view body) {
     return PlayAnswer{.port = static_cast<std::uint16_t>(*port),
                       .salt = std::move(*salt),
                       .waiting = waiting,
-                      .joined = document->value("joined", false)};
+                      .joined = document->value("joined", false),
+                      .continued = document->value("continued", false)};
 }
 
 std::string write(const GameRef& ref) {

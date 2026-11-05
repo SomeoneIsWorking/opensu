@@ -82,6 +82,11 @@ void storeGame() {
     expect(valueOf(details, "Play time") == "2 h 5 min", "play time");
     expect(factOf(details, "Emulator") == nullptr, "a store game has no emulator fact");
     expect(details.launch == "Play", "an installed game plays");
+    GameSettingsView seated;
+    seated.continues = true;
+    expect(detailsOf(hades(), GameMarks{.hidden = false}, now, {}, false, seated).launch ==
+               "Continue here",
+           "a game the player's profile is in continues");
     expect(idsOf(details) ==
                ids({detailsHomeId, detailsHiddenId, detailsUninstallId, detailsMatchId,
                     detailsArtworkId, detailsControlsId, detailsBackId}),
@@ -154,7 +159,7 @@ void romEmulator() {
     const GameDetails sourced = detailsOf(
         kirby(true), GameMarks{.hidden = false}, now, {}, false,
         GameSettingsView{
-            "Set for this game", {}, "Inherited", "Eden, Ryujinx", {}, {}, {}, false, {}});
+            "Set for this game", {}, "Inherited", "Eden, Ryujinx", {}, {}, {}, false, false, {}});
     expect(valueOf(sourced, "Emulator") == "Eden · installed · Set for this game" &&
                actionOf(sourced, detailsEmulatorId)->note == "Set for this game" &&
                actionOf(sourced, detailsSettingsId)->value == "Inherited",

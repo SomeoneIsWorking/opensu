@@ -117,6 +117,12 @@ Up to four openSUs can play one game at once, each with its own controller as it
   openSU. It is asked **Play with** that openSU, and **Join** starts playing. An invitation lasts two
   minutes.
 - **Players** in the same Guide shows who has joined, each with **Kick**.
+- To carry on from another device, play as a profile linked with the one in the game and open the
+  game in Library: **Continue here** moves you there with no question. The game goes on; the other
+  device says **Continued on** this one. It works for a game started at that openSU too, whose
+  screen keeps showing it.
+- If your device drops out, your place is kept for two minutes and that profile can come back
+  from any device.
 - Everyone sees that openSU's picture. The controller is yours alone; only the openSU the game
   was started for also plays it with a keyboard and mouse.
 - The saves are the profile's the game was started as. Nothing syncs to you.
