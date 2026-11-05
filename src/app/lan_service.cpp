@@ -31,13 +31,17 @@ LanService::LanService(Places places, Preferences& preferences, gpu2d::ui::Navig
 }
 
 LanService::~LanService() {
-    if (asker_.joinable()) {
-        asker_.join();
-    }
-    if (romAsker_.joinable()) {
-        romAsker_.join();
-    }
+    stopAskers();
     node_.reset();
+}
+
+void LanService::stopAskers() {
+    for (std::jthread* asker : {&asker_, &romAsker_, &peerAsker_}) {
+        if (asker->joinable()) {
+            asker->request_stop();
+            asker->join();
+        }
+    }
 }
 
 std::string LanService::name() const {
@@ -97,16 +101,7 @@ void LanService::start() {
 }
 
 void LanService::stop() {
-    if (asker_.joinable()) {
-        asker_.join();
-    }
-    if (romAsker_.joinable()) {
-        romAsker_.join();
-    }
-    peerAsker_.request_stop();
-    if (peerAsker_.joinable()) {
-        peerAsker_.join();
-    }
+    stopAskers();
     closeQuestion();
     closeCard();
     node_.reset();
@@ -133,11 +128,14 @@ bool LanService::askRoms(std::string hostId, RomsAnswer answer) {
         romAsker_.join();
     }
     romAsker_ = std::jthread{[node = node_.get(), asking = askingRoms_, hostId = std::move(hostId),
-                              answer = std::move(answer)] {
+                              answer = std::move(answer)](const std::stop_token& stop) {
         std::string error;
-        std::optional<std::vector<lan::wire::RomConsole>> consoles = node->romsOf(hostId, error);
+        std::optional<std::vector<lan::wire::RomConsole>> consoles =
+            node->romsOf(stop, hostId, error);
         asking->store(false);
-        answer(std::move(consoles), std::move(error));
+        if (!stop.stop_requested()) {
+            answer(std::move(consoles), std::move(error));
+        }
     }};
     return true;
 }
@@ -159,12 +157,14 @@ bool LanService::askToPlay(std::string hostId, std::string gameId, std::string p
     }
     asker_ = std::jthread{[node = node_.get(), asking = asking_, hostId = std::move(hostId),
                            gameId = std::move(gameId), profile = std::move(profile),
-                           answer = std::move(answer)] {
+                           answer = std::move(answer)](const std::stop_token& stop) {
         std::string error;
         std::optional<lan::LanNode::PlayOffer> offer =
-            node->askToPlay(hostId, gameId, profile, error);
+            node->askToPlay(stop, hostId, gameId, profile, error);
         asking->store(false);
-        answer(std::move(offer), std::move(error));
+        if (!stop.stop_requested()) {
+            answer(std::move(offer), std::move(error));
+        }
     }};
     return true;
 }

@@ -137,6 +137,8 @@ class LanService {
   private:
     void start();
     void stop();
+    /// Stops the requests to a host under way and waits for them.
+    void stopAskers();
     void serviceQuestion();
     /// The player's answer to the question its dialog asks.
     void answerQuestion(bool accept);
@@ -172,10 +174,10 @@ class LanService {
     std::chrono::steady_clock::time_point looked_{};
     /// Last, so it stops before what its callbacks reach goes.
     std::unique_ptr<lan::LanNode> node_;
-    /// A request to play a host's game under way; joined before the node goes.
+    /// A request to play a host's game under way; stopped and joined before the node goes.
     std::jthread asker_;
     std::shared_ptr<std::atomic<bool>> asking_{std::make_shared<std::atomic<bool>>(false)};
-    /// A request for a host's ROMs under way; joined before the node goes.
+    /// A request for a host's ROMs under way; stopped and joined before the node goes.
     std::jthread romAsker_;
     std::shared_ptr<std::atomic<bool>> askingRoms_{std::make_shared<std::atomic<bool>>(false)};
     /// A call of `askPeers` under way; stopped and joined before the node goes.

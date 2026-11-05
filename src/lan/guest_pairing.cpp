@@ -82,7 +82,7 @@ void GuestPairing::run(const std::stop_token& stop) {
 }
 
 GuestPairing::Phase GuestPairing::pair(const std::stop_token& stop, std::string& problem) {
-    const PeerClient client{web_, Endpoint{host_.address, host_.port}, std::stop_token{}};
+    const PeerClient client{web_, Endpoint{host_.address, host_.port}, stop};
     const secrets::crypto::KeyPair ours;
     const secrets::crypto::Bytes nonce = secrets::crypto::randomBytes(secrets::crypto::nonceBytes);
     net::Result<net::WebClient::Answer> answer =

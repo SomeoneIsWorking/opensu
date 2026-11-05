@@ -51,11 +51,15 @@ void LanProfiles::ask(const std::string& peerId) {
         return;
     }
     const bool asked = lan_.askPeers(
-        [arrived = arrived_, peerId](const lan::LanNode& node, const std::stop_token&) {
+        [arrived = arrived_, peerId](const lan::LanNode& node, const std::stop_token& stop) {
             Listing answer;
             std::string error;
-            if (std::optional<std::vector<lan::wire::ListedProfile>> got =
-                    node.profilesOf(peerId, error)) {
+            std::optional<std::vector<lan::wire::ListedProfile>> got =
+                node.profilesOf(stop, peerId, error);
+            if (stop.stop_requested()) {
+                return;
+            }
+            if (got) {
                 answer.profiles = std::move(*got);
             } else {
                 answer.error = error.empty() ? std::string{"it did not answer"} : std::move(error);
@@ -132,7 +136,7 @@ void LanProfiles::copy(const std::string& peerId, const lan::wire::ListedProfile
                                          const lan::LanNode& node, const std::stop_token& stop) {
         Arrived::Copy outcome{.peerId = peerId, .profile = std::nullopt, .refusal = {}};
         std::string error;
-        if (!node.askCopy(peerId, profile.id, error)) {
+        if (!node.askCopy(stop, peerId, profile.id, error)) {
             outcome.refusal = error;
         } else {
             const auto until = std::chrono::steady_clock::now() + waitAtMost;
@@ -140,7 +144,7 @@ void LanProfiles::copy(const std::string& peerId, const lan::wire::ListedProfile
             while (!stop.stop_requested() && std::chrono::steady_clock::now() < until) {
                 std::this_thread::sleep_for(pollEvery);
                 const std::optional<lan::wire::CopyVerdict> verdict =
-                    node.copyStatus(peerId, profile.id, error);
+                    node.copyStatus(stop, peerId, profile.id, error);
                 if (!verdict) {
                     outcome.refusal = error;
                     break;
@@ -155,6 +159,9 @@ void LanProfiles::copy(const std::string& peerId, const lan::wire::ListedProfile
                     break;
                 }
             }
+        }
+        if (stop.stop_requested()) {
+            return;
         }
         const std::lock_guard lock{arrived->mutex};
         arrived->copies.push_back(std::move(outcome));
@@ -205,9 +212,9 @@ void LanProfiles::unlink(const std::string& profileId, const std::string& peerId
         return;
     }
     const bool asked = lan_.askPeers([arrived = arrived_, peerId, profileId,
-                                      host](const lan::LanNode& node, const std::stop_token&) {
+                                      host](const lan::LanNode& node, const std::stop_token& stop) {
         std::string why;
-        const bool done = node.unlink(peerId, profileId, why);
+        const bool done = node.unlink(stop, peerId, profileId, why);
         const std::lock_guard lock{arrived->mutex};
         arrived->said.emplace_back(done ? "Unlinked from " + host : "Cannot unlink: " + why, !done);
     });

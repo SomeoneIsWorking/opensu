@@ -113,29 +113,33 @@ class LanNode {
     }
 
     // Asked of the paired, announced openSU `hostId`. Each blocks for the call, so never on the
-    // loop, and is nothing or false with `error` when it is gone, unpaired or refuses.
+    // loop, and is nothing or false with `error` when it is gone, unpaired or refuses, or without
+    // one when `stop` ended the call.
     /// Its profiles, each saying whether it is linked with this one.
     [[nodiscard]] std::optional<std::vector<wire::ListedProfile>>
-    profilesOf(const std::string& hostId, std::string& error) const;
+    profilesOf(const std::stop_token& stop, const std::string& hostId, std::string& error) const;
     /// Asks it for a copy of its profile `profileId`, which its player is asked about.
-    [[nodiscard]] bool askCopy(const std::string& hostId, const std::string& profileId,
-                               std::string& error) const;
+    [[nodiscard]] bool askCopy(const std::stop_token& stop, const std::string& hostId,
+                               const std::string& profileId, std::string& error) const;
     /// How the ask for `profileId` stands there.
-    [[nodiscard]] std::optional<wire::CopyVerdict>
-    copyStatus(const std::string& hostId, const std::string& profileId, std::string& error) const;
+    [[nodiscard]] std::optional<wire::CopyVerdict> copyStatus(const std::stop_token& stop,
+                                                              const std::string& hostId,
+                                                              const std::string& profileId,
+                                                              std::string& error) const;
     /// Drops the link of `profileId` with `peerId` here, then tells it to drop it too when it is
     /// announced; both keep the profile. False with `error` when it could not be dropped here.
-    [[nodiscard]] bool unlink(const std::string& peerId, const std::string& profileId,
-                              std::string& error) const;
+    [[nodiscard]] bool unlink(const std::stop_token& stop, const std::string& peerId,
+                              const std::string& profileId, std::string& error) const;
 
     /// Offers the ROMs and BIOS files of `contents` to paired peers from now on.
     void shareRoms(RomShelf::Contents contents) {
         shelf_.share(std::move(contents));
     }
     /// The ROMs the paired, announced openSU `hostId` offers. Blocks for the call, so never on the
-    /// loop. Nothing with `error` when it is gone, unpaired or refuses.
-    [[nodiscard]] std::optional<std::vector<wire::RomConsole>> romsOf(const std::string& hostId,
-                                                                      std::string& error) const;
+    /// loop. Nothing with `error` when it is gone, unpaired or refuses; nothing without one when
+    /// `stop` ended the call.
+    [[nodiscard]] std::optional<std::vector<wire::RomConsole>>
+    romsOf(const std::stop_token& stop, const std::string& hostId, std::string& error) const;
     /// The ROMs being imported from paired peers.
     [[nodiscard]] RomImport& imports() noexcept {
         return *imports_;
@@ -167,11 +171,11 @@ class LanNode {
     };
     /// Asks the paired, announced openSU `hostId` to start its game `gameId` (its own id) as
     /// `profile`, this one's active profile, and stream it here. Blocks for the call, so never on
-    /// the loop. Nothing with `error` when it is gone, unpaired or refuses.
-    [[nodiscard]] std::optional<PlayOffer> askToPlay(const std::string& hostId,
-                                                     const std::string& gameId,
-                                                     const std::string& profile,
-                                                     std::string& error) const;
+    /// the loop. Nothing with `error` when it is gone, unpaired or refuses; nothing without one
+    /// when `stop` ended the call.
+    [[nodiscard]] std::optional<PlayOffer>
+    askToPlay(const std::stop_token& stop, const std::string& hostId, const std::string& gameId,
+              const std::string& profile, std::string& error) const;
 
     /// Forgets `peerId` here, and tells it to forget this one when it is announced. False with
     /// `error` when it could not be forgotten here.
@@ -187,21 +191,23 @@ class LanNode {
     void wake();
     void work(const std::stop_token& stop);
     /// Every announced paired peer's games, their covers fetched as needed and those of peers no
-    /// longer paired dropped; `complete` false when a peer's could not be listed.
-    [[nodiscard]] std::vector<library::Game> fetch(const std::vector<Sighting>& online,
-                                                   bool& complete);
+    /// longer paired dropped; `complete` false when a peer's could not be listed or `stop` ended
+    /// its call.
+    [[nodiscard]] std::vector<library::Game>
+    fetch(const std::stop_token& stop, const std::vector<Sighting>& online, bool& complete);
     [[nodiscard]] std::filesystem::path coverOf(const Peer& host, const PeerClient& client,
                                                 const secrets::crypto::Bytes& secret,
                                                 const std::string& token) const;
-    void tell(const Notice& notice) const;
+    void tell(const std::stop_token& stop, const Notice& notice) const;
     /// Where the paired, announced `hostId` listens and the pairing's secret; nothing with why.
     [[nodiscard]] std::optional<RomImport::Link> linkTo(const std::string& hostId,
                                                         std::string& why) const;
     /// `method` `route` with `body` asked of `hostId`: the answer's body when it says OK, at most
     /// `largest` bytes; nothing with `error` otherwise.
     [[nodiscard]] std::optional<std::string>
-    askHost(const std::string& hostId, std::string_view method, std::string_view route,
-            const std::string& body, std::size_t largest, std::string& error) const;
+    askHost(const std::stop_token& stop, const std::string& hostId, std::string_view method,
+            std::string_view route, const std::string& body, std::size_t largest,
+            std::string& error) const;
 
     net::WebClient web_;
     std::filesystem::path coverCache_;

@@ -256,7 +256,7 @@ bool RomImport::fetchFile(const Item& item, const File& file, std::uint64_t befo
     if (!link) {
         return false;
     }
-    const PeerClient client{web_, link->endpoint, std::stop_token{}};
+    const PeerClient client{web_, link->endpoint, stop};
     const PeerClient::Signer signer{setup_.selfId, link->secret};
     const auto wipe = [&] {
         secrets::wipeBytes(link->secret.data(), link->secret.size());

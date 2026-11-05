@@ -66,13 +66,16 @@ net::Result<net::WebClient::Answer> PeerSaveTarget::call(const std::stop_token& 
     return answer;
 }
 
-save_sync::SaveTarget::Held PeerSaveTarget::status(const std::stop_token& /*stop*/,
+save_sync::SaveTarget::Held PeerSaveTarget::status(const std::stop_token& stop,
                                                    const SaveKey& key) {
     if (!profiles_.linked(key.profile, peer_.id)) {
         return Held{.kind = Held::Kind::NotShared, .status = {}, .problem = {}};
     }
     const net::Result<net::WebClient::Answer> answer =
-        call(std::stop_token{}, wire::saveStatusRoute, wire::write(askFor(key)), largestNote);
+        call(stop, wire::saveStatusRoute, wire::write(askFor(key)), largestNote);
+    if (answer.stopped()) {
+        return Held{.kind = Held::Kind::Stopped, .status = {}, .problem = {}};
+    }
     if (answer && answer->status == forbidden) {
         return Held{.kind = Held::Kind::NotShared, .status = {}, .problem = {}};
     }
@@ -91,10 +94,10 @@ save_sync::SaveTarget::Held PeerSaveTarget::status(const std::stop_token& /*stop
     return Held{.kind = Held::Kind::Saves, .status = std::move(*theirs), .problem = {}};
 }
 
-std::optional<save_sync::SaveBundle> PeerSaveTarget::fetch(const std::stop_token& /*stop*/,
+std::optional<save_sync::SaveBundle> PeerSaveTarget::fetch(const std::stop_token& stop,
                                                            const SaveKey& key, std::string& error) {
-    const net::Result<net::WebClient::Answer> answer = call(
-        std::stop_token{}, wire::saveGetRoute, wire::write(askFor(key)), save_sync::largestBundle);
+    const net::Result<net::WebClient::Answer> answer =
+        call(stop, wire::saveGetRoute, wire::write(askFor(key)), save_sync::largestBundle);
     if (!answer || answer->status != ok) {
         error = describe(answer);
         return std::nullopt;
@@ -106,15 +109,17 @@ std::optional<save_sync::SaveBundle> PeerSaveTarget::fetch(const std::stop_token
     return bundle;
 }
 
-save_sync::SaveTarget::Given PeerSaveTarget::give(const std::stop_token& /*stop*/,
-                                                  const SaveKey& key,
+save_sync::SaveTarget::Given PeerSaveTarget::give(const std::stop_token& stop, const SaveKey& key,
                                                   const save_sync::SaveBundle& /*bundle*/,
                                                   const save_sync::SaveStatus& /*status*/,
                                                   bool picked, std::string& error) {
     wire::SaveAsk news = askFor(key);
     news.picked = picked;
     const net::Result<net::WebClient::Answer> answer =
-        call(std::stop_token{}, wire::saveNewsRoute, wire::write(news), largestNote);
+        call(stop, wire::saveNewsRoute, wire::write(news), largestNote);
+    if (answer.stopped()) {
+        return Given::Stopped;
+    }
     if (!answer || answer->status != ok) {
         error = peer_.name + " was not told of the newer saves: " + describe(answer);
         return Given::Failed;
@@ -122,14 +127,14 @@ save_sync::SaveTarget::Given PeerSaveTarget::give(const std::stop_token& /*stop*
     return Given::Told;
 }
 
-void PeerSaveTarget::took(const std::stop_token& /*stop*/, const SaveKey& key,
+void PeerSaveTarget::took(const std::stop_token& stop, const SaveKey& key,
                           const save_sync::SaveStatus& status) {
     wire::SaveAsk record = askFor(key);
     record.hash = status.hash;
     record.counter = status.counter;
     const net::Result<net::WebClient::Answer> answer =
-        call(std::stop_token{}, wire::saveSyncedRoute, wire::write(record), largestNote);
-    if (!answer || answer->status != ok) {
+        call(stop, wire::saveSyncedRoute, wire::write(record), largestNote);
+    if (!answer.stopped() && (!answer || answer->status != ok)) {
         lucent::warn("saves", "{} was not told its saves were taken: {}", peer_.name,
                      describe(answer));
     }

@@ -370,8 +370,8 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
 
     std::string playError;
     const std::string guestPlayer = guest.profiles.first().id;
-    const std::optional<lan::LanNode::PlayOffer> offer =
-        guest.node.askToPlay(host.node.id(), listed.sourceId, guestPlayer, playError);
+    const std::optional<lan::LanNode::PlayOffer> offer = guest.node.askToPlay(
+        std::stop_token{}, host.node.id(), listed.sourceId, guestPlayer, playError);
     expect(offer && offer->stream.port == Node::streamPort && offer->stream.address == "127.0.0.1",
            "the host agrees to stream its game and says where");
     {
@@ -385,11 +385,13 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
                "both sides hold one pair of session keys, one for each way");
         host.refusePlay = "a game is already running there";
     }
-    expect(!guest.node.askToPlay(host.node.id(), listed.sourceId, guestPlayer, playError) &&
+    expect(!guest.node.askToPlay(std::stop_token{}, host.node.id(), listed.sourceId, guestPlayer,
+                                 playError) &&
                playError.find("a game is already running there") != std::string::npos,
            "a host that cannot stream says why");
-    expect(!guest.node.askToPlay(host.node.id(), "own:2", guestPlayer, playError),
-           "a game the host does not list is not streamed");
+    expect(
+        !guest.node.askToPlay(std::stop_token{}, host.node.id(), "own:2", guestPlayer, playError),
+        "a game the host does not list is not streamed");
     {
         const std::lock_guard lock{host.mutex};
         host.refusePlay.clear();
@@ -398,7 +400,7 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
         test::need(host.profiles.add("Ana", playError), "the host has a second profile");
     expect(host.profiles.link(ana.id, guest.node.id(), true, playError), "linked with the guest");
     const std::optional<lan::LanNode::PlayOffer> again =
-        guest.node.askToPlay(host.node.id(), listed.sourceId, ana.id, playError);
+        guest.node.askToPlay(std::stop_token{}, host.node.id(), listed.sourceId, ana.id, playError);
     expect(again && offer && again->keys.host != offer->keys.host,
            "each session has keys of its own");
     {
@@ -406,6 +408,13 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
         expect(host.played == "Desk own:1 " + ana.id,
                "a guest playing as a profile linked with the host plays as it there");
     }
+    std::stop_source quitting;
+    quitting.request_stop();
+    std::string stopError;
+    expect(!guest.node.askToPlay(quitting.get_token(), host.node.id(), listed.sourceId, ana.id,
+                                 stopError) &&
+               stopError.empty(),
+           "a request on a requested stop comes to nothing, and no error");
     expect(waitFor([&host] {
                return host.remote->games().size() == 1 &&
                       host.remote->games().front().title == "Guest game";
@@ -538,22 +547,23 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
            "and nothing is taken from the den");
 
     const std::optional<std::vector<lan::wire::ListedProfile>> listed =
-        guest.node.profilesOf(host.node.id(), error);
+        guest.node.profilesOf(std::stop_token{}, host.node.id(), error);
     expect(listed && listed->size() == 1 && listed->front().id == player &&
                listed->front().name == "Player 1" && !listed->front().linked,
            "the attic lists the den's profile, not linked");
-    expect(guest.node.askCopy(host.node.id(), player, error), "the attic asks for a copy of it");
+    expect(guest.node.askCopy(std::stop_token{}, host.node.id(), player, error),
+           "the attic asks for a copy of it");
     const std::optional<lan::ProfileCopies::Question> asked = host.node.copyQuestion();
     expect(asked && asked->peer.id == guest.node.id() && asked->profile.id == player,
            "the den's player is asked");
     const std::optional<lan::wire::CopyVerdict> waiting =
-        guest.node.copyStatus(host.node.id(), player, error);
+        guest.node.copyStatus(std::stop_token{}, host.node.id(), player, error);
     expect(waiting && waiting->verdict == "waiting", "the attic waits for the answer");
     expect(host.node.answerCopy(guest.node.id(), player, true, error) &&
                host.profiles.linked(player, guest.node.id()),
            "the den's player allows it, and the den links its profile with the attic");
-    const lan::wire::CopyVerdict allowed =
-        test::need(guest.node.copyStatus(host.node.id(), player, error), "a verdict");
+    const lan::wire::CopyVerdict allowed = test::need(
+        guest.node.copyStatus(std::stop_token{}, host.node.id(), player, error), "a verdict");
     expect(allowed.verdict == "accepted" && allowed.profile.id == player &&
                allowed.profile.name == "Player 1",
            "the attic hears it is allowed, with the profile");
@@ -625,7 +635,7 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
     expect(looksLike(host, game, other, Standing::NotShared),
            "a profile of the den's not linked with the attic does not sync with it");
 
-    expect(guest.node.unlink(host.node.id(), player, error) &&
+    expect(guest.node.unlink(std::stop_token{}, host.node.id(), player, error) &&
                !guest.profiles.linked(player, host.node.id()),
            "the attic unlinks the copy");
     expect(!host.profiles.linked(player, guest.node.id()) && guest.profiles.find(player) &&
@@ -718,7 +728,8 @@ void romsComeOverInChunks(const fs::path& root) {
 
     std::string error;
     const std::vector<lan::wire::RomConsole> consoles =
-        must(guest.node.romsOf(host.node.id(), error), "the guest lists the host's ROMs");
+        must(guest.node.romsOf(std::stop_token{}, host.node.id(), error),
+             "the guest lists the host's ROMs");
     expect(consoles.size() == 2, "a console per folder of games");
     const auto psx = std::ranges::find(consoles, "psx", &lan::wire::RomConsole::system);
     expect(psx != consoles.end() && psx->games.size() == 1 && psx->games[0].files.size() == 2 &&

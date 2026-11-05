@@ -170,7 +170,8 @@ void LanNode::endAsking() {
     wake();
 }
 
-std::optional<LanNode::PlayOffer> LanNode::askToPlay(const std::string& hostId,
+std::optional<LanNode::PlayOffer> LanNode::askToPlay(const std::stop_token& stop,
+                                                     const std::string& hostId,
                                                      const std::string& gameId,
                                                      const std::string& profile,
                                                      std::string& error) const {
@@ -183,7 +184,7 @@ std::optional<LanNode::PlayOffer> LanNode::askToPlay(const std::string& hostId,
         return std::nullopt;
     }
     const secrets::crypto::Bytes salt = secrets::crypto::randomBytes(secrets::crypto::nonceBytes);
-    const PeerClient client{web_, Endpoint{host->address, host->port}, std::stop_token{}};
+    const PeerClient client{web_, Endpoint{host->address, host->port}, stop};
     const net::Result<net::WebClient::Answer> answer =
         client.call("POST", wire::playRoute, wire::write(wire::PlayRequest{gameId, profile, salt}),
                     PeerClient::Signer{book_.id(), *secret}, largestNotice);
@@ -224,14 +225,15 @@ std::optional<RomImport::Link> LanNode::linkTo(const std::string& hostId, std::s
     return RomImport::Link{Endpoint{host->address, host->port}, std::move(*secret)};
 }
 
-std::optional<std::string> LanNode::askHost(const std::string& hostId, std::string_view method,
-                                            std::string_view route, const std::string& body,
-                                            std::size_t largest, std::string& error) const {
+std::optional<std::string> LanNode::askHost(const std::stop_token& stop, const std::string& hostId,
+                                            std::string_view method, std::string_view route,
+                                            const std::string& body, std::size_t largest,
+                                            std::string& error) const {
     std::optional<RomImport::Link> link = linkTo(hostId, error);
     if (!link) {
         return std::nullopt;
     }
-    const PeerClient client{web_, link->endpoint, std::stop_token{}};
+    const PeerClient client{web_, link->endpoint, stop};
     net::Result<net::WebClient::Answer> answer =
         client.call(method, route, body, PeerClient::Signer{book_.id(), link->secret}, largest);
     secrets::wipeBytes(link->secret.data(), link->secret.size());
@@ -247,10 +249,10 @@ std::optional<std::string> LanNode::askHost(const std::string& hostId, std::stri
     return std::move(answer->body);
 }
 
-std::optional<std::vector<wire::RomConsole>> LanNode::romsOf(const std::string& hostId,
-                                                             std::string& error) const {
+std::optional<std::vector<wire::RomConsole>>
+LanNode::romsOf(const std::stop_token& stop, const std::string& hostId, std::string& error) const {
     const std::optional<std::string> body =
-        askHost(hostId, "GET", wire::romListRoute, {}, largestListing, error);
+        askHost(stop, hostId, "GET", wire::romListRoute, {}, largestListing, error);
     if (!body) {
         return std::nullopt;
     }
@@ -261,10 +263,11 @@ std::optional<std::vector<wire::RomConsole>> LanNode::romsOf(const std::string& 
     return consoles;
 }
 
-std::optional<std::vector<wire::ListedProfile>> LanNode::profilesOf(const std::string& hostId,
+std::optional<std::vector<wire::ListedProfile>> LanNode::profilesOf(const std::stop_token& stop,
+                                                                    const std::string& hostId,
                                                                     std::string& error) const {
     const std::optional<std::string> body =
-        askHost(hostId, "GET", wire::profilesRoute, {}, largestNotice, error);
+        askHost(stop, hostId, "GET", wire::profilesRoute, {}, largestNotice, error);
     if (!body) {
         return std::nullopt;
     }
@@ -275,18 +278,19 @@ std::optional<std::vector<wire::ListedProfile>> LanNode::profilesOf(const std::s
     return listed;
 }
 
-bool LanNode::askCopy(const std::string& hostId, const std::string& profileId,
-                      std::string& error) const {
-    return askHost(hostId, "POST", wire::profileCopyRoute, wire::write(wire::ProfileAsk{profileId}),
-                   largestNotice, error)
+bool LanNode::askCopy(const std::stop_token& stop, const std::string& hostId,
+                      const std::string& profileId, std::string& error) const {
+    return askHost(stop, hostId, "POST", wire::profileCopyRoute,
+                   wire::write(wire::ProfileAsk{profileId}), largestNotice, error)
         .has_value();
 }
 
-std::optional<wire::CopyVerdict> LanNode::copyStatus(const std::string& hostId,
+std::optional<wire::CopyVerdict> LanNode::copyStatus(const std::stop_token& stop,
+                                                     const std::string& hostId,
                                                      const std::string& profileId,
                                                      std::string& error) const {
     const std::optional<std::string> body =
-        askHost(hostId, "POST", wire::profileCopyStatusRoute,
+        askHost(stop, hostId, "POST", wire::profileCopyStatusRoute,
                 wire::write(wire::ProfileAsk{profileId}), largestNotice, error);
     if (!body) {
         return std::nullopt;
@@ -298,14 +302,15 @@ std::optional<wire::CopyVerdict> LanNode::copyStatus(const std::string& hostId,
     return verdict;
 }
 
-bool LanNode::unlink(const std::string& peerId, const std::string& profileId,
-                     std::string& error) const {
+bool LanNode::unlink(const std::stop_token& stop, const std::string& peerId,
+                     const std::string& profileId, std::string& error) const {
     if (!profiles_.link(profileId, peerId, false, error)) {
         return false;
     }
     std::string told;
-    if (!askHost(peerId, "POST", wire::profileUnlinkRoute, wire::write(wire::ProfileAsk{profileId}),
-                 largestNotice, told)) {
+    if (!askHost(stop, peerId, "POST", wire::profileUnlinkRoute,
+                 wire::write(wire::ProfileAsk{profileId}), largestNotice, told) &&
+        !stop.stop_requested()) {
         lucent::warn("lan", "{} was not told the profile {} is unlinked: {}", peerId, profileId,
                      told);
     }
@@ -367,7 +372,7 @@ void LanNode::work(const std::stop_token& stop) {
         }
         first = false;
         for (Notice& notice : notices) {
-            tell(notice);
+            tell(stop, notice);
             secrets::wipeBytes(notice.secret.data(), notice.secret.size());
         }
         if (stop.stop_requested()) {
@@ -391,7 +396,11 @@ void LanNode::work(const std::stop_token& stop) {
         wasOnline = std::move(ids);
         fetched = now;
         bool complete = true;
-        if (remote_->replace(fetch(online, complete))) {
+        std::vector<library::Game> games = fetch(stop, online, complete);
+        if (stop.stop_requested()) {
+            return;
+        }
+        if (remote_->replace(std::move(games))) {
             changed_();
         }
         if (complete) {
@@ -404,7 +413,8 @@ void LanNode::work(const std::stop_token& stop) {
     }
 }
 
-std::vector<library::Game> LanNode::fetch(const std::vector<Sighting>& online, bool& complete) {
+std::vector<library::Game> LanNode::fetch(const std::stop_token& stop,
+                                          const std::vector<Sighting>& online, bool& complete) {
     std::error_code ec;
     for (const fs::directory_entry& folder : fs::directory_iterator{coverCache_, ec}) {
         if (!book_.find(folder.path().filename().string())) {
@@ -418,9 +428,14 @@ std::vector<library::Game> LanNode::fetch(const std::vector<Sighting>& online, b
             continue;
         }
         const Peer host{sighting.id, sighting.name};
-        const PeerClient client{web_, Endpoint{sighting.address, sighting.port}, std::stop_token{}};
+        const PeerClient client{web_, Endpoint{sighting.address, sighting.port}, stop};
         const net::Result<net::WebClient::Answer> answer = client.call(
             "GET", "/lan/library", {}, PeerClient::Signer{book_.id(), *secret}, largestListing);
+        if (answer.stopped()) {
+            secrets::wipeBytes(secret->data(), secret->size());
+            complete = false;
+            return games;
+        }
         std::optional<std::vector<wire::ListedGame>> listing;
         if (answer && answer->status == ok) {
             listing = wire::readListing(answer->body);
@@ -464,6 +479,9 @@ fs::path LanNode::coverOf(const Peer& host, const PeerClient& client,
     }
     const net::Result<net::WebClient::Answer> answer = client.call(
         "GET", "/lan/cover/" + token, {}, PeerClient::Signer{book_.id(), secret}, largestCover);
+    if (answer.stopped()) {
+        return {};
+    }
     if (!answer || answer->status != ok) {
         lucent::warn("lan", "a cover of {} cannot be had: {}", host.name,
                      answer ? "HTTP " + std::to_string(answer->status) : answer.error());
@@ -478,11 +496,11 @@ fs::path LanNode::coverOf(const Peer& host, const PeerClient& client,
     return file;
 }
 
-void LanNode::tell(const Notice& notice) const {
-    const PeerClient client{web_, notice.endpoint, std::stop_token{}};
+void LanNode::tell(const std::stop_token& stop, const Notice& notice) const {
+    const PeerClient client{web_, notice.endpoint, stop};
     const net::Result<net::WebClient::Answer> answer = client.call(
         "POST", "/lan/unpair", "{}", PeerClient::Signer{book_.id(), notice.secret}, largestNotice);
-    if (!answer || answer->status != ok) {
+    if (!answer.stopped() && (!answer || answer->status != ok)) {
         lucent::info("lan", "the unpaired openSU at {} was not told: {}", notice.endpoint.address,
                      answer ? "HTTP " + std::to_string(answer->status) : answer.error());
     }
