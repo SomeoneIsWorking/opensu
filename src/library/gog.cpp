@@ -115,10 +115,9 @@ std::vector<Game> Provider::list() {
         const std::string url =
             auth_.endpoints().embed +
             "/account/getFilteredProducts?mediaType=1&page=" + std::to_string(page);
-        std::string error;
-        const std::optional<std::string> body = web_.get(url, error, headers);
+        const net::Result<std::string> body = web_.get(std::stop_token{}, url, headers);
         if (!body) {
-            throw std::runtime_error{"cannot read the GOG library (" + error + ")"};
+            throw std::runtime_error{"cannot read the GOG library (" + body.error() + ")"};
         }
         Page parsed = parsePage(*body);
         totalPages = parsed.totalPages;

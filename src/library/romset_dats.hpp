@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <string_view>
 
@@ -59,11 +60,11 @@ class RomsetDats {
     /// older than `romsetDatLifetime`.
     [[nodiscard]] bool due(const EmulatorEntry& entry, Clock::time_point now) const;
 
-    /// Fetches `entry`'s listing again when it is `due`, telling `progress` of the bytes of all
-    /// its files together (it cancels by returning false). `error` says why a due fetch failed;
-    /// false when no listing is kept afterwards.
-    [[nodiscard]] bool refresh(const EmulatorEntry& entry, Clock::time_point now,
-                               std::string& error,
+    /// Fetches `entry`'s listing again on `stop` when it is `due`, telling `progress` of the bytes
+    /// of all its files together (it cancels by returning false). `error` says why a due fetch
+    /// failed or was stopped; false when no listing is kept afterwards.
+    [[nodiscard]] bool refresh(const std::stop_token& stop, const EmulatorEntry& entry,
+                               Clock::time_point now, std::string& error,
                                const net::WebClient::Progress& progress = {}) const;
 
     /// The kept listing of `entry`, with only the `wanted` sets' ROMs.
@@ -78,11 +79,11 @@ class RomsetDats {
     [[nodiscard]] std::filesystem::path file(const EmulatorEntry& entry) const;
     /// The listing at `entry`'s sources and the CRC-32 of what it was read from.
     [[nodiscard]] std::optional<std::pair<RomsetDat, std::uint32_t>>
-    fetch(const EmulatorEntry& entry, const net::WebClient::Progress& progress,
-          std::string& error) const;
+    fetch(const std::stop_token& stop, const EmulatorEntry& entry,
+          const net::WebClient::Progress& progress, std::string& error) const;
     [[nodiscard]] std::optional<std::pair<RomsetDat, std::uint32_t>>
-    fetchRelease(const ReleaseSource& release, const net::WebClient::Progress& progress,
-                 std::string& error) const;
+    fetchRelease(const std::stop_token& stop, const ReleaseSource& release,
+                 const net::WebClient::Progress& progress, std::string& error) const;
 
     std::filesystem::path dir_;
     const net::WebClient* web_{nullptr};

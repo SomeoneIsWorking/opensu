@@ -271,26 +271,22 @@ std::string boxArtUrl(std::string_view base, const library::roms::RomSystem& sys
            encodeSegment(name) + ".png";
 }
 
-std::optional<std::vector<std::string>> boxArtNames(const net::WebClient& web,
-                                                    const ArtworkStore& store,
-                                                    const library::roms::RomSystem& system,
-                                                    std::string_view base, std::string& error,
-                                                    const std::stop_token& stop) {
-    std::optional<std::vector<std::string>> names =
-        store.index(system.key, ArtworkStore::Clock::now());
-    if (names) {
-        return names;
+net::Result<std::vector<std::string>>
+boxArtNames(const std::stop_token& stop, const net::WebClient& web, const ArtworkStore& store,
+            const library::roms::RomSystem& system, std::string_view base) {
+    if (std::optional<std::vector<std::string>> kept =
+            store.index(system.key, ArtworkStore::Clock::now())) {
+        return std::move(*kept);
     }
     const std::string url =
         std::string{base} + "/" + encodeSegment(system.libretroName) + "/Named_Boxarts/";
-    const std::optional<std::string> html = web.get(url, error, {}, stop);
+    const net::Result<std::string> html = web.get(stop, url);
     if (!html) {
-        error = url + ": " + error;
-        return std::nullopt;
+        return html.as<std::vector<std::string>>(url + ": ");
     }
-    names = parseIndex(*html);
-    store.saveIndex(system.key, *names);
-    lucent::info("artwork", "{} box art names listed for {}", names->size(), system.libretroName);
+    std::vector<std::string> names = parseIndex(*html);
+    store.saveIndex(system.key, names);
+    lucent::info("artwork", "{} box art names listed for {}", names.size(), system.libretroName);
     return names;
 }
 

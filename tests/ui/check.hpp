@@ -13,8 +13,8 @@ namespace opensu::test {
     std::exit(1);
 }
 
-/// The value of `value`, or a failed check when it is empty.
-template <class T> const T& need(const std::optional<T>& value, const char* what) {
+/// The value of `value` (an optional or a `net::Result`), or a failed check when it holds none.
+template <class T> const auto& need(const T& value, const char* what) {
     if (!value) {
         fail(what);
     }

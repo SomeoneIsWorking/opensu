@@ -29,17 +29,15 @@ std::optional<std::string> digestOf(const fs::path& file, RuntimeArchive::Digest
 
 } // namespace
 
-std::optional<fs::path> installArchive(const net::WebClient& web, const RuntimeArchive& archive,
-                                       const fs::path& into, const std::stop_token& stop,
-                                       const net::WebClient::Progress& progress,
-                                       const std::function<void(ArchiveStage)>& stage,
-                                       std::string& error) {
+net::Result<fs::path> installArchive(const std::stop_token& stop, const net::WebClient& web,
+                                     const RuntimeArchive& archive, const fs::path& into,
+                                     const net::WebClient::Progress& progress,
+                                     const std::function<void(ArchiveStage)>& stage) {
     const auto unsafe = [](const std::string& name) {
         return name.empty() || name.find('/') != std::string::npos || name.starts_with('.');
     };
     if (unsafe(archive.folder) || unsafe(archive.installAs) || unsafe(archive.name)) {
-        error = "the release names an unsafe file or folder " + archive.name;
-        return std::nullopt;
+        return net::Failure{"the release names an unsafe file or folder " + archive.name};
     }
     const fs::path partial = into / ".partial";
     const fs::path file = partial / archive.name;
@@ -48,37 +46,39 @@ std::optional<fs::path> installArchive(const net::WebClient& web, const RuntimeA
     std::error_code ec;
     fs::create_directories(staging, ec);
     if (ec) {
-        error = "cannot make " + staging.string() + ": " + ec.message();
-        return std::nullopt;
+        return net::Failure{"cannot make " + staging.string() + ": " + ec.message()};
     }
-    const auto fail = [&partial](std::string& why, std::string text) {
+    const auto fail = [&partial](std::string text) -> net::Result<fs::path> {
         removeQuietly(partial);
-        why = std::move(text);
-        return std::nullopt;
+        return net::Failure{std::move(text)};
     };
 
     stage(ArchiveStage::Downloading);
     lucent::info("wine", "downloading {} from {}", archive.name, archive.url);
-    if (!web.download(archive.url, file, progress, error)) {
-        return fail(error, error == "cancelled" ? error : "the download failed: " + error);
+    if (const net::Result<net::WebClient::BodyFacts> fetched =
+            web.download(stop, archive.url, file, progress);
+        !fetched) {
+        removeQuietly(partial);
+        return fetched.as<fs::path>("the download failed: ");
     }
     const std::uint64_t size = fs::file_size(file, ec);
     if (ec || (archive.size != 0 && size != archive.size)) {
-        return fail(error, "the download is " + std::to_string(size) + " bytes, the release says " +
-                               std::to_string(archive.size));
+        return fail("the download is " + std::to_string(size) + " bytes, the release says " +
+                    std::to_string(archive.size));
     }
 
     stage(ArchiveStage::Checking);
+    std::string error;
     const std::optional<std::string> seen = digestOf(file, archive.digest, error);
     if (!seen) {
-        return fail(error, error);
+        return fail(error);
     }
     const char* kind = archive.digest == RuntimeArchive::Digest::Sha256 ? "SHA-256" : "SHA-512";
     if (*seen != archive.hex) {
         lucent::warn("wine", "{}: {} {} is not the published {}", archive.name, kind, *seen,
                      archive.hex);
-        return fail(error, std::string{"the download's "} + kind +
-                               " is not the one the release publishes");
+        return fail(std::string{"the download's "} + kind +
+                    " is not the one the release publishes");
     }
     lucent::info("wine", "{} matches its published {} {}", archive.name, kind, *seen);
 
@@ -91,15 +91,16 @@ std::optional<fs::path> installArchive(const net::WebClient& web, const RuntimeA
         },
         stop);
     if (stop.stop_requested()) {
-        return fail(error, "cancelled");
+        removeQuietly(partial);
+        return net::Stopped{};
     }
     if (!status || *status != 0) {
-        return fail(error, "tar could not unpack " + archive.name +
-                               (lastLine.empty() ? std::string{} : ": " + lastLine));
+        return fail("tar could not unpack " + archive.name +
+                    (lastLine.empty() ? std::string{} : ": " + lastLine));
     }
     const fs::path unpacked = staging / archive.folder;
     if (!fs::is_directory(unpacked, ec)) {
-        return fail(error, archive.name + " holds no " + archive.folder + " folder");
+        return fail(archive.name + " holds no " + archive.folder + " folder");
     }
     fs::path target = into / archive.installAs;
     if (fs::exists(target, ec)) {
@@ -109,7 +110,7 @@ std::optional<fs::path> installArchive(const net::WebClient& web, const RuntimeA
     }
     fs::rename(unpacked, target, ec);
     if (ec) {
-        return fail(error, "cannot put " + target.string() + " in place: " + ec.message());
+        return fail("cannot put " + target.string() + " in place: " + ec.message());
     }
     removeQuietly(partial);
     lucent::info("wine", "{} unpacked to {}", archive.name, target.string());

@@ -59,11 +59,10 @@ std::string Auth::accessToken() const {
 Token Auth::request(const std::string& grant) const {
     const std::string url = endpoints_.auth + "/token?client_id=" + std::string{clientId} +
                             "&client_secret=" + std::string{clientSecret} + "&" + grant;
-    std::string error;
-    const std::optional<std::string> body = web_.get(url, error);
+    const net::Result<std::string> body = web_.get(std::stop_token{}, url);
     if (!body) {
         // GOG answers a spent or wrong code, and a revoked refresh token, with a 4xx.
-        throw NotSignedIn{"GOG sign-in failed (" + error + ")"};
+        throw NotSignedIn{"GOG sign-in failed (" + body.error() + ")"};
     }
     const json granted = json::parse(*body, nullptr, false);
     if (!granted.is_object() || !granted.contains("access_token") ||

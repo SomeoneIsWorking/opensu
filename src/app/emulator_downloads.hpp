@@ -135,27 +135,24 @@ class EmulatorDownloads {
         Finished::Outcome outcome{Finished::Outcome::Installed};
     };
 
-    /// One download's work: the version it installed, or nothing with `error`.
-    using Installer = std::function<std::optional<Build>(
-        const std::stop_token&, const net::WebClient::Progress&, std::string&)>;
+    /// One download's work: the version it installed.
+    using Installer =
+        std::function<net::Result<Build>(const std::stop_token&, const net::WebClient::Progress&)>;
 
     /// Starts `install` on the download thread as the download of `id`; refused while one runs.
     [[nodiscard]] std::string launch(std::string_view id, Installer install);
     void runDownload(const std::stop_token& stop, const std::string& id, const Installer& install);
-    /// Installs the latest release of `entry`; nothing, with `error`, when it is not installed.
-    [[nodiscard]] std::optional<Build> installRelease(const std::stop_token& stop,
-                                                      const library::roms::EmulatorEntry& entry,
-                                                      const net::WebClient::Progress& progress,
-                                                      std::string& error);
+    /// Installs the latest release of `entry`.
+    [[nodiscard]] net::Result<Build> installRelease(const std::stop_token& stop,
+                                                    const library::roms::EmulatorEntry& entry,
+                                                    const net::WebClient::Progress& progress);
     /// Installs the latest build of `entry`'s core.
-    [[nodiscard]] std::optional<Build> installCore(const std::stop_token& stop,
-                                                   const library::roms::EmulatorEntry& entry,
-                                                   const net::WebClient::Progress& progress,
-                                                   std::string& error);
+    [[nodiscard]] net::Result<Build> installCore(const std::stop_token& stop,
+                                                 const library::roms::EmulatorEntry& entry,
+                                                 const net::WebClient::Progress& progress);
     /// Installs the shader pack the buildbot serves now.
-    [[nodiscard]] std::optional<Build> installPack(const std::stop_token& stop,
-                                                   const net::WebClient::Progress& progress,
-                                                   std::string& error);
+    [[nodiscard]] net::Result<Build> installPack(const std::stop_token& stop,
+                                                 const net::WebClient::Progress& progress);
     /// Reads the latest builds; releases of standalone emulators only when `standalone`.
     void runCheck(const std::stop_token& stop, bool standalone);
     /// Reads the buildbot's listing once for every built-in emulator.

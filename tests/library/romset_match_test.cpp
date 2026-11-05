@@ -291,8 +291,8 @@ void keepsVerdicts(const fs::path& base) {
            "the listings are kept");
     expect(dats.stamp(fbneo).value_or(opensu::library::roms::DatStamp{}).source == 1,
            "a kept listing's stamp reads");
-    expect(dats.refresh(fbneo, now, error), "a fresh listing needs no fetch");
-    expect(!dats.refresh(core("other", "Other"), now, error) && !error.empty(),
+    expect(dats.refresh(std::stop_token{}, fbneo, now, error), "a fresh listing needs no fetch");
+    expect(!dats.refresh(std::stop_token{}, core("other", "Other"), now, error) && !error.empty(),
            "a listing that is not kept and cannot be fetched says so");
 
     writeZip(folder / "clone.zip", {member("c.1", cloneProgram)});

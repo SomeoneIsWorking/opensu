@@ -218,12 +218,12 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetch(const library::Game& game,
 
 ArtworkFetcher::Outcome ArtworkFetcher::fetch(const NamesWork& /*names*/,
                                               const std::stop_token& stop) {
-    std::string error;
-    const std::optional<library::roms::NameMap> names =
-        fetchArcadeNames(web_, sources_.libretroDatabase, sources_.arcadeDats, error, stop);
-    if (stop.stop_requested()) {
+    const net::Result<library::roms::NameMap> names =
+        fetchArcadeNames(stop, web_, sources_.libretroDatabase, sources_.arcadeDats);
+    if (names.stopped()) {
         return Outcome::Stopped;
     }
+    std::string error = names.error();
     if (!names || !names_.save(*names, error)) {
         lucent::warn("artwork", "arcade names: {}", error);
         return Outcome::Unreachable;
@@ -251,9 +251,8 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetchGog(const library::Game& game,
     }
     // gamesdb's portrait cover, else the library's own tile.
     const std::string url = sources_.gogdb + "/" + game.sourceId;
-    std::string error;
-    const std::optional<std::string> release = web_.get(url, error, {}, stop);
-    if (stop.stop_requested()) {
+    const net::Result<std::string> release = web_.get(stop, url);
+    if (release.stopped()) {
         return Outcome::Stopped;
     }
     if (release) {
@@ -264,8 +263,8 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetchGog(const library::Game& game,
                 return portrait;
             }
         }
-    } else if (!isNotFound(error)) {
-        lucent::warn("artwork", "{}: {}", url, error);
+    } else if (!isNotFound(release.error())) {
+        lucent::warn("artwork", "{}: {}", url, release.error());
         return Outcome::Unreachable;
     }
     return game.artworkUrl.empty() ? Outcome::Missing
@@ -294,18 +293,18 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetchRom(const library::Game& game,
 
 ArtworkFetcher::Outcome ArtworkFetcher::keep(const library::Game& game, const std::string& url,
                                              const std::stop_token& stop) {
-    std::string error;
-    const std::optional<std::string> bytes = web_.get(url, error, {}, stop);
-    if (stop.stop_requested()) {
+    const net::Result<std::string> bytes = web_.get(stop, url);
+    if (bytes.stopped()) {
         return Outcome::Stopped;
     }
     if (!bytes) {
-        if (isNotFound(error)) {
+        if (isNotFound(bytes.error())) {
             return Outcome::Missing;
         }
-        lucent::warn("artwork", "{}: {}", url, error);
+        lucent::warn("artwork", "{}: {}", url, bytes.error());
         return Outcome::Unreachable;
     }
+    std::string error;
     if (!store_.save(game, *bytes, error)) {
         lucent::warn("artwork", "{}", error);
         return Outcome::Unreachable;
@@ -319,17 +318,16 @@ const std::vector<std::string>* ArtworkFetcher::index(const library::roms::RomSy
     if (const auto found = indexes_.find(system); found != indexes_.end()) {
         return &found->second;
     }
-    std::string error;
-    std::optional<std::vector<std::string>> names =
-        boxArtNames(web_, store_, rom, sources_.libretro, error, stop);
-    if (stop.stop_requested()) {
+    net::Result<std::vector<std::string>> names =
+        boxArtNames(stop, web_, store_, rom, sources_.libretro);
+    if (names.stopped()) {
         return nullptr;
     }
     if (!names) {
-        lucent::warn("artwork", "{}", error);
+        lucent::warn("artwork", "{}", names.error());
         return nullptr;
     }
-    return &indexes_.emplace(std::string{system}, std::move(*names)).first->second;
+    return &indexes_.emplace(std::string{system}, *std::move(names)).first->second;
 }
 
 } // namespace opensu::artwork

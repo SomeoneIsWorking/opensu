@@ -135,7 +135,7 @@ CoverFitter::Outcome CoverFitter::fit(const Work& work, const std::stop_token& s
         }
     }
     const SteamGridDbGame lookup = steamGridDbGameOf(game);
-    const SteamGridDb::Covers offered = steamGridDb_.covers(web_, lookup, work.shape, stop);
+    const SteamGridDb::Covers offered = steamGridDb_.covers(stop, web_, lookup, work.shape);
     if (stop.stop_requested()) {
         return Outcome::Stop;
     }
@@ -150,16 +150,16 @@ CoverFitter::Outcome CoverFitter::fit(const Work& work, const std::stop_token& s
         break;
     }
     for (const SteamGridDbCover& candidate : offered.covers) {
-        const std::optional<std::string> bytes = web_.get(candidate.url, error, {}, stop);
-        if (stop.stop_requested()) {
+        const net::Result<std::string> bytes = web_.get(stop, candidate.url);
+        if (bytes.stopped()) {
             return Outcome::Stop;
         }
         if (!bytes) {
-            if (error == "HTTP 404") {
+            if (bytes.error() == "HTTP 404") {
                 continue;
             }
             // One image the CDN did not deliver: this game is asked again next round.
-            lucent::warn("artwork", "{}: {}: {}", game.id, candidate.url, error);
+            lucent::warn("artwork", "{}: {}: {}", game.id, candidate.url, bytes.error());
             return Outcome::Next;
         }
         if (!overrides_.fit(game.id, *bytes, lookupKey(lookup), error)) {

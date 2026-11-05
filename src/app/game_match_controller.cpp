@@ -93,11 +93,11 @@ fs::path GameMatchController::cached(const std::string& url, const std::string& 
         return file;
     }
     const net::WebClient web;
-    std::string error;
-    const std::optional<std::string> bytes = web.get(url, error);
+    const net::Result<std::string> bytes = web.get(std::stop_token{}, url);
     if (!bytes) {
         return {};
     }
+    std::string error;
     if (!fileio::writeWhole(file, *bytes, error)) {
         lucent::warn("match", "{}", error);
         return {};
@@ -122,11 +122,10 @@ void GameMatchController::findSteamApps(const std::stop_token& stop, const std::
     // Steam's search wants every word, so a title with a word Steam's name lacks ("Remake")
     // is searched again without its last words.
     for (std::string asked = term; !asked.empty() && apps.empty();) {
-        std::string error;
-        const std::optional<std::string> answer =
-            web.get(library::identify::storeSearchUrl(asked), error);
+        const net::Result<std::string> answer =
+            web.get(std::stop_token{}, library::identify::storeSearchUrl(asked));
         if (!answer) {
-            lucent::warn("match", "Steam store search: {}", error);
+            lucent::warn("match", "Steam store search: {}", answer.error());
             found.searched = true;
             found.error = "Steam's store cannot be reached";
             publish(found);
@@ -150,9 +149,8 @@ void GameMatchController::findSteamApps(const std::stop_token& stop, const std::
         if (stop.stop_requested()) {
             return;
         }
-        std::string dated;
-        if (const std::optional<std::string> details =
-                web.get(library::matches::releaseDateUrl(candidate.key), dated)) {
+        if (const net::Result<std::string> details =
+                web.get(std::stop_token{}, library::matches::releaseDateUrl(candidate.key))) {
             candidate.year = library::matches::parseReleaseYear(*details, candidate.key);
         }
         const std::string base = places_.steamCdn + "/" + candidate.key + "/";
@@ -170,14 +168,13 @@ void GameMatchController::findBoxArt(const std::stop_token& stop, const std::str
                                      Found& found) {
     const library::roms::RomSystem* system = library::roms::systemByKey(game_.sourceId);
     const net::WebClient web;
-    std::string error;
-    std::optional<std::vector<std::string>> names;
+    net::Result<std::vector<std::string>> names = net::Failure{"no libretro system"};
     if (system != nullptr) {
-        names = artwork::boxArtNames(web, listings_, *system, places_.libretro, error);
+        names = artwork::boxArtNames(std::stop_token{}, web, listings_, *system, places_.libretro);
     }
     found.searched = true;
-    if (system == nullptr || !names) {
-        lucent::warn("match", "libretro-thumbnails listing: {}", error);
+    if (!names) {
+        lucent::warn("match", "libretro-thumbnails listing: {}", names.error());
         found.error = "libretro-thumbnails cannot be reached";
         publish(found);
         return;

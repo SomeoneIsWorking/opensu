@@ -107,7 +107,8 @@ void CoverOffers::run(const std::stop_token& stop) {
 
 void CoverOffers::perform(const List& list) {
     const library::Game& game = list.game;
-    SteamGridDb::Covers covers = steamGridDb_.covers(web_, steamGridDbGameOf(game), std::nullopt);
+    SteamGridDb::Covers covers =
+        steamGridDb_.covers(std::stop_token{}, web_, steamGridDbGameOf(game), std::nullopt);
     CoverListing listing{game.id, covers.status, {}, covers.error, false};
     if (covers.covers.size() > mostOffers) {
         covers.covers.resize(mostOffers);
@@ -122,8 +123,8 @@ void CoverOffers::perform(const List& list) {
         }
         const fs::path thumb = thumbDir_ / std::to_string(offer.cover.id);
         if (!isFile(thumb)) {
-            std::string error;
-            const std::optional<std::string> bytes = web_.get(offer.cover.thumb, error);
+            const net::Result<std::string> bytes = web_.get(std::stop_token{}, offer.cover.thumb);
+            std::string error = bytes.error();
             if (!bytes || !fileio::writeWhole(thumb, *bytes, error)) {
                 lucent::warn("artwork", "{}: {}", offer.cover.thumb, error);
                 continue;
@@ -141,7 +142,8 @@ void CoverOffers::perform(const Choose& choose) {
     if (!choose.cover) {
         choice.kept = overrides_.chooseOwn(choose.gameId, choice.error);
     } else {
-        const std::optional<std::string> bytes = web_.get(choose.cover->url, choice.error);
+        const net::Result<std::string> bytes = web_.get(std::stop_token{}, choose.cover->url);
+        choice.error = bytes.error();
         choice.kept = bytes && overrides_.choose(choose.gameId, *bytes, choice.error);
     }
     if (choice.kept) {

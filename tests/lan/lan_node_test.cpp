@@ -416,7 +416,8 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
     std::string error;
     const lan::PeerClient toHost{web, host.endpoint()};
     const auto hello =
-        web.get("http://127.0.0.1:" + std::to_string(host.endpoint().port) + "/lan/hello", error);
+        web.get(std::stop_token{},
+                "http://127.0.0.1:" + std::to_string(host.endpoint().port) + "/lan/hello");
     const auto said = hello ? lan::wire::readHello(*hello) : std::nullopt;
     expect(said && said->id == host.node.id() && said->name == "Living room",
            "anyone may ask its name");

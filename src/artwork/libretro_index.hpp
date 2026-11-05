@@ -42,11 +42,9 @@ namesMatching(std::string_view term, std::span<const std::string> index, std::si
                                     std::string_view name);
 
 /// `system`'s box art names: the listing `store` keeps while it is fresh, else the one under
-/// `base` downloaded and kept there. Nothing when it cannot be downloaded or `stop` ends the
-/// download; `error` says why.
-[[nodiscard]] std::optional<std::vector<std::string>>
-boxArtNames(const net::WebClient& web, const ArtworkStore& store,
-            const library::roms::RomSystem& system, std::string_view base, std::string& error,
-            const std::stop_token& stop = {});
+/// `base` downloaded on `stop` and kept there.
+[[nodiscard]] net::Result<std::vector<std::string>>
+boxArtNames(const std::stop_token& stop, const net::WebClient& web, const ArtworkStore& store,
+            const library::roms::RomSystem& system, std::string_view base);
 
 } // namespace opensu::artwork

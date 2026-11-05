@@ -25,9 +25,14 @@ std::optional<net::WebClient::Answer> PeerClient::send(std::string_view target,
         .maxBody = largest, .refusal = [allowed = std::string_view{url}](const std::string& hop) {
             return hop == allowed ? std::string{} : "an openSU sends nowhere else";
         }};
-    return web_.request(
-        url, headers, guard, error,
-        net::WebClient::Sent{.method = {}, .body = post, .user = {}, .password = {}});
+    net::Result<net::WebClient::Answer> answer =
+        web_.request(std::stop_token{}, url, headers, guard,
+                     net::WebClient::Sent{.method = {}, .body = post, .user = {}, .password = {}});
+    if (!answer) {
+        error = answer.stopped() ? "stopped" : answer.error();
+        return std::nullopt;
+    }
+    return *std::move(answer);
 }
 
 std::optional<net::WebClient::Answer> PeerClient::post(std::string_view target,

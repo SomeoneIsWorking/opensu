@@ -38,11 +38,11 @@ enum class ArchiveStage : std::uint8_t { Downloading, Checking, Unpacking };
 
 /// Downloads `archive` and unpacks its folder to `<into>/<archive.installAs>`; staging files
 /// live in `<into>/.partial`. `progress` sees the bytes and may cancel; `stage` is told each step.
-/// The installed folder, or nothing with `error` ("cancelled" for a stop).
-[[nodiscard]] std::optional<std::filesystem::path>
-installArchive(const net::WebClient& web, const RuntimeArchive& archive,
-               const std::filesystem::path& into, const std::stop_token& stop,
+/// The installed folder; stopped once `stop` is requested or `progress` cancels.
+[[nodiscard]] net::Result<std::filesystem::path>
+installArchive(const std::stop_token& stop, const net::WebClient& web,
+               const RuntimeArchive& archive, const std::filesystem::path& into,
                const net::WebClient::Progress& progress,
-               const std::function<void(ArchiveStage)>& stage, std::string& error);
+               const std::function<void(ArchiveStage)>& stage);
 
 } // namespace opensu::library

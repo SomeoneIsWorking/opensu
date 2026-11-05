@@ -111,6 +111,9 @@ constexpr int pollMilliseconds = 1000;
 
 /// `curl`'s transfer; a requested `stop` wakes it and ends it at once (CURLE_ABORTED_BY_CALLBACK).
 CURLcode perform(CURL* curl, const std::stop_token& stop) {
+    if (stop.stop_requested()) {
+        return CURLE_ABORTED_BY_CALLBACK;
+    }
     if (!stop.stop_possible()) {
         return curl_easy_perform(curl);
     }
@@ -191,10 +194,44 @@ WebClient::~WebClient() {
     curl_global_cleanup();
 }
 
-std::optional<std::string> WebClient::get(const std::string& url, std::string& error,
-                                          const std::vector<std::string>& headers,
-                                          const std::stop_token& stop) const {
-    return fetch(url, error, headers, stop);
+Result<std::string> WebClient::get(const std::stop_token& stop, const std::string& url,
+                                   const std::vector<std::string>& headers) const {
+    const Easy handle = newEasy(trust_);
+    if (handle == nullptr) {
+        return Failure{"libcurl could not start a request"};
+    }
+    std::string body;
+    CURL* curl = handle.get();
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_MAXREDIRS, redirectLimit);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, connectTimeoutSeconds);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeoutSeconds);
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "opensu");
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, append);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
+    curl_slist* list = nullptr;
+    for (const std::string& header : headers) {
+        list = curl_slist_append(list, header.c_str());
+    }
+    const std::unique_ptr<curl_slist, HeaderListDeleter> sent{list};
+    if (list != nullptr) {
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
+    }
+    const CURLcode result = perform(curl, stop);
+    if (result == CURLE_ABORTED_BY_CALLBACK) {
+        return Stopped{};
+    }
+    if (result != CURLE_OK) {
+        return Failure{curl_easy_strerror(result)};
+    }
+    long status = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+    if (status != httpOk) {
+        return Failure{"HTTP " + std::to_string(status)};
+    }
+    return body;
 }
 
 std::string WebClient::Answer::header(std::string_view name) const {
@@ -204,10 +241,9 @@ std::string WebClient::Answer::header(std::string_view name) const {
     return found != headers.end() ? found->second : std::string{};
 }
 
-std::optional<WebClient::Answer> WebClient::request(const std::string& url,
-                                                    const std::vector<std::string>& headers,
-                                                    const Guard& guard, std::string& error,
-                                                    const Sent& sent) const {
+Result<WebClient::Answer> WebClient::request(const std::stop_token& stop, const std::string& url,
+                                             const std::vector<std::string>& headers,
+                                             const Guard& guard, const Sent& sent) const {
     curl_slist* list = nullptr;
     for (const std::string& header : headers) {
         list = curl_slist_append(list, header.c_str());
@@ -216,13 +252,11 @@ std::optional<WebClient::Answer> WebClient::request(const std::string& url,
     std::string next = url;
     for (long hop = 0; hop <= redirectLimit; ++hop) {
         if (std::string refused = guard.refusal(next); !refused.empty()) {
-            error = std::move(refused);
-            return std::nullopt;
+            return Failure{std::move(refused)};
         }
         const Easy handle = newEasy(trust_);
         if (handle == nullptr) {
-            error = "libcurl could not start a request";
-            return std::nullopt;
+            return Failure{"libcurl could not start a request"};
         }
         CappedBody body;
         body.cap = guard.maxBody;
@@ -262,18 +296,15 @@ std::optional<WebClient::Answer> WebClient::request(const std::string& url,
         if (list != nullptr) {
             curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
         }
-        const CURLcode result = perform(curl, guard.stop);
+        const CURLcode result = perform(curl, stop);
         if (body.over) {
-            error = "the answer is over " + std::to_string(guard.maxBody) + " bytes";
-            return std::nullopt;
+            return Failure{"the answer is over " + std::to_string(guard.maxBody) + " bytes"};
         }
         if (result == CURLE_ABORTED_BY_CALLBACK) {
-            error = "cancelled";
-            return std::nullopt;
+            return Stopped{};
         }
         if (result != CURLE_OK) {
-            error = curl_easy_strerror(result);
-            return std::nullopt;
+            return Failure{curl_easy_strerror(result)};
         }
         long status = 0;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
@@ -284,22 +315,19 @@ std::optional<WebClient::Answer> WebClient::request(const std::string& url,
         }
         next = location;
     }
-    error = "more than " + std::to_string(redirectLimit) + " redirects";
-    return std::nullopt;
+    return Failure{"more than " + std::to_string(redirectLimit) + " redirects"};
 }
 
-std::optional<WebClient::BodyFacts> WebClient::head(const std::string& url, const Refusal& refusal,
-                                                    std::string& error) const {
+Result<WebClient::BodyFacts> WebClient::head(const std::stop_token& stop, const std::string& url,
+                                             const Refusal& refusal) const {
     std::string next = url;
     for (long hop = 0; hop <= redirectLimit; ++hop) {
         if (std::string refused = refusal(next); !refused.empty()) {
-            error = std::move(refused);
-            return std::nullopt;
+            return Failure{std::move(refused)};
         }
         const Easy handle = newEasy(trust_);
         if (handle == nullptr) {
-            error = "libcurl could not start a request";
-            return std::nullopt;
+            return Failure{"libcurl could not start a request"};
         }
         CURL* curl = handle.get();
         curl_easy_setopt(curl, CURLOPT_URL, next.c_str());
@@ -309,10 +337,12 @@ std::optional<WebClient::BodyFacts> WebClient::head(const std::string& url, cons
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeoutSeconds);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "opensu");
         curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
-        const CURLcode result = curl_easy_perform(curl);
+        const CURLcode result = perform(curl, stop);
+        if (result == CURLE_ABORTED_BY_CALLBACK) {
+            return Stopped{};
+        }
         if (result != CURLE_OK) {
-            error = curl_easy_strerror(result);
-            return std::nullopt;
+            return Failure{curl_easy_strerror(result)};
         }
         char* location = nullptr;
         curl_easy_getinfo(curl, CURLINFO_REDIRECT_URL, &location);
@@ -323,18 +353,18 @@ std::optional<WebClient::BodyFacts> WebClient::head(const std::string& url, cons
         long status = 0;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
         if (status != httpOk) {
-            error = "HTTP " + std::to_string(status);
-            return std::nullopt;
+            return Failure{"HTTP " + std::to_string(status)};
         }
         return factsOf(curl);
     }
-    error = "more than " + std::to_string(redirectLimit) + " redirects";
-    return std::nullopt;
+    return Failure{"more than " + std::to_string(redirectLimit) + " redirects"};
 }
 
-bool WebClient::download(const std::string& url, const std::filesystem::path& file,
-                         const Progress& progress, std::string& error, const Refusal& refusal,
-                         BodyFacts* facts) const {
+Result<WebClient::BodyFacts> WebClient::download(const std::stop_token& stop,
+                                                 const std::string& url,
+                                                 const std::filesystem::path& file,
+                                                 const Progress& progress,
+                                                 const Refusal& refusal) const {
     const std::string scheme = url.substr(0, url.find(':') + 1);
     const Refusal sameScheme = [&scheme](const std::string& next) {
         return next.starts_with(scheme) ? std::string{} : next + " leaves " + scheme;
@@ -343,19 +373,16 @@ bool WebClient::download(const std::string& url, const std::filesystem::path& fi
     std::string next = url;
     for (long hop = 0; hop <= redirectLimit; ++hop) {
         if (std::string refused = allowed(next); !refused.empty()) {
-            error = std::move(refused);
-            return false;
+            return Failure{std::move(refused)};
         }
         const Easy handle = newEasy(trust_);
         if (handle == nullptr) {
-            error = "libcurl could not start a request";
-            return false;
+            return Failure{"libcurl could not start a request"};
         }
         // Each hop starts the file afresh, so a redirect's body never stays in it.
         std::ofstream out{file, std::ios::binary | std::ios::trunc};
         if (!out) {
-            error = "cannot write " + file.string();
-            return false;
+            return Failure{"cannot write " + file.string()};
         }
         CURL* curl = handle.get();
         curl_easy_setopt(curl, CURLOPT_URL, next.c_str());
@@ -370,14 +397,12 @@ bool WebClient::download(const std::string& url, const std::filesystem::path& fi
         curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, report);
         curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &progress);
         curl_easy_setopt(curl, CURLOPT_FILETIME, 1L);
-        const CURLcode result = curl_easy_perform(curl);
+        const CURLcode result = perform(curl, stop);
         if (result == CURLE_ABORTED_BY_CALLBACK) {
-            error = "cancelled";
-            return false;
+            return Stopped{};
         }
         if (result != CURLE_OK) {
-            error = curl_easy_strerror(result);
-            return false;
+            return Failure{curl_easy_strerror(result)};
         }
         char* location = nullptr;
         curl_easy_getinfo(curl, CURLINFO_REDIRECT_URL, &location);
@@ -388,65 +413,14 @@ bool WebClient::download(const std::string& url, const std::filesystem::path& fi
         long status = 0;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
         if (status != httpOk) {
-            error = "HTTP " + std::to_string(status);
-            return false;
+            return Failure{"HTTP " + std::to_string(status)};
         }
         if (!out.flush()) {
-            error = "cannot write " + file.string();
-            return false;
+            return Failure{"cannot write " + file.string()};
         }
-        if (facts != nullptr) {
-            *facts = factsOf(curl);
-        }
-        return true;
+        return factsOf(curl);
     }
-    error = "more than " + std::to_string(redirectLimit) + " redirects";
-    return false;
-}
-
-std::optional<std::string> WebClient::fetch(const std::string& url, std::string& error,
-                                            const std::vector<std::string>& headers,
-                                            const std::stop_token& stop) const {
-    const Easy handle = newEasy(trust_);
-    if (handle == nullptr) {
-        error = "libcurl could not start a request";
-        return std::nullopt;
-    }
-    std::string body;
-    CURL* curl = handle.get();
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl, CURLOPT_MAXREDIRS, redirectLimit);
-    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, connectTimeoutSeconds);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeoutSeconds);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "opensu");
-    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, append);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
-    curl_slist* list = nullptr;
-    for (const std::string& header : headers) {
-        list = curl_slist_append(list, header.c_str());
-    }
-    const std::unique_ptr<curl_slist, HeaderListDeleter> sent{list};
-    if (list != nullptr) {
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
-    }
-    const CURLcode result = perform(curl, stop);
-    if (result == CURLE_ABORTED_BY_CALLBACK) {
-        error = "cancelled";
-        return std::nullopt;
-    }
-    if (result != CURLE_OK) {
-        error = curl_easy_strerror(result);
-        return std::nullopt;
-    }
-    long status = 0;
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
-    if (status != httpOk) {
-        error = "HTTP " + std::to_string(status);
-        return std::nullopt;
-    }
-    return body;
+    return Failure{"more than " + std::to_string(redirectLimit) + " redirects"};
 }
 
 } // namespace opensu::net

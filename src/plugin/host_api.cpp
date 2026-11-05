@@ -245,12 +245,12 @@ int httpGet(lua_State* state) {
                                               .refusal = [&permissions](const std::string& hop) {
                                                   return permissions.urlRefusal(hop);
                                               }};
-            std::string error;
-            std::optional<net::WebClient::Answer> answer = web->request(url, headers, guard, error);
+            net::Result<net::WebClient::Answer> answer =
+                web->request(std::stop_token{}, url, headers, guard);
             if (!answer) {
-                return failure(error);
+                return failure(answer.stopped() ? "stopped" : answer.error());
             }
-            return [answer = std::move(*answer)](lua_State* resumed) {
+            return [answer = *std::move(answer)](lua_State* resumed) {
                 lua_createtable(resumed, 0, 2);
                 lua_pushinteger(resumed, static_cast<lua_Integer>(answer.status));
                 lua_setfield(resumed, -2, "status");

@@ -23,12 +23,11 @@ constexpr std::string_view steamCookie = "Cookie: wants_mature_content=1; birtht
 /// The body of `url`, ended by `stop`; throws with why when there is none.
 std::string fetch(const net::WebClient& web, const std::stop_token& stop, const std::string& url,
                   const std::vector<std::string>& headers = {}) {
-    std::string error;
-    std::optional<std::string> body = web.get(url, error, headers, stop);
+    net::Result<std::string> body = web.get(stop, url, headers);
     if (!body) {
-        throw std::runtime_error{error};
+        throw std::runtime_error{body.stopped() ? "stopped" : body.error()};
     }
-    return std::move(*body);
+    return *std::move(body);
 }
 
 std::vector<Offer> readEpic(const net::WebClient& web, const std::stop_token& stop) {

@@ -39,8 +39,8 @@ std::string EmulatorDownloads::start(std::string_view id) {
         if (setup_.shaders.root().parent_path().empty()) {
             return "openSU has no folder to keep the shader presets in";
         }
-        return launch(id, [this](const std::stop_token& stop, const auto& progress, auto& error) {
-            return installPack(stop, progress, error);
+        return launch(id, [this](const std::stop_token& stop, const auto& progress) {
+            return installPack(stop, progress);
         });
     }
     const EmulatorEntry* entry = setup_.catalog.find(id);
@@ -53,11 +53,10 @@ std::string EmulatorDownloads::start(std::string_view id) {
     if (entry->builtIn() && cores_.root().empty()) {
         return "openSU has no folder to keep " + entry->name + "'s core in";
     }
-    return launch(id,
-                  [this, entry](const std::stop_token& stop, const auto& progress, auto& error) {
-                      return entry->builtIn() ? installCore(stop, *entry, progress, error)
-                                              : installRelease(stop, *entry, progress, error);
-                  });
+    return launch(id, [this, entry](const std::stop_token& stop, const auto& progress) {
+        return entry->builtIn() ? installCore(stop, *entry, progress)
+                                : installRelease(stop, *entry, progress);
+    });
 }
 
 std::string EmulatorDownloads::launch(std::string_view id, Installer install) {
@@ -89,61 +88,48 @@ void EmulatorDownloads::remember(const std::string& id, Build build) {
     latest_.insert_or_assign(id, std::move(build));
 }
 
-std::optional<EmulatorDownloads::Build>
+net::Result<EmulatorDownloads::Build>
 EmulatorDownloads::installRelease(const std::stop_token& stop, const EmulatorEntry& entry,
-                                  const net::WebClient::Progress& progress, std::string& error) {
+                                  const net::WebClient::Progress& progress) {
     if (!entry.release) {
-        error = entry.name + " publishes no AppImage";
-        return std::nullopt;
+        return net::Failure{entry.name + " publishes no AppImage"};
     }
-    const std::optional<library::roms::ReleaseAsset> asset = release_.latest(*entry.release, error);
+    const net::Result<library::roms::ReleaseAsset> asset = release_.latest(stop, *entry.release);
     if (!asset) {
-        return std::nullopt;
+        return asset.as<Build>();
     }
     remember(entry.id, Build{asset->version, asset->assetId});
-    if (stop.stop_requested()) {
-        error = "cancelled";
-        return std::nullopt;
-    }
-    const std::optional<library::roms::DownloadedEmulator> installed =
-        release_.install(entry, *asset, store_, progress, error);
+    const net::Result<library::roms::DownloadedEmulator> installed =
+        release_.install(stop, entry, *asset, store_, progress);
     if (!installed) {
-        return std::nullopt;
+        return installed.as<Build>();
     }
     return Build{installed->version, installed->assetId};
 }
 
-std::optional<EmulatorDownloads::Build>
+net::Result<EmulatorDownloads::Build>
 EmulatorDownloads::installCore(const std::stop_token& stop, const EmulatorEntry& entry,
-                               const net::WebClient::Progress& progress, std::string& error) {
-    const std::optional<library::roms::CoreBuild> build = coreDownload_.latest(entry.core, error);
+                               const net::WebClient::Progress& progress) {
+    const net::Result<library::roms::CoreBuild> build = coreDownload_.latest(stop, entry.core);
     if (!build) {
-        return std::nullopt;
+        return build.as<Build>();
     }
     remember(entry.id, Build{build->date, std::to_string(build->crc32)});
-    if (stop.stop_requested()) {
-        error = "cancelled";
-        return std::nullopt;
-    }
-    const std::optional<library::roms::DownloadedCore> installed =
-        coreDownload_.install(*build, cores_, progress, error);
+    const net::Result<library::roms::DownloadedCore> installed =
+        coreDownload_.install(stop, *build, cores_, progress);
     if (!installed) {
-        return std::nullopt;
+        return installed.as<Build>();
     }
     return Build{installed->date, std::to_string(installed->crc32)};
 }
 
-std::optional<EmulatorDownloads::Build>
+net::Result<EmulatorDownloads::Build>
 EmulatorDownloads::installPack(const std::stop_token& stop,
-                               const net::WebClient::Progress& progress, std::string& error) {
-    if (stop.stop_requested()) {
-        error = "cancelled";
-        return std::nullopt;
-    }
-    const std::optional<library::roms::ShaderPackBuild> installed =
-        packDownload_.install(setup_.shaders, progress, error);
+                               const net::WebClient::Progress& progress) {
+    const net::Result<library::roms::ShaderPackBuild> installed =
+        packDownload_.install(stop, setup_.shaders, progress);
     if (!installed) {
-        return std::nullopt;
+        return installed.as<Build>();
     }
     Build build{installed->version(), installed->key()};
     remember(std::string{library::roms::shaderPackId}, build);
@@ -161,17 +147,16 @@ void EmulatorDownloads::runDownload(const std::stop_token& stop, const std::stri
         }
         return !stop.stop_requested();
     };
-    std::string error;
-    const std::optional<Build> installed = install(stop, progress, error);
+    const net::Result<Build> installed = install(stop, progress);
     const std::string name = nameOf(id);
     using Outcome = Finished::Outcome;
     Ended ended;
     if (installed) {
         ended = Ended{id, name + " " + installed->version + " is installed", Outcome::Installed};
-    } else if (error == "cancelled") {
+    } else if (installed.stopped()) {
         ended = Ended{id, name + " download cancelled", Outcome::Cancelled};
     } else {
-        ended = Ended{id, name + " was not installed: " + error, Outcome::Failed};
+        ended = Ended{id, name + " was not installed: " + installed.error(), Outcome::Failed};
         lucent::warn("emulators", "{}", ended.text);
     }
     const std::lock_guard lock{mutex_};
@@ -213,13 +198,12 @@ void EmulatorDownloads::runCheck(const std::stop_token& stop, bool standalone) {
     std::vector<std::string> failures;
     checkCores(failures);
     if (!setup_.shaders.root().parent_path().empty()) {
-        std::string error;
-        if (const std::optional<library::roms::ShaderPackBuild> pack =
-                packDownload_.latest(error)) {
+        if (const net::Result<library::roms::ShaderPackBuild> pack =
+                packDownload_.latest(std::stop_token{})) {
             remember(std::string{library::roms::shaderPackId}, Build{pack->version(), pack->key()});
         } else {
-            lucent::warn("emulators", "{}", error);
-            failures.push_back(std::string{library::roms::shaderPackName} + ": " + error);
+            lucent::warn("emulators", "{}", pack.error());
+            failures.push_back(std::string{library::roms::shaderPackName} + ": " + pack.error());
         }
     }
     for (const EmulatorEntry& entry : setup_.catalog.entries()) {
@@ -229,13 +213,12 @@ void EmulatorDownloads::runCheck(const std::stop_token& stop, bool standalone) {
         if (!entry.release || (!standalone && !entry.builtIn())) {
             continue;
         }
-        std::string error;
-        if (const std::optional<library::roms::ReleaseAsset> asset =
-                release_.latest(*entry.release, error)) {
+        if (const net::Result<library::roms::ReleaseAsset> asset =
+                release_.latest(std::stop_token{}, *entry.release)) {
             remember(entry.id, Build{asset->version, asset->assetId});
         } else {
-            lucent::warn("emulators", "{}: {}", entry.name, error);
-            failures.push_back(entry.name + ": " + error);
+            lucent::warn("emulators", "{}: {}", entry.name, asset.error());
+            failures.push_back(entry.name + ": " + asset.error());
         }
     }
     const std::lock_guard lock{mutex_};
@@ -247,13 +230,13 @@ void EmulatorDownloads::checkCores(std::vector<std::string>& failures) {
     if (std::ranges::none_of(setup_.catalog.entries(), &EmulatorEntry::builtIn)) {
         return;
     }
-    std::string error;
-    const std::optional<std::string> listing = coreDownload_.index(error);
+    const net::Result<std::string> listing = coreDownload_.index(std::stop_token{});
     if (!listing) {
-        lucent::warn("emulators", "libretro buildbot: {}", error);
-        failures.push_back("libretro buildbot: " + error);
+        lucent::warn("emulators", "libretro buildbot: {}", listing.error());
+        failures.push_back("libretro buildbot: " + listing.error());
         return;
     }
+    std::string error;
     for (const EmulatorEntry& entry : setup_.catalog.entries()) {
         if (!entry.builtIn()) {
             continue;
@@ -279,8 +262,9 @@ void EmulatorDownloads::fetchMissingInfo(std::vector<std::string>& failures) {
         }
         std::string error;
         if (!archive) {
-            std::optional<std::string> bytes = coreDownload_.infoArchive(error);
-            archive = bytes ? library::roms::CoreInfoArchive::open(std::move(*bytes), error)
+            net::Result<std::string> bytes = coreDownload_.infoArchive(std::stop_token{});
+            error = bytes.error();
+            archive = bytes ? library::roms::CoreInfoArchive::open(*std::move(bytes), error)
                             : std::nullopt;
         }
         const std::optional<std::string> info =

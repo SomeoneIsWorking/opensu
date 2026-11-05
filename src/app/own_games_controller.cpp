@@ -144,11 +144,10 @@ void OwnGamesController::identify(const fs::path& file) {
         const net::WebClient web;
         library::identify::Guess guess =
             library::identify::identify(file, [&web](const std::string& term) {
-                std::string error;
-                const std::optional<std::string> answer =
-                    web.get(library::identify::storeSearchUrl(term), error);
+                const net::Result<std::string> answer =
+                    web.get(std::stop_token{}, library::identify::storeSearchUrl(term));
                 if (!answer) {
-                    lucent::warn("own-games", "Steam store search: {}", error);
+                    lucent::warn("own-games", "Steam store search: {}", answer.error());
                     return std::vector<library::identify::StoreApp>{};
                 }
                 return library::identify::parseStoreSearch(*answer);

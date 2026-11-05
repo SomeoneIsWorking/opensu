@@ -96,7 +96,8 @@ bool RomsetDats::due(const EmulatorEntry& entry, Clock::time_point now) const {
     return !kept || secondsOf(now) - kept->fetched >= lifetime.count();
 }
 
-bool RomsetDats::refresh(const EmulatorEntry& entry, Clock::time_point now, std::string& error,
+bool RomsetDats::refresh(const std::stop_token& stop, const EmulatorEntry& entry,
+                         Clock::time_point now, std::string& error,
                          const net::WebClient::Progress& progress) const {
     if (!due(entry, now)) {
         return true;
@@ -106,7 +107,8 @@ bool RomsetDats::refresh(const EmulatorEntry& entry, Clock::time_point now, std:
         error = "no listing of " + entry.name + "'s romsets is kept";
         return kept.has_value();
     }
-    std::optional<std::pair<RomsetDat, std::uint32_t>> fetched = fetch(entry, progress, error);
+    std::optional<std::pair<RomsetDat, std::uint32_t>> fetched =
+        fetch(stop, entry, progress, error);
     if (!fetched) {
         error = entry.name + "'s romset listing cannot be fetched: " + error +
                 (kept ? "; the older listing stays" : "");
@@ -121,10 +123,10 @@ bool RomsetDats::refresh(const EmulatorEntry& entry, Clock::time_point now, std:
 }
 
 std::optional<std::pair<RomsetDat, std::uint32_t>>
-RomsetDats::fetch(const EmulatorEntry& entry, const net::WebClient::Progress& progress,
-                  std::string& error) const {
+RomsetDats::fetch(const std::stop_token& stop, const EmulatorEntry& entry,
+                  const net::WebClient::Progress& progress, std::string& error) const {
     if (entry.romsets.release) {
-        return fetchRelease(*entry.romsets.release, progress, error);
+        return fetchRelease(stop, *entry.romsets.release, progress, error);
     }
     RomsetDat dat;
     std::string crcs;
@@ -140,9 +142,9 @@ RomsetDats::fetch(const EmulatorEntry& entry, const net::WebClient::Progress& pr
                                                    : std::format("{} is not on {}", hop, origin);
                 },
             .progress = sumOf(progress, before)};
-        std::optional<net::WebClient::Answer> answer = web_->request(url, {}, guard, error);
+        net::Result<net::WebClient::Answer> answer = web_->request(stop, url, {}, guard);
         if (!answer) {
-            error = std::format("{}: {}", url, error);
+            error = std::format("{}: {}", url, answer.stopped() ? "stopped" : answer.error());
             return std::nullopt;
         }
         if (answer->status != httpOk) {
@@ -157,10 +159,11 @@ RomsetDats::fetch(const EmulatorEntry& entry, const net::WebClient::Progress& pr
 }
 
 std::optional<std::pair<RomsetDat, std::uint32_t>>
-RomsetDats::fetchRelease(const ReleaseSource& release, const net::WebClient::Progress& progress,
-                         std::string& error) const {
-    const std::optional<ReleaseAsset> asset = EmulatorRelease{*web_}.latest(release, error);
+RomsetDats::fetchRelease(const std::stop_token& stop, const ReleaseSource& release,
+                         const net::WebClient::Progress& progress, std::string& error) const {
+    const net::Result<ReleaseAsset> asset = EmulatorRelease{*web_}.latest(stop, release);
     if (!asset) {
+        error = asset.stopped() ? "stopped" : asset.error();
         return std::nullopt;
     }
     const net::WebClient::Progress sized = [&progress, &asset](std::uint64_t received,
@@ -177,9 +180,11 @@ RomsetDats::fetchRelease(const ReleaseSource& release, const net::WebClient::Pro
                                                          : hop + " leaves " + scheme;
                                           },
                                       .progress = sized};
-    std::optional<net::WebClient::Answer> answer = web_->request(asset->url, {}, guard, error);
+    net::Result<net::WebClient::Answer> answer = web_->request(stop, asset->url, {}, guard);
     if (!answer || answer->status != httpOk) {
-        error = asset->url + ": " + (answer ? "HTTP " + std::to_string(answer->status) : error);
+        error = asset->url + ": " +
+                (answer ? "HTTP " + std::to_string(answer->status)
+                        : (answer.stopped() ? "stopped" : answer.error()));
         return std::nullopt;
     }
     std::string bytes = std::move(answer->body);

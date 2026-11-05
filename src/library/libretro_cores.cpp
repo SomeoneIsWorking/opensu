@@ -244,96 +244,105 @@ std::string CoreDownload::refusal(const std::string& url) const {
     return {};
 }
 
-std::optional<std::string> CoreDownload::index(std::string& error) const {
+net::Result<std::string> CoreDownload::index(const std::stop_token& stop) const {
     const net::WebClient::Guard guard{maxIndexBytes, [this](const std::string& url) {
                                           return refusal(url);
                                       }};
-    std::optional<net::WebClient::Answer> answer =
-        web_.request(base_ + std::string{coreIndexFile}, {}, guard, error);
+    net::Result<net::WebClient::Answer> answer =
+        web_.request(stop, base_ + std::string{coreIndexFile}, {}, guard);
     if (!answer) {
-        error = "the buildbot's listing cannot be read: " + error;
-        return std::nullopt;
+        return answer.as<std::string>("the buildbot's listing cannot be read: ");
     }
     if (answer->status != httpOk) {
-        error = "the buildbot's listing cannot be read: HTTP " + std::to_string(answer->status);
-        return std::nullopt;
+        return net::Failure{"the buildbot's listing cannot be read: HTTP " +
+                            std::to_string(answer->status)};
     }
     return std::move(answer->body);
 }
 
-std::optional<CoreBuild> CoreDownload::latest(std::string_view core, std::string& error) const {
-    const std::optional<std::string> listing = index(error);
+net::Result<CoreBuild> CoreDownload::latest(const std::stop_token& stop,
+                                            std::string_view core) const {
+    const net::Result<std::string> listing = index(stop);
     if (!listing) {
-        return std::nullopt;
+        return listing.as<CoreBuild>();
     }
-    return coreBuildIn(*listing, core, base_, error);
+    std::string error;
+    std::optional<CoreBuild> build = coreBuildIn(*listing, core, base_, error);
+    if (!build) {
+        return net::Failure{std::move(error)};
+    }
+    return std::move(*build);
 }
 
-std::optional<std::string> CoreDownload::infoArchive(std::string& error) const {
+net::Result<std::string> CoreDownload::infoArchive(const std::stop_token& stop) const {
     const net::WebClient::Guard guard{maxInfoArchiveBytes, [this](const std::string& url) {
                                           return refusal(url);
                                       }};
-    std::optional<net::WebClient::Answer> answer =
-        web_.request(net::originOf(base_) + std::string{coreInfoArchive}, {}, guard, error);
+    net::Result<net::WebClient::Answer> answer =
+        web_.request(stop, net::originOf(base_) + std::string{coreInfoArchive}, {}, guard);
     if (!answer) {
-        error = "the buildbot's core info cannot be read: " + error;
-        return std::nullopt;
+        return answer.as<std::string>("the buildbot's core info cannot be read: ");
     }
     if (answer->status != httpOk) {
-        error = "the buildbot's core info cannot be read: HTTP " + std::to_string(answer->status);
-        return std::nullopt;
+        return net::Failure{"the buildbot's core info cannot be read: HTTP " +
+                            std::to_string(answer->status)};
     }
     return std::move(answer->body);
 }
 
-std::optional<DownloadedCore> CoreDownload::install(const CoreBuild& build,
-                                                    const DownloadedCores& store,
-                                                    const net::WebClient::Progress& progress,
-                                                    std::string& error) const {
+net::Result<DownloadedCore> CoreDownload::install(const std::stop_token& stop,
+                                                  const CoreBuild& build,
+                                                  const DownloadedCores& store,
+                                                  const net::WebClient::Progress& progress) const {
+    std::string error;
     std::error_code ec;
     fs::create_directories(store.root(), ec);
     if (ec) {
-        error = "cannot make " + store.root().string() + ": " + ec.message();
-        return std::nullopt;
+        return net::Failure{"cannot make " + store.root().string() + ": " + ec.message()};
     }
-    std::optional<std::string> infoBytes = infoArchive(error);
+    net::Result<std::string> infoBytes = infoArchive(stop);
+    if (!infoBytes) {
+        return infoBytes.as<DownloadedCore>();
+    }
     const std::optional<CoreInfoArchive> archive =
-        infoBytes ? CoreInfoArchive::open(std::move(*infoBytes), error) : std::nullopt;
+        CoreInfoArchive::open(*std::move(infoBytes), error);
     const std::optional<std::string> info =
         archive ? archive->info(build.core, error) : std::nullopt;
     if (!info) {
-        return std::nullopt;
+        return net::Failure{std::move(error)};
     }
     const fs::path part = store.root() / (build.core + std::string{libraryExtension} + ".zip.part");
     lucent::info("emulators", "downloading {} {} from {}", build.core, build.date, build.url);
-    const bool fetched = web_.download(build.url, part, progress, error, [this](const auto& url) {
-        return refusal(url);
-    });
+    const net::Result<net::WebClient::BodyFacts> fetched =
+        web_.download(stop, build.url, part, progress, [this](const auto& url) {
+            return refusal(url);
+        });
     std::optional<std::string> bytes = fetched ? readWhole(part, error) : std::nullopt;
     removeQuietly(part);
     if (!fetched) {
-        if (error != "cancelled") {
-            error = "the download failed: " + error;
-        }
-        return std::nullopt;
+        return fetched.as<DownloadedCore>("the download failed: ");
     }
     if (!bytes) {
-        return std::nullopt;
+        return net::Failure{std::move(error)};
     }
     const std::optional<std::string> library = coreIn(std::move(*bytes), build.core, error);
     if (!library) {
-        return std::nullopt;
+        return net::Failure{std::move(error)};
     }
     // The buildbot lists the CRC-32 of the library inside the zip, not of the zip.
     if (const std::uint32_t seen = zip::crc32Of(*library); seen != build.crc32) {
         error = "the core's CRC-32 " + hexOf(seen) + " is not the buildbot's " + hexOf(build.crc32);
         lucent::warn("emulators", "{} {}: {}", build.core, build.date, error);
-        return std::nullopt;
+        return net::Failure{std::move(error)};
     }
     if (!store.install(build, *library, *info, error)) {
-        return std::nullopt;
+        return net::Failure{std::move(error)};
     }
-    return store.find(build.core);
+    std::optional<DownloadedCore> installed = store.find(build.core);
+    if (!installed) {
+        return net::Failure{build.core + " is not found where it was installed"};
+    }
+    return std::move(*installed);
 }
 
 } // namespace opensu::library::roms

@@ -26,20 +26,19 @@ std::string urlOf(std::string_view base, std::string_view path) {
 
 } // namespace
 
-std::optional<library::roms::NameMap>
-fetchArcadeNames(const net::WebClient& web, std::string_view base, std::span<const DatPin> pins,
-                 std::string& error, const std::stop_token& stop) {
+net::Result<library::roms::NameMap> fetchArcadeNames(const std::stop_token& stop,
+                                                     const net::WebClient& web,
+                                                     std::string_view base,
+                                                     std::span<const DatPin> pins) {
     library::roms::NameMap names;
     for (const DatPin& pin : pins) {
         const std::string url = urlOf(base, pin.path);
-        const std::optional<std::string> bytes = web.get(url, error, {}, stop);
+        const net::Result<std::string> bytes = web.get(stop, url);
         if (!bytes) {
-            error.insert(0, url + ": ");
-            return std::nullopt;
+            return bytes.as<library::roms::NameMap>(url + ": ");
         }
         if (bytes->size() != pin.size || zip::crc32Of(*bytes) != pin.crc32) {
-            error = url + " differs from its pin";
-            return std::nullopt;
+            return net::Failure{url + " differs from its pin"};
         }
         for (auto& [key, title] : library::roms::parseDat(*bytes)) {
             names.try_emplace(key, std::move(title));

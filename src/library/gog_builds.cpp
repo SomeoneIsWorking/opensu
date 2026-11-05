@@ -83,11 +83,10 @@ std::optional<std::string> offeredBuild(const net::WebClient& web, const Endpoin
         native ? endpoints.api + "/products/" + std::string{id} + "?expand=downloads"
                : endpoints.content + "/products/" + std::string{id} + "/os/" +
                      std::string{platform} + "/builds?generation=2";
-    std::string error;
-    const std::optional<std::string> body = web.get(url, error, headers);
+    const net::Result<std::string> body = web.get(std::stop_token{}, url, headers);
     if (!body) {
-        throw std::runtime_error{"cannot read GOG's builds of " + std::string{id} + " (" + error +
-                                 ")"};
+        throw std::runtime_error{"cannot read GOG's builds of " + std::string{id} + " (" +
+                                 body.error() + ")"};
     }
     return native ? offeredLinuxVersion(*body) : offeredWindowsBuild(*body);
 }

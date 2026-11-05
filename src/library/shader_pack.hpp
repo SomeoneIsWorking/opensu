@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -93,13 +94,13 @@ class ShaderPackDownload {
     }
 
     /// The build the buildbot serves now, from a HEAD of the zip.
-    [[nodiscard]] std::optional<ShaderPackBuild> latest(std::string& error) const;
+    [[nodiscard]] net::Result<ShaderPackBuild> latest(const std::stop_token& stop) const;
 
-    /// Downloads the zip, checks it and unpacks it into `pack`. On any failure, a cancel included,
-    /// nothing of the download stays, the pack in use stays, and `error` says why.
-    [[nodiscard]] std::optional<ShaderPackBuild> install(const ShaderPack& pack,
-                                                         const net::WebClient::Progress& progress,
-                                                         std::string& error) const;
+    /// Downloads the zip, checks it and unpacks it into `pack`. Unless it succeeds, a stop or
+    /// cancel included, nothing of the download stays and the pack in use stays.
+    [[nodiscard]] net::Result<ShaderPackBuild>
+    install(const std::stop_token& stop, const ShaderPack& pack,
+            const net::WebClient::Progress& progress) const;
 
   private:
     /// Why `url` may not be fetched: every hop stays on the buildbot's origin.

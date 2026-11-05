@@ -221,65 +221,59 @@ std::string ShaderPackDownload::refusal(const std::string& url) const {
     return {};
 }
 
-std::optional<ShaderPackBuild> ShaderPackDownload::latest(std::string& error) const {
-    const std::optional<net::WebClient::BodyFacts> facts = web_.head(
-        url_,
-        [this](const std::string& url) {
+net::Result<ShaderPackBuild> ShaderPackDownload::latest(const std::stop_token& stop) const {
+    const net::Result<net::WebClient::BodyFacts> facts =
+        web_.head(stop, url_, [this](const std::string& url) {
             return refusal(url);
-        },
-        error);
+        });
     if (!facts) {
-        error = "the buildbot's shader pack cannot be read: " + error;
-        return std::nullopt;
+        return facts.as<ShaderPackBuild>("the buildbot's shader pack cannot be read: ");
     }
     if (facts->modified < 0 || facts->length <= 0) {
-        error = "the buildbot serves the shader pack without a date and size";
-        return std::nullopt;
+        return net::Failure{"the buildbot serves the shader pack without a date and size"};
     }
     return ShaderPackBuild{facts->modified, static_cast<std::uint64_t>(facts->length), url_};
 }
 
-std::optional<ShaderPackBuild> ShaderPackDownload::install(const ShaderPack& pack,
-                                                           const net::WebClient::Progress& progress,
-                                                           std::string& error) const {
+net::Result<ShaderPackBuild>
+ShaderPackDownload::install(const std::stop_token& stop, const ShaderPack& pack,
+                            const net::WebClient::Progress& progress) const {
+    std::string error;
     const fs::path folder = pack.root().parent_path();
     std::error_code ec;
     fs::create_directories(folder, ec);
     if (ec) {
-        error = "cannot make " + folder.string() + ": " + ec.message();
-        return std::nullopt;
+        return net::Failure{"cannot make " + folder.string() + ": " + ec.message()};
     }
     const fs::path part = folder / "shaders_slang.zip.part";
     lucent::info("shaders", "downloading the shader pack from {}", url_);
-    net::WebClient::BodyFacts facts;
-    const bool fetched = web_.download(
-        url_, part, progress, error,
-        [this](const auto& url) {
+    const net::Result<net::WebClient::BodyFacts> fetched =
+        web_.download(stop, url_, part, progress, [this](const auto& url) {
             return refusal(url);
-        },
-        &facts);
+        });
     std::optional<std::string> bytes = fetched ? readWhole(part, error) : std::nullopt;
     fs::remove(part, ec);
     if (!fetched) {
-        if (error != "cancelled") {
-            error = "the download failed: " + error;
-        }
-        return std::nullopt;
+        return fetched.as<ShaderPackBuild>("the download failed: ");
     }
     if (!bytes) {
-        return std::nullopt;
+        return net::Failure{std::move(error)};
     }
+    const net::WebClient::BodyFacts& facts = *fetched;
     // The buildbot publishes no digest: the length the response announced is what is checked.
     if (facts.length < 0 || static_cast<std::uint64_t>(facts.length) != bytes->size()) {
-        error = "the pack is " + std::to_string(bytes->size()) + " bytes, not the " +
-                std::to_string(facts.length) + " the buildbot announced";
-        return std::nullopt;
+        return net::Failure{"the pack is " + std::to_string(bytes->size()) + " bytes, not the " +
+                            std::to_string(facts.length) + " the buildbot announced"};
     }
     const ShaderPackBuild build{std::max<std::int64_t>(facts.modified, 0), bytes->size(), url_};
     if (!pack.install(build, std::move(*bytes), error)) {
-        return std::nullopt;
+        return net::Failure{std::move(error)};
     }
-    return pack.installed();
+    std::optional<ShaderPackBuild> installed = pack.installed();
+    if (!installed) {
+        return net::Failure{"the shader pack is not found where it was installed"};
+    }
+    return std::move(*installed);
 }
 
 } // namespace opensu::library::roms

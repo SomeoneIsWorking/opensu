@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <string_view>
 
@@ -40,15 +41,15 @@ class EmulatorRelease {
     }
 
     /// The latest release's asset for `source`.
-    [[nodiscard]] std::optional<ReleaseAsset> latest(const ReleaseSource& source,
-                                                     std::string& error) const;
+    [[nodiscard]] net::Result<ReleaseAsset> latest(const std::stop_token& stop,
+                                                   const ReleaseSource& source) const;
 
     /// Downloads `asset` of `entry` beside the version in use, verifies it, makes it executable
-    /// and switches to it. On any failure, a cancel included, the partial file is removed, the
-    /// version in use stays, and `error` says why.
-    [[nodiscard]] std::optional<DownloadedEmulator>
-    install(const EmulatorEntry& entry, const ReleaseAsset& asset, const DownloadedEmulators& store,
-            const net::WebClient::Progress& progress, std::string& error) const;
+    /// and switches to it. Unless it succeeds, a stop or cancel included, the partial file is
+    /// removed and the version in use stays.
+    [[nodiscard]] net::Result<DownloadedEmulator>
+    install(const std::stop_token& stop, const EmulatorEntry& entry, const ReleaseAsset& asset,
+            const DownloadedEmulators& store, const net::WebClient::Progress& progress) const;
 
   private:
     const net::WebClient& web_;

@@ -85,9 +85,8 @@ class SteamGridDb {
 
     /// `game`'s covers of `shape`, or of every shape: by Steam app id first, then by the first
     /// title match. A requested `stop` ends the lookup as Unreachable.
-    [[nodiscard]] Covers covers(const net::WebClient& web, const SteamGridDbGame& game,
-                                std::optional<CoverShape> shape,
-                                const std::stop_token& stop = {}) const;
+    [[nodiscard]] Covers covers(const std::stop_token& stop, const net::WebClient& web,
+                                const SteamGridDbGame& game, std::optional<CoverShape> shape) const;
 
   private:
     /// The `data` of the API's answer to `path`, or the status it came to.

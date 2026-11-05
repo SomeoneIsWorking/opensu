@@ -110,56 +110,56 @@ std::optional<ReleaseAsset> releaseAssetOf(std::string_view body, const ReleaseS
     return asset;
 }
 
-std::optional<ReleaseAsset> EmulatorRelease::latest(const ReleaseSource& source,
-                                                    std::string& error) const {
-    const std::optional<std::string> body =
-        web_.get(source.api, error, {"Accept: application/json"});
+net::Result<ReleaseAsset> EmulatorRelease::latest(const std::stop_token& stop,
+                                                  const ReleaseSource& source) const {
+    const net::Result<std::string> body = web_.get(stop, source.api, {"Accept: application/json"});
     if (!body) {
-        error = "the release listing cannot be read: " + error;
-        return std::nullopt;
+        return body.as<ReleaseAsset>("the release listing cannot be read: ");
     }
-    return releaseAssetOf(*body, source, error);
+    std::string error;
+    std::optional<ReleaseAsset> asset = releaseAssetOf(*body, source, error);
+    if (!asset) {
+        return net::Failure{std::move(error)};
+    }
+    return std::move(*asset);
 }
 
-std::optional<DownloadedEmulator> EmulatorRelease::install(const EmulatorEntry& entry,
-                                                           const ReleaseAsset& asset,
-                                                           const DownloadedEmulators& store,
-                                                           const net::WebClient::Progress& progress,
-                                                           std::string& error) const {
+net::Result<DownloadedEmulator>
+EmulatorRelease::install(const std::stop_token& stop, const EmulatorEntry& entry,
+                         const ReleaseAsset& asset, const DownloadedEmulators& store,
+                         const net::WebClient::Progress& progress) const {
+    std::string error;
     const fs::path dir = store.versionDir(entry.id, asset.assetId);
     std::error_code ec;
     fs::create_directories(dir, ec);
     if (ec) {
-        error = "cannot make " + dir.string() + ": " + ec.message();
-        return std::nullopt;
+        return net::Failure{"cannot make " + dir.string() + ": " + ec.message()};
     }
     const fs::path part = dir / (asset.name + ".part");
     lucent::info("emulators", "downloading {} {} from {}", entry.name, asset.version, asset.url);
-    if (!web_.download(asset.url, part, progress, error)) {
+    if (const net::Result<net::WebClient::BodyFacts> fetched =
+            web_.download(stop, asset.url, part, progress);
+        !fetched) {
         removeQuietly(part);
-        if (error != "cancelled") {
-            error = "the download failed: " + error;
-        }
-        return std::nullopt;
+        return fetched.as<DownloadedEmulator>("the download failed: ");
     }
     const std::uint64_t size = fs::file_size(part, ec);
     if (ec || (asset.size != 0 && size != asset.size)) {
         removeQuietly(part);
-        error = "the download is " + std::to_string(size) + " bytes, the release says " +
-                std::to_string(asset.size);
-        return std::nullopt;
+        return net::Failure{"the download is " + std::to_string(size) +
+                            " bytes, the release says " + std::to_string(asset.size)};
     }
     const std::optional<lucent::content::Sha256> digest = lucent::content::sha256_file(part, error);
     if (!digest) {
         removeQuietly(part);
-        return std::nullopt;
+        return net::Failure{std::move(error)};
     }
     const std::string seen = lucent::content::sha256_hex(*digest);
     if (!asset.sha256.empty() && seen != asset.sha256) {
         removeQuietly(part);
         error = "the download's SHA-256 " + seen + " is not the release's " + asset.sha256;
         lucent::warn("emulators", "{} {}: {}", entry.name, asset.version, error);
-        return std::nullopt;
+        return net::Failure{std::move(error)};
     }
     const fs::path file = dir / asset.name;
     fs::permissions(part,
@@ -171,8 +171,7 @@ std::optional<DownloadedEmulator> EmulatorRelease::install(const EmulatorEntry& 
     }
     if (ec) {
         removeQuietly(part);
-        error = "cannot put " + file.string() + " in place: " + ec.message();
-        return std::nullopt;
+        return net::Failure{"cannot put " + file.string() + " in place: " + ec.message()};
     }
     DownloadedEmulator record{entry.id,
                               asset.version,
@@ -183,7 +182,7 @@ std::optional<DownloadedEmulator> EmulatorRelease::install(const EmulatorEntry& 
                               asset.sha256.empty() ? Verification::Observed : Verification::Digest,
                               asset.url};
     if (!store.install(record, error)) {
-        return std::nullopt;
+        return net::Failure{std::move(error)};
     }
     return record;
 }

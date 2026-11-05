@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -129,9 +130,11 @@ void downloadChecksAndSwitches(const fs::path& root) {
 
     const std::string info = "firmware_count = 1\nfirmware0_path = \"gba_bios.bin\"\n";
     buildbot.publish("mgba_libretro", "2026-10-01", "core one", std::nullopt, info);
-    const CoreBuild first = need(download.latest("mgba_libretro", error), "the listing is read");
+    const CoreBuild first =
+        need(download.latest(std::stop_token{}, "mgba_libretro"), "the listing is read");
     const DownloadedCore installed =
-        need(download.install(first, store, anyProgress, error), "a matching CRC-32 installs");
+        need(download.install(std::stop_token{}, first, store, anyProgress),
+             "a matching CRC-32 installs");
     expect(read(installed.file) == "core one" && installed.date == "2026-10-01" &&
                installed.crc32 == first.crc32 && installed.file == store.file("mgba_libretro"),
            "the core is taken out of the zip and recorded");
@@ -141,11 +144,12 @@ void downloadChecksAndSwitches(const fs::path& root) {
     expect(read(store.info("mgba_libretro")) == info, "the core's info is the buildbot's");
 
     buildbot.publish("mgba_libretro", "2026-10-02", "tampered", 0x12345678);
-    const CoreBuild bad = need(download.latest("mgba_libretro", error), "the update is read");
+    const CoreBuild bad =
+        need(download.latest(std::stop_token{}, "mgba_libretro"), "the update is read");
     expect(bad.date == "2026-10-02" && bad.crc32 != installed.crc32,
            "a newer build is told apart by its CRC-32");
-    expect(!download.install(bad, store, anyProgress, error) &&
-               error.find("CRC-32") != std::string::npos,
+    expect(download.install(std::stop_token{}, bad, store, anyProgress).error().find("CRC-32") !=
+               std::string::npos,
            "a CRC-32 mismatch is refused and named");
     expect(store.find("mgba_libretro") == installed && read(installed.file) == "core one" &&
                namesIn(store.root()).size() == 3,
@@ -154,24 +158,27 @@ void downloadChecksAndSwitches(const fs::path& root) {
     buildbot.publish("mgba_libretro", "2026-10-03", "core two");
     buildbot.redirect("/nightly/" + lib("mgba_libretro") + ".zip",
                       buildbot.otherHost() + lib("mgba_libretro") + ".zip");
-    const CoreBuild moved = need(download.latest("mgba_libretro", error), "read");
-    expect(!download.install(moved, store, anyProgress, error) &&
-               error.find("not on the buildbot") != std::string::npos,
+    const CoreBuild moved = need(download.latest(std::stop_token{}, "mgba_libretro"), "read");
+    expect(download.install(std::stop_token{}, moved, store, anyProgress)
+                   .error()
+                   .find("not on the buildbot") != std::string::npos,
            "a redirect off the buildbot's host is refused");
     expect(store.find("mgba_libretro") == installed && namesIn(store.root()).size() == 3,
            "and nothing of it is kept");
 
     buildbot.redirect("/nightly/" + lib("mgba_libretro") + ".zip",
                       buildbot.base() + lib("mgba_libretro") + ".zip");
-    const DownloadedCore updated = need(download.install(moved, store, anyProgress, error),
-                                        "a redirect on the host is followed");
+    const DownloadedCore updated =
+        need(download.install(std::stop_token{}, moved, store, anyProgress),
+             "a redirect on the host is followed");
     expect(read(updated.file) == "core two" && store.find("mgba_libretro") == updated &&
                updated.date == "2026-10-03" && namesIn(store.root()).size() == 3,
            "and the verified update replaces the core");
 
     const CoreDownload offHost{web, buildbot.otherHost()};
-    expect(!offHost.install(first, store, anyProgress, error) &&
-               error.find("not on the buildbot") != std::string::npos,
+    expect(offHost.install(std::stop_token{}, first, store, anyProgress)
+                   .error()
+                   .find("not on the buildbot") != std::string::npos,
            "a listing's URL off the folder's host is refused");
 
     expect(store.remove("mgba_libretro", error) && !store.find("mgba_libretro") &&
@@ -185,16 +192,14 @@ void cancelKeepsNothing(const fs::path& root) {
     const CoreDownload download{web, buildbot.base()};
     const DownloadedCores store{root / "cores"};
     buildbot.publish("mesen_libretro", "2026-10-01", std::string(std::size_t{512} * 1024, 'x'));
-    std::string error;
-    const CoreBuild build = need(download.latest("mesen_libretro", error), "read");
-    expect(!download.install(
-               build, store,
-               [](std::uint64_t, std::uint64_t) {
-                   return false;
-               },
-               error) &&
-               error == "cancelled",
-           "a cancelled download says so");
+    const CoreBuild build = need(download.latest(std::stop_token{}, "mesen_libretro"), "read");
+    expect(download
+               .install(std::stop_token{}, build, store,
+                        [](std::uint64_t, std::uint64_t) {
+                            return false;
+                        })
+               .stopped(),
+           "a cancelled download is stopped");
     expect(!store.find("mesen_libretro") && namesIn(store.root()).empty(),
            "and leaves nothing behind");
 }

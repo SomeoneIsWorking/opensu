@@ -95,19 +95,19 @@ SteamGridDb::Data SteamGridDb::call(const net::WebClient& web, const std::string
     const std::string origin = net::originOf(api_);
     net::WebClient::Guard guard;
     guard.maxBody = answerCap;
-    guard.stop = stop;
     // The bearer key goes with every hop, so no hop may leave the API's origin.
     guard.refusal = [&origin](const std::string& url) {
         return net::originOf(url) == origin ? std::string{}
                                             : "SteamGridDB redirected off its API: " + url;
     };
     std::string header = "Authorization: Bearer " + key;
-    std::string error;
-    const std::optional<net::WebClient::Answer> answer =
-        web.request(api_ + path, {header}, guard, error);
+    const net::Result<net::WebClient::Answer> answer =
+        web.request(stop, api_ + path, {header}, guard);
     secrets::wipe(header);
     if (!answer) {
-        return {Status::Unreachable, {}, api_ + path + ": " + error};
+        return {Status::Unreachable,
+                {},
+                api_ + path + ": " + (answer.stopped() ? "stopped" : answer.error())};
     }
     if (answer->status == httpUnauthorized || answer->status == httpForbidden) {
         return {Status::Refused, {}, "SteamGridDB refused the key"};
@@ -151,9 +151,9 @@ SteamGridDb::Covers SteamGridDb::listed(const net::WebClient& web, const std::st
     return listed;
 }
 
-SteamGridDb::Covers SteamGridDb::covers(const net::WebClient& web, const SteamGridDbGame& game,
-                                        std::optional<CoverShape> shape,
-                                        const std::stop_token& stop) const {
+SteamGridDb::Covers SteamGridDb::covers(const std::stop_token& stop, const net::WebClient& web,
+                                        const SteamGridDbGame& game,
+                                        std::optional<CoverShape> shape) const {
     std::string key;
     {
         const std::lock_guard lock{mutex_};

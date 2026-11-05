@@ -38,22 +38,27 @@ void testListsCoversByShape() {
     const opensu::net::WebClient web;
 
     const SteamGridDb::Covers portal =
-        source.covers(web, {"620", "Portal 2"}, CoverShape::Portrait);
+        source.covers(std::stop_token{}, web, {"620", "Portal 2"}, CoverShape::Portrait);
     expect(portal.status == Status::Listed && portal.covers.size() == 2 &&
                portal.covers[0].url.ends_with("/img/portal2-a.png") &&
                portal.covers[0].width == 600 && portal.covers[0].height == 900 &&
                portal.covers[0].id == 1,
            "a Steam game's covers are listed by its app id, best first");
-    expect(source.covers(web, {"620", ""}, CoverShape::Landscape).covers.size() == 1,
-           "a landscape tile gets the wide cover only");
-    expect(source.covers(web, {"620", ""}, std::nullopt).covers.size() == 3,
-           "the picker gets every shape");
     expect(
-        source.covers(web, {"", "Celeste"}, std::nullopt).covers.at(0).url.ends_with("celeste.png"),
-        "a game without an app id is found by its title");
-    expect(source.covers(web, {"999", "Celeste"}, CoverShape::Portrait).covers.size() == 1,
+        source.covers(std::stop_token{}, web, {"620", ""}, CoverShape::Landscape).covers.size() ==
+            1,
+        "a landscape tile gets the wide cover only");
+    expect(source.covers(std::stop_token{}, web, {"620", ""}, std::nullopt).covers.size() == 3,
+           "the picker gets every shape");
+    expect(source.covers(std::stop_token{}, web, {"", "Celeste"}, std::nullopt)
+               .covers.at(0)
+               .url.ends_with("celeste.png"),
+           "a game without an app id is found by its title");
+    expect(source.covers(std::stop_token{}, web, {"999", "Celeste"}, CoverShape::Portrait)
+                   .covers.size() == 1,
            "an app id SteamGridDB does not know falls back to the title");
-    const SteamGridDb::Covers none = source.covers(web, {"", "Nothing Here"}, std::nullopt);
+    const SteamGridDb::Covers none =
+        source.covers(std::stop_token{}, web, {"", "Nothing Here"}, std::nullopt);
     expect(none.status == Status::Listed && none.covers.empty(), "an unknown title lists nothing");
 
     std::string portraitQuery;
@@ -103,12 +108,15 @@ void testRefusedKey() {
     SteamGridDb source{api.api()};
     source.setKey("ffffffffffffffffffffffffffffffff");
     const opensu::net::WebClient web;
-    expect(source.covers(web, {"620", "Portal 2"}, CoverShape::Portrait).status == Status::Refused,
-           "a wrong key is refused");
+    expect(
+        source.covers(std::stop_token{}, web, {"620", "Portal 2"}, CoverShape::Portrait).status ==
+            Status::Refused,
+        "a wrong key is refused");
     expect(source.refused(), "the refusal is remembered for the settings");
     source.setKey(key);
     expect(!source.refused(), "a new key clears it");
-    expect(source.covers(web, {"620", ""}, CoverShape::Portrait).covers.size() == 1,
+    expect(source.covers(std::stop_token{}, web, {"620", ""}, CoverShape::Portrait).covers.size() ==
+               1,
            "and finds the cover");
 }
 
@@ -117,7 +125,8 @@ void testNoKeyAsksNothing() {
     SteamGridDb source{api.api()};
     const opensu::net::WebClient web;
     expect(!source.connected(), "no key is not connected");
-    expect(source.covers(web, {"620", "Portal 2"}, std::nullopt).status == Status::Disconnected,
+    expect(source.covers(std::stop_token{}, web, {"620", "Portal 2"}, std::nullopt).status ==
+               Status::Disconnected,
            "without a key there is nothing");
     expect(api.seen().empty(), "and nothing is asked");
     source.setKey(key);
@@ -134,7 +143,8 @@ void testUnreachableApi() {
     SteamGridDb source{gone};
     source.setKey(key);
     const opensu::net::WebClient web;
-    const SteamGridDb::Covers found = source.covers(web, {"620", ""}, std::nullopt);
+    const SteamGridDb::Covers found =
+        source.covers(std::stop_token{}, web, {"620", ""}, std::nullopt);
     expect(found.status == Status::Unreachable && !found.error.empty(),
            "an API that does not answer is unreachable");
     expect(found.error.find(key) == std::string::npos, "the error never holds the key");

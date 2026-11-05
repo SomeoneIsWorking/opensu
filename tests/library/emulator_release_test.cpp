@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <stop_token>
 #include <string>
 #include <system_error>
 
@@ -72,12 +73,12 @@ void digestMatchesAndMismatches(const fs::path& root) {
     const EmulatorRelease release{web};
 
     server.publish("emu", "v1.0", 100, "Emu-1.0-x86_64.AppImage", "first build");
-    std::string error;
     const ReleaseAsset first =
-        need(release.latest(need(entry.release, "the entry has a release"), error),
+        need(release.latest(std::stop_token{}, need(entry.release, "the entry has a release")),
              "the release is read");
-    const DownloadedEmulator installed = need(
-        release.install(entry, first, store, anyProgress, error), "a matching digest installs");
+    const DownloadedEmulator installed =
+        need(release.install(std::stop_token{}, entry, first, store, anyProgress),
+             "a matching digest installs");
     expect(installed.verified == Verification::Digest && installed.size == 11 &&
                read(installed.file) == "first build",
            "the file is the release's, verified against its digest");
@@ -87,10 +88,11 @@ void digestMatchesAndMismatches(const fs::path& root) {
 
     server.publish("emu", "v1.1", 101, "Emu-1.1-x86_64.AppImage", "tampered", std::string(64, '0'));
     const ReleaseAsset bad =
-        need(release.latest(need(entry.release, "the entry has a release"), error),
+        need(release.latest(std::stop_token{}, need(entry.release, "the entry has a release")),
              "the update is read");
-    expect(!release.install(entry, bad, store, anyProgress, error) &&
-               error.find("SHA-256") != std::string::npos,
+    expect(release.install(std::stop_token{}, entry, bad, store, anyProgress)
+                   .error()
+                   .find("SHA-256") != std::string::npos,
            "a digest mismatch is refused and named");
     expect(store.find("emu") == installed && fs::exists(installed.file),
            "the version before stays in use");
@@ -99,17 +101,17 @@ void digestMatchesAndMismatches(const fs::path& root) {
            "nothing of the refused download is left");
 
     server.publish("emu", "v1.2", 102, "Emu-1.2-x86_64.AppImage", "second build");
-    const ReleaseAsset good = need(
-        release.latest(need(entry.release, "the entry has a release"), error), "the fix is read");
+    const ReleaseAsset good =
+        need(release.latest(std::stop_token{}, need(entry.release, "the entry has a release")),
+             "the fix is read");
     std::uint64_t seenTotal = 0;
-    const DownloadedEmulator updated = need(release.install(
-                                                entry, good, store,
-                                                [&seenTotal](std::uint64_t, std::uint64_t total) {
-                                                    seenTotal = total;
-                                                    return true;
-                                                },
-                                                error),
-                                            "a good update installs");
+    const DownloadedEmulator updated =
+        need(release.install(std::stop_token{}, entry, good, store,
+                             [&seenTotal](std::uint64_t, std::uint64_t total) {
+                                 seenTotal = total;
+                                 return true;
+                             }),
+             "a good update installs");
     expect(seenTotal == 12, "progress names the size");
     expect(store.find("emu") == updated && updated.version == "v1.2",
            "the update is the version in use once verified");
@@ -124,11 +126,10 @@ void noDigestIsObserved(const fs::path& root) {
     const opensu::net::WebClient web;
     const EmulatorRelease release{web};
     server.publish("plain", "0.10.5", 5, "plain.appimage", "no digest here", "");
-    std::string error;
-    const ReleaseAsset asset =
-        need(release.latest(need(entry.release, "the entry has a release"), error), "read");
+    const ReleaseAsset asset = need(
+        release.latest(std::stop_token{}, need(entry.release, "the entry has a release")), "read");
     const DownloadedEmulator installed =
-        need(release.install(entry, asset, store, anyProgress, error), "installed");
+        need(release.install(std::stop_token{}, entry, asset, store, anyProgress), "installed");
     expect(installed.verified == Verification::Observed && installed.sha256.size() == 64 &&
                installed.size == 14,
            "without a published digest, the size and SHA-256 seen are recorded");
@@ -142,17 +143,15 @@ void cancelKeepsNothing(const fs::path& root) {
     const opensu::net::WebClient web;
     const EmulatorRelease release{web};
     server.publish("stop", "1", 1, "stop.AppImage", std::string(std::size_t{256} * 1024, 'x'));
-    std::string error;
-    const ReleaseAsset asset =
-        need(release.latest(need(entry.release, "the entry has a release"), error), "read");
-    expect(!release.install(
-               entry, asset, store,
-               [](std::uint64_t, std::uint64_t) {
-                   return false;
-               },
-               error) &&
-               error == "cancelled",
-           "a cancelled download says so");
+    const ReleaseAsset asset = need(
+        release.latest(std::stop_token{}, need(entry.release, "the entry has a release")), "read");
+    expect(release
+               .install(std::stop_token{}, entry, asset, store,
+                        [](std::uint64_t, std::uint64_t) {
+                            return false;
+                        })
+               .stopped(),
+           "a cancelled download is stopped");
     expect(!store.find("stop") && !fs::exists(store.versionDir("stop", "1") / "stop.AppImage.part"),
            "and leaves nothing installed or partial");
 }
@@ -166,9 +165,9 @@ void removeDeletesOnlyOurs(const fs::path& root) {
     const EmulatorRelease release{web};
     server.publish("gone", "1", 3, "gone.AppImage", "bytes");
     std::string error;
-    const ReleaseAsset asset =
-        need(release.latest(need(entry.release, "the entry has a release"), error), "read");
-    expect(release.install(entry, asset, store, anyProgress, error).has_value(), "installed");
+    const ReleaseAsset asset = need(
+        release.latest(std::stop_token{}, need(entry.release, "the entry has a release")), "read");
+    expect(release.install(std::stop_token{}, entry, asset, store, anyProgress).ok(), "installed");
     const fs::path neighbour = root / "emulators" / "other" / "keep";
     fs::create_directories(neighbour.parent_path());
     std::ofstream{neighbour} << "x";

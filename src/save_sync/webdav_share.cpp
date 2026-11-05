@@ -70,11 +70,16 @@ std::optional<net::WebClient::Answer> WebDavShare::send(const std::string& metho
                                                         const std::vector<std::string>& headers,
                                                         std::string& error) const {
     const net::WebClient::Guard guard{
-        .maxBody = largestBundle * 2, .refusal = refusalOf, .progress = {}, .stop = {}};
-    return web_.request(
-        urlOf(name), headers, guard, error,
+        .maxBody = largestBundle * 2, .refusal = refusalOf, .progress = {}};
+    net::Result<net::WebClient::Answer> answer = web_.request(
+        std::stop_token{}, urlOf(name), headers, guard,
         net::WebClient::Sent{
             .method = method, .body = std::move(body), .user = user_, .password = password_});
+    if (!answer) {
+        error = answer.stopped() ? "stopped" : answer.error();
+        return std::nullopt;
+    }
+    return *std::move(answer);
 }
 
 SaveShare::Read WebDavShare::read(const std::string& name) const {

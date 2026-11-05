@@ -182,16 +182,16 @@ void GiveawayBoard::fetchArt(const std::stop_token& stop) {
         }
         const fs::path file = artFile(offer);
         const fs::path part = fs::path{file}.concat(".part");
-        std::string why;
-        const bool done = web_.download(
-            offer.artUrl, part,
-            [&stop](std::uint64_t, std::uint64_t) {
-                return !stop.stop_requested();
-            },
-            why);
+        const net::Result<net::WebClient::BodyFacts> done =
+            web_.download(stop, offer.artUrl, part, [](std::uint64_t, std::uint64_t) {
+                return true;
+            });
         if (!done) {
             fs::remove(part, error);
-            lucent::warn("giveaways", "art of {}: {}", offer.title, why);
+            if (done.stopped()) {
+                return;
+            }
+            lucent::warn("giveaways", "art of {}: {}", offer.title, done.error());
             continue;
         }
         fs::rename(part, file, error);

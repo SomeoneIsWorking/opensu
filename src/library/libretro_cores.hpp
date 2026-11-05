@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -121,21 +122,21 @@ class CoreDownload {
     }
 
     /// The folder's listing.
-    [[nodiscard]] std::optional<std::string> index(std::string& error) const;
+    [[nodiscard]] net::Result<std::string> index(const std::stop_token& stop) const;
 
     /// The latest build of `core`.
-    [[nodiscard]] std::optional<CoreBuild> latest(std::string_view core, std::string& error) const;
+    [[nodiscard]] net::Result<CoreBuild> latest(const std::stop_token& stop,
+                                                std::string_view core) const;
 
     /// The buildbot's archive of every core's info file, as zip bytes.
-    [[nodiscard]] std::optional<std::string> infoArchive(std::string& error) const;
+    [[nodiscard]] net::Result<std::string> infoArchive(const std::stop_token& stop) const;
 
     /// Downloads `build` and its info, checks the zip against its CRC-32, takes the one core out
-    /// of it and switches to it. On any failure, a cancel included, nothing of the download stays,
-    /// the core in use stays, and `error` says why.
-    [[nodiscard]] std::optional<DownloadedCore> install(const CoreBuild& build,
-                                                        const DownloadedCores& store,
-                                                        const net::WebClient::Progress& progress,
-                                                        std::string& error) const;
+    /// of it and switches to it. Unless it succeeds, a stop or cancel included, nothing of the
+    /// download stays and the core in use stays.
+    [[nodiscard]] net::Result<DownloadedCore>
+    install(const std::stop_token& stop, const CoreBuild& build, const DownloadedCores& store,
+            const net::WebClient::Progress& progress) const;
 
     [[nodiscard]] const std::string& base() const noexcept {
         return base_;
