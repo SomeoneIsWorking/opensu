@@ -1,6 +1,7 @@
 #include "guide_menu_controller.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <memory>
 
 #include "guide_menu_screen.hpp"
@@ -28,6 +29,7 @@ constexpr const char* volumeId = "guide.volume";
 constexpr const char* muteId = "guide.mute";
 constexpr const char* brightnessId = "guide.brightness";
 constexpr const char* scaleId = "guide.scale";
+constexpr const char* profileId = "guide.profile";
 constexpr const char* sleepId = "power.sleep";
 constexpr const char* restartId = "power.restart";
 constexpr const char* shutDownId = "power.shutDown";
@@ -165,6 +167,15 @@ std::vector<SettingsRow> GuideMenuController::quick() const {
         scales.labels.push_back(percentOf(percent));
     }
     rows.push_back(ui::makeChoice(scaleId, "Interface size", {}, std::move(scales)));
+    const std::string active = profiles_.active().id;
+    ui::Options players;
+    for (const profiles::Profile& profile : profiles_.all()) {
+        if (profile.id == active) {
+            players.chosen = players.labels.size();
+        }
+        players.labels.push_back(profile.name);
+    }
+    rows.push_back(ui::makeChoice(profileId, "Profile", {}, std::move(players)));
     return rows;
 }
 
@@ -212,6 +223,8 @@ void GuideMenuController::run(const std::string& id, int step) {
         values.uiScale = settings::steppedUiScale(values.uiScale, step);
         preferences_.save();
         hooks_.applyLayout();
+    } else if (id == profileId) {
+        stepProfile(step);
     } else if (id == resumeId) {
         close();
     } else if (id == closeGameId || id == saveStateId || id == loadStateId || id == resetGameId) {
@@ -266,6 +279,18 @@ void GuideMenuController::runPower(const std::string& id) {
     } else if (id == quitId) {
         leave(hooks_.quit);
     }
+}
+
+void GuideMenuController::stepProfile(int step) {
+    const std::vector<profiles::Profile> all = profiles_.all();
+    const std::string active = profiles_.active().id;
+    const auto at = std::ranges::find(all, active, &profiles::Profile::id);
+    if (all.size() < 2 || at == all.end() || step == 0) {
+        return;
+    }
+    const auto count = static_cast<std::ptrdiff_t>(all.size());
+    const std::ptrdiff_t next = ((at - all.begin() + step) % count + count) % count;
+    hooks_.playAs(all[static_cast<std::size_t>(next)].id);
 }
 
 void GuideMenuController::setLevel(const std::string& id, int level) {

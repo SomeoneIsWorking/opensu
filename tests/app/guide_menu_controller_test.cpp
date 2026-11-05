@@ -8,6 +8,7 @@
 
 #include "guide_menu_controller.hpp"
 #include "host_fakes.hpp"
+#include "profiles/profile_book.hpp"
 #include "support/fake_interface_text.hpp"
 #include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
@@ -30,7 +31,7 @@ struct Rig {
           retro{scratch.path() / "retro"},
           controller{ui.navigator,
                      {machine ? &power : nullptr, machine ? &session : nullptr, volume, brightness,
-                      retro, preferences},
+                      retro, preferences, profiles},
                      sounds,
                      app::GuideMenuController::Hooks{
                          .context =
@@ -77,6 +78,10 @@ struct Rig {
                          .say =
                              [this](const std::string& text, bool error) {
                                  said.push_back((error ? "error: " : "") + text);
+                             },
+                         .playAs =
+                             [this](const std::string& id) {
+                                 calls.push_back("playAs " + id);
                              }}} {
     }
 
@@ -122,6 +127,7 @@ struct Rig {
     app::VolumeControl volume;
     app::BrightnessControl brightness;
     app::RetroSession retro;
+    profiles::ProfileBook profiles{scratch.path() / "profiles.json"};
     audio::SdlSoundPlayer sounds;
     app::GuideMenuController controller;
     std::vector<std::string> calls;
@@ -204,6 +210,20 @@ void quickChangesSitBesideThePlaces() {
     expect(rig.ui.navigator.focused() == "guide.volume", "the quick menu shortcut lands on Volume");
 }
 
+void profileRowPlaysAsTheNextProfile() {
+    Rig rig;
+    std::string error;
+    const profiles::Profile ana = test::need(rig.profiles.add("Ana", error), "a second profile");
+    rig.open(Landing::Volume);
+    for (int i = 0; i < 20 && rig.ui.navigator.focused() != "guide.profile"; ++i) {
+        rig.press(Action::Down);
+    }
+    expect(rig.ui.navigator.focused() == "guide.profile", "the quick card has the profile");
+    rig.press(Action::Right);
+    expect(rig.calls == std::vector<std::string>{"playAs " + ana.id},
+           "Right on Profile plays as the next profile");
+}
+
 void withoutAMixerVolumeSaysWhy() {
     Rig rig{{}, false};
     const std::vector<ui::SettingsRow> quick = rig.controller.quick();
@@ -270,6 +290,7 @@ int main() try {
     homePlacesReachTheirHooks();
     gameStepsAskFirst();
     quickChangesSitBesideThePlaces();
+    profileRowPlaysAsTheNextProfile();
     withoutAMixerVolumeSaysWhy();
     powerAsksAndSaysRefusals();
     sessionInstalledOffersTheSwitch();

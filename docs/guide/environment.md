@@ -80,7 +80,7 @@ sign-in extension hands over codes and how maintainer tools drive the shell:
 
 | Request | Meaning |
 | --- | --- |
-| `GET /state` | The shell's state as JSON: section, focus, open screens, downloads, `settingsOpen`, `folderPickerOpen`, `capturingShortcut`, `volumeShown`, `chordHint`, `mapping`, `volumePercent`, `volumeMuted`, `uiScale`, `artworkPending`, `imagesPending`, `inGame`, LAN's `lanOn`, `lanSeen`, `lanPaired`, `lanCode` (the code a pairing on either side shows) and `lanSaves` (the open details page's Saves fact) and more. |
+| `GET /state` | The shell's state as JSON: section, focus, open screens, downloads, `settingsOpen`, `folderPickerOpen`, `capturingShortcut`, `volumeShown`, `chordHint`, `mapping`, `volumePercent`, `volumeMuted`, `uiScale`, `artworkPending`, `imagesPending`, `inGame`, LAN's `lanOn`, `lanSeen`, `lanPaired`, `lanCode` (the code a pairing on either side shows) and `lanSaves` (the open details page's Saves fact), `profile` (the profile played as) and `profiles` (how many) and more. |
 | `POST /input` | A button name: `up down left right a b x y l1 r1 l2 r2 l3 r3 select start guide search`. `guide+a` holds buttons together; `guide 1500ms` holds them that long, up to 10000ms. |
 | `POST /key` | A key combination, such as `ctrl+up`, posted to the window's event queue as a real keyboard's. |
 | `POST /text` | Text typed as a real keyboard's, so Enter in a field being edited submits it. |

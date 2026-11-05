@@ -1,6 +1,7 @@
 #include "profile_book.hpp"
 
 #include <algorithm>
+#include <array>
 #include <fstream>
 #include <stdexcept>
 #include <system_error>
@@ -34,6 +35,12 @@ std::uint8_t pictureOf(const json& entry) {
 }
 
 } // namespace
+
+std::string_view pictureName(std::uint8_t picture) noexcept {
+    constexpr std::array<std::string_view, pictureCount> names{"Red",  "Orange", "Yellow", "Green",
+                                                               "Teal", "Blue",   "Purple", "Pink"};
+    return names.at(picture % pictureCount);
+}
 
 bool isProfileId(std::string_view text) noexcept {
     return text.size() == profileIdBytes * 2 && secrets::isLowerHex(text);

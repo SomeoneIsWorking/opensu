@@ -183,6 +183,7 @@ std::vector<ui::SettingsCategory> SettingsController::build() const {
     if (in.lan) {
         pages.push_back(lan_.page());
     }
+    pages.push_back(profiles_.page());
     pages.push_back(saves_.page());
     pages.push_back(aboutPage());
     return pages;
@@ -601,6 +602,11 @@ void SettingsController::run(const std::string& id, int step) {
     }
     if (SaveSettings::owns(id)) {
         saves_.run(id, step);
+        refresh();
+        return;
+    }
+    if (ProfileSettings::owns(id)) {
+        profiles_.run(id, step);
         refresh();
         return;
     }

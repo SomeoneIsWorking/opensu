@@ -85,6 +85,7 @@ Checksums, signatures and requirements: [docs/guide/install.md](docs/guide/insta
 - [Windows games, Wine and Proton](docs/guide/wine.md)
 - [Gamescope and session mode](docs/guide/session.md): FSR, frame generation, the login session
 - [Controls](docs/guide/controls.md): pad and keyboard, Guide chords, button mappings
+- [Profiles](docs/guide/profiles.md): players with saves of their own on one openSU
 - [Console art and sounds](docs/guide/console-art.md)
 - [Lua plugins](docs/guide/plugins.md)
 - [LAN](docs/guide/lan.md): other openSUs on your network, pairing, their games in your library

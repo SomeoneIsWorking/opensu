@@ -88,6 +88,55 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
     if (!profiles_.moveProblem().empty()) {
         shell_.setToast("Some saves from before profiles stay where they were; see the log", true);
     }
+    // A tool's hidden run plays as the active profile without asking.
+    if (!settings_.hidden) {
+        askProfile();
+    }
+}
+
+void ShellApp::switchProfile(const std::string& id) {
+    const std::optional<profiles::Profile> next = profiles_.book().find(id);
+    if (!next || next->id == profiles_.book().active().id) {
+        return;
+    }
+    if (launches_.running() || remotePlay_.playing()) {
+        shell_.setToast("Close the game first to play as " + next->name, true);
+        return;
+    }
+    std::string error;
+    if (!profiles_.book().activate(id, error)) {
+        shell_.setToast("Cannot play as " + next->name + ": " + error, true);
+        return;
+    }
+    lucent::info("profiles", "playing as {}", next->id);
+    shell_.setToast("Playing as " + next->name, false);
+    settingsScreen_.refresh();
+    details_.refresh();
+}
+
+void ShellApp::askProfile() {
+    const std::vector<profiles::Profile> all = profiles_.book().all();
+    if (all.size() < 2) {
+        return;
+    }
+    const std::string active = profiles_.book().active().id;
+    std::vector<gpu2d::ui::Dialog::Choice> choices;
+    std::size_t focus = 0;
+    for (const profiles::Profile& profile : all) {
+        if (profile.id == active) {
+            focus = choices.size();
+        }
+        choices.push_back(gpu2d::ui::Dialog::Choice{.label = profile.name,
+                                                    .chosen =
+                                                        [this, id = profile.id] {
+                                                            switchProfile(id);
+                                                        },
+                                                    .kind = gpu2d::ui::ButtonKind::Normal,
+                                                    .exits = profile.id == active});
+    }
+    shell_.screens().navigator().push(std::make_unique<gpu2d::ui::Dialog>(
+        "Who is playing?", "Games load and keep the saves of the profile picked.",
+        std::move(choices), focus));
 }
 
 void ShellApp::buildHome() {
@@ -1068,6 +1117,8 @@ void ShellApp::publishSnapshot() {
             next.lanSaves = saves->value;
         }
     }
+    next.profile = profiles_.book().active().name;
+    next.profiles = profiles_.book().all().size();
     const RemotePlay::Glance remote = remotePlay_.glance();
     next.remotePlay = remote.state;
     next.remotePeer = remote.peer;

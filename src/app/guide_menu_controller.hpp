@@ -1,8 +1,8 @@
 // guide_menu_controller — what the Guide menu holds and does: one menu over the home screen or a
 // running game. Its places (the running game's actions, then Home, Library, Devices, Downloads,
 // Settings and Power) stand beside the changes made in place (volume, mute, brightness and the
-// interface size), each of which is set here and nowhere else. Volume goes through
-// `VolumeControl`, brightness through `BrightnessControl`, the interface size through
+// interface size, the profile played as), each of which is set here and nowhere else. Volume goes
+// through `VolumeControl`, brightness through `BrightnessControl`, the interface size through
 // `Preferences`, a game's state commands through `RetroSession`, power through `host::Power` and
 // the session switch through `host::SessionMode`. Every step that throws something away (Close
 // game, Load state, Reset game, Restart, Shut down, the session switch) asks first, one rule.
@@ -22,6 +22,7 @@
 #include "host/session_mode.hpp"
 #include "library/sections.hpp"
 #include "preferences.hpp"
+#include "profiles/profile_book.hpp"
 #include "retro_session.hpp"
 #include "ui/row_widgets.hpp"
 #include "ui/setting_row.hpp"
@@ -67,6 +68,8 @@ class GuideMenuController final : public ui::RowActions {
         std::function<void()> installSession;
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
+        /// Plays as the profile `id` from now on (`ShellApp::switchProfile`).
+        std::function<void(const std::string& id)> playAs;
     };
 
     struct Services {
@@ -78,6 +81,8 @@ class GuideMenuController final : public ui::RowActions {
         BrightnessControl& brightness;
         RetroSession& retro;
         Preferences& preferences;
+        /// The profiles the Profile row steps through.
+        const profiles::ProfileBook& profiles;
     };
 
     /// Where the focus lands as the menu opens.
@@ -92,7 +97,8 @@ class GuideMenuController final : public ui::RowActions {
                         audio::SdlSoundPlayer& sounds, Hooks hooks)
         : navigator_{navigator}, power_{services.power}, session_{services.session},
           volume_{services.volume}, brightness_{services.brightness}, retro_{services.retro},
-          preferences_{services.preferences}, sounds_{sounds}, hooks_{std::move(hooks)} {
+          preferences_{services.preferences}, profiles_{services.profiles}, sounds_{sounds},
+          hooks_{std::move(hooks)} {
     }
 
     /// Opens the menu over what the hooks say it is over, or closes it when open.
@@ -126,6 +132,8 @@ class GuideMenuController final : public ui::RowActions {
     void leave(const std::function<void()>& then);
     void runGame(const std::string& id);
     void runPower(const std::string& id);
+    /// Plays as the profile `step` places from the active one, wrapping.
+    void stepProfile(int step);
     /// Tells the player why a change was refused; `what` names it, when it is not plain.
     void refuse(const std::string& reason, const std::string& what = {});
 
@@ -136,6 +144,7 @@ class GuideMenuController final : public ui::RowActions {
     BrightnessControl& brightness_;
     RetroSession& retro_;
     Preferences& preferences_;
+    const profiles::ProfileBook& profiles_;
     audio::SdlSoundPlayer& sounds_;
     Hooks hooks_;
     GuideContext context_;

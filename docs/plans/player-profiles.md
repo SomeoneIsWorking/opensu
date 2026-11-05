@@ -17,9 +17,9 @@ adds another in Settings › Profiles.
 - `profiles.json` in the config dir (`profiles::ProfileBook`): each profile's id (16 random bytes as
   hex, like a LAN peer id), name, picture and links, and which one is active. The first profile is
   made, with the name "Player 1", the first time openSU starts with this code.
-- A picture is one of eight colours, drawn as a tile with the name's first letter.
+- A picture is one of eight colours, named on Settings › Profiles (`profiles::pictureName`).
 - A profile is never removed in this plan; renaming and a new picture are Settings › Profiles rows.
-- The profile picker at start lists the profiles with their pictures, the last active one focused;
+- The profile picker at start lists the profiles by name, the last active one focused (Back keeps it);
   it does not show while only one profile exists. A hidden run (tools) never shows it and starts on
   the active profile.
 
@@ -109,7 +109,8 @@ before and after, and the runner's `--saves` all use that profile.
    share's file names and the LAN's save routes (which refuse a profile that is not here, so
    between machines LAN saves pause until step 4 links profiles). Shown: a migration from an
    existing single-profile save tree in a hidden run.
-3. Settings › Profiles (add, rename, picture), the Guide's Profile row and the picker at start.
+3. Done. Settings › Profiles (add, rename, picture), the Guide's Profile row and the picker at
+   start. A picture is shown by its colour's name; the picker's buttons are the names.
    Shown: two profiles on one machine keeping separate saves for the same ROM.
 4. LAN: the profile listing, Copy with the owner's question, links, linked-only sync, Unlink; the
    Share saves switch removed. Shown: copy and link between two hidden LAN openSUs with the question

@@ -135,6 +135,9 @@ struct ShellSnapshot {
     std::string lanImport;
     /// The open details page's Saves fact, how its game's shared saves stand; empty for none.
     std::string lanSaves;
+    /// The name of the profile played as, and how many profiles there are.
+    std::string profile;
+    std::size_t profiles{0};
     /// Remote play (`RemotePlay::Glance`): "", "asking", "playing" or "hosting", with whom, and
     /// on the guest the round trip and what arrives each second.
     std::string remotePlay;

@@ -145,7 +145,7 @@ struct Rig {
                          paths, shortcutEditor, shortcuts, emulatorSettings, layerSettings, layered,
                          steamLibrarySettings, pluginSettings, chordSettings, mappings, wine,
                          integrationSettings, artworkSettings, interfaceSoundSettings, lanSettings,
-                         lanRoms, saveSettings, inForce},
+                         lanRoms, saveSettings, profileSettings, inForce},
                      sounds,
                      preferences,
                      config,
@@ -467,6 +467,21 @@ struct Rig {
                                                                .sounds = sounds},
                                    secrets::SecretStore{config.configDir / "secrets", false}, [] {
                                    }};
+    app::ProfileSettings profileSettings{
+        profiles, screens.navigator, pad, sounds,
+        app::ProfileSettings::Hooks{.changed =
+                                        [this] {
+                                            controller.refresh();
+                                        },
+                                    .say =
+                                        [this](const std::string& text, bool error) {
+                                            said.push_back({text, error});
+                                        },
+                                    .play =
+                                        [this](const std::string& id) {
+                                            std::string error;
+                                            static_cast<void>(profiles.activate(id, error));
+                                        }}};
     ui::MappingPage mappingPage;
     app::MappingEditor mappings{
         mappingPage, settings::MappingStore{config.configDir / settings::mappingsFile}, sounds,
@@ -540,7 +555,7 @@ void pagesFollowTheIntegrations(const fs::path& root) {
     }
     expect(names == std::vector<std::string>{"Appearance", "Library", "Integrations", "Emulators",
                                              "Audio", "Controls", "Guide chords", "Install folders",
-                                             "Artwork", "Saves", "About"},
+                                             "Artwork", "Profiles", "Saves", "About"},
            "no Steam libraries, Wine or Plugins with their integrations off");
     rig.enter("Library");
     expect(std::ranges::none_of(rig.rows(),
@@ -641,8 +656,8 @@ void categoriesFollowTheSavedSettings(const fs::path& root) {
     expect(names == std::vector<std::string>{"Appearance", "Library", "Integrations", "Emulators",
                                              "Steam libraries", "Audio", "Controls", "Guide chords",
                                              "Install folders", "Artwork", "Wine", "Plugins",
-                                             "Saves", "About"},
-           "the fourteen categories");
+                                             "Profiles", "Saves", "About"},
+           "the fifteen categories");
     expect(rig.controller.isOpen() && rig.top() == "settings" &&
                rig.controller.category() == "Appearance" &&
                rig.focused() == "categories/appearance",
@@ -1470,6 +1485,39 @@ void interfaceSoundsAreChosen(const fs::path& root) {
            "Left steps back to iiSU's");
 }
 
+/// Settings > Profiles: one profile, played as; Add profile names a second, whose picture steps
+/// and which Play as makes the one played as.
+void profilesAreAddedAndPlayedAs(const fs::path& root) {
+    Rig rig{root};
+    rig.controller.open();
+    rig.enter("Profiles");
+    const std::string first = rig.profiles.first().id;
+    expect(rig.rowOf("profiles.play." + first).kind == ui::RowKind::Info &&
+               rig.rowOf("profiles.name." + first).value == "Player 1",
+           "the first profile is the one played as");
+    rig.focus("profiles.add");
+    rig.act(Button::A);
+    expect(rig.pad.isOpen() && rig.field(ui::EntryScreen::fieldId) != nullptr,
+           "Add profile opens a card with the keyboard up");
+    rig.typeAndSubmit("Ana");
+    const std::vector<profiles::Profile> all = rig.profiles.all();
+    expect(all.size() == 2 && all[1].name == "Ana" && all[1].picture == 1 &&
+               saidSomething(rig, "Added Ana", false),
+           "it adds Ana with the next picture");
+    const std::string ana = all[1].id;
+    rig.focus("profiles.picture." + ana);
+    rig.act(Button::Left);
+    expect(rig.profiles.find(ana).value_or(profiles::Profile{}).picture == 0 &&
+               rig.rowOf("profiles.picture." + ana).chosen == 0,
+           "Left steps the picture back");
+    rig.focus("profiles.play." + ana);
+    rig.act(Button::A);
+    expect(rig.profiles.active().id == ana &&
+               rig.rowOf("profiles.play." + ana).kind == ui::RowKind::Info &&
+               rig.rowOf("profiles.play." + first).kind == ui::RowKind::Action,
+           "Play as makes Ana the one played as");
+}
+
 constexpr const char* steamGridDbKey = "0123456789abcdef0123456789abcdef";
 
 /// Settings > Artwork: a key typed in is kept owner-only and handed to the source; Disconnect
@@ -1663,6 +1711,7 @@ int main() try {
     steamGridDbWithoutSteamAsksForTheKey(root / "steamgriddb-no-steam");
     steamGridDbThroughSteam(root / "steamgriddb-steam");
     steamGridDbBlockedSteamSaysWhy(root / "steamgriddb-blocked");
+    profilesAreAddedAndPlayedAs(root / "profiles");
     std::printf("settings_controller: all checks passed\n");
     return 0;
 } catch (...) {

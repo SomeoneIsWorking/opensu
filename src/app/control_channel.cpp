@@ -253,6 +253,8 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     text("lanCode", snapshot.lanCode);
     text("lanImport", snapshot.lanImport);
     text("lanSaves", snapshot.lanSaves);
+    text("profile", snapshot.profile);
+    number("profiles", snapshot.profiles);
     text("remotePlay", snapshot.remotePlay);
     text("remotePeer", snapshot.remotePeer);
     number("remoteRoundTripUs", snapshot.remoteRoundTripUs);

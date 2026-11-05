@@ -86,6 +86,7 @@
 #include "plugin_settings.hpp"
 #include "polkit_prompt_controller.hpp"
 #include "preferences.hpp"
+#include "profile_settings.hpp"
 #include "remote_input.hpp"
 #include "remote_play.hpp"
 #include "retro_session.hpp"
@@ -235,6 +236,11 @@ class ShellApp final {
     void pressTile();
     /// Hides or shows `game` everywhere, and keeps it.
     void setHidden(const library::Game& game, bool hidden);
+    /// Plays as the profile `id` from now on: its saves are the ones games load, Copy saves copies
+    /// and save sync shares. Refused while a game runs.
+    void switchProfile(const std::string& id);
+    /// Asks which profile plays, the active one focused, once there is more than one.
+    void askProfile();
     /// Whether `item` is on Home; nothing for a tile that cannot be put there.
     [[nodiscard]] std::optional<bool> onHome(const library::ShelfItem& item) const;
     /// Puts `item` on Home or takes it off, and keeps it.
@@ -859,6 +865,21 @@ class ShellApp final {
                                files_.secrets(environment_.keyring), [this] {
                                    settingsScreen_.refresh();
                                }};
+    /// Settings › Profiles.
+    ProfileSettings profileSettings_{
+        profiles_.book(), shell_.screens().navigator(), keyboardPad_, sounds_,
+        ProfileSettings::Hooks{.changed =
+                                   [this] {
+                                       settingsScreen_.refresh();
+                                   },
+                               .say =
+                                   [this](const std::string& text, bool error) {
+                                       shell_.setToast(text, error);
+                                   },
+                               .play =
+                                   [this](const std::string& id) {
+                                       switchProfile(id);
+                                   }}};
     /// Settings › LAN.
     LanSettings lanSettings_{
         lan_, preferences_, shell_.screens().navigator(), keyboardPad_, sounds_, [this] {
@@ -992,7 +1013,7 @@ class ShellApp final {
             paths_, shortcutEditor_, shell_.shortcuts(), emulatorSettings_, layerSettings_,
             layered_, steamLibrarySettings_, pluginSettings_, chordSettings_, mappings_,
             wineSettings_, integrationSettings_, artworkSettings_, interfaceSoundSettings_,
-            lanSettings_, lanRoms_, saveSettings_, integrations_},
+            lanSettings_, lanRoms_, saveSettings_, profileSettings_, integrations_},
         sounds_,
         preferences_,
         environment_,
@@ -1084,7 +1105,7 @@ class ShellApp final {
     GuideMenuController guideMenu_{
         shell_.screens().navigator(),
         GuideMenuController::Services{host_.power.get(), host_.session.get(), volume_, brightness_,
-                                      retro_, preferences_},
+                                      retro_, preferences_, profiles_.book()},
         sounds_,
         GuideMenuController::Hooks{
             .context =
@@ -1149,6 +1170,10 @@ class ShellApp final {
             .say =
                 [this](const std::string& text, bool isError) {
                     shell_.setToast(text, isError);
+                },
+            .playAs =
+                [this](const std::string& id) {
+                    switchProfile(id);
                 }}};
     /// Whether the pointer drove the shell last frame, so leaving is said once.
     bool pointerIn_{false};

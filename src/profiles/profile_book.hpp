@@ -25,8 +25,11 @@ inline constexpr std::size_t profileIdBytes = 16;
 /// Whether `text` can be a profile id.
 [[nodiscard]] bool isProfileId(std::string_view text) noexcept;
 
-/// How many pictures a profile can have: colours, each drawn with the name's first letter.
+/// How many pictures a profile can have: colours (`pictureName`).
 inline constexpr std::uint8_t pictureCount = 8;
+
+/// The colour `picture` is, as Settings › Profiles names it; `picture` wraps at `pictureCount`.
+[[nodiscard]] std::string_view pictureName(std::uint8_t picture) noexcept;
 
 /// The first profile's name.
 inline constexpr std::string_view firstProfileName = "Player 1";
