@@ -232,7 +232,7 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
     if (library::matchKindOf(game) != library::MatchKind::None) {
         actions.push_back(makePage(std::string{detailsMatchId}, "Match a different game", {}, {}));
     }
-    if (own) {
+    if (own && !game.fromGameFolder) {
         actions.push_back(action(detailsRenameId, "Rename"));
         if (!game.file.empty()) {
             actions.push_back(action(detailsChangeFileId, "Change file"));

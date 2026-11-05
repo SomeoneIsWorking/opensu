@@ -39,8 +39,8 @@ Catalog makeCatalog(const config::Config& config, bool hidden,
     catalog.add(std::make_unique<roms::Provider>(std::move(romRoots), std::move(emulators),
                                                  roms::NameDb::under(config.cacheDir), &romsets,
                                                  std::move(switchInfo)));
-    catalog.add(std::make_unique<own::Provider>(own::Records{ownGames},
-                                                lutris::dataDir(config.xdgDataHome)));
+    catalog.add(std::make_unique<own::Provider>(
+        own::Records{ownGames}, lutris::dataDir(config.xdgDataHome), config.gameFolders));
     return catalog;
 }
 

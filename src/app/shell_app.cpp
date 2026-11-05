@@ -272,11 +272,13 @@ void ShellApp::reloadCatalog() {
 void ShellApp::addRomFolder(const std::filesystem::path& folder) {
     preferences_.values().addRomFolder(folder);
     preferences_.save();
-    romFoldersChanged();
+    libraryFoldersChanged();
 }
 
-void ShellApp::romFoldersChanged() {
-    resolved_.romRoots = settings::resolved(environment_, preferences_.values()).romRoots;
+void ShellApp::libraryFoldersChanged() {
+    const config::Config resolved = settings::resolved(environment_, preferences_.values());
+    resolved_.romRoots = resolved.romRoots;
+    resolved_.gameFolders = resolved.gameFolders;
     catalogLoader_.replace(catalogOf(integrations_.catalogStores()));
 }
 

@@ -188,7 +188,7 @@ struct Rig {
                           [this](const std::string& text, bool error) {
                               said.push_back({text, error});
                           },
-                      .romFoldersChanged =
+                      .libraryFoldersChanged =
                           [this] {
                               ++romFolderChanges;
                           }}} {

@@ -62,11 +62,15 @@ struct Guess {
 /// `-Shipping`) dropped; empty for a generic launcher name (`start.sh`, `AppRun`, `game`).
 [[nodiscard]] std::string fileTitle(const std::filesystem::path& file);
 
-[[nodiscard]] Clues cluesOf(const std::filesystem::path& file);
+/// What the files around `file` say, reading no folder above `stopAt`, the folder that holds the
+/// game, when one is given.
+[[nodiscard]] Clues cluesOf(const std::filesystem::path& file,
+                            const std::filesystem::path& stopAt = {});
 
 /// What `file` is: each clue searched until one names a store app (the app of a `steam_appid.txt`
-/// wins over a name), else the best clue.
-[[nodiscard]] Guess identify(const std::filesystem::path& file, const StoreSearch& search);
+/// wins over a name), else the best clue. A shortcut's name, `shortcut`, is the first clue.
+[[nodiscard]] Guess identify(const std::filesystem::path& file, const StoreSearch& search,
+                             const std::string& shortcut = {});
 
 /// The apps in Steam's `storesearch` answer.
 [[nodiscard]] std::vector<StoreApp> parseStoreSearch(std::string_view json);

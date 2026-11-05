@@ -5,6 +5,7 @@
 
 #include "build_version.hpp"
 #include "layered_editor.hpp"
+#include "library/add_game_offer.hpp"
 #include "library/steam.hpp"
 #include "lucent/text.h"
 #include "night_light.hpp"
@@ -37,6 +38,8 @@ constexpr const char* emulatorsId = "emulators";
 constexpr const char* romAddId = "roms.add";
 constexpr const char* romResetId = "roms.reset";
 constexpr const char* steamAddId = "steam.add";
+constexpr const char* gameAddId = "games.add";
+constexpr const char* gameForgetId = "games.forget";
 constexpr const char* steamResetId = "steam.reset";
 constexpr const char* soundsId = "uiSounds";
 constexpr const char* installDefaultId = "install.default";
@@ -277,6 +280,18 @@ ui::SettingsCategory SettingsController::libraryPage() const {
                                     "A folder with one subfolder per system", ""));
     page.rows.push_back(ui::makeRow(romResetId, RowKind::Action, "Find ROM folders automatically",
                                     "Forgets the folders you added", ""));
+    if (!library::addGameOffer().empty()) {
+        page.rows.push_back(ui::makeHeading("Game folders"));
+        page.rows.push_back(ui::makeRow("games.list", RowKind::Info, "Game folders",
+                                        "The library reads these each time it loads",
+                                        listed(v.gameFolders, "None", pathOf)));
+        page.rows.push_back(ui::makeRow(gameAddId, RowKind::Folder, "Add a game folder",
+                                        "A folder of game shortcuts, or of games", ""));
+        if (!v.gameFolders.empty()) {
+            page.rows.push_back(ui::makeRow(gameForgetId, RowKind::Action, "Forget game folders",
+                                            "Their games leave the library; the files stay", ""));
+        }
+    }
     if (!inForce_.current().lists(library::Source::Steam)) {
         return page;
     }
@@ -628,7 +643,8 @@ void SettingsController::run(const std::string& id, int step) {
         wine_.run(id, step);
     } else if (PluginSettings::owns(id)) {
         plugins_.run(id, step);
-    } else if (id == romAddId || id == steamAddId || id.starts_with(installStoreId)) {
+    } else if (id == romAddId || id == steamAddId || id == gameAddId ||
+               id.starts_with(installStoreId)) {
         chooseFolder(id);
     } else if (id == layoutId || id == scrollModeId || id == pinDockId || id == nightLightId ||
                id == soundsId) {
@@ -698,8 +714,14 @@ void SettingsController::runLibrary(const std::string& id, int step) {
     } else if (id == romResetId) {
         v.romFolders.clear();
         changed();
-        hooks_.romFoldersChanged();
+        hooks_.libraryFoldersChanged();
         hooks_.say("ROM folders are found automatically", false);
+        return;
+    } else if (id == gameForgetId) {
+        v.gameFolders.clear();
+        changed();
+        hooks_.libraryFoldersChanged();
+        hooks_.say("Game folders forgotten", false);
         return;
     } else if (id == steamResetId) {
         v.steamRoots.clear();
@@ -714,8 +736,12 @@ void SettingsController::addRomFolder() {
     addRoot(romAddId);
 }
 
+void SettingsController::addGameFolder() {
+    addRoot(gameAddId);
+}
+
 void SettingsController::chooseFolder(const std::string& id) {
-    if (id == romAddId || id == steamAddId) {
+    if (id == romAddId || id == steamAddId || id == gameAddId) {
         addRoot(id);
     } else if (id == installDefaultId) {
         editInstallFolder("Default install folder", id);
@@ -730,8 +756,11 @@ void SettingsController::chooseFolder(const std::string& id) {
 
 void SettingsController::addRoot(const std::string& id) {
     const bool steam = id == steamAddId;
+    const bool games = id == gameAddId;
     PathEditor::Request request;
-    request.title = steam ? "Add a Steam install folder" : "Add a ROM folder";
+    request.title = steam   ? "Add a Steam install folder"
+                    : games ? "Add a game folder"
+                            : "Add a ROM folder";
     request.start = defaults_.home;
     request.refusal = [steam, this](const fs::path& folder) {
         std::string refused = settings::refusal(folder, settings::Need::Read);
@@ -741,15 +770,19 @@ void SettingsController::addRoot(const std::string& id) {
         }
         return refused;
     };
-    request.done = [steam, this](std::optional<fs::path> folder) {
+    request.done = [steam, games, this](std::optional<fs::path> folder) {
         if (!folder) {
             return;
         }
         if (!steam) {
-            preferences_.values().addRomFolder(*folder);
+            if (games) {
+                preferences_.values().addGameFolder(*folder);
+            } else {
+                preferences_.values().addRomFolder(*folder);
+            }
             changed();
-            hooks_.romFoldersChanged();
-            hooks_.say("ROM folder added", false);
+            hooks_.libraryFoldersChanged();
+            hooks_.say(games ? "Game folder added" : "ROM folder added", false);
             return;
         }
         std::vector<fs::path>& roots = preferences_.values().steamRoots;

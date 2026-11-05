@@ -52,6 +52,9 @@ struct Config {
     /// ROM roots, each holding one folder per system; discovered when empty.
     std::vector<std::filesystem::path> romRoots;
 
+    /// The player's games folders (`library::folder::scan`).
+    std::vector<std::filesystem::path> gameFolders;
+
     /// Per-system emulator commands, keyed by system ("ps2"), overriding the ones found.
     EmulatorCommands emulators;
 

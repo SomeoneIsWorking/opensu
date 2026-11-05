@@ -93,6 +93,9 @@ struct Settings {
 
     /// ROM roots the player set; the environment's, else the discovered ones, when empty.
     std::vector<std::filesystem::path> romFolders;
+    /// Folders of games and shortcuts, read on every library reload; none until the player adds
+    /// one.
+    std::vector<std::filesystem::path> gameFolders;
 
     /// Steam install roots the player set; the environment's, else the discovered ones, when empty.
     std::vector<std::filesystem::path> steamRoots;
@@ -146,6 +149,8 @@ struct Settings {
 
     /// Adds `folder` to `romFolders` unless it is there already.
     void addRomFolder(const std::filesystem::path& folder);
+    /// Adds `folder` to `gameFolders` unless it is there already.
+    void addGameFolder(const std::filesystem::path& folder);
 
     bool operator==(const Settings&) const = default;
 };

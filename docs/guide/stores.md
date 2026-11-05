@@ -119,10 +119,23 @@ or another install or uninstall is under way, and shows on the Downloads page wh
 
 ## Your own games
 
-Library's Add a game tile picks a Linux program, script or AppImage, or a Windows `.exe`, and
-identifies it (title, platform, Steam app and cover) for you to confirm. Steam's non-Steam
-shortcuts and Lutris's games are imported read-only. An added game's menu has Rename, Change file
-and Remove from library. Android has no Add a game.
+Library's Add a game tile picks a Linux program, script or AppImage, a Windows `.exe`, or a shortcut
+(`.lnk`, `.url`, `.desktop`), and identifies it (title, platform, Steam app and cover) for you to
+confirm. Steam's non-Steam shortcuts and Lutris's games are imported read-only. An added game's menu
+has Rename, Change file and Remove from library. Android has no Add a game.
+
+Add a game folder, the tile beside it and in Settings › Library, keeps a folder in step with the
+library: it is read each time the library loads, so a new file adds a game and a deleted one removes
+it. On Windows it takes the `.lnk` and `.url` shortcuts in the folder and one `.exe` from each
+immediate subfolder; on Linux its `.desktop` entries and programs, and one program, Windows `.exe`s
+included, from each immediate subfolder; on macOS its `.app` bundles and those one folder down. A
+game is named by its shortcut, else by its folder or the program's version info. Hide game works on
+these; Rename, Change file and Remove do not, as the file is what keeps the game there.
+
+What is left out: installers and uninstallers, redistributables, DirectX and .NET setups, updaters
+and patchers, crash reporters, anti-cheat, and store clients that only start other games. The rule
+is `library::folder::notAGame`: a whole word of the name (so `Crash Bandicoot` stays and
+`UnityCrashHandler64` goes), a tool's name anywhere in it, or a store client's exact name.
 
 ## Artwork and SteamGridDB
 

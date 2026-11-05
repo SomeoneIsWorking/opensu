@@ -25,6 +25,9 @@ namespace opensu::net {
 /// `text` with everything but RFC 3986's unreserved characters percent-encoded.
 [[nodiscard]] std::string percentEncode(std::string_view text);
 
+/// `text` with its `%XX` escapes turned back into bytes; a stray `%` stays as it is.
+[[nodiscard]] std::string percentDecode(std::string_view text);
+
 class WebClient {
   public:
     /// Initialises libcurl for the process; keep one alive while any request runs.

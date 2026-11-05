@@ -11,6 +11,7 @@
 #include <nlohmann/json.hpp>
 
 #include "fileio/atomic_write.hpp"
+#include "game_folder.hpp"
 #include "launch/command.hpp"
 #include "lucent/log.h"
 #include "lutris_games.hpp"
@@ -64,6 +65,8 @@ std::string originKey(Origin origin) {
         return "steam-shortcut";
     case Origin::Lutris:
         return "lutris";
+    case Origin::Folder:
+        return "folder";
     case Origin::File:
         break;
     }
@@ -74,7 +77,18 @@ Origin originOf(const std::string& key) {
     if (key == "steam-shortcut") {
         return Origin::SteamShortcut;
     }
+    if (key == "folder") {
+        return Origin::Folder;
+    }
     return key == "lutris" ? Origin::Lutris : Origin::File;
+}
+
+/// Runs a shortcut's `command`.
+void commandLaunch(const Entry& entry, Game& game) {
+    game.processHint = fs::path{entry.command.front()}.filename().string();
+    game.launch = LaunchSpec{.program = entry.command.front(),
+                             .args = {entry.command.begin() + 1, entry.command.end()},
+                             .workingDirectory = entry.workingDirectory};
 }
 
 /// The launch of a file of `kind`; `unavailable` says why there is none.
@@ -137,8 +151,8 @@ std::string refusal(const fs::path& file) {
     }
     if (!kindOf(file)) {
         return file.filename().string() +
-               " is not a program openSU can start: pick an executable, a .sh script, an AppImage "
-               "or a Windows .exe";
+               " is not a program openSU can start: pick an executable, a .sh script, an AppImage, "
+               "a Windows .exe or a shortcut to one";
     }
     return {};
 }
@@ -173,7 +187,10 @@ Records::Document Records::read() const {
                     .workingDirectory = game.value("workingDirectory", ""),
                     .origin = originOf(game.value("origin", "")),
                     .originId = game.value("originId", ""),
-                    .steamAppId = game.value("steamAppId", "")};
+                    .steamAppId = game.value("steamAppId", ""),
+                    .icon = game.value("icon", ""),
+                    .iconIndex = game.value("iconIndex", 0),
+                    .command = game.value("command", std::vector<std::string>{})};
         read.entries.push_back(std::move(entry));
     }
     return read;
@@ -249,6 +266,13 @@ void Records::write(const Document& document) const {
         if (!entry.steamAppId.empty()) {
             game["steamAppId"] = entry.steamAppId;
         }
+        if (!entry.icon.empty()) {
+            game["icon"] = entry.icon.string();
+            game["iconIndex"] = entry.iconIndex;
+        }
+        if (!entry.command.empty()) {
+            game["command"] = entry.command;
+        }
         games.push_back(std::move(game));
     }
     std::string error;
@@ -267,6 +291,7 @@ Game gameOf(const Entry& entry) {
     game.file = entry.file;
     game.artworkKey = entry.steamAppId;
     game.installed = true;
+    game.fromGameFolder = entry.origin == Origin::Folder;
     if (entry.origin == Origin::Lutris) {
         game.launch =
             LaunchSpec{.program = "lutris", .args = {"lutris:rungameid/" + entry.originId}};
@@ -276,6 +301,10 @@ Game gameOf(const Entry& entry) {
     if (!fs::is_regular_file(entry.file, error)) {
         game.unavailable =
             entry.file.string() + " is not there any more; pick its file again with Change file";
+        return game;
+    }
+    if (!entry.command.empty()) {
+        commandLaunch(entry, game);
         return game;
     }
     const std::optional<Kind> kind = kindOf(entry.file);
@@ -289,6 +318,13 @@ Game gameOf(const Entry& entry) {
 
 std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
     std::vector<Entry> entries = records_.all();
+    for (const fs::path& gameFolder : gameFolders_) {
+        for (Entry& found : folder::scan(gameFolder)) {
+            if (std::ranges::find(entries, found.file, &Entry::file) == entries.end()) {
+                entries.push_back(std::move(found));
+            }
+        }
+    }
     if (entries.empty()) {
         throw SourceAbsent{"no games added"};
     }

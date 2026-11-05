@@ -170,6 +170,32 @@ std::string originOf(std::string_view url) {
     return std::string{url.substr(0, path == std::string_view::npos ? url.size() : path)} + "/";
 }
 
+std::string percentDecode(std::string_view text) {
+    const auto hexValue = [](char c) {
+        if (c >= '0' && c <= '9') {
+            return c - '0';
+        }
+        if (c >= 'a' && c <= 'f') {
+            return c - 'a' + 10;
+        }
+        return c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+    };
+    std::string out;
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        if (text[i] == '%' && i + 2 < text.size()) {
+            const int high = hexValue(text[i + 1]);
+            const int low = hexValue(text[i + 2]);
+            if (high >= 0 && low >= 0) {
+                out.push_back(static_cast<char>((high * 16) + low));
+                i += 2;
+                continue;
+            }
+        }
+        out.push_back(text[i]);
+    }
+    return out;
+}
+
 std::string percentEncode(std::string_view text) {
     constexpr std::string_view hex = "0123456789ABCDEF";
     std::string out;

@@ -27,6 +27,7 @@ constexpr const char* homeKey = "home";
 constexpr const char* homeModeKey = "homeMode";
 constexpr const char* uiSoundsKey = "uiSounds";
 constexpr const char* romFoldersKey = "romFolders";
+constexpr const char* gameFoldersKey = "gameFolders";
 constexpr const char* steamRootsKey = "steamRoots";
 constexpr const char* uiScaleKey = "uiScale";
 constexpr const char* uiScaleBaseKey = "uiScaleBase";
@@ -366,6 +367,7 @@ Settings Store::load() const {
     read.integer(iconSizeKey, minIconSize, maxIconSize, settings.iconSize, "using the default");
     read.boolean(uiSoundsKey, settings.uiSounds, "the sounds play");
     read.paths(romFoldersKey, settings.romFolders, "using the discovered ROM folders");
+    read.paths(gameFoldersKey, settings.gameFolders, "with no games folders");
     read.paths(steamRootsKey, settings.steamRoots, "using the discovered Steam roots");
     read.installFolders(installFoldersKey, settings.installFolders,
                         "every store installs where it chooses");
@@ -527,6 +529,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {lastPlayedKey, settings.lastPlayed.entries()},
         {uiSoundsKey, settings.uiSounds},
         {romFoldersKey, listOf(settings.romFolders)},
+        {gameFoldersKey, listOf(settings.gameFolders)},
         {steamRootsKey, listOf(settings.steamRoots)},
         {installFoldersKey, folders},
         {uiScaleKey, settings.uiScale},
@@ -576,6 +579,12 @@ void Settings::addRomFolder(const std::filesystem::path& folder) {
     }
 }
 
+void Settings::addGameFolder(const std::filesystem::path& folder) {
+    if (std::ranges::find(gameFolders, folder) == gameFolders.end()) {
+        gameFolders.push_back(folder);
+    }
+}
+
 config::Config resolved(config::Config base, const Settings& settings) {
     if (settings.homeMode) {
         base.homeMode = *settings.homeMode;
@@ -586,6 +595,7 @@ config::Config resolved(config::Config base, const Settings& settings) {
     if (!settings.steamRoots.empty()) {
         base.steamRoots = settings.steamRoots;
     }
+    base.gameFolders = settings.gameFolders;
     return base;
 }
 

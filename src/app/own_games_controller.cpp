@@ -9,6 +9,7 @@
 #include "gpu2d/ui/screen.hpp"
 
 #include "import_picks_screen.hpp"
+#include "library/game_folder.hpp"
 #include "library/lutris_games.hpp"
 #include "library/lutris_wine.hpp"
 #include "library/own_games.hpp"
@@ -103,7 +104,8 @@ std::vector<Entry> OwnGamesController::lutrisGames() const {
 void OwnGamesController::openAdd() {
     const std::size_t shortcuts = steamShortcuts().size();
     const std::size_t lutris = lutrisGames().size();
-    std::vector<std::string> options{"Choose a file: a program, script, AppImage or Windows .exe"};
+    std::vector<std::string> options{
+        "Choose a file: a program, script, AppImage, Windows .exe or a shortcut"};
     std::vector<std::function<void()>> actions{[this] {
         chooseFile();
     }};
@@ -132,7 +134,7 @@ void OwnGamesController::openAdd() {
 void OwnGamesController::chooseFile() {
     std::error_code error;
     const fs::path games = places_.home / "Games";
-    pickFile("Add a game", fs::is_directory(games, error) ? games : places_.home,
+    pickFile("Add a game", fs::is_directory(games, error) ? games : places_.home, true,
              [this](const fs::path& file) {
                  identify(file);
              });
@@ -142,8 +144,14 @@ void OwnGamesController::identify(const fs::path& file) {
     hooks_.say("Looking up " + file.filename().string(), false);
     identifier_ = std::jthread{[this, file = file](const std::stop_token& stop) {
         const net::WebClient web;
-        library::identify::Guess guess =
-            library::identify::identify(file, [&web, &stop](const std::string& term) {
+        const std::optional<Entry> shortcut =
+            library::folder::isShortcut(file) ? library::folder::shortcutEntry(file) : std::nullopt;
+        Entry entry = shortcut.value_or(Entry{.id = {}, .title = {}, .file = file});
+        entry.origin = library::own::Origin::File;
+        entry.originId.clear();
+        library::identify::Guess guess = library::identify::identify(
+            entry.file,
+            [&web, &stop](const std::string& term) {
                 const net::Result<std::string> answer =
                     web.get(stop, library::identify::storeSearchUrl(term));
                 if (answer.stopped()) {
@@ -154,57 +162,76 @@ void OwnGamesController::identify(const fs::path& file) {
                     return std::vector<library::identify::StoreApp>{};
                 }
                 return library::identify::parseStoreSearch(*answer);
-            });
+            },
+            entry.title);
         if (stop.stop_requested()) {
             return;
+        }
+        if (guess.steamAppId.empty()) {
+            guess.steamAppId = entry.steamAppId;
         }
         lucent::info("own-games", "{} is {} (Steam app {}), from {}", file.string(), guess.title,
                      guess.steamAppId.empty() ? "none" : guess.steamAppId, guess.from);
         const std::lock_guard lock{mutex_};
-        identified_.emplace(file, std::move(guess));
+        identified_.emplace(Identified{std::move(entry), std::move(guess)});
     }};
 }
 
 void OwnGamesController::service() {
-    std::optional<std::pair<fs::path, library::identify::Guess>> ready;
+    std::optional<Identified> ready;
     {
         const std::lock_guard lock{mutex_};
         ready = std::exchange(identified_, std::nullopt);
     }
     if (ready) {
-        confirm(ready->first, ready->second);
+        confirm(*ready);
     }
 }
 
-void OwnGamesController::confirm(const fs::path& file, const library::identify::Guess& guess) {
-    askTitle("Add " + file.filename().string() + "?", noteOf(guess), guess.title,
-             [this, file = file, steamAppId = guess.steamAppId](const std::string& title) {
+void OwnGamesController::confirm(const Identified& identified) {
+    const library::identify::Guess& guess = identified.guess;
+    askTitle("Add " + identified.entry.file.filename().string() + "?", noteOf(guess), guess.title,
+             [this, entry = identified.entry,
+              steamAppId = guess.steamAppId](const std::string& title) mutable {
+                 entry.title = title;
+                 entry.steamAppId = steamAppId;
                  apply(
-                     [this, &file, &title, &steamAppId] {
-                         records_.add(Entry{
-                             .id = {}, .title = title, .file = file, .steamAppId = steamAppId});
+                     [this, &entry] {
+                         records_.add(entry);
                      },
                      "Added " + title);
              });
 }
 
 template <typename Picked>
-void OwnGamesController::pickFile(const std::string& title, const fs::path& start, Picked picked) {
-    paths_.begin(
-        PathEditor::Request{.title = title,
-                            .start = start,
-                            .clearLabel = {},
-                            .refusal = &library::own::refusal,
-                            .files =
-                                [](const fs::path& file) {
-                                    return library::own::kindOf(file).has_value();
-                                },
-                            .done =
-                                [picked = std::move(picked)](const std::optional<fs::path>& file) {
-                                    if (file) {
-                                        picked(*file);
-                                    }
-                                }});
+void OwnGamesController::pickFile(const std::string& title, const fs::path& start, bool shortcuts,
+                                  Picked picked) {
+    const auto isShortcut = [shortcuts](const fs::path& file) {
+        return shortcuts && library::folder::isShortcut(file);
+    };
+    paths_.begin(PathEditor::Request{
+        .title = title,
+        .start = start,
+        .clearLabel = {},
+        .refusal =
+            [isShortcut](const fs::path& file) {
+                if (!isShortcut(file)) {
+                    return library::own::refusal(file);
+                }
+                return library::folder::shortcutEntry(file)
+                           ? std::string{}
+                           : file.filename().string() + " does not start a game openSU can find";
+            },
+        .files =
+            [isShortcut](const fs::path& file) {
+                return isShortcut(file) || library::own::kindOf(file).has_value();
+            },
+        .done =
+            [picked = std::move(picked)](const std::optional<fs::path>& file) {
+                if (file) {
+                    picked(*file);
+                }
+            }});
 }
 
 void OwnGamesController::offer(std::vector<Entry> found, const std::string& title,
@@ -243,7 +270,7 @@ void OwnGamesController::rename(const library::Game& game) {
 
 void OwnGamesController::changeFile(const library::Game& game) {
     pickFile("Change " + game.title + "'s file",
-             game.file.empty() ? places_.home : game.file.parent_path(),
+             game.file.empty() ? places_.home : game.file.parent_path(), false,
              [this, id = game.sourceId, title = game.title](const fs::path& file) {
                  apply(
                      [this, &id, &file] {

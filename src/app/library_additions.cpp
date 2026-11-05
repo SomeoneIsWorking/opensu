@@ -10,6 +10,7 @@ namespace opensu::app {
 namespace {
 
 constexpr std::string_view addGameId = "add-game";
+constexpr std::string_view addGameFolderId = "add-game-folder";
 constexpr std::string_view addRomFolderId = "add-rom-folder";
 constexpr std::string_view lanImportId = "lan-import";
 /// An integration's tile is this and its entry's id.
@@ -21,6 +22,7 @@ std::vector<library::AddTile> LibraryAdditions::tiles() const {
     std::vector<library::AddTile> tiles;
     if (const std::string_view offer = library::addGameOffer(); !offer.empty()) {
         tiles.push_back({std::string{addGameId}, "Add a game", std::string{offer}});
+        tiles.push_back({std::string{addGameFolderId}, "Add a game folder", "Shortcuts or games"});
     }
     tiles.push_back({std::string{addRomFolderId}, "Add a ROM folder", "One folder per console"});
     const settings::IntegrationChoices& chosen = integrations_.choices();
@@ -40,6 +42,8 @@ std::vector<library::AddTile> LibraryAdditions::tiles() const {
 void LibraryAdditions::press(const std::string& id) const {
     if (id == addGameId) {
         hooks_.addGame();
+    } else if (id == addGameFolderId) {
+        hooks_.addGameFolder();
     } else if (id == addRomFolderId) {
         hooks_.addRomFolder();
     } else if (id == lanImportId) {

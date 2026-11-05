@@ -64,7 +64,7 @@ class OwnGamesController {
     void openAdd();
     /// Shows a finished identification for confirming. Main loop only.
     void service();
-    /// Picks the file of a new game.
+    /// Picks the file or shortcut of a new game.
     void chooseFile();
 
     /// From a game's details.
@@ -84,17 +84,26 @@ class OwnGamesController {
     void offer(std::vector<library::own::Entry> found, const std::string& title,
                std::string_view from);
     void importAll(std::vector<library::own::Entry> entries, std::string_view from);
-    /// Opens the folder chooser on `start` for a game file; `picked` takes the one accepted.
+    /// Opens the folder chooser on `start` for a game file, or a shortcut with `shortcuts`;
+    /// `picked` takes the one accepted.
     template <typename Picked>
-    void pickFile(const std::string& title, const std::filesystem::path& start, Picked picked);
+    void pickFile(const std::string& title, const std::filesystem::path& start, bool shortcuts,
+                  Picked picked);
     /// Asks for a title over the screen, `title` typed in already and `note` under the heading;
     /// `done` takes what was entered.
     void askTitle(const std::string& heading, const std::string& note, std::string title,
                   std::function<void(const std::string&)> done);
-    /// Identifies `file` on the worker; `service` shows the guess.
+    /// What a finished identification gives the confirm card.
+    struct Identified {
+        /// The entry the game becomes, its title and Steam app to come from the guess.
+        library::own::Entry entry;
+        library::identify::Guess guess;
+    };
+    /// Identifies `file`, a shortcut's target when it is one, on the worker; `service` shows the
+    /// guess.
     void identify(const std::filesystem::path& file);
     /// The confirm card of a guess.
-    void confirm(const std::filesystem::path& file, const library::identify::Guess& guess);
+    void confirm(const Identified& identified);
     /// Closes the title card.
     void closeTitle();
     /// Runs `change` on the records and reloads the library; a failure is said, not thrown.
@@ -112,7 +121,7 @@ class OwnGamesController {
     std::function<void(const std::string&)> titled_;
     /// A finished identification, waiting for the main loop.
     std::mutex mutex_;
-    std::optional<std::pair<std::filesystem::path, library::identify::Guess>> identified_;
+    std::optional<Identified> identified_;
     /// Last, so it stops before anything it writes is destroyed.
     std::jthread identifier_;
 };

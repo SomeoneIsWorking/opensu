@@ -24,6 +24,8 @@ enum class Origin : std::uint8_t {
     SteamShortcut,
     /// A Lutris game, run through Lutris.
     Lutris,
+    /// Found in a games folder (`folder::scan`) on this listing, and never kept in the records.
+    Folder,
 };
 
 /// One game the player added.
@@ -43,6 +45,13 @@ struct Entry {
     std::string originId{};
     /// The Steam app the game is (`identify`), whose cover it shows; empty when none matched.
     std::string steamAppId{};
+    /// The picture its shortcut names: a file, or a theme icon's name; empty for none.
+    std::filesystem::path icon{};
+    /// Which icon of `icon`, as a shortcut counts them.
+    std::int32_t iconIndex{0};
+    /// What its shortcut runs, program first, when that is no file of `kindOf`'s: `file` is then
+    /// the shortcut.
+    std::vector<std::string> command{};
 
     bool operator==(const Entry&) const = default;
 };
@@ -100,16 +109,20 @@ class Records {
 /// The game an entry stands for: `own:<id>`, always installed, its Steam app id as its
 /// `artworkKey`, its launch built from the file
 /// (a Windows one marked `windowsInstall`, prepared by `wine::prepare`), or Lutris's
-/// `lutris lutris:rungameid/<id>`. A file that is gone or cannot start leaves `launch` empty and
-/// says why in `unavailable`.
+/// `lutris lutris:rungameid/<id>`, or its shortcut's `command`. A file that is gone or cannot start
+/// leaves `launch` empty and says why in `unavailable`.
 [[nodiscard]] Game gameOf(const Entry& entry);
 
-/// Lists the entries as games; absent while there are none. A Lutris entry with no Steam app of
-/// its own is the app Lutris knows it as (`lutrisGames`), read from `lutrisData` on each listing.
+/// Lists the entries and what the games folders hold as games; absent while there are none. A
+/// folder's game whose file is an entry's already is that entry. A Lutris entry with no Steam app
+/// of its own is the app Lutris knows it as (`lutrisGames`), read from `lutrisData` on each
+/// listing.
 class Provider final : public library::Provider {
   public:
-    Provider(Records records, std::filesystem::path lutrisData)
-        : records_{std::move(records)}, lutrisData_{std::move(lutrisData)} {
+    Provider(Records records, std::filesystem::path lutrisData,
+             std::vector<std::filesystem::path> gameFolders)
+        : records_{std::move(records)}, lutrisData_{std::move(lutrisData)},
+          gameFolders_{std::move(gameFolders)} {
     }
 
     [[nodiscard]] Source source() const override {
@@ -120,6 +133,7 @@ class Provider final : public library::Provider {
   private:
     Records records_;
     std::filesystem::path lutrisData_;
+    std::vector<std::filesystem::path> gameFolders_;
 };
 
 } // namespace opensu::library::own

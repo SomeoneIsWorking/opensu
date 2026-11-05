@@ -144,6 +144,9 @@ struct Game {
     /// The installed build is a Windows one this OS runs under Wine (`wine::prepare`); GOG, Epic
     /// and an added `.exe`. Never on Windows, which runs them itself (`windowsBuildsNative`).
     bool windowsInstall{false};
+    /// A game a games folder holds: it comes and goes with its file, so it has no entry to rename,
+    /// repoint or remove.
+    bool fromGameFolder{false};
 
     int playtimeMinutes{0};
     std::optional<std::chrono::system_clock::time_point> lastPlayed;

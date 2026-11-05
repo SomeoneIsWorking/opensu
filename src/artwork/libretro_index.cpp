@@ -15,34 +15,6 @@ namespace {
 
 constexpr std::string_view pngSuffix = ".png";
 
-int hexValue(char c) {
-    if (c >= '0' && c <= '9') {
-        return c - '0';
-    }
-    const auto lower = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    if (lower >= 'a' && lower <= 'f') {
-        return lower - 'a' + 10;
-    }
-    return -1;
-}
-
-std::string decode(std::string_view text) {
-    std::string out;
-    for (std::size_t i = 0; i < text.size(); ++i) {
-        if (text[i] == '%' && i + 2 < text.size()) {
-            const int high = hexValue(text[i + 1]);
-            const int low = hexValue(text[i + 2]);
-            if (high >= 0 && low >= 0) {
-                out.push_back(static_cast<char>(high * 16 + low));
-                i += 2;
-                continue;
-            }
-        }
-        out.push_back(text[i]);
-    }
-    return out;
-}
-
 std::string lower(std::string_view text) {
     std::string out{text};
     std::ranges::transform(out, out.begin(), [](unsigned char c) {
@@ -183,7 +155,7 @@ std::vector<std::string> parseIndex(std::string_view html) {
         const std::string_view link = html.substr(at, end - at);
         if (link.size() > pngSuffix.size() && link.ends_with(pngSuffix) &&
             link.find('/') == std::string_view::npos) {
-            names.push_back(decode(link.substr(0, link.size() - pngSuffix.size())));
+            names.push_back(net::percentDecode(link.substr(0, link.size() - pngSuffix.size())));
         }
         at = end;
     }

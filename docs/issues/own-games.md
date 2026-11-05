@@ -16,6 +16,9 @@ program, not the folder".
 - Choose a file opens the folder chooser in file mode: folders and the files `own::kindOf` accepts
   (an executable, a `.sh`, an `.AppImage`, a Windows `.exe`); the Path field takes a typed path.
   The picked file is what launches.
+- Add a game also takes a shortcut (`.lnk`, `.url`, `.desktop`, `folder::shortcutEntry`): the entry
+  starts what it names, with its arguments and folder, and its name is the first clue.
+- Add a game folder keeps a folder in step with the library (`docs/guide/stores.md`).
 - The file is identified on a worker (`library/game_identify`): clues on disk first
   (`steam_appid.txt`, a GOG `goggame-*.info`, a `.desktop` entry that starts the file, the folders
   above it up to a library folder such as `Games` or `AppImages`, skipping `Game`, `Binaries`,

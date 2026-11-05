@@ -248,7 +248,7 @@ void lutrisGamesAreRead(const fs::path& dir) {
                  .origin = own::Origin::Lutris,
                  .originId = "2",
                  .steamAppId = "999"});
-    own::Provider provider{records, dir / "lutris"};
+    own::Provider provider{records, dir / "lutris", {}};
     const std::vector<Game> games = provider.list(std::stop_token{});
     expect(games.size() == 2 && games[0].artworkKey == "2050650",
            "an entry imported without its Steam app takes the one Lutris names");

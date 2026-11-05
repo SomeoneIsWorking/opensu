@@ -343,12 +343,13 @@ std::string fileTitle(const fs::path& file) {
     return title;
 }
 
-Clues cluesOf(const fs::path& file) {
+Clues cluesOf(const fs::path& file, const fs::path& stopAt) {
     Clues clues;
     std::vector<Clue> folders;
     addClue(clues.names, desktopName(file.parent_path(), file), "its .desktop entry");
     fs::path dir = file.parent_path();
-    for (int level = 0; level < mostFolders && depthOf(dir) > 2; ++level) {
+    for (int level = 0;
+         level < mostFolders && dir != stopAt && (!stopAt.empty() || depthOf(dir) > 2); ++level) {
         if (clues.steamAppId.empty()) {
             clues.steamAppId = steamAppIdIn(dir);
         }
@@ -372,8 +373,14 @@ Clues cluesOf(const fs::path& file) {
     return clues;
 }
 
-Guess identify(const fs::path& file, const StoreSearch& search) {
-    const Clues clues = cluesOf(file);
+Guess identify(const fs::path& file, const StoreSearch& search, const std::string& shortcut) {
+    Clues clues = cluesOf(file);
+    if (!shortcut.empty()) {
+        std::erase_if(clues.names, [&shortcut](const Clue& clue) {
+            return titleKey(clue.name) == titleKey(shortcut);
+        });
+        clues.names.insert(clues.names.begin(), Clue{shortcut, "the shortcut's name"});
+    }
     Guess guess{.title = clues.names.empty() ? file.stem().string() : clues.names.front().name,
                 .kind = own::kindOf(file),
                 .steamAppId = clues.steamAppId,

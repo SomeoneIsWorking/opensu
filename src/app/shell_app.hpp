@@ -170,7 +170,7 @@ class ShellApp final {
     /// Asks every store to list again; the listings reach the shell as they arrive.
     void reloadCatalog();
     /// The player's ROM folders changed: the catalog reads them from now on.
-    void romFoldersChanged();
+    void libraryFoldersChanged();
     /// Keeps `folder` with the player's ROM folders, which the catalog reads from now on.
     void addRomFolder(const std::filesystem::path& folder);
     /// Takes the listings that arrived and shows them. Main loop only.
@@ -342,8 +342,8 @@ class ShellApp final {
     /// Which integrations and which Steam mode are in force; before everything that asks.
     IntegrationsInForce integrations_{preferences_, settings_.loginSession};
     /// The environment's configuration with what the player set in place of it: the roots the
-    /// catalog and Steam read, fixed for the run but for the ROM folders (`romFoldersChanged`);
-    /// the runner's saves where `files_` keeps them.
+    /// catalog and Steam read, fixed for the run but for the library folders
+    /// (`libraryFoldersChanged`); the runner's saves where `files_` keeps them.
     config::Config resolved_{
         files_.savingIn(settings::resolved(environment_, preferences_.values()))};
     /// The player profiles, opened before anything reads saves, the saves from before profiles
@@ -1147,14 +1147,19 @@ class ShellApp final {
                                       shell_.setToast(text, isError);
                                   },
                                   [this] {
-                                      romFoldersChanged();
+                                      libraryFoldersChanged();
                                   }}};
-    /// Library's add tiles: Add a game, Add a ROM folder, the integrations not set up.
+    /// Library's add tiles: Add a game, Add a game folder, Add a ROM folder, the integrations not
+    /// set up.
     LibraryAdditions libraryAdditions_{
         integrations_,
         LibraryAdditions::Hooks{.addGame =
                                     [this] {
                                         ownGames_.openAdd();
+                                    },
+                                .addGameFolder =
+                                    [this] {
+                                        settingsScreen_.addGameFolder();
                                     },
                                 .addRomFolder =
                                     [this] {

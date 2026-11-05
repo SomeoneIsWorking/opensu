@@ -142,3 +142,9 @@ target_link_libraries(game_identify_test PRIVATE opensu::library)
 target_compile_definitions(game_identify_test PRIVATE
     OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME game_identify COMMAND game_identify_test)
+
+add_executable(game_folder_test game_folder_test.cpp)
+target_link_libraries(game_folder_test PRIVATE opensu::library)
+target_include_directories(game_folder_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../ui" "${CMAKE_CURRENT_SOURCE_DIR}/..")
+target_compile_definitions(game_folder_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME game_folder COMMAND game_folder_test)

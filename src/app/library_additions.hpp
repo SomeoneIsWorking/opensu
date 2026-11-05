@@ -1,8 +1,9 @@
 // library_additions — the add tiles Library shows and what each does: Add a game where this OS can
-// start a game of the player's own (`library::addGameOffer`), Add a ROM folder (Settings' own
-// flow), Import from a PC on your network while LAN is on (the LAN's ROM import), and Set up
-// <integration> for each one this build offers that the player has not turned on, which opens its
-// switch in Settings › Integrations. An integration's tile goes once it is on.
+// start a game of the player's own (`library::addGameOffer`) and with it Add a game folder, Add a
+// ROM folder (each Settings' own flow), Import from a PC on your network while LAN is on (the LAN's
+// ROM import), and Set up <integration> for each one this build offers that the player has not
+// turned on, which opens its switch in Settings › Integrations. An integration's tile goes once it
+// is on.
 #pragma once
 
 #include <functional>
@@ -20,6 +21,8 @@ class LibraryAdditions {
     struct Hooks {
         /// Add a game: a file, Steam's shortcuts, Lutris.
         std::function<void()> addGame;
+        /// Library › Add a game folder.
+        std::function<void()> addGameFolder;
         /// Library › Add a ROM folder.
         std::function<void()> addRomFolder;
         /// Library › Import from a PC on your network.

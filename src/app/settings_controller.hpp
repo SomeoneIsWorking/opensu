@@ -69,7 +69,7 @@ class SettingsController final : public ui::RowActions {
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
         /// The ROM folders were changed: the catalog reads them from now on.
-        std::function<void()> romFoldersChanged;
+        std::function<void()> libraryFoldersChanged;
     };
 
     /// What the rows act on besides the preferences.
@@ -147,6 +147,8 @@ class SettingsController final : public ui::RowActions {
     void openPage(const std::string& id) override;
     /// Library › Add a ROM folder: the folder picker, and the folder kept and read once picked.
     void addRomFolder();
+    /// Library › Add a game folder: the chooser, then the catalog read again.
+    void addGameFolder();
     /// Library › Import from a PC on your network: Settings › LAN, with the page `LanRoms::entry`
     /// names over it when there is one.
     void openLanImport();

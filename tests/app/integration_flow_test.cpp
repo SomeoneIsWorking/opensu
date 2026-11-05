@@ -63,6 +63,10 @@ void libraryTilesSetUpWhatIsOff(const fs::path& root) {
                                                   [&pressed] {
                                                       pressed.emplace_back("add game");
                                                   },
+                                              .addGameFolder =
+                                                  [&pressed] {
+                                                      pressed.emplace_back("add game folder");
+                                                  },
                                               .addRomFolder =
                                                   [&pressed] {
                                                       pressed.emplace_back("add rom folder");
@@ -82,15 +86,16 @@ void libraryTilesSetUpWhatIsOff(const fs::path& root) {
         }
         return out;
     };
-    expect(ids() == std::vector<std::string>{"add-game", "add-rom-folder", "set-up:steam",
-                                             "set-up:epic", "set-up:gog", "set-up:emulators",
-                                             "set-up:plugins", "set-up:lan"},
-           "nothing chosen: Add a game, Add a ROM folder and a tile per integration, no LAN "
-           "import while LAN is off");
-    for (const std::string id : {"add-game", "add-rom-folder", "set-up:gog"}) {
+    expect(ids() == std::vector<std::string>{"add-game", "add-game-folder", "add-rom-folder",
+                                             "set-up:steam", "set-up:epic", "set-up:gog",
+                                             "set-up:emulators", "set-up:plugins", "set-up:lan"},
+           "nothing chosen: Add a game, Add a game folder, Add a ROM folder and a tile per "
+           "integration, no LAN import while LAN is off");
+    for (const std::string id : {"add-game", "add-game-folder", "add-rom-folder", "set-up:gog"}) {
         additions.press(id);
     }
-    expect(pressed == std::vector<std::string>{"add game", "add rom folder", "integrations.gog"},
+    expect(pressed == std::vector<std::string>{"add game", "add game folder", "add rom folder",
+                                               "integrations.gog"},
            "each tile does its own thing; an integration's opens its switch");
     settings::IntegrationChoices chosen;
     chosen.steam = true;
@@ -98,9 +103,9 @@ void libraryTilesSetUpWhatIsOff(const fs::path& root) {
     inForce.choose(chosen);
     const std::vector<std::string> after = ids();
     expect(std::ranges::find(after, "set-up:steam") == after.end() &&
-               std::ranges::find(after, "set-up:lan") == after.end() && after.size() == 7,
+               std::ranges::find(after, "set-up:lan") == after.end() && after.size() == 8,
            "a tile goes once its integration is on");
-    expect(after[2] == "lan-import", "LAN on: Import from a PC on your network follows Add a "
+    expect(after[3] == "lan-import", "LAN on: Import from a PC on your network follows Add a "
                                      "ROM folder");
     additions.press("lan-import");
     expect(pressed.back() == "lan import", "and opens the LAN's ROM import");
