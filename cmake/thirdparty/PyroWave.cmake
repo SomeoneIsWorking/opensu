@@ -1,6 +1,7 @@
 # PyroWave, remote play's video codec (Vulkan compute wavelets, intra-only): the C API of the pinned
 # fork, `libpyrowave-shared`, built with CMake against the part of Granite it needs (volk and the
-# Vulkan headers), at the Granite commit PyroWave's own checkout script pins. Both are MIT. It is
+# Vulkan headers): our fork, the commit PyroWave's own checkout script pins and macOS's sleep. Both
+# are MIT. It is
 # built with this prefix's own compilers: the Windows toolchain file, macOS's SDK and target.
 
 set(root "${CMAKE_BINARY_DIR}/pyrowave")

@@ -463,7 +463,9 @@ Library on both sides.
   lists nothing there: no guest is offered their games.
 - Windows and macOS are guests: Winsock or POSIX UDP, Opus from vcpkg and PyroWave from the
   third-party prefix. PyroWave needs Vulkan with subgroup size control, which is checked when a
-  session opens its decoder; VA-API is Linux only, so PyroWave is their one codec.
+  session opens its decoder; VA-API is Linux only, so PyroWave is their one codec. On Metal through
+  MoltenVK PyroWave decodes but `pyrowave_encoder_create` fails, so `stream_test` checks macOS on
+  `tests/stream/coded_picture.bin`, a frame coded on Linux.
 - Android builds no part of remote play (no UDP backend, Opus or PyroWave):
   `stream::playingMissing` keeps remote games out of its catalog and `hostingMissing` its own games
   off the listing.

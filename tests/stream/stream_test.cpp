@@ -8,13 +8,16 @@
 #include <cstdio>
 #include <cstdlib>
 #include <deque>
+#include <fstream>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <mutex>
 #include <numbers>
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -440,6 +443,54 @@ void picturesSurviveTheCodec() {
 
 /// Each hardware codec this machine both codes and decodes, over pictures that move: only key
 /// frames stand alone, and after a lost packet nothing decodes until the next key frame.
+/// `stream_test --write-coded-picture FILE` remakes `coded_picture.bin` on a system that encodes:
+/// each packet of one frame as written to the wire, after its length in 4 little-endian bytes.
+void writeCodedPicture(const char* path) {
+    const Nv12 source = testPicture(256, 144);
+    const stream::CodedFrame coded = stream::openEncoder(stream::VideoCodec::PyroWave)
+                                         ->encode(captured(source), pyroWaveRate, false);
+    std::ofstream file{path, std::ios::binary};
+    for (const stream::wire::VideoPacket& packet :
+         packetsOf(coded, 1, source, stream::VideoCodec::PyroWave)) {
+        const std::string bytes = stream::wire::write(packet);
+        for (int shift = 0; shift < 32; shift += 8) {
+            file.put(static_cast<char>((bytes.size() >> shift) & 0xffU));
+        }
+        file.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+    }
+    expect(file.good(), "the coded picture is written");
+}
+
+/// macOS has no PyroWave encoder, so its decoder is checked on a frame coded on Linux.
+void aPictureCodedElsewhereDecodes() {
+    std::ifstream file{OPENSU_CODED_PICTURE, std::ios::binary};
+    const std::string all{std::istreambuf_iterator<char>{file}, std::istreambuf_iterator<char>{}};
+    expect(!all.empty(), "the coded picture is there");
+    const std::unique_ptr<stream::VideoDecoder> decoder =
+        stream::openDecoder(stream::VideoCodec::PyroWave);
+    bool whole = false;
+    for (std::size_t at = 0; at + 4 <= all.size();) {
+        std::size_t length = 0;
+        for (std::size_t i = 0; i < 4; ++i) {
+            length |= static_cast<std::size_t>(static_cast<unsigned char>(all[at + i])) << (8 * i);
+        }
+        at += 4;
+        const std::optional<stream::wire::VideoPacket> packet =
+            stream::wire::readVideoPacket(std::string_view{all}.substr(at, length));
+        if (!packet) {
+            fail("each packet reads back");
+        }
+        whole = decoder->push(*packet);
+        at += length;
+    }
+    expect(whole, "its last packet makes the frame whole");
+    stream::Picture decoded;
+    expect(decoder->decode(decoded, stream::PictureMemory::Cpu), "the frame decodes");
+    const double error = meanError(testPicture(256, 144), decoded);
+    std::printf("stream: coded elsewhere, mean error %.3f\n", error);
+    expect(error < 2.0, "to the picture that was coded");
+}
+
 void picturesSurviveTheHardwareCodecs() {
     const stream::VideoCodecs both = stream::encodableHere() & stream::decodableHere();
     for (const stream::VideoCodec codec : stream::hardwareCodecs) {
@@ -766,12 +817,19 @@ void thisSystemReachesWhatItBuilds() {
 
 } // namespace
 
-int main() try {
+int main(int argc, char** argv) try {
+    if (argc == 3 && std::string_view{argv[1]} == "--write-coded-picture") {
+        writeCodedPicture(argv[2]);
+        return 0;
+    }
     datagramsOpenOnce();
     payloadsReadAsWritten();
     aSessionCarriesInputAndEnds();
     theHostsEndReachesTheGuest();
+    aPictureCodedElsewhereDecodes();
+#ifndef __APPLE__
     picturesSurviveTheCodec();
+#endif
     picturesSurviveTheHardwareCodecs();
     theLinkPicksTheCodec();
     theCapQueuesAndDropsWhatTheRateHasNoRoomFor();
