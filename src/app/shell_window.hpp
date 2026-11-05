@@ -67,6 +67,10 @@ class ShellWindow {
     [[nodiscard]] SDL_GPUDevice& device() const noexcept {
         return window_.device();
     }
+    /// Whether the device samples DMA-BUFs (`gpu2d::DmabufPicture`).
+    [[nodiscard]] bool importsDmabuf() const noexcept {
+        return window_.importsDmabuf();
+    }
     [[nodiscard]] gpu2d::PixelSize size() const {
         return window_.pixelSize();
     }

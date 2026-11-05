@@ -108,8 +108,11 @@ class RemotePlay {
     void answerJoin(const std::string& peerId, bool allow);
 
     /// Plays `game`, another openSU's, from here, the pad with `mapping` (this openSU's for the
-    /// game). Main loop only.
-    void start(const library::Game& game, stream::wire::PadMapping mapping);
+    /// game), its pictures decoded into `pictures`. Main loop only.
+    void start(const library::Game& game, stream::wire::PadMapping mapping,
+               stream::PictureMemory pictures);
+    /// The screen could not sample a DMA-BUF picture: the rest of the session's are read back.
+    void readPicturesBack();
     /// Ends the session this one plays. Main loop only.
     void end();
     /// Whether this one plays another's game, or is asking to. Main loop only.
@@ -254,6 +257,7 @@ class RemotePlay {
     std::shared_ptr<std::optional<Answer>> answer_{std::make_shared<std::optional<Answer>>()};
     /// Before the stream, whose thread feeds them; the speaker before the sound that plays on it.
     std::unique_ptr<stream::GuestVideo> video_;
+    stream::PictureMemory pictures_{stream::PictureMemory::Cpu};
     std::unique_ptr<audio::LiveSound> speaker_;
     std::unique_ptr<stream::GuestAudio> audio_;
     std::unique_ptr<stream::GuestStream> guest_;

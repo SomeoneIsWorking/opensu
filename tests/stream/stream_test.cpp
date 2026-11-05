@@ -415,7 +415,7 @@ void picturesSurviveTheCodec() {
     }
     expect(decoder->push(packets.back()), "and is once all of them came");
     stream::Picture decoded;
-    expect(decoder->decode(decoded), "a whole frame decodes");
+    expect(decoder->decode(decoded, stream::PictureMemory::Cpu), "a whole frame decodes");
     expect(decoded.width == 256 && decoded.height == 144 &&
                decoded.rgba.size() == std::size_t{256} * 144 * 4,
            "at its own size");
@@ -477,7 +477,7 @@ void picturesSurviveTheHardwareCodecs() {
                     continue;
                 }
                 stream::Picture decoded;
-                if (!decoder->decode(decoded)) {
+                if (!decoder->decode(decoded, stream::PictureMemory::Cpu)) {
                     continue;
                 }
                 ++decodedFrames;

@@ -4,6 +4,8 @@
 # so the binaries link against libraries the host has. lavapipe (mesa-vulkan-drivers) and the
 # validation layers let opensu-retro's tests draw with Vulkan on the display CI forwards in.
 # Fedora's SDL3_image opens libpng, libjpeg-turbo and libwebp at run time, so they are named here.
+# The SDL fork, SDL_ttf and SDL_image are built with Fedora's build dependencies for each, so they
+# have the backends Fedora's have.
 ARG BASE=registry.fedoraproject.org/fedora:44@sha256:959833699a2fb5da1bc70b4db659ab229252c2ba1ed8e2fa29d4b30a704c0f63
 FROM ${BASE}
 
@@ -14,7 +16,7 @@ RUN dnf -y install --setopt=install_weak_deps=False \
         libavcodec-free-devel libavutil-free-devel libva-devel \
         libsecret-devel SDL3-devel SDL3_ttf-devel harfbuzz-devel SDL3_image-devel libvorbis-devel \
         libjpeg-turbo vulkan-loader-devel libpng-devel glslc mesa-vulkan-drivers vulkan-validation-layers \
-    && dnf -y builddep gamescope \
+    && dnf -y builddep gamescope SDL3 SDL3_ttf SDL3_image \
     && dnf clean all
 
 CMD ["/sbin/init"]

@@ -24,6 +24,8 @@ def plan_for(layout: config.Layout, version: str) -> cmake.Plan:
             f"-DOPENSU_VERSION={version}",
             # The host's libavcodec is another library version on each distribution.
             "-DOPENSU_BUILD_VAAPI=OFF",
+            # The SDL fork only lets the hardware decoder's pictures reach the GPU unread.
+            "-DOPENSU_BUILD_SDL_FORK=OFF",
         ),
     )
 

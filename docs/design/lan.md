@@ -312,7 +312,14 @@ that profile's; the host's own active profile does not change.
 - Hardware codecs (`hardware_codec_vaapi.cpp`): libavcodec on a VA-API DRM device, CBR at the
   plan's rate with a two-frame buffer, no B-frames, one frame in flight, a key frame every 300
   frames or when asked, reopened when the rate moves by a fifth. The guest decodes the same way
-  into NV12 and converts it to RGBA on the CPU.
+  into NV12 surfaces (four more than the codec needs, so shown pictures are not overwritten).
+  Where its window's device imports DMA-BUFs (`ShellWindow::importsDmabuf`: SDL GPU on Vulkan
+  through openSU's SDL fork) each surface is exported as two DMA-BUF planes (`av_hwframe_map` to
+  DRM PRIME), which `gpu2d::DmabufPicture` samples where they lie and draws into RGBA (BT.709 full
+  range, `stream::rgbFromBt709`), holding the surface until that draw's fence signals: no copy
+  through the CPU. Otherwise, or once an import fails (`RemotePicture::show` returns false and
+  `RemotePlay::readPicturesBack` switches the session), it transfers the surface to CPU memory and
+  converts it there (`rgbaFromYcbcr`), as PyroWave's pictures always are.
 - Pacing (`HostStream::sendFrame` and its sender thread, one `stream::TokenBucket` for video and
   probes): each frame's datagrams leave at once while the bucket holds them, the bucket as deep as
   one frame at the plan's rate (headers and seals counted) and four probe datagrams more, filling
@@ -327,7 +334,8 @@ that profile's; the host's own active profile does not change.
   (nothing waits for a resend); on a hardware codec every frame after it is dropped until a key
   frame, which the guest asks for while the decoder waits (KeyFrame, at most every 100 ms); a whole PyroWave frame two
   newer ones began after is skipped as late. The loop
-  uploads the newest picture and `ui::Shell` draws it letterboxed over black. `stream::GuestAudio`
+  shows the newest picture (`app::RemotePicture`: uploaded, or drawn from its DMA-BUFs) and
+  `ui::Shell` draws it letterboxed over black. `stream::GuestAudio`
   decodes each Opus packet, conceals up to ten lost ones, and plays on the shell's device
   (`audio::LiveSound`, at most 60 ms queued) when the shell plays sounds.
 - Input: while the remote game has the controls (streaming, no Guide menu or other menu open), the
@@ -462,10 +470,10 @@ Library on both sides.
   Mesa encodes none and decodes only AV1 there; RPM Fusion's `mesa-va-drivers-freeworld` adds
   H.264 and HEVC. The AppImage is built without them (`OPENSU_BUILD_VAAPI=OFF`: libavcodec's
   soname differs per distro), so it streams PyroWave only.
-- The guest decodes into CPU memory, converts to RGBA there and uploads a new texture each frame.
-  Decoding straight into an image the presenter samples needs the decoder on the presenter's
-  Vulkan device, which SDL GPU neither exposes nor imports (`SDL_GPUDevice` gives no `VkDevice`,
-  queue or external-memory import); it waits on an SDL fork that does.
+- Hardware pictures stay on the GPU only with openSU's SDL fork (`cmake/SDL.cmake`; upstream SDL
+  GPU imports no external memory) on a Vulkan device with `VK_EXT_external_memory_dma_buf` and
+  `VK_EXT_image_drm_format_modifier`; the AppImage and system SDL read them back. PyroWave decodes
+  into CPU memory and uploads a new texture each frame.
 - The guest's Video settings do not apply to the stream.
 - A game whose sound ignores `PIPEWIRE_NODE` and `PULSE_SINK` plays on the host's speakers and
   the guest hears silence.
@@ -519,8 +527,13 @@ on the host `remoteVideo` is the link (codec, rate, delivered, loss, switches, p
 the codec and switches, frames decoded, dropped and late, and each stage's p50/p95 in ms from
 capture to the submitted frame and `remoteAudio` (packets, lost, arrival p50/p95). On both
 sides `/remote/frame.png` returns the newest remote picture, numbered in `X-Opensu-Frame`: the one
-sent on the host and the one decoded on the guest, so the same number can be compared. A hidden
-guest has no surface: `submitted` counts frames submitted and `drawn` stays 0. `POST /remote/link`
+sent on the host and the one decoded on the guest (read back from the GPU, the one shown, when it
+stays there), so the same number can be compared. The `shell` log line names whether the window
+imports DMA-BUFs (`DMA-BUFs sampled`, `no DMA-BUF import`); a fall back mid-session logs a
+`remote` warning. Compare pictures with colour in them: a grey picture leaves chroma untested. A
+hidden guest has no surface: `submitted` counts frames submitted and `drawn` stays 0, and `submit`
+is mostly the wait for the loop's next pass, so it moves by up to a frame from run to run; judge a
+decoder by `decode`. `/frame.png` draws the shell over the picture. `POST /remote/link`
 with bits a second puts what a hidden guest takes through a slow link (`stream::LinkCap`: a queue
 of 20 ms at that rate in front of the guest, what it holds delayed and what it has no room for
 dropped; 0 lifts it, and the guests of one host each take their own), the slow link that makes the host fall back; the `stream` log lines name each

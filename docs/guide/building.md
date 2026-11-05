@@ -66,13 +66,14 @@ distribution; a host other than Fedora is refused, since the image's binaries ne
 libraries, and builds by hand instead. CI's `tools.check ci` runs `all` in the same image on the
 pinned Fedora 44, with systemd as PID 1 for the tests.
 
-PyroWave, librashader and the Gamescope fork are not built in a build tree. `deps` builds
+PyroWave, librashader and the Gamescope and SDL forks are not built in a build tree. `deps` builds
 `cmake/thirdparty` once per pinned revision, toolchain and build image into a prefix of their own,
 `~/.local/share/opensu-thirdparty/<platform>-<digest>` (the digest covers `cmake/thirdparty`, the
 pins in `cmake/ThirdParty.cmake`, `cmake/toolchains`, the compiler arguments and versions, the
 build image's tag, which each image's run names in `OPENSU_BUILD_IMAGE`, and `rustc -vV`), and
 `configure` hands it to CMake as `CMAKE_PREFIX_PATH`, where `find_package(OpensuPyroWave)`,
-`find_package(OpensuLibrashader)` and `find_package(OpensuGamescope)` find them; every build tree
+`find_package(OpensuLibrashader)`, `find_package(OpensuGamescope)` and `find_package(OpensuSDL)`
+find them; every build tree
 and checkout with the same pins, compilers and image shares it. An Android build does the same per
 ABI with the NDK's toolchain.
 
@@ -94,8 +95,9 @@ git clone https://github.com/SomeoneIsWorking/gpu2d.git
 Then point openSU at both (`LUCENT_ROOT` defaults to `$HOME/repo/lucent`, `GPU2D_ROOT` to
 `$HOME/repo/gpu2d`)
 
-and at a prefix holding PyroWave, librashader and the Gamescope fork, which `cmake/thirdparty`
-builds (the fork needs Gamescope's build dependencies, `sudo dnf builddep gamescope` on Fedora):
+and at a prefix holding PyroWave, librashader and the Gamescope and SDL forks, which
+`cmake/thirdparty` builds (the forks need Gamescope's, SDL3's, SDL3_ttf's and SDL3_image's build dependencies,
+`sudo dnf builddep gamescope SDL3 SDL3_ttf SDL3_image` on Fedora):
 
 ```sh
 cmake -S cmake/thirdparty -B build/thirdparty -G Ninja -DCMAKE_C_COMPILER=clang \
@@ -135,6 +137,20 @@ nested session then refuses to start and says so. `cmake --install` puts the bin
 `<prefix>/libexec/opensu/gamescope`, where an installed openSU looks; a build-tree openSU looks at
 `<build>/libexec/opensu/gamescope`. There is no `PATH` lookup and no fallback to the distribution's
 Gamescope.
+
+## The SDL fork
+
+On Linux the shell and the runner use openSU's pinned
+[SDL fork](https://github.com/SomeoneIsWorking/SDL) (branch `opensu/release-3.4.18`): SDL 3.4.18
+whose GPU API also wraps a DMA-BUF plane as a Vulkan texture, so remote play's guest draws the
+hardware decoder's picture without copying it through the CPU. The shared third-party prefix builds
+it (`cmake/thirdparty/SDL.cmake`) under `opensu-sdl/`, with the pinned SDL_ttf and SDL_image
+releases built against it, so no library openSU links brings the system's SDL3 with it;
+`cmake/SDL.cmake` puts their pkg-config directory first and installs `libSDL3.so.0`,
+`libSDL3_ttf.so.0` and `libSDL3_image.so.0` into `<prefix>/lib64/opensu`, which the executables'
+RPATH names. A build-tree
+executable loads it from the prefix. `-DOPENSU_BUILD_SDL_FORK=OFF` builds against the system's
+SDL3 (the AppImage does, having no hardware decoder); the guest then reads each picture back.
 
 ## Installing from source
 

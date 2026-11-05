@@ -1,6 +1,7 @@
 // The hardware codecs through libavcodec's VA-API encoders and hwaccel decoders, on the GPU's
 // first DRM render node VA-API opens. Low latency: no B-frames, one frame in flight, a constant
-// rate with a two-frame buffer, a key frame every five seconds or when asked.
+// rate with a two-frame buffer, a key frame every five seconds or when asked. A decoded picture is
+// read back, or exported as DMA-BUFs for the guest's GPU to sample where it lies.
 
 #include <algorithm>
 #include <array>
@@ -17,6 +18,7 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/hwcontext.h>
+#include <libavutil/hwcontext_drm.h>
 #include <libavutil/hwcontext_vaapi.h>
 #include <libavutil/opt.h>
 }
@@ -32,6 +34,9 @@ namespace {
 constexpr int keyFrameEvery = 5 * videoFramesPerSecond;
 /// The rate a running encoder is reopened for, as a share of the one it codes at.
 constexpr double reopenShare = 0.2;
+/// Surfaces the guest may hold past the decoder's own: the newest, the one waiting to be shown and
+/// those the GPU still reads.
+constexpr int surfacesHeld = 4;
 
 std::string errorText(int error) {
     std::array<char, AV_ERROR_MAX_STRING_SIZE> text{};
@@ -283,6 +288,7 @@ class Decoder final : public VideoDecoder {
         context_->get_format = vaapiFormat;
         context_->thread_count = 1;
         context_->flags |= AV_CODEC_FLAG_LOW_DELAY;
+        context_->extra_hw_frames = surfacesHeld;
         check(avcodec_open2(context_.get(), decoder, nullptr), "open its decoder");
         lucent::info("video", "decoding {} through VA-API", names_.decoder);
     }
@@ -314,7 +320,7 @@ class Decoder final : public VideoDecoder {
         return true;
     }
 
-    bool decode(Picture& picture) override {
+    bool decode(Picture& picture, PictureMemory memory) override {
         coded_.clear();
         for (const auto& [part, data] : parts_) {
             coded_ += data;
@@ -335,6 +341,9 @@ class Decoder final : public VideoDecoder {
             awaitingKey_ = true;
             check(got, "decode a picture");
         }
+        if (memory == PictureMemory::Dmabuf && exported(*surface, picture)) {
+            return true;
+        }
         Frame planes{av_frame_alloc()};
         planes->format = AV_PIX_FMT_NV12;
         check(av_hwframe_transfer_data(planes.get(), surface.get(), 0), "read a picture back");
@@ -348,6 +357,7 @@ class Decoder final : public VideoDecoder {
             planes->data[1], chromaStride * static_cast<std::size_t>(height / 2)};
         picture.width = width;
         picture.height = height;
+        picture.dmabuf.reset();
         rgbaFromYcbcr(YcbcrPlanes{.luma = luma,
                                   .blue = chroma,
                                   .red = chroma.subspan(1),
@@ -369,6 +379,46 @@ class Decoder final : public VideoDecoder {
     }
 
   private:
+    /// `surface` (NV12) as DMA-BUF planes in `picture`, the mapping keeping it out of the pool;
+    /// false when the driver exports it otherwise, and the picture is read back instead.
+    static bool exported(const AVFrame& surface, Picture& picture) {
+        const auto* frames =
+            reinterpret_cast<const AVHWFramesContext*>(surface.hw_frames_ctx->data);
+        if (frames->sw_format != AV_PIX_FMT_NV12) {
+            return false;
+        }
+        Frame mapped{av_frame_alloc()};
+        mapped->format = AV_PIX_FMT_DRM_PRIME;
+        // Waits for the decode (vaSyncSurface) and exports its layers.
+        check(av_hwframe_map(mapped.get(), &surface, AV_HWFRAME_MAP_READ), "export a picture");
+        const auto* drm = reinterpret_cast<const AVDRMFrameDescriptor*>(mapped->data[0]);
+        std::vector<gpu2d::DmabufPlane> planes;
+        for (int layer = 0; layer < drm->nb_layers; ++layer) {
+            const AVDRMLayerDescriptor& described = drm->layers[layer];
+            for (int plane = 0; plane < described.nb_planes; ++plane) {
+                const AVDRMPlaneDescriptor& at = described.planes[plane];
+                const AVDRMObjectDescriptor& object = drm->objects[at.object_index];
+                planes.push_back(gpu2d::DmabufPlane{.fd = object.fd,
+                                                    .offset = static_cast<std::uint64_t>(at.offset),
+                                                    .pitch = static_cast<std::uint64_t>(at.pitch),
+                                                    .modifier = object.format_modifier});
+            }
+        }
+        if (planes.size() != 2) {
+            return false;
+        }
+        picture.width = surface.width & ~1;
+        picture.height = surface.height & ~1;
+        picture.rgba.clear();
+        picture.dmabuf =
+            gpu2d::DmabufYcbcr{.luma = planes[0],
+                               .chroma = planes[1],
+                               .width = picture.width,
+                               .height = picture.height,
+                               .owner = std::shared_ptr<AVFrame>{mapped.release(), FrameFree{}}};
+        return true;
+    }
+
     CodecNames names_;
     Buffer device_;
     Context context_;

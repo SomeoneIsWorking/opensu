@@ -63,8 +63,9 @@ ShellWindow::ShellWindow(const Options& options)
     // The system's on-screen keyboard shows only when a field asks for it (`showScreenKeyboard`).
     SDL_SetHint(SDL_HINT_ENABLE_SCREEN_KEYBOARD, "0");
     SDL_StartTextInput(window_.window());
-    lucent::info("shell", "drawing on {} through {}, {} window", window_.deviceName(),
-                 window_.driver(), window_.translucent() ? "translucent" : "opaque");
+    lucent::info("shell", "drawing on {} through {}, {} window, {}", window_.deviceName(),
+                 window_.driver(), window_.translucent() ? "translucent" : "opaque",
+                 window_.importsDmabuf() ? "DMA-BUFs sampled" : "no DMA-BUF import");
     SDL_Rect safe{};
     int width = 0;
     int height = 0;

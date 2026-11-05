@@ -261,13 +261,15 @@ void RemotePlay::answerJoin(const std::string& peerId, bool allow) {
     hooks_.say(allow ? found->peer.name + " joins" : "Declined " + found->peer.name, false);
 }
 
-void RemotePlay::start(const library::Game& game, stream::wire::PadMapping mapping) {
+void RemotePlay::start(const library::Game& game, stream::wire::PadMapping mapping,
+                       stream::PictureMemory pictures) {
     if (playing()) {
         hooks_.say("remote play is already on", true);
         return;
     }
     game_ = game;
     mapping_ = std::move(mapping);
+    pictures_ = pictures;
     waiting_->store(false);
     saidWaiting_ = false;
     asking_ = hooks_.ask(
@@ -405,7 +407,7 @@ void RemotePlay::serviceGuest() {
             return;
         }
         try {
-            video_ = std::make_unique<stream::GuestVideo>();
+            video_ = std::make_unique<stream::GuestVideo>(pictures_);
             speaker_ = hooks_.speaker ? hooks_.speaker() : nullptr;
             audio_ = std::make_unique<stream::GuestAudio>(
                 [speaker = speaker_.get()](std::span<const float> samples) {
@@ -474,6 +476,13 @@ void RemotePlay::capLink(std::uint64_t bitsPerSecond) {
         guest_->capLink(bitsPerSecond);
     }
     lucent::info("remote", "a test run caps the link at {} bit/s", bitsPerSecond);
+}
+
+void RemotePlay::readPicturesBack() {
+    pictures_ = stream::PictureMemory::Cpu;
+    if (video_) {
+        video_->readBack();
+    }
 }
 
 std::optional<stream::GuestVideo::Frame> RemotePlay::takePicture() {

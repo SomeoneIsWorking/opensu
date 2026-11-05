@@ -29,7 +29,7 @@ add_library(opensu::stream ALIAS opensu_stream)
 target_include_directories(opensu_stream PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_link_libraries(opensu_stream
-    PUBLIC opensu::datagram opensu::lan opensu::pad lucent::lucent
+    PUBLIC opensu::datagram opensu::lan opensu::pad lucent::lucent gpu2d::render
     PRIVATE opensu::secrets opensu::clock)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     pkg_check_modules(PIPEWIRE IMPORTED_TARGET libpipewire-0.3)

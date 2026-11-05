@@ -5,12 +5,10 @@
 namespace opensu::stream {
 namespace {
 
-/// BT.709's YCbCr to RGB factors, in 16.16 fixed point.
-constexpr int redFromRed = 103206;
-constexpr int greenFromBlue = 12276;
-constexpr int greenFromRed = 30679;
-constexpr int blueFromBlue = 121609;
 constexpr int half = 1 << 15;
+constexpr float fixedOne = 65536.0F;
+/// Chroma's zero, as a sample in [0, 1].
+constexpr float chromaZero = 128.0F / 255.0F;
 
 std::uint8_t clamped(int value) {
     return static_cast<std::uint8_t>(std::clamp(value, 0, 255));
@@ -35,13 +33,24 @@ void rgbaFromYcbcr(const YcbcrPlanes& planes, std::vector<std::uint8_t>& rgba) {
             const std::size_t chroma = chromaRow + (x / 2) * step;
             const int cb = blue[chroma] - 128;
             const int cr = red[chroma] - 128;
-            out[0] = clamped((lumaValue + redFromRed * cr + half) >> 16);
-            out[1] = clamped((lumaValue - greenFromBlue * cb - greenFromRed * cr + half) >> 16);
-            out[2] = clamped((lumaValue + blueFromBlue * cb + half) >> 16);
+            out[0] = clamped((lumaValue + bt709.redFromCr * cr + half) >> 16);
+            out[1] =
+                clamped((lumaValue - bt709.greenFromCb * cb - bt709.greenFromCr * cr + half) >> 16);
+            out[2] = clamped((lumaValue + bt709.blueFromCb * cb + half) >> 16);
             out[3] = 255;
             out += 4;
         }
     }
+}
+
+gpu2d::YcbcrToRgb rgbFromBt709() noexcept {
+    const float red = static_cast<float>(bt709.redFromCr) / fixedOne;
+    const float greenCb = static_cast<float>(bt709.greenFromCb) / fixedOne;
+    const float greenCr = static_cast<float>(bt709.greenFromCr) / fixedOne;
+    const float blue = static_cast<float>(bt709.blueFromCb) / fixedOne;
+    return gpu2d::YcbcrToRgb{.red = {1.0F, 0.0F, red, -red * chromaZero},
+                             .green = {1.0F, -greenCb, -greenCr, (greenCb + greenCr) * chromaZero},
+                             .blue = {1.0F, blue, 0.0F, -blue * chromaZero}};
 }
 
 } // namespace opensu::stream

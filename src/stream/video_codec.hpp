@@ -4,18 +4,21 @@
 // is cut into packets that each go in one datagram, and on the guest decoded once all of a frame's
 // packets came. A PyroWave frame that lost one is dropped alone; a hardware codec's frames are
 // dropped from the loss until the next key frame, which the guest asks for. Planes are YCbCr
-// 4:2:0, BT.709 full range both ways.
+// 4:2:0, BT.709 full range both ways. A hardware decoder can leave its picture where it decoded it,
+// in DMA-BUFs the guest's GPU samples, instead of reading it back.
 #pragma once
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "gpu2d/dmabuf_picture.hpp"
 #include "screen_capture.hpp"
 #include "stream_wire.hpp"
 
@@ -78,11 +81,20 @@ class VideoEncoder {
 /// An encoder for `codec`; throws `std::runtime_error` saying why there is none.
 [[nodiscard]] std::unique_ptr<VideoEncoder> openEncoder(VideoCodec codec);
 
-/// A decoded picture: straight RGBA, rows top first.
+/// A decoded picture: straight RGBA, rows top first; or, left where a hardware decoder wrote it,
+/// its planes in DMA-BUFs (`rgba` empty).
 struct Picture {
     int width{0};
     int height{0};
     std::vector<std::uint8_t> rgba;
+    std::optional<gpu2d::DmabufYcbcr> dmabuf;
+};
+
+/// Where a decoder leaves its picture: read back into `Picture::rgba`, or in DMA-BUFs where the
+/// codec decodes on the GPU (a hardware codec; PyroWave reads back either way).
+enum class PictureMemory : std::uint8_t {
+    Cpu,
+    Dmabuf,
 };
 
 class VideoDecoder {
@@ -97,9 +109,9 @@ class VideoDecoder {
     /// Takes one packet of its codec; true once its frame has all of its packets and can be
     /// decoded. A frame begun after one still missing packets drops that one.
     virtual bool push(const wire::VideoPacket& packet) = 0;
-    /// Decodes the frame `push` said was whole into `picture`; false when the codec gave no
-    /// picture for it. Throws `std::runtime_error` when the codec fails.
-    virtual bool decode(Picture& picture) = 0;
+    /// Decodes the frame `push` said was whole into `picture`, left in `memory`; false when the
+    /// codec gave no picture for it. Throws `std::runtime_error` when the codec fails.
+    virtual bool decode(Picture& picture, PictureMemory memory) = 0;
     /// Whether every frame is coded on its own, so one may be skipped without harm.
     [[nodiscard]] virtual bool intraOnly() const noexcept = 0;
     /// Whether a loss left it waiting for a key frame, decoding nothing until one comes.
@@ -124,7 +136,20 @@ struct YcbcrPlanes {
     std::size_t chromaStride{0};
     std::size_t chromaStep{1};
 };
+/// What each chroma sample, less 128, adds to red, green and blue, in 16.16 fixed point: BT.709,
+/// full range.
+struct ChromaFactors {
+    int redFromCr{0};
+    int greenFromCb{0};
+    int greenFromCr{0};
+    int blueFromCb{0};
+};
+inline constexpr ChromaFactors bt709{
+    .redFromCr = 103206, .greenFromCb = 12276, .greenFromCr = 30679, .blueFromCb = 121609};
+
 /// The RGBA of `planes`.
 void rgbaFromYcbcr(const YcbcrPlanes& planes, std::vector<std::uint8_t>& rgba);
+/// The same conversion on the GPU, for samples in [0, 1].
+[[nodiscard]] gpu2d::YcbcrToRgb rgbFromBt709() noexcept;
 
 } // namespace opensu::stream

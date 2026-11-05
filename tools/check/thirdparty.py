@@ -1,6 +1,6 @@
-"""The pinned third-party code (PyroWave with Granite, librashader, the Gamescope fork on Linux)
-in a shared prefix outside every build tree: cmake/thirdparty built once per revision, toolchain
-and build image, which openSU trees find through `CMAKE_PREFIX_PATH`.
+"""The pinned third-party code (PyroWave with Granite, librashader, the Gamescope and SDL forks
+on Linux) in a shared prefix outside every build tree: cmake/thirdparty built once per revision,
+toolchain and build image, which openSU trees find through `CMAKE_PREFIX_PATH`.
 
 A prefix is named for the platform and a digest of what decides its contents: cmake/thirdparty,
 cmake/ThirdParty.cmake (the pins) and cmake/toolchains, the toolchain's CMake arguments, the build

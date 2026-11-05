@@ -159,7 +159,7 @@ class Decoder final : public VideoDecoder {
         return pyrowave_decoder_decode_is_ready(decoder_, false);
     }
 
-    bool decode(Picture& picture) override {
+    bool decode(Picture& picture, PictureMemory /*memory*/) override {
         const auto lumaBytes = static_cast<std::size_t>(width_) * static_cast<std::size_t>(height_);
         const std::size_t chromaBytes = lumaBytes / 4;
         planes_.resize(lumaBytes + 2 * chromaBytes);

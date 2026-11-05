@@ -49,6 +49,7 @@ find_package(PkgConfig REQUIRED)
 
 # SDL3 gives the shell its window, input and sound and, with Vulkan, draws opensu-retro;
 # libvorbisfile decodes the UI sounds.
+include(SDL)
 pkg_check_modules(SDL3 IMPORTED_TARGET GLOBAL sdl3>=3.2)
 pkg_check_modules(VORBISFILE IMPORTED_TARGET GLOBAL vorbisfile)
 # The Vulkan loader: pkg-config's on the desktop, the NDK sysroot's on Android.

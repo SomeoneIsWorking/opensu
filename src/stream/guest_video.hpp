@@ -5,7 +5,8 @@
 // whose frames build on each other the guest then wants a key frame, and on PyroWave a whole frame
 // the decoder reaches only after two newer ones began arriving is skipped (late). Each shown
 // frame's way from the host's capture to this screen is timed by stage, on this clock
-// (`hostAheadUs` moves the host's times over).
+// (`hostAheadUs` moves the host's times over). A hardware codec's pictures stay in the decoder's
+// DMA-BUFs while the screen can sample them, and are read back once it says it cannot.
 #pragma once
 
 #include <atomic>
@@ -29,8 +30,9 @@ namespace opensu::stream {
 
 class GuestVideo {
   public:
-    /// Starts the decoding thread. A codec's decoder opens with its first packet.
-    GuestVideo();
+    /// Starts the decoding thread, its pictures left in `memory`. A codec's decoder opens with its
+    /// first packet.
+    explicit GuestVideo(PictureMemory memory);
     ~GuestVideo() = default;
     GuestVideo(const GuestVideo&) = delete;
     GuestVideo& operator=(const GuestVideo&) = delete;
@@ -53,6 +55,9 @@ class GuestVideo {
     void presented(std::uint32_t number, std::uint64_t submittedUs, bool drawn);
     /// The newest frame decoded, taken or not, and its number; nothing before the first.
     [[nodiscard]] std::optional<Frame> lastDecoded() const;
+    /// Decodes into CPU memory from the next frame on: the screen could not sample a DMA-BUF
+    /// picture. Any thread.
+    void readBack();
 
     /// How the frames went: counts, and the 50th and 95th percentile of each stage in
     /// milliseconds, as one line for the control channel.
@@ -94,6 +99,7 @@ class GuestVideo {
     std::optional<Times> building_;
     /// The decoder last given a packet waits for a key frame.
     std::atomic<bool> keyWanted_{false};
+    std::atomic<PictureMemory> memory_;
 
     std::mutex queueMutex_;
     std::condition_variable_any queued_;

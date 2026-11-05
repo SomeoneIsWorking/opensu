@@ -20,8 +20,8 @@ constexpr double microsPerMilli = 1000.0;
 
 } // namespace
 
-GuestVideo::GuestVideo()
-    : decoding_{[this](const std::stop_token& stop) {
+GuestVideo::GuestVideo(PictureMemory memory)
+    : memory_{memory}, decoding_{[this](const std::stop_token& stop) {
           decodeLoop(stop);
       }} {
 }
@@ -120,7 +120,7 @@ void GuestVideo::decode(const Queued& queued) {
     }
     Frame frame{.number = packet.frame, .picture = {}};
     try {
-        if (!decoder->decode(frame.picture)) {
+        if (!decoder->decode(frame.picture, memory_.load())) {
             building_.reset();
             return;
         }
@@ -150,6 +150,11 @@ void GuestVideo::decode(const Queued& queued) {
 std::optional<GuestVideo::Frame> GuestVideo::takeFrame() {
     const std::lock_guard lock{mutex_};
     return std::exchange(fresh_, std::nullopt);
+}
+
+void GuestVideo::readBack() {
+    memory_ = PictureMemory::Cpu;
+    lucent::warn("video", "pictures are read back from the decoder from now on");
 }
 
 std::optional<GuestVideo::Frame> GuestVideo::lastDecoded() const {

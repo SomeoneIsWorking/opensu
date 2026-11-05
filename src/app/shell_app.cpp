@@ -713,8 +713,10 @@ bool ShellApp::launch(const library::Game& game, std::vector<std::string> enviro
     }
     if (game.source == library::Source::Remote) {
         remotePlay_.start(
-            game, stream::wire::PadMapping{.map = padOwner_.forwarding(mappings_.forGame(game)),
-                                           .holdDelay = input::holdDelay});
+            game,
+            stream::wire::PadMapping{.map = padOwner_.forwarding(mappings_.forGame(game)),
+                                     .holdDelay = input::holdDelay},
+            window_->importsDmabuf() ? stream::PictureMemory::Dmabuf : stream::PictureMemory::Cpu);
         return true;
     }
     if (game.launch.empty()) {
@@ -1209,7 +1211,7 @@ void ShellApp::serviceControlRequests() {
         return;
     }
     if (*wanted == FrameKind::Remote) {
-        bridge_.answerFrame(RemotePicture::png(remotePlay_.picture()));
+        bridge_.answerFrame(remotePicture_->png(remotePlay_.picture()));
         return;
     }
     std::string png;
@@ -1295,7 +1297,9 @@ void ShellApp::showRemotePicture() {
         return;
     }
     if (std::optional<stream::GuestVideo::Frame> frame = remotePlay_.takePicture()) {
-        remotePicture_->show(*frame);
+        if (!remotePicture_->show(*frame)) {
+            remotePlay_.readPicturesBack();
+        }
     }
     shell_.setPicture(remotePicture_->view());
 }
@@ -1474,7 +1478,8 @@ bool ShellApp::openWindow(const std::string& title, bool hidden) {
         window_ = std::make_unique<ShellWindow>(
             ShellWindow::Options{title, settings_.width, settings_.height, hidden});
         shell_.attach(window_->device());
-        remotePicture_ = std::make_unique<RemotePicture>(window_->device());
+        remotePicture_ =
+            std::make_unique<RemotePicture>(window_->device(), window_->importsDmabuf());
     } catch (const gpu2d::GpuError& error) {
         lucent::error("shell", "could not open a window: {}", error.what());
         window_.reset();
