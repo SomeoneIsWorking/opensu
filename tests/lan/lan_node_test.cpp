@@ -1192,7 +1192,9 @@ void systemDiscoveryPairs(const fs::path& root) {
                 guest.node.status().problem.c_str());
     expect(host.node.status().problem.empty() && guest.node.status().problem.empty(),
            "both are announced");
-    expect(host.node.status().name != guest.node.status().name,
+    expect(waitFor([&] {
+               return host.node.status().name != guest.node.status().name;
+           }),
            "the later one is announced under the daemon's next name");
     host.node.share({installedGame("own:1", "Announced game", {})});
     const auto sees = [](const Node& node, const std::string& id) {
