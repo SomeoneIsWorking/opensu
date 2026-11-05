@@ -39,7 +39,7 @@ def build() -> int:
         "OPENSU_ANDROID_VERSION_CODE": str(version.code(name)),
     }
     process.run(
-        ["./gradlew", "--no-daemon", "--console=plain", ":app:assembleRelease"],
+        ["./gradlew", "--no-daemon", "--console=plain", "--stacktrace", ":app:assembleRelease"],
         gradle_env,
         cwd=gradle_project,
     )
