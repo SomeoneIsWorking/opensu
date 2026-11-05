@@ -103,16 +103,16 @@ void SaveSharing::know(const std::vector<library::Game>& games,
     sync_->know(games, catalog);
 }
 
-bool SaveSharing::before(const library::Game& game, std::function<void()> launch) {
+bool SaveSharing::before(const library::Game& game, const std::string& profile,
+                         std::function<void()> launch) {
     if (held_) {
         return false;
     }
     if (save_sync::EpicCloud::serves(game)) {
         held_ = Held{.ticket = epic_->prepare(game), .epic = true, .launch = std::move(launch)};
     } else if (sync_->sharing(game)) {
-        held_ = Held{.ticket = sync_->prepare(game, profiles_.active().id),
-                     .epic = false,
-                     .launch = std::move(launch)};
+        held_ = Held{
+            .ticket = sync_->prepare(game, profile), .epic = false, .launch = std::move(launch)};
     } else {
         return false;
     }
@@ -125,11 +125,11 @@ void SaveSharing::playing(const library::Game* game) {
     playing_->gameId = game != nullptr ? game->id : std::string{};
 }
 
-void SaveSharing::ended(const library::Game& game) {
+void SaveSharing::ended(const library::Game& game, const std::string& profile) {
     if (save_sync::EpicCloud::serves(game)) {
         epic_->sync(game);
     } else if (sync_->sharing(game)) {
-        sync_->sync(game, profiles_.active().id);
+        sync_->sync(game, profile);
     }
 }
 

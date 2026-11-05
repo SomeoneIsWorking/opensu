@@ -93,6 +93,9 @@ and sound here, and your controller, keyboard and mouse play it.
   200 Mbit/s for busy ones. Wi-Fi is not supported yet.
 - Allow UDP in your firewall between the two computers: each session uses a free UDP port on the
   openSU that has the game.
+- The game plays over there as your profile when it is linked with that openSU
+  ([profiles.md](profiles.md#profiles-on-the-lan)), and keeps its saves; otherwise as that
+  openSU's first profile.
 - Guide opens this openSU's menu. **End remote play** closes the game over there; anything it has
   not saved is lost.
 - The other openSU runs one game at a time. While you play its game there, or its own game runs,

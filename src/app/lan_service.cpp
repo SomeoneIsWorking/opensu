@@ -149,7 +149,8 @@ void LanService::shareRoms(lan::RomShelf::Contents contents) {
     }
 }
 
-bool LanService::askToPlay(std::string hostId, std::string gameId, PlayAnswer answer) {
+bool LanService::askToPlay(std::string hostId, std::string gameId, std::string profile,
+                           PlayAnswer answer) {
     if (node_ == nullptr || asking_->exchange(true)) {
         return false;
     }
@@ -157,9 +158,11 @@ bool LanService::askToPlay(std::string hostId, std::string gameId, PlayAnswer an
         asker_.join();
     }
     asker_ = std::jthread{[node = node_.get(), asking = asking_, hostId = std::move(hostId),
-                           gameId = std::move(gameId), answer = std::move(answer)] {
+                           gameId = std::move(gameId), profile = std::move(profile),
+                           answer = std::move(answer)] {
         std::string error;
-        std::optional<lan::LanNode::PlayOffer> offer = node->askToPlay(hostId, gameId, error);
+        std::optional<lan::LanNode::PlayOffer> offer =
+            node->askToPlay(hostId, gameId, profile, error);
         asking->store(false);
         answer(std::move(offer), std::move(error));
     }};

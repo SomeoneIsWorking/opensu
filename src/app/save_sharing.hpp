@@ -49,16 +49,18 @@ class SaveSharing {
     void know(const std::vector<library::Game>& games,
               const library::roms::EmulatorCatalog& catalog);
 
-    /// Holds `game`'s launch while its saves are synced, then calls `launch`; false, and nothing
-    /// held, when no target can be asked now or a launch is held already.
-    [[nodiscard]] bool before(const library::Game& game, std::function<void()> launch);
+    /// Holds `game`'s launch as `profile` while that profile's saves are synced, then calls
+    /// `launch`; false, and nothing held, when no target can be asked now or a launch is held
+    /// already.
+    [[nodiscard]] bool before(const library::Game& game, const std::string& profile,
+                              std::function<void()> launch);
     [[nodiscard]] bool holding() const noexcept {
         return held_.has_value();
     }
     /// The game the shell runs now, or none. Every frame, main loop only.
     void playing(const library::Game* game);
-    /// The game ended: its saves go to the targets.
-    void ended(const library::Game& game);
+    /// The game, played as `profile`, ended: that profile's saves go to the targets.
+    void ended(const library::Game& game, const std::string& profile);
     void look(const library::Game& game);
     void syncNow(const library::Game& game);
     void keep(const library::Game& game, const std::string& targetId, bool theirs);

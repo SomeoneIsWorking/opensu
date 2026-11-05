@@ -206,12 +206,15 @@ class ShellApp final {
     /// L1 and R1: moves `delta` sections along the dock and shows the section's shelf, with iiSU's
     /// domino cue sized by what the section shows at once.
     void cycleSection(int delta);
-    /// Launches `game` with `environment` added to its own, or offers to install it; its saves
-    /// are synced with the openSUs sharing them first, and another openSU's game is asked of it.
-    /// False when it was refused.
-    bool launch(const library::Game& game, std::vector<std::string> environment);
-    /// Starts `game` now, `extra` added to its environment; false when it was refused.
-    bool startLaunch(const library::Game& game, std::vector<std::string> extra);
+    /// Launches `game` as `profile` with `environment` added to its own, or offers to install it;
+    /// that profile's saves are synced with the openSUs sharing them first, and another openSU's
+    /// game is asked of it. False when it was refused.
+    bool launch(const library::Game& game, std::vector<std::string> environment,
+                const std::string& profile);
+    /// Starts `game` now as `profile`, `extra` added to its environment; false when it was
+    /// refused.
+    bool startLaunch(const library::Game& game, std::vector<std::string> extra,
+                     const std::string& profile);
     /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update.
     void cancelLaunch();
     /// Asks whether to install the focused game, which is not installed, from the stores that
@@ -497,7 +500,7 @@ class ShellApp final {
             },
             [this] {
                 if (const library::Game* game = shell_.grid().focusedGame()) {
-                    static_cast<void>(launch(*game, {}));
+                    static_cast<void>(launch(*game, {}, profiles_.book().active().id));
                 }
             },
             [this] {
@@ -618,7 +621,8 @@ class ShellApp final {
                                      return shownGame(id);
                                  },
                                  [this](const library::Game& game) {
-                                     static_cast<void>(launch(game, {}));
+                                     static_cast<void>(
+                                         launch(game, {}, profiles_.book().active().id));
                                  },
                                  [this](const library::Game& game, bool hidden) {
                                      setHidden(game, hidden);
@@ -786,8 +790,9 @@ class ShellApp final {
                 return found == games_.end() ? std::nullopt : std::optional{*found};
             },
             .launch =
-                [this](const library::Game& game, std::vector<std::string> environment) {
-                    return launch(game, std::move(environment));
+                [this](const library::Game& game, std::vector<std::string> environment,
+                       const std::string& profile) {
+                    return launch(game, std::move(environment), profile);
                 },
             .close =
                 [this] {
@@ -796,7 +801,8 @@ class ShellApp final {
             .ask =
                 [this](const std::string& hostId, const std::string& gameId,
                        LanService::PlayAnswer answer) {
-                    return lan_.askToPlay(hostId, gameId, std::move(answer));
+                    return lan_.askToPlay(hostId, gameId, profiles_.book().active().id,
+                                          std::move(answer));
                 },
             .speaker =
                 [this] {
@@ -852,8 +858,9 @@ class ShellApp final {
                               },
                           .play =
                               [this](const lan::Peer& peer, const std::string& game,
-                                     const lan::StreamKeys& keys, std::string& refusal) {
-                                  return remotePlay_.offer(peer, game, keys, refusal);
+                                     const std::string& profile, const lan::StreamKeys& keys,
+                                     std::string& refusal) {
+                                  return remotePlay_.offer(peer, game, profile, keys, refusal);
                               }}};
     /// The details page's Saves fact and row for saves shared with paired openSUs.
     SharedSaves sharedSaves_{saveSharing_, shell_.screens().navigator(), sounds_};
@@ -1413,6 +1420,8 @@ class ShellApp final {
     /// The game the shell runs; after the handoff, the mailbox and the runner session its thread
     /// uses, so destroying it closes the game and joins that thread before they go.
     GameLaunch launches_{handoff_, mailbox_, retro_};
+    /// The profile the game `launches_` started last plays as: the active one, or a remote guest's.
+    std::string playingAs_;
     /// Opens a store's sign-in page; after the mailbox it posts to, so it is joined first.
     std::jthread signInOpener_;
 };

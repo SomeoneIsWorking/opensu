@@ -170,8 +170,10 @@ void LanNode::endAsking() {
     wake();
 }
 
-std::optional<LanNode::PlayOffer>
-LanNode::askToPlay(const std::string& hostId, const std::string& gameId, std::string& error) const {
+std::optional<LanNode::PlayOffer> LanNode::askToPlay(const std::string& hostId,
+                                                     const std::string& gameId,
+                                                     const std::string& profile,
+                                                     std::string& error) const {
     const std::vector<Sighting> seen = sightings();
     const auto host = std::ranges::find(seen, hostId, &Sighting::id);
     std::optional<secrets::crypto::Bytes> secret = book_.secretOf(hostId);
@@ -183,7 +185,7 @@ LanNode::askToPlay(const std::string& hostId, const std::string& gameId, std::st
     const secrets::crypto::Bytes salt = secrets::crypto::randomBytes(secrets::crypto::nonceBytes);
     const PeerClient client{web_, Endpoint{host->address, host->port}};
     const std::optional<net::WebClient::Answer> answer =
-        client.call("POST", wire::playRoute, wire::write(wire::PlayRequest{gameId, salt}),
+        client.call("POST", wire::playRoute, wire::write(wire::PlayRequest{gameId, profile, salt}),
                     PeerClient::Signer{book_.id(), *secret}, largestNotice, error);
     std::optional<wire::PlayAnswer> offered;
     if (answer && answer->status == ok) {

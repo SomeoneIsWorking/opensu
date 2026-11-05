@@ -24,6 +24,9 @@ copied here with its saves and linked with that openSU; from then on its saves f
 played it last ([lan.md](lan.md#shared-saves)). A profile not linked with it keeps its saves to
 this openSU. Removing the pairing unlinks every profile linked with it.
 
+Remote play of another openSU's game plays there as the profile you play as here when it is linked
+with that openSU, else as that openSU's first profile.
+
 ## Switching
 
 - The Guide menu's **Profile** row, beside Volume and Interface size: Left and Right step to the

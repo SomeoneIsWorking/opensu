@@ -188,14 +188,14 @@ struct Node {
               .saves = sync,
               .profiles = profiles,
               .play = [this](const lan::Peer& peer, const std::string& game,
-                             const lan::StreamKeys& keys,
+                             const std::string& profile, const lan::StreamKeys& keys,
                              std::string& refusal) -> std::optional<std::uint16_t> {
                   const std::lock_guard lock{mutex};
                   if (!refusePlay.empty()) {
                       refusal = refusePlay;
                       return std::nullopt;
                   }
-                  played = peer.name + " " + game;
+                  played = peer.name + " " + game + " " + profile;
                   playKeys = keys;
                   return streamPort;
               },
@@ -369,32 +369,43 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
     expect(guest.changes > 0, "the guest was told its remote games changed");
 
     std::string playError;
+    const std::string guestPlayer = guest.profiles.first().id;
     const std::optional<lan::LanNode::PlayOffer> offer =
-        guest.node.askToPlay(host.node.id(), listed.sourceId, playError);
+        guest.node.askToPlay(host.node.id(), listed.sourceId, guestPlayer, playError);
     expect(offer && offer->stream.port == Node::streamPort && offer->stream.address == "127.0.0.1",
            "the host agrees to stream its game and says where");
     {
         const std::lock_guard lock{host.mutex};
-        expect(host.played == "Desk own:1", "the host is asked by the guest for that game");
+        expect(host.played == "Desk own:1 " + host.profiles.first().id,
+               "the host is asked by the guest for that game, played as the host's first profile: "
+               "the guest's is not linked with it");
         expect(offer && offer->keys.host == host.playKeys.host &&
                    offer->keys.guest == host.playKeys.guest && offer->keys.host.size() == 32 &&
                    offer->keys.host != offer->keys.guest,
                "both sides hold one pair of session keys, one for each way");
         host.refusePlay = "a game is already running there";
     }
-    expect(!guest.node.askToPlay(host.node.id(), listed.sourceId, playError) &&
+    expect(!guest.node.askToPlay(host.node.id(), listed.sourceId, guestPlayer, playError) &&
                playError.find("a game is already running there") != std::string::npos,
            "a host that cannot stream says why");
-    expect(!guest.node.askToPlay(host.node.id(), "own:2", playError),
+    expect(!guest.node.askToPlay(host.node.id(), "own:2", guestPlayer, playError),
            "a game the host does not list is not streamed");
     {
         const std::lock_guard lock{host.mutex};
         host.refusePlay.clear();
     }
+    const profiles::Profile ana =
+        test::need(host.profiles.add("Ana", playError), "the host has a second profile");
+    expect(host.profiles.link(ana.id, guest.node.id(), true, playError), "linked with the guest");
     const std::optional<lan::LanNode::PlayOffer> again =
-        guest.node.askToPlay(host.node.id(), listed.sourceId, playError);
+        guest.node.askToPlay(host.node.id(), listed.sourceId, ana.id, playError);
     expect(again && offer && again->keys.host != offer->keys.host,
            "each session has keys of its own");
+    {
+        const std::lock_guard lock{host.mutex};
+        expect(host.played == "Desk own:1 " + ana.id,
+               "a guest playing as a profile linked with the host plays as it there");
+    }
     expect(waitFor([&host] {
                return host.remote->games().size() == 1 &&
                       host.remote->games().front().title == "Guest game";

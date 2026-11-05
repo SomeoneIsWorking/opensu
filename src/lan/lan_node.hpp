@@ -165,11 +165,13 @@ class LanNode {
         Endpoint stream;
         StreamKeys keys;
     };
-    /// Asks the paired, announced openSU `hostId` to start its game `gameId` (its own id) and
-    /// stream it here. Blocks for the call, so never on the loop. Nothing with `error` when it is
-    /// gone, unpaired or refuses.
-    [[nodiscard]] std::optional<PlayOffer>
-    askToPlay(const std::string& hostId, const std::string& gameId, std::string& error) const;
+    /// Asks the paired, announced openSU `hostId` to start its game `gameId` (its own id) as
+    /// `profile`, this one's active profile, and stream it here. Blocks for the call, so never on
+    /// the loop. Nothing with `error` when it is gone, unpaired or refuses.
+    [[nodiscard]] std::optional<PlayOffer> askToPlay(const std::string& hostId,
+                                                     const std::string& gameId,
+                                                     const std::string& profile,
+                                                     std::string& error) const;
 
     /// Forgets `peerId` here, and tells it to forget this one when it is announced. False with
     /// `error` when it could not be forgotten here.

@@ -153,11 +153,14 @@ struct SaveAsk {
 
 // The answer to `/lan/saves/status` is a `save_sync::SaveStatus`.
 
-/// `POST /lan/play`: a paired guest asks to play one of the listed games on the host, with its
-/// half of the session's salt.
+/// `POST /lan/play`: a paired guest asks to play one of the listed games on the host as its
+/// active profile, with its half of the session's salt.
 inline constexpr std::string_view playRoute = "/lan/play";
 struct PlayRequest {
     std::string game;
+    /// The guest's active profile's id; the host plays as it only while it is linked with the
+    /// guest.
+    std::string profile;
     secrets::crypto::Bytes salt;
 };
 [[nodiscard]] std::string write(const PlayRequest& request);

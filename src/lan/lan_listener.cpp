@@ -345,11 +345,14 @@ Response LanListener::playRoute(std::string_view body, const Signed& verified) {
     if (game == listed.end()) {
         return refused(notFound, "Not Found", "no game here has that id");
     }
+    const profiles::Profile playing = sources_.profiles.linked(asked->profile, verified.peer.id)
+                                          .value_or(sources_.profiles.first());
     const secrets::crypto::Bytes salt = secrets::crypto::randomBytes(secrets::crypto::nonceBytes);
     StreamKeys keys = streamKeys(verified.secret, asked->salt, salt);
     std::string refusal = "this openSU does not offer remote play";
     const std::optional<std::uint16_t> port =
-        sources_.play ? sources_.play(verified.peer, game->id, keys, refusal) : std::nullopt;
+        sources_.play ? sources_.play(verified.peer, game->id, playing.id, keys, refusal)
+                      : std::nullopt;
     secrets::wipeBytes(keys.host.data(), keys.host.size());
     secrets::wipeBytes(keys.guest.data(), keys.guest.size());
     if (!port) {
@@ -357,8 +360,8 @@ Response LanListener::playRoute(std::string_view body, const Signed& verified) {
                      refusal);
         return refused(conflict, "Conflict", refusal);
     }
-    lucent::info("lan", "{} plays {} here over remote play, stream on UDP port {}",
-                 verified.peer.name, game->title, *port);
+    lucent::info("lan", "{} plays {} here over remote play as {}, stream on UDP port {}",
+                 verified.peer.name, game->title, playing.name, *port);
     return Response::json(ok, "OK", wire::write(wire::PlayAnswer{*port, salt}));
 }
 

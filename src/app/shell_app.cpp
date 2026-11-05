@@ -41,6 +41,7 @@ namespace {
 struct HeldLaunch {
     library::Game game;
     std::vector<std::string> environment;
+    std::string profile;
 };
 
 } // namespace
@@ -699,7 +700,8 @@ void ShellApp::cycleSection(int delta) {
     }
 }
 
-bool ShellApp::launch(const library::Game& game, std::vector<std::string> environment) {
+bool ShellApp::launch(const library::Game& game, std::vector<std::string> environment,
+                      const std::string& profile) {
     if (!game.installed) {
         offerInstall(game);
         return false;
@@ -723,18 +725,19 @@ bool ShellApp::launch(const library::Game& game, std::vector<std::string> enviro
         shell_.setToast("a game is waiting for its saves", true);
         return false;
     }
-    const auto held =
-        std::make_shared<const HeldLaunch>(HeldLaunch{.game = game, .environment = environment});
-    if (saveSharing_.before(game, [this, held] {
-            static_cast<void>(startLaunch(held->game, held->environment));
+    const auto held = std::make_shared<const HeldLaunch>(
+        HeldLaunch{.game = game, .environment = environment, .profile = profile});
+    if (saveSharing_.before(game, profile, [this, held] {
+            static_cast<void>(startLaunch(held->game, held->environment, held->profile));
         })) {
         shell_.setToast("Syncing " + game.title + "'s saves first");
         return true;
     }
-    return startLaunch(game, std::move(environment));
+    return startLaunch(game, std::move(environment), profile);
 }
 
-bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> extra) {
+bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> extra,
+                           const std::string& profile) {
     library::Game started = game;
     const library::wine::Prepared wine = wineSettings_.prepare(started);
     if (!wine.refusal.empty()) {
@@ -742,10 +745,10 @@ bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> e
         return false;
     }
     std::string control = retro_.begin();
-    if (const std::string refused = prepareRetroLaunch(
-            started, gameSettings_.layers(), emulatorSettings_.catalog(), retro_.settingsFile(),
-            emulatorDownloads_.shaderPack().root(),
-            retro::profileSaveFolder(profiles_.runnerSaves(), profiles_.book().active().id));
+    if (const std::string refused =
+            prepareRetroLaunch(started, gameSettings_.layers(), emulatorSettings_.catalog(),
+                               retro_.settingsFile(), emulatorDownloads_.shaderPack().root(),
+                               retro::profileSaveFolder(profiles_.runnerSaves(), profile));
         !refused.empty()) {
         static_cast<void>(retro_.end());
         shell_.setToast("cannot write " + game.title + "'s settings: " + refused, true);
@@ -764,7 +767,11 @@ bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> e
                        std::make_move_iterator(extra.end()));
     // Before the game starts, so it reads the smaller screen as its own.
     presentation_.follow(gameInFront(), &started);
-    return launches_.start(std::move(started), std::move(environment));
+    if (!launches_.start(std::move(started), std::move(environment))) {
+        return false;
+    }
+    playingAs_ = profile;
+    return true;
 }
 
 void ShellApp::offerInstall(const library::Game& game) {
@@ -1284,7 +1291,7 @@ void ShellApp::serviceRequests() {
     const bool launching = launches_.running();
     saveSharing_.playing(launching ? &launches_.game() : nullptr);
     if (const std::optional<library::Game> ended = launches_.takeEnded()) {
-        saveSharing_.ended(*ended);
+        saveSharing_.ended(*ended, playingAs_);
     }
     if (padOwner_.held() && !launching) {
         padOwner_.release();

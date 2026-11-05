@@ -25,6 +25,7 @@ RemotePlay::~RemotePlay() {
 }
 
 std::optional<std::uint16_t> RemotePlay::offer(const lan::Peer& peer, const std::string& gameId,
+                                               const std::string& profile,
                                                const lan::StreamKeys& keys, std::string& refusal) {
     const std::lock_guard lock{hostMutex_};
     if (hosted_) {
@@ -71,7 +72,8 @@ std::optional<std::uint16_t> RemotePlay::offer(const lan::Peer& peer, const std:
                          .video = std::move(video),
                          .audio = std::move(sound),
                          .guest = peer.name,
-                         .gameId = gameId};
+                         .gameId = gameId,
+                         .profile = profile};
         return port;
     } catch (const std::runtime_error& failure) {
         lucent::warn("remote", "cannot stream to {}: {}", peer.name, failure.what());
@@ -140,7 +142,7 @@ void RemotePlay::serviceHost() {
             return;
         }
         lucent::info("remote", "{} plays {} from here", hosted.guest, game->title);
-        if (!hooks_.launch(*game, hosted.audio->environment())) {
+        if (!hooks_.launch(*game, hosted.audio->environment(), hosted.profile)) {
             hosted.stream->end("the game could not start there");
             return;
         }

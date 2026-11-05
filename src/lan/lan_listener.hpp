@@ -45,10 +45,12 @@ class LanListener {
         std::function<std::string()> name;
         /// A peer unpaired itself; called on the listener's thread.
         std::function<void(const Peer&)> unpaired;
-        /// A peer asks to play `game`, which this one lists, here; `keys` seal that session. The
-        /// UDP port its stream takes packets on, or nothing with `refusal`. Called on the
+        /// A peer asks to play `game`, which this one lists, here as `profile`: the one the peer
+        /// asked for when it is linked with the peer, else the first; `keys` seal that session.
+        /// The UDP port its stream takes packets on, or nothing with `refusal`. Called on the
         /// listener's thread.
         std::function<std::optional<std::uint16_t>(const Peer& peer, const std::string& game,
+                                                   const std::string& profile,
                                                    const StreamKeys& keys, std::string& refusal)>
             play;
     };

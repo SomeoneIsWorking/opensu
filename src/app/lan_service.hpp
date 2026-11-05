@@ -107,9 +107,11 @@ class LanService {
 
     /// What a host answered a request to play: its offer, or why there is none.
     using PlayAnswer = std::function<void(std::optional<lan::LanNode::PlayOffer>, std::string)>;
-    /// Asks the paired openSU `hostId` to stream its game `gameId` here, off the loop; `answer` is
-    /// called on that thread. False while LAN is off or another request is under way.
-    [[nodiscard]] bool askToPlay(std::string hostId, std::string gameId, PlayAnswer answer);
+    /// Asks the paired openSU `hostId` to stream its game `gameId` here, played as `profile`, off
+    /// the loop; `answer` is called on that thread. False while LAN is off or another request is
+    /// under way.
+    [[nodiscard]] bool askToPlay(std::string hostId, std::string gameId, std::string profile,
+                                 PlayAnswer answer);
 
     /// What a host answered a request for its ROMs: the listing, or why there is none.
     using RomsAnswer =

@@ -81,7 +81,7 @@ It never shares the loopback control channel's port.
 | `GET /lan/roms` | paired, signed | the ROM listing (below), at most 8 MiB |
 | `POST /lan/roms/file` | paired, signed | `{"kind","root","path"}` → `{"bytes","sha256"}`; `sha256` is empty while the host still hashes the file |
 | `POST /lan/roms/chunk` | paired, signed | `{"kind","root","path","offset","length"}` → at most 2 MiB of the file from `offset`, as raw bytes |
-| `POST /lan/play` | paired, signed | `{"game","salt"}` → `{"port","salt"}`: the host streams that listed game to the caller; 404 for a game it does not list, 409 with why when it will not (busy, outside Gamescope, no capture) |
+| `POST /lan/play` | paired, signed | `{"game","profile","salt"}` → `{"port","salt"}`: the host streams that listed game to the caller, played as `profile` (the caller's active one) when it is linked with the caller, else as the host's first profile; 404 for a game it does not list, 409 with why when it will not (busy, outside Gamescope, no capture) |
 
 Everything else, and any signed route that fails its check or whose body does not open, is 403.
 The saves routes are 403 too, sealed, for a profile not linked with the caller. The
@@ -203,9 +203,12 @@ be reached, In sync with X.
 ## Remote play
 
 Play on another openSU's game (`ShellApp::launch`, `Source::Remote`) goes to
-`app::RemotePlay::start`, which asks that host over `/lan/play`; the shell shows the host's picture
-until the session ends. One session at a time either way, and a host plays none while its own game
-runs.
+`app::RemotePlay::start`, which asks that host over `/lan/play` with the active profile; the shell
+shows the host's picture until the session ends. One session at a time either way, and a host plays
+none while its own game runs. The host's listener picks the profile the game plays as (the asked
+one while it is linked with the guest, else the first) and `RemotePlay` launches with it, so the
+runner's save folder and the saves synced before and after (`SaveSharing::before`, `ended`) are
+that profile's; the host's own active profile does not change.
 
 - Keys: each side sends 16 fresh random bytes (`salt`); both derive
   `host, guest = HKDF-SHA-256(secret, salt = guest salt || host salt, info = "opensu-stream\n" ("host" | "guest"))`

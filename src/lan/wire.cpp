@@ -325,7 +325,10 @@ std::optional<SaveAsk> readSaveAsk(std::string_view body) {
 }
 
 std::string write(const PlayRequest& request) {
-    return json{{"game", request.game}, {"salt", secrets::hexText(request.salt)}}.dump();
+    return json{{"game", request.game},
+                {"profile", request.profile},
+                {"salt", secrets::hexText(request.salt)}}
+        .dump();
 }
 
 std::optional<PlayRequest> readPlayRequest(std::string_view body) {
@@ -339,7 +342,7 @@ std::optional<PlayRequest> readPlayRequest(std::string_view body) {
     if (!salt || game.empty()) {
         return std::nullopt;
     }
-    return PlayRequest{std::move(game), std::move(*salt)};
+    return PlayRequest{std::move(game), textField(*document, "profile"), std::move(*salt)};
 }
 
 std::string write(const PlayAnswer& answer) {

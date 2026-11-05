@@ -122,4 +122,9 @@ before and after, and the runner's `--saves` all use that profile.
    openSU whose Eden has two users, Player 1 seeing and copying the first user's save and Ana the
    second's, Ana's copy to a one-user Ryujinx refused with "add a user in it", then made for
    Ryujinx's second user once it has one.
-6. Remote play as the linked or first profile.
+6. Done. Remote play as the linked or first profile: `PlayRequest::profile`, picked in
+   `LanListener::playRoute`, carried by `RemotePlay::offer` into `ShellApp::launch`, which passes
+   it to the runner's folder and `SaveSharing::before`/`ended`. Shown: a hidden guest playing a
+   Gamescope host's ROM as a copied Ana, then as its own unlinked Player 1, the host playing the
+   first session as its Ana and the second as its Player 1, each one's save apart, its own
+   active profile unchanged.

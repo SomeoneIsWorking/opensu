@@ -40,9 +40,11 @@ class RemotePlay {
         std::function<void(const std::string& text, bool error)> say;
         /// The installed local game with `id`, as the catalog lists it now.
         std::function<std::optional<library::Game>(const std::string& id)> find;
-        /// Starts `game` here through the normal launch path, `environment` added to its own; false
-        /// when it was refused.
-        std::function<bool(const library::Game& game, std::vector<std::string> environment)> launch;
+        /// Starts `game` here through the normal launch path as `profile`, `environment` added to
+        /// its own; false when it was refused.
+        std::function<bool(const library::Game& game, std::vector<std::string> environment,
+                           const std::string& profile)>
+            launch;
         /// Closes the game started here.
         std::function<void()> close;
         /// Asks host `hostId` to stream its game `gameId` (`LanService::askToPlay`); false when it
@@ -70,12 +72,11 @@ class RemotePlay {
     RemotePlay(RemotePlay&&) = delete;
     RemotePlay& operator=(RemotePlay&&) = delete;
 
-    /// `peer` asks to play `gameId` here, its session sealed with `keys`: the UDP port the stream
-    /// takes packets on, or nothing with `refusal`. On the LAN listener's thread.
-    [[nodiscard]] std::optional<std::uint16_t> offer(const lan::Peer& peer,
-                                                     const std::string& gameId,
-                                                     const lan::StreamKeys& keys,
-                                                     std::string& refusal);
+    /// `peer` asks to play `gameId` here as `profile`, its session sealed with `keys`: the UDP
+    /// port the stream takes packets on, or nothing with `refusal`. On the LAN listener's thread.
+    [[nodiscard]] std::optional<std::uint16_t>
+    offer(const lan::Peer& peer, const std::string& gameId, const std::string& profile,
+          const lan::StreamKeys& keys, std::string& refusal);
 
     /// Plays `game`, another openSU's, from here, the pad with `mapping` (this openSU's for the
     /// game). Main loop only.
@@ -142,6 +143,8 @@ class RemotePlay {
         std::unique_ptr<stream::HostAudio> audio;
         std::string guest;
         std::string gameId;
+        /// The profile the game plays as here.
+        std::string profile;
         /// Whether the game was started.
         bool launched{false};
     };
