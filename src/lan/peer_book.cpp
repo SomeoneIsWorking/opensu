@@ -34,7 +34,7 @@ bool isPeerId(std::string_view text) noexcept {
     return text.size() == peerIdBytes * 2 && secrets::isLowerHex(text);
 }
 
-std::string shownName(std::string_view name) {
+std::string shownName(std::string_view name, std::size_t longest) {
     std::string kept;
     for (const char c : name) {
         const auto byte = static_cast<unsigned char>(c);
@@ -43,8 +43,8 @@ std::string shownName(std::string_view name) {
         }
     }
     std::string out{lucent::text::trim(kept)};
-    if (out.size() > longestName) {
-        std::size_t end = longestName;
+    if (out.size() > longest) {
+        std::size_t end = longest;
         while (end > 0 &&
                (static_cast<unsigned char>(out[end]) & continuationMask) == continuationBits) {
             --end;

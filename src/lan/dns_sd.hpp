@@ -6,7 +6,8 @@
 // newer). A service's TXT record carries its peer id (`id`), name (`name`) and protocol version
 // (`v`); its own announcement is never listed. A peer is its id, the key its pairing is kept under.
 // Its name is only what it is shown as, and two may share one: a clash on the LAN renames the
-// service instance a backend announces, never the TXT name.
+// service instance a backend announces, never the TXT name. Windows reports no clash, so its
+// backend's instance carries the start of the id from the outset.
 #pragma once
 
 #include <cstdint>

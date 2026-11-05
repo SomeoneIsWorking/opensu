@@ -38,6 +38,8 @@ constexpr std::chrono::seconds roundLength{10};
 constexpr std::chrono::seconds resolveAgain{60};
 /// How long starting waits for the announcement, and ending for Windows to let go of its calls.
 constexpr std::chrono::seconds settleTime{3};
+/// How much of the id an instance label carries.
+constexpr std::size_t idInLabel = 8;
 
 /// dnsapi.dll's DNS-SD calls, which Windows 10 version 1809 added; looked up when discovery starts
 /// so openSU still starts on an older Windows and says why it cannot be found.
@@ -110,10 +112,13 @@ std::wstring hostName() {
     return name;
 }
 
-/// The instance label `name` is announced under: a dot would split it into DNS labels.
-std::string label(std::string name) {
+/// The instance label `self` is announced under, its id keeping it unique: Windows takes a second
+/// service of one name without a clash, and a browser would hear only one of them. A dot would
+/// split the label.
+std::string label(const Announcement& self) {
+    std::string name = shownName(self.name, longestName - idInLabel - 1);
     std::ranges::replace(name, '.', '-');
-    return name;
+    return name + ' ' + self.id.substr(0, idInLabel);
 }
 
 /// The label of a full instance name ("Den._opensu._tcp.local").
@@ -149,7 +154,7 @@ struct Service {
 
 /// Everything Windows' callbacks reach, under `mutex`, on any of its threads.
 struct State {
-    explicit State(Announcement announced) : self{std::move(announced)}, name{self.name} {
+    explicit State(Announcement announced) : self{std::move(announced)}, name{label(self)} {
     }
 
     DnsApi api;
@@ -184,14 +189,8 @@ struct State {
 
 void WINAPI registered(DWORD status, void* context, DNS_SERVICE_INSTANCE* instance) {
     State& state = *static_cast<Call*>(context)->state;
-    std::string announced;
-    if (instance != nullptr) {
-        if (instance->pszInstanceName != nullptr) {
-            announced = narrow(instance->pszInstanceName);
-        }
-        if (instance != state.instance) {
-            state.api.freeInstance(instance);
-        }
+    if (instance != nullptr && instance != state.instance) {
+        state.api.freeInstance(instance);
     }
     const std::lock_guard lock{state.mutex};
     if (state.registration) {
@@ -203,11 +202,6 @@ void WINAPI registered(DWORD status, void* context, DNS_SERVICE_INSTANCE* instan
     if (status != ERROR_SUCCESS) {
         lucent::warn("lan", "Windows could not announce this openSU: error {}", status);
     } else {
-        const std::string taken = labelOf(announced);
-        if (!taken.empty() && taken != label(state.self.name)) {
-            lucent::info("lan", "{} is taken on the LAN; announcing as {}", state.self.name, taken);
-            state.name = taken;
-        }
         lucent::info("lan", "announced as {} ({}) on port {}", state.name, serviceType,
                      state.self.port);
     }
@@ -389,7 +383,7 @@ class WindowsDiscovery final : public ServiceDiscovery {
                                                  wide(protocolVersion)};
         std::array<PCWSTR, 3> keyText{keys[0].c_str(), keys[1].c_str(), keys[2].c_str()};
         std::array<PCWSTR, 3> valueText{values[0].c_str(), values[1].c_str(), values[2].c_str()};
-        const std::wstring instance = wide(label(state.self.name)) + L"." + serviceDomain();
+        const std::wstring instance = wide(label(state.self)) + L"." + serviceDomain();
         const std::wstring target = host + L".local";
         state.instance = state.api.construct(instance.c_str(), target.c_str(), nullptr, nullptr,
                                              state.self.port, 0, 0, static_cast<DWORD>(keys.size()),

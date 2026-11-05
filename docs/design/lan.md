@@ -47,7 +47,7 @@ the same machine resolves on every interface, loopback included, and the first o
 
 A peer is its id: pairings, saves, profile links and listings all go by it, and machines that share
 a default hostname stay apart. The DNS-SD service instance has to be unique on the LAN, so each
-backend renames it on a clash; the TXT `name`, which is what peers list and pair under, stays the
+backend renames it on a clash, and Windows' announces a unique one from the start; the TXT `name`, which is what peers list and pair under, stays the
 player's, and two openSUs of one name show as that name twice, told apart by address. Settings ›
 LAN shows the instance this one is announced as.
 
@@ -78,8 +78,10 @@ On Windows, `dns_sd_windns.cpp` uses dnsapi.dll's DNS-SD calls (`DnsServiceRegis
 `DnsServiceBrowse`, `DnsServiceResolve`), which Windows 10 version 1809 added. They are looked up
 when discovery starts (`GetProcAddress`), so an older Windows still starts openSU and Settings ›
 LAN says "Finding other openSUs needs Windows 10 version 1809 or newer". The service is announced
-as `<name>._opensu._tcp.local` on `<computer name>.local` (a `.` in the name becomes `-` in the
-instance label; TXT `name` keeps it). Windows' browse never reports a service leaving, so the
+as `<name> <first 8 of its id>._opensu._tcp.local` on `<computer name>.local` (a `.` in the name
+becomes `-` in the instance label; TXT `name` keeps it). `DnsServiceRegister` takes a second service
+of one name and reports no clash, and a browser then hears one of the two, so the id keeps the
+label unique, and Settings › LAN shows it. Windows' browse never reports a service leaving, so the
 backend browses in rounds of 10 s: each round is a fresh query, a service is resolved when it is
 first heard (and again at most every 60 s while it does not resolve), and one heard in neither
 this round nor the last, or that said goodbye (TTL 0), is dropped. The callbacks come on Windows'

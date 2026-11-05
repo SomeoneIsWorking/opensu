@@ -31,8 +31,8 @@ inline constexpr std::size_t peerIdBytes = 16;
 inline constexpr std::size_t longestName = 63;
 
 /// `name` as it can be shown and announced: control characters dropped, spaces trimmed, cut to
-/// `longestName` at a character boundary; empty when nothing is left.
-[[nodiscard]] std::string shownName(std::string_view name);
+/// `longest` bytes at a character boundary; empty when nothing is left.
+[[nodiscard]] std::string shownName(std::string_view name, std::size_t longest = longestName);
 
 /// Another openSU this one paired with.
 struct Peer {
