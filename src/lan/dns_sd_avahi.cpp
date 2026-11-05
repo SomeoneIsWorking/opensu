@@ -441,10 +441,6 @@ std::string machineName() {
     return name.data();
 }
 
-std::string_view discoveryMissing() noexcept {
-    return {};
-}
-
 std::unique_ptr<ServiceDiscovery> startDiscovery(const Announcement& self, std::string& error) {
     auto discovery = std::make_unique<AvahiDiscovery>(self);
     if (!discovery->start(error)) {

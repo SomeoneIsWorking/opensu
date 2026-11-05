@@ -1,7 +1,7 @@
 # This openSU on the LAN: its paired peers, the listener they reach it on, pairing, the games each
 # shares, its paired openSUs as targets of shared saves, their ROMs, and its DNS-SD announcement.
-# Finding other openSUs is Avahi over the system bus on Linux and NsdManager through the shell
-# Activity on Android; elsewhere it is not built yet and says so.
+# Finding other openSUs is Avahi over the system bus on Linux, NsdManager through the shell Activity
+# on Android, mDNSResponder (dns_sd.h) on macOS and dnsapi.dll's DNS-SD calls on Windows.
 add_library(opensu_lan STATIC pairing_keys.cpp request_signature.cpp peer_book.cpp wire.cpp
             shared_library.cpp remote_library.cpp peer_client.cpp host_pairing.cpp guest_pairing.cpp
             peer_save_target.cpp profile_copies.cpp rom_shelf.cpp rom_import.cpp lan_listener.cpp
@@ -19,8 +19,17 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 elseif(ANDROID)
     target_sources(opensu_lan PRIVATE dns_sd_android.cpp)
     target_link_libraries(opensu_lan PRIVATE opensu::android)
+elseif(APPLE)
+    target_sources(opensu_lan PRIVATE dns_sd_bonjour.cpp)
+    target_link_libraries(opensu_lan PRIVATE "-framework CoreFoundation"
+        "-framework SystemConfiguration")
+elseif(WIN32)
+    # win32.hpp's UTF-8 and UTF-16 text; dnsapi.dll's DNS-SD calls are looked up when discovery
+    # starts, its older DnsFree is linked.
+    target_sources(opensu_lan PRIVATE dns_sd_windns.cpp)
+    target_link_libraries(opensu_lan PRIVATE opensu::launch dnsapi)
 else()
-    target_sources(opensu_lan PRIVATE dns_sd_none.cpp)
+    message(FATAL_ERROR "openSU's LAN has no DNS-SD backend for ${CMAKE_SYSTEM_NAME}")
 endif()
 target_compile_features(opensu_lan PUBLIC cxx_std_20)
 opensu_warnings(opensu_lan)

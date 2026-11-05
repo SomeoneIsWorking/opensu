@@ -1,9 +1,10 @@
 // dns_sd — this openSU announced on the LAN as a `_opensu._tcp` DNS-SD service, and the other
 // openSUs announced there, while it lives. One backend per OS: `dns_sd_avahi.cpp` on Linux, over
 // Avahi's D-Bus API on a thread of its own; `dns_sd_android.cpp` on Android, NsdManager through
-// the shell Activity; `dns_sd_none.cpp` elsewhere, which says it is not built yet. A service's TXT
-// record carries its peer id (`id`), name (`name`) and protocol version (`v`); its own announcement
-// is never listed.
+// the shell Activity; `dns_sd_bonjour.cpp` on macOS, mDNSResponder through dns_sd.h on a thread of
+// its own; `dns_sd_windns.cpp` on Windows, dnsapi.dll's DNS-SD calls (Windows 10 version 1809 and
+// newer). A service's TXT record carries its peer id (`id`), name (`name`) and protocol version
+// (`v`); its own announcement is never listed.
 #pragma once
 
 #include <cstdint>
@@ -49,11 +50,8 @@ class ServiceDiscovery {
 /// The name this machine goes by on the LAN, which an openSU the player has not named takes.
 [[nodiscard]] std::string machineName();
 
-/// Why this build cannot announce or find openSUs, in words for the player; empty when it can.
-[[nodiscard]] std::string_view discoveryMissing() noexcept;
-
-/// Announces `self` and starts looking for the others; null with `error` when it cannot (no
-/// system bus, no Avahi, or no backend in this build).
+/// Announces `self` and starts looking for the others; null with `error`, in words for the player,
+/// when it cannot (no system bus or Avahi, mDNSResponder unreachable, a Windows too old).
 [[nodiscard]] std::unique_ptr<ServiceDiscovery> startDiscovery(const Announcement& self,
                                                                std::string& error);
 

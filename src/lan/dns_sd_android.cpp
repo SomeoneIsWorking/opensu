@@ -111,10 +111,6 @@ std::string machineName() {
     return named.empty() ? std::string{"openSU"} : named;
 }
 
-std::string_view discoveryMissing() noexcept {
-    return {};
-}
-
 std::unique_ptr<ServiceDiscovery> startDiscovery(const Announcement& self, std::string& error) {
     const ActivityCall call;
     if (!call.ready()) {

@@ -6,7 +6,9 @@
 // forgetting revokes both sides. Saves shared both ways follow the player: pulled before a game,
 // pushed after, a conflict left for the player to pick, every replaced save backed up. ROMs a
 // paired host lists are imported in sealed chunks, resumed from a part, checked by their hash and
-// placed in the guest's ROM folder; a path outside the host's folders is refused.
+// placed in the guest's ROM folder; a path outside the host's folders is refused. With
+// `--system-discovery` two nodes find each other through the system's DNS-SD daemon instead and
+// pair.
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -22,6 +24,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <thread>
 #include <utility>
@@ -152,7 +155,15 @@ class DirectoryDiscovery final : public lan::ServiceDiscovery {
 
 /// One openSU: its node, its remote games, how often they changed, and where it keeps saves.
 struct Node {
+    using Discover = decltype(lan::LanNode::Setup::discovery);
+
     Node(const fs::path& root, const std::string& name, Directory& directory)
+        : Node{root, name, [&directory](const lan::Announcement& self, std::string& /*error*/) {
+                   return std::make_unique<DirectoryDiscovery>(directory, self);
+               }} {
+    }
+
+    Node(const fs::path& root, const std::string& name, Discover discover)
         : remote{std::make_shared<lan::RemoteLibrary>()}, saves{root / name / "saves"},
           state{root / name / "state"},
           sync{save_sync::SaveSync::Setup{
@@ -212,10 +223,7 @@ struct Node {
                                             .changed =
                                                 [] {
                                                 }},
-              .discovery =
-                  [&directory](const lan::Announcement& self, std::string& /*error*/) {
-                      return std::make_unique<DirectoryDiscovery>(directory, self);
-                  }}} {
+              .discovery = std::move(discover)}} {
     }
 
     /// Why this side's saves cannot be replaced now; empty when they can.
@@ -996,10 +1004,45 @@ void bothSidesDeriveOneSecret() {
            "a pairing past its time lapses");
 }
 
+/// Two openSUs announced and found through this system's own DNS-SD daemon, as the product finds
+/// them, pair and list each other's games.
+void systemDiscoveryPairs(const fs::path& root) {
+    Node host{root, "System host", lan::startDiscovery};
+    Node guest{root, "System guest", lan::startDiscovery};
+    std::printf("host: %s\nguest: %s\n", host.node.status().problem.c_str(),
+                guest.node.status().problem.c_str());
+    expect(host.node.status().problem.empty() && guest.node.status().problem.empty(),
+           "both are announced");
+    host.node.share({installedGame("own:1", "Announced game", {})});
+    const auto sees = [](const Node& node, const std::string& id) {
+        const std::vector<lan::Sighting> seen = node.node.sightings();
+        return std::ranges::find(seen, id, &lan::Sighting::id) != seen.end();
+    };
+    expect(waitFor([&] {
+               return sees(guest, host.node.id()) && sees(host, guest.node.id());
+           }),
+           "each finds the other through the daemon");
+    for (const lan::Sighting& sighting : guest.node.sightings()) {
+        std::printf("the guest sees %s at %s:%u\n", sighting.name.c_str(), sighting.address.c_str(),
+                    static_cast<unsigned>(sighting.port));
+    }
+    expect(pairUp(guest, host, true) == GuestPairing::Phase::Paired,
+           "they pair at the address the daemon resolved");
+    expect(waitFor([&guest] {
+               return guest.remote->games().size() == 1;
+           }),
+           "the guest lists the host's game");
+}
+
 } // namespace
 
-int main() try {
+int main(int argc, char** argv) try {
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "lan-node"};
+    if (argc > 1 && std::string_view{argv[1]} == "--system-discovery") {
+        systemDiscoveryPairs(scratch.path());
+        std::printf("lan_node: two openSUs paired through the system's DNS-SD\n");
+        return 0;
+    }
     bothSidesDeriveOneSecret();
     signedRequestsAreCheckedOnce(scratch.path());
     pairedNodesListEachOthersGames(scratch.path());

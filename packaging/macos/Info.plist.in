@@ -28,5 +28,11 @@
     <string>@MINIMUM_SYSTEM@</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_opensu._tcp</string>
+    </array>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>openSU finds the other openSUs on your network to pair with them, share games and saves, and play remotely.</string>
 </dict>
 </plist>

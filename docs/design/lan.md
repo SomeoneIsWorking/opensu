@@ -41,19 +41,46 @@ Module rows are in `docs/codemap.md` under LAN and Remote play.
 ## Discovery
 
 Each node announces `_opensu._tcp` on its listener's port with TXT `id` (its 32-hex peer id),
-`name` (at most 63 bytes, no control bytes) and `v` (protocol `2`: sealed bodies). On Linux this goes through
-Avahi's D-Bus API (`EntryGroupNew`/`AddService`/`Commit`, `ServiceBrowserNew`, `ResolveService`)
-over sd-bus on the node's own thread. A name clash takes Avahi's alternative name. Only IPv4
-resolutions are kept, and its own id is skipped. An openSU on the same machine resolves on every
-interface, loopback included; the first one is listed.
+`name` (at most 63 bytes, no control bytes) and `v` (protocol `3`: sealed bodies and profiles).
+Every backend keeps only IPv4 resolutions of the same protocol and skips its own id; an openSU on
+the same machine resolves on every interface, loopback included, and the first one is listed.
+
+On Linux, `dns_sd_avahi.cpp` uses Avahi's D-Bus API (`EntryGroupNew`/`AddService`/`Commit`,
+`ServiceBrowserNew`, `ResolveService`) over sd-bus on the node's own thread. A name clash takes
+Avahi's alternative name.
 
 On Android, `dns_sd_android.cpp` calls the Activity over JNI, and `LanDiscovery.java` registers
 and browses through `NsdManager`, resolving one service at a time (NSD allows one resolve at a
 time before API 34) and keeping IPv4 addresses only. It holds a `WifiManager` multicast lock while
 the node runs (`CHANGE_WIFI_MULTICAST_STATE`; many devices drop multicast without it); NSD needs no
 runtime permission, and `NEARBY_WIFI_DEVICES` is not asked for. The machine's name is the
-device name from Settings, else the model. Windows and macOS build `dns_sd_none.cpp`, and
-Settings › LAN says finding openSUs is not built there yet.
+device name from Settings, else the model.
+
+On macOS, `dns_sd_bonjour.cpp` talks to mDNSResponder through `dns_sd.h` on the node's own
+thread, every operation on one shared connection (`DNSServiceCreateConnection`):
+`DNSServiceRegister` (a clash takes Bonjour's automatic rename, "name (2)"), `DNSServiceBrowse`,
+then for each service `DNSServiceResolve` for its TXT and port and `DNSServiceGetAddrInfo` for its
+IPv4 address. A service browsing reports gone is dropped at once. The app's `Info.plist` names
+`_opensu._tcp` in `NSBonjourServices` and says why in `NSLocalNetworkUsageDescription`: macOS 15
+asks the player once for local network access, and a refusal is reported as the reason
+(`kDNSServiceErr_PolicyDenied`). The machine's name is the computer name from Sharing
+(`SCDynamicStoreCopyComputerName`).
+
+On Windows, `dns_sd_windns.cpp` uses dnsapi.dll's DNS-SD calls (`DnsServiceRegister`,
+`DnsServiceBrowse`, `DnsServiceResolve`), which Windows 10 version 1809 added. They are looked up
+when discovery starts (`GetProcAddress`), so an older Windows still starts openSU and Settings ›
+LAN says "Finding other openSUs needs Windows 10 version 1809 or newer". The service is announced
+as `<name>._opensu._tcp.local` on `<computer name>.local` (a `.` in the name becomes `-` in the
+instance label; TXT `name` keeps it). Windows' browse never reports a service leaving, so the
+backend browses in rounds of 10 s: each round is a fresh query, a service is resolved when it is
+first heard (and again at most every 60 s while it does not resolve), and one heard in neither
+this round nor the last, or that said goodbye (TTL 0), is dropped. The callbacks come on Windows'
+threads; every call Windows holds keeps its context until Windows says it ended. The machine's
+name is its DNS host name (`GetComputerNameExW`).
+
+Windows Defender Firewall asks once, when the LAN listener first opens, whether openSU may be
+reached on private networks; without Allow other machines cannot reach its port. The DNS client
+service announces and browses for it, so finding works either way.
 
 ## Wire
 
@@ -355,7 +382,7 @@ Library on both sides.
   too. Its requests are refused here.
 - A cover fetched for a local game after the catalog was read is shared from the next catalog
   read.
-- Discovery is Linux and Android only. The rest is portable C++ over libcrypto and Lucent.
+- Removal on Windows waits for two browse rounds (up to 20 s): its DNS-SD browse reports no goodbyes.
 - An Android host does not offer ROMs from a picked (`content://`) folder; only folders on a path.
 - A ROM whose path has a `:` or `\` is not offered (the relative-path rule).
 - The import queue is not kept across restarts; the parts are, so importing the same game again
@@ -384,7 +411,11 @@ Library on both sides.
 `tests/lan/lan_node_test.cpp` runs two nodes and a stranger in one process on loopback, with a
 stand-in directory in place of Avahi, and two more sharing a runner game's saves: a profile
 listed, copied with the owner's answer and linked, its saves pulled before a launch, pushed after, a conflict left alone until picked, a pick refused while the emulator runs,
-the replaced saves backed up, an unlinked profile not shared, Unlink on both. In the product, start two or three `--hidden` openSUs, each with its
+the replaced saves backed up, an unlinked profile not shared, Unlink on both.
+`lan_node_test --system-discovery` (ctest `lan_discovery`, registered on macOS and Windows, where CI
+runs it) starts two nodes on the system's own daemon instead, mDNSResponder or Windows' DNS client,
+waits until each resolves the other, pairs them at the resolved address and lists the host's game;
+on Linux it runs the same against Avahi by hand. In the product, start two or three `--hidden` openSUs, each with its
 own `HOME` and the XDG dirs under it and `"integrations": {"lan": true}` in its settings. Drive
 Settings › LAN through each control channel. `/state` reports `lanSeen`, `lanPaired`, `lanCode`
 and, with a details page open, `lanSaves` (its Saves fact); `/frame.png` shows the code on both

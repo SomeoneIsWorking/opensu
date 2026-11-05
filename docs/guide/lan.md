@@ -7,8 +7,13 @@ play), and copies their ROMs into this openSU, so a phone can play the games on 
 
 LAN is an integration, off until you turn it on in Settings › Integrations
 ([stores.md](stores.md#integrations)). Finding other openSUs works on Linux with Avahi running
-(`avahi-daemon`, on by default on most desktops) and on Android over Wi-Fi. On Windows and macOS,
-Settings › LAN says it is not built yet.
+(`avahi-daemon`, on by default on most desktops), on Android over Wi-Fi, on macOS through Bonjour
+and on Windows 10 version 1809 or newer through Windows' own DNS client.
+
+- macOS asks once whether openSU may find devices on your local network. Allow it, or turn it on
+  later in System Settings › Privacy & Security › Local Network.
+- Windows asks once whether openSU may be reached on your network. Allow it for private networks;
+  otherwise the other openSUs find this one but cannot reach it.
 
 ## Pairing
 
