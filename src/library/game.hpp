@@ -177,6 +177,15 @@ class SourceAbsent : public std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
+/// Thrown through a store's code by a request its stop ended, which is not a fault: what it was
+/// for is dropped and nothing is logged. Not a runtime_error, so a failure's handler passes it on.
+class RequestStopped : public std::exception {
+  public:
+    [[nodiscard]] const char* what() const noexcept override {
+        return "stopped";
+    }
+};
+
 /// How a store fared on the last read.
 enum class Availability : std::uint8_t {
     /// Not on this machine.
@@ -221,8 +230,10 @@ class Provider {
 };
 
 /// Reads one provider. A provider that fails is reported in the status, with no games, so one
-/// broken store cannot empty the grid. Blocks as long as the provider does.
-[[nodiscard]] SourceListing readProvider(Provider& provider, const std::stop_token& stop);
+/// broken store cannot empty the grid. Blocks as long as the provider does; nothing when `stop`
+/// ended the listing.
+[[nodiscard]] std::optional<SourceListing> readProvider(Provider& provider,
+                                                        const std::stop_token& stop);
 
 /// The providers of every store the catalog reads, in the order the stores are shown.
 class Catalog {

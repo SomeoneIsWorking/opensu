@@ -123,11 +123,11 @@ void CatalogLoader::run(Job& job, const std::stop_token& stop) {
             job.wanted = false;
             job.busy = true;
         }
-        SourceListing listing = readProvider(*job.provider, stop);
+        std::optional<SourceListing> listing = readProvider(*job.provider, stop);
         {
             const std::lock_guard lock{mutex_};
-            if (!job.retired) {
-                arrived_.push_back(std::move(listing));
+            if (!job.retired && listing) {
+                arrived_.push_back(std::move(*listing));
             }
             job.busy = false;
         }

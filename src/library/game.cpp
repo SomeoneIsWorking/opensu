@@ -72,10 +72,12 @@ std::vector<std::unique_ptr<Provider>> Catalog::release() && {
     return std::move(providers_);
 }
 
-SourceListing readProvider(Provider& provider, const std::stop_token& stop) {
+std::optional<SourceListing> readProvider(Provider& provider, const std::stop_token& stop) {
     SourceListing listing{.status = SourceStatus{.source = provider.source()}, .games = {}};
     try {
         listing.games = provider.list(stop);
+    } catch (const RequestStopped&) {
+        return std::nullopt;
     } catch (const SourceAbsent& absent) {
         listing.status.availability = Availability::Absent;
         listing.status.detail = absent.what();

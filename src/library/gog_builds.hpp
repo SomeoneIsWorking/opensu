@@ -7,6 +7,7 @@
 #pragma once
 
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -27,12 +28,11 @@ namespace opensu::library::gog {
 
 /// What GOG offers now for game `id` on gogdl platform `platform` ("windows" or "linux"), in the
 /// terms `installedBuild` reads an install in; `headers` carry the sign-in. Throws
-/// std::runtime_error when GOG cannot be read.
-[[nodiscard]] std::optional<std::string> offeredBuild(const net::WebClient& web,
-                                                      const Endpoints& endpoints,
-                                                      const std::vector<std::string>& headers,
-                                                      std::string_view id,
-                                                      std::string_view platform);
+/// std::runtime_error when GOG cannot be read, and RequestStopped once `stop` ends the request.
+[[nodiscard]] std::optional<std::string>
+offeredBuild(const std::stop_token& stop, const net::WebClient& web, const Endpoints& endpoints,
+             const std::vector<std::string>& headers, std::string_view id,
+             std::string_view platform);
 
 /// Whether an install of build `installed` is behind `offered`; an unknown side is no update.
 [[nodiscard]] bool behind(std::string_view installed, const std::optional<std::string>& offered);

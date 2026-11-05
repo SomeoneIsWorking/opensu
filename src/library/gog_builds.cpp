@@ -75,7 +75,8 @@ std::optional<std::string> offeredLinuxVersion(std::string_view body) {
     return std::nullopt;
 }
 
-std::optional<std::string> offeredBuild(const net::WebClient& web, const Endpoints& endpoints,
+std::optional<std::string> offeredBuild(const std::stop_token& stop, const net::WebClient& web,
+                                        const Endpoints& endpoints,
                                         const std::vector<std::string>& headers,
                                         std::string_view id, std::string_view platform) {
     const bool native = platform == "linux";
@@ -83,7 +84,10 @@ std::optional<std::string> offeredBuild(const net::WebClient& web, const Endpoin
         native ? endpoints.api + "/products/" + std::string{id} + "?expand=downloads"
                : endpoints.content + "/products/" + std::string{id} + "/os/" +
                      std::string{platform} + "/builds?generation=2";
-    const net::Result<std::string> body = web.get(std::stop_token{}, url, headers);
+    const net::Result<std::string> body = web.get(stop, url, headers);
+    if (body.stopped()) {
+        throw RequestStopped{};
+    }
     if (!body) {
         throw std::runtime_error{"cannot read GOG's builds of " + std::string{id} + " (" +
                                  body.error() + ")"};

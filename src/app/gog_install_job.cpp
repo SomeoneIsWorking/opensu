@@ -54,7 +54,7 @@ std::vector<std::string> GogInstallJob::arguments(const std::string& gameId) {
                                  " build of this game"};
     }
     // Refreshes the token when it is about to expire; NotSignedIn is a runtime_error.
-    (void)auth_.accessToken();
+    (void)auth_.accessToken(std::stop_token{});
     const std::optional<library::gog::Token> token = store_.load();
     if (!token) {
         throw std::runtime_error{"GOG is not signed in"};

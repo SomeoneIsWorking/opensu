@@ -38,28 +38,31 @@ std::string Auth::loginUrl() const {
            "&redirect_uri=" + std::string{redirectUri} + "&response_type=code&layout=client2";
 }
 
-void Auth::signIn(std::string_view code) const {
-    request("grant_type=authorization_code&code=" + net::percentEncode(code) +
-            "&redirect_uri=" + std::string{redirectUri});
+void Auth::signIn(const std::stop_token& stop, std::string_view code) const {
+    request(stop, "grant_type=authorization_code&code=" + net::percentEncode(code) +
+                      "&redirect_uri=" + std::string{redirectUri});
 }
 
-std::string Auth::accessToken() const {
+std::string Auth::accessToken(const std::stop_token& stop) const {
     std::optional<Token> token = store_.load();
     if (!token) {
         throw NotSignedIn{"GOG is not signed in"};
     }
     if (token->expiresAt - refreshMarginSeconds <= now()) {
-        return request("grant_type=refresh_token&refresh_token=" +
-                       net::percentEncode(token->refreshToken))
+        return request(stop, "grant_type=refresh_token&refresh_token=" +
+                                 net::percentEncode(token->refreshToken))
             .accessToken;
     }
     return token->accessToken;
 }
 
-Token Auth::request(const std::string& grant) const {
+Token Auth::request(const std::stop_token& stop, const std::string& grant) const {
     const std::string url = endpoints_.auth + "/token?client_id=" + std::string{clientId} +
                             "&client_secret=" + std::string{clientSecret} + "&" + grant;
-    const net::Result<std::string> body = web_.get(std::stop_token{}, url);
+    const net::Result<std::string> body = web_.get(stop, url);
+    if (body.stopped()) {
+        throw RequestStopped{};
+    }
     if (!body) {
         // GOG answers a spent or wrong code, and a revoked refresh token, with a 4xx.
         throw NotSignedIn{"GOG sign-in failed (" + body.error() + ")"};

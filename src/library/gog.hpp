@@ -35,7 +35,8 @@ class Provider final : public library::Provider {
     }
 
     /// Lists the owned games, a page of GOG's answer per request. Throws NotSignedIn when there
-    /// is no usable sign-in, and std::runtime_error when GOG cannot be reached or answers wrongly.
+    /// is no usable sign-in, std::runtime_error when GOG cannot be reached or answers wrongly, and
+    /// RequestStopped once `stop` ends a request.
     [[nodiscard]] std::vector<Game> list(const std::stop_token& stop) override;
 
   private:
@@ -44,7 +45,7 @@ class Provider final : public library::Provider {
                       const std::map<std::string, Installed, std::less<>>& installs) const;
     /// Marks installed `game` updatable when GOG offers another build; one that cannot be asked
     /// is logged and left without.
-    void checkUpdate(Game& game, const Installed& install,
+    void checkUpdate(const std::stop_token& stop, Game& game, const Installed& install,
                      const std::vector<std::string>& headers) const;
 
     net::WebClient web_;

@@ -41,7 +41,7 @@ SignInResult StoreSignIn::open(Store store) {
 SignInResult StoreSignIn::complete(Store store, std::string_view code) {
     if (store == Store::Gog) {
         try {
-            gog_.signIn(code);
+            gog_.signIn(std::stop_token{}, code);
         } catch (const std::exception& error) {
             lucent::warn("signin", "GOG: {}", error.what());
             return {false, error.what()};

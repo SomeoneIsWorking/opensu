@@ -88,7 +88,7 @@ void Provider::applyInstall(Game& game,
     game.processHint = install->second.path.filename().string();
 }
 
-void Provider::checkUpdate(Game& game, const Installed& install,
+void Provider::checkUpdate(const std::stop_token& stop, Game& game, const Installed& install,
                            const std::vector<std::string>& headers) const {
     // A record older than build tracking is read from the files gogdl left.
     const std::string build =
@@ -97,16 +97,16 @@ void Provider::checkUpdate(Game& game, const Installed& install,
         return;
     }
     try {
-        game.updateAvailable = behind(
-            build, offeredBuild(web_, auth_.endpoints(), headers, game.sourceId, install.platform));
+        game.updateAvailable = behind(build, offeredBuild(stop, web_, auth_.endpoints(), headers,
+                                                          game.sourceId, install.platform));
     } catch (const std::runtime_error& error) {
         // The listing stands without it; the next catalog load asks again.
         lucent::warn("gog", "no update check for {}: {}", game.title, error.what());
     }
 }
 
-std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
-    const std::vector<std::string> headers{"Authorization: Bearer " + auth_.accessToken()};
+std::vector<Game> Provider::list(const std::stop_token& stop) {
+    const std::vector<std::string> headers{"Authorization: Bearer " + auth_.accessToken(stop)};
     const std::map<std::string, Installed, std::less<>> installs =
         InstallRecords{setup_.paths.records}.all();
     std::vector<Game> games;
@@ -115,7 +115,10 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
         const std::string url =
             auth_.endpoints().embed +
             "/account/getFilteredProducts?mediaType=1&page=" + std::to_string(page);
-        const net::Result<std::string> body = web_.get(std::stop_token{}, url, headers);
+        const net::Result<std::string> body = web_.get(stop, url, headers);
+        if (body.stopped()) {
+            throw RequestStopped{};
+        }
         if (!body) {
             throw std::runtime_error{"cannot read the GOG library (" + body.error() + ")"};
         }
@@ -124,7 +127,7 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
         for (Game& game : parsed.games) {
             applyInstall(game, installs);
             if (const auto install = installs.find(game.sourceId); install != installs.end()) {
-                checkUpdate(game, install->second, headers);
+                checkUpdate(stop, game, install->second, headers);
             }
         }
         std::ranges::move(parsed.games, std::back_inserter(games));

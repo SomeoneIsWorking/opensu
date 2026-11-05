@@ -9,6 +9,7 @@
 #include <string>
 #include <string_view>
 
+#include "game.hpp"
 #include "gog_token.hpp"
 #include "net/web_client.hpp"
 
@@ -37,12 +38,13 @@ class Auth {
     /// The page the player signs in on; it ends on `embed.gog.com/on_login_success?...&code=`.
     [[nodiscard]] std::string loginUrl() const;
 
-    /// Exchanges an authorization code for a token and saves it. Throws when GOG refuses the code.
-    void signIn(std::string_view code) const;
+    /// Exchanges an authorization code for a token and saves it. Throws when GOG refuses the code,
+    /// and RequestStopped once `stop` ends the exchange.
+    void signIn(const std::stop_token& stop, std::string_view code) const;
 
     /// A valid access token, refreshed and saved first when the saved one has expired. Throws
-    /// NotSignedIn when there is none to use.
-    [[nodiscard]] std::string accessToken() const;
+    /// NotSignedIn when there is none to use, and RequestStopped once `stop` ends the refresh.
+    [[nodiscard]] std::string accessToken(const std::stop_token& stop) const;
 
     [[nodiscard]] const Endpoints& endpoints() const noexcept {
         return endpoints_;
@@ -51,7 +53,7 @@ class Auth {
   private:
     /// Asks the token endpoint with `grant` ("grant_type=..."), saves what it grants and returns
     /// it.
-    Token request(const std::string& grant) const;
+    Token request(const std::stop_token& stop, const std::string& grant) const;
 
     TokenStore store_;
     Endpoints endpoints_;

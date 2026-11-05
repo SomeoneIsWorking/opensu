@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <mutex>
+#include <stop_token>
 #include <string>
 #include <vector>
 
@@ -169,13 +170,13 @@ void testSignIn() {
 
     bool refused = false;
     try {
-        auth.signIn("WRONG");
+        auth.signIn(std::stop_token{}, "WRONG");
     } catch (const NotSignedIn&) {
         refused = true;
     }
     expect(refused && !store.load(), "a refused code saves nothing");
 
-    auth.signIn("GOOD-CODE");
+    auth.signIn(std::stop_token{}, "GOOD-CODE");
     expect(
         contains(gog.lastTokenTarget(),
                  "client_id=46899977096215655&client_secret=9d85c43b1482497dbbce61f6e4aa173a43379"
@@ -210,7 +211,7 @@ void testRefresh() {
 
     bool signedOut = false;
     try {
-        (void)auth.accessToken();
+        (void)auth.accessToken(std::stop_token{});
     } catch (const NotSignedIn&) {
         signedOut = true;
     }
@@ -218,23 +219,23 @@ void testRefresh() {
 
     const std::int64_t later = 4'000'000'000;
     store.save(Token{"ACCESS-1", "REFRESH-1", "4242", later});
-    expect(auth.accessToken() == "ACCESS-1" && gog.tokenRequests() == 0,
+    expect(auth.accessToken(std::stop_token{}) == "ACCESS-1" && gog.tokenRequests() == 0,
            "a token that has not expired is used as is");
 
     store.save(Token{"ACCESS-1", "REFRESH-1", "4242", 1});
-    expect(auth.accessToken() == "ACCESS-2", "an expired token is refreshed");
+    expect(auth.accessToken(std::stop_token{}) == "ACCESS-2", "an expired token is refreshed");
     expect(gog.tokenRequests() == 1, "one request refreshes it");
     const std::optional<Token> saved = store.load();
     expect(saved && saved->accessToken == "ACCESS-2" && saved->refreshToken == "REFRESH-2" &&
                saved->expiresAt > 1'700'000'000,
            "the refreshed token replaces the saved one");
-    expect(auth.accessToken() == "ACCESS-2" && gog.tokenRequests() == 1,
+    expect(auth.accessToken(std::stop_token{}) == "ACCESS-2" && gog.tokenRequests() == 1,
            "the refreshed token is not refreshed again");
 
     store.save(Token{"ACCESS-0", "REVOKED", "4242", 1});
     bool revoked = false;
     try {
-        (void)auth.accessToken();
+        (void)auth.accessToken(std::stop_token{});
     } catch (const NotSignedIn&) {
         revoked = true;
     }
@@ -257,6 +258,11 @@ void testLibrary() {
     expect(signedOut && gog.libraryRequests() == 0, "without a sign-in nothing is requested");
 
     TokenStore::under(dir).save(Token{"ACCESS-1", "REFRESH-1", "4242", 4'000'000'000});
+    std::stop_source quitting;
+    quitting.request_stop();
+    expect(!opensu::library::readProvider(provider, quitting.get_token()) &&
+               gog.libraryRequests() == 0,
+           "a listing on a requested stop is dropped, nothing of it asked");
     const std::vector<Game> games = provider.list(std::stop_token{});
     expect(gog.libraryRequests() == 2, "a request reads each page");
     expect(games.size() == 2, "a product without a title is skipped");
