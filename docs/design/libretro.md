@@ -176,7 +176,7 @@ close below Close game, then Save state (one press), Load state (asking first; a
 "No state saved" when the slot is empty) and Reset game (asking first). The results are toasts:
 "State saved", "State loaded", "Game reset", or the runner's reason as an error. Its "Game
 settings" row opens the layered editor (below) as a panel over the game; B from it comes back to
-the menu on that row. A game that resumed shows "Resumed from Save and close" with the date as its
+the menu on that row. A game that resumed shows "Resumed session" with the date as its
 caption; one whose resume state was refused shows "Not resumed" with the reason.
 
 **Save and close.** Save and close posts `/suspend`, then closes the game the way Close game does
