@@ -1144,6 +1144,8 @@ void ShellApp::publishSnapshot() {
     const RemotePlay::Glance remote = remotePlay_.glance();
     next.remotePlay = remote.state;
     next.remotePeer = remote.peer;
+    next.remoteGuests = remote.guests;
+    next.remoteAsk = remote.asking;
     next.remoteRoundTripUs = remote.roundTripUs;
     next.remoteBytesPerSecond = remote.bytesPerSecond;
     next.remoteVideo = remote.video;
@@ -1416,7 +1418,9 @@ int ShellApp::run() {
         lanRoms_.service();
         lanProfiles_.service();
         saveSharing_.service();
-        remotePlay_.service(launches_.running() || saveSharing_.holding());
+        remotePlay_.service(launches_.running() || saveSharing_.holding(),
+                            launches_.running() ? &launches_.game() : nullptr);
+        togetherQuestions_.service();
         delivery_.service();
         covers_.service();
         serviceDevices(std::chrono::steady_clock::now());

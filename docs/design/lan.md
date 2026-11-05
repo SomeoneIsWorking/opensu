@@ -108,7 +108,8 @@ It never shares the loopback control channel's port.
 | `GET /lan/roms` | paired, signed | the ROM listing (below), at most 8 MiB |
 | `POST /lan/roms/file` | paired, signed | `{"kind","root","path"}` → `{"bytes","sha256"}`; `sha256` is empty while the host still hashes the file |
 | `POST /lan/roms/chunk` | paired, signed | `{"kind","root","path","offset","length"}` → at most 2 MiB of the file from `offset`, as raw bytes |
-| `POST /lan/play` | paired, signed | `{"game","profile","salt"}` → `{"port","salt"}`: the host streams that listed game to the caller, played as `profile` (the caller's active one) when it is linked with the caller, else as the host's first profile; 404 for a game it does not list, 409 with why when it will not (busy, outside Gamescope, no capture) |
+| `POST /lan/play` | paired, signed | `{"game","profile","salt"}` → `{"port","salt","waiting","joined"}`: the host streams that listed game to the caller, played as `profile` (the caller's active one) when it is linked with the caller, else as the host's first profile; `joined` when the game already ran there, `waiting` (no port yet) while its player is asked; 404 for a game it does not list, 409 with why when it will not (another game running, four guests, outside Gamescope, no capture) |
+| `POST /lan/play/status` | paired, signed | `{"game"}` → `{"verdict","port","why"}`: `waiting`, `accepted` with the stream's port, or `declined` with why, for this caller's ask |
 
 Everything else, and any signed route that fails its check or whose body does not open, is 403.
 The saves routes are 403 too, sealed, for a profile not linked with the caller. The
@@ -231,8 +232,8 @@ be reached, In sync with X.
 
 Play on another openSU's game (`ShellApp::launch`, `Source::Remote`) goes to
 `app::RemotePlay::start`, which asks that host over `/lan/play` with the active profile; the shell
-shows the host's picture until the session ends. One session at a time either way, and a host plays
-none while its own game runs. The host's listener picks the profile the game plays as (the asked
+shows the host's picture until the session ends. A host runs one game at a time, and a guest plays
+one remote game. The host's listener picks the profile the game plays as (the asked
 one while it is linked with the guest, else the first) and `RemotePlay` launches with it, so the
 runner's save folder and the saves synced before and after (`SaveSharing::before`, `ended`) are
 that profile's; the host's own active profile does not change.
@@ -258,8 +259,25 @@ that profile's; the host's own active profile does not change.
   into 1400-byte packets, each carrying its codec, key flag and part of parts) and `stream::HostAudio` (a PipeWire null sink of the
   session's own, `opensu.remote.<port>`, its monitor coded with Opus in 10 ms frames at 192 kbit/s).
   The loop then starts the game through the normal launch path with `PIPEWIRE_NODE` and
-  `PULSE_SINK` naming that sink. The game ending ends the session; the guest leaving closes the
-  game.
+  `PULSE_SINK` naming that sink. The game ending ends the session; the last guest leaving closes
+  a game started for a guest.
+- Several guests: `RemotePlay` holds one `Hosted` session with up to `maxGuests` (four) guests,
+  each with its own `HostInput`, `HostStream` (UDP port, keys, `LinkRate`, pacer) and pad.
+  `stream::Audience` holds the streams under one lock, so the capture threads never send to one
+  being removed. `HostVideo` is one capture and one encoder per codec in use: the guests planned
+  on a codec share its encode at the lowest of their rates, a key frame goes to that codec's
+  guests only, and a guest joining a codec starts it on a key frame. The frame number is the
+  capture's, the same on every codec. `HostAudio` is one capture and one Opus encode to all.
+  Keys and pointer reach the game only from the guest it was started for (`HostInput` opened with
+  an X display); every other guest plays its pad alone.
+- Joining: `/lan/play` for the game already running answers `waiting` and the host's
+  `TogetherQuestions` asks its player, Decline focused, over the game; an ask lapses after 120 s.
+  The guest polls `/lan/play/status` every second (`LanNode::askToPlay`, up to 130 s) and shows
+  Waiting for the host. Both sides derive the keys at the request; the guest is admitted on the
+  listener's thread at its next poll after the answer, because uinput and PipeWire block. A
+  joined guest syncs no saves on either side; its Guide reads Leave game, and leaving ends only
+  its own stream, its pad and its port in the game. The saves stay the profile's the game
+  started as. See `docs/plans/remote-play-together.md` for why.
 - Codec and link (`stream::LinkRate`, owned by `HostStream`): the host offers what it codes
   (`encodableHere`: PyroWave where built, and each of AV1, HEVC and H.264 its VA-API driver
   encodes) and each guest Report says what it decodes. Once the guest joins, the pacer sends
@@ -451,5 +469,5 @@ sent on the host and the one decoded on the guest, so the same number can be com
 guest has no surface: `submitted` counts frames submitted and `drawn` stays 0. `POST /remote/link`
 with bits a second puts what a hidden guest takes through a slow link (`stream::LinkCap`: a queue
 of 20 ms at that rate in front of the guest, what it holds delayed and what it has no room for
-dropped; 0 lifts it), the slow link that makes the host fall back; the `stream` log lines name each
+dropped; 0 lifts it, and the guests of one host each take their own), the slow link that makes the host fall back; the `stream` log lines name each
 probe, where a later one stopped and why, and each plan. `POST /pointer` `down X Y right` and `up X Y right` hold a button across frames.

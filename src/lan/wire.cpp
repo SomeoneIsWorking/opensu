@@ -346,7 +346,11 @@ std::optional<PlayRequest> readPlayRequest(std::string_view body) {
 }
 
 std::string write(const PlayAnswer& answer) {
-    return json{{"port", answer.port}, {"salt", secrets::hexText(answer.salt)}}.dump();
+    return json{{"port", answer.port},
+                {"salt", secrets::hexText(answer.salt)},
+                {"waiting", answer.waiting},
+                {"joined", answer.joined}}
+        .dump();
 }
 
 std::optional<PlayAnswer> readPlayAnswer(std::string_view body) {
@@ -357,10 +361,51 @@ std::optional<PlayAnswer> readPlayAnswer(std::string_view body) {
     const std::optional<std::uint64_t> port = countField(*document, "port");
     std::optional<secrets::crypto::Bytes> salt =
         bytesField(*document, "salt", secrets::crypto::nonceBytes);
-    if (!port || *port == 0 || *port > 0xffff || !salt) {
+    const bool waiting = document->value("waiting", false);
+    if (!port || *port > 0xffff || (*port == 0 && !waiting) || !salt) {
         return std::nullopt;
     }
-    return PlayAnswer{static_cast<std::uint16_t>(*port), std::move(*salt)};
+    return PlayAnswer{.port = static_cast<std::uint16_t>(*port),
+                      .salt = std::move(*salt),
+                      .waiting = waiting,
+                      .joined = document->value("joined", false)};
+}
+
+std::string write(const GameRef& ref) {
+    return json{{"game", ref.game}}.dump();
+}
+
+std::optional<GameRef> readGameRef(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    std::string game = textField(*document, "game");
+    if (game.empty()) {
+        return std::nullopt;
+    }
+    return GameRef{std::move(game)};
+}
+
+std::string write(const PlayVerdict& verdict) {
+    return json{{"verdict", verdict.verdict}, {"port", verdict.port}, {"why", verdict.why}}.dump();
+}
+
+std::optional<PlayVerdict> readPlayVerdict(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    PlayVerdict verdict{
+        .verdict = textField(*document, "verdict"), .port = 0, .why = textField(*document, "why")};
+    const std::optional<std::uint64_t> port = countField(*document, "port");
+    if (port && *port <= 0xffff) {
+        verdict.port = static_cast<std::uint16_t>(*port);
+    }
+    if (verdict.verdict == "accepted" && verdict.port == 0) {
+        return std::nullopt;
+    }
+    return verdict;
 }
 
 namespace {

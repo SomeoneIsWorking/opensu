@@ -7,6 +7,8 @@
 #include <SDL3/SDL_scancode.h>
 #include <libretro.h>
 
+#include "lucent/log.h"
+
 namespace opensu::retro {
 namespace {
 
@@ -75,6 +77,7 @@ std::optional<unsigned> Joypad::join(const std::string& source) {
                 return taken.second == port;
             })) {
             ports_.emplace(source, port);
+            lucent::info("retro", "{} plays port {}", source, port + 1);
             return port;
         }
     }
@@ -89,7 +92,9 @@ void Joypad::apply(const gamepad::Event& event) {
     if (event.kind == gamepad::Event::Kind::Disconnected) {
         release(event.source);
         sticks_.erase(event.source);
-        ports_.erase(event.source);
+        if (ports_.erase(event.source) != 0) {
+            lucent::info("retro", "{} left its port", event.source);
+        }
         return;
     }
     if (event.kind != gamepad::Event::Kind::Button) {

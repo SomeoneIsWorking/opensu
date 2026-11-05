@@ -257,6 +257,8 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     number("profiles", snapshot.profiles);
     text("remotePlay", snapshot.remotePlay);
     text("remotePeer", snapshot.remotePeer);
+    number("remoteGuests", snapshot.remoteGuests);
+    text("remoteAsk", snapshot.remoteAsk);
     number("remoteRoundTripUs", snapshot.remoteRoundTripUs);
     number("remoteBytesPerSecond", snapshot.remoteBytesPerSecond);
     text("remoteVideo", snapshot.remoteVideo);

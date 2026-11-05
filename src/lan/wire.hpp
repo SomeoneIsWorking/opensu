@@ -166,13 +166,37 @@ struct PlayRequest {
 [[nodiscard]] std::string write(const PlayRequest& request);
 [[nodiscard]] std::optional<PlayRequest> readPlayRequest(std::string_view body);
 
-/// The host's answer: the UDP port its stream listens on and its half of the salt.
+/// The host's answer: its half of the salt, and the UDP port its stream listens on, or `waiting`
+/// (no port yet) while its player is asked to let the guest join a game it already runs.
+/// `joined` says the game was running there already, so it goes on when the guest leaves.
 struct PlayAnswer {
     std::uint16_t port{0};
     secrets::crypto::Bytes salt;
+    bool waiting{false};
+    bool joined{false};
 };
 [[nodiscard]] std::string write(const PlayAnswer& answer);
+/// Nothing when `body` is not one, or one not waiting has no port.
 [[nodiscard]] std::optional<PlayAnswer> readPlayAnswer(std::string_view body);
+
+/// `POST /lan/play/status`: how the caller's waiting ask to join `game` stands there.
+inline constexpr std::string_view playStatusRoute = "/lan/play/status";
+/// A game named by its id on the openSU asked: the body of `/lan/play/status`.
+struct GameRef {
+    std::string game;
+};
+[[nodiscard]] std::string write(const GameRef& ref);
+[[nodiscard]] std::optional<GameRef> readGameRef(std::string_view body);
+/// `waiting`, `declined` (with why, when the player allowed it and the host could not) or
+/// `accepted`, with the stream's port.
+struct PlayVerdict {
+    std::string verdict;
+    std::uint16_t port{0};
+    std::string why;
+};
+[[nodiscard]] std::string write(const PlayVerdict& verdict);
+/// Nothing when `body` is not one, or an accepted one has no port.
+[[nodiscard]] std::optional<PlayVerdict> readPlayVerdict(std::string_view body);
 
 /// The routes of ROM import, for paired peers.
 inline constexpr std::string_view romListRoute = "/lan/roms";

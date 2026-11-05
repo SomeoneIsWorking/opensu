@@ -61,8 +61,10 @@ class LanService {
         std::function<void()> peersChanged;
         /// How the ROMs imported from peers stand changed: the import page shows it.
         std::function<void()> romsChanged;
-        /// A paired peer asks to play a game here; on the listener's thread.
+        /// A paired peer asks to play a game here, and how its ask to join one stands; on the
+        /// listener's thread.
         decltype(lan::LanNode::Setup::play) play;
+        decltype(lan::LanNode::Setup::playStatus) playStatus;
     };
 
     /// On from the start when `active`. The question and the card go on `navigator`.
@@ -108,10 +110,10 @@ class LanService {
     /// What a host answered a request to play: its offer, or why there is none.
     using PlayAnswer = std::function<void(std::optional<lan::LanNode::PlayOffer>, std::string)>;
     /// Asks the paired openSU `hostId` to stream its game `gameId` here, played as `profile`, off
-    /// the loop; `answer` is called on that thread. False while LAN is off or another request is
-    /// under way.
+    /// the loop; `waiting` is called on that thread when its player is asked to let this one join,
+    /// and `answer` when it is over. False while LAN is off or another request is under way.
     [[nodiscard]] bool askToPlay(std::string hostId, std::string gameId, std::string profile,
-                                 PlayAnswer answer);
+                                 std::function<void()> waiting, PlayAnswer answer);
 
     /// What a host answered a request for its ROMs: the listing, or why there is none.
     using RomsAnswer =

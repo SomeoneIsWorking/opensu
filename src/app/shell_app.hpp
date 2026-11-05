@@ -107,6 +107,7 @@
 #include "steam/client.hpp"
 #include "steam_library_settings.hpp"
 #include "steamgriddb_covers.hpp"
+#include "together_questions.hpp"
 #include "top_bar_clock.hpp"
 #include "ui/shell.hpp"
 #include "uninstall_prompt.hpp"
@@ -814,9 +815,9 @@ class ShellApp final {
                 },
             .ask =
                 [this](const std::string& hostId, const std::string& gameId,
-                       LanService::PlayAnswer answer) {
+                       std::function<void()> waiting, LanService::PlayAnswer answer) {
                     return lan_.askToPlay(hostId, gameId, profiles_.book().active().id,
-                                          std::move(answer));
+                                          std::move(waiting), std::move(answer));
                 },
             .speaker =
                 [this] {
@@ -872,10 +873,15 @@ class ShellApp final {
                               },
                           .play =
                               [this](const lan::Peer& peer, const std::string& game,
-                                     const std::string& profile, const lan::StreamKeys& keys,
-                                     std::string& refusal) {
-                                  return remotePlay_.offer(peer, game, profile, keys, refusal);
+                                     const std::string& profile, const lan::StreamKeys& keys) {
+                                  return remotePlay_.offer(peer, game, profile, keys);
+                              },
+                          .playStatus =
+                              [this](const lan::Peer& peer, const std::string& game) {
+                                  return remotePlay_.playStatus(peer, game);
                               }}};
+    /// What play together asks the player here.
+    TogetherQuestions togetherQuestions_{shell_.screens().navigator(), sounds_, remotePlay_};
     /// The details page's Saves fact and row for saves shared with paired openSUs.
     SharedSaves sharedSaves_{saveSharing_, shell_.screens().navigator(), sounds_};
     /// Settings › Saves.
@@ -1175,6 +1181,7 @@ class ShellApp final {
                     return GuideContext{
                         .inGame = inGame,
                         .remote = remote,
+                        .joined = remote && remotePlay_.joined(),
                         .title = remote ? remotePlay_.game().title : launches_.game().title,
                         .gameSettings =
                             inGame && !remote && !layered_.sectionsOf(launches_.game()).empty(),

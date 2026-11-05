@@ -5,6 +5,7 @@
 #include <chrono>
 #include <set>
 #include <system_error>
+#include <thread>
 #include <utility>
 
 #include "fileio/atomic_write.hpp"
@@ -23,6 +24,10 @@ constexpr long ok = 200;
 constexpr std::size_t largestListing = std::size_t{8} * 1024 * 1024;
 constexpr std::size_t largestCover = std::size_t{16} * 1024 * 1024;
 constexpr std::size_t largestNotice = std::size_t{16} * 1024;
+/// How often a guest waiting to join asks how its ask stands, and how long it waits for the host's
+/// player, a little past the host's own patience.
+constexpr std::chrono::seconds playPoll{1};
+constexpr std::chrono::seconds playPatience{130};
 /// How often the worker looks at who is announced.
 constexpr std::chrono::seconds lookEvery{2};
 /// How often the paired peers' games are asked for again while nothing changes.
@@ -64,7 +69,8 @@ LanNode::LanNode(Setup setup)
                                          [this](const Peer& /*peer*/) {
                                              wake();
                                          },
-                                     .play = std::move(setup.play)},
+                                     .play = std::move(setup.play),
+                                     .playStatus = std::move(setup.playStatus)},
                 setup.port} {
     if (!listener_.start()) {
         problem_ = setup.port == 0 ? std::string{"no port can be had to listen on"}
@@ -170,11 +176,10 @@ void LanNode::endAsking() {
     wake();
 }
 
-std::optional<LanNode::PlayOffer> LanNode::askToPlay(const std::stop_token& stop,
-                                                     const std::string& hostId,
-                                                     const std::string& gameId,
-                                                     const std::string& profile,
-                                                     std::string& error) const {
+std::optional<LanNode::PlayOffer>
+LanNode::askToPlay(const std::stop_token& stop, const std::string& hostId,
+                   const std::string& gameId, const std::string& profile,
+                   const std::function<void()>& waiting, std::string& error) const {
     const std::vector<Sighting> seen = sightings();
     const auto host = std::ranges::find(seen, hostId, &Sighting::id);
     std::optional<secrets::crypto::Bytes> secret = book_.secretOf(hostId);
@@ -193,18 +198,49 @@ std::optional<LanNode::PlayOffer> LanNode::askToPlay(const std::stop_token& stop
         error = answer.error();
     } else if (answer->status == ok) {
         offered = wire::readPlayAnswer(answer->body);
+        if (!offered) {
+            error = "its answer is not an offer to stream";
+        }
     } else {
         error = answer->body.empty() ? "HTTP " + std::to_string(answer->status) : answer->body;
         while (!error.empty() && error.back() == '\n') {
             error.pop_back();
         }
     }
+    if (offered && offered->waiting) {
+        waiting();
+        const auto until = std::chrono::steady_clock::now() + playPatience;
+        while (!stop.stop_requested() && std::chrono::steady_clock::now() < until) {
+            std::this_thread::sleep_for(playPoll);
+            const std::optional<std::string> body =
+                askHost(stop, hostId, "POST", wire::playStatusRoute,
+                        wire::write(wire::GameRef{gameId}), largestNotice, error);
+            const std::optional<wire::PlayVerdict> verdict =
+                body ? wire::readPlayVerdict(*body) : std::nullopt;
+            if (!verdict) {
+                if (body) {
+                    error = "its answer is not a verdict";
+                }
+                break;
+            }
+            if (verdict->verdict == "accepted") {
+                offered->port = verdict->port;
+                break;
+            }
+            if (verdict->verdict == "declined") {
+                error = verdict->why.empty() ? "its player declined" : verdict->why;
+                break;
+            }
+        }
+        if (offered->port == 0 && error.empty() && !stop.stop_requested()) {
+            error = "its player did not answer";
+        }
+    }
     std::optional<PlayOffer> offer;
-    if (offered) {
-        offer = PlayOffer{Endpoint{host->address, offered->port},
-                          streamKeys(*secret, salt, offered->salt)};
-    } else if (answer && answer->status == ok) {
-        error = "its answer is not an offer to stream";
+    if (offered && offered->port != 0) {
+        offer = PlayOffer{.stream = Endpoint{host->address, offered->port},
+                          .keys = streamKeys(*secret, salt, offered->salt),
+                          .joined = offered->joined};
     }
     secrets::wipeBytes(secret->data(), secret->size());
     return offer;

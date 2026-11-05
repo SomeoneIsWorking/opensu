@@ -103,8 +103,19 @@ and sound here, and your controller, keyboard and mouse play it.
   openSU's first profile.
 - Guide opens this openSU's menu. **End remote play** closes the game over there; anything it has
   not saved is lost.
-- The other openSU runs one game at a time. While you play its game there, or its own game runs,
-  it refuses another.
+- The other openSU runs one game at a time. While a different game runs there, it refuses.
+
+### Playing together
+
+Up to four openSUs can play one game at once, each with its own controller as its own player.
+
+- Press Play on the game another openSU is running. Its player is asked to let you in;
+  you wait until they answer, up to two minutes.
+- Everyone sees that openSU's picture. The controller is yours alone; only the openSU the game
+  was started for also plays it with a keyboard and mouse.
+- The saves are the profile's the game was started as. Nothing syncs to you.
+- **Leave game** in the Guide takes you out and the game goes on. A game started for a guest
+  closes when its last guest leaves.
 - Triggers are on or off, not pressure-sensitive, and the game uses the default controls, not a
   mapping you made for it.
 

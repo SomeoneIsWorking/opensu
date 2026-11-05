@@ -209,7 +209,8 @@ control pads are port 0. With `--players N` each pad (a real or virtual evdev pa
 each named control pad) takes the lowest free port of the N when it first presses a button or
 moves a stick, keeps it until it leaves, and a pad beyond N plays on none; the keyboard is port 0.
 In the shell a Game claim gives each real pad its own virtual pad, so each player's pad is a port
-of its own. An analogue trigger is L2 or R2 past half its travel
+of its own, and a launch from the shell has `--players 5`: the player here and remote play's four
+guests, each guest's `RemotePad` one more evdev pad. An analogue trigger is L2 or R2 past half its travel
 (`gamepad::triggerPressAt`). Both sticks are also `RETRO_DEVICE_ANALOG` (`gamepad::Pads::sticks`,
 on the virtual pad's -32768 to 32767, y down; of several pads, each axis the one furthest out);
 `RETRO_DEVICE_INDEX_ANALOG_BUTTON` reads 0. The control channel's pad (`POST /input`) is one more

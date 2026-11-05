@@ -462,7 +462,8 @@ struct Rig {
                                                    [] {
                                                    },
                                                .romsChanged = {},
-                                               .play = {}}};
+                                               .play = {},
+                                               .playStatus = {}}};
     app::LanSettings lanSettings{lan, preferences, screens.navigator, pad, sounds, [] {
                                  }};
     app::LanRoms lanRoms{

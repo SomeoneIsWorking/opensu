@@ -62,6 +62,8 @@ class LanNode {
         /// A paired peer asks to play a listed game here (`LanListener::Sources::play`); empty
         /// refuses every such request.
         decltype(LanListener::Sources::play) play;
+        /// How a peer's ask to join the game here stands (`LanListener::Sources::playStatus`).
+        decltype(LanListener::Sources::playStatus) playStatus;
         /// Where ROMs being imported are staged, where each one taken goes, and when an import's
         /// progress changes (`RomImport::Setup`; this node gives its id and the hosts' links).
         RomImport::Setup roms;
@@ -164,18 +166,23 @@ class LanNode {
     /// Stops the pairing this one asks for and lets it go.
     void endAsking();
 
-    /// What a host agreed to stream: where its stream takes packets and the session's keys.
+    /// What a host agreed to stream: where its stream takes packets, the session's keys, and
+    /// whether this one joined a game that was running there already.
     struct PlayOffer {
         Endpoint stream;
         StreamKeys keys;
+        bool joined{false};
     };
     /// Asks the paired, announced openSU `hostId` to start its game `gameId` (its own id) as
-    /// `profile`, this one's active profile, and stream it here. Blocks for the call, so never on
-    /// the loop. Nothing with `error` when it is gone, unpaired or refuses; nothing without one
-    /// when `stop` ended the call.
+    /// `profile`, this one's active profile, and stream it here, or to let this one join it while
+    /// it runs there: then `waiting` is called and its answer is waited for, asked every second,
+    /// for as long as its player may take. Blocks for the calls, so never on the loop. Nothing with
+    /// `error` when it is gone, unpaired, refuses or its player declines; nothing without one when
+    /// `stop` ended the call.
     [[nodiscard]] std::optional<PlayOffer>
     askToPlay(const std::stop_token& stop, const std::string& hostId, const std::string& gameId,
-              const std::string& profile, std::string& error) const;
+              const std::string& profile, const std::function<void()>& waiting,
+              std::string& error) const;
 
     /// Forgets `peerId` here, and tells it to forget this one when it is announced. False with
     /// `error` when it could not be forgotten here.

@@ -7,6 +7,7 @@
 #include "fileio/atomic_write.hpp"
 #include "library/emulator_choice.hpp"
 #include "lucent/log.h"
+#include "remote_play.hpp"
 #include "retro/save_paths.hpp"
 #include "settings/core_option_settings.hpp"
 #include "settings/video_settings.hpp"
@@ -50,7 +51,9 @@ std::string prepareRetroLaunch(library::Game& game, const settings::SettingLayer
     }
     std::vector<std::string> options{"--saves",
                                      retro::systemSaveFolder(saves, game.sourceId).string(),
-                                     "--settings", file.string()};
+                                     "--settings", file.string(),
+                                     // The player here and every guest of remote play.
+                                     "--players", std::to_string(RemotePlay::maxGuests + 1)};
     for (const auto& [key, value] :
          settings::resolveCoreOptions(layers, library::layerKeysOf(game))) {
         options.emplace_back("--option");

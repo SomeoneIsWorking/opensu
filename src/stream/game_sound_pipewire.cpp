@@ -35,23 +35,29 @@ class GameSound::Sink {
 
   private:
     void open(const std::string& name, const PipeWireSession::Lock& lock) {
-        pw_properties* sinkProps = pw_properties_new(
-            "factory.name", "support.null-audio-sink", PW_KEY_NODE_NAME, name.c_str(),
-            PW_KEY_NODE_DESCRIPTION, "openSU remote play", PW_KEY_MEDIA_CLASS, "Audio/Sink",
-            "audio.position", "FL,FR", "audio.rate", "48000", "object.linger", "false", nullptr);
-        sink_ = static_cast<pw_proxy*>(pw_core_create_object(session_.core(), "adapter",
-                                                             PW_TYPE_INTERFACE_Node,
-                                                             PW_VERSION_NODE, &sinkProps->dict, 0));
-        pw_properties_free(sinkProps);
-        if (sink_ == nullptr) {
-            throw std::runtime_error{"cannot make the game's sound a sink of its own"};
+        if (!name.empty()) {
+            pw_properties* sinkProps =
+                pw_properties_new("factory.name", "support.null-audio-sink", PW_KEY_NODE_NAME,
+                                  name.c_str(), PW_KEY_NODE_DESCRIPTION, "openSU remote play",
+                                  PW_KEY_MEDIA_CLASS, "Audio/Sink", "audio.position", "FL,FR",
+                                  "audio.rate", "48000", "object.linger", "false", nullptr);
+            sink_ = static_cast<pw_proxy*>(
+                pw_core_create_object(session_.core(), "adapter", PW_TYPE_INTERFACE_Node,
+                                      PW_VERSION_NODE, &sinkProps->dict, 0));
+            pw_properties_free(sinkProps);
+            if (sink_ == nullptr) {
+                throw std::runtime_error{"cannot make the game's sound a sink of its own"};
+            }
+            session_.settle(lock);
         }
-        session_.settle(lock);
 
+        // Without a target the session manager links the capture to the default output's monitor.
         pw_properties* props = pw_properties_new(
             PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture", PW_KEY_MEDIA_ROLE, "Game",
-            PW_KEY_TARGET_OBJECT, name.c_str(), PW_KEY_STREAM_CAPTURE_SINK, "true",
-            PW_KEY_NODE_LATENCY, "480/48000", nullptr);
+            PW_KEY_STREAM_CAPTURE_SINK, "true", PW_KEY_NODE_LATENCY, "480/48000", nullptr);
+        if (!name.empty()) {
+            pw_properties_set(props, PW_KEY_TARGET_OBJECT, name.c_str());
+        }
         stream_ = pw_stream_new(session_.core(), "openSU remote play sound", props);
         if (stream_ == nullptr) {
             throw std::runtime_error{"cannot listen to the game's sound"};
@@ -83,7 +89,11 @@ class GameSound::Sink {
         std::array<const spa_pod*, 1> params{
             spa_format_audio_raw_build(&builder, SPA_PARAM_EnumFormat, &info)};
         PipeWireSession::connectInput(stream_, params, "cannot listen to the game's sound");
-        lucent::info("sound", "the game plays into PipeWire sink {}", name);
+        if (name.empty()) {
+            lucent::info("sound", "the game's sound is what this computer's output plays");
+        } else {
+            lucent::info("sound", "the game plays into PipeWire sink {}", name);
+        }
     }
 
     void drop() noexcept {
@@ -136,6 +146,9 @@ GameSound::GameSound(Setup setup)
 GameSound::~GameSound() = default;
 
 std::vector<std::string> GameSound::environment() const {
+    if (sinkName_.empty()) {
+        return {};
+    }
     return {"PIPEWIRE_NODE=" + sinkName_, "PULSE_SINK=" + sinkName_};
 }
 

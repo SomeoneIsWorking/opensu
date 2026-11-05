@@ -6,7 +6,7 @@ namespace opensu::stream {
 
 class HostInput::Devices {};
 
-HostInput::HostInput(const std::string& /*x11Display*/) {
+HostInput::HostInput(const std::optional<std::string>& /*x11Display*/) {
     throw std::runtime_error{"this system cannot play a remote player's input into a game"};
 }
 
@@ -22,6 +22,10 @@ void HostInput::mouse(const wire::MouseState& /*state*/) {
 }
 
 void HostInput::mapping(const wire::PadMapping& /*mapping*/) {
+}
+
+std::string HostInput::padNode() const {
+    return {};
 }
 
 } // namespace opensu::stream

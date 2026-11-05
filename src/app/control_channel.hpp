@@ -138,13 +138,17 @@ struct ShellSnapshot {
     /// The name of the profile played as, and how many profiles there are.
     std::string profile;
     std::size_t profiles{0};
-    /// Remote play (`RemotePlay::Glance`): "", "asking", "playing" or "hosting", with whom, and
-    /// on the guest the round trip and what arrives each second.
+    /// Remote play (`RemotePlay::Glance`): "", "asking", "waiting", "playing" or "hosting", with
+    /// whom, and on the guest the round trip and what arrives each second; on the host how many
+    /// guests play and whose ask to join waits for the player.
     std::string remotePlay;
     std::string remotePeer;
+    std::size_t remoteGuests{0};
+    std::string remoteAsk;
     std::size_t remoteRoundTripUs{0};
     std::size_t remoteBytesPerSecond{0};
-    /// On a guest, how the host's frames and sound came (`GuestVideo`, `GuestAudio`).
+    /// On a guest, how the host's frames and sound came (`GuestVideo`, `GuestAudio`); on a host
+    /// each guest's link.
     std::string remoteVideo;
     std::string remoteAudio;
 };

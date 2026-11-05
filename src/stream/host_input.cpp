@@ -119,7 +119,10 @@ class XDisplay {
 
 class HostInput::Devices {
   public:
-    explicit Devices(const std::string& x11Display) : display_{x11Display} {
+    explicit Devices(const std::optional<std::string>& x11Display) {
+        if (x11Display) {
+            display_.emplace(*x11Display);
+        }
     }
 
     gamepad::RemotePad pad;
@@ -127,45 +130,51 @@ class HostInput::Devices {
     std::optional<wire::PadMapping> mapping;
 
     void keys(const wire::KeyState& state) {
+        if (!display_) {
+            return;
+        }
         for (const std::uint8_t usage : held_) {
             if (std::ranges::find(state.held, usage) == state.held.end()) {
                 if (const std::optional<unsigned> keycode = xKeycodeOf(usage)) {
-                    display_.key(*keycode, false);
+                    display_->key(*keycode, false);
                 }
             }
         }
         for (const std::uint8_t usage : state.held) {
             if (std::ranges::find(held_, usage) == held_.end()) {
                 if (const std::optional<unsigned> keycode = xKeycodeOf(usage)) {
-                    display_.key(*keycode, true);
+                    display_->key(*keycode, true);
                 }
             }
         }
         held_ = state.held;
-        display_.flush();
+        display_->flush();
     }
 
     void mouse(const wire::MouseState& state) {
+        if (!display_) {
+            return;
+        }
         const wire::MouseState before =
             mouse_.value_or(wire::MouseState{.x = 0, .y = 0, .buttons = 0, .wheel = state.wheel});
         if (!mouse_ || before.x != state.x || before.y != state.y) {
-            display_.move(state.x / pointerScale, state.y / pointerScale);
+            display_->move(state.x / pointerScale, state.y / pointerScale);
         }
         for (std::size_t i = 0; i < pointerButtons.size(); ++i) {
             const bool was = (before.buttons >> i & 1U) != 0;
             const bool is = (state.buttons >> i & 1U) != 0;
             if (was != is) {
-                display_.button(pointerButtons[i], is);
+                display_->button(pointerButtons[i], is);
             }
         }
         for (std::int32_t notch = before.wheel; notch != state.wheel;) {
             const bool away = state.wheel > notch;
-            display_.button(away ? wheelAway : wheelTowards, true);
-            display_.button(away ? wheelAway : wheelTowards, false);
+            display_->button(away ? wheelAway : wheelTowards, true);
+            display_->button(away ? wheelAway : wheelTowards, false);
             notch += away ? 1 : -1;
         }
         mouse_ = state;
-        display_.flush();
+        display_->flush();
     }
 
     /// Lets go of every key and button held.
@@ -180,14 +189,16 @@ class HostInput::Devices {
     }
 
   private:
-    XDisplay display_;
+    std::optional<XDisplay> display_;
     std::vector<std::uint8_t> held_;
     std::optional<wire::MouseState> mouse_;
 };
 
-HostInput::HostInput(const std::string& x11Display)
+HostInput::HostInput(const std::optional<std::string>& x11Display)
     : devices_{std::make_unique<Devices>(x11Display)} {
-    lucent::info("remote", "the guest's keys and pointer go to X display {}", x11Display);
+    if (x11Display) {
+        lucent::info("remote", "the guest's keys and pointer go to X display {}", *x11Display);
+    }
 }
 
 HostInput::~HostInput() {
@@ -212,6 +223,10 @@ void HostInput::mapping(const wire::PadMapping& mapping) {
     devices_->pad.setMapping(mapping.map, mapping.holdDelay);
     lucent::info("remote", "the guest's pad plays with its mapping of {} buttons and {} chords",
                  mapping.map.buttons.size(), mapping.map.chords.size());
+}
+
+std::string HostInput::padNode() const {
+    return devices_->pad.node().string();
 }
 
 void HostInput::keys(const wire::KeyState& state) {

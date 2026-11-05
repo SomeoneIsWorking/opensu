@@ -7,6 +7,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <filesystem>
 #include <map>
 #include <utility>
 
@@ -39,6 +40,10 @@ class RemotePad {
     void follow(const PadSnapshot& pad);
     /// Takes it back to rest.
     void rest();
+    /// The virtual pad's evdev node.
+    [[nodiscard]] const std::filesystem::path& node() const noexcept {
+        return pad_.node();
+    }
 
   private:
     VirtualPad pad_;

@@ -90,6 +90,7 @@ void LanService::start() {
                                                                    .saves = places_.saves,
                                                                    .profiles = places_.profiles,
                                                                    .play = hooks_.play,
+                                                                   .playStatus = hooks_.playStatus,
                                                                    .roms = std::move(roms)});
     } catch (const std::runtime_error& error) {
         lucent::error("lan", "LAN cannot start: {}", error.what());
@@ -148,7 +149,7 @@ void LanService::shareRoms(lan::RomShelf::Contents contents) {
 }
 
 bool LanService::askToPlay(std::string hostId, std::string gameId, std::string profile,
-                           PlayAnswer answer) {
+                           std::function<void()> waiting, PlayAnswer answer) {
     if (node_ == nullptr || asking_->exchange(true)) {
         return false;
     }
@@ -157,10 +158,11 @@ bool LanService::askToPlay(std::string hostId, std::string gameId, std::string p
     }
     asker_ = std::jthread{[node = node_.get(), asking = asking_, hostId = std::move(hostId),
                            gameId = std::move(gameId), profile = std::move(profile),
+                           waiting = std::move(waiting),
                            answer = std::move(answer)](const std::stop_token& stop) {
         std::string error;
         std::optional<lan::LanNode::PlayOffer> offer =
-            node->askToPlay(stop, hostId, gameId, profile, error);
+            node->askToPlay(stop, hostId, gameId, profile, waiting, error);
         asking->store(false);
         if (!stop.stop_requested()) {
             answer(std::move(offer), std::move(error));

@@ -105,10 +105,10 @@ Response LanListener::handle(const Request& request) {
          (path == "/lan/library" || path == wire::romListRoute || path == wire::profilesRoute ||
           path.starts_with(coverPrefix))) ||
         (request.method == "POST" &&
-         (path == "/lan/unpair" || path == wire::playRoute || path.starts_with(savesPrefix) ||
-          path == wire::romFileRoute || path == wire::romChunkRoute ||
-          path == wire::profileCopyRoute || path == wire::profileCopyStatusRoute ||
-          path == wire::profileUnlinkRoute));
+         (path == "/lan/unpair" || path == wire::playRoute || path == wire::playStatusRoute ||
+          path.starts_with(savesPrefix) || path == wire::romFileRoute ||
+          path == wire::romChunkRoute || path == wire::profileCopyRoute ||
+          path == wire::profileCopyStatusRoute || path == wire::profileUnlinkRoute));
     if (!peerPath) {
         return refused(notFound, "Not Found", "no such route");
     }
@@ -127,6 +127,8 @@ Response LanListener::handle(const Request& request) {
             answer = savesRoute(path, *body, *verified);
         } else if (path == wire::playRoute) {
             answer = playRoute(*body, *verified);
+        } else if (path == wire::playStatusRoute) {
+            answer = playStatusRoute(*body, *verified);
         } else if (path == wire::profileCopyRoute || path == wire::profileCopyStatusRoute ||
                    path == wire::profileUnlinkRoute) {
             answer = profilesRoute(path, *body, *verified);
@@ -349,20 +351,46 @@ Response LanListener::playRoute(std::string_view body, const Signed& verified) {
                                           .value_or(sources_.profiles.first());
     const secrets::crypto::Bytes salt = secrets::crypto::randomBytes(secrets::crypto::nonceBytes);
     StreamKeys keys = streamKeys(verified.secret, asked->salt, salt);
-    std::string refusal = "this openSU does not offer remote play";
-    const std::optional<std::uint16_t> port =
-        sources_.play ? sources_.play(verified.peer, game->id, playing.id, keys, refusal)
-                      : std::nullopt;
+    PlayOutcome outcome{.port = std::nullopt,
+                        .waiting = false,
+                        .joined = false,
+                        .refusal = "this openSU does not offer remote play"};
+    if (sources_.play) {
+        outcome = sources_.play(verified.peer, game->id, playing.id, keys);
+    }
     secrets::wipeBytes(keys.host.data(), keys.host.size());
     secrets::wipeBytes(keys.guest.data(), keys.guest.size());
-    if (!port) {
+    if (outcome.waiting) {
+        lucent::info("lan", "{} asks to join {} here; the player is asked", verified.peer.name,
+                     game->title);
+        return Response::json(ok, "OK",
+                              wire::write(wire::PlayAnswer{
+                                  .port = 0, .salt = salt, .waiting = true, .joined = true}));
+    }
+    if (!outcome.port) {
         lucent::info("lan", "refused {} remote play of {}: {}", verified.peer.name, game->title,
-                     refusal);
-        return refused(conflict, "Conflict", refusal);
+                     outcome.refusal);
+        return refused(conflict, "Conflict", outcome.refusal);
     }
     lucent::info("lan", "{} plays {} here over remote play as {}, stream on UDP port {}",
-                 verified.peer.name, game->title, playing.name, *port);
-    return Response::json(ok, "OK", wire::write(wire::PlayAnswer{*port, salt}));
+                 verified.peer.name, game->title, playing.name, *outcome.port);
+    return Response::json(
+        ok, "OK",
+        wire::write(wire::PlayAnswer{
+            .port = *outcome.port, .salt = salt, .waiting = false, .joined = outcome.joined}));
+}
+
+Response LanListener::playStatusRoute(std::string_view body, const Signed& verified) {
+    const std::optional<wire::GameRef> asked = wire::readGameRef(body);
+    if (!asked) {
+        return refused(badRequest, "Bad Request", "not a game");
+    }
+    const std::optional<wire::PlayVerdict> verdict =
+        sources_.playStatus ? sources_.playStatus(verified.peer, asked->game) : std::nullopt;
+    if (!verdict) {
+        return refused(notFound, "Not Found", "no ask to join that game is waiting");
+    }
+    return Response::json(ok, "OK", wire::write(*verdict));
 }
 
 Response LanListener::pair(const Request& request) {

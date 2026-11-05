@@ -106,7 +106,11 @@ std::vector<SettingsRow> GuideMenuController::places() const {
     std::vector<SettingsRow> rows;
     if (context_.inGame) {
         rows.push_back(action(resumeId, "Resume"));
-        if (context_.remote) {
+        if (context_.remote && context_.joined) {
+            rows.push_back(asking(closeGameId, "Leave game",
+                                  "You leave the game; it goes on on the openSU it runs on.",
+                                  "Leave"));
+        } else if (context_.remote) {
             rows.push_back(asking(closeGameId, "End remote play",
                                   "The game closes on the openSU it runs on; anything it has not "
                                   "saved is lost.",

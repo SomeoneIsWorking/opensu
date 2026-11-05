@@ -23,6 +23,7 @@
 #include <mutex>
 #include <optional>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -199,16 +200,31 @@ struct Node {
               .saves = sync,
               .profiles = profiles,
               .play = [this](const lan::Peer& peer, const std::string& game,
-                             const std::string& profile, const lan::StreamKeys& keys,
-                             std::string& refusal) -> std::optional<std::uint16_t> {
+                             const std::string& profile,
+                             const lan::StreamKeys& keys) -> lan::PlayOutcome {
                   const std::lock_guard lock{mutex};
                   if (!refusePlay.empty()) {
-                      refusal = refusePlay;
-                      return std::nullopt;
+                      return {.port = std::nullopt,
+                              .waiting = false,
+                              .joined = false,
+                              .refusal = refusePlay};
                   }
                   played = peer.name + " " + game + " " + profile;
                   playKeys = keys;
-                  return streamPort;
+                  if (!joinVerdicts.empty()) {
+                      return {.port = std::nullopt, .waiting = true, .joined = true, .refusal = {}};
+                  }
+                  return {.port = streamPort, .waiting = false, .joined = false, .refusal = {}};
+              },
+              .playStatus = [this](const lan::Peer& /*peer*/, const std::string& /*game*/)
+                  -> std::optional<lan::wire::PlayVerdict> {
+                  const std::lock_guard lock{mutex};
+                  if (joinVerdicts.empty()) {
+                      return std::nullopt;
+                  }
+                  lan::wire::PlayVerdict verdict = joinVerdicts.front();
+                  joinVerdicts.erase(joinVerdicts.begin());
+                  return verdict;
               },
               .roms = lan::RomImport::Setup{.selfId = {},
                                             .staging = state / "lan-roms",
@@ -246,6 +262,8 @@ struct Node {
     static constexpr std::uint16_t streamPort = 4242;
     std::string played;
     lan::StreamKeys playKeys;
+    /// While any are left, an ask to play waits and each `/lan/play/status` takes the next.
+    std::vector<lan::wire::PlayVerdict> joinVerdicts;
     fs::path saves;
     fs::path state;
     save_sync::SaveSync sync;
@@ -378,8 +396,11 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
 
     std::string playError;
     const std::string guestPlayer = guest.profiles.first().id;
+    const std::function<void()> noWait = [] {
+        throw std::logic_error{"the host's player was not to be asked"};
+    };
     const std::optional<lan::LanNode::PlayOffer> offer = guest.node.askToPlay(
-        std::stop_token{}, host.node.id(), listed.sourceId, guestPlayer, playError);
+        std::stop_token{}, host.node.id(), listed.sourceId, guestPlayer, noWait, playError);
     expect(offer && offer->stream.port == Node::streamPort && offer->stream.address == "127.0.0.1",
            "the host agrees to stream its game and says where");
     {
@@ -394,12 +415,12 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
         host.refusePlay = "a game is already running there";
     }
     expect(!guest.node.askToPlay(std::stop_token{}, host.node.id(), listed.sourceId, guestPlayer,
-                                 playError) &&
+                                 noWait, playError) &&
                playError.find("a game is already running there") != std::string::npos,
            "a host that cannot stream says why");
-    expect(
-        !guest.node.askToPlay(std::stop_token{}, host.node.id(), "own:2", guestPlayer, playError),
-        "a game the host does not list is not streamed");
+    expect(!guest.node.askToPlay(std::stop_token{}, host.node.id(), "own:2", guestPlayer, noWait,
+                                 playError),
+           "a game the host does not list is not streamed");
     {
         const std::lock_guard lock{host.mutex};
         host.refusePlay.clear();
@@ -407,8 +428,8 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
     const profiles::Profile ana =
         test::need(host.profiles.add("Ana", playError), "the host has a second profile");
     expect(host.profiles.link(ana.id, guest.node.id(), true, playError), "linked with the guest");
-    const std::optional<lan::LanNode::PlayOffer> again =
-        guest.node.askToPlay(std::stop_token{}, host.node.id(), listed.sourceId, ana.id, playError);
+    const std::optional<lan::LanNode::PlayOffer> again = guest.node.askToPlay(
+        std::stop_token{}, host.node.id(), listed.sourceId, ana.id, noWait, playError);
     expect(again && offer && again->keys.host != offer->keys.host,
            "each session has keys of its own");
     {
@@ -420,9 +441,36 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
     quitting.request_stop();
     std::string stopError;
     expect(!guest.node.askToPlay(quitting.get_token(), host.node.id(), listed.sourceId, ana.id,
-                                 stopError) &&
+                                 noWait, stopError) &&
                stopError.empty(),
            "a request on a requested stop comes to nothing, and no error");
+    {
+        const std::lock_guard lock{host.mutex};
+        host.joinVerdicts = {{.verdict = "waiting", .port = 0, .why = {}},
+                             {.verdict = "accepted", .port = Node::streamPort, .why = {}}};
+    }
+    bool told = false;
+    const std::optional<lan::LanNode::PlayOffer> joined = guest.node.askToPlay(
+        std::stop_token{}, host.node.id(), listed.sourceId, ana.id,
+        [&told] {
+            told = true;
+        },
+        playError);
+    expect(told && joined && joined->joined && joined->stream.port == Node::streamPort,
+           "a guest asking to join waits for the host's player, then gets the stream's port");
+    {
+        const std::lock_guard lock{host.mutex};
+        expect(joined && joined->keys.host == host.playKeys.host,
+               "the keys of a join are those of the ask");
+        host.joinVerdicts = {{.verdict = "declined", .port = 0, .why = {}}};
+    }
+    expect(!guest.node.askToPlay(
+               std::stop_token{}, host.node.id(), listed.sourceId, ana.id,
+               [] {
+               },
+               playError) &&
+               playError == "its player declined",
+           "a guest the host's player declines is told so");
     expect(waitFor([&host] {
                return host.remote->games().size() == 1 &&
                       host.remote->games().front().title == "Guest game";
@@ -834,7 +882,8 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
                                                         .unpaired =
                                                             [](const lan::Peer&) {
                                                             },
-                                                        .play = {}},
+                                                        .play = {},
+                                                        .playStatus = {}},
                               0};
     const secrets::crypto::Bytes secret = secrets::crypto::randomBytes(secrets::crypto::keyBytes);
     const std::string peer = secrets::hexText(secrets::crypto::randomBytes(lan::peerIdBytes));

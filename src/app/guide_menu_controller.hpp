@@ -37,6 +37,8 @@ struct GuideContext {
     bool inGame{false};
     /// The game runs on another openSU and streams here: Close game ends remote play.
     bool remote{false};
+    /// That game was running there before this one joined, and goes on when it leaves.
+    bool joined{false};
     std::string title;
     /// The running game has settings to open (video, core options or frame generation).
     bool gameSettings{false};
