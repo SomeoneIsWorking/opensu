@@ -1186,8 +1186,8 @@ void bothSidesDeriveOneSecret() {
 /// Two openSUs of one name announced and found through this system's own DNS-SD daemon, as the
 /// product finds them, pair and list each other's games.
 void systemDiscoveryPairs(const fs::path& root) {
-    Node host{root, "System twin", lan::startDiscovery};
-    Node guest{root, "System twin", lan::startDiscovery};
+    Node host{root / "host", "System twin", lan::startDiscovery};
+    Node guest{root / "guest", "System twin", lan::startDiscovery};
     std::printf("host: %s\nguest: %s\n", host.node.status().problem.c_str(),
                 guest.node.status().problem.c_str());
     expect(host.node.status().problem.empty() && guest.node.status().problem.empty(),
