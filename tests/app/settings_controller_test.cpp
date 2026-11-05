@@ -23,6 +23,7 @@
 #include "night_light.hpp"
 #include "path_editor.hpp"
 #include "preferences.hpp"
+#include "profiles/profile_book.hpp"
 #include "settings_controller.hpp"
 #include "settings_screen.hpp"
 #include "shortcut_editor.hpp"
@@ -408,6 +409,7 @@ struct Rig {
                                            controller.refresh();
                                        }};
     app::ChordSettings chordSettings{shortcutEditor, shortcuts};
+    profiles::ProfileBook profiles{config.configDir / "profiles.json"};
     app::SaveSharing sharing{
         save_sync::SaveSync::Setup{.versionsFile = config.configDir / "save-sync.json",
                                    .backups = config.configDir,
@@ -419,7 +421,7 @@ struct Rig {
                                     .recordFile = config.configDir / "epic-saves.json",
                                     .backups = config.configDir,
                                     .changed = {}},
-        secrets::SecretStore{config.configDir / "secrets", false}, [] {
+        secrets::SecretStore{config.configDir / "secrets", false}, profiles, [] {
         }};
     app::LanService lan{app::LanService::Places{
                             .bookFile = config.configDir / "lan.json",
@@ -427,6 +429,7 @@ struct Rig {
                             .coverCache = config.cacheDir / "lan",
                             .port = 0,
                             .saves = sharing.engine(),
+                            .profiles = profiles,
                             .roms = {}},
                         preferences,
                         screens.navigator,

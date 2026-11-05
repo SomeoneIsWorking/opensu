@@ -8,7 +8,6 @@
 #include <system_error>
 
 #include "lucent/log.h"
-#include "retro/save_paths.hpp"
 
 namespace opensu::library::roms {
 namespace {
@@ -145,10 +144,6 @@ std::optional<EmulatorInstall> locateCore(const EmulatorEntry& entry,
     if (search.hiddenRunner) {
         command.emplace_back("--hidden");
     }
-    if (!search.saves.empty()) {
-        command.insert(command.end(),
-                       {"--saves", retro::systemSaveFolder(search.saves, "{system}").string()});
-    }
     for (const CoreOption& option : entry.coreOptions) {
         command.insert(command.end(), {"--option", option.key + "=" + option.value});
     }
@@ -246,7 +241,7 @@ bool downloadedByOpensu(InstallSource source) noexcept {
 
 EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& dataDir,
                                         std::vector<fs::path> executablePath, fs::path runner,
-                                        fs::path saves, fs::path system, bool hiddenRunner) {
+                                        fs::path system, bool hiddenRunner) {
     FuseSupport fuse = FuseSupport::detect(executablePath);
     return EmulatorSearch{
         .executablePath = std::move(executablePath),
@@ -257,7 +252,6 @@ EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& da
         .fuse = std::move(fuse),
         .cores = CoreSearch::standard(home, dataDir),
         .runner = std::move(runner),
-        .saves = std::move(saves),
         .system = std::move(system),
         .hiddenRunner = hiddenRunner,
     };
@@ -267,7 +261,7 @@ EmulatorSetup EmulatorSetup::standard(const config::Config& config, bool hidden,
     return EmulatorSetup{.catalog = EmulatorCatalog::shipped(config.assetsDir, config.home),
                          .search = EmulatorSearch::standard(
                              config.home, config.dataDir, config.executablePath, config.retroRunner,
-                             config.savesDir, config.retroSystemDir,
+                             config.retroSystemDir,
                              // Inside a Gamescope its window reaches that Gamescope's screen alone.
                              hidden && !config.insideGamescope),
                          .overrides = config.emulators,

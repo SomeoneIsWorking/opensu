@@ -45,6 +45,8 @@ class LanService {
         std::uint16_t port{0};
         /// The shared saves the node adds the paired peers to; it outlives the service.
         save_sync::SaveSync& saves;
+        /// The profiles here, whose saves the paired peers ask for.
+        profiles::ProfileBook& profiles;
         /// Where ROMs imported from peers are staged and how each is put in place; when their
         /// progress changes is this service's to say.
         lan::RomImport::Setup roms;

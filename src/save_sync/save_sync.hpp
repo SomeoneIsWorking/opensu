@@ -1,7 +1,8 @@
 // save_sync — the saves of the games installed here shared with each target (`SaveTarget`) the
 // player shares them with: paired openSUs on the LAN, a folder or a WebDAV share. A game's saves
-// are those of the emulator it starts with (`library::saves::launchedSaves`), matched across
-// targets by `SaveKey`; each side's version is in `SaveVersions`, and `syncStateOf` decides. A
+// are those of the emulator it starts with (`library::saves::launchedSaves`) kept for one player
+// profile, matched across targets by `SaveKey` (console, game and profile); each job names the
+// profile it syncs; each side's version is in `SaveVersions`, and `syncStateOf` decides. A
 // newer copy there is fetched into a staging folder and copied over the saves here by
 // `library::saves::SaveCopier`, which backs them up first, and refused while the emulator runs
 // (`Setup::inUse`). A newer copy here is given to the target. A save changed on both sides is left
@@ -118,21 +119,23 @@ class SaveSync {
     void syncedWith(const std::string& targetId, const library::saves::SaveKey& key,
                     const std::string& hash);
 
-    // The shell asks.
+    // The shell asks, each for the saves of `profile`.
     /// Syncs `game` with every target before it starts; `prepared` says when that is done.
-    [[nodiscard]] std::uint64_t prepare(const library::Game& game);
+    [[nodiscard]] std::uint64_t prepare(const library::Game& game, const std::string& profile);
     [[nodiscard]] bool prepared(std::uint64_t ticket) const;
     /// Syncs `game` with every target: after it ended, and from "Sync now".
-    void sync(const library::Game& game);
+    void sync(const library::Game& game, const std::string& profile);
     /// Finds how `game`'s saves stand with each target, for `standings`.
-    void look(const library::Game& game);
+    void look(const library::Game& game, const std::string& profile);
     /// Whether `game` has saves to share and a target can be asked now.
     [[nodiscard]] bool sharing(const library::Game& game) const;
     /// The player's pick for `game`'s conflict with `targetId`: its saves (`theirs`) or these.
-    void keep(const library::Game& game, const std::string& targetId, bool theirs);
-    /// How `game`'s saves stood with each target when last looked; empty before that or when
-    /// there is no target.
-    [[nodiscard]] std::vector<TargetSaves> standings(const std::string& gameId) const;
+    void keep(const library::Game& game, const std::string& profile, const std::string& targetId,
+              bool theirs);
+    /// How `profile`'s saves of `gameId` stood with each target when last looked; empty before
+    /// that or when there is no target.
+    [[nodiscard]] std::vector<TargetSaves> standings(const std::string& gameId,
+                                                     const std::string& profile) const;
     /// Whether a sync of `gameId` is waiting or under way.
     [[nodiscard]] bool busy(const std::string& gameId) const;
 
@@ -141,6 +144,7 @@ class SaveSync {
     enum class Pick : std::uint8_t { None, Ours, Theirs };
     struct Job {
         library::Game game;
+        std::string profile;
         /// Only this target; all when empty.
         std::string targetId;
         Pick pick{Pick::None};
@@ -165,11 +169,12 @@ class SaveSync {
     /// One target's standing, after taking or giving what `job` allows; nothing when it does not
     /// have the game. Off the work lock.
     [[nodiscard]] std::optional<TargetSaves> syncWith(const Job& job, SaveTarget& target);
-    /// `game`'s saves here, read under the work lock; nothing, with `error`, when it has none to
-    /// sync.
-    [[nodiscard]] std::optional<Local> localOf(const library::Game& game, std::string& error);
+    /// `profile`'s saves of `game` here, read under the work lock; nothing, with `error`, when it
+    /// has none to sync.
+    [[nodiscard]] std::optional<Local> localOf(const library::Game& game,
+                                               const std::string& profile, std::string& error);
     /// Takes `bundle` from `target` over the saves here. Empty when done, else why not.
-    [[nodiscard]] std::string take(const library::Game& game, const SaveTarget& target,
+    [[nodiscard]] std::string take(const Job& job, const SaveTarget& target,
                                    const SaveBundle& bundle, const SaveStatus& theirs,
                                    const std::string& expected);
     [[nodiscard]] std::optional<library::Game> gameOf(const library::saves::SaveKey& key) const;
@@ -182,6 +187,7 @@ class SaveSync {
     std::vector<library::Game> games_;
     library::roms::EmulatorCatalog catalog_;
     std::map<std::string, Targets, std::less<>> groups_;
+    /// By "profile\ngame id".
     std::map<std::string, std::vector<TargetSaves>, std::less<>> standings_;
     std::deque<Job> jobs_;
     std::set<std::string, std::less<>> running_;

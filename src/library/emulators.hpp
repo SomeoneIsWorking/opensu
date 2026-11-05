@@ -45,8 +45,6 @@ struct EmulatorSearch {
     CoreSearch cores;
     /// openSU's libretro runner, which built-in emulators start; empty for none.
     std::filesystem::path runner;
-    /// Where the runner keeps save RAM, one folder per system; empty leaves it the runner's.
-    std::filesystem::path saves;
     /// The runner's system folder, where cores look for their BIOS files.
     std::filesystem::path system;
     /// Whether the runner starts hidden: an unmapped window, no sound, no pads.
@@ -54,12 +52,14 @@ struct EmulatorSearch {
 
     /// PATH, then openSU's downloads under `dataDir`, ~/Applications, ~/AppImages and
     /// ~/.local/bin for AppImages, then the user's and the system's Flatpak installations; cores
-    /// as `CoreSearch::standard` looks for them, run by `runner` with save RAM under `saves` and
-    /// BIOS files in `system`, hidden when `hiddenRunner`.
-    [[nodiscard]] static EmulatorSearch
-    standard(const std::filesystem::path& home, const std::filesystem::path& dataDir,
-             std::vector<std::filesystem::path> executablePath, std::filesystem::path runner,
-             std::filesystem::path saves, std::filesystem::path system, bool hiddenRunner);
+    /// as `CoreSearch::standard` looks for them, run by `runner` with BIOS files in `system`,
+    /// hidden when `hiddenRunner`; the shell names each launch's saves folder
+    /// (`prepareRetroLaunch`).
+    [[nodiscard]] static EmulatorSearch standard(const std::filesystem::path& home,
+                                                 const std::filesystem::path& dataDir,
+                                                 std::vector<std::filesystem::path> executablePath,
+                                                 std::filesystem::path runner,
+                                                 std::filesystem::path system, bool hiddenRunner);
 };
 
 /// How an emulator got onto this machine.

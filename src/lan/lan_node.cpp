@@ -47,21 +47,23 @@ LanNode::LanNode(Setup setup)
     : coverCache_{std::move(setup.coverCache)}, remote_{std::move(setup.remote)},
       changed_{std::move(setup.changed)},
       book_{std::move(setup.bookFile), std::move(setup.secrets)}, name_{std::move(setup.name)},
-      saves_{setup.saves}, listener_{LanListener::Sources{.book = book_,
-                                                          .pairing = pairing_,
-                                                          .library = library_,
-                                                          .saves = saves_,
-                                                          .roms = shelf_,
-                                                          .name =
-                                                              [this] {
-                                                                  return name_;
-                                                              },
-                                                          .unpaired =
-                                                              [this](const Peer& /*peer*/) {
-                                                                  wake();
-                                                              },
-                                                          .play = std::move(setup.play)},
-                                     setup.port} {
+      saves_{setup.saves}, profiles_{setup.profiles},
+      listener_{LanListener::Sources{.book = book_,
+                                     .pairing = pairing_,
+                                     .library = library_,
+                                     .saves = saves_,
+                                     .profiles = profiles_,
+                                     .roms = shelf_,
+                                     .name =
+                                         [this] {
+                                             return name_;
+                                         },
+                                     .unpaired =
+                                         [this](const Peer& /*peer*/) {
+                                             wake();
+                                         },
+                                     .play = std::move(setup.play)},
+                setup.port} {
     if (!listener_.start()) {
         problem_ = setup.port == 0 ? std::string{"no port can be had to listen on"}
                                    : "port " + std::to_string(setup.port) + " is taken";

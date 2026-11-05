@@ -39,8 +39,9 @@ std::string hostOf(const std::string& url) {
 } // namespace
 
 SaveSharing::SaveSharing(save_sync::SaveSync::Setup setup, save_sync::EpicCloud::Setup epic,
-                         secrets::SecretStore secrets, std::function<void()> changed)
-    : secrets_{std::move(secrets)}, changed_{std::move(changed)} {
+                         secrets::SecretStore secrets, const profiles::ProfileBook& profiles,
+                         std::function<void()> changed)
+    : secrets_{std::move(secrets)}, profiles_{profiles}, changed_{std::move(changed)} {
     setup.changed = [news = news_] {
         news->store(true);
     };
@@ -106,7 +107,9 @@ bool SaveSharing::before(const library::Game& game, std::function<void()> launch
     if (save_sync::EpicCloud::serves(game)) {
         held_ = Held{.ticket = epic_->prepare(game), .epic = true, .launch = std::move(launch)};
     } else if (sync_->sharing(game)) {
-        held_ = Held{.ticket = sync_->prepare(game), .epic = false, .launch = std::move(launch)};
+        held_ = Held{.ticket = sync_->prepare(game, profiles_.active().id),
+                     .epic = false,
+                     .launch = std::move(launch)};
     } else {
         return false;
     }
@@ -123,7 +126,7 @@ void SaveSharing::ended(const library::Game& game) {
     if (save_sync::EpicCloud::serves(game)) {
         epic_->sync(game);
     } else if (sync_->sharing(game)) {
-        sync_->sync(game);
+        sync_->sync(game, profiles_.active().id);
     }
 }
 
@@ -131,7 +134,7 @@ void SaveSharing::look(const library::Game& game) {
     if (save_sync::EpicCloud::serves(game)) {
         epic_->look(game);
     } else {
-        sync_->look(game);
+        sync_->look(game, profiles_.active().id);
     }
 }
 
@@ -139,7 +142,7 @@ void SaveSharing::syncNow(const library::Game& game) {
     if (save_sync::EpicCloud::serves(game)) {
         epic_->sync(game);
     } else {
-        sync_->sync(game);
+        sync_->sync(game, profiles_.active().id);
     }
 }
 
@@ -147,12 +150,12 @@ void SaveSharing::keep(const library::Game& game, const std::string& targetId, b
     if (save_sync::EpicCloud::serves(game)) {
         epic_->keep(game, theirs);
     } else {
-        sync_->keep(game, targetId, theirs);
+        sync_->keep(game, profiles_.active().id, targetId, theirs);
     }
 }
 
 std::vector<save_sync::TargetSaves> SaveSharing::standings(const std::string& gameId) const {
-    std::vector<save_sync::TargetSaves> standings = sync_->standings(gameId);
+    std::vector<save_sync::TargetSaves> standings = sync_->standings(gameId, profiles_.active().id);
     if (std::optional<save_sync::TargetSaves> epic = epic_->standing(gameId)) {
         standings.push_back(std::move(*epic));
     }

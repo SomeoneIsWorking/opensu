@@ -104,7 +104,7 @@ before and after, and the runner's `--saves` all use that profile.
 ## Order of steps
 
 1. This plan.
-2. Profiles and per-profile saves: `profiles::ProfileBook`, the migration, the runner's folder per
+2. Done. Profiles and per-profile saves: `profiles::ProfileBook`, the migration, the runner's folder per
    profile at launch, `SaveKey` with the profile through Copy saves, backups, `save-sync.json`, the
    share's file names and the LAN's save routes (which refuse a profile that is not here, so
    between machines LAN saves pause until step 4 links profiles). Shown: a migration from an

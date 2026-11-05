@@ -29,6 +29,7 @@
 #include "library/match_pick.hpp"
 #include "library/titles.hpp"
 #include "lucent/log.h"
+#include "retro/save_paths.hpp"
 #include "retro_launch.hpp"
 #include "ui/interface_input.hpp"
 #include "ui/section_view.hpp"
@@ -84,6 +85,9 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
     padOwner_.syncChords();
     clock_.service(std::chrono::steady_clock::now());
     applyLayout();
+    if (!profiles_.moveProblem().empty()) {
+        shell_.setToast("Some saves from before profiles stay where they were; see the log", true);
+    }
 }
 
 void ShellApp::buildHome() {
@@ -689,9 +693,10 @@ bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> e
         return false;
     }
     std::string control = retro_.begin();
-    if (const std::string refused =
-            prepareRetroLaunch(started, gameSettings_.layers(), emulatorSettings_.catalog(),
-                               retro_.settingsFile(), emulatorDownloads_.shaderPack().root());
+    if (const std::string refused = prepareRetroLaunch(
+            started, gameSettings_.layers(), emulatorSettings_.catalog(), retro_.settingsFile(),
+            emulatorDownloads_.shaderPack().root(),
+            retro::profileSaveFolder(profiles_.runnerSaves(), profiles_.book().active().id));
         !refused.empty()) {
         static_cast<void>(retro_.end());
         shell_.setToast("cannot write " + game.title + "'s settings: " + refused, true);

@@ -1,11 +1,11 @@
 // player_files — where the shell keeps the player's own files: `settings.json`,
-// `game-settings.json`, `mappings.json`, `own-games.json`, the LAN's `lan.json`, the secrets its
-// pairings and shared saves keep, its record of shared saves (`save-sync.json` in the state dir),
-// the chosen covers, the built-in runner's save RAM and states, and the state dir save backups go
-// to. An ordinary run uses them in place. A hidden run copies them at start into its own folder
-// under the runtime dir and keeps every change there, so the run behaves as usual while the
-// player's files stay as they were; the folder goes with the run. A hidden run's secrets stay in
-// that folder, never the keyring.
+// `game-settings.json`, `mappings.json`, `own-games.json`, the profiles' `profiles.json`, the LAN's
+// `lan.json`, the secrets its pairings and shared saves keep, its record of shared saves
+// (`save-sync.json` in the state dir), the chosen covers, the built-in runner's save RAM and
+// states, and the state dir save backups go to. An ordinary run uses them in place. A hidden run
+// copies them at start into its own folder under the runtime dir and keeps every change there, so
+// the run behaves as usual while the player's files stay as they were; the folder goes with the
+// run. A hidden run's secrets stay in that folder, never the keyring.
 #pragma once
 
 #include <filesystem>
@@ -53,6 +53,10 @@ class PlayerFiles {
     [[nodiscard]] const std::filesystem::path& chosenCoversDir() const noexcept {
         return chosenCovers_;
     }
+    /// The player profiles and which one is active.
+    [[nodiscard]] const std::filesystem::path& profilesFile() const noexcept {
+        return profiles_;
+    }
     /// This openSU's LAN id and the peers it paired with.
     [[nodiscard]] const std::filesystem::path& lanBookFile() const noexcept {
         return lanBook_;
@@ -85,6 +89,7 @@ class PlayerFiles {
     std::filesystem::path chosenCovers_;
     std::filesystem::path state_;
     std::filesystem::path lanBook_;
+    std::filesystem::path profiles_;
     std::filesystem::path saveVersions_;
     std::filesystem::path secrets_;
     std::filesystem::path saves_;

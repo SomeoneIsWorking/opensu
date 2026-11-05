@@ -42,7 +42,7 @@ std::string bytesOf(const fs::path& file) {
 void sealedSavesOpenOnlyWithThePassphrase(const fs::path& root) {
     const fs::path folder = root / "share";
     fs::create_directories(folder);
-    const library::saves::SaveKey kirby{.system = "gba", .game = "Kirby"};
+    const library::saves::SaveKey kirby{.system = "gba", .game = "Kirby", .profile = "player"};
     const save_sync::SaveBundle bundle{
         {save_sync::BundleFile{.kind = library::saves::SlotKind::Memory,
                                .path = {},

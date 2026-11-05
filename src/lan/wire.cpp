@@ -7,6 +7,7 @@
 #include "dns_sd.hpp"
 #include "fileio/relative_path.hpp"
 #include "peer_book.hpp"
+#include "profiles/profile_book.hpp"
 #include "secrets/secret.hpp"
 
 namespace opensu::lan::wire {
@@ -212,11 +213,8 @@ std::optional<std::vector<ListedGame>> readListing(std::string_view body) {
 }
 
 std::string write(const SaveAsk& ask) {
-    return json{{"system", ask.system},
-                {"game", ask.game},
-                {"picked", ask.picked},
-                {"hash", ask.hash},
-                {"counter", ask.counter}}
+    return json{{"system", ask.system}, {"game", ask.game}, {"profile", ask.profile},
+                {"picked", ask.picked}, {"hash", ask.hash}, {"counter", ask.counter}}
         .dump();
 }
 
@@ -225,10 +223,13 @@ std::optional<SaveAsk> readSaveAsk(std::string_view body) {
     if (!document) {
         return std::nullopt;
     }
-    SaveAsk ask{textField(*document, "system"), textField(*document, "game"),
-                document->value("picked", false), textField(*document, "hash"),
-                countField(*document, "counter").value_or(0)};
-    if (!keyPart(ask.system) || !keyPart(ask.game)) {
+    SaveAsk ask{.system = textField(*document, "system"),
+                .game = textField(*document, "game"),
+                .profile = textField(*document, "profile"),
+                .picked = document->value("picked", false),
+                .hash = textField(*document, "hash"),
+                .counter = countField(*document, "counter").value_or(0)};
+    if (!keyPart(ask.system) || !keyPart(ask.game) || !profiles::isProfileId(ask.profile)) {
         return std::nullopt;
     }
     return ask;

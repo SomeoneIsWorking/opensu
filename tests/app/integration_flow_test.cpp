@@ -23,6 +23,7 @@
 #include "library_additions.hpp"
 #include "pad_owner.hpp"
 #include "plugin_service.hpp"
+#include "profiles/profile_book.hpp"
 #include "save_sharing.hpp"
 #include "steam/client_modes.hpp"
 #include "support/fake_interface_text.hpp"
@@ -283,6 +284,7 @@ void theSwitchAppliesAChange(const fs::path& root) {
                                     }}};
     audio::SdlSoundPlayer sounds;
     test::InterfaceRig ui;
+    profiles::ProfileBook profiles{dir / "profiles.json"};
     app::SaveSharing sharing{save_sync::SaveSync::Setup{.versionsFile = dir / "save-sync.json",
                                                         .backups = dir,
                                                         .staging = dir / "saves-incoming",
@@ -293,7 +295,7 @@ void theSwitchAppliesAChange(const fs::path& root) {
                                                          .recordFile = dir / "epic-saves.json",
                                                          .backups = dir,
                                                          .changed = {}},
-                             secrets::SecretStore{dir / "secrets", false}, [] {
+                             secrets::SecretStore{dir / "secrets", false}, profiles, [] {
                              }};
     app::LanService lan{
         app::LanService::Places{.bookFile = dir / "lan.json",
@@ -301,6 +303,7 @@ void theSwitchAppliesAChange(const fs::path& root) {
                                 .coverCache = dir / "lan-covers",
                                 .port = 0,
                                 .saves = sharing.engine(),
+                                .profiles = profiles,
                                 .roms = {}},
         preferences,
         ui.navigator,

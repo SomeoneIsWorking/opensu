@@ -27,6 +27,7 @@
 #include "library/game.hpp"
 #include "library/game_saves.hpp"
 #include "library/save_copy.hpp"
+#include "player_profiles.hpp"
 #include "ui/row_widgets.hpp"
 #include "ui/screen_stack.hpp"
 #include "ui/setting_row.hpp"
@@ -42,10 +43,10 @@ class SaveCopyController final : public ui::RowActions {
         std::function<void()> changed;
     };
 
-    /// Where the saves are: the catalog of `downloads`, the built-in runner's folder
-    /// (`Config::savesDir`) and the state dir the backups go under.
+    /// Where the saves are: the catalog of `downloads`, the active profile's (its built-in runner
+    /// folder under `PlayerProfiles::runnerSaves`) and the state dir the backups go under.
     struct Places {
-        std::filesystem::path runnerSaves;
+        const PlayerProfiles& profiles;
         std::filesystem::path stateDir;
     };
 
@@ -53,7 +54,7 @@ class SaveCopyController final : public ui::RowActions {
                        audio::SdlSoundPlayer& sounds, const EmulatorDownloads& downloads,
                        Places places, Hooks hooks)
         : navigator_{navigator}, chrome_{chrome}, sounds_{sounds}, downloads_{downloads},
-          runnerSaves_{std::move(places.runnerSaves)}, copier_{std::move(places.stateDir)},
+          profiles_{places.profiles}, copier_{std::move(places.stateDir)},
           hooks_{std::move(hooks)} {
     }
     SaveCopyController(const SaveCopyController&) = delete;
@@ -128,7 +129,7 @@ class SaveCopyController final : public ui::RowActions {
     const ui::Chrome& chrome_;
     audio::SdlSoundPlayer& sounds_;
     const EmulatorDownloads& downloads_;
-    std::filesystem::path runnerSaves_;
+    const PlayerProfiles& profiles_;
     library::saves::SaveCopier copier_;
     Hooks hooks_;
     std::optional<Opened> opened_;

@@ -212,7 +212,7 @@ game has been observed running yet.
 | S053 | LAN ROM import: a paired host's ROMs by console with sizes and the BIOS files the runner here lacks (Settings › LAN › ROMs on <host>, or Library's Import from a PC on your network tile), games or a whole console imported in sealed 2 MiB chunks into resumable parts, each file's SHA-256 checked, placed through `RomTree` into the first writable ROM folder (asked for when there is none; on Android the picked folder), the catalog reloaded as each arrives; the host serves only files it lists (`..` and unlisted paths 403); Android discovery through NSD; shown with two hidden openSUs on one machine over Avahi (import, play, resume after the host was killed, refused paths) and a Huawei tablet importing from this PC and playing the game; not Windows or macOS discovery, not an Android host for picked folders (`docs/design/lan.md#rom-import`, `docs/plans/lan-rom-import.md`) | partial | S050, S008 | G001 |
 | S054 | Shared saves through a folder or WebDAV (Settings › Saves): the one engine `save_sync` for every target, the LAN's peers one group, a share another; each game's status and bundle sealed with ChaCha20-Poly1305 under the scrypt of the player's passphrase, its salt and check in `opensu-saves/key.json`; passphrase and WebDAV password in the secret store; shown with two hidden openSUs at once on one scratch folder and on a stand-in WebDAV server, a pull before launch loaded by the core, a conflict picked, another passphrase refused; not against a real Nextcloud or NAS, not between two machines (`docs/plans/cloud-saves.md` step 3) | partial | S051 | G001 |
 | S055 | Epic cloud saves through legendary: before launch and after exit, the newest cloud manifest (`list-saves`) and the save folder's hash against `epic-saves.json` under the shared rule, `sync-saves --force-download` (folder backed up first) or `--force-upload`, a conflict picked on the details page; shown with two hidden openSUs and a stand-in `legendary` sharing one scratch cloud; not run against Epic; GOG cloud saves not built (`docs/plans/cloud-saves.md` step 3) | partial | S054 | G001 |
-| S056 | Player profiles: saves per profile (the runner's folder, Copy saves, backups, the sync record), the active one picked from the Guide and at start once there are two, a Switch emulator's user per profile, LAN profiles copied with the owner's question and linked so only linked profiles' saves sync, remote play as the linked or first profile, the share per profile (`docs/plans/player-profiles.md`) | missing | S049, S051, S054 | G001 |
+| S056 | Player profiles: saves per profile (the runner's folder, Copy saves, backups, the sync record), the active one picked from the Guide and at start once there are two, a Switch emulator's user per profile, LAN profiles copied with the owner's question and linked so only linked profiles' saves sync, remote play as the linked or first profile, the share per profile (`docs/plans/player-profiles.md`; built: profiles and per-profile saves with the migration, step 2) | partial | S049, S051, S054 | G001 |
 
 ## Capability details
 
@@ -1729,7 +1729,7 @@ openSU has no Mega Drive, Master System, Game Gear, Sega CD or 32X system
 `<data>/opensu/cores/` (openSU's, with a `<core>.json` record), then `~/.config/retroarch/cores`,
 `/usr/lib64/libretro`, `/usr/lib/libretro`, `/usr/lib/x86_64-linux-gnu/libretro`
 (`library/libretro_cores`); the emulator is installed when its core is found and runs as
-`opensu-retro --core <core> [--hidden] --saves <data>/opensu/saves/<system> [--option <key>=<value>]... <rom>` (`--hidden` when the shell is; the options are the catalog's `"coreOptions"`, a GPU core's Vulkan renderer), which cannot start, with the reason, when `opensu-retro` is not
+`opensu-retro --core <core> [--hidden] --saves <data>/opensu/saves/profiles/<profile>/<system> [--option <key>=<value>]... <rom>` (`--hidden` when the shell is; the options are the catalog's `"coreOptions"`, a GPU core's Vulkan renderer), which cannot start, with the reason, when `opensu-retro` is not
 beside `opensu`. Downloads use the Settings › Emulators and details page paths of S026: the
 buildbot's `.index-extended` is read, the zip is fetched with every hop on the buildbot's origin,
 its one `.so` is checked against the listed CRC-32, which is the library's and not the zip's
@@ -2244,7 +2244,7 @@ the same folders under `~/.var/app/<app id>` for a Flatpak install (`flatpakFold
 `SaveCopier` copies slot by slot for the kinds the source holds files in, makes a slot the target
 lacks as that emulator would (`switch_saves::plannedSlot`, `makeSlot`: yuzu's folder; Kenji-NX's
 `<title id>/<user id>` with `ExtraData0`/`1`; Ryubing's next save id with its index entry), backs
-up the target's slots and the index it changes under `<state dir>/save-backups/` first, puts them
+up the target's slots and the index it changes under `<state dir>/save-backups/profiles/<profile>/` first, puts them
 back if a copy fails, and Undo copy restores the newest backup, removes what the copy made and
 removes the backup. The card's reads, copies and undos run on its worker, one at a time, refused
 while either emulator runs (`launch::ProcessTree`), with the row showing the bytes written as a

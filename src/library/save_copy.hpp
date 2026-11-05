@@ -2,9 +2,10 @@
 // the source holds files in (`copiedSlots`); a slot the target lacks is made as that emulator
 // would make it (`plannedSlot`), one it keeps where nothing is yet is made there. The source can
 // be a target's saves staged on disk (`save_sync::SaveSync`). The target's slots, and what making
-// one changes, are copied whole into a backup first, `<backups>/<system>/<game>/<emulator>/<UTC
-// time>/` with `backup.json` naming where each came from and what was made, and undo puts the
-// newest backup back byte for byte, removes what the copy made, and removes the backup.
+// one changes, are copied whole into a backup first, `<system>/<game>/<emulator>/<UTC time>/`
+// under the profile's backups (`profileBackups`), with `backup.json` naming where each came from
+// and what was made, and undo puts the newest backup back byte for byte, removes what the copy
+// made, and removes the backup.
 #pragma once
 
 #include <atomic>
@@ -36,6 +37,12 @@ struct CopyProgress {
 
 /// The folder under the state dir every backup of saves is kept in.
 inline constexpr std::string_view backupsFolder = "save-backups";
+/// Under `backupsFolder`: one folder per profile.
+inline constexpr std::string_view profileBackupsFolder = "profiles";
+
+/// Where Copy saves keeps `profile`'s backups: `<state>/save-backups/profiles/<profile id>`.
+[[nodiscard]] std::filesystem::path profileBackups(const std::filesystem::path& state,
+                                                   std::string_view profile);
 
 /// A folder for a new backup under `parent`, named for `now` in UTC ("20261104T180900Z"), one not
 /// there yet.

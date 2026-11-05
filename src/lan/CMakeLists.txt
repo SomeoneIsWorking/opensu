@@ -8,7 +8,7 @@ add_library(opensu_lan STATIC pairing_keys.cpp request_signature.cpp peer_book.c
 add_library(opensu::lan ALIAS opensu_lan)
 target_include_directories(opensu_lan PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_lan
-    PUBLIC opensu::library opensu::net opensu::secrets opensu::save_sync lucent::lucent
+    PUBLIC opensu::library opensu::net opensu::secrets opensu::save_sync opensu::profiles lucent::lucent
            nlohmann_json::nlohmann_json
     PRIVATE opensu::clock opensu::fileio OpenSSL::Crypto)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")

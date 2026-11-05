@@ -7,6 +7,7 @@
 #include "fileio/atomic_write.hpp"
 #include "library/emulator_choice.hpp"
 #include "lucent/log.h"
+#include "retro/save_paths.hpp"
 #include "settings/core_option_settings.hpp"
 #include "settings/video_settings.hpp"
 
@@ -36,7 +37,8 @@ std::optional<settings::VideoSettings> retroVideoOf(const library::Game& game,
 std::string prepareRetroLaunch(library::Game& game, const settings::SettingLayers& layers,
                                const library::roms::EmulatorCatalog& catalog,
                                const std::filesystem::path& file,
-                               const std::filesystem::path& presets) {
+                               const std::filesystem::path& presets,
+                               const std::filesystem::path& saves) {
     const std::optional<settings::VideoSettings> video =
         retroVideoOf(game, layers, catalog, presets);
     if (!video) {
@@ -46,7 +48,9 @@ std::string prepareRetroLaunch(library::Game& game, const settings::SettingLayer
     if (!fileio::writeWhole(file, settings::videoJson(*video), error)) {
         return error;
     }
-    std::vector<std::string> options{"--settings", file.string()};
+    std::vector<std::string> options{"--saves",
+                                     retro::systemSaveFolder(saves, game.sourceId).string(),
+                                     "--settings", file.string()};
     for (const auto& [key, value] :
          settings::resolveCoreOptions(layers, library::layerKeysOf(game))) {
         options.emplace_back("--option");
@@ -54,7 +58,8 @@ std::string prepareRetroLaunch(library::Game& game, const settings::SettingLayer
     }
     // First, so an option the catalog's command gives wins.
     game.launch.args.insert(game.launch.args.begin(), options.begin(), options.end());
-    lucent::info("retro", "{} starts with {}", game.title, file.string());
+    lucent::info("retro", "{} starts with {}, its saves in {}", game.title, file.string(),
+                 saves.string());
     return {};
 }
 

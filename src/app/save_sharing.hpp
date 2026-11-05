@@ -1,7 +1,8 @@
 // save_sharing — the shell's shared saves on its loop: the folder or WebDAV share Settings › Saves
 // names (`share`) and the LAN's paired openSUs while LAN is on (their group set by
 // `lan::LanNode`), both through `save_sync::SaveSync`; an Epic game's saves through Epic's cloud
-// (`save_sync::EpicCloud`) instead. A launch is held while a game's saves are taken first
+// (`save_sync::EpicCloud`) instead. The saves it syncs are the active profile's. A launch is held
+// while a game's saves are taken first
 // (`before`), the game running is not replaced, and how a game's saves stand is for its details
 // page.
 #pragma once
@@ -18,6 +19,7 @@
 #include "library/emulator_catalog.hpp"
 #include "library/game.hpp"
 #include "net/web_client.hpp"
+#include "profiles/profile_book.hpp"
 #include "save_sync/epic_cloud.hpp"
 #include "save_sync/save_sync.hpp"
 #include "secrets/secret_store.hpp"
@@ -33,7 +35,8 @@ class SaveSharing {
   public:
     /// `changed`: how a game's saves stand changed; called on the loop from `service`.
     SaveSharing(save_sync::SaveSync::Setup setup, save_sync::EpicCloud::Setup epic,
-                secrets::SecretStore secrets, std::function<void()> changed);
+                secrets::SecretStore secrets, const profiles::ProfileBook& profiles,
+                std::function<void()> changed);
 
     /// The engine the LAN adds its paired openSUs to.
     [[nodiscard]] save_sync::SaveSync& engine() noexcept {
@@ -80,6 +83,7 @@ class SaveSharing {
 
     net::WebClient web_;
     secrets::SecretStore secrets_;
+    const profiles::ProfileBook& profiles_;
     std::function<void()> changed_;
     std::shared_ptr<Playing> playing_{std::make_shared<Playing>()};
     std::shared_ptr<std::atomic<bool>> news_{std::make_shared<std::atomic<bool>>(false)};

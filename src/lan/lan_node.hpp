@@ -54,6 +54,8 @@ class LanNode {
         /// The shared saves the paired peers the player shares them with are targets of while the
         /// node runs; it outlives the node.
         save_sync::SaveSync& saves;
+        /// The profiles here, whose saves the peers are asked for and given.
+        profiles::ProfileBook& profiles;
         /// A paired peer asks to play a listed game here (`LanListener::Sources::play`); empty
         /// refuses every such request.
         decltype(LanListener::Sources::play) play;
@@ -176,6 +178,7 @@ class LanNode {
     HostPairing pairing_{book_.id()};
     SharedLibrary library_;
     save_sync::SaveSync& saves_;
+    profiles::ProfileBook& profiles_;
     RomShelf shelf_;
     LanListener listener_;
     std::string problem_;

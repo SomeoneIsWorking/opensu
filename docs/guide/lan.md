@@ -72,7 +72,7 @@ For a game installed on both openSUs, the saves of the emulator it starts with f
 - If you played on both since they last synced, nothing is replaced. The row says **Pick which
   save to keep** and shows each side's date and size. B cancels.
 - The saves replaced are always backed up first, as Copy saves does, under
-  `~/.local/state/opensu/save-backups/<console>/<game>/<emulator>/<time>/`.
+  `~/.local/state/opensu/save-backups/profiles/<profile>/<console>/<game>/<emulator>/<time>/`.
 - Nothing is replaced while that emulator runs. Close it and sync again.
 
 Switch games match across emulators by title, so Eden on one openSU and Ryujinx on the other share

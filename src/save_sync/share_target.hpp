@@ -1,7 +1,9 @@
 // share_target — a folder or WebDAV share (`SaveShare`) as a `SaveTarget` that several openSUs
 // share: under `opensu-saves/`, each game's status and bundle sealed with ChaCha20-Poly1305
-// (`<hash of the key>.status`, `.bundle`), the file's name authenticated with it so files cannot
-// be swapped. The key is the scrypt of the player's passphrase with the share's salt
+// (`<hash of the key>.status`, `.bundle`; the key's profile among it, so each profile keeps its
+// own there and meets only its linked copies on other openSUs), the file's name authenticated with
+// it so files cannot be swapped. The key is the scrypt of the player's passphrase with the share's
+// salt
 // (`opensu-saves/key.json`, made by the first openSU to use the share, with a sealed check that
 // says whether a passphrase is the right one). Given saves are kept: the bundle first, then the
 // status that names it.

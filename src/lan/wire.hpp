@@ -99,6 +99,8 @@ inline constexpr std::string_view saveSyncedRoute = "/lan/saves/synced";
 struct SaveAsk {
     std::string system;
     std::string game;
+    /// The profile whose saves they are (`profiles::Profile::id`).
+    std::string profile;
     /// `/news`: the player picked the sender's saves over the receiver's.
     bool picked{false};
     /// `/synced`: the hash both now hold, and the counter the sender holds it as.
@@ -106,7 +108,8 @@ struct SaveAsk {
     std::uint64_t counter{0};
 };
 [[nodiscard]] std::string write(const SaveAsk& ask);
-/// Nothing when `body` is not one, or its system or game could step out of a folder.
+/// Nothing when `body` is not one, its system or game could step out of a folder, or its profile
+/// is not a profile id.
 [[nodiscard]] std::optional<SaveAsk> readSaveAsk(std::string_view body);
 
 // The answer to `/lan/saves/status` is a `save_sync::SaveStatus`.

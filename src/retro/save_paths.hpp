@@ -1,5 +1,6 @@
 // save_paths — where the built-in runner keeps a game's save RAM and state slot: the one owner of
-// those names, which the runner reads and writes and the shell lists, copies and backs up.
+// those names, which the runner reads and writes and the shell lists, copies and backs up. The
+// shell keeps each player profile's saves in a folder of its own.
 #pragma once
 
 #include <filesystem>
@@ -8,7 +9,14 @@
 
 namespace opensu::retro {
 
-/// The folder a launch from the shell saves in: `<saves>/<system>`.
+/// Under the saves folder: one folder per profile.
+inline constexpr std::string_view profilesFolder = "profiles";
+
+/// Where the shell keeps `profile`'s saves: `<saves>/profiles/<profile id>`.
+[[nodiscard]] std::filesystem::path profileSaveFolder(const std::filesystem::path& saves,
+                                                      std::string_view profile);
+
+/// The folder a launch from the shell saves in: `<profile folder>/<system>`.
 [[nodiscard]] std::filesystem::path systemSaveFolder(const std::filesystem::path& saves,
                                                      std::string_view system);
 

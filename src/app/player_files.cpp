@@ -8,6 +8,7 @@
 #include "launch/process_id.hpp"
 #include "library/own_games.hpp"
 #include "lucent/log.h"
+#include "profiles/profile_book.hpp"
 #include "save_sync/save_versions.hpp"
 #include "settings/game_settings_store.hpp"
 #include "settings/mapping_store.hpp"
@@ -60,6 +61,7 @@ PlayerFiles::PlayerFiles(const Dirs& dirs, fs::path copiesDir) : copiesDir_{std:
     ownGames_ = library::own::recordsFile(keptData);
     chosenCovers_ = chosenCoversUnder(keptData);
     lanBook_ = keptConfig / lan::peerBookFile;
+    profiles_ = keptConfig / profiles::profilesFile;
     state_ = copiesDir_.empty() ? dirs.state : copiesDir_ / "state";
     saveVersions_ = state_ / save_sync::saveVersionsFile;
     secrets_ = keptConfig / secrets::secretsFolder;
@@ -75,6 +77,7 @@ PlayerFiles::PlayerFiles(const Dirs& dirs, fs::path copiesDir) : copiesDir_{std:
     copyIfThere(library::own::recordsFile(dataDir), ownGames_);
     copyIfThere(chosenCoversUnder(dataDir), chosenCovers_);
     copyIfThere(configDir / lan::peerBookFile, lanBook_);
+    copyIfThere(configDir / profiles::profilesFile, profiles_);
     copyIfThere(dirs.state / save_sync::saveVersionsFile, saveVersions_);
     copyIfThere(configDir / secrets::secretsFolder, secrets_);
     copyIfThere(dirs.saves, saves_);

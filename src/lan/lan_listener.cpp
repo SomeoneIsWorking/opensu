@@ -213,7 +213,10 @@ Response LanListener::savesRoute(std::string_view path, std::string_view body,
     if (!ask) {
         return refused(badRequest, "Bad Request", "not a game's saves");
     }
-    const library::saves::SaveKey key{ask->system, ask->game};
+    if (!sources_.profiles.find(ask->profile)) {
+        return refused(notFound, "Not Found", "no profile here has those saves");
+    }
+    const library::saves::SaveKey key{ask->system, ask->game, ask->profile};
     if (path == wire::saveStatusRoute) {
         const std::optional<save_sync::SaveStatus> status = sources_.saves.statusOf(key);
         if (!status) {

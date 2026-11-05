@@ -17,8 +17,12 @@ namespace {
 namespace fs = std::filesystem;
 using nlohmann::json;
 
+std::string nameOf(std::string_view profile, std::string_view system, std::string_view game) {
+    return std::string{profile} + "\n" + std::string{system} + "\n" + std::string{game};
+}
+
 std::string nameOf(const library::saves::SaveKey& key) {
-    return key.system + "\n" + key.game;
+    return nameOf(key.profile, key.system, key.game);
 }
 
 } // namespace
@@ -99,7 +103,8 @@ SaveVersions::SaveVersions(fs::path file) : file_{std::move(file)} {
                 }
             }
         }
-        games_.insert_or_assign(textField(entry, "system") + "\n" + textField(entry, "game"),
+        games_.insert_or_assign(nameOf(textField(entry, "profile"), textField(entry, "system"),
+                                       textField(entry, "game")),
                                 std::move(game));
     }
 }
@@ -148,16 +153,35 @@ void SaveVersions::synced(const library::saves::SaveKey& key, const std::string&
     }
 }
 
+void SaveVersions::adopt(std::string_view profile) {
+    const std::lock_guard lock{mutex_};
+    bool changed = false;
+    for (auto at = games_.begin(); at != games_.end();) {
+        if (!at->first.starts_with('\n')) {
+            ++at;
+            continue;
+        }
+        games_.try_emplace(std::string{profile} + at->first, std::move(at->second));
+        at = games_.erase(at);
+        changed = true;
+    }
+    if (changed) {
+        keep();
+    }
+}
+
 void SaveVersions::keep() const {
     json games = json::array();
     for (const auto& [name, game] : games_) {
         const std::size_t split = name.find('\n');
+        const std::size_t second = name.find('\n', split + 1);
         json synced = json::object();
         for (const auto& [peer, hash] : game.synced) {
             synced[peer] = hash;
         }
-        games.push_back({{"system", name.substr(0, split)},
-                         {"game", name.substr(split + 1)},
+        games.push_back({{"profile", name.substr(0, split)},
+                         {"system", name.substr(split + 1, second - split - 1)},
+                         {"game", name.substr(second + 1)},
                          {"counter", game.version.counter},
                          {"hash", game.version.hash},
                          {"synced", std::move(synced)}});

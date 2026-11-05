@@ -8,7 +8,7 @@
 // which asks to play a listed game here over remote play (`play`), and ROM import's routes
 // (`RomShelf`: `GET /lan/roms`, `POST /lan/roms/file`, `/chunk`). A request that fails its
 // signature, comes late, repeats or does not open is refused with 403, as are the save routes of
-// a peer saves are not shared with.
+// a peer saves are not shared with; they answer 404 for a profile this openSU does not have.
 #pragma once
 
 #include <cstdint>
@@ -19,6 +19,7 @@
 #include "lucent/http.h"
 #include "pairing_keys.hpp"
 #include "peer_book.hpp"
+#include "profiles/profile_book.hpp"
 #include "request_signature.hpp"
 #include "rom_shelf.hpp"
 #include "save_sync/save_sync.hpp"
@@ -33,6 +34,8 @@ class LanListener {
         HostPairing& pairing;
         const SharedLibrary& library;
         save_sync::SaveSync& saves;
+        /// The profiles here: the save routes answer only for one of them.
+        const profiles::ProfileBook& profiles;
         RomShelf& roms;
         /// The name this openSU goes by now.
         std::function<std::string()> name;

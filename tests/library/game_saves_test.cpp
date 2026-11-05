@@ -32,6 +32,8 @@ using namespace opensu::library::saves;
 using opensu::test::expect;
 
 constexpr std::string_view title = "010067300059A000";
+/// The profile the saves are read for.
+constexpr std::string_view player = "0123456789abcdef0123456789abcdef";
 /// yuzu spells this UUID's folder 947F7CB06C7EEBB86F1D755DD88BF115.
 constexpr std::array<unsigned char, 16> edenUuid{0x15, 0xf1, 0x8b, 0xd8, 0x5d, 0x75, 0x1d, 0x6f,
                                                  0xb8, 0xeb, 0x7e, 0x6c, 0xb0, 0x7c, 0x7f, 0x94};
@@ -142,7 +144,9 @@ struct Rig {
     fs::path eden = scratch.path() / "eden";
     fs::path edenConfig = scratch.path() / "eden-config";
     fs::path ryujinx = scratch.path() / "ryujinx";
-    fs::path runner = scratch.path() / "saves";
+    fs::path saves = scratch.path() / "saves";
+    /// The runner's folder of the profile the saves are read for.
+    fs::path runner = saves / "profiles" / std::string{player};
 
     Rig() {
         std::string profiles(0x650, '\0');
@@ -231,7 +235,8 @@ struct Rig {
 
 void readsBothLayouts() {
     const Rig rig;
-    const std::vector<EmulatorSaves> found = savesOf(Rig::switchGame(), rig.catalog(), rig.runner);
+    const std::vector<EmulatorSaves> found =
+        savesOf(Rig::switchGame(), rig.catalog(), rig.saves, player);
     expect(found.size() == 2 && found[0].emulatorId == "eden" && found[1].emulatorId == "ryujinx",
            "both installed emulators keep a save of the title, in the game's emulator order");
     const SaveSlot* edenAccount = found[0].slotFor(SlotKind::Account);
@@ -249,10 +254,10 @@ void readsBothLayouts() {
 
     Game game = Rig::switchGame();
     game.emulatorOptions[1].installed = false;
-    expect(savesOf(game, rig.catalog(), rig.runner).size() == 1,
+    expect(savesOf(game, rig.catalog(), rig.saves, player).size() == 1,
            "an emulator that is not installed is not offered");
     game.titleId.clear();
-    expect(!keyOf(game) && savesOf(game, rig.catalog(), rig.runner).empty(),
+    expect(!keyOf(game, player) && savesOf(game, rig.catalog(), rig.saves, player).empty(),
            "a Switch file without its title id has no saves to find");
 }
 
@@ -265,7 +270,7 @@ void readsTheRunnersFiles() {
     game.sourceId = "gba";
     game.file = "/r/Minish Cap.gba";
     game.emulatorOptions = {installed("mGBA (built-in)", "mgba-core")};
-    const std::vector<EmulatorSaves> found = savesOf(game, rig.catalog(), rig.runner);
+    const std::vector<EmulatorSaves> found = savesOf(game, rig.catalog(), rig.saves, player);
     expect(found.size() == 1 && found[0].emulatorId == runnerSavesId &&
                found[0].slots.size() == 2 && found[0].bytes() == 32 &&
                found[0].slotFor(SlotKind::Memory)->modified,
@@ -277,7 +282,7 @@ void readsTheRunnersFiles() {
     game.emulator = "mGBA (built-in)";
     expect(launchedSaves(found, game, rig.catalog()) == &found[0],
            "the saves a game starts with are its emulator's");
-    const std::optional<SaveKey> key = keyOf(game);
+    const std::optional<SaveKey> key = keyOf(game, player);
     expect(key && key->system == "gba" && key->game == "Minish Cap",
            "a ROM's saves are keyed by its system and name");
 }
@@ -285,8 +290,8 @@ void readsTheRunnersFiles() {
 void copiesBackedUpAndUndoes() {
     const Rig rig;
     const Game game = Rig::switchGame();
-    const SaveKey key = opensu::test::need(keyOf(game), "the game has a key");
-    std::vector<EmulatorSaves> found = savesOf(game, rig.catalog(), rig.runner);
+    const SaveKey key = opensu::test::need(keyOf(game, player), "the game has a key");
+    std::vector<EmulatorSaves> found = savesOf(game, rig.catalog(), rig.saves, player);
     const fs::path account = found[1].slotFor(SlotKind::Account)->root;
     const fs::path device = found[1].slotFor(SlotKind::Device)->root;
     const std::map<std::string, std::string> before = tree(rig.ryujinx);
@@ -309,7 +314,8 @@ void copiesBackedUpAndUndoes() {
     const std::optional<SaveBackup> backup = copier.latest(key, "ryujinx");
     expect(backup && backup->from == "Eden" &&
                backup->folder.parent_path() ==
-                   rig.scratch.path() / "state/save-backups/switch" / title / "ryujinx" &&
+                   profileBackups(rig.scratch.path() / "state", player) / "switch" / title /
+                       "ryujinx" &&
                read(backup->folder / "0/0/user/old.SAVE") == "ryujinx progress",
            "Ryujinx's saves were backed up first, under the state dir by console and title");
 
@@ -322,7 +328,7 @@ void copiesBackedUpAndUndoes() {
            "with no backup there is nothing to undo");
 
     fs::remove_all(rig.eden / "user/save/0000000000000000");
-    found = savesOf(game, rig.catalog(), rig.runner);
+    found = savesOf(game, rig.catalog(), rig.saves, player);
     expect(found.size() == 2 && !found[0].holdsFiles() && found[0].home,
            "an emulator without a save of the game is listed, to take one");
     expect(!copier.copy(key, found[0], found[1], now, progress).empty(),
@@ -333,8 +339,8 @@ void makesTheSlotRyubingWould() {
     const Rig rig;
     rig.ryujinxWithoutTheGame();
     const Game game = Rig::switchGame();
-    const SaveKey key = opensu::test::need(keyOf(game), "the game has a key");
-    std::vector<EmulatorSaves> found = savesOf(game, rig.catalog(), rig.runner);
+    const SaveKey key = opensu::test::need(keyOf(game, player), "the game has a key");
+    std::vector<EmulatorSaves> found = savesOf(game, rig.catalog(), rig.saves, player);
     expect(found.size() == 2 && found[1].slots.empty() && !found[1].holdsFiles() && copyable(found),
            "Ryujinx, keeping no save of the game, can take Eden's");
     const std::map<std::string, std::string> before = tree(rig.ryujinx);
@@ -362,7 +368,7 @@ void makesTheSlotRyubingWould() {
                read(index / "1/imkvdb.arc") == read(index / "0/imkvdb.arc") &&
                getLe(read(index / "0/lastPublishedId"), 0, 8) == 6,
            "each new save has its index entry, in LibHac's attribute order");
-    found = savesOf(game, rig.catalog(), rig.runner);
+    found = savesOf(game, rig.catalog(), rig.saves, player);
     expect(found[1].slotFor(SlotKind::Account) != nullptr &&
                found[1].slotFor(SlotKind::Account)->current &&
                found[1].slotFor(SlotKind::Device) != nullptr,
@@ -376,8 +382,8 @@ void makesTheSlotKenjiWould() {
     rig.ryujinxWithoutTheGame();
     write(rig.ryujinx / "user/save-layout.lock", "");
     const Game game = Rig::switchGame();
-    const SaveKey key = opensu::test::need(keyOf(game), "the game has a key");
-    const std::vector<EmulatorSaves> found = savesOf(game, rig.catalog(), rig.runner);
+    const SaveKey key = opensu::test::need(keyOf(game, player), "the game has a key");
+    const std::vector<EmulatorSaves> found = savesOf(game, rig.catalog(), rig.saves, player);
     const std::map<std::string, std::string> before = tree(rig.ryujinx);
     const SaveCopier copier{rig.scratch.path() / "state"};
     CopyProgress progress;
@@ -400,10 +406,10 @@ void makesTheSlotKenjiWould() {
 void makesTheSlotYuzuWould() {
     const Rig rig;
     const Game game = Rig::switchGame();
-    const SaveKey key = opensu::test::need(keyOf(game), "the game has a key");
+    const SaveKey key = opensu::test::need(keyOf(game, player), "the game has a key");
     fs::remove_all(rig.eden / "user/save/0000000000000000" / edenUser / title);
     fs::remove_all(rig.eden / "user/save/0000000000000000/00000000000000000000000000000000");
-    const std::vector<EmulatorSaves> found = savesOf(game, rig.catalog(), rig.runner);
+    const std::vector<EmulatorSaves> found = savesOf(game, rig.catalog(), rig.saves, player);
     expect(found[0].slotFor(SlotKind::Account) != nullptr &&
                !found[0].slotFor(SlotKind::Account)->current,
            "Eden's current profile keeps no save of the game, another profile does");
@@ -430,7 +436,8 @@ void readsEdensNewerLayoutAndFlatpaks() {
     }
     write(rig.eden / "user/save/account" / raw / title / "0/user/new.SAVE", "newer place");
     write(rig.eden / "user/save/device" / title / "0/device.bin", "newer device");
-    const std::vector<EmulatorSaves> found = savesOf(Rig::switchGame(), rig.catalog(), rig.runner);
+    const std::vector<EmulatorSaves> found =
+        savesOf(Rig::switchGame(), rig.catalog(), rig.saves, player);
     const SaveSlot* account = found[0].slotFor(SlotKind::Account);
     const SaveSlot* device = found[0].slotFor(SlotKind::Device);
     expect(account != nullptr && account->user == edenUser &&
@@ -464,10 +471,10 @@ void readsEdensNewerLayoutAndFlatpaks() {
     fs::copy(rig.edenConfig, sandbox / "config/eden", fs::copy_options::recursive);
     Game game = Rig::switchGame();
     game.emulatorOptions = {installed("Eden", "eden")};
-    expect(savesOf(game, catalog, rig.runner).front().slots.empty(),
+    expect(savesOf(game, catalog, rig.saves, player).front().slots.empty(),
            "a host install reads the host's folders");
     game.emulatorOptions[0].flatpak = true;
-    const std::vector<EmulatorSaves> sandboxed = savesOf(game, catalog, rig.runner);
+    const std::vector<EmulatorSaves> sandboxed = savesOf(game, catalog, rig.saves, player);
     const EmulatorSaves& flatpak = sandboxed.front();
     const SaveHome& flatpakHome = opensu::test::need(flatpak.home, "the Flatpak's saves are found");
     const SaveSlot* flatpakAccount = flatpak.slotFor(SlotKind::Account);
@@ -530,8 +537,8 @@ void convertsMgbasSaveForTheRunner() {
     write(rig.runner / "gba/Minish Cap.state", "core state");
     const Game game = romOf(rom, "gba", "Minish Cap",
                             {installed("mGBA", "mgba"), installed("mGBA (built-in)", "mgba-core")});
-    const SaveKey key = opensu::test::need(keyOf(game), "the game has a key");
-    std::vector<EmulatorSaves> found = savesOf(game, catalog, rig.runner);
+    const SaveKey key = opensu::test::need(keyOf(game, player), "the game has a key");
+    std::vector<EmulatorSaves> found = savesOf(game, catalog, rig.saves, player);
     expect(found.size() == 2 && found[0].emulatorId == "mgba" && found[0].slots.size() == 1 &&
                found[0].slots[0].format == SaveFormat::Mgba && found[0].bytes() == 0x8010,
            "mGBA's .sav is found beside the ROM, footer and all");
@@ -547,7 +554,7 @@ void convertsMgbasSaveForTheRunner() {
            "undo removes the .srm it made");
 
     write(rig.runner / "gba/Minish Cap.srm", std::string(0x8000, 'r'));
-    found = savesOf(game, catalog, rig.runner);
+    found = savesOf(game, catalog, rig.saves, player);
     const fs::path sav = rom.parent_path() / "Minish Cap.sav";
     const std::string had = read(sav);
     expect(copier.copy(key, found[1], found[0], std::chrono::system_clock::now(), progress).empty(),
@@ -557,7 +564,7 @@ void convertsMgbasSaveForTheRunner() {
            "undo puts mGBA's .sav back byte for byte");
 
     write(root / "mgba-config/config.ini", "[ports.qt]\nsavegamePath=saves\n");
-    found = savesOf(game, catalog, rig.runner);
+    found = savesOf(game, catalog, rig.saves, player);
     expect(found[0].slots[0].root == root / "mgba-config/saves/Minish Cap.sav" &&
                !found[0].holdsFiles(),
            "a savegamePath of mGBA's settings, under its settings folder, is where it saves");
@@ -572,13 +579,13 @@ void copiesPs1CardsBetweenDuckStationAndTheRunner() {
     const Game game = romOf(rom, "psx", "Crash Bandicoot",
                             {installed("DuckStation", "duckstation"),
                              installed("PCSX ReARMed (built-in)", "pcsx-rearmed-core")});
-    const SaveKey key = opensu::test::need(keyOf(game), "the game has a key");
+    const SaveKey key = opensu::test::need(keyOf(game, player), "the game has a key");
     const fs::path cards = root / "duckstation/memcards";
-    std::vector<EmulatorSaves> found = savesOf(game, catalog, rig.runner);
+    std::vector<EmulatorSaves> found = savesOf(game, catalog, rig.saves, player);
     expect(found[0].slots[0].root == cards / "Crash Bandicoot_1.mcd" && !found[0].holdsFiles(),
            "DuckStation's card of a game it has none of goes by its title");
     write(cards / "Crash Bandicoot (USA)_1.mcd", std::string(0x20000, 'c'));
-    found = savesOf(game, catalog, rig.runner);
+    found = savesOf(game, catalog, rig.saves, player);
     expect(found[0].slots[0].root == cards / "Crash Bandicoot (USA)_1.mcd",
            "a card named by its file is the one it has");
     const SaveCopier copier{root / "state"};
@@ -589,7 +596,7 @@ void copiesPs1CardsBetweenDuckStationAndTheRunner() {
            "the runner's .srm is the same 128 KiB card");
 
     write(rig.runner / "psx/Crash Bandicoot (USA).srm", "short");
-    found = savesOf(game, catalog, rig.runner);
+    found = savesOf(game, catalog, rig.saves, player);
     const std::string refused =
         copier.copy(key, found[1], found[0], std::chrono::system_clock::now(), progress);
     expect(!refused.empty() &&
@@ -597,7 +604,7 @@ void copiesPs1CardsBetweenDuckStationAndTheRunner() {
            "a .srm that is not a whole card is refused, DuckStation's card left as it was");
 
     write(root / "duckstation/settings.ini", "[MemoryCards]\nCard1Type = Shared\n");
-    expect(savesOf(game, catalog, rig.runner).size() == 1,
+    expect(savesOf(game, catalog, rig.saves, player).size() == 1,
            "a shared card holds every game's, so DuckStation offers none to copy");
 }
 

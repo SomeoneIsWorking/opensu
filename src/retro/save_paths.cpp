@@ -13,6 +13,10 @@ fs::path named(const fs::path& folder, const fs::path& rom, std::string_view ext
 
 } // namespace
 
+fs::path profileSaveFolder(const fs::path& saves, std::string_view profile) {
+    return saves / std::string{profilesFolder} / std::string{profile};
+}
+
 fs::path systemSaveFolder(const fs::path& saves, std::string_view system) {
     return saves / std::string{system};
 }

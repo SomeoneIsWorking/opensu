@@ -1,5 +1,6 @@
 // save_versions — this openSU's record of each game's shared saves, `save-sync.json` in the state
-// dir: per game (`SaveKey`), a change counter that moves on each time the saves' content hash
+// dir: per game and profile (`SaveKey`), a change counter that moves on each time the saves'
+// content hash
 // (`SaveBundle::hash`) is seen to change, and, per target (`SaveTarget::id`), the hash both held
 // when they last synced. `syncStateOf` is the one rule that compares a game's saves here and on a
 // target against that last sync. `SaveStatus` is one side's version as targets carry it. Safe from
@@ -81,6 +82,8 @@ class SaveVersions {
     /// `key`'s saves here and on `target` both hashed to `hash` at their last sync. Kept.
     void synced(const library::saves::SaveKey& key, const std::string& target,
                 const std::string& hash);
+    /// The games recorded before profiles, which name none, become `profile`'s. Kept.
+    void adopt(std::string_view profile);
 
   private:
     struct Game {
@@ -92,7 +95,7 @@ class SaveVersions {
 
     std::filesystem::path file_;
     mutable std::mutex mutex_;
-    /// By "system\ngame".
+    /// By "profile\nsystem\ngame".
     std::map<std::string, Game, std::less<>> games_;
 };
 

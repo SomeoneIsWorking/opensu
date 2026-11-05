@@ -42,6 +42,7 @@
 #include "lan/wire.hpp"
 #include "library/rom_tree.hpp"
 #include "net/web_client.hpp"
+#include "profiles/profile_book.hpp"
 #include "save_sync/save_bundle.hpp"
 #include "save_sync/save_sync.hpp"
 #include "secrets/crypto.hpp"
@@ -167,6 +168,7 @@ struct Node {
                   [this] {
                       ++savesChanged;
                   }}},
+          profiles{root / name / "profiles.json"},
           node{lan::LanNode::Setup{
               .bookFile = root / name / "lan.json",
               .secrets = secrets::SecretStore{root / name / "secrets", false},
@@ -179,6 +181,7 @@ struct Node {
                       ++changes;
                   },
               .saves = sync,
+              .profiles = profiles,
               .play = [this](const lan::Peer& peer, const std::string& game,
                              const lan::StreamKeys& keys,
                              std::string& refusal) -> std::optional<std::uint16_t> {
@@ -233,6 +236,7 @@ struct Node {
     fs::path saves;
     fs::path state;
     save_sync::SaveSync sync;
+    profiles::ProfileBook profiles;
     lan::LanNode node;
 };
 
@@ -452,8 +456,9 @@ void bundlesStayInTheirSlots() {
 }
 
 /// The standing of `node`'s saves of `game` with its one sharing peer, once a look settles.
-std::optional<save_sync::TargetSaves::Standing> standingOf(Node& node, const library::Game& game) {
-    const std::vector<save_sync::TargetSaves> standings = node.sync.standings(game.id);
+std::optional<save_sync::TargetSaves::Standing> standingOf(Node& node, const library::Game& game,
+                                                           const std::string& player) {
+    const std::vector<save_sync::TargetSaves> standings = node.sync.standings(game.id, player);
     if (standings.size() != 1) {
         return std::nullopt;
     }
@@ -461,14 +466,15 @@ std::optional<save_sync::TargetSaves::Standing> standingOf(Node& node, const lib
 }
 
 /// Looks at `game` on `node` until its saves stand as `expected` with the peer.
-bool looksLike(Node& node, const library::Game& game, save_sync::TargetSaves::Standing expected) {
-    return waitFor([&node, &game, expected] {
+bool looksLike(Node& node, const library::Game& game, const std::string& player,
+               save_sync::TargetSaves::Standing expected) {
+    return waitFor([&node, &game, &player, expected] {
         if (node.sync.busy(game.id)) {
             return false;
         }
-        node.sync.look(game);
+        node.sync.look(game, player);
         std::this_thread::sleep_for(std::chrono::milliseconds{50});
-        return standingOf(node, game) == expected;
+        return standingOf(node, game, player) == expected;
     });
 }
 
@@ -493,8 +499,13 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
     guest.node.share({game});
     host.sync.know({game}, runnerCatalog());
     guest.sync.know({game}, runnerCatalog());
-    const fs::path hostSave = host.saves / "gb" / "Test.srm";
-    const fs::path guestSave = guest.saves / "gb" / "Test.srm";
+    // One player's profile on both: the den's, which the attic holds a copy of.
+    const std::string player = host.profiles.first().id;
+    std::string error;
+    expect(guest.profiles.adopt(host.profiles.first(), host.node.id(), error),
+           "the attic holds the den's profile");
+    const fs::path hostSave = host.saves / "profiles" / player / "gb" / "Test.srm";
+    const fs::path guestSave = guest.saves / "profiles" / player / "gb" / "Test.srm";
     expect(waitFor([&guest] {
                return guest.node.sightings().size() == 1;
            }),
@@ -502,56 +513,57 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
     expect(pairUp(guest, host, true) == GuestPairing::Phase::Paired, "they pair");
 
     writeFile(hostSave, "saved on the den");
-    const std::uint64_t unshared = guest.sync.prepare(game);
+    const std::uint64_t unshared = guest.sync.prepare(game, player);
     expect(waitFor([&guest, unshared] {
                return guest.sync.prepared(unshared);
            }),
            "a launch is let go at once while no peer shares saves");
-    expect(!fs::exists(guestSave) && guest.sync.standings(game.id).empty(),
+    expect(!fs::exists(guestSave) && guest.sync.standings(game.id, player).empty(),
            "and nothing is taken or shown");
 
-    std::string error;
     expect(guest.node.shareSaves(host.node.id(), true, error),
            "the attic shares saves with the den");
     expect(guest.sync.sharing(game), "so the game's saves are shared");
-    expect(looksLike(guest, game, Standing::NotShared),
+    expect(looksLike(guest, game, player, Standing::NotShared),
            "while the den does not share back, it says so");
 
     expect(host.node.shareSaves(guest.node.id(), true, error), "the den shares back");
-    expect(looksLike(guest, game, Standing::NewerThere), "the den's save is newer");
-    const std::uint64_t ticket = guest.sync.prepare(game);
+    expect(looksLike(guest, game, player, Standing::NewerThere), "the den's save is newer");
+    const std::uint64_t ticket = guest.sync.prepare(game, player);
     expect(waitFor([&guest, ticket] {
                return guest.sync.prepared(ticket);
            }),
            "before the game starts here, its saves are synced");
     expect(readFile(guestSave) == "saved on the den",
            "a save made on the den is here before the game starts");
-    expect(standingOf(guest, game) == Standing::InSync, "and both are in sync");
+    expect(standingOf(guest, game, player) == Standing::InSync, "and both are in sync");
 
     writeFile(guestSave, "played in the attic");
-    guest.sync.sync(game);
+    guest.sync.sync(game, player);
     expect(waitFor([&hostSave] {
                return readFile(hostSave) == "played in the attic";
            }),
            "a change here goes to the den after the game ends");
     expect(holdsCopy(host.state, "saved on the den"), "the den's save it replaced is backed up");
-    expect(looksLike(guest, game, Standing::InSync) && looksLike(host, game, Standing::InSync),
+    expect(looksLike(guest, game, player, Standing::InSync) &&
+               looksLike(host, game, player, Standing::InSync),
            "and both say they are in sync");
 
     writeFile(hostSave, "changed on the den");
     writeFile(guestSave, "changed in the attic");
-    expect(looksLike(guest, game, Standing::Conflict) && looksLike(host, game, Standing::Conflict),
+    expect(looksLike(guest, game, player, Standing::Conflict) &&
+               looksLike(host, game, player, Standing::Conflict),
            "a save changed on both sides is a conflict on both");
-    guest.sync.sync(game);
-    expect(looksLike(guest, game, Standing::Conflict) &&
+    guest.sync.sync(game, player);
+    expect(looksLike(guest, game, player, Standing::Conflict) &&
                readFile(hostSave) == "changed on the den" &&
                readFile(guestSave) == "changed in the attic",
            "which a sync leaves alone");
 
     host.setBusy("Close mGBA first: it is running");
-    guest.sync.keep(game, host.node.id(), false);
-    expect(waitFor([&host, &game] {
-               const auto standings = host.sync.standings(game.id);
+    guest.sync.keep(game, player, host.node.id(), false);
+    expect(waitFor([&host, &game, &player] {
+               const auto standings = host.sync.standings(game.id, player);
                return !host.sync.busy(game.id) && standings.size() == 1 &&
                       standings.front().standing == Standing::Failed &&
                       standings.front().problem.find("running") != std::string::npos;
@@ -560,17 +572,19 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
     expect(readFile(hostSave) == "changed on the den", "and the den's save is untouched");
 
     host.setBusy({});
-    host.sync.keep(game, guest.node.id(), true);
+    host.sync.keep(game, player, guest.node.id(), true);
     expect(waitFor([&hostSave] {
                return readFile(hostSave) == "changed in the attic";
            }),
            "once it closed, the player there keeps the attic's");
     expect(holdsCopy(host.state, "changed on the den"), "the save it replaced is backed up");
-    expect(looksLike(host, game, Standing::InSync) && looksLike(guest, game, Standing::InSync),
+    expect(looksLike(host, game, player, Standing::InSync) &&
+               looksLike(guest, game, player, Standing::InSync),
            "and the two are in sync again");
 
     expect(guest.node.shareSaves(host.node.id(), false, error), "the attic stops sharing");
-    expect(looksLike(host, game, Standing::NotShared), "and the den hears it no longer shares");
+    expect(looksLike(host, game, player, Standing::NotShared),
+           "and the den hears it no longer shares");
 }
 
 /// The signed routes, asked directly of a listener.
@@ -722,6 +736,7 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
     library.share({installedGame("own:1", "Shared game", {})});
     lan::RomShelf shelf;
     const net::WebClient web;
+    const profiles::ProfileBook profiles{root / "signed" / "profiles.json"};
     save_sync::SaveSync saves{save_sync::SaveSync::Setup{
         .versionsFile = root / "signed" / "save-sync.json",
         .backups = root / "signed",
@@ -738,6 +753,7 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
                                                         .pairing = pairing,
                                                         .library = library,
                                                         .saves = saves,
+                                                        .profiles = profiles,
                                                         .roms = shelf,
                                                         .name =
                                                             [] {

@@ -86,7 +86,7 @@ SaveCopyController::Found
 SaveCopyController::find(const library::Game& game, const library::saves::SaveKey& key,
                          const library::roms::EmulatorCatalog& catalog) const {
     Found found{.gameId = game.id, .saves = {}, .backups = {}};
-    found.saves = library::saves::savesOf(game, catalog, runnerSaves_);
+    found.saves = library::saves::savesOf(game, catalog, profiles_.runnerSaves(), key.profile);
     for (const EmulatorSaves& saves : found.saves) {
         if (std::optional<library::saves::SaveBackup> backup =
                 copier_.latest(key, saves.emulatorId)) {
@@ -97,7 +97,8 @@ SaveCopyController::find(const library::Game& game, const library::saves::SaveKe
 }
 
 void SaveCopyController::read(const library::Game& game) {
-    const std::optional<library::saves::SaveKey> key = library::saves::keyOf(game);
+    const std::optional<library::saves::SaveKey> key =
+        library::saves::keyOf(game, profiles_.book().active().id);
     if (!key || work_ != Work::None) {
         return;
     }
@@ -119,7 +120,8 @@ std::string SaveCopyController::offer(const library::Game& game) const {
 }
 
 void SaveCopyController::open(const library::Game& game) {
-    std::optional<library::saves::SaveKey> key = library::saves::keyOf(game);
+    std::optional<library::saves::SaveKey> key =
+        library::saves::keyOf(game, profiles_.book().active().id);
     if (isOpen() || !key || offer(game).empty()) {
         return;
     }

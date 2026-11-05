@@ -27,6 +27,10 @@ std::string shortHash(const std::string& text) {
     return secrets::hexText(secrets::crypto::sha256(text)).substr(0, stagingNameBytes * 2);
 }
 
+std::string standingsKey(const std::string& profile, const std::string& gameId) {
+    return profile + "\n" + gameId;
+}
+
 TargetSaves standingOf(const SaveTarget& target, Standing standing, const SaveStatus& ours) {
     return TargetSaves{.targetId = target.id(),
                        .targetName = target.name(),
@@ -61,7 +65,7 @@ void SaveSync::know(const std::vector<library::Game>& games,
                     library::roms::EmulatorCatalog catalog) {
     std::vector<library::Game> keyed;
     for (const library::Game& game : games) {
-        if (game.installed && library::saves::keyOf(game)) {
+        if (game.installed && library::saves::keyOf(game, {})) {
             keyed.push_back(game);
         }
     }
@@ -100,7 +104,8 @@ std::vector<std::shared_ptr<SaveTarget>> SaveSync::targets() const {
 std::optional<library::Game> SaveSync::gameOf(const SaveKey& key) const {
     const std::lock_guard lock{mutex_};
     const auto found = std::ranges::find_if(games_, [&key](const library::Game& game) {
-        return library::saves::keyOf(game) == key;
+        const std::optional<SaveKey> its = library::saves::keyOf(game, key.profile);
+        return its && its->system == key.system && its->game == key.game;
     });
     if (found == games_.end()) {
         return std::nullopt;
@@ -108,8 +113,9 @@ std::optional<library::Game> SaveSync::gameOf(const SaveKey& key) const {
     return *found;
 }
 
-std::optional<SaveSync::Local> SaveSync::localOf(const library::Game& game, std::string& error) {
-    const std::optional<SaveKey> key = library::saves::keyOf(game);
+std::optional<SaveSync::Local> SaveSync::localOf(const library::Game& game,
+                                                 const std::string& profile, std::string& error) {
+    const std::optional<SaveKey> key = library::saves::keyOf(game, profile);
     if (!key) {
         error = game.title + " keeps no saves openSU can find";
         return std::nullopt;
@@ -120,7 +126,7 @@ std::optional<SaveSync::Local> SaveSync::localOf(const library::Game& game, std:
         catalog = catalog_;
     }
     Local local{.key = *key,
-                .all = library::saves::savesOf(game, catalog, setup_.runnerSaves),
+                .all = library::saves::savesOf(game, catalog, setup_.runnerSaves, profile),
                 .launched = {},
                 .bundle = {},
                 .status = {}};
@@ -152,7 +158,7 @@ std::optional<SaveStatus> SaveSync::statusOf(const SaveKey& key) {
     }
     const std::lock_guard lock{work_};
     std::string error;
-    const std::optional<Local> local = localOf(*game, error);
+    const std::optional<Local> local = localOf(*game, key.profile, error);
     if (!local) {
         lucent::warn("saves", "{}'s saves cannot be read for a target: {}", game->title, error);
         return std::nullopt;
@@ -167,7 +173,7 @@ std::optional<std::string> SaveSync::sendable(const SaveKey& key, std::string& e
         return std::nullopt;
     }
     const std::lock_guard lock{work_};
-    const std::optional<Local> local = localOf(*game, error);
+    const std::optional<Local> local = localOf(*game, key.profile, error);
     if (!local) {
         return std::nullopt;
     }
@@ -180,6 +186,7 @@ void SaveSync::heard(const std::string& targetId, const SaveKey& key, bool picke
         return;
     }
     queue(Job{.game = std::move(*game),
+              .profile = key.profile,
               .targetId = targetId,
               .pick = picked ? Pick::Theirs : Pick::None,
               .lookOnly = false,
@@ -195,20 +202,25 @@ void SaveSync::syncedWith(const std::string& targetId, const SaveKey& key,
     versions_.synced(key, targetId, hash);
     lucent::info("saves", "{} took the saves of {} from here", targetId, game->title);
     queue(Job{.game = std::move(*game),
+              .profile = key.profile,
               .targetId = targetId,
               .pick = Pick::None,
               .lookOnly = true,
               .ticket = 0});
 }
 
-std::uint64_t SaveSync::prepare(const library::Game& game) {
+std::uint64_t SaveSync::prepare(const library::Game& game, const std::string& profile) {
     std::uint64_t ticket = 0;
     {
         const std::lock_guard lock{mutex_};
         ticket = ++issued_;
     }
-    queue(
-        Job{.game = game, .targetId = {}, .pick = Pick::None, .lookOnly = false, .ticket = ticket});
+    queue(Job{.game = game,
+              .profile = profile,
+              .targetId = {},
+              .pick = Pick::None,
+              .lookOnly = false,
+              .ticket = ticket});
     return ticket;
 }
 
@@ -217,16 +229,26 @@ bool SaveSync::prepared(std::uint64_t ticket) const {
     return finished_.contains(ticket);
 }
 
-void SaveSync::sync(const library::Game& game) {
-    queue(Job{.game = game, .targetId = {}, .pick = Pick::None, .lookOnly = false, .ticket = 0});
+void SaveSync::sync(const library::Game& game, const std::string& profile) {
+    queue(Job{.game = game,
+              .profile = profile,
+              .targetId = {},
+              .pick = Pick::None,
+              .lookOnly = false,
+              .ticket = 0});
 }
 
-void SaveSync::look(const library::Game& game) {
-    queue(Job{.game = game, .targetId = {}, .pick = Pick::None, .lookOnly = true, .ticket = 0});
+void SaveSync::look(const library::Game& game, const std::string& profile) {
+    queue(Job{.game = game,
+              .profile = profile,
+              .targetId = {},
+              .pick = Pick::None,
+              .lookOnly = true,
+              .ticket = 0});
 }
 
 bool SaveSync::sharing(const library::Game& game) const {
-    if (!library::saves::keyOf(game)) {
+    if (!library::saves::keyOf(game, {})) {
         return false;
     }
     return std::ranges::any_of(targets(), [](const std::shared_ptr<SaveTarget>& target) {
@@ -234,17 +256,20 @@ bool SaveSync::sharing(const library::Game& game) const {
     });
 }
 
-void SaveSync::keep(const library::Game& game, const std::string& targetId, bool theirs) {
+void SaveSync::keep(const library::Game& game, const std::string& profile,
+                    const std::string& targetId, bool theirs) {
     queue(Job{.game = game,
+              .profile = profile,
               .targetId = targetId,
               .pick = theirs ? Pick::Theirs : Pick::Ours,
               .lookOnly = false,
               .ticket = 0});
 }
 
-std::vector<TargetSaves> SaveSync::standings(const std::string& gameId) const {
+std::vector<TargetSaves> SaveSync::standings(const std::string& gameId,
+                                             const std::string& profile) const {
     const std::lock_guard lock{mutex_};
-    const auto found = standings_.find(gameId);
+    const auto found = standings_.find(standingsKey(profile, gameId));
     return found == standings_.end() ? std::vector<TargetSaves>{} : found->second;
 }
 
@@ -299,10 +324,10 @@ void SaveSync::run(const Job& job) {
     std::erase_if(found, [&job](const std::shared_ptr<SaveTarget>& target) {
         return !job.targetId.empty() && target->id() != job.targetId;
     });
-    if (found.empty() || !library::saves::keyOf(job.game)) {
+    if (found.empty() || !library::saves::keyOf(job.game, job.profile)) {
         const std::lock_guard lock{mutex_};
         if (job.targetId.empty()) {
-            standings_.erase(job.game.id);
+            standings_.erase(standingsKey(job.profile, job.game.id));
         }
         return;
     }
@@ -310,7 +335,7 @@ void SaveSync::run(const Job& job) {
     {
         const std::lock_guard lock{work_};
         std::string error;
-        if (const std::optional<Local> local = localOf(job.game, error)) {
+        if (const std::optional<Local> local = localOf(job.game, job.profile, error)) {
             ours = local->status;
         }
     }
@@ -325,7 +350,7 @@ void SaveSync::run(const Job& job) {
         }
     }
     const std::lock_guard lock{mutex_};
-    std::vector<TargetSaves>& kept = standings_[job.game.id];
+    std::vector<TargetSaves>& kept = standings_[standingsKey(job.profile, job.game.id)];
     if (job.targetId.empty()) {
         kept = std::move(stood);
         return;
@@ -346,7 +371,7 @@ std::optional<TargetSaves> SaveSync::syncWith(const Job& job, SaveTarget& target
     std::optional<Local> local;
     {
         const std::lock_guard lock{work_};
-        local = localOf(job.game, error);
+        local = localOf(job.game, job.profile, error);
     }
     if (!local) {
         standing.problem = error;
@@ -424,7 +449,7 @@ std::optional<TargetSaves> SaveSync::syncWith(const Job& job, SaveTarget& target
         lucent::warn("saves", "{} {}: {}", local->key.system, local->key.game, standing.problem);
         return standing;
     }
-    if (std::string refused = take(job.game, target, *bundle, theirs, local->status.hash);
+    if (std::string refused = take(job, target, *bundle, theirs, local->status.hash);
         !refused.empty()) {
         standing.standing = Standing::Failed;
         standing.problem = std::move(refused);
@@ -438,12 +463,12 @@ std::optional<TargetSaves> SaveSync::syncWith(const Job& job, SaveTarget& target
     return standing;
 }
 
-std::string SaveSync::take(const library::Game& game, const SaveTarget& target,
-                           const SaveBundle& bundle, const SaveStatus& theirs,
-                           const std::string& expected) {
+std::string SaveSync::take(const Job& job, const SaveTarget& target, const SaveBundle& bundle,
+                           const SaveStatus& theirs, const std::string& expected) {
+    const library::Game& game = job.game;
     const std::lock_guard lock{work_};
     std::string error;
-    const std::optional<Local> local = localOf(game, error);
+    const std::optional<Local> local = localOf(game, job.profile, error);
     if (!local) {
         return error;
     }
@@ -453,8 +478,9 @@ std::string SaveSync::take(const library::Game& game, const SaveTarget& target,
     if (std::string refused = setup_.inUse(game, local->launched); !refused.empty()) {
         return refused;
     }
-    const fs::path folder = setup_.staging / shortHash(target.id()) /
-                            shortHash(local->key.system + "\n" + local->key.game);
+    const fs::path folder =
+        setup_.staging / shortHash(target.id()) /
+        shortHash(local->key.profile + "\n" + local->key.system + "\n" + local->key.game);
     library::saves::CopyProgress progress;
     try {
         const library::saves::EmulatorSaves from = staged(bundle, folder, target.name());

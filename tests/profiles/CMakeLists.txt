@@ -1,0 +1,5 @@
+add_executable(profiles_test profiles_test.cpp)
+target_link_libraries(profiles_test PRIVATE opensu::profiles opensu::save_sync opensu::launch)
+opensu_warnings(profiles_test)
+target_compile_definitions(profiles_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME profiles COMMAND profiles_test)

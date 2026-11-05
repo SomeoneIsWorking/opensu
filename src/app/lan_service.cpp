@@ -84,6 +84,7 @@ void LanService::start() {
                                                                            news->store(true);
                                                                        },
                                                                    .saves = places_.saves,
+                                                                   .profiles = places_.profiles,
                                                                    .play = hooks_.play,
                                                                    .roms = std::move(roms)});
     } catch (const std::runtime_error& error) {

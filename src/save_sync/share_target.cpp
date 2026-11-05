@@ -24,7 +24,8 @@ std::string keyFile() {
 
 std::string fileOf(const SaveKey& key, std::string_view kind) {
     return std::string{shareFolder} + "/" +
-           secrets::hexText(secrets::crypto::sha256(key.system + "\n" + key.game))
+           secrets::hexText(
+               secrets::crypto::sha256(key.profile + "\n" + key.system + "\n" + key.game))
                .substr(0, nameBytes * 2) +
            std::string{kind};
 }

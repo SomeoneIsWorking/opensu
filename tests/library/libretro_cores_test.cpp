@@ -209,7 +209,6 @@ void foundCoreIsAnEmulator(const fs::path& root) {
     EmulatorSearch search;
     search.cores = CoreSearch{root / "cores", {root / "system"}, {}};
     search.runner = root / "bin" / "opensu-retro";
-    search.saves = root / "saves";
     const fs::path rom = root / "Kirby.gba";
 
     expect(Emulators::discover(catalog, search, {}).installed("gba-core") == nullptr,
@@ -237,10 +236,8 @@ void foundCoreIsAnEmulator(const fs::path& root) {
            "a core in a system folder is installed, not openSU's to remove");
     const LaunchSpec spec = need(found.launch("gba", rom), "the system's games start on it");
     expect(spec.program == search.runner.string() &&
-               spec.args == std::vector<std::string>{"--core", core, "--saves",
-                                                     (root / "saves" / "gba").string(),
-                                                     rom.string()},
-           "as opensu-retro --core <core> --saves <saves>/<system> <rom>");
+               spec.args == std::vector<std::string>{"--core", core, rom.string()},
+           "as opensu-retro --core <core> <rom>; the shell names its saves at launch");
     const std::vector<EmulatorOption> options = found.options("gba", rom);
     expect(options.size() == 1 && options[0].installed && options[0].launch.program == spec.program,
            "and the ROM's emulator options show it installed");

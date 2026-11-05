@@ -252,8 +252,12 @@ std::vector<const SaveSlot*> copiedSlots(const EmulatorSaves& from) {
     return slots;
 }
 
+fs::path profileBackups(const fs::path& state, std::string_view profile) {
+    return state / backupsFolder / profileBackupsFolder / std::string{profile};
+}
+
 fs::path SaveCopier::folderOf(const SaveKey& key, std::string_view emulatorId) const {
-    return backups_ / backupsFolder / key.system / key.game / std::string{emulatorId};
+    return profileBackups(backups_, key.profile) / key.system / key.game / std::string{emulatorId};
 }
 
 std::string SaveCopier::copy(const SaveKey& key, const EmulatorSaves& from, const EmulatorSaves& to,

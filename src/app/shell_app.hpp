@@ -81,6 +81,7 @@
 #include "panel_flow.hpp"
 #include "path_editor.hpp"
 #include "player_files.hpp"
+#include "player_profiles.hpp"
 #include "plugin_service.hpp"
 #include "plugin_settings.hpp"
 #include "polkit_prompt_controller.hpp"
@@ -319,6 +320,9 @@ class ShellApp final {
     /// the runner's saves where `files_` keeps them.
     config::Config resolved_{
         files_.savingIn(settings::resolved(environment_, preferences_.values()))};
+    /// The player profiles, opened before anything reads saves, the saves from before profiles
+    /// moved into the first one's.
+    PlayerProfiles profiles_{files_, resolved_.savesDir};
     /// The arcade cores' romset lists, fetched off the library scan; before the catalog that
     /// matches with them.
     library::roms::RomsetLists romsetLists_{resolved_.cacheDir};
@@ -587,7 +591,7 @@ class ShellApp final {
         shell_.screens().chrome(),
         sounds_,
         emulatorDownloads_,
-        SaveCopyController::Places{resolved_.savesDir, files_.stateDir()},
+        SaveCopyController::Places{profiles_, files_.stateDir()},
         SaveCopyController::Hooks{[this](const std::string& text, bool isError) {
                                       shell_.setToast(text, isError);
                                   },
@@ -805,7 +809,7 @@ class ShellApp final {
                                     .recordFile = files_.stateDir() / save_sync::epicSavesFile,
                                     .backups = files_.stateDir(),
                                     .changed = {}},
-        files_.secrets(environment_.keyring), [this] {
+        files_.secrets(environment_.keyring), profiles_.book(), [this] {
             details_.refresh();
         }};
     /// This openSU on the LAN while LAN is on: pairing, and the paired openSUs' games.
@@ -815,6 +819,7 @@ class ShellApp final {
                            .coverCache = resolved_.cacheDir / "lan",
                            .port = settings_.lanPort,
                            .saves = saveSharing_.engine(),
+                           .profiles = profiles_.book(),
                            .roms = LanRoms::importSetup(files_.stateDir() / "lan-roms", romTree_)},
         preferences_,
         shell_.screens().navigator(),

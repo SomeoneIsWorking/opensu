@@ -48,10 +48,12 @@ void measure(SaveSlot& slot) {
     }
 }
 
-/// The runner's save RAM and state of `game`, each where the runner keeps it whether it is there
-/// yet or not.
-std::vector<SaveSlot> runnerSlots(const fs::path& saves, const Game& game) {
-    const fs::path folder = retro::systemSaveFolder(saves, game.sourceId);
+/// The runner's save RAM and state of `game` for `profile`, each where the runner keeps it whether
+/// it is there yet or not.
+std::vector<SaveSlot> runnerSlots(const fs::path& saves, std::string_view profile,
+                                  const Game& game) {
+    const fs::path folder =
+        retro::systemSaveFolder(retro::profileSaveFolder(saves, profile), game.sourceId);
     std::vector<SaveSlot> slots;
     for (const auto& [kind, file] :
          {std::pair{SlotKind::Memory, retro::saveMemoryFile(folder, game.file)},
@@ -127,7 +129,7 @@ const SaveSlot* EmulatorSaves::slotFor(SlotKind kind) const {
     return count == 1 ? only : nullptr;
 }
 
-std::optional<SaveKey> keyOf(const Game& game) {
+std::optional<SaveKey> keyOf(const Game& game, std::string_view profile) {
     if (game.source != Source::Rom || game.file.empty()) {
         return std::nullopt;
     }
@@ -135,9 +137,12 @@ std::optional<SaveKey> keyOf(const Game& game) {
         if (game.titleId.empty()) {
             return std::nullopt;
         }
-        return SaveKey{.system = game.sourceId, .game = game.titleId};
+        return SaveKey{
+            .system = game.sourceId, .game = game.titleId, .profile = std::string{profile}};
     }
-    return SaveKey{.system = game.sourceId, .game = game.file.stem().string()};
+    return SaveKey{.system = game.sourceId,
+                   .game = game.file.stem().string(),
+                   .profile = std::string{profile}};
 }
 
 std::vector<SaveSlot> storedSlots(const SaveHome& home) {
@@ -167,8 +172,8 @@ bool copyable(const std::vector<EmulatorSaves>& saves) {
 }
 
 std::vector<EmulatorSaves> savesOf(const Game& game, const roms::EmulatorCatalog& catalog,
-                                   const fs::path& runnerSaves) {
-    const std::optional<SaveKey> key = keyOf(game);
+                                   const fs::path& runnerSaves, std::string_view profile) {
+    const std::optional<SaveKey> key = keyOf(game, profile);
     if (!key) {
         return {};
     }
@@ -191,7 +196,7 @@ std::vector<EmulatorSaves> savesOf(const Game& game, const roms::EmulatorCatalog
             runnerListed = true;
             saves = EmulatorSaves{.emulatorId = std::string{runnerSavesId},
                                   .emulatorName = std::string{runnerName},
-                                  .slots = runnerSlots(runnerSaves, game),
+                                  .slots = runnerSlots(runnerSaves, profile, game),
                                   .home = std::nullopt,
                                   .processHint = {}};
             std::ranges::for_each(saves.slots, measure);

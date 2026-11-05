@@ -61,7 +61,7 @@ undone while either emulator runs.
    (2026-11-04): `library::saves` (`game_saves`, `switch_saves`, `save_copy`) and Copy saves on
    the details page (`SaveCopyController`); a copy is slot by slot for the kinds both keep
    (account save of the current profile, device save), the target's slots backed up whole under
-   `<state dir>/save-backups/<system>/<title id>/<emulator>/<UTC time>/` and put back by Undo copy.
+   `<state dir>/save-backups/profiles/<profile>/<system>/<title id>/<emulator>/<UTC time>/` and put back by Undo copy.
    Proven on scratch copies of the player's Eden and Ryujinx data; Ryujinx is not installed here,
    so a stand-in on `PATH` stood for it. Then (2026-11-04): only an emulator holding a save is a
    source; a target without one gets it made (yuzu's folder, Kenji-NX's game folder, Ryubing's

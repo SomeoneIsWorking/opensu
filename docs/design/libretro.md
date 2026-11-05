@@ -25,7 +25,7 @@ handoff sees it appear and end exactly as it sees a standalone emulator.
 shell ── Handoff (scope) ──▶ opensu-retro --core <so> [options] <rom>
                                  │ SDL window, Vulkan    │ evdev pads (the shell's virtual pad
                                  │ SDL audio             │ while the shell holds the real ones)
-                                 └ saves under <data>/opensu/saves/<system>/
+                                 └ saves under <data>/opensu/saves/profiles/<profile>/<system>/
 ```
 
 Why a child window and not frames sent back to the shell: the overlay, scopes, game-quit handling
@@ -111,7 +111,7 @@ object of resolved video settings (`{"video.aspect": "4:3", "video.integer": "of
 "video.sampling": "nearest", "video.filter": "none", "video.shader": "<absolute .slangp path>"}`);
 a key it lacks keeps its default, a value that is no choice is exit 1. The runner never reads `game-settings.json`. `--saves` defaults to
 `<data>/opensu/saves/<core name>/` (the core file's stem without `_libretro`; the launcher passes
-the system's folder), `--system` to `<data>/opensu/system/`, both from `config::Config`. `--hidden`,
+the active profile's system folder), `--system` to `<data>/opensu/system/`, both from `config::Config`. `--hidden`,
 `--validate`, `--frames` and `--frame-png` are for tests and tools: `--hidden` is an unmapped SDL
 window (`SDL_WINDOW_HIDDEN`), drawing into an offscreen image, no sound device (the sink is drained
 by the clock, so rate control still runs), no pads and no keyboard; `--validate` enables

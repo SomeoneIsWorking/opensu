@@ -67,7 +67,7 @@ It never shares the loopback control channel's port.
 | `GET /lan/library` | paired, signed | `[{"id","title","cover"}]`, installed local games only |
 | `GET /lan/cover/<token>` | paired, signed | one listed cover, at most 16 MiB |
 | `POST /lan/unpair` | paired, signed | the caller forgets this openSU; this one forgets it |
-| `POST /lan/saves/status` | sharing saves, signed | `{"system","game"}` → `{"counter","hash","bytes","modified"}`; 404 when no game here has that key |
+| `POST /lan/saves/status` | sharing saves, signed | `{"system","game","profile"}` → `{"counter","hash","bytes","modified"}`; 404 when no profile here has that id or no game that key |
 | `POST /lan/saves/get` | sharing saves, signed | the same ask → the saves as a bundle (below), at most 512 MiB |
 | `POST /lan/saves/news` | sharing saves, signed | the caller holds newer saves of the game (`picked`: the player there chose them in a conflict); this one pulls them |
 | `POST /lan/saves/synced` | sharing saves, signed | the caller took `hash` (`counter`) of the game from here |
@@ -140,11 +140,13 @@ Settings › LAN has a Share saves switch per paired openSU, off by default (`"s
 
 - Which saves: those of the emulator the game starts with (`library::saves::launchedSaves`), the
   slots a copy carries (`copiedSlots`), matched across openSUs by `SaveKey` (console and Switch
-  title id, or the ROM's name for the runner). The saves taken are copied over the ones here by
+  title id, or the ROM's name for the runner, and the profile's id). The node syncs the active
+  profile's saves; another openSU's profiles are not in the book here until a copy links one
+  ([player profiles](../plans/player-profiles.md)), so until then its asks are 404. The saves taken are copied over the ones here by
   `library::saves::SaveCopier`, so a Switch save made by Eden on one side lands in Ryujinx's
   format on the other through the same code as Copy saves; other consoles' saves go runner to
   runner.
-- The record (`save-sync.json`, state dir, shared with the folder and WebDAV targets): per game a change counter, raised whenever the content
+- The record (`save-sync.json`, state dir, shared with the folder and WebDAV targets): per profile and game a change counter, raised whenever the content
   hash here changes, the hash (SHA-256 over each file's slot kind, path and bytes; times do not
   count), and per target (a peer's id) the hash both held when they last synced.
 - The rule (`syncStateOf`): the same hash is in sync; no save on one side takes the other's; else

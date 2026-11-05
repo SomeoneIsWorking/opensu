@@ -1,6 +1,7 @@
 // game_saves — the one owner of "this game's saves": for a ROM, each installed emulator of its
 // system that keeps saves, the save slots it keeps for the game, found by console and game
-// identity (a Switch title id, the ROM's name for the built-in runner) rather than by path, each
+// identity (a Switch title id, the ROM's name for the built-in runner) and the player profile
+// they are kept for rather than by path, each
 // with its size and newest change, and how it would make a slot it does not have yet.
 // Standalone emulators' save folders come from the catalog (`SaveStore`, its Flatpak's when it is
 // installed as one), the built-in runner's files from its own path owner (`retro/save_paths`).
@@ -11,6 +12,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "emulator_catalog.hpp"
@@ -18,11 +20,13 @@
 
 namespace opensu::library::saves {
 
-/// A game as its saves know it: the console and the game's own id there.
+/// A game's saves as they are known: the console, the game's own id there, and whose they are.
 struct SaveKey {
     std::string system;
     /// A Switch title id; the ROM's name without its extension for the built-in runner.
     std::string game;
+    /// The player profile they are kept for (`profiles::Profile::id`).
+    std::string profile;
 
     bool operator==(const SaveKey&) const = default;
 };
@@ -106,20 +110,22 @@ struct EmulatorSaves {
 /// The built-in runner's entry in `savesOf`, one for every core, which share its folder.
 inline constexpr std::string_view runnerSavesId = "built-in";
 
-/// What `game`'s saves are found by; nothing for a game that is no ROM, or a Switch file whose
-/// title id could not be read.
-[[nodiscard]] std::optional<SaveKey> keyOf(const Game& game);
+/// What `profile`'s saves of `game` are found by; nothing for a game that is no ROM, or a Switch
+/// file whose title id could not be read.
+[[nodiscard]] std::optional<SaveKey> keyOf(const Game& game, std::string_view profile);
 
 /// The slots `home` keeps for its title, measured.
 [[nodiscard]] std::vector<SaveSlot> storedSlots(const SaveHome& home);
 
 /// Each installed emulator of `game` that keeps saves, in the game's emulator order, with the
-/// slots it keeps of the game, none when it has none yet: standalone ones through their catalog
-/// `SaveStore`, the built-in runner's `.srm` and state under `runnerSaves` (`Config::savesDir`),
-/// both listed where the runner keeps them, holding a file or not.
+/// slots it keeps of the game for `profile`, none when it has none yet: standalone ones through
+/// their catalog `SaveStore`, the built-in runner's `.srm` and state in the profile's folder under
+/// `runnerSaves` (`Config::savesDir`), both listed where the runner keeps them, holding a file or
+/// not.
 [[nodiscard]] std::vector<EmulatorSaves> savesOf(const Game& game,
                                                  const roms::EmulatorCatalog& catalog,
-                                                 const std::filesystem::path& runnerSaves);
+                                                 const std::filesystem::path& runnerSaves,
+                                                 std::string_view profile);
 
 /// Among `saves` (`savesOf(game)`), those of the emulator `game` starts with (`Game::emulator`);
 /// null when it keeps none there.

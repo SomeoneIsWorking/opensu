@@ -1,8 +1,8 @@
-// retro_launch — what a game launched on a built-in core takes besides its command: its video
-// settings resolved from the setting layers, written to the launch's settings file, and
-// `--settings <file>` put on its command line with an `--option key=value` for each core option a
-// layer keeps; the same video resolution for a change while it runs. The runner never reads the
-// layers itself.
+// retro_launch — what a game launched on a built-in core takes besides its command: the saves
+// folder of the profile it plays as (`--saves`), its video settings resolved from the setting
+// layers, written to the launch's settings file, and `--settings <file>` put on its command line
+// with an `--option key=value` for each core option a layer keeps; the same video resolution for a
+// change while it runs. The runner never reads the layers itself.
 #pragma once
 
 #include <filesystem>
@@ -26,13 +26,13 @@ builtInOf(const library::Game& game, const library::roms::EmulatorCatalog& catal
 retroVideoOf(const library::Game& game, const settings::SettingLayers& layers,
              const library::roms::EmulatorCatalog& catalog, const std::filesystem::path& presets);
 
-/// Readies `game`, about to start, for `opensu-retro`: its settings written to `file` (a shader
-/// preset as its path under `presets`, the shader pack) and the option naming it added. A game on
-/// no built-in core is left alone. Empty when done, else why the file could not be written.
-[[nodiscard]] std::string prepareRetroLaunch(library::Game& game,
-                                             const settings::SettingLayers& layers,
-                                             const library::roms::EmulatorCatalog& catalog,
-                                             const std::filesystem::path& file,
-                                             const std::filesystem::path& presets);
+/// Readies `game`, about to start, for `opensu-retro`: its saves in its console's folder under
+/// `saves` (the profile's, `retro::profileSaveFolder`), its settings written to `file` (a shader
+/// preset as its path under `presets`, the shader pack) and the options naming both added. A game
+/// on no built-in core is left alone. Empty when done, else why the file could not be written.
+[[nodiscard]] std::string
+prepareRetroLaunch(library::Game& game, const settings::SettingLayers& layers,
+                   const library::roms::EmulatorCatalog& catalog, const std::filesystem::path& file,
+                   const std::filesystem::path& presets, const std::filesystem::path& saves);
 
 } // namespace opensu::app

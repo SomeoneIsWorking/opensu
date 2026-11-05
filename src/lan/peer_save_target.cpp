@@ -20,8 +20,12 @@ constexpr long notFound = 404;
 constexpr std::size_t largestNote = std::size_t{16} * 1024;
 
 wire::SaveAsk askFor(const SaveKey& key) {
-    return wire::SaveAsk{
-        .system = key.system, .game = key.game, .picked = false, .hash = {}, .counter = 0};
+    return wire::SaveAsk{.system = key.system,
+                         .game = key.game,
+                         .profile = key.profile,
+                         .picked = false,
+                         .hash = {},
+                         .counter = 0};
 }
 
 std::string describe(const std::optional<net::WebClient::Answer>& answer,

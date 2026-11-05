@@ -44,7 +44,7 @@ size, or "No save yet" (A lists them when there is more than one). Copy saves as
 the target's saves of that game with the source's: for Switch the current profile's save and the
 device save, for other consoles the game's save file or memory card. A target without one gets it
 made where that emulator makes it, for its current profile. The target's saves are backed up first
-under `~/.local/state/opensu/save-backups/<console>/<game>/<emulator>/<time>/`, and Undo copy on the same card puts the newest backup back exactly as it
+under `~/.local/state/opensu/save-backups/profiles/<profile>/<console>/<game>/<emulator>/<time>/`, and Undo copy on the same card puts the newest backup back exactly as it
 was and removes what the copy made. The row shows how far a copy or an undo is. Nothing is copied
 while either emulator is running: close it first, as the message says.
 

@@ -3,7 +3,9 @@
 `opensu-retro` runs one game in a libretro core, in its own window drawn with Vulkan (MoltenVK on
 macOS): the built-in emulator openSU launches like any other. It reads every pad without grabbing
 it, the keyboard and, on Android, its own touch controls; plays the core's sound at 48 kHz; and
-keeps save RAM in `<data>/opensu/saves/<system>/<rom>.srm`, written when it changes and at exit.
+keeps save RAM in `<data>/opensu/saves/profiles/<profile>/<system>/<rom>.srm`, one folder per
+player profile, written when it changes and at exit. Saves from before profiles move into the
+first profile's folder once, backed up first under `~/.local/state/opensu/save-backups/before-profiles/`.
 It and the ROM library are the two parts of openSU that are always on.
 
 ![uCity with the crt-royale preset](../screenshots/retro-crt.webp)
