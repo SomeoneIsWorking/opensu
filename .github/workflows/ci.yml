@@ -38,7 +38,7 @@ jobs:
       # get a user manager; the fork is built natively inside it.
       - name: Xvfb for the tests' hidden windows
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb xauth
-      - name: Pinned sources, configure, build, lint, test (packaging/ci container)
+      - name: Pinned sources, configure, build, test, lint (packaging/ci container)
         run: xvfb-run -a uv run --frozen python -m tools.check ci --build-dir "$GITHUB_WORKSPACE/build/ci"
 
   appimage:
@@ -147,7 +147,7 @@ jobs:
           path: build/windows-ci/vcpkg-cache
           key: vcpkg-${{ hashFiles('vcpkg.json', 'packaging/windows/triplets/*', 'cmake/toolchains/windows-clang-cl.cmake') }}-${{ github.run_id }}
           restore-keys: vcpkg-${{ hashFiles('vcpkg.json', 'packaging/windows/triplets/*', 'cmake/toolchains/windows-clang-cl.cmake') }}-
-      - name: Pinned sources, configure, build, lint, test (lavapipe for the hidden windows)
+      - name: Pinned sources, configure, build, test, lint (lavapipe for the hidden windows)
         run: uv run --frozen python -m tools.check all --platform windows --build-dir build/windows-ci
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: always()
@@ -203,7 +203,7 @@ jobs:
           path: build/macos-ci/vcpkg-cache
           key: vcpkg-macos-${{ hashFiles('vcpkg.json', 'packaging/macos/triplets/*') }}-${{ github.run_id }}
           restore-keys: vcpkg-macos-${{ hashFiles('vcpkg.json', 'packaging/macos/triplets/*') }}-
-      - name: Pinned sources, configure, build, lint, test (the runner's Metal device through MoltenVK)
+      - name: Pinned sources, configure, build, test, lint (the runner's Metal device through MoltenVK)
         run: uv run --frozen python -m tools.check all --platform macos --build-dir build/macos-ci
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: always()

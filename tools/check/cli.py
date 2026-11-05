@@ -3,10 +3,10 @@
 `lint --changed [--base REF]` lints what changed against REF's merge base, uncommitted files
 included, and clang-tidy the translation units that reach it; plain `lint` is the full check.
 
-Steps run in order: deps (pinned Lucent and gpu2d, and vcpkg for Windows), configure, build, lint,
-test; `all` runs every one. On Linux every step but test runs in the build image (packaging/ci on
-the host's Fedora release, tools/check/container.py) and test runs on the host. `ci` runs `all`
-inside the build image on the pinned Fedora 44 with systemd, as the CI workflow does. `install`
+Steps run in order: deps (pinned Lucent and gpu2d, and vcpkg for Windows), configure, build, test,
+lint, so a lint finding never hides what the tests say; `all` runs every one. On Linux every step
+but test runs in the build image (packaging/ci on the host's Fedora release,
+tools/check/container.py) and test runs on the host. `ci` runs `all` inside the build image on the pinned Fedora 44 with systemd, as the CI workflow does. `install`
 (not part of `all`) installs the tree into `--prefix` (default ~/.local) and, on Linux, puts the
 menu entry it installed on the desktop too (tools/check/shortcut.py); `--destdir` stages it instead.
 `--platform windows` builds on a Windows host with clang-cl and vcpkg (tools/check/windows.py),
@@ -21,7 +21,7 @@ from pathlib import Path
 from tools.check import cmake, container, deps, lint, macos, process, shortcut, windows
 from tools.checkout import REPO, require_own_environment
 
-STEPS = ("deps", "configure", "build", "lint", "test")
+STEPS = ("deps", "configure", "build", "test", "lint")
 # Every component: the shell, the runner, the fork, assets, the menu entry and the icon.
 INSTALL_COMPONENT = "Unspecified"
 

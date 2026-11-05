@@ -224,7 +224,7 @@ void LanNetplay::serviceQuestion() {
     }
     closeQuestion();
     asked_ = std::move(question);
-    if (!asked_) {
+    if (!asked_ || node == nullptr) {
         return;
     }
     const lan::NetplayAsks::Question& asked = *asked_;
