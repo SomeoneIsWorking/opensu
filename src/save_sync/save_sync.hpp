@@ -168,12 +168,13 @@ class SaveSync {
 
     void queue(Job job);
     void work(const std::stop_token& stop);
-    void run(const Job& job);
+    void run(const std::stop_token& stop, const Job& job);
     /// Every group's targets as they are now.
     [[nodiscard]] std::vector<std::shared_ptr<SaveTarget>> targets() const;
     /// One target's standing, after taking or giving what `job` allows; nothing when it does not
-    /// have the game. Off the work lock.
-    [[nodiscard]] std::optional<TargetSaves> syncWith(const Job& job, SaveTarget& target);
+    /// have the game or `stop` ended it. Off the work lock.
+    [[nodiscard]] std::optional<TargetSaves> syncWith(const std::stop_token& stop, const Job& job,
+                                                      SaveTarget& target);
     /// `profile`'s saves of `game` here, read under the work lock; nothing, with `error`, when it
     /// has none to sync.
     [[nodiscard]] std::optional<Local> localOf(const library::Game& game,

@@ -322,7 +322,7 @@ void SaveSync::work(const std::stop_token& stop) {
         }
         {
             const std::lock_guard running{job_};
-            run(job);
+            run(stop, job);
         }
         {
             const std::lock_guard lock{mutex_};
@@ -335,7 +335,7 @@ void SaveSync::work(const std::stop_token& stop) {
     }
 }
 
-void SaveSync::run(const Job& job) {
+void SaveSync::run(const std::stop_token& stop, const Job& job) {
     std::vector<std::shared_ptr<SaveTarget>> found = targets();
     std::erase_if(found, [&job](const std::shared_ptr<SaveTarget>& target) {
         return !job.targetId.empty() && target->id() != job.targetId;
@@ -361,9 +361,12 @@ void SaveSync::run(const Job& job) {
             stood.push_back(standingOf(*target, Standing::Offline, ours));
             continue;
         }
-        if (std::optional<TargetSaves> standing = syncWith(job, *target)) {
+        if (std::optional<TargetSaves> standing = syncWith(stop, job, *target)) {
             stood.push_back(std::move(*standing));
         }
+    }
+    if (stop.stop_requested()) {
+        return;
     }
     const std::lock_guard lock{mutex_};
     std::vector<TargetSaves>& kept = standings_[standingsKey(job.profile, job.game.id)];
@@ -381,7 +384,8 @@ void SaveSync::run(const Job& job) {
     }
 }
 
-std::optional<TargetSaves> SaveSync::syncWith(const Job& job, SaveTarget& target) {
+std::optional<TargetSaves> SaveSync::syncWith(const std::stop_token& stop, const Job& job,
+                                              SaveTarget& target) {
     TargetSaves standing = standingOf(target, Standing::Failed, {});
     std::string error;
     std::optional<Local> local;
@@ -394,7 +398,7 @@ std::optional<TargetSaves> SaveSync::syncWith(const Job& job, SaveTarget& target
         return standing;
     }
     standing.ours = local->status;
-    const SaveTarget::Held held = target.status(std::stop_token{}, local->key);
+    const SaveTarget::Held held = target.status(stop, local->key);
     switch (held.kind) {
     case SaveTarget::Held::Kind::NoGame:
         return std::nullopt;
@@ -433,8 +437,8 @@ std::optional<TargetSaves> SaveSync::syncWith(const Job& job, SaveTarget& target
         if (job.lookOnly) {
             return standing;
         }
-        const SaveTarget::Given given = target.give(std::stop_token{}, local->key, local->bundle,
-                                                    local->status, job.pick == Pick::Ours, error);
+        const SaveTarget::Given given = target.give(stop, local->key, local->bundle, local->status,
+                                                    job.pick == Pick::Ours, error);
         if (given == SaveTarget::Given::Stopped) {
             return std::nullopt;
         }
@@ -462,7 +466,10 @@ std::optional<TargetSaves> SaveSync::syncWith(const Job& job, SaveTarget& target
     if (job.lookOnly) {
         return standing;
     }
-    const std::optional<SaveBundle> bundle = target.fetch(std::stop_token{}, local->key, error);
+    const std::optional<SaveBundle> bundle = target.fetch(stop, local->key, error);
+    if (stop.stop_requested()) {
+        return std::nullopt;
+    }
     if (!bundle || bundle->hash() != theirs.hash) {
         standing.standing = Standing::Failed;
         standing.problem = bundle ? target.name() + "'s saves changed while they were taken"
@@ -480,7 +487,7 @@ std::optional<TargetSaves> SaveSync::syncWith(const Job& job, SaveTarget& target
     }
     standing.standing = Standing::InSync;
     standing.ours = theirs;
-    target.took(std::stop_token{}, local->key, theirs);
+    target.took(stop, local->key, theirs);
     return standing;
 }
 
