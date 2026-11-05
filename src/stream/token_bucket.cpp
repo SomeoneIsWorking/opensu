@@ -16,6 +16,11 @@ void TokenBucket::set(double bytesPerSecond, double depth) {
     started_ = false;
 }
 
+void TokenBucket::changeRate(double bytesPerSecond, std::uint64_t nowUs) {
+    fill(nowUs);
+    bytesPerSecond_ = bytesPerSecond;
+}
+
 void TokenBucket::fill(std::uint64_t nowUs) {
     if (!started_) {
         tokens_ = depth_;

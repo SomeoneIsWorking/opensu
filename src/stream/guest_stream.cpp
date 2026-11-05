@@ -24,13 +24,8 @@ constexpr std::size_t pongsKept = 25;
 constexpr std::uint64_t microsPerSecond = 1000000;
 /// Asks for a key frame at most this often; the host's answer takes a round trip.
 constexpr std::uint64_t keyAskEveryUs = 100'000;
-
-/// One pong as heard: the round trip, when its ping went and the host's clock as it answered.
-struct PongSample {
-    std::uint64_t roundTripUs{0};
-    std::uint64_t pingUs{0};
-    std::uint64_t hostUs{0};
-};
+/// How often a probe under way is reported, so the host stops it soon after the queue grows.
+constexpr std::uint64_t probeReportEveryUs = 20'000;
 
 } // namespace
 
@@ -41,7 +36,8 @@ GuestStream::GuestStream(Setup setup)
                 .bytes = 0,
                 .newest = 0,
                 .probeBurst = 0,
-                .probeDatagrams = 0} {
+                .probeDatagrams = 0,
+                .probeQueueUs = 0} {
     secrets::wipeBytes(setup_.keys.host.data(), setup_.keys.host.size());
     secrets::wipeBytes(setup_.keys.guest.data(), setup_.keys.guest.size());
     receiver_ = std::jthread{[this](const std::stop_token& stop) {
@@ -178,6 +174,12 @@ void GuestStream::sendReport() {
     wire::Report report;
     {
         const std::lock_guard lock{mutex_};
+        if (probeQuickest_ && probeQuickestSinceReport_) {
+            received_.probeQueueUs =
+                static_cast<std::uint32_t>(*probeQuickestSinceReport_ - *probeQuickest_);
+        }
+        probeQuickestSinceReport_.reset();
+        reportedUs_ = wire::nowMicros();
         report = received_;
     }
     send(PacketKind::Report, wire::write(report));
@@ -209,13 +211,19 @@ void GuestStream::ping(const std::stop_token& stop) {
 
 void GuestStream::receive(const std::stop_token& stop) {
     std::vector<char> buffer(largestDatagram);
-    std::deque<PongSample> pongs;
     Clock::time_point heard = Clock::now();
     std::uint64_t secondStart = wire::nowMicros();
     std::uint64_t secondBytes = 0;
     while (!stop.stop_requested() && !over()) {
+        std::chrono::milliseconds wait = readWait;
+        if (const std::optional<std::uint64_t> nextUs = cap_.nextUs()) {
+            const std::uint64_t nowUs = wire::nowMicros();
+            const std::uint64_t leftUs = *nextUs > nowUs ? *nextUs - nowUs : 0;
+            wait = std::min(wait, std::chrono::ceil<std::chrono::milliseconds>(
+                                      std::chrono::microseconds{leftUs}));
+        }
         UdpAddress from;
-        const std::optional<std::size_t> got = socket_.receive(buffer, from, readWait);
+        const std::optional<std::size_t> got = socket_.receive(buffer, from, wait);
         const std::uint64_t receivedUs = wire::nowMicros();
         if (receivedUs - secondStart >= microsPerSecond) {
             const std::lock_guard lock{mutex_};
@@ -223,54 +231,77 @@ void GuestStream::receive(const std::stop_token& stop) {
             secondStart = receivedUs;
             secondBytes = 0;
         }
-        if (!got || from != setup_.host || !cap_.admit(*got, receivedUs)) {
-            if (Clock::now() - heard > quietLimit) {
-                finish("the host stopped answering");
-            }
-            continue;
+        if (got && from == setup_.host) {
+            static_cast<void>(cap_.push({buffer.data(), *got}, receivedUs));
         }
-        const std::optional<Opened> opened = opener_.open({buffer.data(), *got});
-        if (!opened) {
-            continue;
-        }
-        heard = Clock::now();
-        secondBytes += *got;
-        {
-            const std::lock_guard lock{mutex_};
-            ++received_.datagrams;
-            received_.bytes += *got;
-            received_.newest = std::max(received_.newest, opened->counter);
-            if (opened->kind == PacketKind::Probe) {
-                if (const std::optional<wire::Probe> probe = wire::readProbe(opened->payload)) {
-                    if (probe->burst != received_.probeBurst) {
-                        received_.probeBurst = probe->burst;
-                        received_.probeDatagrams = 0;
-                    }
-                    ++received_.probeDatagrams;
-                }
+        while (std::optional<LinkCap::Out> out = cap_.pop(wire::nowMicros())) {
+            if (take(out->datagram, out->leftUs)) {
+                heard = Clock::now();
+                secondBytes += out->datagram.size();
             }
         }
-        if (opened->kind == PacketKind::Pong) {
-            const std::optional<wire::Pong> pong = wire::readPong(opened->payload);
-            if (!pong || pong->pingUs > receivedUs) {
-                continue;
-            }
-            pongs.push_back(PongSample{receivedUs - pong->pingUs, pong->pingUs, pong->hostUs});
-            if (pongs.size() > pongsKept) {
-                pongs.pop_front();
-            }
-            // The fastest round trip of the kept ones, the host's answer taken at its middle.
-            const auto fastest = std::ranges::min_element(pongs, {}, &PongSample::roundTripUs);
-            const std::lock_guard lock{mutex_};
-            timing_.known = true;
-            timing_.roundTripUs = fastest->roundTripUs;
-            timing_.hostAheadUs =
-                static_cast<std::int64_t>(fastest->hostUs) -
-                static_cast<std::int64_t>(fastest->pingUs + fastest->roundTripUs / 2);
-            continue;
+        if (Clock::now() - heard > quietLimit) {
+            finish("the host stopped answering");
         }
-        handle(*opened, receivedUs);
     }
+}
+
+bool GuestStream::take(std::string_view datagram, std::uint64_t receivedUs) {
+    const std::optional<Opened> opened = opener_.open(datagram);
+    if (!opened) {
+        return false;
+    }
+    bool reportNow = false;
+    {
+        const std::lock_guard lock{mutex_};
+        ++received_.datagrams;
+        received_.bytes += datagram.size();
+        received_.newest = std::max(received_.newest, opened->counter);
+        if (opened->kind == PacketKind::Probe) {
+            if (const std::optional<wire::Probe> probe = wire::readProbe(opened->payload)) {
+                tookProbe(*probe, receivedUs);
+                reportNow = receivedUs - reportedUs_ >= probeReportEveryUs;
+            }
+        }
+    }
+    if (reportNow) {
+        sendReport();
+    }
+    if (opened->kind == PacketKind::Pong) {
+        const std::optional<wire::Pong> pong = wire::readPong(opened->payload);
+        if (!pong || pong->pingUs > receivedUs) {
+            return true;
+        }
+        pongs_.push_back(PongSample{receivedUs - pong->pingUs, pong->pingUs, pong->hostUs});
+        if (pongs_.size() > pongsKept) {
+            pongs_.pop_front();
+        }
+        // The fastest round trip of the kept ones, the host's answer taken at its middle.
+        const auto fastest = std::ranges::min_element(pongs_, {}, &PongSample::roundTripUs);
+        const std::lock_guard lock{mutex_};
+        timing_.known = true;
+        timing_.roundTripUs = fastest->roundTripUs;
+        timing_.hostAheadUs = static_cast<std::int64_t>(fastest->hostUs) -
+                              static_cast<std::int64_t>(fastest->pingUs + fastest->roundTripUs / 2);
+        return true;
+    }
+    handle(*opened, receivedUs);
+    return true;
+}
+
+void GuestStream::tookProbe(const wire::Probe& probe, std::uint64_t receivedUs) {
+    if (probe.burst != received_.probeBurst) {
+        received_.probeBurst = probe.burst;
+        received_.probeDatagrams = 0;
+        probeQuickest_.reset();
+        probeQuickestSinceReport_.reset();
+    }
+    ++received_.probeDatagrams;
+    // The clocks' offset is the same for every datagram, so the difference is the queue's.
+    const std::int64_t tookUs =
+        static_cast<std::int64_t>(receivedUs) - static_cast<std::int64_t>(probe.sentUs);
+    probeQuickest_ = std::min(probeQuickest_.value_or(tookUs), tookUs);
+    probeQuickestSinceReport_ = std::min(probeQuickestSinceReport_.value_or(tookUs), tookUs);
 }
 
 void GuestStream::handle(const Opened& opened, std::uint64_t receivedUs) {

@@ -1,12 +1,13 @@
 // host_stream — the host's end of one remote-play session: its UDP socket, the seal for what it
 // sends and the opener for what the guest sends. The guest is whoever first sends a datagram that
 // opens; from then on only its address is heard. Its pings are answered, its reports measure the
-// link (`LinkRate`, with the probe bursts it asks for sent from a thread of its own) and its asks
-// for a key frame are kept for the video. Each video frame is paced (`TokenBucket`): what one
-// frame at the plan's rate holds leaves at once, and the rest follows at twice that rate from the
-// same thread, so a frame larger than the plan's (a key frame) does not reach a shallow link queue
-// as one burst; the session is over when it says so, when it goes
-// quiet, or when the host ends it (`end`, told to the guest).
+// link (`LinkRate`) and its asks for a key frame are kept for the video. What the host sends of
+// video and probes leaves through one pacer (`TokenBucket`) on a thread of its own: what one frame
+// at the plan's rate holds leaves at once, and the rest follows at twice that rate, so a frame
+// larger than the plan's (a key frame) does not reach a shallow link queue as one burst. While
+// the link probes, the pacer fills at the probe's rate instead and probe datagrams take what the
+// video leaves of it, always a frame's worth kept back for the next. The session is over when the
+// guest says so, when it goes quiet, or when the host ends it (`end`, told to the guest).
 #pragma once
 
 #include <atomic>
@@ -88,10 +89,15 @@ class HostStream {
 
   private:
     void receive(const std::stop_token& stop);
-    /// Sends the probe datagrams the link asks for and the paced video as it falls due.
+    /// Sends the paced video and the probe datagrams as they fall due.
     void pace(const std::stop_token& stop);
+    /// Sets the pacer's rate for the probe under way or the plan. Holding `paceMutex_`.
+    void tune(std::uint64_t nowUs);
     /// Sends the waiting video the pacer allows at `nowUs`. Holding `paceMutex_`.
     void sendDue(std::uint64_t nowUs);
+    /// Sends the probe datagrams the pacer allows at `nowUs` with no video waiting and a frame's
+    /// worth kept; how many. Holding `paceMutex_`.
+    std::uint32_t pad(std::uint64_t nowUs);
     void handle(const Opened& opened);
     void finish(std::string reason);
 
@@ -107,12 +113,16 @@ class HostStream {
     mutable std::mutex linkMutex_;
     LinkRate link_;
     std::atomic<bool> keyFrame_{false};
-    /// The video pacer, the rate it is set for, the frames' payloads waiting on it, and the video
-    /// datagrams sent and how many of them waited.
+    /// The pacer, the rate it fills at, the plan's rate, the frame's worth it keeps for video, the
+    /// probe under way, the frames' payloads waiting on it, and the video datagrams sent and how
+    /// many of them waited.
     mutable std::mutex paceMutex_;
     std::condition_variable_any paceWake_;
     TokenBucket pacer_;
+    double pacerBytesPerSecond_{0};
     std::uint64_t pacedRate_{0};
+    std::size_t reserve_{probeDatagramBytes};
+    std::optional<LinkRate::Probing> probing_;
     std::deque<std::string> waiting_;
     bool queued_{false};
     std::uint64_t videoSent_{0};

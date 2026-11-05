@@ -164,6 +164,7 @@ std::string write(const Probe& probe, std::size_t bytes) {
     std::string out;
     appendLittleEndian(out, probe.burst, 4);
     appendLittleEndian(out, probe.index, 4);
+    appendLittleEndian(out, probe.sentUs, 8);
     out.resize(std::max(bytes, out.size()), '\0');
     return out;
 }
@@ -173,6 +174,7 @@ std::optional<Probe> readProbe(std::string_view payload) {
     Probe probe;
     probe.burst = static_cast<std::uint32_t>(in.take(4));
     probe.index = static_cast<std::uint32_t>(in.take(4));
+    probe.sentUs = in.take(8);
     return in.ok() ? std::optional{probe} : std::nullopt;
 }
 
@@ -184,6 +186,7 @@ std::string write(const Report& report) {
     appendLittleEndian(out, report.newest, 8);
     appendLittleEndian(out, report.probeBurst, 4);
     appendLittleEndian(out, report.probeDatagrams, 4);
+    appendLittleEndian(out, report.probeQueueUs, 4);
     return out;
 }
 
@@ -196,6 +199,7 @@ std::optional<Report> readReport(std::string_view payload) {
     report.newest = in.take(8);
     report.probeBurst = static_cast<std::uint32_t>(in.take(4));
     report.probeDatagrams = static_cast<std::uint32_t>(in.take(4));
+    report.probeQueueUs = static_cast<std::uint32_t>(in.take(4));
     return in.whole() ? std::optional{report} : std::nullopt;
 }
 

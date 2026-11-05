@@ -57,17 +57,21 @@ struct VideoPacket {
 /// The bytes `write` puts before a video packet's data.
 inline constexpr std::size_t videoHeaderBytes = 4 + 2 + 2 + 1 + 1 + 2 + 2 + 8 + 8 + 8;
 
-/// One datagram of probe `burst`, the `index`th, padded to `bytes` of payload.
+/// One datagram of probe `burst`, the `index`th, sent at `sentUs` on the host's clock, padded to
+/// `bytes` of payload.
 struct Probe {
     std::uint32_t burst{0};
     std::uint32_t index{0};
+    std::uint64_t sentUs{0};
 };
 [[nodiscard]] std::string write(const Probe& probe, std::size_t bytes);
 [[nodiscard]] std::optional<Probe> readProbe(std::string_view payload);
 
 /// What the guest received from the host since the session began: the datagrams that opened,
 /// their sealed bytes and the newest counter among them; of the newest probe burst heard, its
-/// number and the datagrams of it that came; and the codecs it decodes (bit `VideoCodec` value).
+/// number, the datagrams of it that came and how much longer the quickest of those since the last
+/// report took than the quickest of the burst (the queue they met, `probeQueueUs`); and the codecs
+/// it decodes (bit `VideoCodec` value).
 struct Report {
     std::uint8_t decoders{0};
     std::uint64_t datagrams{0};
@@ -75,6 +79,7 @@ struct Report {
     std::uint64_t newest{0};
     std::uint32_t probeBurst{0};
     std::uint32_t probeDatagrams{0};
+    std::uint32_t probeQueueUs{0};
 
     bool operator==(const Report&) const = default;
 };

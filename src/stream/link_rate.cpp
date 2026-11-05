@@ -1,27 +1,31 @@
 #include "link_rate.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <format>
 
 #include "lucent/log.h"
-#include "packet_seal.hpp"
 
 namespace opensu::stream {
 namespace {
 
-/// A probe datagram as it crosses the link: its payload sealed.
-constexpr std::uint64_t probeDatagramBytes = probeBytes + sealOverhead;
 constexpr double microsPerSecond = 1e6;
 constexpr double bitsPerByte = 8;
 
-/// The opening probe: a little over PyroWave's top, for 300 ms.
+/// The opening probe: a little over PyroWave's top, for 300 ms; nothing is coded yet.
 constexpr std::uint64_t openingRate = pyroWaveTop + pyroWaveTop / 10;
 constexpr std::uint64_t openingUs = 300'000;
-/// A later probe, on a hardware codec: PyroWave's floor with its share and a little room, 200 ms.
+/// A later probe, on a hardware codec: from the plan's rate up to PyroWave's floor with its share
+/// and a little room over two seconds, held for 200 ms. Ramping, as BBR's bandwidth probe does,
+/// lets the queue grow slowly enough past the link's rate to be heard before it overflows.
 constexpr double pyroWaveShare = 0.8;
 constexpr double hardwareShare = 0.6;
 constexpr auto laterRate = static_cast<std::uint64_t>(pyroWaveFloor / pyroWaveShare * 1.05);
-constexpr std::uint64_t laterUs = 200'000;
+constexpr std::uint64_t laterRampUs = 2'000'000;
+constexpr std::uint64_t laterHoldUs = 200'000;
+/// A later probe stops when its datagrams met a queue this much longer than its quickest did: well
+/// short of a shallow queue, which each video frame's burst already half fills.
+constexpr std::uint32_t queueGrownUs = 2'000;
 /// How long the guest's report of a probe may take after its last datagram went.
 constexpr std::uint64_t probeAnswerUs = 400'000;
 /// The first wait for another probe on a hardware codec, and the longest it grows to.
@@ -34,7 +38,7 @@ constexpr std::uint64_t settleUs = 1'500'000;
 constexpr std::uint64_t fewestJudged = 30;
 /// A probe that lost less than this passed; a window that lost more is over what the link carries,
 /// and one that lost less than `quiet` may code more. A hardware codec decodes nothing from a loss
-/// to the next key frame, so it stands far less.
+/// to the next key frame, so it stands far less, and a later probe stops at its line.
 constexpr double probeLoss = 0.02;
 constexpr double overLoss = 0.05;
 constexpr double quiet = 0.01;
@@ -47,47 +51,96 @@ double megabits(double bitsPerSecond) {
     return bitsPerSecond / 1e6;
 }
 
+/// Of the datagrams the guest heard between two reports, the share lost.
+double lostBetween(const wire::Report& from, const wire::Report& to) {
+    const std::uint64_t sent = to.newest - from.newest;
+    const std::uint64_t received = to.datagrams - from.datagrams;
+    if (sent == 0) {
+        return 0;
+    }
+    return 1.0 - std::min<double>(static_cast<double>(received), static_cast<double>(sent)) /
+                     static_cast<double>(sent);
+}
+
+/// What the link delivered between a report heard at `fromUs` and one heard at `toUs`.
+double deliveredBetween(const wire::Report& from, std::uint64_t fromUs, const wire::Report& to,
+                        std::uint64_t toUs) {
+    if (toUs <= fromUs) {
+        return 0;
+    }
+    return static_cast<double>(to.bytes - from.bytes) * bitsPerByte * microsPerSecond /
+           static_cast<double>(toUs - fromUs);
+}
+
 } // namespace
 
 LinkRate::LinkRate(VideoCodecs encoders) : encoders_{encoders}, probeGapUs_{firstProbeGapUs} {
 }
 
-void LinkRate::startBurst(std::uint64_t nowUs, std::uint64_t bitsPerSecond,
-                          std::uint64_t durationUs) {
-    burst_ = Burst{.number = ++bursts_,
-                   .startUs = nowUs,
-                   .bitsPerSecond = bitsPerSecond,
-                   .durationUs = durationUs,
-                   .sent = 0,
-                   .over = false,
-                   .heard = false};
+void LinkRate::startBurst(Burst burst) {
+    burst.number = ++bursts_;
+    burst_ = burst;
     heard_.clear();
 }
 
-LinkRate::ProbeDue LinkRate::probe(std::uint64_t nowUs) {
+double LinkRate::rateAt(const Burst& burst, std::uint64_t elapsedUs) {
+    const auto to = static_cast<double>(burst.toBps);
+    if (elapsedUs >= burst.rampUs || burst.fromBps >= burst.toBps) {
+        return to;
+    }
+    const auto from = static_cast<double>(std::max<std::uint64_t>(burst.fromBps, 1));
+    return from *
+           std::pow(to / from, static_cast<double>(elapsedUs) / static_cast<double>(burst.rampUs));
+}
+
+std::optional<LinkRate::Probing> LinkRate::probe(std::uint64_t nowUs) {
     if (!plan_ && !burst_) {
-        startBurst(nowUs, openingRate, openingUs);
+        startBurst(Burst{.number = 0,
+                         .startUs = nowUs,
+                         .fromBps = openingRate,
+                         .toBps = openingRate,
+                         .rampUs = 0,
+                         .holdUs = openingUs,
+                         .watched = false,
+                         .sent = 0,
+                         .over = false,
+                         .heard = false,
+                         .first = std::nullopt,
+                         .firstUs = 0});
     } else if (plan_ && plan_->codec != VideoCodec::PyroWave && (!burst_ || burst_->heard) &&
                nowUs >= nextProbeUs_ && holds(encoders_, VideoCodec::PyroWave) &&
                holds(decoders_, VideoCodec::PyroWave)) {
-        startBurst(nowUs, laterRate, laterUs);
+        startBurst(Burst{.number = 0,
+                         .startUs = nowUs,
+                         .fromBps = plan_->bitsPerSecond,
+                         .toBps = laterRate,
+                         .rampUs = laterRampUs,
+                         .holdUs = laterHoldUs,
+                         .watched = true,
+                         .sent = 0,
+                         .over = false,
+                         .heard = false,
+                         .first = std::nullopt,
+                         .firstUs = 0});
     }
     if (!burst_ || burst_->over) {
-        return {};
+        return std::nullopt;
     }
     Burst& burst = *burst_;
-    const std::uint64_t total = burst.bitsPerSecond * burst.durationUs /
-                                static_cast<std::uint64_t>(microsPerSecond) /
-                                (probeDatagramBytes * 8);
-    const std::uint64_t elapsed = std::min(nowUs - burst.startUs, burst.durationUs);
-    const std::uint64_t due = total * elapsed / burst.durationUs;
-    const ProbeDue out{
-        .burst = burst.number,
-        .first = burst.sent,
-        .count = static_cast<std::uint32_t>(due - std::min<std::uint64_t>(due, burst.sent))};
-    burst.sent += out.count;
-    burst.over = elapsed >= burst.durationUs;
-    return out;
+    const std::uint64_t elapsed = nowUs - std::min(nowUs, burst.startUs);
+    if (elapsed >= burst.rampUs + burst.holdUs) {
+        burst.over = true;
+        return std::nullopt;
+    }
+    return Probing{.burst = burst.number,
+                   .bitsPerSecond = static_cast<std::uint64_t>(rateAt(burst, elapsed)),
+                   .sent = burst.sent};
+}
+
+void LinkRate::probed(std::uint32_t burst, std::uint32_t count) {
+    if (burst_ && burst_->number == burst) {
+        burst_->sent += count;
+    }
 }
 
 void LinkRate::report(const wire::Report& report, std::uint64_t nowUs) {
@@ -97,45 +150,82 @@ void LinkRate::report(const wire::Report& report, std::uint64_t nowUs) {
         heard_.pop_front();
     }
     if (burst_ && !burst_->heard) {
-        if (!burst_->over) {
+        Burst& burst = *burst_;
+        if (burst.watched && report.probeBurst == burst.number && watch(burst, report, nowUs)) {
             return;
         }
-        const std::uint64_t endUs = burst_->startUs + burst_->durationUs;
+        if (!burst.over) {
+            return;
+        }
+        const std::uint64_t endUs = burst.startUs + burst.rampUs + burst.holdUs;
         const bool answered =
-            report.probeBurst == burst_->number && report.probeDatagrams >= burst_->sent;
-        if (answered || nowUs - endUs >= probeAnswerUs) {
-            probeHeard(*burst_, report.probeBurst == burst_->number ? report.probeDatagrams : 0,
-                       nowUs);
+            report.probeBurst == burst.number && report.probeDatagrams >= burst.sent;
+        if (answered || nowUs - std::min(nowUs, endUs) >= probeAnswerUs) {
+            probeHeard(burst, report, nowUs);
         }
         return;
     }
     judge(nowUs);
 }
 
-void LinkRate::probeHeard(Burst& burst, std::uint32_t received, std::uint64_t nowUs) {
+bool LinkRate::watch(Burst& burst, const wire::Report& report, std::uint64_t nowUs) {
+    if (!burst.first) {
+        burst.first = report;
+        burst.firstUs = nowUs;
+        return false;
+    }
+    const double lost = lostBetween(*burst.first, report);
+    const bool lossy =
+        report.newest - burst.first->newest >= fewestJudged && lost > hardwareOverLoss;
+    if (report.probeQueueUs < queueGrownUs && !lossy) {
+        return false;
+    }
+    burst.over = true;
     burst.heard = true;
     heard_.clear();
+    loss_ = lost;
+    deliveredBps_ = deliveredBetween(*burst.first, burst.firstUs, report, nowUs);
+    lucent::info("stream",
+                 "probe {} stopped at {:.0f} Mbit/s: its queue grew {:.1f} ms, {:.1f}% lost, "
+                 "{:.0f} Mbit/s delivered",
+                 burst.number, megabits(rateAt(burst, nowUs - std::min(nowUs, burst.startUs))),
+                 static_cast<double>(report.probeQueueUs) / 1000, lost * 100,
+                 megabits(deliveredBps_));
+    probeFailed(nowUs);
+    return true;
+}
+
+void LinkRate::probeFailed(std::uint64_t nowUs) {
+    probeGapUs_ = std::min(2 * probeGapUs_, longestProbeGapUs);
+    nextProbeUs_ = nowUs + probeGapUs_;
+}
+
+void LinkRate::probeHeard(Burst& burst, const wire::Report& report, std::uint64_t nowUs) {
+    burst.heard = true;
+    heard_.clear();
+    const std::uint32_t received = report.probeBurst == burst.number ? report.probeDatagrams : 0;
     const double sent = std::max<double>(burst.sent, 1);
     loss_ = 1.0 - std::min<double>(received, sent) / sent;
-    deliveredBps_ = static_cast<double>(received) * probeDatagramBytes * bitsPerByte *
-                    microsPerSecond / static_cast<double>(burst.durationUs);
+    // The opening probe is all that is sent; a later one shares the link with the video.
+    deliveredBps_ = burst.first
+                        ? deliveredBetween(*burst.first, burst.firstUs, report, nowUs)
+                        : static_cast<double>(received) * probeDatagramBytes * bitsPerByte *
+                              microsPerSecond / static_cast<double>(burst.holdUs + burst.rampUs);
     const bool passed = loss_ < probeLoss;
-    lucent::info("stream", "probe {} at {:.0f} Mbit/s: {} of {} came, {:.0f} Mbit/s delivered",
-                 burst.number, megabits(static_cast<double>(burst.bitsPerSecond)), received,
-                 burst.sent, megabits(deliveredBps_));
+    lucent::info("stream", "probe {} up to {:.0f} Mbit/s: {} of {} came, {:.0f} Mbit/s delivered",
+                 burst.number, megabits(static_cast<double>(burst.toBps)), received, burst.sent,
+                 megabits(deliveredBps_));
     if (!plan_) {
-        choose(passed ? std::max(deliveredBps_, static_cast<double>(burst.bitsPerSecond))
-                      : deliveredBps_,
+        choose(passed ? std::max(deliveredBps_, static_cast<double>(burst.toBps)) : deliveredBps_,
                nowUs, "the opening probe");
         return;
     }
     if (passed) {
         probeGapUs_ = firstProbeGapUs;
-        choose(static_cast<double>(burst.bitsPerSecond), nowUs, "a probe passed");
+        choose(static_cast<double>(burst.toBps), nowUs, "a probe passed");
         return;
     }
-    probeGapUs_ = std::min(2 * probeGapUs_, longestProbeGapUs);
-    nextProbeUs_ = nowUs + probeGapUs_;
+    probeFailed(nowUs);
 }
 
 void LinkRate::judge(std::uint64_t nowUs) {
@@ -149,16 +239,11 @@ void LinkRate::judge(std::uint64_t nowUs) {
     if (last.atUs - from->atUs < windowUs) {
         return;
     }
-    const std::uint64_t sent = last.report.newest - from->report.newest;
-    const std::uint64_t received = last.report.datagrams - from->report.datagrams;
-    if (sent < fewestJudged) {
+    if (last.report.newest - from->report.newest < fewestJudged) {
         return;
     }
-    const auto spanUs = static_cast<double>(last.atUs - from->atUs);
-    loss_ = 1.0 - std::min<double>(static_cast<double>(received), static_cast<double>(sent)) /
-                      static_cast<double>(sent);
-    deliveredBps_ = static_cast<double>(last.report.bytes - from->report.bytes) * bitsPerByte *
-                    microsPerSecond / spanUs;
+    loss_ = lostBetween(from->report, last.report);
+    deliveredBps_ = deliveredBetween(from->report, from->atUs, last.report, last.atUs);
     heard_.erase(heard_.begin(), heard_.end() - 1);
     const bool pyroWave = plan_->codec == VideoCodec::PyroWave;
     if (loss_ > (pyroWave ? overLoss : hardwareOverLoss)) {

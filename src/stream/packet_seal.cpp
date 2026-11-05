@@ -9,7 +9,7 @@
 namespace opensu::stream {
 namespace {
 
-constexpr std::uint8_t version = 2;
+constexpr std::uint8_t version = 3;
 constexpr std::size_t counterAt = 2;
 constexpr std::size_t counterBytes = 8;
 

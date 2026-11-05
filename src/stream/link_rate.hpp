@@ -1,9 +1,12 @@
 // link_rate — the codec and rate the host codes at, from what the guest says it received
-// (`wire::Report`). A probe burst at PyroWave's top rate opens the session; then each second of
-// reports gives the loss and the rate the link delivered. PyroWave while the link carries
-// `pyroWaveFloor` with room to spare, its budget a share of what was delivered; below that the
-// best hardware codec both ends have, at a smaller share, and a probe now and then (further apart
-// each time one fails) to see whether PyroWave fits again. Pure state with the time passed in.
+// (`wire::Report`). A probe at PyroWave's top rate opens the session; then each second of reports
+// gives the loss and the rate the link delivered. PyroWave while the link carries `pyroWaveFloor`
+// with room to spare, its budget a share of what was delivered; below that the best hardware codec
+// both ends have, at a smaller share, and now and then (further apart each time one fails) a probe
+// to see whether PyroWave fits again: the rate the host sends at, video and probe datagrams
+// together, ramps up from the plan's to what PyroWave needs and stops as soon as the guest says
+// the link's queue grew or it lost datagrams, before the video does. Pure state with the time
+// passed in.
 #pragma once
 
 #include <cstdint>
@@ -11,6 +14,7 @@
 #include <optional>
 #include <string>
 
+#include "packet_seal.hpp"
 #include "stream_wire.hpp"
 #include "video_codec.hpp"
 
@@ -24,6 +28,8 @@ inline constexpr std::uint64_t hardwareTop = 40'000'000;
 inline constexpr std::uint64_t hardwareFloor = 2'000'000;
 /// The payload of each probe datagram: as big as a full video packet's.
 inline constexpr std::size_t probeBytes = wire::videoHeaderBytes + videoPacketBytes;
+/// A probe datagram as it crosses the link, its payload sealed: as big as a full video datagram.
+inline constexpr std::size_t probeDatagramBytes = probeBytes + sealOverhead;
 
 /// What the host codes at.
 struct LinkPlan {
@@ -38,14 +44,17 @@ class LinkRate {
     /// The codecs the host codes.
     explicit LinkRate(VideoCodecs encoders);
 
-    /// The probe datagrams due now, `nowUs` on the host's clock: their burst and how many, none
-    /// outside a burst. The caller sends that many `Probe`s of `probeBytes`.
-    struct ProbeDue {
+    /// The probe under way at `nowUs` on the host's clock: its burst, the rate the host sends at,
+    /// video first and `Probe` datagrams of `probeBytes` filling the rest, and the probe datagrams
+    /// sent so far; nothing outside a probe.
+    struct Probing {
         std::uint32_t burst{0};
-        std::uint32_t first{0};
-        std::uint32_t count{0};
+        std::uint64_t bitsPerSecond{0};
+        std::uint32_t sent{0};
     };
-    [[nodiscard]] ProbeDue probe(std::uint64_t nowUs);
+    [[nodiscard]] std::optional<Probing> probe(std::uint64_t nowUs);
+    /// `count` more probe datagrams of `burst` went.
+    void probed(std::uint32_t burst, std::uint32_t count);
     /// The guest's report, heard at `nowUs`.
     void report(const wire::Report& report, std::uint64_t nowUs);
     /// `codec` cannot code here after all; another is planned.
@@ -59,15 +68,23 @@ class LinkRate {
     [[nodiscard]] std::string summary() const;
 
   private:
+    /// A probe: from `fromBps` it ramps to `toBps` over `rampUs` and holds that `holdUs`. A watched
+    /// one stops at the first report of a grown queue or of loss, from its first report on.
     struct Burst {
         std::uint32_t number{0};
         std::uint64_t startUs{0};
-        std::uint64_t bitsPerSecond{0};
-        std::uint64_t durationUs{0};
+        std::uint64_t fromBps{0};
+        std::uint64_t toBps{0};
+        std::uint64_t rampUs{0};
+        std::uint64_t holdUs{0};
+        bool watched{false};
         std::uint32_t sent{0};
         bool over{false};
         /// Whether its result was taken.
         bool heard{false};
+        /// Its first report, and when it was heard.
+        std::optional<wire::Report> first;
+        std::uint64_t firstUs{0};
     };
     /// A report as heard.
     struct Heard {
@@ -75,8 +92,14 @@ class LinkRate {
         wire::Report report;
     };
 
-    void startBurst(std::uint64_t nowUs, std::uint64_t bitsPerSecond, std::uint64_t durationUs);
-    void probeHeard(Burst& burst, std::uint32_t received, std::uint64_t nowUs);
+    void startBurst(Burst burst);
+    /// The rate `burst` sends at, `elapsedUs` into it.
+    [[nodiscard]] static double rateAt(const Burst& burst, std::uint64_t elapsedUs);
+    /// Takes a report heard during a watched probe; true when it stopped the probe.
+    bool watch(Burst& burst, const wire::Report& report, std::uint64_t nowUs);
+    /// A probe that failed: the next one waits twice as long.
+    void probeFailed(std::uint64_t nowUs);
+    void probeHeard(Burst& burst, const wire::Report& report, std::uint64_t nowUs);
     /// The plan for a link that carries `capacity` bits a second.
     void choose(double capacity, std::uint64_t nowUs, const char* why);
     void adopt(LinkPlan plan, std::uint64_t nowUs, const char* why);

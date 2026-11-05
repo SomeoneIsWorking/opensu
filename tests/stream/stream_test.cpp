@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -128,16 +129,19 @@ void payloadsReadAsWritten() {
     pastItsFrame.part = 7;
     expect(!wire::readVideoPacket(wire::write(pastItsFrame)), "nor a part past its frame's last");
 
-    const std::string probe = wire::write(wire::Probe{.burst = 3, .index = 41}, 1428);
+    const std::string probe =
+        wire::write(wire::Probe{.burst = 3, .index = 41, .sentUs = 1ULL << 40U}, 1428);
     const std::optional<wire::Probe> readProbe = wire::readProbe(probe);
-    expect(probe.size() == 1428 && readProbe && readProbe->burst == 3 && readProbe->index == 41,
+    expect(probe.size() == 1428 && readProbe && readProbe->burst == 3 && readProbe->index == 41 &&
+               readProbe->sentUs == 1ULL << 40U,
            "a probe reads as written, padded to its size");
     const wire::Report report{.decoders = 5,
                               .datagrams = 1U << 20U,
                               .bytes = 1ULL << 40U,
                               .newest = 77,
                               .probeBurst = 2,
-                              .probeDatagrams = 900};
+                              .probeDatagrams = 900,
+                              .probeQueueUs = 4100};
     expect(wire::readReport(wire::write(report)) == report, "a report reads as written");
 
     using gamepad::Button;
@@ -500,7 +504,46 @@ stream::wire::Report reported(std::uint64_t sent, std::uint64_t datagrams, std::
                                 .bytes = datagrams * bytes,
                                 .newest = sent,
                                 .probeBurst = 0,
-                                .probeDatagrams = 0};
+                                .probeDatagrams = 0,
+                                .probeQueueUs = 0};
+}
+
+/// A probe as the guest sees it while `drive` runs: its burst, the datagrams sent and its rate now.
+struct Probed {
+    std::uint32_t burst{0};
+    std::uint32_t sent{0};
+    std::uint64_t bitsPerSecond{0};
+};
+
+/// Drives `link`'s probe from `fromUs` to `toUs` in 1 ms steps, sending what it asks for, and every
+/// 20 ms hears `report` of what was sent so far: the rates the probe asked for, the last first.
+template <typename Report>
+std::vector<std::uint64_t> drive(stream::LinkRate& link, std::uint64_t fromUs, std::uint64_t toUs,
+                                 const Report& report) {
+    std::vector<std::uint64_t> rates;
+    std::uint32_t sent = 0;
+    std::uint32_t burst = 0;
+    double owed = 0;
+    for (std::uint64_t now = fromUs; now <= toUs; now += 1000) {
+        if (const std::optional<stream::LinkRate::Probing> probing = link.probe(now)) {
+            burst = probing->burst;
+            rates.push_back(probing->bitsPerSecond);
+            owed += static_cast<double>(probing->bitsPerSecond) / 8 / 1000 /
+                    static_cast<double>(stream::probeDatagramBytes);
+            const auto count = static_cast<std::uint32_t>(owed);
+            owed -= count;
+            sent += count;
+            link.probed(burst, count);
+        }
+        if ((now - fromUs) % 20'000 == 0 && burst != 0) {
+            link.report(report(Probed{.burst = burst,
+                                      .sent = sent,
+                                      .bitsPerSecond = rates.empty() ? 0 : rates.back()}),
+                        now);
+        }
+    }
+    std::ranges::reverse(rates);
+    return rates;
 }
 
 void theLinkPicksTheCodec() {
@@ -508,25 +551,23 @@ void theLinkPicksTheCodec() {
     const stream::VideoCodecs all = stream::codecBit(VideoCodec::PyroWave) |
                                     stream::codecBit(VideoCodec::Hevc) |
                                     stream::codecBit(VideoCodec::H264);
-    // The opening probe: what is due, and the guest's word on it.
+    // The opening probe: sent as asked, and the guest's word on it once it is over.
     const auto opening = [](stream::LinkRate& link, double share, stream::VideoCodecs decoders) {
-        std::uint64_t now = 1'000'000;
-        std::uint32_t sent = 0;
-        std::uint32_t burst = 0;
-        for (; now <= 1'000'000 + 300'000; now += 1000) {
-            const stream::LinkRate::ProbeDue due = link.probe(now);
-            sent += due.count;
-            burst = due.count > 0 ? due.burst : burst;
-        }
-        link.report(
-            stream::wire::Report{.decoders = decoders,
-                                 .datagrams = 0,
-                                 .bytes = 0,
-                                 .newest = 0,
-                                 .probeBurst = burst,
-                                 .probeDatagrams = static_cast<std::uint32_t>(sent * share)},
-            now + 450'000);
-        return now + 450'000;
+        constexpr std::uint64_t start = 1'000'000;
+        constexpr std::uint64_t end = start + 760'000;
+        std::uint32_t heard = 0;
+        drive(link, start, end, [&](const Probed& probed) {
+            heard = static_cast<std::uint32_t>(probed.sent * share);
+            return stream::wire::Report{.decoders = decoders,
+                                        .datagrams = heard,
+                                        .bytes = 0,
+                                        .newest = probed.sent,
+                                        .probeBurst = probed.burst,
+                                        .probeDatagrams = heard,
+                                        .probeQueueUs = 0};
+        });
+        expect(heard > 0, "the opening probe is sent");
+        return end;
     };
 
     // The plan's codec and rate, none planned reading as H.264 at 0.
@@ -569,23 +610,44 @@ void theLinkPicksTheCodec() {
     expect(planned(running).codec == VideoCodec::Hevc,
            "a link that loses frames at PyroWave's rate falls back to a hardware codec");
     expect(running.summary().find("switches=1") != std::string::npos, "and the switch is counted");
+    const std::uint64_t hardwareRate = planned(running).bitsPerSecond;
 
-    // A probe on the hardware codec that comes back whole: PyroWave fits again.
-    const std::uint64_t probeAt = now + 11'000'000;
-    std::uint32_t probeSent = 0;
-    std::uint32_t probeBurst = 0;
-    for (now = probeAt; now <= probeAt + 200'000; now += 1000) {
-        const stream::LinkRate::ProbeDue due = running.probe(now);
-        probeSent += due.count;
-        probeBurst = due.count > 0 ? due.burst : probeBurst;
-    }
-    expect(probeSent > 0, "a hardware codec's link is probed again");
-    stream::wire::Report back = reported(sent, received, 1428, all);
-    back.probeBurst = probeBurst;
-    back.probeDatagrams = probeSent;
-    running.report(back, now + 10'000);
-    expect(planned(running).codec == VideoCodec::PyroWave,
-           "and once a probe comes back whole PyroWave codes again");
+    // A probe on the hardware codec ramps up from the plan's rate; on a 60 Mbit/s link its queue
+    // grows once it passes that, and it stops there with the plan kept.
+    constexpr std::uint64_t capacity = 60'000'000;
+    const auto queued = [&](const Probed& probed) {
+        stream::wire::Report back = reported(sent, received, 1428, all);
+        back.probeBurst = probed.burst;
+        back.probeDatagrams = probed.sent;
+        back.probeQueueUs = probed.bitsPerSecond > capacity ? 5'000 : 0;
+        return back;
+    };
+    now += 11'000'000;
+    const std::vector<std::uint64_t> stopped = drive(running, now, now + 1'500'000, queued);
+    expect(!stopped.empty() && stopped.back() >= hardwareRate * 99 / 100 &&
+               stopped.back() <= hardwareRate * 101 / 100,
+           "a hardware codec's link is probed again, from the plan's rate");
+    expect(stopped.front() > capacity && stopped.front() < capacity * 6 / 5 &&
+               planned(running).codec == VideoCodec::Hevc,
+           "and a probe whose queue grows stops just past the link's rate, the plan kept");
+    std::printf("stream: a probe from %.0f Mbit/s stopped at %.0f Mbit/s after %zu ms\n",
+                static_cast<double>(stopped.back()) / 1e6,
+                static_cast<double>(stopped.front()) / 1e6, stopped.size());
+
+    // The next, twice as far off, on a link with room: it reaches PyroWave's rate and PyroWave
+    // codes again.
+    now += 21'000'000;
+    const auto whole = [&](const Probed& probed) {
+        stream::wire::Report back = reported(sent, received, 1428, all);
+        back.probeBurst = probed.burst;
+        back.probeDatagrams = probed.sent;
+        return back;
+    };
+    const std::vector<std::uint64_t> passed = drive(running, now, now + 2'500'000, whole);
+    expect(!passed.empty() && passed.front() > stream::pyroWaveFloor &&
+               planned(running).codec == VideoCodec::PyroWave,
+           "and once a probe reaches PyroWave's rate with the queue still short PyroWave codes "
+           "again");
     std::printf("stream: link %s, first %.0f Mbit/s\n", running.summary().c_str(),
                 static_cast<double>(first) / 1e6);
 
@@ -596,23 +658,41 @@ void theLinkPicksTheCodec() {
            "a codec that cannot open gives way to the next");
 }
 
-void theCapDropsWhatTheRateHasNoRoomFor() {
+/// A capped link carries its rate, holds what comes faster in a 20 ms queue and drops what that
+/// has no room for.
+void theCapQueuesAndDropsWhatTheRateHasNoRoomFor() {
     stream::LinkCap cap;
-    expect(cap.admit(1'000'000, 1), "with no cap everything gets through");
+    const std::string datagram(1428, 'x');
+    expect(cap.push(datagram, 1) && cap.pop(1).has_value(),
+           "with no cap everything goes through at once");
     constexpr std::uint64_t rate = 8'000'000;
     cap.set(rate);
-    std::uint64_t admitted = 0;
+    std::uint64_t carried = 0;
+    std::uint64_t longestUs = 0;
+    std::deque<std::uint64_t> queuedAt;
     // Twice the rate offered for a second.
     for (std::uint64_t now = 1; now <= 1'000'000; now += 714) {
-        if (cap.admit(1428, now)) {
-            admitted += 1428;
+        if (cap.push(datagram, now)) {
+            queuedAt.push_back(now);
+        }
+        while (const std::optional<stream::LinkCap::Out> out = cap.pop(now)) {
+            carried += out->datagram.size() * 8;
+            longestUs = std::max(longestUs, out->leftUs - queuedAt.front());
+            queuedAt.pop_front();
         }
     }
-    const double carried = static_cast<double>(admitted) * 8;
-    std::printf("stream: an 8 Mbit/s cap carried %.2f Mbit in a second\n", carried / 1e6);
-    expect(carried > rate * 0.95 && carried < rate * 1.05, "a cap carries its rate and no more");
+    std::printf("stream: an 8 Mbit/s cap carried %.2f Mbit in a second, queued up to %.1f ms\n",
+                static_cast<double>(carried) / 1e6, static_cast<double>(longestUs) / 1000);
+    expect(static_cast<double>(carried) > rate * 0.93 && static_cast<double>(carried) < rate * 1.05,
+           "a cap carries its rate and no more");
+    expect(longestUs > 15'000 && longestUs <= 21'000, "and what waits, waits its 20 ms queue");
     cap.set(0);
-    expect(cap.admit(1'000'000, 2'000'000), "and lifting it lets everything through again");
+    std::optional<stream::LinkCap::Out> last;
+    expect(cap.push(datagram, 3'000'000), "lifting it takes everything");
+    while (std::optional<stream::LinkCap::Out> out = cap.pop(3'000'000)) {
+        last = std::move(out);
+    }
+    expect(last && last->leftUs == 3'000'000, "and lets it through at once");
 }
 
 /// A 440 Hz tone through Opus, one packet lost on the way: the guest plays every frame, the lost
@@ -684,7 +764,7 @@ int main() try {
     picturesSurviveTheCodec();
     picturesSurviveTheHardwareCodecs();
     theLinkPicksTheCodec();
-    theCapDropsWhatTheRateHasNoRoomFor();
+    theCapQueuesAndDropsWhatTheRateHasNoRoomFor();
     theBucketHoldsBackWhatItsRateHasNoRoomFor();
     soundSurvivesTheCodec();
     std::printf("stream: all checks passed\n");

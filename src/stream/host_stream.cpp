@@ -21,11 +21,13 @@ constexpr std::chrono::seconds joinLimit{20};
 constexpr std::chrono::milliseconds readWait{100};
 /// An End is sent this many times, so one lost datagram does not leave the guest waiting.
 constexpr int endRepeats = 3;
-/// How often the prober looks for datagrams due: often in a burst, seldom between.
-constexpr std::chrono::milliseconds probeTick{1};
+/// How often the pacer looks for a probe to start when nothing else wakes it.
 constexpr std::chrono::milliseconds probeIdle{20};
 /// What the pacer sends video at, over the plan's rate.
 constexpr double paceOverRate = 2.0;
+/// How far over its reserve the bucket fills, so probe datagrams still go when the pacer wakes
+/// late.
+constexpr std::size_t padRoom = 4 * probeDatagramBytes;
 
 /// A video payload as it crosses the link: sealed.
 std::size_t sealedBytes(const std::string& payload) {
@@ -46,6 +48,7 @@ HostStream::HostStream(Setup setup)
       link_{setup_.encoders} {
     secrets::wipeBytes(setup_.keys.host.data(), setup_.keys.host.size());
     secrets::wipeBytes(setup_.keys.guest.data(), setup_.keys.guest.size());
+    pacer_.set(0, static_cast<double>(reserve_ + padRoom));
     receiver_ = std::jthread{[this](const std::stop_token& stop) {
         receive(stop);
     }};
@@ -86,27 +89,43 @@ std::string HostStream::linkSummary() const {
 }
 
 void HostStream::pace(const std::stop_token& stop) {
+    std::uint32_t padded = 0;
+    std::uint32_t paddedBurst = 0;
     while (!stop.stop_requested() && !over()) {
-        LinkRate::ProbeDue due;
+        std::optional<LinkRate::Probing> probing;
         if (joined_) {
             const std::lock_guard lock{linkMutex_};
-            due = link_.probe(wire::nowMicros());
+            link_.probed(paddedBurst, padded);
+            probing = link_.probe(wire::nowMicros());
         }
-        for (std::uint32_t i = 0; i < due.count; ++i) {
-            send(PacketKind::Probe, wire::write(wire::Probe{due.burst, due.first + i}, probeBytes));
-        }
-        std::chrono::microseconds wait = due.count > 0 ? probeTick : probeIdle;
         std::unique_lock lock{paceMutex_};
         const std::uint64_t nowUs = wire::nowMicros();
+        probing_ = probing;
+        tune(nowUs);
         sendDue(nowUs);
+        padded = pad(nowUs);
+        paddedBurst = probing ? probing->burst : 0;
+        std::chrono::microseconds wait = probeIdle;
         if (!waiting_.empty()) {
             const std::uint64_t dueUs = pacer_.waitUs(sealedBytes(waiting_.front()), nowUs);
+            wait = std::min(wait, std::chrono::microseconds{std::max<std::uint64_t>(dueUs, 1)});
+        } else if (probing_) {
+            const std::uint64_t dueUs = pacer_.waitUs(reserve_ + probeDatagramBytes, nowUs);
             wait = std::min(wait, std::chrono::microseconds{std::max<std::uint64_t>(dueUs, 1)});
         }
         paceWake_.wait_for(lock, stop, wait, [this] {
             return queued_;
         });
         queued_ = false;
+    }
+}
+
+void HostStream::tune(std::uint64_t nowUs) {
+    const double bytesPerSecond = probing_ ? static_cast<double>(probing_->bitsPerSecond) / 8
+                                           : static_cast<double>(pacedRate_) / 8 * paceOverRate;
+    if (bytesPerSecond != pacerBytesPerSecond_) {
+        pacerBytesPerSecond_ = bytesPerSecond;
+        pacer_.changeRate(bytesPerSecond, nowUs);
     }
 }
 
@@ -118,16 +137,30 @@ void HostStream::sendDue(std::uint64_t nowUs) {
     }
 }
 
+std::uint32_t HostStream::pad(std::uint64_t nowUs) {
+    std::uint32_t sent = 0;
+    while (probing_ && waiting_.empty() &&
+           pacer_.waitUs(reserve_ + probeDatagramBytes, nowUs) == 0 &&
+           pacer_.take(probeDatagramBytes, nowUs)) {
+        send(PacketKind::Probe, wire::write(wire::Probe{.burst = probing_->burst,
+                                                        .index = probing_->sent + sent,
+                                                        .sentUs = wire::nowMicros()},
+                                            probeBytes));
+        ++sent;
+    }
+    return sent;
+}
+
 void HostStream::sendFrame(std::vector<std::string> payloads) {
     const std::optional<LinkPlan> planned = plan();
     const std::uint64_t nowUs = wire::nowMicros();
     const std::lock_guard lock{paceMutex_};
     if (planned && planned->bitsPerSecond != pacedRate_) {
         pacedRate_ = planned->bitsPerSecond;
-        const double frame = frameDatagramBytes(pacedRate_);
-        constexpr auto fullPacket =
-            static_cast<double>(wire::videoHeaderBytes + videoPacketBytes + sealOverhead);
-        pacer_.set(static_cast<double>(pacedRate_) / 8 * paceOverRate, std::max(frame, fullPacket));
+        reserve_ = static_cast<std::size_t>(
+            std::max(frameDatagramBytes(pacedRate_), static_cast<double>(probeDatagramBytes)));
+        pacer_.set(pacerBytesPerSecond_, static_cast<double>(reserve_ + padRoom));
+        tune(nowUs);
     }
     const bool idle = waiting_.empty();
     const std::size_t frame = payloads.size();

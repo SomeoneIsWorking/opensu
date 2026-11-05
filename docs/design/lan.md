@@ -235,28 +235,37 @@ that profile's; the host's own active profile does not change.
   game.
 - Codec and link (`stream::LinkRate`, owned by `HostStream`): the host offers what it codes
   (`encodableHere`: PyroWave where built, and each of AV1, HEVC and H.264 its VA-API driver
-  encodes) and each guest Report says what it decodes. Once the guest joins, a prober thread sends
-  a 300 ms burst of 1428-byte Probe datagrams at 220 Mbit/s; the guest counts what came and
+  encodes) and each guest Report says what it decodes. Once the guest joins, the pacer sends
+  1428-byte Probe datagrams evenly at 220 Mbit/s for 300 ms; the guest counts what came and
   reports with each ping (datagrams and sealed bytes received, the newest counter, the probe burst
-  heard). PyroWave codes while 80 % of what the link delivered is at least 100 Mbit/s (its budget
-  that share, at most 200 Mbit/s); below that the best hardware codec both ends have codes at 60 %
-  of it, 2 to 40 Mbit/s. While running, each second of reports is judged: over 5 % lost (1 % on a
+  heard, and how much longer the quickest probe datagram since the last report took than the
+  burst's quickest: the queue it met), and every 20 ms while probe datagrams come. PyroWave codes
+  while 80 % of what the link delivered is at least 100 Mbit/s (its budget that share, at most
+  200 Mbit/s); below that the best hardware codec both ends have codes at 60 % of it, 2 to
+  40 Mbit/s. While running, each second of reports is judged: over 5 % lost (1 % on a
   hardware codec, which decodes nothing from a loss to the next key frame) replans at what was
   delivered; under 1 % (0.1 % on hardware) raises the rate (×1.25 PyroWave, ×1.15 hardware). On a
-  hardware codec a 200 ms probe at 131 Mbit/s every 10 s (doubling to 60 s each time one loses
-  more than 2 %) brings PyroWave back once one passes. A codec that will not open on the host is
+  hardware codec a probe every 10 s (doubling to 60 s each time one fails) ramps what the host
+  sends, video and probe datagrams together, from the plan's rate up to 131 Mbit/s over two seconds
+  (geometrically, as BBR's bandwidth probe grows) and holds it 200 ms; it stops at the first report
+  of a queue grown by 2 ms or of more than 1 % lost, so on a slower link it stops just past the
+  link's rate with the queue a few ms deep and the video intact, and brings PyroWave back once one
+  reaches the top with under 2 % of its datagrams lost. A codec that will not open on the host is
   refused and the next planned. Every switch codes a key frame. With neither end's hardware codec
   in common PyroWave codes whatever the link carries, and says so.
 - Hardware codecs (`hardware_codec_vaapi.cpp`): libavcodec on a VA-API DRM device, CBR at the
   plan's rate with a two-frame buffer, no B-frames, one frame in flight, a key frame every 300
-  frames or when asked, reopened when the rate moves by a fifth.
-- Pacing (`HostStream::sendFrame`, a `stream::TokenBucket`): each frame's datagrams leave at once
-  while the bucket holds them, the bucket as deep as one frame at the plan's rate (headers and
-  seals counted) and filling at twice that rate; the rest of a larger frame, a key frame above
-  all, follows from the sender thread as the bucket fills, and the next frame waits behind it. A
-  frame no larger than the plan's (every PyroWave frame) leaves as before; a shallow link queue
-  never gets more than one frame's worth at line rate. The guest decodes the same way
+  frames or when asked, reopened when the rate moves by a fifth. The guest decodes the same way
   into NV12 and converts it to RGBA on the CPU.
+- Pacing (`HostStream::sendFrame` and its sender thread, one `stream::TokenBucket` for video and
+  probes): each frame's datagrams leave at once while the bucket holds them, the bucket as deep as
+  one frame at the plan's rate (headers and seals counted) and four probe datagrams more, filling
+  at twice the plan's rate; the rest of a larger frame, a key frame above all, follows as the bucket
+  fills, and the next frame waits behind it. A frame no larger than the plan's (every PyroWave
+  frame) leaves as before; a shallow link queue never gets more than one frame's worth at line
+  rate. While a probe runs the bucket fills at the probe's rate instead, and Probe datagrams take
+  what is over a frame's worth when no video waits, so the video keeps its burst and the two
+  together never pass the probe's rate.
 - Guest: `stream::GuestStream` receives; `stream::GuestVideo` queues video packets and decodes on a
   thread of its own, a decoder per codec: a frame missing a packet is dropped when the next begins
   (nothing waits for a resend); on a hardware codec every frame after it is dropped until a key
@@ -396,8 +405,9 @@ Remote play: `tests/stream/stream_test.cpp` checks sealing and replay, the paylo
 guest session over loopback UDP (the mapping sent, the opening probe planning PyroWave), PyroWave
 round trips and a lost packet, each hardware codec this machine codes and decodes over moving
 pictures with a lost packet held until the next key frame, `LinkRate`'s choices (a whole probe,
-a third of one, no hardware codec in common, a lossy second, a probe passing, a refused codec),
-`LinkCap` carrying its rate, and Opus with a lost packet concealed. In the product, run the host as the only client of a headless Gamescope
+a third of one, no hardware codec in common, a lossy second, a later probe ramping from the plan's
+rate and stopping just past a 60 Mbit/s link's once its queue grows, one passing, a refused codec),
+`LinkCap` carrying its rate with its 20 ms queue, and Opus with a lost packet concealed. In the product, run the host as the only client of a headless Gamescope
 (`gamescope --backend headless -W 1280 -H 720 -r 60 -- opensu --hidden`, `WAYLAND_DISPLAY` set to
 empty, the user's `XDG_RUNTIME_DIR` for PipeWire) and the guest as a plain `--hidden` openSU, pair
 them and press Play on the host's game in the guest's Library. `/state` reports `remotePlay`
@@ -408,6 +418,7 @@ capture to the submitted frame and `remoteAudio` (packets, lost, arrival p50/p95
 sides `/remote/frame.png` returns the newest remote picture, numbered in `X-Opensu-Frame`: the one
 sent on the host and the one decoded on the guest, so the same number can be compared. A hidden
 guest has no surface: `submitted` counts frames submitted and `drawn` stays 0. `POST /remote/link`
-with bits a second caps what a hidden guest takes (`stream::LinkCap`, a token bucket 20 ms deep;
-0 lifts it), the slow link that makes the host fall back; the `stream` log lines name each probe
-and plan. `POST /pointer` `down X Y right` and `up X Y right` hold a button across frames.
+with bits a second puts what a hidden guest takes through a slow link (`stream::LinkCap`: a queue
+of 20 ms at that rate in front of the guest, what it holds delayed and what it has no room for
+dropped; 0 lifts it), the slow link that makes the host fall back; the `stream` log lines name each
+probe, where a later one stopped and why, and each plan. `POST /pointer` `down X Y right` and `up X Y right` hold a button across frames.
