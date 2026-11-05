@@ -54,6 +54,7 @@ std::vector<HintPrompt> OnScreenKeyboardPainter::hints(const OnScreenKeyboard& k
     if (keyboard.style() == input::KeyboardStyle::DaisyWheel) {
         std::vector<HintPrompt> wheel{{"LEFT", "Cursor"}};
         if (!keyboard.petal()) {
+            wheel.emplace_back("A", "Paste");
             wheel.emplace_back("B", "Close");
         }
         wheel.emplace_back("-", "Clear");

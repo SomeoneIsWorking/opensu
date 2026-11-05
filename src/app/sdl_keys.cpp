@@ -10,7 +10,7 @@ namespace {
 
 namespace keys = input::keys;
 
-constexpr std::array<std::pair<SDL_Scancode, int>, 30> namedKeys{{
+constexpr std::array<std::pair<SDL_Scancode, int>, 33> namedKeys{{
     {SDL_SCANCODE_SPACE, keys::Space},
     {SDL_SCANCODE_COMMA, keys::Comma},
     {SDL_SCANCODE_MINUS, keys::Minus},
@@ -24,6 +24,7 @@ constexpr std::array<std::pair<SDL_Scancode, int>, 30> namedKeys{{
     {SDL_SCANCODE_RETURN, keys::Enter},
     {SDL_SCANCODE_TAB, keys::Tab},
     {SDL_SCANCODE_BACKSPACE, keys::Backspace},
+    {SDL_SCANCODE_INSERT, keys::Insert},
     {SDL_SCANCODE_RIGHT, keys::Right},
     {SDL_SCANCODE_LEFT, keys::Left},
     {SDL_SCANCODE_DOWN, keys::Down},
@@ -36,9 +37,11 @@ constexpr std::array<std::pair<SDL_Scancode, int>, 30> namedKeys{{
     {SDL_SCANCODE_LSHIFT, keys::LeftShift},
     {SDL_SCANCODE_LCTRL, keys::LeftControl},
     {SDL_SCANCODE_LALT, keys::LeftAlt},
+    {SDL_SCANCODE_LGUI, keys::LeftSuper},
     {SDL_SCANCODE_RSHIFT, keys::RightShift},
     {SDL_SCANCODE_RCTRL, keys::RightControl},
     {SDL_SCANCODE_RALT, keys::RightAlt},
+    {SDL_SCANCODE_RGUI, keys::RightSuper},
     {SDL_SCANCODE_APPLICATION, keys::Menu},
     {SDL_SCANCODE_MENU, keys::Menu},
 }};

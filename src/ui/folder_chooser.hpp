@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <functional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace opensu::ui {
@@ -18,6 +19,10 @@ struct FolderEntry {
 
     bool operator==(const FolderEntry&) const = default;
 };
+
+/// The path typed or pasted `text` names: the space around it gone, and the quotes Windows' Copy as
+/// path adds; either slash style, unless a file here really has backslashes in its name.
+[[nodiscard]] std::filesystem::path typedPath(std::string_view text);
 
 class FolderChooser {
   public:

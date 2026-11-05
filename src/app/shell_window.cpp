@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <utility>
 
+#include <SDL3/SDL_clipboard.h>
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_hints.h>
@@ -291,6 +292,22 @@ void ShellWindow::postStroke() {
         post(event);
     }
     strokeDown_ = true;
+}
+
+std::string ShellWindow::clipboard() const {
+    char* held = SDL_GetClipboardText();
+    if (held == nullptr) {
+        return {};
+    }
+    std::string text{held};
+    SDL_free(held);
+    return text;
+}
+
+void ShellWindow::setClipboard(const std::string& text) {
+    if (!SDL_SetClipboardText(text.c_str())) {
+        lucent::error("shell", "could not set the clipboard: {}", SDL_GetError());
+    }
 }
 
 void ShellWindow::postKey(SDL_Scancode key, bool down) {

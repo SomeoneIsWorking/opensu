@@ -73,4 +73,7 @@ struct TextInput {
 /// The frame's keyboard as text input.
 [[nodiscard]] TextInput readTextInput(const KeyFrame& keys);
 
+/// Whether the keyboard asked to paste this frame: Ctrl+V, Command+V or Shift+Insert.
+[[nodiscard]] bool pastePressed(const KeyFrame& keys);
+
 } // namespace opensu::input

@@ -116,6 +116,10 @@ class ShellWindow {
     [[nodiscard]] bool screenKeyboardHidden() const noexcept {
         return screenKeyboardHidden_;
     }
+    /// The system clipboard's text; empty when it holds none.
+    [[nodiscard]] std::string clipboard() const;
+    /// Puts `text` on the system clipboard.
+    void setClipboard(const std::string& text);
     /// Posts `combo` to the event queue as the keyboard presses it: down in one frame, up in the
     /// next, after whatever was posted before it.
     void press(input::Combo combo);

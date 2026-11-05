@@ -2,6 +2,7 @@
 // going in and up, and a missing start.
 #include "folder_chooser.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -14,6 +15,26 @@ namespace {
 namespace fs = std::filesystem;
 using namespace opensu::ui;
 using opensu::test::expect;
+
+void typedPathsLoseQuotesAndTakeEitherSlash(const fs::path& root) {
+    const std::string written = (root / "alpha").string();
+    expect(typedPath("  " + written + "\r\n") == root / "alpha", "space and line ends go");
+    expect(typedPath("\"" + written + "\"") == root / "alpha", "Copy as path's quotes go");
+    expect(typedPath("'" + written + "'") == root / "alpha", "single quotes go");
+    expect(typedPath("\"" + written) == fs::path{"\"" + written}, "one lone quote stays");
+    std::string backslashed = written;
+    std::ranges::replace(backslashed, '/', '\\');
+    expect(typedPath(backslashed) == root / "alpha", "backslashes name the same folder");
+    std::string forward = written;
+    std::ranges::replace(forward, '\\', '/');
+    expect(typedPath(forward) == root / "alpha", "so do forward slashes");
+#ifndef _WIN32
+    expect(typedPath("Z:" + backslashed) == root / "alpha", "Wine's Z: drive is the root here");
+    std::ofstream{root / "odd\\name"}.close();
+    expect(typedPath((root / "odd\\name").string()) == root / "odd\\name",
+           "a file that has a backslash in its name stays itself");
+#endif
+}
 
 void listsFoldersOnly(const fs::path& root) {
     FolderChooser chooser;
@@ -70,6 +91,7 @@ int main() try {
     fs::create_directories(root / ".hidden");
     std::ofstream out{root / "file.txt"};
     out.close();
+    typedPathsLoseQuotesAndTakeEitherSlash(root);
     listsFoldersOnly(root);
     listsAcceptedFiles(root);
     goingInAndUp(root);

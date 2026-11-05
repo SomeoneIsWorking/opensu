@@ -15,7 +15,8 @@ add_library(opensu_hud_model STATIC top_bar_metrics.cpp top_bar_layout.cpp corne
     mapping_board_layout.cpp mapping_page.cpp)
 add_library(opensu::hud_model ALIAS opensu_hud_model)
 target_include_directories(opensu_hud_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(opensu_hud_model PUBLIC opensu::grid opensu::library opensu::input PRIVATE opensu::clock)
+target_link_libraries(opensu_hud_model PUBLIC opensu::grid opensu::library opensu::input
+    PRIVATE opensu::clock opensu::fileio)
 target_compile_features(opensu_hud_model PUBLIC cxx_std_20)
 opensu_warnings(opensu_hud_model)
 

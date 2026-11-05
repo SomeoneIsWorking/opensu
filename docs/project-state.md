@@ -1685,6 +1685,15 @@ lookup (the matched name's title) follow it: the player's PlayStation Crash Band
 show a fitted SteamGridDB cover (SNES) keeps that cover, since SteamGridDB knows the game by its
 title. Unverified: launching a Lutris or Steam-shortcut entry.
 
+Every toolkit `TextField` pastes (`gpu2d::ui`): Ctrl+V, Command+V, Shift+Insert, a right click or
+long press, the regular grid's Paste key and A on the daisy wheel with no petal picked, trimmed of
+the space and line ends around it, first line only; the path field takes a paste whole
+(`PathEditor::paste`, `ui::typedPath`: Copy as path's quotes, either slash). Nothing read the
+clipboard before. The regular grid gained `:` and `\`, without which a pad could not type a Windows
+path. Seen in a hidden run through the real clipboard (`/clipboard`, then `/key ctrl+v`): a quoted
+backslashed path with a CRLF into the chooser, identified, and a stand-in key into the SteamGridDB
+card by Ctrl+V and by a right click, shown as dots and absent from the log.
+
 Add a game is one of Library's add tiles (`app::LibraryAdditions`): Add a ROM folder opens
 Settings' own folder flow (Android's folder picker there) and the library reads the folder at once;
 Set up Steam, Epic, GOG, emulators, plugins and LAN each open that switch in Settings ›

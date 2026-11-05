@@ -7,11 +7,10 @@
 // Regular grid: the D-pad walks the keys, A presses the focused key, B deletes and closes when the
 // field is empty, X toggles capitals, Y types a space, Start is Done.
 // Daisy wheel: the left stick picks a petal (`stick`, fed from stick-origin directions) and A, B, X
-// and Y type its characters; with no petal picked X deletes, Y types a space and B closes. LB
-// deletes and RB types a space either way, LT and RT step the set, D-pad Left and Right move the
-// caret, Start is Done.
-// While touch controls show, a field types on the system's on-screen keyboard where there is one
-// (Android's), the way iiSU does; the grid is the pad's.
+// and Y type its characters; with no petal picked A pastes, X deletes, Y types a space and B
+// closes. LB deletes and RB types a space either way, LT and RT step the set, D-pad Left and Right
+// move the caret, Start is Done. While touch controls show, a field types on the system's on-screen
+// keyboard where there is one (Android's), the way iiSU does; the grid is the pad's.
 #pragma once
 
 #include "gpu2d/ui/navigator.hpp"

@@ -47,6 +47,10 @@ void gridKeysType() {
     expect(pressKey(keyboard, KeyKind::Space).typed == " ", "space types a space");
     const KeyPress erase = pressKey(keyboard, KeyKind::Backspace);
     expect(erase.erase && erase.typed.empty() && !erase.done, "Delete erases");
+    expect(pressKey(keyboard, KeyKind::Character, ':').typed == ":" &&
+               pressKey(keyboard, KeyKind::Character, '\\').typed == "\\",
+           "the colon and backslash type, for Windows paths");
+    expect(pressKey(keyboard, KeyKind::Paste).paste, "Paste pastes");
     expect(pressKey(keyboard, KeyKind::Done).done, "Done is done");
     keyboard.toggleShift();
     expect(pressKey(keyboard, KeyKind::Character, 'b').typed == "B" &&

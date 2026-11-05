@@ -69,7 +69,10 @@ class PathEditor {
     [[nodiscard]] const std::string& refusal() const noexcept {
         return refusal_;
     }
-    /// Takes the typed path.
+    /// The path `text` from the clipboard goes in the field; a folder is shown, a file's folder is
+    /// too, and the focus stays on the field for Enter to take it.
+    void paste(const std::string& text);
+    /// Takes the typed path; a folder, when a file is asked for, is shown instead.
     void submitTyped();
     /// Takes the folder shown.
     void useShown();

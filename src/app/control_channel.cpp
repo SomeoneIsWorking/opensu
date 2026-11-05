@@ -421,6 +421,15 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
                                             "{\"typed\":" + jsonString(request.body) + "}");
     }
 
+    if (path == "/clipboard") {
+        if (request.method != "POST") {
+            return refuse("POST only");
+        }
+        // What a player copied elsewhere. It may stand in for a key, so it is not echoed or logged.
+        target_.setClipboard(request.body);
+        return lucent::http::Response::json(200, "OK", "{\"clipboard\":true}");
+    }
+
     if (path == "/frame.png" || path == "/remote/frame.png") {
         if (request.method != "GET") {
             return refuse("GET only");

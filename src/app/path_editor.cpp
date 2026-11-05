@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <system_error>
 #include <vector>
 
 #include "folder_chooser_screen.hpp"
@@ -69,7 +70,26 @@ void PathEditor::choose(const std::filesystem::path& folder) {
 }
 
 void PathEditor::submitTyped() {
-    choose(std::filesystem::path{typed_});
+    const std::filesystem::path path = ui::typedPath(typed_);
+    std::error_code error;
+    if (request_.files && std::filesystem::is_directory(path, error)) {
+        folders_.open(path, request_.files);
+        shown();
+        return;
+    }
+    choose(path);
+}
+
+void PathEditor::paste(const std::string& text) {
+    const std::filesystem::path path = ui::typedPath(text);
+    std::error_code error;
+    const bool folder = std::filesystem::is_directory(path, error);
+    if (folder || std::filesystem::is_regular_file(path, error)) {
+        folders_.open(folder ? path : path.parent_path(), request_.files);
+    }
+    typed_ = path.string();
+    refusal_.clear();
+    navigator_.focus(FolderChooserScreen::fieldId);
 }
 
 void PathEditor::useShown() {

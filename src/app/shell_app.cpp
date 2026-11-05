@@ -83,6 +83,9 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
     shell_.screens().navigator().setKeyboard([this] {
         keyboardPad_.open();
     });
+    shell_.screens().navigator().setClipboard([this] {
+        return window_->clipboard();
+    });
     buildHome();
     padOwner_.syncChords();
     clock_.service(std::chrono::steady_clock::now());
@@ -491,6 +494,10 @@ void ShellApp::handleKeyboard() {
     // Typed characters are read first: the key that opens the search must not also type itself.
     const bool typing = shell_.screens().navigator().typing();
     const input::KeyFrame& frame = window_->keys();
+    if (input::pastePressed(frame) && shell_.screens().navigator().paste()) {
+        shell_.inputDevice().noteKey();
+        return;
+    }
     if (typing) {
         typeIntoField(input::readTextInput(frame));
         return;
@@ -1195,6 +1202,9 @@ void ShellApp::serviceControlRequests() {
     }
     if (queued.linkCap) {
         capRemoteLink(*queued.linkCap);
+    }
+    if (queued.clipboard) {
+        window_->setClipboard(*queued.clipboard);
     }
     // An injection carries its releases: without them a direction would repeat forever.
     for (const auto& [event, device] : queued.buttons) {

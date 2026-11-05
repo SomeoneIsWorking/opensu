@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "gpu2d/ui/screen.hpp"
@@ -31,6 +32,8 @@ class FolderChooserScreen final : public gpu2d::ui::Screen {
     void paintBackdrop(gpu2d::ui::Painter& painter, const gpu2d::Rect& viewport) const override;
     [[nodiscard]] BackReply back(gpu2d::ui::ActContext& context) override;
     bool act(gpu2d::ui::Action action, gpu2d::ui::ActContext& context) override;
+    /// A paste off the field goes to the field: there is only one path to paste into.
+    bool paste(std::string_view text, gpu2d::ui::ActContext& context) override;
     [[nodiscard]] std::vector<gpu2d::ui::Hint> hints() const override;
     [[nodiscard]] std::string initialFocus() const override {
         return landing(editor_);

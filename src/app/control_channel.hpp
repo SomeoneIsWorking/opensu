@@ -196,6 +196,9 @@ class ControlTarget {
     /// Types `text` as a physical keyboard would: through the window's event queue.
     virtual void typeText(std::string text) = 0;
 
+    /// Puts `text` on the system clipboard, which Ctrl+V then reads as a player's paste does.
+    virtual void setClipboard(std::string text) = 0;
+
     /// Queues `buttons` held together, as if from `device`: pressed in order, then released in
     /// reverse once `hold` has passed. One button is a tap; Guide then A is the Guide + A chord.
     /// With `stick`, the directions among them come from the left stick instead of the d-pad.

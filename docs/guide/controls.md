@@ -24,6 +24,17 @@ everywhere, and on Android touch: a click or tap focuses and presses.
 | | Q | Quit openSU |
 | Hold Guide (or any chord's held button) | | After half a second, a list of that button's chords, also over a game in session mode; it goes when you let go or play a chord |
 
+## Typing and pasting
+
+Every text field (a search, a path, a key, a password, a share's address, a profile's name) takes
+a physical keyboard, the on-screen keyboard and the clipboard. Paste with Ctrl+V (Command+V on a
+Mac), Shift+Insert, a right click or a long press on the field, or from a pad with the regular
+grid's Paste key, or A on the daisy wheel with no petal picked. Space and line ends around the
+pasted text go; a field that hides its text hides what you paste too.
+
+In a path field a paste replaces the path and shows its folder, quotes (Windows' Copy as path)
+and either slash style accepted. Ctrl+V works anywhere on the chooser card, not only on the field.
+
 ## Home and Library
 
 Home holds every console you have ROMs for and every store game and game of your own installed on

@@ -31,6 +31,7 @@ inline constexpr int M = 77;
 inline constexpr int Q = 81;
 inline constexpr int R = 82;
 inline constexpr int S = 83;
+inline constexpr int V = 86;
 inline constexpr int W = 87;
 inline constexpr int Y = 89;
 inline constexpr int Z = 90;
@@ -40,6 +41,7 @@ inline constexpr int Escape = 256;
 inline constexpr int Enter = 257;
 inline constexpr int Tab = 258;
 inline constexpr int Backspace = 259;
+inline constexpr int Insert = 260;
 inline constexpr int Right = 262;
 inline constexpr int Left = 263;
 inline constexpr int Down = 264;
@@ -57,9 +59,11 @@ inline constexpr int KeypadEnter = 335;
 inline constexpr int LeftShift = 340;
 inline constexpr int LeftControl = 341;
 inline constexpr int LeftAlt = 342;
+inline constexpr int LeftSuper = 343;
 inline constexpr int RightShift = 344;
 inline constexpr int RightControl = 345;
 inline constexpr int RightAlt = 346;
+inline constexpr int RightSuper = 347;
 inline constexpr int Menu = 348;
 } // namespace keys
 

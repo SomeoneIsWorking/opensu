@@ -43,6 +43,9 @@ std::unique_ptr<tk::Widget> FolderChooserScreen::build(const tk::Theme& theme) {
                             })
         .placeholder(editor_.request().files ? "Type a file path" : "Type a folder path")
         .limit(pathMostLength)
+        .onPaste([this](const std::string& text) {
+            editor_.paste(text);
+        })
         .onSubmit(
             [this] {
                 editor_.submitTyped();
@@ -101,6 +104,11 @@ void FolderChooserScreen::paintBackdrop(tk::Painter& painter, const gpu2d::Rect&
 tk::Screen::BackReply FolderChooserScreen::back(tk::ActContext& /*context*/) {
     editor_.cancel();
     return BackReply::Stay;
+}
+
+bool FolderChooserScreen::paste(std::string_view text, tk::ActContext& /*context*/) {
+    editor_.paste(std::string{text});
+    return true;
 }
 
 bool FolderChooserScreen::act(tk::Action action, tk::ActContext& /*context*/) {

@@ -55,6 +55,11 @@ void ControlBridge::typeText(std::string text) {
     input_.keystrokes.emplace_back(std::move(text));
 }
 
+void ControlBridge::setClipboard(std::string text) {
+    const std::lock_guard lock{inputMutex_};
+    input_.clipboard = std::move(text);
+}
+
 ControlBridge::Input ControlBridge::takeInput(Clock::time_point now) {
     const std::lock_guard lock{inputMutex_};
     Input taken = std::exchange(input_, {});

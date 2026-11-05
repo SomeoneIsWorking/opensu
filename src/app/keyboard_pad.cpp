@@ -108,6 +108,9 @@ void KeyboardPad::apply(const ui::KeyPress& press) {
         done();
         return;
     }
+    if (press.paste) {
+        navigator_.paste();
+    }
     if (press.erase) {
         erase();
     }
@@ -184,6 +187,9 @@ void KeyboardPad::onWheel(gamepad::Button button) {
                                                            : gpu2d::ui::Action::Right)) {
             sounds_.play(audio::Effect::Navigation);
         }
+        break;
+    case gamepad::Button::A:
+        navigator_.paste();
         break;
     case gamepad::Button::B:
         close();

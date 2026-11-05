@@ -24,7 +24,7 @@
 namespace opensu::ui {
 
 /// What a key of the regular grid does.
-enum class KeyKind : std::uint8_t { Character, Space, Backspace, Done };
+enum class KeyKind : std::uint8_t { Character, Space, Backspace, Paste, Done };
 
 /// One key of the regular grid: its place in the ten-column grid and what it types or does.
 struct GridKey {
@@ -112,6 +112,8 @@ struct KeyPress {
     bool erase{false};
     /// The player is done (Done).
     bool done{false};
+    /// The clipboard goes into the field (Paste).
+    bool paste{false};
 };
 
 class OnScreenKeyboard {

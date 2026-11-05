@@ -67,4 +67,11 @@ TextInput readTextInput(const KeyFrame& keys) {
     return input;
 }
 
+bool pastePressed(const KeyFrame& keys) {
+    const bool command = keys.down(keys::LeftControl) || keys.down(keys::RightControl) ||
+                         keys.down(keys::LeftSuper) || keys.down(keys::RightSuper);
+    const bool shift = keys.down(keys::LeftShift) || keys.down(keys::RightShift);
+    return (command && keys.pressed(keys::V)) || (shift && keys.pressed(keys::Insert));
+}
+
 } // namespace opensu::input

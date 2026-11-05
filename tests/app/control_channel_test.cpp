@@ -47,6 +47,9 @@ class FakeShell final : public ControlTarget {
     void typeText(std::string text) override {
         typed.push_back(std::move(text));
     }
+    void setClipboard(std::string text) override {
+        clipboard = std::move(text);
+    }
     void inject(const std::vector<opensu::gamepad::Button>& buttons, opensu::input::Device device,
                 std::chrono::milliseconds hold, bool stick) override {
         held.push_back(buttons);
@@ -75,6 +78,7 @@ class FakeShell final : public ControlTarget {
 
     std::vector<std::string> reloads;
     std::vector<std::string> typed;
+    std::string clipboard;
     std::vector<opensu::input::Combo> keys;
     std::vector<PointerInjection> pointers;
     std::vector<std::uint64_t> linkCaps;
@@ -246,6 +250,10 @@ void testSearchAndText() {
            "text reaches the shell");
     const Request get{.method = "GET", .target = "/text", .headers = {}, .body = {}};
     expect(channel.handle(get).status != 200 && shell.typed.size() == 1, "text is POST only");
+    const auto copied = channel.handle(post("/clipboard", "s3cret"));
+    expect(copied.status == 200 && shell.clipboard == "s3cret" &&
+               copied.body.find("s3cret") == std::string::npos,
+           "the clipboard reaches the shell and is not echoed");
 
     shell.state.searchOpen = true;
     shell.state.searchText = "had";

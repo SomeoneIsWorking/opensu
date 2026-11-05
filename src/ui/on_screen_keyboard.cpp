@@ -28,7 +28,7 @@ constexpr float keyGapDp = 3.0f;
 constexpr float keyRowGapDp = 2.5f;
 constexpr float gridColumnDp = 220.0f;
 
-constexpr std::size_t keyCount = static_cast<std::size_t>(gridKeyColumns) * 4 + 4;
+constexpr std::size_t keyCount = static_cast<std::size_t>(gridKeyColumns) * 4 + 7;
 
 // What the grid's character keys type, and what they are drawn as (letters as capitals).
 constexpr std::string_view typed = "1234567890qwertyuiopasdfghjkl'zxcvbnm-.&";
@@ -44,11 +44,14 @@ constexpr std::array<GridKey, keyCount> makeKeys() {
                           static_cast<int>(i) % gridKeyColumns,
                           1};
     }
-    // The slash makes folder paths typeable; the space key gives up a column to it.
+    // Both slashes and the colon make Linux and Windows paths typeable.
     keys[typed.size()] = GridKey{KeyKind::Character, '/', "/", 4, 0, 1};
-    keys[typed.size() + 1] = GridKey{KeyKind::Space, ' ', "Space", 4, 1, 4};
-    keys[typed.size() + 2] = GridKey{KeyKind::Backspace, '\0', "Delete", 4, 5, 2};
-    keys[typed.size() + 3] = GridKey{KeyKind::Done, '\0', "Done", 4, 7, 3};
+    keys[typed.size() + 1] = GridKey{KeyKind::Character, ':', ":", 4, 1, 1};
+    keys[typed.size() + 2] = GridKey{KeyKind::Character, '\\', "\\", 4, 2, 1};
+    keys[typed.size() + 3] = GridKey{KeyKind::Space, ' ', "Space", 4, 3, 2};
+    keys[typed.size() + 4] = GridKey{KeyKind::Paste, '\0', "Paste", 4, 5, 2};
+    keys[typed.size() + 5] = GridKey{KeyKind::Backspace, '\0', "Delete", 4, 7, 2};
+    keys[typed.size() + 6] = GridKey{KeyKind::Done, '\0', "Done", 4, 9, 1};
     return keys;
 }
 
@@ -309,6 +312,8 @@ KeyPress OnScreenKeyboard::press() {
         return KeyPress{.typed = " "};
     case KeyKind::Backspace:
         return KeyPress{.typed = {}, .erase = true};
+    case KeyKind::Paste:
+        return KeyPress{.typed = {}, .erase = false, .done = false, .paste = true};
     case KeyKind::Done:
         return KeyPress{.typed = {}, .erase = false, .done = true};
     }

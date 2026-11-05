@@ -195,6 +195,27 @@ void quickMenuHasItsDefaults() {
     expect(!changed.rebind(Action::Guide, Combo{keys::F9}).empty(), "and holds its key");
 }
 
+void pasteIsCtrlVCommandVOrShiftInsert() {
+    using opensu::input::KeyFrame;
+    using opensu::input::pastePressed;
+    namespace keys = opensu::input::keys;
+    const auto with = [](int held, int key) {
+        KeyFrame frame;
+        frame.keyDown(held, false);
+        frame.keyDown(key, false);
+        return pastePressed(frame);
+    };
+    expect(with(keys::LeftControl, keys::V) && with(keys::RightControl, keys::V), "Ctrl+V");
+    expect(with(keys::LeftSuper, keys::V), "Command+V");
+    expect(with(keys::LeftShift, keys::Insert), "Shift+Insert");
+    expect(!with(keys::LeftShift, keys::V), "Shift+V is a capital");
+    KeyFrame held;
+    held.keyDown(keys::LeftControl, false);
+    held.keyDown(keys::V, false);
+    held.nextFrame();
+    expect(!pastePressed(held), "a held V pastes once");
+}
+
 void combosHaveNames() {
     expect(describe(Combo{keys::Tab, false, true}) == "Shift+Tab", "a modified cap");
     expect(describe(Combo{keys::F5, true, true}) == "Ctrl+Shift+F5", "both modifiers");
@@ -399,6 +420,7 @@ int main() try {
     conflictsAreRefused();
     padChordsCanBeRemapped();
     combosHaveNames();
+    pasteIsCtrlVCommandVOrShiftInsert();
     chordsAreToldFromPresses();
     triggersAreTheBoundChords();
     guideIsATapOrAModifier();

@@ -2,6 +2,9 @@
 
 #include <algorithm>
 #include <cctype>
+#include <system_error>
+
+#include "fileio/host_path.hpp"
 
 namespace opensu::ui {
 namespace {
@@ -29,6 +32,31 @@ void FolderChooser::open(const fs::path& start, Accept files) {
         current_ = "/";
     }
     list();
+}
+
+fs::path typedPath(std::string_view text) {
+    constexpr std::string_view space = " \t\r\n";
+    const auto trim = [space](std::string_view line) {
+        const std::size_t from = line.find_first_not_of(space);
+        if (from == std::string_view::npos) {
+            return std::string_view{};
+        }
+        return line.substr(from, line.find_last_not_of(space) - from + 1);
+    };
+    std::string_view path = trim(text);
+    if (path.size() >= 2 && (path.front() == '"' || path.front() == '\'') &&
+        path.back() == path.front()) {
+        path = trim(path.substr(1, path.size() - 2));
+    }
+    const std::string written{path};
+    std::error_code error;
+    if (!written.empty() && fs::exists(fileio::pathOnHost(written), error)) {
+        return fileio::pathOnHost(written);
+    }
+    if (fs::exists(fs::path{written}, error)) {
+        return fs::path{written};
+    }
+    return fileio::pathOnHost(written);
 }
 
 void FolderChooser::list() {

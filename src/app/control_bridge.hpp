@@ -32,11 +32,14 @@ class ControlBridge final : public ControlTarget {
         std::vector<PointerInjection> pointer;
         /// The newest remote link cap asked for, if any.
         std::optional<std::uint64_t> linkCap;
+        /// The newest text to put on the system clipboard, if any.
+        std::optional<std::string> clipboard;
     };
 
     // ControlTarget. Each is callable from any thread.
     [[nodiscard]] ShellSnapshot snapshot() const override;
     void typeText(std::string text) override;
+    void setClipboard(std::string text) override;
     void inject(const std::vector<gamepad::Button>& buttons, input::Device device,
                 std::chrono::milliseconds hold, bool stick) override;
     void injectKey(input::Combo combo) override;
