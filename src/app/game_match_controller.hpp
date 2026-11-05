@@ -130,8 +130,8 @@ class GameMatchController {
     void findSteamApps(const std::stop_token& stop, const std::string& term, Found& found);
     void findBoxArt(const std::stop_token& stop, const std::string& term, Found& found);
     /// The file at `url` kept in the cache as `name`, downloaded when it is not there; empty when
-    /// there is none.
-    [[nodiscard]] std::filesystem::path cached(const std::string& url,
+    /// there is none or `stop` ended its download.
+    [[nodiscard]] std::filesystem::path cached(const std::stop_token& stop, const std::string& url,
                                                const std::string& name) const;
     /// Where the candidates are searched, as the player reads it.
     [[nodiscard]] std::string searched() const;

@@ -86,14 +86,15 @@ void GameMatchController::publish(const Found& found) {
     found_ = found;
 }
 
-fs::path GameMatchController::cached(const std::string& url, const std::string& name) const {
+fs::path GameMatchController::cached(const std::stop_token& stop, const std::string& url,
+                                     const std::string& name) const {
     fs::path file = places_.covers / name;
     std::error_code ec;
     if (fs::is_regular_file(file, ec)) {
         return file;
     }
     const net::WebClient web;
-    const net::Result<std::string> bytes = web.get(std::stop_token{}, url);
+    const net::Result<std::string> bytes = web.get(stop, url);
     if (!bytes) {
         return {};
     }
@@ -123,7 +124,10 @@ void GameMatchController::findSteamApps(const std::stop_token& stop, const std::
     // is searched again without its last words.
     for (std::string asked = term; !asked.empty() && apps.empty();) {
         const net::Result<std::string> answer =
-            web.get(std::stop_token{}, library::identify::storeSearchUrl(asked));
+            web.get(stop, library::identify::storeSearchUrl(asked));
+        if (answer.stopped()) {
+            return;
+        }
         if (!answer) {
             lucent::warn("match", "Steam store search: {}", answer.error());
             found.searched = true;
@@ -150,14 +154,17 @@ void GameMatchController::findSteamApps(const std::stop_token& stop, const std::
             return;
         }
         if (const net::Result<std::string> details =
-                web.get(std::stop_token{}, library::matches::releaseDateUrl(candidate.key))) {
+                web.get(stop, library::matches::releaseDateUrl(candidate.key))) {
             candidate.year = library::matches::parseReleaseYear(*details, candidate.key);
         }
         const std::string base = places_.steamCdn + "/" + candidate.key + "/";
         // The library portrait, else the store header, which every app has.
-        candidate.cover = cached(base + "library_600x900.jpg", candidate.key + ".jpg");
+        candidate.cover = cached(stop, base + "library_600x900.jpg", candidate.key + ".jpg");
         if (candidate.cover.empty()) {
-            candidate.cover = cached(base + "header.jpg", candidate.key + "-header.jpg");
+            candidate.cover = cached(stop, base + "header.jpg", candidate.key + "-header.jpg");
+        }
+        if (stop.stop_requested()) {
+            return;
         }
         candidate.complete = true;
         publish(found);
@@ -170,7 +177,10 @@ void GameMatchController::findBoxArt(const std::stop_token& stop, const std::str
     const net::WebClient web;
     net::Result<std::vector<std::string>> names = net::Failure{"no libretro system"};
     if (system != nullptr) {
-        names = artwork::boxArtNames(std::stop_token{}, web, listings_, *system, places_.libretro);
+        names = artwork::boxArtNames(stop, web, listings_, *system, places_.libretro);
+    }
+    if (names.stopped()) {
+        return;
     }
     found.searched = true;
     if (!names) {
@@ -195,8 +205,11 @@ void GameMatchController::findBoxArt(const std::stop_token& stop, const std::str
             return;
         }
         candidate.cover =
-            cached(artwork::boxArtUrl(places_.libretro, *system, candidate.key),
+            cached(stop, artwork::boxArtUrl(places_.libretro, *system, candidate.key),
                    std::string{system->key} + "-" + artwork::thumbnailName(candidate.key) + ".png");
+        if (stop.stop_requested()) {
+            return;
+        }
         candidate.complete = true;
         publish(found);
     }
