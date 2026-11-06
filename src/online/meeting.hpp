@@ -68,6 +68,8 @@ struct Agreement {
     lan::wire::NetplayClock clock;
     /// Frames of input delay, measured from the round trip.
     unsigned delay{2};
+    /// Frames a runner may run past the input it has; 0 for lockstep.
+    unsigned ahead{0};
     /// The router's mapping, while the game runs.
     std::unique_ptr<PortLease> lease;
 };
@@ -122,7 +124,8 @@ class Meeting {
     };
 
     /// A host offering `ask`, with this player's `save`.
-    Meeting(Network network, Patience patience, lan::wire::NetplayAsk ask, std::string save);
+    Meeting(Network network, Patience patience, lan::wire::NetplayAsk ask, std::string save,
+            bool rollback);
     /// A friend who pasted `invite`.
     Meeting(Network network, Patience patience, Invite invite);
     ~Meeting();
@@ -144,6 +147,9 @@ class Meeting {
     /// `failure` in words for the player.
     [[nodiscard]] static std::string textOf(Failure failure);
     /// The input delay for a measured round trip.
+    /// What a host with a core that may roll back asks for, from the frames `delayFor` gives: the
+    /// least delay, and at least the rest as frames to run ahead.
+    [[nodiscard]] static unsigned aheadFor(unsigned delay) noexcept;
     [[nodiscard]] static unsigned delayFor(std::chrono::milliseconds roundTrip) noexcept;
 
   private:
@@ -179,6 +185,7 @@ class Meeting {
     /// The host's.
     std::optional<lan::wire::NetplayAsk> ask_;
     std::string save_;
+    bool rollback_{false};
     /// The friend's; for the host, its secret alone until a reach goes in.
     Invite invite_;
 

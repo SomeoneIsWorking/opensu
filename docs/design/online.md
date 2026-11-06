@@ -56,13 +56,27 @@ With Tailscale on both machines nothing changes in openSU. Every interface's add
 code, `100.64.0.0/10` first, so the same code reaches the host over the tailnet with no port opened.
 Both people install Tailscale and share a machine or a tailnet, then play by code as usual.
 
+## Any core
+
+A game on the link core plays as on the LAN. Any other game the built-in runner runs is one console
+on each machine (`library::netplayCore`), each player's input on its port, and asks for rollback
+(`docs/design/libretro.md`): the host's `Go` gives the least delay and what is left of the round trip
+as frames to run ahead, and a core that cannot roll back takes those frames as delay instead.
+Both machines run the host's save and only the host keeps what the game writes; the friend is told so
+before Play. Being the same core means the same SHA-256 of its library (`wire::coreBuildPrefix`), of
+the BIOS files it boots from, and the same options; a difference is refused by name, so two people
+need the same build of a core, and different systems are refused.
+
+Play with <name> on the LAN stays on the link core.
+
 ## Checking it
 
 `uv run --frozen python -m tools.nat_lab <case>|all` runs two hidden shells in rootless namespaces
 across `nft` NATs with a STUN server and, for `nat-pmp` and `upnp`, a router (`gateway.py`), and keeps
 frames and logs in `scratch/wan-netplay-proof/<case>/`. Each case that plays checks each player's
 held A on both screens' bands, and that no code is in a log and no socket is left. Pad B is the
-console's A: pads name buttons by place.
+console's A: pads name buttons by place. `any-core` plays a generated Game Boy ROM on the real mGBA
+core this machine's openSU downloaded, at 120 ms of round trip, and asks for frames run again.
 
 `settings.json`'s `onlineStunServers` (comma-separated `host:port`) replaces the default STUN
 servers. `/state` gives `onlineStep`, and in a hidden run `onlineCode`.

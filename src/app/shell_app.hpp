@@ -226,7 +226,10 @@ class ShellApp final {
     /// synced with the profile's; false when it was refused.
     bool launchSession(const library::Game& game, const std::filesystem::path& saves);
     /// The core options `game` would run with on the link core.
-    [[nodiscard]] std::map<std::string, std::string> linkOptionsOf(const library::Game& game) const;
+    [[nodiscard]] std::map<std::string, std::string>
+    netplayOptionsOf(const library::Game& game) const;
+    /// The BIOS files `game`'s built-in core boots from here.
+    [[nodiscard]] std::vector<std::filesystem::path> netplayBiosOf(const library::Game& game) const;
     /// The folder `profile`'s games save in.
     [[nodiscard]] std::filesystem::path profileRunnerSaves(const std::string& profile) const;
     /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update.
@@ -1045,13 +1048,17 @@ class ShellApp final {
                 [this](const library::Game& game, const std::filesystem::path& saves) {
                     return launchSession(game, saves);
                 },
-            .linkOptions =
+            .coreOptions =
                 [this](const library::Game& game) {
-                    return linkOptionsOf(game);
+                    return netplayOptionsOf(game);
                 },
             .biosFolder =
                 [this] {
                     return emulatorSettings_.biosFolder();
+                },
+            .coreBios =
+                [this](const library::Game& game) {
+                    return netplayBiosOf(game);
                 }}};
     /// Playing a ROM linked with a paired openSU.
     LanNetplay lanNetplay_{

@@ -34,10 +34,12 @@ class NetplayRun {
         std::function<std::filesystem::path()> profileSaves;
         /// Starts `game` with `saves` as its save folder; false when it was refused.
         std::function<bool(const library::Game& game, const std::filesystem::path& saves)> launch;
-        /// The core options the link core would run `game` with here.
-        std::function<std::map<std::string, std::string>(const library::Game& game)> linkOptions;
+        /// The core options a session of `game` would run with here.
+        std::function<std::map<std::string, std::string>(const library::Game& game)> coreOptions;
         /// The runner's system folder, where the link core looks for its BIOS.
         std::function<std::filesystem::path()> biosFolder;
+        /// The BIOS files in that folder `game`'s built-in core boots from.
+        std::function<std::vector<std::filesystem::path>(const library::Game& game)> coreBios;
     };
 
     /// A session both sides agreed to.
@@ -55,6 +57,8 @@ class NetplayRun {
         lan::wire::NetplayClock clock;
         /// Frames of input delay; 0 leaves it to the runner.
         unsigned delay{0};
+        /// Frames the runner may run past the input it has, where the core can roll back.
+        unsigned ahead{0};
     };
 
     NetplayRun(Places places, Hooks hooks) : places_{std::move(places)}, hooks_{std::move(hooks)} {

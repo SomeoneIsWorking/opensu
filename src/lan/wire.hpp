@@ -223,6 +223,9 @@ inline constexpr std::string_view netplaySaveRoute = "/lan/netplay/save";
 /// What both machines of a session must have the same, or their games part: on each side, the link
 /// core's revision, the options it would run with and the BIOS it would boot (its SHA-256, empty
 /// for none).
+/// Starts `NetplayFacts::coreRevision` for a core known by the hash of its library, not by a pin.
+inline constexpr std::string_view coreBuildPrefix = "sha256:";
+
 struct NetplayFacts {
     std::string coreRevision;
     std::map<std::string, std::string> options;

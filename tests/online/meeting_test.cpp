@@ -126,9 +126,9 @@ Invite invited(const std::string& code) {
     return opensu::test::need(readInvite(code, problem), "the code reads");
 }
 
-void oneCodeToASession() {
+void oneCodeToASession(bool rollback) {
     const StunServer stun;
-    Meeting host{network(stun.address()), quick(), ask(), "host save"};
+    Meeting host{network(stun.address()), quick(), ask(), "host save", rollback};
     const Invite invite = invited(inviteFrom(host));
     expect(!invite.reach.publics.empty() && !invite.reach.varying, "the code holds STUN's address");
     Meeting joiner{network(stun.address()), quick(), invite};
@@ -157,6 +157,8 @@ void oneCodeToASession() {
            "both saves on both sides");
     expect(onHost->delay == onFriend->delay && onHost->clock == onFriend->clock,
            "the delay and clock are the host's on both");
+    expect(onHost->ahead == onFriend->ahead && (onHost->ahead >= 4) == rollback,
+           "a rollback host says how far to run ahead");
     expect(onHost->port != 0 && onHost->peer.port == onFriend->port, "the host dials the friend");
     const UdpSocket rebound{onHost->port};
     expect(rebound.port() == onHost->port, "the port is free for the runner");
@@ -165,7 +167,7 @@ void oneCodeToASession() {
 
 void declinedSaysSo() {
     const StunServer stun;
-    Meeting host{network(stun.address()), quick(), ask(), {}};
+    Meeting host{network(stun.address()), quick(), ask(), {}, false};
     Meeting joiner{network(stun.address()), quick(), invited(inviteFrom(host))};
     expect(waitFor(
                [&joiner] {
@@ -190,7 +192,7 @@ void codeLapses() {
     const StunServer stun;
     Patience patience = quick();
     patience.invite = 1s;
-    Meeting host{network(stun.address()), patience, ask(), {}};
+    Meeting host{network(stun.address()), patience, ask(), {}, false};
     expect(waitFor(
                [&host] {
                    return stepOf(host) == Meeting::Step::Failed;
@@ -248,7 +250,7 @@ void friendGivesUp() {
 
 void hostGivesUpOnPunching() {
     const StunServer stun;
-    Meeting host{network(stun.address()), quick(), ask(), {}};
+    Meeting host{network(stun.address()), quick(), ask(), {}, false};
     const Invite invite = invited(inviteFrom(host));
     Reach dead;
     dead.port = 9;
@@ -276,7 +278,7 @@ void cancellingEndsItAtOnce() {
     const StunServer stun;
     const auto started = std::chrono::steady_clock::now();
     {
-        Meeting host{network(stun.address()), quick(), ask(), {}};
+        Meeting host{network(stun.address()), quick(), ask(), {}, false};
         static_cast<void>(inviteFrom(host));
     }
     expect(std::chrono::steady_clock::now() - started < 1s, "going away ends a meeting");
@@ -292,7 +294,8 @@ void delayFollowsTheRoundTrip() {
 
 int main() try {
     delayFollowsTheRoundTrip();
-    oneCodeToASession();
+    oneCodeToASession(false);
+    oneCodeToASession(true);
     declinedSaysSo();
     codeLapses();
     bothStrictFailsAtOnce();

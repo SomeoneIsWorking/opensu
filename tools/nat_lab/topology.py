@@ -36,16 +36,12 @@ class Node:
         return ["nsenter", f"--net=/proc/{self.holder.pid}/ns/net", "--"]
 
     def run(self, *command: str) -> str:
-        done = subprocess.run(
-            [*self.prefix, *command], check=True, capture_output=True, text=True
-        )
+        done = subprocess.run([*self.prefix, *command], check=True, capture_output=True, text=True)
         return done.stdout
 
     def start(self, command: list[str], log: Path) -> subprocess.Popen[bytes]:
         output = log.open("ab")
-        return subprocess.Popen(
-            [*self.prefix, *command], stdout=output, stderr=subprocess.STDOUT
-        )
+        return subprocess.Popen([*self.prefix, *command], stdout=output, stderr=subprocess.STDOUT)
 
     def ip(self, line: str) -> None:
         self.run("ip", *line.split())
@@ -54,9 +50,7 @@ class Node:
         self.run("sh", "-c", "echo 1 > /proc/sys/net/ipv4/ip_forward")
 
     def nft(self, rules: str) -> None:
-        subprocess.run(
-            [*self.prefix, "nft", "-f", "-"], check=True, input=rules, text=True
-        )
+        subprocess.run([*self.prefix, "nft", "-f", "-"], check=True, input=rules, text=True)
 
     def close(self) -> None:
         self.holder.kill()
@@ -169,5 +163,6 @@ def build(host_nat: Nat, friend_nat: Nat, tailnet: bool, delay_ms: int) -> Lab:
         wire(host, "ts0", f"{HOST_TAILNET}/30", friend, "ts0", f"{FRIEND_TAILNET}/30")
     if delay_ms:
         for link in ("to-host", "to-friend"):
-            internet.run("tc", "qdisc", "add", "dev", link, "root", "netem", "delay", f"{delay_ms}ms")
+            delay = f"{delay_ms}ms"
+            internet.run("tc", "qdisc", "add", "dev", link, "root", "netem", "delay", delay)
     return Lab(internet, transit, host_router, friend_router, host, friend)

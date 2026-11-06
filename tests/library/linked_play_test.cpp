@@ -71,7 +71,22 @@ void netplay() {
 
 } // namespace
 
+void anyBuiltInCore() {
+    Game game = gbaGame();
+    game.emulatorOptions.clear();
+    expect(!linkable(game) && netplayable(game), "a game on a built-in core can be a session");
+    expect(netplayCore(game) == "mgba.so", "on its own core");
+    const std::optional<Game> played = netplayGame(game, "session.json");
+    expect(played && holds(*played, "--netplay") && holds(*played, "mgba.so"),
+           "the runner takes the session on that core");
+    game.launch.args = {"rom.gba"};
+    expect(!netplayable(game), "an emulator of its own cannot");
+    game = gbaGame();
+    expect(netplayCore(game).empty(), "the link core comes first where it can");
+}
+
 int main() try {
+    anyBuiltInCore();
     linkableNeedsTheCore();
     splitScreen();
     netplay();

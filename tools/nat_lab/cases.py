@@ -1,5 +1,6 @@
 """What the lab proves: each case one pair of networks and what must happen across them."""
 
+import re
 import shutil
 import signal
 import subprocess
@@ -12,6 +13,7 @@ from pathlib import Path
 from tools.link_rom.build import build as build_rom
 from tools.nat_lab import topology
 from tools.nat_lab.frames import colour_at
+from tools.nat_lab.gb_rom import build as build_gb_rom
 from tools.nat_lab.instance import Instance
 from tools.nat_lab.topology import Lab, Nat
 
@@ -29,6 +31,9 @@ ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 BAND_X = 640
 BAND_ONE_Y = 100
 BAND_TWO_Y = 280
+# Inside a Game Boy's screen, and how dark a held A makes it.
+SCREEN_Y = 400
+DARK = 150
 
 
 def invite_secret(code: str) -> str:
@@ -36,6 +41,14 @@ def invite_secret(code: str) -> str:
     bits = "".join(format(ALPHABET.index(letter), "05b") for letter in code[3:])
     data = bytes(int(bits[at : at + 8], 2) for at in range(0, len(bits) - 7, 8))
     return data[2:18].hex()
+
+
+def installed_core() -> Path:
+    """The real mGBA core this machine's openSU downloaded, as a non-link core to play on."""
+    core = Path.home() / ".local" / "share" / "opensu" / "cores" / "mgba_libretro.so"
+    if not core.exists():
+        raise RuntimeError(f"{core} is missing: download mGBA (built-in) in openSU first")
+    return core
 
 
 def stun_list() -> str:
@@ -54,6 +67,7 @@ class Rig:
         delay_ms: int = 20,
         gateway: str = "",
         lease: int = 120,
+        any_core: bool = False,
     ) -> None:
         if context.out.exists():
             shutil.rmtree(context.out)
@@ -72,7 +86,7 @@ class Rig:
             context.out / "stun.log",
         )
         self.capture = self.lab.internet.start(
-            ["tcpdump", "-n", "-l", "-i", "any", "udp", "and", "not", "port", str(topology.STUN_PORT)],
+            ["tcpdump", "-n", "-l", "-i", "any", f"udp and not port {topology.STUN_PORT}"],
             context.out / "wire.log",
         )
         self.gateway: subprocess.Popen[bytes] | None = None
@@ -95,17 +109,20 @@ class Rig:
             while "up" not in self.gateway_text() and time.monotonic() < until:
                 time.sleep(0.05)
         roms = context.out / "roms"
-        (roms / "gba").mkdir(parents=True)
-        build_rom(roms / "gba" / "link_test.gba", False)
+        if any_core:
+            build_gb_rom(roms / "gb" / "any_core.gb")
+        else:
+            (roms / "gba").mkdir(parents=True)
+            build_rom(roms / "gba" / "link_test.gba", False)
         binary = context.build / "src" / "opensu"
-        self.host = Instance(
-            "host", self.lab.host, context.out / "host", binary, roms, stun_list()
-        )
+        self.host = Instance("host", self.lab.host, context.out / "host", binary, roms, stun_list())
         self.friend = Instance(
             "friend", self.lab.friend, context.out / "friend", binary, roms, stun_list()
         )
-        self.host.start()
-        self.friend.start()
+        for each in (self.host, self.friend):
+            if any_core:
+                each.install_core(installed_core())
+            each.start()
 
     def close(self) -> None:
         self.host.quit()
@@ -292,6 +309,75 @@ def plain_failure(rig: Rig, who: Instance, started: float, most: float, name: st
         raise RuntimeError(f"{who.name} took {took:.1f} s, over {most} s")
 
 
+def dark(path: Path) -> bool:
+    return sum(colour_at(path, BAND_X, SCREEN_Y)) < DARK
+
+
+def shows_held(rig: Rig, name: str, host_port: int, friend_port: int) -> bool:
+    """Whether both screens are black; they must agree."""
+    host_frame = rig.frame(f"host-{name}")
+    friend_frame = rig.frame(f"friend-{name}")
+    rig.host.frame(host_frame, host_port)
+    rig.friend.frame(friend_frame, friend_port)
+    if dark(host_frame) != dark(friend_frame):
+        raise RuntimeError(f"{name}: the screens differ")
+    return dark(host_frame)
+
+
+def session_line(who: Instance) -> str:
+    lines = [line for line in who.log.read_text().splitlines() if "netplay: " in line]
+    return "\n".join(lines)
+
+
+def any_core(context: Context) -> None:
+    """A real non-link core: one console on each machine, rollback under 120 ms of round trip."""
+    with Rig(context, "restricted", "restricted", delay_ms=60, any_core=True) as rig:
+        code = host_offers(rig)
+        friend_enters(rig, code)
+        reply_back(rig)
+        friend = rig.friend
+        friend.wait("asked to play", lambda state: state["screen"] == "dialog", seconds=20)
+        rig.shot(friend, "4-question")
+        friend.focus("dialog/1", "right", 3)
+        friend.press("a")
+        host_port = rig.host.runner_port()
+        friend_port = rig.friend.runner_port()
+        time.sleep(6)
+        if shows_held(rig, "5-game", host_port, friend_port):
+            raise RuntimeError("the screens start black")
+        for _ in range(12):
+            rig.host.call("/input", '{"buttons":["b"]}', host_port)
+            rig.friend.call("/input", '{"buttons":["b"]}', friend_port)
+            time.sleep(0.25)
+            rig.host.call("/input", "{}", host_port)
+            rig.friend.call("/input", "{}", friend_port)
+            time.sleep(0.25)
+        rig.host.call("/input", '{"buttons":["b"]}', host_port)
+        time.sleep(1)
+        if not shows_held(rig, "6-host-holds-a", host_port, friend_port):
+            raise RuntimeError("the host's A did not reach both consoles")
+        rig.host.call("/input", "{}", host_port)
+        time.sleep(1)
+        if shows_held(rig, "7-let-go", host_port, friend_port):
+            raise RuntimeError("letting go did not reach both consoles")
+        time.sleep(3)
+        ends_cleanly(rig, signal.SIGTERM)
+        run_again = 0
+        for each in (rig.host, rig.friend):
+            print(f"{each.name}:\n{session_line(each)}")
+            ran = re.search(
+                r"(\d+) frames run again, (\d+) state checks matched", session_line(each)
+            )
+            if ran is None or int(ran.group(2)) == 0:
+                raise RuntimeError(f"{each.name}: no state check matched")
+            if "rollback up to" not in session_line(each):
+                raise RuntimeError(f"{each.name} did not roll back")
+            run_again += int(ran.group(1))
+        # The machine running ahead of the other is the one that guesses.
+        if run_again == 0:
+            raise RuntimeError("no frame was run again")
+
+
 def full_cone(context: Context) -> None:
     with Rig(context, "full-cone", "restricted") as rig:
         code = host_offers(rig)
@@ -336,7 +422,7 @@ def tailscale(context: Context) -> None:
 
 
 def nat_pmp(context: Context) -> None:
-    """Short leases: renewed in play, taken down after a crashed runner, lapsing after a dead shell."""
+    """Short leases: renewed in play, removed after a dead runner, lapsing after a dead shell."""
     with Rig(context, "restricted", "restricted", gateway="nat-pmp", lease=16) as rig:
         code = host_offers(rig)
         rig.wait_gateway("add", 1)
@@ -377,4 +463,5 @@ CASES: dict[str, Callable[[Context], None]] = {
     "tailscale": tailscale,
     "nat-pmp": nat_pmp,
     "upnp": upnp,
+    "any-core": any_core,
 }

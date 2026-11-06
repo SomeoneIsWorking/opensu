@@ -35,7 +35,10 @@ constexpr auto goLinger = 500ms;
 constexpr auto frameMs = 1000.0 / 60.0;
 constexpr unsigned leastDelay = 2;
 constexpr unsigned mostDelay = 12;
-constexpr std::size_t goBytes = 1 + 8 + 4;
+constexpr std::size_t goBytes = 1 + 1 + 8 + 4;
+/// A rollback session's reach, and the most a runner takes.
+constexpr unsigned leastAhead = 4;
+constexpr unsigned mostAhead = 12;
 constexpr std::size_t mostRefusal = 200;
 constexpr std::string_view yes = "Y";
 constexpr std::string_view no = "N";
@@ -133,8 +136,9 @@ std::unique_ptr<PortLease> mapPort(const std::stop_token& stop, const Network& n
     return nullptr;
 }
 
-std::string goBody(unsigned delay, const lan::wire::NetplayClock& clock) {
+std::string goBody(unsigned delay, unsigned ahead, const lan::wire::NetplayClock& clock) {
     std::string body(1, static_cast<char>(delay));
+    body.push_back(static_cast<char>(ahead));
     fileio::appendLittleEndian(body, static_cast<std::uint64_t>(clock.epochMs), 8);
     fileio::appendLittleEndian(body, static_cast<std::uint32_t>(clock.utcOffset), 4);
     return body;
@@ -149,9 +153,10 @@ struct Meeting::Gathered {
     std::optional<stream::UdpAddress> server;
 };
 
-Meeting::Meeting(Network network, Patience patience, lan::wire::NetplayAsk ask, std::string save)
+Meeting::Meeting(Network network, Patience patience, lan::wire::NetplayAsk ask, std::string save,
+                 bool rollback)
     : network_{std::move(network)}, patience_{patience}, ask_{std::move(ask)},
-      save_{std::move(save)},
+      save_{std::move(save)}, rollback_{rollback},
       invite_{.secret = secrets::crypto::randomBytes(secretBytes), .reach = {}},
       worker_{[this](const std::stop_token& stop) {
           run(stop);
@@ -257,6 +262,10 @@ unsigned Meeting::delayFor(std::chrono::milliseconds roundTrip) noexcept {
     const double oneWay = static_cast<double>(roundTrip.count()) / 2.0;
     const auto frames = static_cast<unsigned>(std::ceil(oneWay / frameMs)) + 1;
     return std::clamp(frames, leastDelay, mostDelay);
+}
+
+unsigned Meeting::aheadFor(unsigned delay) noexcept {
+    return std::max(delay - leastDelay, leastAhead);
 }
 
 void Meeting::run(const std::stop_token& stop) {
@@ -431,10 +440,14 @@ void Meeting::agreeAsHost(const std::stop_token& stop, ReliableLink& link,
     agreement.hostSave = std::move(save_);
     agreement.friendSave = save->body;
     agreement.delay = delayFor(link.roundTrip().value_or(0ms));
+    if (rollback_) {
+        agreement.ahead = aheadFor(agreement.delay);
+        agreement.delay = leastDelay;
+    }
     agreement.clock = ask.clock;
     const auto waited = std::chrono::system_clock::now().time_since_epoch();
     agreement.clock.epochMs = std::chrono::duration_cast<std::chrono::milliseconds>(waited).count();
-    link.send(LinkKind::Go, goBody(agreement.delay, agreement.clock));
+    link.send(LinkKind::Go, goBody(agreement.delay, agreement.ahead, agreement.clock));
     const auto ackUntil = Clock::now() + goAckWait;
     while (!link.flushed() && Clock::now() < ackUntil && !stop.stop_requested()) {
         link.pump(pumpWait);
@@ -496,9 +509,10 @@ void Meeting::agreeAsFriend(const std::stop_token& stop, ReliableLink& link, Agr
     agreement.friendSave = std::move(*own);
     agreement.delay =
         std::clamp<unsigned>(static_cast<std::uint8_t>(go->body[0]), leastDelay, mostDelay);
-    agreement.clock.epochMs = static_cast<std::int64_t>(fileio::littleEndian(go->body, 1, 8));
-    agreement.clock.utcOffset =
-        static_cast<std::int32_t>(static_cast<std::uint32_t>(fileio::littleEndian(go->body, 9, 4)));
+    agreement.ahead = std::min<unsigned>(static_cast<std::uint8_t>(go->body[1]), mostAhead);
+    agreement.clock.epochMs = static_cast<std::int64_t>(fileio::littleEndian(go->body, 2, 8));
+    agreement.clock.utcOffset = static_cast<std::int32_t>(
+        static_cast<std::uint32_t>(fileio::littleEndian(go->body, 10, 4)));
     drain(stop, link, goLinger);
 }
 

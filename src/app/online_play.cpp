@@ -99,7 +99,7 @@ online::Network OnlinePlay::network() const {
 }
 
 void OnlinePlay::host(const library::Game& game) {
-    if (meeting_) {
+    if (meeting_ || hashing_) {
         hooks_.say("A game online is already being set up", true);
         return;
     }
@@ -119,31 +119,46 @@ void OnlinePlay::host(const library::Game& game) {
 }
 
 void OnlinePlay::startHost(const library::Game& game) {
-    if (meeting_) {
+    if (meeting_ || hashing_) {
         return;
     }
-    const secrets::crypto::Bytes salt = secrets::crypto::randomBytes(secrets::crypto::nonceBytes);
-    std::error_code failed;
-    lan::wire::NetplayAsk ask{.console = game.sourceId,
-                              .file = game.file.filename().string(),
-                              .title = game.title,
-                              .size = std::filesystem::file_size(game.file, failed),
-                              .sha256 = NetplayRun::sha256Of(game.file),
-                              .salt = salt,
-                              .facts = run_.factsOf(game),
-                              .clock = lan::netplayClockNow()};
     game_ = game;
     hosting_ = true;
     answered_ = false;
     replyDraft_.clear();
     replyProblem_.clear();
-    meeting_ = std::make_unique<online::Meeting>(network(), online::Patience{}, std::move(ask),
-                                                 NetplayRun::contentsOf(run_.profileSave(game)));
+    hashing_ = std::async(std::launch::async, [file = game.file] {
+        return NetplayRun::sha256Of(file);
+    });
     openScreen();
 }
 
+void OnlinePlay::serviceHash() {
+    if (!hashing_ || hashing_->wait_for(std::chrono::seconds{0}) != std::future_status::ready) {
+        return;
+    }
+    const std::string sha256 = hashing_->get();
+    hashing_.reset();
+    if (!game_) {
+        return;
+    }
+    const library::Game& game = *game_;
+    std::error_code failed;
+    lan::wire::NetplayAsk ask{.console = game.sourceId,
+                              .file = game.file.filename().string(),
+                              .title = game.title,
+                              .size = std::filesystem::file_size(game.file, failed),
+                              .sha256 = sha256,
+                              .salt = secrets::crypto::randomBytes(secrets::crypto::nonceBytes),
+                              .facts = run_.factsOf(game),
+                              .clock = lan::netplayClockNow()};
+    meeting_ = std::make_unique<online::Meeting>(network(), online::Patience{}, std::move(ask),
+                                                 NetplayRun::contentsOf(run_.profileSave(game)),
+                                                 !library::netplayCore(game).empty());
+}
+
 void OnlinePlay::join() {
-    if (meeting_) {
+    if (meeting_ || hashing_) {
         hooks_.say("A game online is already being set up", true);
         return;
     }
@@ -236,6 +251,7 @@ void OnlinePlay::close() {
     closeScreen();
     meeting_.reset();
     lookup_.reset();
+    hashing_.reset();
     game_.reset();
     view_ = {};
 }
@@ -244,13 +260,13 @@ OnlinePlay::Page OnlinePlay::shown() const {
     using Step = online::Meeting::Step;
     Page page;
     page.title = "Play online";
-    page.code = view_.code;
     switch (view_.step) {
     case Step::Gathering:
         page.note = "Finding how the internet can reach this machine...";
         break;
     case Step::Inviting:
         page.title = "Send this code to your friend";
+        page.code = view_.code;
         page.note = "It works once, for ten minutes. If your friend gets a reply code to send "
                     "back, paste it below.";
         if (view_.closed) {
@@ -264,6 +280,7 @@ OnlinePlay::Page OnlinePlay::shown() const {
         break;
     case Step::Replying:
         page.title = "Send this code back to your friend";
+        page.code = view_.code;
         page.note = "Your friend's router did not let this machine in. Your friend pastes this on "
                     "their screen, and you keep waiting here.";
         break;
@@ -326,8 +343,8 @@ void OnlinePlay::serviceLookup() {
     }
     const std::optional<library::Game> found = lookup_->get();
     lookup_.reset();
-    if (!found || !library::linkable(*found) || !view_.asked) {
-        meeting_->decline("it does not have this ROM on the link core");
+    if (!found || !library::netplayable(*found) || !view_.asked) {
+        meeting_->decline("it does not have this ROM on a built-in core");
         return;
     }
     const lan::wire::NetplayFacts here = run_.factsOf(*found);
@@ -357,8 +374,11 @@ void OnlinePlay::question(const library::Game& game) {
                            [this] {
                                questionTitle_.clear();
                                if (meeting_ && game_) {
+                                   // One console on each machine runs on the host's save.
                                    meeting_->accept(
-                                       NetplayRun::contentsOf(run_.profileSave(*game_)));
+                                       library::netplayCore(*game_).empty()
+                                           ? NetplayRun::contentsOf(run_.profileSave(*game_))
+                                           : std::string{});
                                }
                            },
                        .kind = gpu2d::ui::ButtonKind::Primary,
@@ -367,8 +387,11 @@ void OnlinePlay::question(const library::Game& game) {
     sounds_.play(audio::Effect::Open);
     navigator_.push(std::make_unique<gpu2d::ui::Dialog>(
         questionTitle_,
-        "Your save for this game goes to your friend's machine for the session, and theirs comes "
-        "to yours. Each of you keeps your own.",
+        library::netplayCore(game).empty()
+            ? "Your save for this game goes to your friend's machine for the session, and theirs "
+              "comes to yours. Each of you keeps your own."
+            : "You play on your friend's save. Yours stays as it is, and nothing you do in this "
+              "game is kept here.",
         std::move(choices), 0));
 }
 
@@ -404,7 +427,8 @@ void OnlinePlay::begin(online::Agreement& agreement, const library::Game& game) 
                                         .receiveKey = host ? keys.gameFriend : keys.gameHost,
                                         .saves = {agreement.hostSave, agreement.friendSave},
                                         .clock = agreement.clock,
-                                        .delay = agreement.delay});
+                                        .delay = agreement.delay,
+                                        .ahead = agreement.ahead});
     if (!why.empty()) {
         hooks_.say("No game: " + why, true);
         return;
@@ -413,6 +437,7 @@ void OnlinePlay::begin(online::Agreement& agreement, const library::Game& game) 
 }
 
 void OnlinePlay::service() {
+    serviceHash();
     if (!meeting_) {
         return;
     }

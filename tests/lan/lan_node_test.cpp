@@ -623,18 +623,22 @@ void askedToPlayTogether(const lan::LanNode& guest, lan::LanNode& host) {
     lan::wire::NetplayFacts same = ask.facts;
     expect(lan::netplayDifference(ask.facts, same).empty(), "the same facts agree");
     same.bios.clear();
-    expect(lan::netplayDifference(ask.facts, same) == "it has a GBA BIOS and you do not",
+    expect(lan::netplayDifference(ask.facts, same) == "it has a BIOS and you do not",
            "a BIOS on one side is named");
-    expect(lan::netplayDifference(same, ask.facts) == "it has no GBA BIOS and you do",
+    expect(lan::netplayDifference(same, ask.facts) == "it has no BIOS and you do",
            "and the other way");
     same.bios = "ff";
-    expect(lan::netplayDifference(ask.facts, same) == "its GBA BIOS is not the same file as yours",
+    expect(lan::netplayDifference(ask.facts, same) == "its BIOS is not the same file as yours",
            "another BIOS is named");
     same = ask.facts;
     same.coreRevision = "0123456789ab";
     expect(lan::netplayDifference(ask.facts, same) ==
                "its link core is revision 72bea0c51, yours 012345678",
            "another core revision is named");
+    same = ask.facts;
+    same.coreRevision = std::string{lan::wire::coreBuildPrefix} + "aa";
+    expect(lan::netplayDifference(ask.facts, same) == "its core is not the same build as yours",
+           "another core's build is refused");
     same = ask.facts;
     same.options["mgba_frameskip"] = "2";
     expect(lan::netplayDifference(ask.facts, same) ==

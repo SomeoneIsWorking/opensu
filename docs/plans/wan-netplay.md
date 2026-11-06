@@ -182,35 +182,45 @@ names Tailscale. No waiting state is without a limit, and every one can be cance
 | Secret never logged | Nothing logs a code, a key or a datagram; a code is only on the screen and clipboard | The lab greps both logs for the secret |
 | Same encryption as the LAN seal | `stream::PacketSeal` and `secrets::crypto` | `rendezvous_test`, `reliable_link_test` |
 | Game data only | Four message kinds; no field is a path | `reliable_link_test` |
-| States size-checked | Stage 2: `state_sync`, against the local core's own size before any allocation | `state_sync_test` |
+| States size-checked | `netplay::StateSync`, against the local core's own size before any allocation, then its hash, and none at all when both machines hold the same state | `state_sync_test` |
 | The friend sees your IP | The question before a code is made or entered | Frame in the proof folder |
 
 ## Stage 2: any core
 
 `library/linked_play` gives a game's core for a session; any core the runner can run may play. What
-must match grows from the link core's pin to: the SHA-256 of the core's library, its name and
-version, each BIOS file the core lists, and its options.
+must match grows from the link core's pin to: the SHA-256 of the core's library, each BIOS file it
+boots from, and its options.
 
 The session runs one of two ways, chosen when the session starts and the same on both machines:
 
 - **Delay lockstep**, as now, for a core that cannot serialize or says so
   (`RETRO_SERIALIZATION_QUIRK_INCOMPLETE`, `_MUST_INITIALIZE`, `_CORE_VARIABLE_SIZE`,
-  `_SINGLE_SESSION`).
+  `_SINGLE_SESSION`, `_ENDIAN_DEPENDENT`, `_PLATFORM_DEPENDENT`), for one that draws on the GPU, and
+  for the link core.
 - **Rollback**: the session lets a machine run ahead on a repeat of the other's last input. The
   link keeps a state per frame in a ring, and when real input differs from what was guessed it
   unserializes and replays with the sound and picture off. `retro_serialize` is called with
   `RETRO_ENVIRONMENT_GET_SAVESTATE_CONTEXT` answering `ROLLBACK_NETPLAY`, so a core leaves out what
   it may.
 
-A core's boot can differ between machines. Where the core can serialize, player 1 sends its state
-at frame 0 (`RETRO_SAVESTATE_CONTEXT_RUNAHEAD_SAME_BINARY` is not for this: the state crosses
-machines, so `SPECIAL` is not used and the context is `NORMAL`), and player 2 loads it. That is
-the only state that crosses the wire, and `netplay::StateSync` checks it: the declared size against
-the core's own `retro_serialize_size` before anything is allocated, then its SHA-256, and only then
-`retro_unserialize`.
+A core's boot can differ between machines. Where the core can roll back, player 1 offers the size
+and SHA-256 of its state at frame 0, and a machine holding that same state takes nothing, so a core
+that boots alike has no peer's state near it. Otherwise that state is the only one that crosses the
+wire, and `netplay::StateSync` checks it: the declared size against the core's own
+`retro_serialize_size` before anything is allocated, then its SHA-256, and only then
+`retro_unserialize`. Neither says the state is well meant: a friend holding the code could send a
+hostile one that hashes, and only the core's own checks stand behind that. The context is
+`ROLLBACK_NETPLAY` for all of a session's states, which the header defines as ones that may be
+loaded by another binary on another machine.
+
+Rollback's point is less input delay, so the host's `Go` gives the least delay and the rest of the
+round trip as `ahead`, at least 4 frames. A core that cannot roll back adds `ahead` to its delay.
+
+One console on each machine has one save: both run the host's, the friend's stays out of it, and
+only the host keeps what the game writes.
 
 Desync detection stays, on system RAM, or on a state's CRC where a core exposes no RAM. In rollback,
-checks are only sent for confirmed frames.
+checks are only sent for confirmed frames. The LAN's Play with <name> stays on the link core.
 
 ## Order
 
@@ -224,5 +234,6 @@ Stage 2: core facts; session modes and rollback; `state_sync`; runner; UI; proof
 
 Two real networks: real NATs behave worse than `nft` ones, and hairpinning, CGNAT and routers that
 lie about UPnP are only reasoned about. Windows and macOS build in CI but cannot be run in the lab.
-IPv6 is left out: `UdpSocket` is IPv4, and it would make many of these cases simply work, so it is
+Rollback was shown on the mGBA core (Game Boy through the shell, GBA with two runners alone) and the
+test core. Lockstep for a core with quirks, and a GPU core, were only reasoned about. IPv6 is left out: `UdpSocket` is IPv4, and it would make many of these cases simply work, so it is
 the first thing to do if punching proves weak in practice.

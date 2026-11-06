@@ -27,16 +27,21 @@ std::string optionText(const std::map<std::string, std::string>& options, const 
 } // namespace
 
 std::string netplayDifference(const wire::NetplayFacts& here, const wire::NetplayFacts& there) {
+    if (here.coreRevision != there.coreRevision &&
+        (here.coreRevision.starts_with(wire::coreBuildPrefix) ||
+         there.coreRevision.starts_with(wire::coreBuildPrefix))) {
+        return "its core is not the same build as yours";
+    }
     if (here.coreRevision != there.coreRevision) {
         return "its link core is revision " + revisionText(here.coreRevision) + ", yours " +
                revisionText(there.coreRevision);
     }
     if (here.bios != there.bios) {
         if (here.bios.empty()) {
-            return "it has no GBA BIOS and you do";
+            return "it has no BIOS and you do";
         }
-        return there.bios.empty() ? "it has a GBA BIOS and you do not"
-                                  : "its GBA BIOS is not the same file as yours";
+        return there.bios.empty() ? "it has a BIOS and you do not"
+                                  : "its BIOS is not the same file as yours";
     }
     std::map<std::string, std::string> all = here.options;
     all.insert(there.options.begin(), there.options.end());

@@ -10,7 +10,7 @@ Retro systems play inside openSU with one fixed controller mapping in the runner
 saves that survive any crash, and the Guide overlay and quick menu working as they do over any
 game. A core that crashes ends its game, never the shell.
 
-Non-goals for now: rewind, run-ahead, rollback netplay, achievements, cores that draw with OpenGL, GLES or
+Non-goals for now: rewind, run-ahead, achievements, cores that draw with OpenGL, GLES or
 Direct3D (refused by name; the runner has no GL path), anything a standalone emulator already does
 better (Switch, PS2 and later, Wii U, GameCube/Wii, Xbox, Xbox 360).
 
@@ -109,7 +109,7 @@ it. Only `presenter`, `frame_compositor`, `shader_chain`, `gpu_timer`, `reduced_
 `librashader_library`, `vulkan_device`
 and `hardware_render` (and through it `core_environment`) include Vulkan, only the last two
 `libretro_vulkan.h`, and only `presenter` uses SDL video; `audio_output` includes SDL audio;
-`joypad` uses SDL's scancode values only. `netplay` (below) links `opensu::datagram` alone, not
+`joypad` uses SDL's scancode values only. `netplay` (below) links `opensu::datagram` and `opensu::secrets`, not
 `stream`, so the runner carries no PipeWire or codecs.
 
 ## 4. Contracts
@@ -236,7 +236,7 @@ source beside the pads. Under `--netplay` the core reads `NetplayLink` instead (
 screen is its joystick mode, the right stick moving its cursor and R2 touching.
 
 **Netplay.** `--netplay <file>` makes this runner one machine of a session. The file is owner-only
-JSON: `{"slot": 0, "players": 2, "delay": 2, "port": 0, "peer": "192.168.1.2:4000", "clockMs": <Unix
+JSON: `{"slot": 0, "players": 2, "delay": 2, "ahead": 6, "port": 0, "peer": "192.168.1.2:4000", "clockMs": <Unix
 ms>, "utcOffset": <seconds east of UTC>, "sendKey": hex, "receiveKey": hex}`, a file without the clock
 refused; port 0 binds one of the system's choosing, reported in the control file, and without `peer`
 the runner learns it from the first datagram that opens. Every
@@ -245,16 +245,30 @@ reads its pad (all of it, as port 0) for frame `f + delay`, sends it repeating t
 and runs frame `f` only when every slot's input for it is in, resending every 8 ms while it waits.
 Every 120 frames each side sends the
 CRC-32 of `RETRO_MEMORY_SYSTEM_RAM`, not `retro_serialize`: mGBA's state holds its creation time. A
-core with no system RAM compares nothing. `GET_NETPLAY_CLIENT_INDEX` answers the slot and the link
+core with no system RAM compares the CRC-32 of its state. `GET_NETPLAY_CLIENT_INDEX` answers the slot and the link
 core's own `GET_NETPLAY_CLOCK` (256 | experimental, `retro::getNetplayClock`) the file's `clockMs` and
 `utcOffset`, which the core asks for at load: each GBA's clock then runs from that time with the
 emulated frames (`RTC_FAKE_EPOCH`) and shows it in that zone, whatever the host's clock and zone, so
 a game with a real-time clock reads the same on every machine. The session ends
 on Leave (SIGTERM or quit), on 5 s of silence (20 s before the first frame) or on a differing CRC;
-the runner logs `netplay: <how> after <n> frames, <n> stalls, <n> state checks matched`, writes its
+the runner logs `netplay: <how> after <n> frames, <n> stalls, <n> frames run again, <n> state checks matched`, writes its
 save RAM and exits 0. Load state, reset, a core option's change and Save and close answer 409: one
-machine alone would leave the other. In the shell `app/lan_netplay` writes the file and runs the
-session (`docs/design/lan.md`).
+machine alone would leave the other. In the shell `app/netplay_run` writes the file and runs the
+session (`docs/design/lan.md`, `docs/design/online.md`).
+
+**Rollback.** With `ahead` above 0, `NetplayLink::attach` settles how the session runs once the core
+is loaded. Lockstep, with `ahead` added to `delay`, when the core gives no state, draws on the GPU or
+sets a serialization quirk that a state a few frames old cannot survive (`CoreEnvironment::canRollBack`:
+incomplete, must initialize, core variable size, single session, endian or platform dependent); every
+machine runs the same core, so all work out the same. Otherwise player 1 offers the size and SHA-256
+of its first state (`netplay::StateSync`): a machine holding the same state takes nothing. One that
+does not takes it only at this core's own `retro_serialize_size`, allocated then, and loads it once
+the whole hashes to what was offered. From there the runner keeps a state per frame in a ring of
+`ahead + 2`, may run `ahead` frames past the input it has on a repeat of each player's last one, and
+when real input differs (`Session::takeWrong`) unserializes and runs the frames again through
+`Core::runQuiet`, picture and sound thrown away. Checksums wait until their frame's input is final.
+`GET_SAVESTATE_CONTEXT` answers `ROLLBACK_NETPLAY` throughout a session, as these states are ones
+the header says may cross machines, and `NORMAL` otherwise.
 
 **Video settings.** Aspect (`core`: the core's `aspect_ratio`; `4:3`; `pixel`: 1:1 pixels;
 `stretch`: the whole target), integer scale (`off`; `on`: the largest whole multiple of the frame's

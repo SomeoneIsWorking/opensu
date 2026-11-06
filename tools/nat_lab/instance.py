@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import shutil
 import signal
 import subprocess
 import time
@@ -29,6 +30,13 @@ class Instance:
 
     def __post_init__(self) -> None:
         self.log = self.home / "shell.log"
+
+    def install_core(self, core: Path) -> None:
+        """Puts a downloaded core where this openSU's own downloads are."""
+        cores = self.home / ".local" / "share" / "opensu" / "cores"
+        cores.mkdir(parents=True, exist_ok=True)
+        for each in (core, core.with_suffix(".json")):
+            shutil.copy(each, cores)
 
     def start(self) -> None:
         self.home.mkdir(parents=True, exist_ok=True)
@@ -84,7 +92,12 @@ class Instance:
     def frame(self, out: Path, port: int | None = None) -> None:
         out.parent.mkdir(parents=True, exist_ok=True)
         self.node.run(
-            "curl", "-s", "--max-time", "5", "-o", str(out),
+            "curl",
+            "-s",
+            "--max-time",
+            "5",
+            "-o",
+            str(out),
             f"http://127.0.0.1:{port or self.port}/frame.png",
         )
 
@@ -100,9 +113,7 @@ class Instance:
         raise RuntimeError(f"{self.name}: never {what}; last state {summary(state)}")
 
     def wait_step(self, *steps: str, seconds: float = 15.0) -> dict:
-        return self.wait(
-            f"at {steps}", lambda state: state["onlineStep"] in steps, seconds
-        )
+        return self.wait(f"at {steps}", lambda state: state["onlineStep"] in steps, seconds)
 
     def focus(self, target: str, button: str = "down", most: int = 30) -> None:
         for _ in range(most):

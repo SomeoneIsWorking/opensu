@@ -96,6 +96,7 @@ class OnlinePlay {
     void closeQuestion();
     void lookFor(const lan::wire::NetplayAsk& asked);
     void serviceLookup();
+    void serviceHash();
     void begin(online::Agreement& agreement, const library::Game& game);
     [[nodiscard]] online::Network network() const;
 
@@ -105,6 +106,8 @@ class OnlinePlay {
     KeyboardPad& keyboard_;
     Preferences& preferences_;
     Hooks hooks_;
+    /// The ROM's hash, off the loop, before the host's meeting starts.
+    std::optional<std::future<std::string>> hashing_;
     std::unique_ptr<online::Meeting> meeting_;
     /// The game of this session: the host's, or the friend's own copy once found.
     std::optional<library::Game> game_;

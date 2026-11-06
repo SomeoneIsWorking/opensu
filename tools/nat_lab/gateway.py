@@ -45,7 +45,7 @@ class Forwards:
     def __init__(self) -> None:
         self.lock = threading.Lock()
         self.held: dict[int, Forward] = {}
-        self.nft("table ip gateway {\n chain pre {\n type nat hook prerouting priority -110;\n }\n}")
+        self.nft("table ip gateway { chain pre { type nat hook prerouting priority -110; } }")
 
     @staticmethod
     def nft(rules: str) -> None:
@@ -98,9 +98,7 @@ def nat_pmp(lan: str, public: str, lease: int, forwards: Forwards) -> None:
         request, sender = server.recvfrom(64)
         epoch = int(time.monotonic()) & 0xFFFFFFFF
         if len(request) == 2 and request[1] == 0:
-            server.sendto(
-                struct.pack("!BBHI", 0, 128, 0, epoch) + socket.inet_aton(public), sender
-            )
+            server.sendto(struct.pack("!BBHI", 0, 128, 0, epoch) + socket.inet_aton(public), sender)
         elif len(request) == 12 and request[1] == 1:
             internal, external, wanted = struct.unpack("!HHI", request[4:12])
             if wanted == 0:

@@ -761,7 +761,21 @@ bool ShellApp::launchSession(const library::Game& game, const std::filesystem::p
     return startLaunch(game, {}, profiles_.book().active().id, saves);
 }
 
-std::map<std::string, std::string> ShellApp::linkOptionsOf(const library::Game& game) const {
+std::vector<std::filesystem::path> ShellApp::netplayBiosOf(const library::Game& game) const {
+    std::vector<std::filesystem::path> files;
+    const std::optional<library::roms::CoreBios> bios = emulatorSettings_.biosOf(game.sourceId);
+    if (!bios) {
+        return files;
+    }
+    for (const library::roms::CoreBios::File& file : bios->files) {
+        if (file.present && file.used) {
+            files.push_back(emulatorSettings_.biosFolder() / file.firmware.path);
+        }
+    }
+    return files;
+}
+
+std::map<std::string, std::string> ShellApp::netplayOptionsOf(const library::Game& game) const {
     const std::optional<library::Game> linked = library::netplayGame(game, {});
     if (!linked) {
         return {};

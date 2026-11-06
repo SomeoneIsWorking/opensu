@@ -48,11 +48,22 @@ const library::Game* NetplayRun::romOf(const std::vector<library::Game>& games,
 }
 
 lan::wire::NetplayFacts NetplayRun::factsOf(const library::Game& game) const {
+    if (const std::filesystem::path core = library::netplayCore(game); !core.empty()) {
+        std::string files;
+        for (const std::filesystem::path& file : hooks_.coreBios(game)) {
+            files += file.filename().string() + "=" + sha256Of(file) + "\n";
+        }
+        return lan::wire::NetplayFacts{
+            .coreRevision = std::string{lan::wire::coreBuildPrefix} + sha256Of(core),
+            .options = hooks_.coreOptions(game),
+            .bios =
+                files.empty() ? std::string{} : secrets::hexText(secrets::crypto::sha256(files))};
+    }
     const std::filesystem::path bios = hooks_.biosFolder() / library::linkCoreBios;
     std::error_code failed;
     return lan::wire::NetplayFacts{
         .coreRevision = std::string{library::linkCoreRevision()},
-        .options = hooks_.linkOptions(game),
+        .options = hooks_.coreOptions(game),
         .bios = std::filesystem::is_regular_file(bios, failed) ? sha256Of(bios) : std::string{}};
 }
 
@@ -68,7 +79,9 @@ std::string NetplayRun::begin(const Start& start) {
         retro::systemSaveFolder(places_.sessionSaves, start.game.sourceId);
     std::filesystem::create_directories(folder, failed);
     std::string error;
-    for (unsigned slot = 0; slot < start.saves.size(); ++slot) {
+    // One console on each machine runs on player 1's save; the link core has one per player.
+    const bool oneConsole = !library::netplayCore(start.game).empty();
+    for (unsigned slot = 0; slot < (oneConsole ? 1U : start.saves.size()); ++slot) {
         if (!start.saves[slot].empty() &&
             !fileio::writeWhole(sessionSaveOf(folder, start.game.file, slot), start.saves[slot],
                                 error)) {
@@ -90,6 +103,9 @@ std::string NetplayRun::begin(const Start& start) {
     if (start.delay != 0) {
         session["delay"] = start.delay;
     }
+    if (start.ahead != 0) {
+        session["ahead"] = start.ahead;
+    }
     const std::optional<library::Game> game = library::netplayGame(start.game, places_.sessionFile);
     if (!game) {
         return "the link core is gone";
@@ -103,7 +119,9 @@ std::string NetplayRun::begin(const Start& start) {
         return "its game did not start";
     }
     running_ = Running{.gameId = start.game.id,
-                       .own = sessionSaveOf(folder, start.game.file, start.slot),
+                       .own = oneConsole && start.slot != 0
+                                  ? std::filesystem::path{}
+                                  : sessionSaveOf(folder, start.game.file, start.slot),
                        .profile = profileSave(start.game)};
     return {};
 }
@@ -116,7 +134,7 @@ void NetplayRun::ended(const library::Game& game) {
     running_.reset();
     std::error_code failed;
     std::filesystem::remove(places_.sessionFile, failed);
-    if (!std::filesystem::exists(session.own, failed)) {
+    if (session.own.empty() || !std::filesystem::exists(session.own, failed)) {
         lucent::info("netplay", "the session left no save of this player");
         return;
     }
