@@ -33,6 +33,9 @@ class GameSound {
     /// What the game's environment needs to play into the sink, through PipeWire or PulseAudio;
     /// nothing without one.
     [[nodiscard]] std::vector<std::string> environment() const;
+    /// Moves what `processes` play into the sink, now and when they start to, for a game started
+    /// without that environment. Does nothing without a sink.
+    void adopt(std::vector<std::int32_t> processes);
 
   private:
     class Sink;

@@ -13,6 +13,9 @@ GameSound::GameSound(Setup /*setup*/) {
 
 GameSound::~GameSound() = default;
 
+void GameSound::adopt(std::vector<std::int32_t> /*processes*/) {
+}
+
 std::vector<std::string> GameSound::environment() const {
     return {};
 }

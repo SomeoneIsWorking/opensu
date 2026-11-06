@@ -1,7 +1,12 @@
+#include <algorithm>
 #include <array>
+#include <charconv>
+#include <cstdint>
+#include <map>
 #include <stdexcept>
 #include <utility>
 
+#include <pipewire/extensions/metadata.h>
 #include <spa/param/audio/raw-utils.h>
 
 #include "game_sound.hpp"
@@ -33,9 +38,18 @@ class GameSound::Sink {
     Sink(Sink&&) = delete;
     Sink& operator=(Sink&&) = delete;
 
+    void adopt(std::vector<std::int32_t> processes) {
+        const PipeWireSession::Lock lock{session_};
+        processes_ = std::move(processes);
+        moveStreams();
+    }
+
   private:
     void open(const std::string& name, const PipeWireSession::Lock& lock) {
         if (!name.empty()) {
+            sinkName_ = name;
+            registry_ = pw_core_get_registry(session_.core(), PW_VERSION_REGISTRY, 0);
+            pw_registry_add_listener(registry_, &registryListener_, &registryEvents, this);
             pw_properties* sinkProps =
                 pw_properties_new("factory.name", "support.null-audio-sink", PW_KEY_NODE_NAME,
                                   name.c_str(), PW_KEY_NODE_DESCRIPTION, "openSU remote play",
@@ -97,6 +111,14 @@ class GameSound::Sink {
     }
 
     void drop() noexcept {
+        if (metadata_ != nullptr) {
+            pw_proxy_destroy(reinterpret_cast<pw_proxy*>(metadata_));
+            metadata_ = nullptr;
+        }
+        if (registry_ != nullptr) {
+            pw_proxy_destroy(reinterpret_cast<pw_proxy*>(registry_));
+            registry_ = nullptr;
+        }
         if (stream_ != nullptr) {
             pw_stream_destroy(stream_);
             stream_ = nullptr;
@@ -105,6 +127,50 @@ class GameSound::Sink {
             pw_proxy_destroy(sink_);
             sink_ = nullptr;
         }
+    }
+
+    /// Points each stream of the adopted processes at the sink, once.
+    void moveStreams() {
+        if (metadata_ == nullptr || sinkSerial_.empty()) {
+            return;
+        }
+        for (auto& [node, stream] : outputs_) {
+            if (!stream.moved &&
+                std::ranges::find(processes_, stream.process) != processes_.end()) {
+                stream.moved = true;
+                lucent::info("sound", "the game's stream {} goes to the remote sink", node);
+                pw_metadata_set_property(metadata_, node, "target.object", "Spa:Id",
+                                         sinkSerial_.c_str());
+            }
+        }
+    }
+
+    static void onGlobal(void* data, std::uint32_t id, std::uint32_t /*permissions*/,
+                         const char* type, std::uint32_t /*version*/, const spa_dict* props) {
+        auto* self = static_cast<Sink*>(data);
+        const auto value = [props](const char* key) {
+            const char* found = props != nullptr ? spa_dict_lookup(props, key) : nullptr;
+            return std::string_view{found != nullptr ? found : ""};
+        };
+        if (std::string_view{type} == PW_TYPE_INTERFACE_Metadata &&
+            value(PW_KEY_METADATA_NAME) == "default" && self->metadata_ == nullptr) {
+            self->metadata_ = static_cast<pw_metadata*>(
+                pw_registry_bind(self->registry_, id, type, PW_VERSION_METADATA, 0));
+        } else if (std::string_view{type} == PW_TYPE_INTERFACE_Node) {
+            if (value(PW_KEY_NODE_NAME) == self->sinkName_) {
+                self->sinkSerial_ = value(PW_KEY_OBJECT_SERIAL);
+            } else if (value(PW_KEY_MEDIA_CLASS) == "Stream/Output/Audio") {
+                std::int32_t process = 0;
+                const std::string_view text = value(PW_KEY_APP_PROCESS_ID);
+                std::from_chars(text.data(), text.data() + text.size(), process);
+                self->outputs_.insert_or_assign(id, Output{.process = process, .moved = false});
+            }
+        }
+        self->moveStreams();
+    }
+
+    static void onGlobalRemove(void* data, std::uint32_t id) {
+        static_cast<Sink*>(data)->outputs_.erase(id);
     }
 
     static void onStateChanged(void* /*data*/, pw_stream_state /*old*/, pw_stream_state state,
@@ -133,6 +199,24 @@ class GameSound::Sink {
 
     std::function<void(std::span<const float>, std::uint64_t)> samples_;
     PipeWireSession session_;
+    struct Output {
+        std::int32_t process{0};
+        bool moved{false};
+    };
+
+    static constexpr pw_registry_events registryEvents{
+        .version = PW_VERSION_REGISTRY_EVENTS,
+        .global = &Sink::onGlobal,
+        .global_remove = &Sink::onGlobalRemove,
+    };
+
+    std::string sinkName_;
+    std::string sinkSerial_;
+    std::map<std::uint32_t, Output> outputs_;
+    std::vector<std::int32_t> processes_;
+    pw_registry* registry_{};
+    pw_metadata* metadata_{};
+    spa_hook registryListener_{};
     pw_proxy* sink_{};
     pw_stream* stream_{};
     spa_hook listener_{};
@@ -144,6 +228,10 @@ GameSound::GameSound(Setup setup)
 }
 
 GameSound::~GameSound() = default;
+
+void GameSound::adopt(std::vector<std::int32_t> processes) {
+    sink_->adopt(std::move(processes));
+}
 
 std::vector<std::string> GameSound::environment() const {
     if (sinkName_.empty()) {

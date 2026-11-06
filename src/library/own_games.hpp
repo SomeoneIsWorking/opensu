@@ -52,6 +52,9 @@ struct Entry {
     /// What its shortcut runs, program first, when that is no file of `kindOf`'s: `file` is then
     /// the shortcut.
     std::vector<std::string> command{};
+    /// The file name of the game Lutris starts, which shows it is running; read from Lutris, never
+    /// saved.
+    std::string lutrisProgram{};
 
     bool operator==(const Entry&) const = default;
 };

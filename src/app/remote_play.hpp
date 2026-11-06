@@ -111,6 +111,8 @@ class RemotePlay {
         /// back (`gamepad::PadSource::lendPad`, `returnPad`).
         std::function<std::shared_ptr<gamepad::VirtualPad>()> lendPad;
         std::function<void()> returnPad;
+        /// A free kept pad for a guest (`gamepad::PadSource::seatPad`).
+        std::function<std::shared_ptr<gamepad::VirtualPad>()> seatPad;
         /// The game `id` runs here with `profiles` in its seats; an empty id, none runs.
         std::function<void(std::string id, std::vector<std::string> profiles)> seats;
     };

@@ -306,6 +306,10 @@ std::shared_ptr<VirtualPad> SdlPads::lendPad() {
 void SdlPads::returnPad() {
 }
 
+std::shared_ptr<VirtualPad> SdlPads::seatPad() {
+    return nullptr;
+}
+
 std::vector<std::filesystem::path> SdlPads::keepVirtualPads(std::size_t /*count*/) {
     return {};
 }

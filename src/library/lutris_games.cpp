@@ -76,6 +76,16 @@ std::string steamAppOf(const fs::path& lutrisData, const std::string& configpath
     return appOfUmuId(lutris::configValue(config, {"system", "env", "GAMEID"}));
 }
 
+/// The file name of the program a Lutris game runs; empty when its config names none.
+std::string programOf(const fs::path& lutrisData, const std::string& configpath) {
+    if (configpath.empty()) {
+        return {};
+    }
+    const std::string exe =
+        lutris::configValue(lutris::gameConfig(lutrisData, configpath), {"game", "exe"});
+    return fs::path{exe}.filename().string();
+}
+
 } // namespace
 
 std::vector<Entry> lutrisGames(const fs::path& lutrisData) {
@@ -118,7 +128,8 @@ std::vector<Entry> lutrisGames(const fs::path& lutrisData) {
                   .originId = column(statement.get(), 0),
                   .steamAppId =
                       steamAppOf(lutrisData, column(statement.get(), 2), column(statement.get(), 3),
-                                 column(statement.get(), 4), column(statement.get(), 5))});
+                                 column(statement.get(), 4), column(statement.get(), 5)),
+                  .lutrisProgram = programOf(lutrisData, column(statement.get(), 2))});
     }
     return entries;
 }

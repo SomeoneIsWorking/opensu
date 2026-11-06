@@ -96,6 +96,9 @@ class PadSource {
     virtual std::shared_ptr<VirtualPad> lendPad() = 0;
     /// The pad plays its virtual pad again. Returns once applied.
     virtual void returnPad() = 0;
+    /// A kept virtual pad no controller drives, for a player with no pad here; games that started
+    /// with the kept pads see no other. Null when none is free. It is free again once let go.
+    virtual std::shared_ptr<VirtualPad> seatPad() = 0;
     /// Keeps `count` virtual pads, making or ending them, and returns their nodes once applied;
     /// fewer when they cannot be made. 0 lets every kept pad go. Any thread.
     virtual std::vector<std::filesystem::path> keepVirtualPads(std::size_t count) = 0;

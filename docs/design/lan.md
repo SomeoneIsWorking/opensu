@@ -332,6 +332,11 @@ that profile's; the host's own active profile does not change.
   fork's `exact_size` key, so the stream holds the game's own pixels and no bars. The host repeats
   the shape shown as a `Shape` datagram every second. A picture the core turns keeps the screen's
   size.
+- A guest's pad is one of the kept virtual pads (`PadSource::seatPad`), which Steam and Proton
+  already read; a pad made later is not seen by a game they run. None kept, it gets its own.
+- A game Steam starts misses the sink's environment, so every second the host moves the audio
+  streams of the game's processes into the sink (`GameSound::adopt`, the `default` metadata's
+  `target.object`).
 - Scaling on the guest: every built-in runner game sends the player's sampling in `Shape`, whatever
   its size, and the guest scales by it, nearest or smooth. Any other game is upscaled through
   FSR 1 (`gpu2d::Canvas::upscaled`).

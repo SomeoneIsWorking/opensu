@@ -82,6 +82,7 @@ class EvdevPads final : public PadSource {
     /// fewer when uinput refuses one. 0 lets every kept pad go. Any thread.
     std::shared_ptr<VirtualPad> lendPad() override;
     void returnPad() override;
+    std::shared_ptr<VirtualPad> seatPad() override;
     std::vector<std::filesystem::path> keepVirtualPads(std::size_t count) override;
 
   private:
@@ -139,6 +140,8 @@ class EvdevPads final : public PadSource {
     // Reading thread only.
     std::vector<std::unique_ptr<Pad>> pads_;
     std::vector<std::shared_ptr<VirtualPad>> kept_;
+    /// `kept_` for `seatPad`, under the mutex.
+    std::vector<std::shared_ptr<VirtualPad>> seats_;
     Wanted applied_;
     bool missed_{false};
 

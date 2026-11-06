@@ -26,6 +26,10 @@ class HostAudio {
     [[nodiscard]] std::vector<std::string> environment() const {
         return sound_.environment();
     }
+    /// Moves what `processes` play into the game's sound (`GameSound::adopt`).
+    void adopt(std::vector<std::int32_t> processes) {
+        sound_.adopt(std::move(processes));
+    }
 
   private:
     void take(std::span<const float> samples, std::uint64_t capturedUs);

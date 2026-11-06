@@ -9,6 +9,7 @@
 #include <string>
 #include <utility>
 
+#include "launch/process_tree.hpp"
 #include "lucent/log.h"
 #include "secrets/secret.hpp"
 #include "stream/udp_socket.hpp"
@@ -98,7 +99,7 @@ std::uint16_t RemotePlay::admit(Hosted& hosted, const Seat& seat, const lan::Str
     static_cast<Seat&>(*guest) = seat;
     guest->input = std::make_unique<stream::HostInput>(
         seat.withKeys ? std::optional{screen_.x11Display} : std::nullopt,
-        seat.own ? hooks_.lendPad() : nullptr);
+        seat.own ? hooks_.lendPad() : hooks_.seatPad());
     const std::uint16_t port = openStream(hosted, *guest, keys);
     lucent::info("remote", "{} is guest {} of {}, its pad {}, its stream on UDP port {}",
                  seat.peer.name, hosted.guests.size() + 1,
@@ -837,6 +838,12 @@ void RemotePlay::drop() {
 }
 
 void RemotePlay::tellGuests(Hosted& hosted, const GameFacts& facts) {
+    if (hosted.forGuest && hosted.audio) {
+        // Steam starts its games itself, so they miss the sink's environment.
+        if (const std::optional<library::Game> game = hooks_.find(hosted.gameId)) {
+            hosted.audio->adopt(launch::ProcessTree::matching(game->processHint));
+        }
+    }
     const stream::PictureSize picture = facts.picture;
     const bool lowRes = picture.width > 0 && picture.height > 0 &&
                         std::max(picture.width, picture.height) <= lowResSide;

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cerrno>
+#include <ranges>
 #include <system_error>
 #include <utility>
 
@@ -15,6 +16,9 @@
 
 namespace opensu::gamepad {
 namespace {
+
+/// Owners of a kept pad nobody sits at: `kept_` and `seats_`.
+constexpr long unseated = 2;
 
 std::system_error lastError(const char* what) {
     return std::system_error{errno, std::generic_category(), what};
@@ -153,6 +157,17 @@ std::vector<std::filesystem::path> EvdevPads::keepVirtualPads(std::size_t count)
     return keptNodes_;
 }
 
+std::shared_ptr<VirtualPad> EvdevPads::seatPad() {
+    const std::lock_guard lock{mutex_};
+    // From the last: controllers take the first.
+    for (const auto& seat : std::views::reverse(seats_)) {
+        if (seat.use_count() == unseated) {
+            return seat;
+        }
+    }
+    return nullptr;
+}
+
 void EvdevPads::keep(std::size_t count) {
     while (kept_.size() > count) {
         const VirtualPad* going = kept_.back().get();
@@ -181,6 +196,7 @@ void EvdevPads::keep(std::size_t count) {
     lucent::info("gamepad", "{} virtual pads kept: {}", kept_.size(), names);
     const std::lock_guard lock{mutex_};
     keptNodes_ = std::move(nodes);
+    seats_ = kept_;
 }
 
 VirtualPad* EvdevPads::freeKept() const {
@@ -188,7 +204,7 @@ VirtualPad* EvdevPads::freeKept() const {
         const bool driven = std::ranges::any_of(pads_, [&kept](const auto& pad) {
             return pad->output == kept.get();
         });
-        if (!driven) {
+        if (!driven && kept.use_count() == unseated) {
             return kept.get();
         }
     }

@@ -295,6 +295,7 @@ Game gameOf(const Entry& entry) {
     game.installed = true;
     game.fromGameFolder = entry.origin == Origin::Folder;
     if (entry.origin == Origin::Lutris) {
+        game.processHint = entry.lutrisProgram;
         game.launch =
             LaunchSpec{.program = "lutris", .args = {"lutris:rungameid/" + entry.originId}};
         return game;
@@ -330,23 +331,28 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
     if (entries.empty()) {
         throw SourceAbsent{"no games added"};
     }
-    const bool unmatched = std::ranges::any_of(entries, [](const Entry& entry) {
-        return entry.origin == Origin::Lutris && entry.steamAppId.empty();
+    const bool anyLutris = std::ranges::any_of(entries, [](const Entry& entry) {
+        return entry.origin == Origin::Lutris;
     });
-    if (unmatched) {
-        std::unordered_map<std::string, std::string> apps;
+    if (anyLutris) {
+        std::unordered_map<std::string, Entry> known;
         try {
             for (Entry& lutris : lutrisGames(lutrisData_)) {
-                apps.emplace(std::move(lutris.originId), std::move(lutris.steamAppId));
+                std::string id = lutris.originId;
+                known.emplace(std::move(id), std::move(lutris));
             }
         } catch (const std::exception& error) {
-            // The games still list; only Lutris's Steam apps are missing.
+            // The games still list; only what Lutris knows of them is missing.
             lucent::warn("own-games", "Lutris's games: {}", error.what());
         }
         for (Entry& entry : entries) {
-            if (entry.origin == Origin::Lutris && entry.steamAppId.empty()) {
-                if (const auto found = apps.find(entry.originId); found != apps.end()) {
-                    entry.steamAppId = found->second;
+            if (entry.origin != Origin::Lutris) {
+                continue;
+            }
+            if (const auto found = known.find(entry.originId); found != known.end()) {
+                entry.lutrisProgram = found->second.lutrisProgram;
+                if (entry.steamAppId.empty()) {
+                    entry.steamAppId = found->second.steamAppId;
                 }
             }
         }

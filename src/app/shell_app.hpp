@@ -905,6 +905,10 @@ class ShellApp final {
                 [this] {
                     pads_->returnPad();
                 },
+            .seatPad =
+                [this] {
+                    return pads_->seatPad();
+                },
             .seats =
                 [this](std::string id, std::vector<std::string> profiles) {
                     lan_.playing(std::move(id), std::move(profiles));

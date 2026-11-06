@@ -69,6 +69,7 @@ class SdlPads final : public PadSource {
     void setChords(ChordTriggers chords) override;
     std::shared_ptr<VirtualPad> lendPad() override;
     void returnPad() override;
+    std::shared_ptr<VirtualPad> seatPad() override;
     std::vector<std::filesystem::path> keepVirtualPads(std::size_t count) override;
 
   private:
