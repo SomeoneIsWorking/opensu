@@ -15,7 +15,8 @@ It and the ROM library are the two parts of openSU that are always on.
 The built-in emulators are mGBA (Game Boy, Game Boy Color, Game Boy Advance), Gambatte (Game Boy,
 Game Boy Color), Snes9x, Mesen, PCSX ReARMed, Beetle PSX HW and SwanStation (PlayStation),
 Mupen64Plus-Next and ParaLLEl N64 (Nintendo 64), PPSSPP (PSP), Flycast (Dreamcast), melonDS DS
-(Nintendo DS), and for Arcade FinalBurn Neo, MAME 2003-Plus, MAME 2010 and MAME (current). A
+(Nintendo DS), and for Arcade FinalBurn Neo, FB Alpha 2012, MAME 2003-Plus, MAME 2010 and MAME
+(current). A
 console's standalone emulators come first, so turning on standalone emulators does not change what
 an installed one runs on. GPU cores (Beetle PSX HW, SwanStation, Mupen64Plus-Next, ParaLLEl N64)
 draw on the runner's Vulkan device; a core that asks for OpenGL is refused by name.
@@ -29,13 +30,17 @@ Check for updates compares the listed CRC-32 with the one recorded; nothing upda
 
 ## Arcade romsets
 
-Each arcade core names its romset listing: FinalBurn Neo's arcade and Neo Geo datafiles, MAME
-2003-Plus's and MAME 2010's `-listxml`, and current MAME's from mamedev's latest release
+Each arcade core names its romset listing: FinalBurn Neo's arcade and Neo Geo datafiles, FB Alpha
+2012's 0.2.97.29 datafile, MAME 2003-Plus's and MAME 2010's `-listxml`, and current MAME's from
+mamedev's latest release
 (SHA-256 checked). They are downloaded in the background, shown on the Downloads page, kept under
 `<cache>/opensu/romsets/` and fetched again after 30 days. Each arcade zip is matched against every
 listing, with its parent's, BIOS's and devices' zips in the same folder counted. The game runs on
 the first matching core installed, else the first matching core is offered for download; with none
 it is listed but cannot start, and its details page names the nearest core and the files it lacks.
+This works in a folder picked on Android too, where a game's parent and BIOS zips are copied beside
+it when it starts. FB Alpha 2012 keeps no `.srm`: a game's settings and high scores are in
+`<rom>.nv` in the same folder, and it plays older sets without CPS2 `.key` files.
 
 ## BIOS
 

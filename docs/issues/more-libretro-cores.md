@@ -10,11 +10,15 @@ also want to make it so we can support all romset versions".
 ## Cores
 
 `assets/emulators.json` lists mGBA, Gambatte, snes9x, Mesen, PCSX ReARMed and, for Arcade,
-FinalBurn Neo (`fbneo_libretro`), MAME 2003-Plus (`mame2003_plus_libretro`, 0.78 sets), MAME 2010
-(`mame2010_libretro`, 0.139) and MAME (`mame_libretro`, 0.289). All four are on the buildbot's
-x86_64 Linux nightly folder, their core info says `hw_render = "false"`, and each loaded in
-`opensu-retro` (2026-10-20); none was dropped. Current MAME's core is 416 MB, so the core zip reader
-takes libraries up to 1 GB.
+FinalBurn Neo (`fbneo_libretro`), FB Alpha 2012 (`fbalpha2012_libretro`, 0.2.97.29 sets), MAME
+2003-Plus (`mame2003_plus_libretro`, 0.78 sets), MAME 2010 (`mame2010_libretro`, 0.139) and MAME
+(`mame_libretro`, 0.289). All are on the buildbot's x86_64 Linux and Android arm64 nightly folders,
+none asks for hardware rendering, and each loaded in `opensu-retro`; none was dropped. Current
+MAME's core is 416 MB, so the core zip reader takes libraries up to 1 GB.
+
+FB Alpha 2012 is the full core, not `fbalpha2012_cps1`, `_cps2` or `_neogeo`: its zip is 4.5 MB
+(Linux) and 4.2 MB (Android) against 17 to 21 MB for FinalBurn Neo and MAME 2010, one entry and one
+listing cover every driver, and no per-hardware listing exists for the split cores.
 
 Next, by what the runner can already host (software rendering):
 
@@ -104,24 +108,36 @@ Romsets). A MAME romset matches one MAME version; a zip made for 0.78 fails on c
 reverse. openSU picks the core per game rather than per system:
 
 1. Read each zip's central directory: member names, sizes and CRC32s, without decompressing.
-2. Compare with each arcade core's DAT (libretro-database `metadat/mame-*`, FBNeo's own DAT): the
-   core whose set for that short name has every required ROM's CRC wins; parent and BIOS zips
-   (`neogeo.zip`) beside the game count as present.
-3. Ties go to the player's order in Settings › Emulators (FBNeo first by default); no match lists the
-   game with "No arcade core matches this romset" and the nearest version's missing files.
+2. Compare with each arcade core's listing: the core whose set for that short name has every
+   required ROM's CRC wins; parent and BIOS zips (`neogeo.zip`) beside the game count as present.
+3. An installed matching core wins, then the catalog's order (FinalBurn Neo, FB Alpha 2012, MAME
+   2003-Plus, MAME 2010, MAME); no match lists the game with "No arcade core matches this romset"
+   and the nearest version's missing files.
 4. The DAT matches are cached by zip size and mtime, so a library scan reads each zip once.
 
 The listings: FinalBurn Neo's `dats/` arcade and Neo Geo datafiles (libretro-database's copy is
-v1.0.0.03, older than the nightly), `metadata/mame2003-plus.xml` and `metadata/mame2010.xml` of the
-cores' libretro repositories, and current MAME's `-listxml` from the latest mamedev release
-(`mame0289lx.zip`, SHA-256 checked; the core can trail a new release for a few days). Fetched over
-HTTPS, kept under `<cache>/romsets/` for 30 days.
+v1.0.0.03, older than the nightly), RetroPie's `FBA 0.2.97.29.dat` (`HerbFargus/retropie-dat`, GPL-2.0,
+pinned by commit), `metadata/mame2003-plus.xml` and `metadata/mame2010.xml` of the cores' libretro
+repositories, and current MAME's `-listxml` from the latest mamedev release (`mame0289lx.zip`,
+SHA-256 checked; the core can trail a new release for a few days). Fetched over HTTPS, kept under
+`<cache>/romsets/` for 30 days.
 
-The player's arcade folder holds `armwar.zip` and `avspu.zip`. Both are 0.139-era sets: MAME 2010
-matches them and runs them; FinalBurn Neo, MAME 2003-Plus and MAME want the CPS2 `.key` files (and
-MAME `qsound.zip`'s `dl-1425.bin`), avspu also the later 1 MB `avp.14m`-`avp.20m` dumps. The cores'
-own load errors named the same files. Proof: `scratch/arcade/` (frames and logs) and
-`docs/project-state.md` S031.
+FB Alpha 2012's core repository holds no datafile, and libretro-database's FB Alpha dats have one
+row per game with the whole zip's CRC, which a re-zipped set never matches. The 0.2.97.29 datafile
+has every ROM. Against the core's driver tables (`src/burn/drv`, revision 0ce3153): 3,157 of its
+3,159 sets are there and 3,132 of those compared agree; the 0.2.97.30 one has 189 sets the core
+lacks. The core's own `version.h` says .30 and its core info .29.
+
+The player's arcade folder holds `armwar.zip` and `avspu.zip`, both matching FB Alpha 2012 and MAME
+2010 member for member. FinalBurn Neo, MAME 2003-Plus and MAME want the CPS2 `.key` files (and MAME
+`qsound.zip`'s `dl-1425.bin`), avspu also the later 1 MB `avp.14m`-`avp.20m` dumps. FinalBurn Neo
+without its key loads and shows its error screen, frames counting. Proof:
+`scratch/legacy-arcade/` and `docs/project-state.md` S031.
+
+On a picked Android folder the scan never reached the matcher: `roms.cpp` skipped nodes that do not
+open as a path, so the search's first installed core kept the game. Zips are now read through
+`RomTree::open` and a parent's or BIOS's zip is staged beside the game (`--beside`). Not yet shown
+on the tablet.
 
 The first scan, and each after a listing's 30 days, downloaded about 100 MB of listings (17.1,
 22.6, 43.4 and 19.7 MB) inside the ROM scan, so the whole ROM library stayed hidden until they were
@@ -133,7 +149,10 @@ cache; frames `02`, `10`-`15`, `armwar-runner-status.txt`, `shell-run1.log`, `sh
 
 Not done: samples are never required; 7z sets are not matched (the arcade system lists `.zip`
 only). A romset list row has no Cancel or Retry button; a failed list is asked for again by the
-first scan an hour later.
+first scan an hour later. CHD disks are not staged on a picked folder. FB Alpha's datafile marks no
+BIOS as optional, so a Neo Geo game asks for all 29 of `neogeo.zip`'s ROMs where the core needs 4
+(`sm1.sm1`, `sfix.sfix`, `000-lo.lo` and one system BIOS): a smaller `neogeo.zip` reads as a mismatch.
+A vertical game's rotation has not been run: there is no vertical set here.
 
 ## Steam modes in session mode
 
@@ -141,9 +160,7 @@ See `integrations-opt-in.md`.
 
 ## A FinalBurn Neo fork for older romsets
 
-The player: "we can make a finalburn fork that can play older ROM sets". Rather than a MAME core per
-romset version, a FinalBurn Neo fork whose drivers also accept the older dumps (other CRCs, names,
-sizes and split files, as MAME 2003-Plus and 2010 sets carry them), so one core plays sets
-across versions. The DAT matcher then lists the fork's alternates as matches. The player's armwar
-and avspu (0.139 sets) are the first two to prove it; the CPS2 `.key` files they lack must still
-come from the player.
+Closed: not needed. The player asked for a fork so older sets would play. FB Alpha 2012 runs the
+player's armwar and avspu as they are, with no `.key` (it decrypts CPS2 from its own tables), and the
+matcher already picks a core per era: 0.78, 0.139, 0.2.97.29, current. A fork would have needed the
+player's `.key` files on top. Reopen only for a set no listed core matches.

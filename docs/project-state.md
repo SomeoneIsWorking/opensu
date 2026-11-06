@@ -1875,9 +1875,24 @@ details page Download fetched MAME 2010 into the scratch data dir; avspu and arm
 arcade core matches this romset" with "MAME 2010 (built-in) lacks 2 of 15 files: avpe.03d,
 avpe.04d" and refused Play with that toast (`final-avsp-play-refused.png`). Overridden per game,
 FinalBurn Neo, MAME 2003-Plus and MAME (a 416 MB core) downloaded and loaded armwar in the runner:
-FinalBurn Neo ran it without its key, MAME 2003-Plus refused `armwar.key` and MAME
+FinalBurn Neo loaded and showed its error screen for the missing `armwar.key`, frames counting
+(`scratch/fbneo-crash/after/armwar-f300.png`), MAME 2003-Plus refused `armwar.key` and MAME
 `armwar.key`, `dl-1425.bin`, the files the match named. Unverified: a romset that matches
 FinalBurn Neo, MAME 2003-Plus or current MAME running to gameplay (none in the player's folder).
+
+Verified (FB Alpha 2012, 2026-11-06, `scratch/legacy-arcade/p/`, empty data dir,
+`OPENSU_ROM_ROOTS=/mnt/Boy/ROM`, hidden shell on `build/agent`): the listing fetched ("3159 romsets
+listed"); armwar's details read "FB Alpha 2012 (built-in) · not installed · romset matches ·
+Automatic (romset)" and "Matches FB Alpha 2012 (built-in), MAME 2010 (built-in)"; Download fetched the
+core from the buildbot; Play logged `core FB Alpha 2012 v0.2.97.29 0ce3153`. Frames by eye: the
+intro (`g1`), MAIN-CONTROL SYSTEM OK (`g3`), attract art (`g4`), two coins and Start to SELECT PLAYER
+(`h2-start`), the cursor moved to GRAY, a state saved at TIME 08 and loaded at TIME 03 back to 08
+(`i2-later`, `i3-loaded`), then the first briefing (`i4-play`). avspu ran the same way to play
+(`m1`). Save and close left `<rom>.resume` and a 128-byte `<rom>.nv`; a first try refused the resume
+in the next run, since fixed in `Core::unserialize`, and avspu then logged `resumed from` (`m2`). With
+MAME 2010 installed and FB Alpha 2012 not (`scratch/legacy-arcade/q/`), armwar stays on MAME 2010.
+Unverified: a picked Android folder, a set leaning on a parent or BIOS zip on the tablet, a vertical
+game.
 
 The listings download off the library scan (`library/romset_lists`): arcade games are listed at
 once, a game with no match yet while a listing downloads shows "Checking romset…" and its Play says

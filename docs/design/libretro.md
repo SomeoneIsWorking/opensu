@@ -102,7 +102,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/core_environment.*` | The environment commands answered: directories, pixel format, core options, log, input descriptors, geometry and timing changes, the hardware-render commands (through its `HardwareRender`); anything else is refused. Null `data` is answered before any of them (`answerWithoutData`): whether the command is available, nothing written; false where true would say data was taken (`SET_PIXEL_FORMAT`, `SET_SYSTEM_AV_INFO`, `SET_HW_RENDER`); the option commands remove every option; the netplay commands and `GET_HW_RENDER_INTERFACE` answer as they would with data |
 | `src/retro/core_options.*` | The core's option definitions (v0 variables, v1, v2) and their current values: the defaults, except a value the launch chose (`--option`) that the core offers for that key |
 | `src/retro/hardware_render.*` | A GPU core: `SET_HW_RENDER` (Vulkan taken, any other context refused with its name kept as the load failure's reason), `GET_PREFERRED_HW_RENDER` (Vulkan), the context negotiation interface kept for the device, `GET_HW_RENDER_INTERFACE` (`retro_hw_render_interface_vulkan` on the presenter's instance, device and queue), `set_image`, semaphores, command buffers, the signal semaphore, the queue lock, the sync index; `context_reset` once the presenter is up, `context_destroy` before the game is unloaded; the image of each `RETRO_HW_FRAME_BUFFER_VALID` frame, kept for duplicated frames |
-| `src/retro/video_frame.*` | A frame in the core's pixel format (0RGB1555, XRGB8888, RGB565) to RGBA, duplicate frames kept |
+| `src/retro/video_frame.*` | A frame in the core's pixel format (0RGB1555, XRGB8888, RGB565) to RGBA, turned as `SET_ROTATION` asked, duplicate frames kept |
 | `src/retro/audio_sink.*` | The core's samples into a ring, resampled with dynamic rate control so the buffer stays near its target |
 | `src/retro/joypad.*` | The pads' controls (`gamepad::Button`) and the keyboard to `RETRO_DEVICE_JOYPAD` state, one fixed mapping; the pads' sticks (`gamepad::Sticks`) to `RETRO_DEVICE_ANALOG`; which port each pad plays on (**Input**) |
 | `src/retro/save_memory.*` | The core's save RAM: loaded before the first frame (a smaller file into its start; a larger or unreadable one refused and never written over), written atomically when it changes (checked once a second) and at exit |
@@ -141,7 +141,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/library/romset_dat.*` | An arcade core's ROM-set listing: a Logiqx datafile or MAME `-listxml` parsed, its line format under the cache |
 | `src/library/romset_dats.*` | The arcade cores' listings fetched over HTTPS from the catalog's `"romsets"` and kept under `<cache>/romsets/` for 30 days |
 | `src/library/romset_lists.*` | Those fetches off the library scan, one at a time on a thread, each one's state (bytes, done, failed and when it is tried again) for the Downloads page |
-| `src/library/romset_match.*` | An arcade zip's central directory against each listing, the verdicts kept by file stamps, the game's emulator picked by them |
+| `src/library/romset_match.*` | An arcade zip's central directory, read through the `RomTree` that listed it, against each listing, the verdicts kept by file stamps, the game's emulator picked by them, a picked folder's parent and BIOS zips added to the launch |
 | `src/library/emulator_choice.*` | The `emulator` key at the Game and System layers: game pick, romset, system pick, search; the layer keys a game reads its settings through |
 | `assets/emulators.json`, `src/library/emulator_catalog.*` | A built-in emulator is an entry with `"core": "<name>_libretro"` and no launchers or release; `"coreOptions"` the core options it starts with (a GPU core's Vulkan renderer) |
 | `src/library/emulators.*` | A built-in emulator is installed when its core is found and `opensu-retro` is beside `opensu` (`config::retroRunnerBeside`); it starts as `opensu-retro --core <core> [--option <key>=<value>]... <rom>`, with `--hidden` from a hidden shell |
@@ -484,15 +484,27 @@ none matching the game's `launch` is empty and `unavailable` is "No arcade core 
 romset", with `romsetNearest` the core that lacks the fewest files and which. A core whose listing
 cannot be had is unchecked and changes nothing. `library::applyEmulatorPicks` skips a system's pick
 the romset does not match (the game layer's automatic value); a game's own pick always applies. Verdicts are kept in
-`<cache>/romsets/matches.json` with the stamp (size, modification time) of the zip and of every
-file the match looked at, absent ones included, and the listings' source CRC-32s; a scan reads
-nothing more of a zip whose stamps all hold.
+`<cache>/romsets/matches.json` with the stamp (size, modification time, as the folder's listing
+gave them) of the zip and of every file the match looked at by its name in the folder, absent ones
+included, and the listings' source CRC-32s; a scan reads nothing more of a zip whose stamps all
+hold. A zip is read through `RomTree::open`, on Android a provider's descriptor that must seek. A
+verdict names the zips it held; in a picked folder `addBesideZips` adds each to the launch of a
+matching core as `--beside <uri>`, and `RetroActivity` copies it beside the game and takes the
+argument out, for cores open them by path. Disks are not copied.
+
+**Rotation.** `SET_ROTATION` is honoured for a software core: `VideoFrame::take` turns the pixels, so
+everything after it sees an upright frame. A core's aspect is the displayed one and is not inverted.
+FB Alpha 2012, FinalBurn Neo, MAME 2003-Plus, MAME 2010 and MAME all give it that way. With a
+hardware context the command is refused.
+
+**State size.** `Core::unserialize` asks the size first: FB Alpha 2012 refuses a state until it has
+been asked, which a resume in a fresh run would otherwise hit.
 
 ## 5. Phases
 
 1. Software cores: mGBA (GB, GBC, GBA), then Gambatte, snes9x, Mesen, PCSX ReARMed, melonDS DS
    (NDS; its software renderer by default, FreeBIOS and built-in firmware when no files are
-   given), and for Arcade FinalBurn Neo, MAME 2003-Plus, MAME 2010 and MAME, picked per game by
+   given), and for Arcade FinalBurn Neo, FB Alpha 2012, MAME 2003-Plus, MAME 2010 and MAME, picked per game by
    romset. Genesis Plus GX and PicoDrive wait for Mega Drive, Master System, Game Gear, Sega CD
    and 32X systems in `rom_systems`. Runner, input, audio, save RAM, core downloads through
    Settings › Emulators and the details page.

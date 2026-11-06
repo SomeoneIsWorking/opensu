@@ -621,7 +621,7 @@ Game arcadeGame() {
 }
 
 RomsetVerdict verdict(std::string id, RomsetFit fit, std::vector<std::string> missing = {}) {
-    return RomsetVerdict{std::move(id), fit, true, 4, std::move(missing)};
+    return RomsetVerdict{std::move(id), fit, true, 4, std::move(missing), {}};
 }
 
 void picksTheEmulator() {
@@ -667,7 +667,7 @@ void picksTheEmulator() {
     applyRomsets(none, "clone",
                  {verdict("fbneo", RomsetFit::Mismatch, {"a", "b", "c", "d", "e"}),
                   verdict("mame2010", RomsetFit::Mismatch, {"g.1"}),
-                  RomsetVerdict{"mame", RomsetFit::Mismatch, false, 0, {}}});
+                  RomsetVerdict{"mame", RomsetFit::Mismatch, false, 0, {}, {}}});
     expect(none.launch.empty() && none.emulator.empty() && none.unavailable == noRomsetMatch &&
                none.romset == noRomsetMatch &&
                none.romsetNearest == "MAME 2010 lacks 1 of 4 files: g.1",
