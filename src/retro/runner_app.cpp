@@ -31,7 +31,7 @@
 #include "save_paths.hpp"
 #include "save_state.hpp"
 #include "shell_handoff.hpp"
-#include "touch_layer.hpp"
+#include "touch/touch_layer.hpp"
 #include "video_frame.hpp"
 
 namespace opensu::retro {
@@ -273,11 +273,11 @@ RunnerExit RunnerApp::run() {
                               .hidden = options_.hidden,
                               .netplay = netplay != nullptr}};
 
-    std::unique_ptr<TouchLayer> touch =
-        handoff ? std::make_unique<TouchLayer>(options_.touchArt) : nullptr;
-    WindowSurface laidOut{};
+    std::unique_ptr<touch::TouchLayer> touch =
+        handoff ? std::make_unique<touch::TouchLayer>(options_.touchArt) : nullptr;
+    touch::WindowSurface laidOut{};
     /// Fingers lifted in the frame they went down, let go the next.
-    std::vector<Finger> liftNext;
+    std::vector<touch::Finger> liftNext;
     bool padConnected = pads && !pads->connected().empty();
     /// In the background: the game waits.
     bool waiting = false;
@@ -327,7 +327,7 @@ RunnerExit RunnerApp::run() {
         }
         const bool touchShown = touch && !padConnected && !waiting;
         if (touch) {
-            const WindowSurface surface = presenter->surface();
+            const touch::WindowSurface surface = presenter->surface();
             if (surface.width != laidOut.width || surface.height != laidOut.height ||
                 surface.dp != laidOut.dp) {
                 touch->layout(surface);
@@ -337,17 +337,17 @@ RunnerExit RunnerApp::run() {
             const bool pausing = touch->pressed(gamepad::Button::Guide);
             bool changed = false;
             if (touchShown) {
-                std::vector<Finger> fingers = std::exchange(liftNext, {});
+                std::vector<touch::Finger> fingers = std::exchange(liftNext, {});
                 fingers.insert(fingers.end(), input.fingers.begin(), input.fingers.end());
                 std::vector<std::uint64_t> wentDown;
-                for (const Finger& finger : fingers) {
+                for (const touch::Finger& finger : fingers) {
                     // A tap shorter than a frame is held for one, so the game sees it.
-                    if (finger.phase == Finger::Phase::Up &&
+                    if (finger.phase == touch::Finger::Phase::Up &&
                         std::ranges::find(wentDown, finger.id) != wentDown.end()) {
                         liftNext.push_back(finger);
                         continue;
                     }
-                    if (finger.phase == Finger::Phase::Down) {
+                    if (finger.phase == touch::Finger::Phase::Down) {
                         wentDown.push_back(finger.id);
                     }
                     changed = touch->finger(finger) || changed;
@@ -416,7 +416,7 @@ RunnerExit RunnerApp::run() {
         const float aspect = aspectOf(geometry);
         const std::optional<FrameImage> coreImage =
             showingCoreImage ? hardware.frame(aspect) : std::nullopt;
-        std::optional<OverlayImage> overlay;
+        std::optional<touch::OverlayImage> overlay;
         if (touchShown) {
             overlay = touch->image();
         }

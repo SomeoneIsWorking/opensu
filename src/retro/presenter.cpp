@@ -11,6 +11,7 @@
 #include <SDL3/SDL_vulkan.h>
 
 #include "lucent/log.h"
+#include "touch/sdl_touch.hpp"
 
 namespace opensu::retro {
 namespace {
@@ -183,21 +184,9 @@ WindowInput Presenter::poll() {
         case SDL_EVENT_FINGER_DOWN:
         case SDL_EVENT_FINGER_MOTION:
         case SDL_EVENT_FINGER_UP:
-        case SDL_EVENT_FINGER_CANCELED: {
-            int width = 0;
-            int height = 0;
-            SDL_GetWindowSizeInPixels(window_, &width, &height);
-            Finger::Phase phase = Finger::Phase::Move;
-            if (event.type == SDL_EVENT_FINGER_DOWN) {
-                phase = Finger::Phase::Down;
-            } else if (event.type != SDL_EVENT_FINGER_MOTION) {
-                phase = Finger::Phase::Up;
-            }
-            input.fingers.push_back(Finger{static_cast<std::uint64_t>(event.tfinger.fingerID),
-                                           event.tfinger.x * static_cast<float>(width),
-                                           event.tfinger.y * static_cast<float>(height), phase});
+        case SDL_EVENT_FINGER_CANCELED:
+            input.fingers.push_back(touch::fingerOf(window_, event.tfinger));
             break;
-        }
         case SDL_EVENT_KEY_DOWN:
         case SDL_EVENT_KEY_UP:
             if (!event.key.repeat) {
@@ -358,29 +347,14 @@ void Presenter::dropSurface() {
     lucent::info("retro", "the window's surface let go");
 }
 
-WindowSurface Presenter::surface() const {
-    WindowSurface surface{.width = extent_.width,
-                          .height = extent_.height,
-                          .safeX = 0.0F,
-                          .safeY = 0.0F,
-                          .safeWidth = static_cast<float>(extent_.width),
-                          .safeHeight = static_cast<float>(extent_.height),
-                          .dp = 1.0F};
+touch::WindowSurface Presenter::surface() const {
     if (options_.hidden) {
-        return surface;
+        return touch::WindowSurface{.width = extent_.width,
+                                    .height = extent_.height,
+                                    .safeWidth = static_cast<float>(extent_.width),
+                                    .safeHeight = static_cast<float>(extent_.height)};
     }
-    const float density = SDL_GetWindowPixelDensity(window_);
-    if (const float scale = SDL_GetWindowDisplayScale(window_); scale > 0.0F) {
-        surface.dp = scale;
-    }
-    SDL_Rect safe{};
-    if (density > 0.0F && SDL_GetWindowSafeArea(window_, &safe)) {
-        surface.safeX = static_cast<float>(safe.x) * density;
-        surface.safeY = static_cast<float>(safe.y) * density;
-        surface.safeWidth = static_cast<float>(safe.w) * density;
-        surface.safeHeight = static_cast<float>(safe.h) * density;
-    }
-    return surface;
+    return touch::surfaceOf(window_, extent_.width, extent_.height);
 }
 
 void Presenter::change(const settings::VideoSettings& video) {
@@ -392,7 +366,7 @@ VkResult Presenter::waitForFrame() {
 }
 
 void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
-                        const OverlayImage* overlay, FrameStages& stages) {
+                        const touch::OverlayImage* overlay, FrameStages& stages) {
     using Stage = FrameStages::Stage;
     uploadPending_ = uploadPending_ || fresh;
     syncPending_.waits.insert(syncPending_.waits.end(), sync.waits.begin(), sync.waits.end());

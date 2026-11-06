@@ -10,18 +10,10 @@
 
 #include "fullscreen_pipeline.hpp"
 #include "streamed_texture.hpp"
+#include "touch/touch_surface.hpp"
 #include "vulkan_device.hpp"
 
 namespace opensu::retro {
-
-/// The overlay to draw: rows of RGBA, top first, the size of the target. `changed` when it differs
-/// from the last one drawn.
-struct OverlayImage {
-    std::span<const std::uint8_t> rgba;
-    unsigned width{0};
-    unsigned height{0};
-    bool changed{true};
-};
 
 class OverlayPass {
   public:
@@ -34,7 +26,7 @@ class OverlayPass {
     ~OverlayPass();
 
     /// Records uploading `overlay` when it changed or its size did; outside any render pass.
-    void recordUpload(VkCommandBuffer commands, const OverlayImage& overlay);
+    void recordUpload(VkCommandBuffer commands, const touch::OverlayImage& overlay);
     /// Records drawing the uploaded overlay over `framebuffer` of `extent`, which the target's
     /// render pass made.
     void recordDraw(VkCommandBuffer commands, VkFramebuffer framebuffer, VkExtent2D extent) const;

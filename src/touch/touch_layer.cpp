@@ -1,4 +1,4 @@
-#include "touch_layer.hpp"
+#include "touch/touch_layer.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -7,7 +7,7 @@
 
 #include "svg/svg_raster.hpp"
 
-namespace opensu::retro {
+namespace opensu::touch {
 namespace {
 
 using gamepad::Button;
@@ -297,4 +297,4 @@ OverlayImage TouchLayer::image() {
     return OverlayImage{pixels_, width_, height_, changed};
 }
 
-} // namespace opensu::retro
+} // namespace opensu::touch

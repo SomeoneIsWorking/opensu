@@ -13,7 +13,7 @@ add_library(opensu_retro STATIC
     audio_output.cpp joypad.cpp save_memory.cpp save_ram_fit.cpp vulkan_device.cpp frame_filter.cpp
     shared_library.cpp librashader_library.cpp shader_chain.cpp shader_scale.cpp gpu_timer.cpp
     reduced_output.cpp streamed_texture.cpp fullscreen_pipeline.cpp frame_compositor.cpp presenter.cpp hardware_render.cpp
-    save_state.cpp resume_state.cpp control_server.cpp control_commands.cpp overlay_pass.cpp touch_layer.cpp frame_stages.cpp
+    save_state.cpp resume_state.cpp control_server.cpp control_commands.cpp overlay_pass.cpp frame_stages.cpp
     netplay_link.cpp runner_app.cpp)
 gpu2d_compile_shaders(opensu_retro shaders/frame.vert shaders/frame.frag shaders/sharp_bilinear.frag
     shaders/crt_lottes.frag shaders/sampled.frag)
@@ -23,8 +23,8 @@ target_include_directories(opensu_retro
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(opensu_retro
     PUBLIC opensu::retro_saves opensu::libretro_header opensu::librashader_header opensu::pad opensu::command opensu::fileio opensu::setting_layers opensu::netplay lucent::lucent
-           PkgConfig::SDL3 opensu::vulkan
-    PRIVATE gpu2d::image opensu::svg opensu::zip opensu::secrets)
+           PkgConfig::SDL3 opensu::vulkan opensu::touch
+    PRIVATE gpu2d::image opensu::zip opensu::secrets)
 # Where the shell cannot draw over the runner (Android), Guide and Back bring the shell's Activity
 # forward and the runner draws its own touch controls.
 if(ANDROID)

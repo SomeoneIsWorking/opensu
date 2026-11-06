@@ -68,13 +68,13 @@ class Presenter {
     [[nodiscard]] WindowInput poll();
 
     /// What an overlay is drawn for: the target's size, its safe area and pixels per dp.
-    [[nodiscard]] WindowSurface surface() const;
+    [[nodiscard]] touch::WindowSurface surface() const;
 
     /// Draws `frame`, uploading it first when `fresh`, with what a Vulkan core handed over (kept
     /// for the next frame drawn when this one is skipped), and `overlay` over it when given;
     /// the time each step took goes to `stages`. Throws VulkanError when drawing fails.
-    void present(const FrameImage& frame, bool fresh, CoreSync sync, const OverlayImage* overlay,
-                 FrameStages& stages);
+    void present(const FrameImage& frame, bool fresh, CoreSync sync,
+                 const touch::OverlayImage* overlay, FrameStages& stages);
 
     /// Shows frames under `video` from the next one drawn (`FrameCompositor::change`); a shader
     /// preset that cannot run throws ShaderError and the settings in force stay.

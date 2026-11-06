@@ -1,6 +1,7 @@
-// touch_layer — the runner's on-screen pad for a touchscreen with no controller: a d-pad, A B X Y,
-// L and R, Select and Start, and a pause button that holds Guide, which asks for the shell's menu
-// as a pad's Guide does. Its buttons reach the game as a pad's do. Controls sit inside the window's
+// touch_layer — the on-screen pad for a touchscreen with no controller, the runner's and the one
+// over a remote game: a d-pad, A B X Y, L and R, Select and Start, and a pause button that holds
+// Guide, which asks for the shell's menu as a pad's Guide does. Its buttons reach the game as a
+// pad's do. Controls sit inside the window's
 // safe area, sized in dp, their hit regions larger than what is drawn; each finger keeps the
 // control it went down on, so several are held at once and a thumb slides within the d-pad or the
 // face buttons. The art is assets/touch/, rasterised at the drawn size and composed into the
@@ -16,10 +17,9 @@
 #include <vector>
 
 #include "gamepad/event.hpp"
-#include "overlay_pass.hpp"
-#include "window_input.hpp"
+#include "touch/touch_surface.hpp"
 
-namespace opensu::retro {
+namespace opensu::touch {
 
 class TouchLayer {
   public:
@@ -106,4 +106,4 @@ class TouchLayer {
     bool dirty_{true};
 };
 
-} // namespace opensu::retro
+} // namespace opensu::touch
