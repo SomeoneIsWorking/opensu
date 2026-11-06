@@ -180,6 +180,8 @@ bool Core::serializeInto(std::span<std::byte> state) {
 }
 
 bool Core::unserialize(std::span<const std::byte> state) {
+    // FB Alpha 2012 refuses a state until it has been asked its size.
+    api_.serializeSize();
     return !state.empty() && api_.unserialize(state.data(), state.size());
 }
 

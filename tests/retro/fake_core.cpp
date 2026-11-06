@@ -203,7 +203,11 @@ RETRO_API void retro_reset() {
     core.frames = 0;
 }
 
+// As FB Alpha 2012: a state is refused until the size has been asked.
+bool stateSizeAsked = false;
+
 RETRO_API std::size_t retro_serialize_size() {
+    stateSizeAsked = true;
 #ifdef FAKE_CORE_NO_STATE
     return 0;
 #else
@@ -222,7 +226,7 @@ RETRO_API bool retro_serialize(void* data, std::size_t size) {
 }
 
 RETRO_API bool retro_unserialize(const void* data, std::size_t size) {
-    if (size != stateSize) {
+    if (size != stateSize || !stateSizeAsked) {
         return false;
     }
     const auto* in = static_cast<const std::uint8_t*>(data);
