@@ -299,6 +299,7 @@ void LinkRate::choose(double capacity, std::uint64_t nowUs, const char* why) {
     }
     lucent::warn("stream", "no video codec both ends have (host {:#x}, guest {:#x})", encoders_,
                  decoders_);
+    noCodec_ = true;
     plan_.reset();
 }
 

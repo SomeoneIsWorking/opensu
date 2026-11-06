@@ -272,8 +272,16 @@ void HostStream::handle(const Opened& opened) {
         break;
     case PacketKind::Report:
         if (const std::optional<wire::Report> report = wire::readReport(opened.payload)) {
-            const std::lock_guard lock{linkMutex_};
-            link_.report(*report, wire::nowMicros());
+            bool noCodec = false;
+            {
+                const std::lock_guard lock{linkMutex_};
+                link_.report(*report, wire::nowMicros());
+                noCodec = link_.noCodec();
+            }
+            if (noCodec) {
+                end("no video format both ends can use; its graphics driver may lack H.264 and "
+                    "HEVC encoding");
+            }
         }
         break;
     case PacketKind::KeyFrame:

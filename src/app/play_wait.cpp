@@ -18,7 +18,8 @@ bool romsetPending(const library::Game& game) {
 
 } // namespace
 
-PlayWait::PlayWait(Hooks hooks) : hooks_{std::move(hooks)} {}
+PlayWait::PlayWait(Hooks hooks) : hooks_{std::move(hooks)} {
+}
 
 bool PlayWait::begin(const library::Game& game, std::vector<std::string> environment,
                      const std::string& profile) {
@@ -57,7 +58,8 @@ void PlayWait::service() {
         return;
     }
     if (!game->launch.empty()) {
-        Held held = *std::exchange(held_, std::nullopt);
+        Held held = std::move(*held_);
+        held_.reset();
         hooks_.play(*game, std::move(held.environment), held.profile);
         return;
     }

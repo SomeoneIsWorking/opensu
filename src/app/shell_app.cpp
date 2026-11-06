@@ -904,6 +904,7 @@ std::vector<library::Game> ShellApp::copiesOffered(const library::Game& game) co
 
 void ShellApp::cancelLaunch() {
     playWait_.cancel();
+    remotePlay_.cancel();
     launches_.cancel();
 }
 
@@ -1432,7 +1433,14 @@ void ShellApp::serviceRequests() {
                        measured ? std::optional{progress->fraction} : std::nullopt);
     }
     playWait_.service();
-    if (!launching && !playWait_.waiting() && !launches_.running()) {
+    const std::string remoteStage = remotePlay_.stage();
+    if (!remoteStage.empty()) {
+        if (!panels_.active()) {
+            panels_.showLaunch(remotePlay_.game().title, remotePlay_.game().artwork);
+        }
+        panels_.update(remoteStage, std::nullopt);
+    }
+    if (!launching && !playWait_.waiting() && !launches_.running() && remoteStage.empty()) {
         panels_.endLaunch();
         relay_.close();
     }
@@ -1450,7 +1458,7 @@ void ShellApp::serviceRequests() {
     }
     relay_.follow(running, gameScreen_.mode() == display::OverlayMode::Interactive,
                   pads_->connected().size(), window_->touchSurface());
-    if (const bool inGame = running || remotePlay_.streaming(); inGame != shell_.inGame()) {
+    if (const bool inGame = running || remotePlay_.showing(); inGame != shell_.inGame()) {
         shell_.setInGame(inGame);
         closePages();
         panels_.endLaunch();

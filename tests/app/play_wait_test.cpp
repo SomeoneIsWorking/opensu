@@ -26,7 +26,7 @@ void expect(bool condition, std::string_view what) {
 }
 
 struct World {
-    std::optional<Game> game;
+    Game game;
     std::optional<EmulatorDownloads::Progress> running;
     std::optional<EmulatorDownloads::Finished> finished;
     std::vector<std::string> downloads;
@@ -39,14 +39,34 @@ struct World {
 
     PlayWait::Hooks hooks() {
         return PlayWait::Hooks{
-            .find = [this](const std::string&) { return game; },
-            .play = [this](const Game& started, std::vector<std::string>,
-                           const std::string&) { played.push_back(started.title); },
-            .show = [this](const Game&) { ++shown; },
-            .update = [this](std::string text, std::optional<double>) { line = std::move(text); },
-            .refuse = [this](const std::string& text) { refused.push_back(text); },
-            .progress = [this] { return running; },
-            .finished = [this] { return finished; },
+            .find =
+                [this](const std::string&) {
+                    return std::optional<Game>{game};
+                },
+            .play =
+                [this](const Game& started, const std::vector<std::string>&, const std::string&) {
+                    played.push_back(started.title);
+                },
+            .show =
+                [this](const Game&) {
+                    ++shown;
+                },
+            .update =
+                [this](std::string text, std::optional<double>) {
+                    line = std::move(text);
+                },
+            .refuse =
+                [this](const std::string& text) {
+                    refused.push_back(text);
+                },
+            .progress =
+                [this] {
+                    return running;
+                },
+            .finished =
+                [this] {
+                    return finished;
+                },
             .download =
                 [this](const std::string& id) {
                     if (downloadRefusal.empty()) {
@@ -55,7 +75,10 @@ struct World {
                     }
                     return downloadRefusal;
                 },
-            .cancelDownload = [this](const std::string& id) { cancelled.push_back(id); },
+            .cancelDownload =
+                [this](const std::string& id) {
+                    cancelled.push_back(id);
+                },
         };
     }
 };
@@ -78,7 +101,7 @@ void downloadsThenPlays() {
     World world;
     world.game = romWithoutCore();
     PlayWait wait{world.hooks()};
-    expect(wait.begin(*world.game, {}, "p"), "a missing core is waited for");
+    expect(wait.begin(world.game, {}, "p"), "a missing core is waited for");
     expect(world.shown == 1 && world.downloads == std::vector<std::string>{"pcsx"},
            "the card is up and the core downloads");
     wait.service();
@@ -92,8 +115,8 @@ void downloadsThenPlays() {
     expect(world.downloads.size() == 1 && wait.waiting(),
            "installed but not read yet: it waits for the library");
 
-    world.game->emulatorOptions.front().installed = true;
-    world.game->launch.program = "core";
+    world.game.emulatorOptions.front().installed = true;
+    world.game.launch.program = "core";
     wait.service();
     expect(world.played == std::vector<std::string>{"Crash"} && !wait.waiting(),
            "the game starts once the library has the core");
@@ -103,7 +126,7 @@ void failedDownloadEnds() {
     World world;
     world.game = romWithoutCore();
     PlayWait wait{world.hooks()};
-    expect(wait.begin(*world.game, {}, "p"), "waits");
+    expect(wait.begin(world.game, {}, "p"), "waits");
     world.running.reset();
     world.finished = EmulatorDownloads::Finished{
         1, "pcsx", EmulatorDownloads::Finished::Outcome::Failed, "no network"};
@@ -117,7 +140,7 @@ void refusedDownloadSays() {
     world.game = romWithoutCore();
     world.downloadRefusal = "no";
     PlayWait wait{world.hooks()};
-    expect(wait.begin(*world.game, {}, "p"), "waits");
+    expect(wait.begin(world.game, {}, "p"), "waits");
     expect(!wait.waiting() && world.refused == std::vector<std::string>{"no"},
            "a refused download tells why");
 }
@@ -126,7 +149,7 @@ void cancelStopsDownload() {
     World world;
     world.game = romWithoutCore();
     PlayWait wait{world.hooks()};
-    expect(wait.begin(*world.game, {}, "p"), "waits");
+    expect(wait.begin(world.game, {}, "p"), "waits");
     wait.cancel();
     expect(!wait.waiting() && world.cancelled == std::vector<std::string>{"pcsx"},
            "Cancel stops the download the wait started");
@@ -150,7 +173,7 @@ void romsetCheckResolves() {
     PlayWait wait{world.hooks()};
     expect(wait.begin(game, {}, "p"), "a pending romset is waited for");
     expect(world.line == opensu::library::roms::checkingRomset, "the card says it checks");
-    world.game->emulatorOptions.front().romset = RomsetFit::Mismatch;
+    world.game.emulatorOptions.front().romset = RomsetFit::Mismatch;
     wait.service();
     expect(!wait.waiting() &&
                world.refused == std::vector<std::string>{"No arcade core matches this romset"},

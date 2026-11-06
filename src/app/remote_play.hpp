@@ -188,6 +188,14 @@ class RemotePlay {
     [[nodiscard]] bool streaming() const noexcept {
         return guest_ != nullptr;
     }
+    /// Whether the host's picture has come, so the game is what shows. Main loop only.
+    [[nodiscard]] bool showing() const noexcept {
+        return guest_ != nullptr && pictured_;
+    }
+    /// What the player waits for on the way to the picture; empty when nothing is. Main loop only.
+    [[nodiscard]] std::string stage() const;
+    /// Gives up on the game asked for or streaming here. Main loop only.
+    void cancel();
     /// Whether the game streaming here was running there already, so it goes on when this one
     /// leaves. Main loop only.
     [[nodiscard]] bool joined() const noexcept {
@@ -373,6 +381,10 @@ class RemotePlay {
     bool asking_{false};
     bool joined_{false};
     /// Whether `waiting_` was said.
+    /// The first picture came.
+    bool pictured_{false};
+    /// The player gave up while the host was being asked.
+    bool cancelled_{false};
     bool saidWaiting_{false};
     stream::PictureMemory pictures_{stream::PictureMemory::Cpu};
     /// Before the stream, whose thread feeds them; the speaker before the sound that plays on it.

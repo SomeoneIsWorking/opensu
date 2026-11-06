@@ -516,6 +516,30 @@ void RemotePlay::start(const library::Game& game, stream::wire::PadMapping mappi
     hooks_.say("Starting " + game.title + " on " + game.hostName, false);
 }
 
+std::string RemotePlay::stage() const {
+    if (cancelled_) {
+        return {};
+    }
+    if (waiting()) {
+        return "Waiting for " + game_.hostName + " to let you in";
+    }
+    if (asking_) {
+        return "Asking " + game_.hostName + " to start the game";
+    }
+    if (guest_ && !pictured_) {
+        return "Waiting for " + game_.hostName + "'s picture";
+    }
+    return {};
+}
+
+void RemotePlay::cancel() {
+    if (asking_) {
+        cancelled_ = true;
+    } else {
+        end();
+    }
+}
+
 void RemotePlay::end() {
     if (guest_) {
         guest_->end(joined_ ? "the player left" : "the player ended remote play");
@@ -692,6 +716,10 @@ void RemotePlay::serviceGuest() {
         }
         asking_ = false;
         waiting_->store(false);
+        // The host gives up on a guest that does not join.
+        if (std::exchange(cancelled_, false)) {
+            return;
+        }
         if (!answer->offer) {
             lucent::warn("remote", "{} does not stream {}: {}", game_.hostName, game_.title,
                          answer->error);
@@ -750,7 +778,7 @@ void RemotePlay::serviceGuest() {
     }
     if (guest_) {
         if (const std::optional<std::string> over = guest_->over()) {
-            hooks_.say(game_.title + " on " + game_.hostName + ": " + *over, false);
+            hooks_.say(game_.title + " on " + game_.hostName + ": " + *over, !pictured_);
             drop();
         }
     }
@@ -763,6 +791,7 @@ void RemotePlay::drop() {
     video_.reset();
     link_.reset();
     joined_ = false;
+    pictured_ = false;
 }
 
 void RemotePlay::input(const stream::wire::PadState& pad, const stream::wire::KeyState& keys,
@@ -790,7 +819,12 @@ void RemotePlay::readPicturesBack() {
 }
 
 std::optional<stream::GuestVideo::Frame> RemotePlay::takePicture() {
-    return video_ ? video_->takeFrame() : std::nullopt;
+    if (!video_) {
+        return std::nullopt;
+    }
+    std::optional<stream::GuestVideo::Frame> frame = video_->takeFrame();
+    pictured_ = pictured_ || frame.has_value();
+    return frame;
 }
 
 void RemotePlay::presented(std::uint32_t number, std::uint64_t submittedUs, bool drawn) {

@@ -305,6 +305,32 @@ void theHostsEndReachesTheGuest() {
            "the host's end ends the guest's side, with its reason");
 }
 
+void noCommonCodecEndsTheSession() {
+    stream::HostStream host{
+        stream::HostStream::Setup{.keys = keysFor(6),
+                                  .guest = "Tablet",
+                                  .pad = {},
+                                  .keyboard = {},
+                                  .mouse = {},
+                                  .mapping = {},
+                                  .encoders = stream::codecBit(stream::VideoCodec::PyroWave)}};
+    const std::optional<stream::UdpAddress> address = stream::udpAddress("127.0.0.1", host.port());
+    if (!address) {
+        fail("the host takes packets on a port of its own");
+    }
+    stream::GuestStream guest{
+        stream::GuestStream::Setup{.host = *address,
+                                   .keys = keysFor(6),
+                                   .video = {},
+                                   .audio = {},
+                                   .decoders = stream::codecBit(stream::VideoCodec::Hevc)}};
+    expect(waitFor([&guest] {
+               return guest.over().has_value();
+           }) &&
+               guest.over().value_or("").find("no video format") != std::string::npos,
+           "a guest that can decode nothing the host codes is told so");
+}
+
 /// A 4:2:0 picture as Gamescope gives it: luma rows, then interleaved chroma, `stride` apart.
 struct Nv12 {
     int width{0};
@@ -827,6 +853,7 @@ int main(int argc, char** argv) try {
     datagramsOpenOnce();
     payloadsReadAsWritten();
     aSessionCarriesInputAndEnds();
+    noCommonCodecEndsTheSession();
     theHostsEndReachesTheGuest();
     aPictureCodedElsewhereDecodes();
 #ifndef __APPLE__

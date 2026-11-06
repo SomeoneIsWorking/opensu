@@ -64,6 +64,10 @@ class LinkRate {
     [[nodiscard]] std::optional<LinkPlan> plan() const noexcept {
         return plan_;
     }
+    /// The guest decodes nothing the host codes, so no picture can come.
+    [[nodiscard]] bool noCodec() const noexcept {
+        return noCodec_;
+    }
     /// The plan, the link as last measured and the switches, as one line.
     [[nodiscard]] std::string summary() const;
 
@@ -111,6 +115,7 @@ class LinkRate {
     VideoCodecs encoders_;
     VideoCodecs decoders_{0};
     std::optional<LinkPlan> plan_;
+    bool noCodec_{false};
     std::optional<Burst> burst_;
     std::uint32_t bursts_{0};
     std::deque<Heard> heard_;

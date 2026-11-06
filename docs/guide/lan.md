@@ -90,7 +90,10 @@ a save. Other games match by ROM name on the built-in emulators.
 ## Remote play
 
 Press Play on another openSU's game in Library. That openSU starts the game and sends its picture
-and sound here, and your controller, keyboard and mouse play it.
+and sound here, and your controller, keyboard and mouse play it. A card says what it waits for until
+the picture comes, with Cancel; a host and guest with no video format in common end there and say so.
+An Android guest decodes H.264 and HEVC only, so a Linux host needs a driver that encodes them (on
+Fedora, RPM Fusion's `mesa-va-drivers-freeworld`).
 
 - The openSU with the game runs on Linux, as a session in Gamescope (openSU's own session, or
   `opensu` started inside `gamescope`); otherwise it says it cannot stream. The one you play on can

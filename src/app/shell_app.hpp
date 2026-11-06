@@ -85,8 +85,8 @@
 #include "own_games_controller.hpp"
 #include "pad_owner.hpp"
 #include "panel_flow.hpp"
-#include "play_wait.hpp"
 #include "path_editor.hpp"
+#include "play_wait.hpp"
 #include "player_files.hpp"
 #include "player_profiles.hpp"
 #include "plugin_service.hpp"
@@ -828,9 +828,10 @@ class ShellApp final {
                 [this](const std::string& text, bool isError) {
                     shell_.setToast(text, isError);
                 },
-            .find = [this](const std::string& id) {
-                return localGame(id);
-            },
+            .find =
+                [this](const std::string& id) {
+                    return localGame(id);
+                },
             .launch =
                 [this](const library::Game& game, std::vector<std::string> environment,
                        const std::string& profile) {
