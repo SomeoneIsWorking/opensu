@@ -63,6 +63,7 @@ bool CoreEnvironment::answerWithoutData(unsigned command) {
     case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY:
     case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:
     case RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS:
+    case RETRO_ENVIRONMENT_SET_CONTROLLER_INFO:
     case RETRO_ENVIRONMENT_GET_CAN_DUPE:
     case RETRO_ENVIRONMENT_GET_INPUT_BITMASKS:
     case RETRO_ENVIRONMENT_GET_SAVESTATE_CONTEXT:
@@ -135,7 +136,23 @@ bool CoreEnvironment::answer(unsigned command, void* data) {
     case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:
         static_cast<retro_log_callback*>(data)->log = logLine;
         return true;
-    case RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS:
+    case RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS: {
+        std::vector<InputDescriptor> named;
+        for (const auto* descriptor = static_cast<const retro_input_descriptor*>(data);
+             descriptor->description != nullptr; ++descriptor) {
+            if (descriptor->port == 0 && descriptor->device == RETRO_DEVICE_JOYPAD) {
+                named.push_back({descriptor->id, descriptor->description});
+            }
+        }
+        inputDescriptors_ = std::move(named);
+        return true;
+    }
+    case RETRO_ENVIRONMENT_SET_CONTROLLER_INFO:
+        controllerPorts_ = 0;
+        for (const auto* port = static_cast<const retro_controller_info*>(data);
+             port->types != nullptr; ++port) {
+            ++controllerPorts_;
+        }
         return true;
     case RETRO_ENVIRONMENT_GET_CAN_DUPE:
         *static_cast<bool*>(data) = true;
@@ -231,6 +248,10 @@ bool CoreEnvironment::canRollBack() const noexcept {
 
 std::optional<retro_system_timing> CoreEnvironment::takeTiming() {
     return std::exchange(timing_, std::nullopt);
+}
+
+std::optional<std::vector<InputDescriptor>> CoreEnvironment::takeInputDescriptors() {
+    return std::exchange(inputDescriptors_, std::nullopt);
 }
 
 std::optional<retro_game_geometry> CoreEnvironment::takeGeometry() {

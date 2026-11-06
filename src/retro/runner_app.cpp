@@ -230,6 +230,7 @@ RunnerExit RunnerApp::run() {
             .fullscreen = options_.fullscreen,
             .width = options_.width,
             .height = options_.height,
+            .hiddenDp = options_.touchDp.value_or(1.0F),
             .validation = options_.validation,
             .negotiation = hardware.requested() ? hardware.negotiation() : nullptr,
             .video = options_.video,
@@ -264,7 +265,11 @@ RunnerExit RunnerApp::run() {
                               .netplay = netplay != nullptr}};
 
     std::unique_ptr<RunnerTouch> touch =
-        handoff ? std::make_unique<RunnerTouch>(options_.touchArt, joypad) : nullptr;
+        handoff || options_.touchDp ? std::make_unique<RunnerTouch>(options_.touchArt, joypad)
+                                    : nullptr;
+    if (touch && options_.arcade) {
+        touch->cabinet(*options_.arcade);
+    }
     bool padConnected = pads && !pads->connected().empty();
     /// Another Activity has the screen's input, usually the shell over the game.
     bool covered = false;
@@ -327,6 +332,9 @@ RunnerExit RunnerApp::run() {
             for (const ControlInput& held : control->takeInput()) {
                 holdControlPad(joypad, held);
             }
+            for (const touch::Finger& finger : control->takeFingers()) {
+                presenter->inject(finger);
+            }
             control->serve([&commands](const ControlRequest& request) {
                 return commands.perform(request);
             });
@@ -349,6 +357,9 @@ RunnerExit RunnerApp::run() {
         core->run();
         stages.add(FrameStages::Stage::Core, Clock::now() - started);
         ++frame;
+        if (touch) {
+            touch->ran();
+        }
         if (netplay) {
             netplay->ran(*core);
         }
@@ -373,13 +384,24 @@ RunnerExit RunnerApp::run() {
         const float aspect = aspectOf(geometry);
         const std::optional<FrameImage> coreImage =
             showingCoreImage ? hardware.frame(aspect) : std::nullopt;
-        std::optional<touch::OverlayImage> overlay;
-        if (touchShown) {
-            overlay = touch->image();
-        }
         FrameImage shown =
             coreImage.value_or(FrameImage{video.rgba(), video.width(), video.height(), aspect, {}});
         shown.interval = std::chrono::duration_cast<std::chrono::nanoseconds>(interval);
+        std::optional<touch::OverlayImage> overlay;
+        if (touch) {
+            if (const auto named = environment.takeInputDescriptors()) {
+                touch->named(*named);
+            }
+            if (shown.width != 0) {
+                touch->showing(presenter->picture(shown));
+            }
+            if (control && touch->takeMoved()) {
+                control->publishTouch(touch->places());
+            }
+        }
+        if (touchShown) {
+            overlay = touch->image();
+        }
         try {
             presenter->present(shown, coreImageFresh || pixelsFresh, hardware.takeSync(),
                                overlay ? &*overlay : nullptr, stages);

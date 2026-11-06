@@ -4,10 +4,26 @@
 #include <string>
 #include <utility>
 
+#include <nlohmann/json.hpp>
+
 #include "lucent/log.h"
 
 namespace opensu::retro {
 namespace {
+
+/// The shortest press the core is given.
+constexpr unsigned tapFrames = 1;
+/// Boards read these slowly: a CPS2 game drops a one-frame coin.
+constexpr unsigned coinFrames = 4;
+
+unsigned framesOf(gamepad::Button button) {
+    const bool coin = button == gamepad::Button::Select || button == gamepad::Button::Start;
+    return coin ? coinFrames : tapFrames;
+}
+
+bool holds(const std::vector<gamepad::Button>& buttons, gamepad::Button button) {
+    return std::ranges::find(buttons, button) != buttons.end();
+}
 
 /// `buttons` by their prompts, "nothing" for none.
 std::string buttonList(const std::vector<gamepad::Button>& buttons) {
@@ -24,42 +40,106 @@ RunnerTouch::RunnerTouch(std::filesystem::path art, Joypad& joypad)
     : layer_{std::move(art)}, joypad_{joypad} {
 }
 
+void RunnerTouch::shape(const std::vector<InputDescriptor>& descriptors,
+                        const CabinetListing& listing) {
+    touch::ArcadePanel panel = panelOf(descriptors, listing);
+    if (panel == panel_) {
+        return;
+    }
+    panel_ = std::move(panel);
+    std::string named;
+    for (const touch::ArcadeButton& button : panel_.buttons) {
+        named += (named.empty() ? "" : ", ") + button.label;
+    }
+    lucent::info("retro", "arcade panel: {}-way stick, {} buttons ({})", panel_.ways,
+                 panel_.buttons.size(), named);
+    layer_.setPanel(panel_);
+    place();
+}
+
+void RunnerTouch::cabinet(const CabinetListing& listing) {
+    listing_ = listing;
+    shape({}, listing);
+}
+
+void RunnerTouch::named(const std::vector<InputDescriptor>& descriptors) {
+    if (listing_) {
+        shape(descriptors, *listing_);
+    }
+}
+
+void RunnerTouch::showing(const touch::Box& picture) {
+    if (listing_ && picture != picture_) {
+        picture_ = picture;
+        place();
+    }
+}
+
+void RunnerTouch::place() {
+    if (laidOut_.width == 0) {
+        return;
+    }
+    layer_.layout(laidOut_, picture_);
+    owed_.clear();
+    holding_.clear();
+    joypad_.hold("touch", {});
+    moved_ = true;
+}
+
+std::string RunnerTouch::places() const {
+    nlohmann::json list = nlohmann::json::array();
+    for (const touch::ControlPlace& place : layer_.places()) {
+        list.push_back({{"control", place.button == gamepad::Button::None
+                                        ? std::string{"stick"}
+                                        : std::string{gamepad::name(place.button)}},
+                        {"x", place.x},
+                        {"y", place.y},
+                        {"radius", place.radius}});
+    }
+    return list.dump();
+}
+
 bool RunnerTouch::follow(const touch::WindowSurface& surface, bool shown,
                          std::span<const touch::Finger> fingers) {
     if (surface.width != laidOut_.width || surface.height != laidOut_.height ||
         surface.dp != laidOut_.dp) {
-        layer_.layout(surface);
         laidOut_ = surface;
-        joypad_.hold("touch", {});
+        place();
     }
-    const bool pausing = layer_.pressed(gamepad::Button::Guide);
-    bool changed = false;
     if (shown) {
-        std::vector<touch::Finger> taken = std::exchange(liftNext_, {});
-        taken.insert(taken.end(), fingers.begin(), fingers.end());
-        std::vector<std::uint64_t> wentDown;
-        for (const touch::Finger& finger : taken) {
-            if (finger.phase == touch::Finger::Phase::Up &&
-                std::ranges::find(wentDown, finger.id) != wentDown.end()) {
-                liftNext_.push_back(finger);
-                continue;
+        for (const touch::Finger& finger : fingers) {
+            const std::vector<gamepad::Button> before = layer_.held();
+            layer_.finger(finger);
+            for (const gamepad::Button button : layer_.held()) {
+                if (!holds(before, button)) {
+                    owed_[button] = framesOf(button);
+                }
             }
-            if (finger.phase == touch::Finger::Phase::Down) {
-                wentDown.push_back(finger.id);
-            }
-            changed = layer_.finger(finger) || changed;
         }
     } else {
-        liftNext_.clear();
-        changed = layer_.releaseAll();
+        owed_.clear();
+        layer_.releaseAll();
     }
-    if (!changed) {
+    std::vector<gamepad::Button> held = layer_.held();
+    for (const auto& [button, frames] : owed_) {
+        if (!holds(held, button)) {
+            held.push_back(button);
+        }
+    }
+    if (held == holding_) {
         return false;
     }
-    const std::vector<gamepad::Button> held = layer_.held();
-    joypad_.hold("touch", held);
-    lucent::info("retro", "touch holds {}", buttonList(held));
-    return !pausing && layer_.pressed(gamepad::Button::Guide);
+    const bool pausing = holds(holding_, gamepad::Button::Guide);
+    holding_ = std::move(held);
+    joypad_.hold("touch", holding_);
+    lucent::info("retro", "touch holds {}", buttonList(holding_));
+    return !pausing && holds(holding_, gamepad::Button::Guide);
+}
+
+void RunnerTouch::ran() {
+    std::erase_if(owed_, [](auto& owed) {
+        return --owed.second == 0;
+    });
 }
 
 } // namespace opensu::retro

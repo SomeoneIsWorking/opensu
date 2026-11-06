@@ -29,6 +29,8 @@ class Joypad final : public PortInput {
 
     /// The RETRO_DEVICE_ID_JOYPAD_* a control drives, or nothing (Guide).
     [[nodiscard]] static std::optional<unsigned> idOf(gamepad::Button button);
+    /// The control that drives RETRO_DEVICE_ID_JOYPAD_* `id`, or nothing.
+    [[nodiscard]] static std::optional<gamepad::Button> buttonOf(unsigned id);
     /// The RETRO_DEVICE_ID_JOYPAD_* an SDL scancode drives, or nothing.
     [[nodiscard]] static std::optional<unsigned> idOfKey(int scancode);
 

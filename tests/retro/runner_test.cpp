@@ -256,6 +256,53 @@ void resetRestarts(const Paths& paths) {
     expect(countIn(read(saves / "game.srm")) <= 200, "the reset zeroed the core's frame count");
 }
 
+/// Where the touch controls say `name` is.
+nlohmann::json touchControl(std::uint16_t port, std::string_view name) {
+    const nlohmann::json places = nlohmann::json::parse(get(port, "/touch").body);
+    for (const nlohmann::json& place : places) {
+        if (place["control"] == name) {
+            return place;
+        }
+    }
+    expect(false, "the touch controls list what is asked for");
+    return {};
+}
+
+void finger(std::uint16_t port, int id, const char* phase, double x, double y) {
+    const std::string body =
+        nlohmann::json{{"finger", id}, {"phase", phase}, {"x", x}, {"y", y}}.dump();
+    expect(post(port, "/touch", body.c_str()).status == 200, "a finger is taken");
+}
+
+/// An arcade panel in a hidden run: two fingers held at once reach the core through the same
+/// window event queue a touchscreen fills.
+void touchReachesCore(const Paths& paths) {
+    const std::filesystem::path control = paths.root / "run" / "touch.json";
+    const std::filesystem::path saves = paths.root / "touch-saves";
+    const pid_t child =
+        spawn({paths.runner, "--core", paths.core, "--saves", saves.string(), "--hidden", "--touch",
+               "1", "--arcade", "3:8", "--frames", "100000", paths.rom.string()},
+              control);
+    const std::uint16_t port = awaitPort(control, child);
+    awaitFrame(port, 5);
+    const nlohmann::json stick = touchControl(port, "stick");
+    const nlohmann::json first = touchControl(port, "a");
+    expect(post(port, "/touch", R"({"finger": 1, "phase": "sideways", "x": 0, "y": 0})").status ==
+               400,
+           "an unknown phase is refused");
+    finger(port, 1, "down", stick["x"].get<double>() + 40.0, stick["y"].get<double>());
+    finger(port, 2, "down", first["x"].get<double>(), first["y"].get<double>());
+    awaitFrame(port, status(port)["frame"].get<std::uint64_t>() + 10);
+    kill(child, SIGTERM);
+    expect(wait(child).exited, "the runner quits");
+    const std::string saved = read(saves / "game.srm");
+    expect(saved.size() > 5, "the save holds the held buttons");
+    const unsigned held = static_cast<unsigned char>(saved[4]) |
+                          (static_cast<unsigned>(static_cast<unsigned char>(saved[5])) << 8U);
+    expect((held & (1U << RETRO_DEVICE_ID_JOYPAD_RIGHT)) != 0, "the stick reaches the core");
+    expect((held & (1U << RETRO_DEVICE_ID_JOYPAD_B)) != 0, "a button held with it does too");
+}
+
 void statelessCoreRefuses(const Paths& paths, const std::string& stateless) {
     const std::filesystem::path control = paths.root / "run" / "stateless.json";
     const std::filesystem::path saves = paths.root / "stateless-saves";
@@ -389,6 +436,7 @@ int main(int argc, char** argv) try {
     try {
         stateRoundTrip(paths);
         resetRestarts(paths);
+        touchReachesCore(paths);
         statelessCoreRefuses(paths, stateless);
         loadFailureIsReported(paths);
         savesOfOtherSizes(paths);

@@ -1,30 +1,48 @@
 // touch_layer — on-screen controls for a touchscreen with no controller, the runner's and the ones
-// over a remote game. It runs a `ControlPlan` (`pad_layout`): each finger keeps the control it went
-// down on, so several are held at once and a thumb slides within one; the buttons held reach the
-// game as a pad's do, and the pause button holds Guide, which asks for the shell's menu as a pad's
-// Guide does. The pieces are composed into an overlay the size of the surface.
+// over a remote game. It runs a `ControlPlan`, the generic pad (`pad_layout`) unless it is given an
+// arcade machine's panel (`arcade_layout`): each finger keeps the control it went down on, so
+// several are held at once and a thumb slides within one; the buttons held reach the game as a
+// pad's do, and the pause button holds Guide, which asks for the shell's menu as a pad's Guide
+// does. The pieces are composed into an overlay the size of the surface.
 #pragma once
 
 #include <cstdint>
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include "gamepad/event.hpp"
+#include "touch/arcade_layout.hpp"
+#include "touch/label_face.hpp"
 #include "touch/touch_art.hpp"
 #include "touch/touch_controls.hpp"
 #include "touch/touch_surface.hpp"
 
 namespace opensu::touch {
 
+/// Where a control is on the target: a stick (`button` None, how far it reaches) or a button.
+struct ControlPlace {
+    gamepad::Button button{gamepad::Button::None};
+    float x{0.0F};
+    float y{0.0F};
+    float radius{0.0F};
+};
+
 class TouchLayer {
   public:
     /// The art is read from `art` (assets/touch).
     explicit TouchLayer(std::filesystem::path art);
 
-    /// Places the controls on `surface`; fingers down are let go.
-    void layout(const WindowSurface& surface);
+    /// Shows `panel` instead of the pad from the next `layout`.
+    void setPanel(ArcadePanel panel);
+    /// Places the controls on `surface`, a panel around the frame at `picture`; fingers down are
+    /// let go.
+    void layout(const WindowSurface& surface, const Box& picture = {});
+    /// Where the controls are now.
+    [[nodiscard]] std::vector<ControlPlace> places() const;
 
     /// Takes a finger; reports whether the buttons held changed.
     bool finger(const Finger& finger);
@@ -48,10 +66,15 @@ class TouchLayer {
     [[nodiscard]] std::optional<std::size_t> controlAt(float x, float y) const;
     [[nodiscard]] std::vector<gamepad::Button> buttonsAt(const Control& control, float x,
                                                          float y) const;
-    void compose(const Art& art, const Box& box, float opacity);
+    /// How far a piece leaning `distance` moves on x and y for the directions held.
+    [[nodiscard]] std::pair<float, float> leaning(float distance) const;
     void draw();
 
+    std::filesystem::path fontFile_;
     ArtSource art_;
+    std::optional<ArcadePanel> panel_;
+    /// Made for a panel: the pad has no words.
+    std::unique_ptr<LabelFace> labels_;
     ControlPlan plan_;
     unsigned width_{0};
     unsigned height_{0};

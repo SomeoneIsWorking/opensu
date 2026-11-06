@@ -51,6 +51,15 @@ std::optional<unsigned> Joypad::idOf(Button button) {
     return std::nullopt;
 }
 
+std::optional<Button> Joypad::buttonOf(unsigned id) {
+    for (const auto& [control, controlId] : buttonIds) {
+        if (controlId == id) {
+            return control;
+        }
+    }
+    return std::nullopt;
+}
+
 std::optional<unsigned> Joypad::idOfKey(int scancode) {
     for (const auto& [key, id] : keyIds) {
         if (key == scancode) {

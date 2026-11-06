@@ -1,8 +1,9 @@
 // retro_launch — what a game launched on a built-in core takes besides its command: the saves
 // folder of the profile it plays as (`--saves`), its video settings resolved from the setting
 // layers, written to the launch's settings file, and `--settings <file>` put on its command line
-// with an `--option key=value` for each core option a layer keeps; the same video resolution for a
-// change while it runs. The runner never reads the layers itself.
+// with an `--option key=value` for each core option a layer keeps; an arcade game's `--arcade`
+// with what its core's romset listing says of its controls; the same video resolution for a change
+// while it runs. The runner never reads the layers or the listings itself.
 #pragma once
 
 #include <filesystem>
@@ -11,6 +12,7 @@
 
 #include "library/emulator_catalog.hpp"
 #include "library/game.hpp"
+#include "library/romset_dats.hpp"
 #include "settings/setting_layers.hpp"
 #include "settings/video_settings.hpp"
 
@@ -28,11 +30,13 @@ retroVideoOf(const library::Game& game, const settings::SettingLayers& layers,
 
 /// Readies `game`, about to start, for `opensu-retro`: its saves in its console's folder under
 /// `saves` (the profile's, `retro::profileSaveFolder`), its settings written to `file` (a shader
-/// preset as its path under `presets`, the shader pack) and the options naming both added. A game
-/// on no built-in core is left alone. Empty when done, else why the file could not be written.
+/// preset as its path under `presets`, the shader pack) and the options naming both added, an
+/// arcade game's controls read from `romsets`. A game on no built-in core is left alone. Empty
+/// when done, else why the file could not be written.
 [[nodiscard]] std::string
 prepareRetroLaunch(library::Game& game, const settings::SettingLayers& layers,
                    const library::roms::EmulatorCatalog& catalog, const std::filesystem::path& file,
-                   const std::filesystem::path& presets, const std::filesystem::path& saves);
+                   const std::filesystem::path& presets, const std::filesystem::path& saves,
+                   const library::roms::RomsetDats& romsets);
 
 } // namespace opensu::app

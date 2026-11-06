@@ -11,7 +11,7 @@ target_compile_definitions(fake_crashing_core PRIVATE FAKE_CORE_CRASH)
 target_compile_definitions(fake_stateless_core PRIVATE FAKE_CORE_NO_STATE)
 
 foreach(name video_frame audio_sink joypad save_memory core_environment core vulkan_messages
-        netplay_link)
+        netplay_link arcade_panel)
     add_executable(retro_${name}_test ${name}_test.cpp)
     target_link_libraries(retro_${name}_test PRIVATE opensu::retro)
     target_include_directories(retro_${name}_test
@@ -21,7 +21,7 @@ foreach(name video_frame audio_sink joypad save_memory core_environment core vul
     opensu_warnings(retro_${name}_test)
 endforeach()
 foreach(name video_frame audio_sink joypad save_memory core_environment vulkan_messages
-        netplay_link)
+        netplay_link arcade_panel)
     add_test(NAME retro_${name} COMMAND retro_${name}_test)
 endforeach()
 add_test(NAME retro_core COMMAND retro_core_test "$<TARGET_FILE:fake_core>")

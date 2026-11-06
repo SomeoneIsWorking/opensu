@@ -7,9 +7,11 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <libretro.h>
 
+#include "arcade_cabinet.hpp"
 #include "core_options.hpp"
 #include "hardware_render.hpp"
 
@@ -56,6 +58,12 @@ class CoreEnvironment {
     [[nodiscard]] std::optional<retro_system_timing> takeTiming();
     /// Geometry the core changed since the last call (SET_GEOMETRY or SET_SYSTEM_AV_INFO).
     [[nodiscard]] std::optional<retro_game_geometry> takeGeometry();
+    /// Port 0's joypad controls as the core last named them, if it did since the last call.
+    [[nodiscard]] std::optional<std::vector<InputDescriptor>> takeInputDescriptors();
+    /// The ports the core lists (SET_CONTROLLER_INFO); 0 when it lists none.
+    [[nodiscard]] unsigned controllerPorts() const noexcept {
+        return controllerPorts_;
+    }
     /// This machine is player `slot` of a netplay session on `clock`, which
     /// RETRO_ENVIRONMENT_GET_NETPLAY_CLIENT_INDEX and `getNetplayClock` answer from now on.
     void joinNetplay(unsigned slot, NetplayClock clock) noexcept {
@@ -78,6 +86,8 @@ class CoreEnvironment {
     HardwareRender hardware_;
     std::optional<retro_system_timing> timing_;
     std::optional<retro_game_geometry> geometry_;
+    std::optional<std::vector<InputDescriptor>> inputDescriptors_;
+    unsigned controllerPorts_{0};
     std::optional<unsigned> netplaySlot_;
     std::optional<NetplayClock> netplayClock_;
 };

@@ -157,6 +157,40 @@ std::optional<DatRom> romOf(std::string_view attributes) {
                   attributeOr(attributes, "bios"), false};
 }
 
+/// A stick's directions from `<control ways=...>` or a type naming them (`joy8way`, `vjoy2way`).
+void readWays(std::string_view text, DatControls& controls) {
+    if (text.find("vertical2") != std::string_view::npos ||
+        text.find("vjoy2way") != std::string_view::npos) {
+        controls.ways = 2;
+        controls.vertical = true;
+        return;
+    }
+    for (const unsigned ways : {8U, 4U, 2U}) {
+        if (text == std::to_string(ways) ||
+            text.find(std::format("joy{}way", ways)) != std::string_view::npos) {
+            controls.ways = ways;
+            return;
+        }
+    }
+}
+
+/// What an `<input>` or `<control>` tag adds; the first stick and the most buttons named stand.
+void readControls(std::string_view attributes, DatControls& controls) {
+    if (const std::optional<std::string> buttons = attribute(attributes, "buttons")) {
+        controls.buttons = std::max(controls.buttons, numberOf<unsigned>(*buttons, 10).value_or(0));
+    }
+    if (controls.ways != 0) {
+        return;
+    }
+    readWays(attributeOr(attributes, "ways"), controls);
+    if (controls.ways == 0) {
+        readWays(attributeOr(attributes, "type"), controls);
+    }
+    if (controls.ways == 0) {
+        readWays(attributeOr(attributes, "control"), controls);
+    }
+}
+
 bool isSetElement(std::string_view element) {
     return element == "game" || element == "machine";
 }
@@ -263,6 +297,8 @@ void RomsetDat::addXml(std::string_view xml, const Wanted& wanted) {
             if (!name.empty() && std::ranges::find(set->devices, name) == set->devices.end()) {
                 set->devices.push_back(name);
             }
+        } else if (tag->element == "input" || tag->element == "control") {
+            readControls(tag->attributes, set->controls);
         } else if (tag->element == "disk" && attribute(tag->attributes, "status") != "nodump" &&
                    !flagged(tag->attributes, "optional")) {
             set->disks.push_back(attributeOr(tag->attributes, "name"));
@@ -293,6 +329,10 @@ std::string RomsetDat::serialize() const {
         }
         for (const std::string& disk : set.disks) {
             out += std::format("K\t{}\n", disk);
+        }
+        if (set.controls != DatControls{}) {
+            out += std::format("I\t{}\t{}\t{}\n", set.controls.buttons, set.controls.ways,
+                               set.controls.vertical ? "v" : "-");
         }
     }
     return out;
@@ -337,6 +377,7 @@ std::optional<RomsetDat> RomsetDat::parse(std::string_view text, const Wanted& w
                          fields[4] == "b",
                          {},
                          {},
+                         {},
                          {}};
         } else if (kind == "R" && fields.size() == 6 && set) {
             const std::optional<std::uint32_t> crc = numberOf<std::uint32_t>(fields[1], 16);
@@ -350,6 +391,13 @@ std::optional<RomsetDat> RomsetDat::parse(std::string_view text, const Wanted& w
             set->devices.emplace_back(fields[1]);
         } else if (kind == "K" && fields.size() == 2 && set) {
             set->disks.emplace_back(fields[1]);
+        } else if (kind == "I" && fields.size() == 4 && set) {
+            const std::optional<unsigned> buttons = numberOf<unsigned>(fields[1], 10);
+            const std::optional<unsigned> ways = numberOf<unsigned>(fields[2], 10);
+            if (!buttons || !ways) {
+                return malformed();
+            }
+            set->controls = DatControls{*buttons, *ways, fields[3] == "v"};
         } else {
             return malformed();
         }

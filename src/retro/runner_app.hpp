@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <optional>
 
+#include "arcade_cabinet.hpp"
 #include "core_options.hpp"
 #include "netplay_link.hpp"
 #include "settings/video_settings.hpp"
@@ -59,6 +60,10 @@ struct RunnerOptions {
     std::optional<NetplaySetup> netplay;
     /// The touch controls' art, where the runner draws its own (`shell_handoff`).
     std::filesystem::path touchArt;
+    /// Hidden only: the touch controls at this many pixels per dp, for tools.
+    std::optional<float> touchDp;
+    /// An arcade game, with what its set's listing says of its controls.
+    std::optional<CabinetListing> arcade;
 };
 
 class RunnerApp {

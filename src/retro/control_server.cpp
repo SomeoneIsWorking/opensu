@@ -51,6 +51,32 @@ bool readStick(const nlohmann::json& posted, std::int32_t& x, std::int32_t& y) {
     return true;
 }
 
+/// The body of `POST /touch`: `{"finger": 1, "phase": "down", "x": 120, "y": 640}`, in the target's
+/// pixels; nothing when malformed.
+std::optional<touch::Finger> readFinger(const std::string& body) {
+    const nlohmann::json posted = nlohmann::json::parse(body, nullptr, false);
+    if (!posted.is_object() || !posted.contains("finger") ||
+        !posted["finger"].is_number_unsigned() || !posted.contains("phase") ||
+        !posted["phase"].is_string() || !posted.contains("x") || !posted["x"].is_number() ||
+        !posted.contains("y") || !posted["y"].is_number()) {
+        return std::nullopt;
+    }
+    touch::Finger finger{.id = posted["finger"].get<std::uint64_t>(),
+                         .x = posted["x"].get<float>(),
+                         .y = posted["y"].get<float>()};
+    const std::string phase = posted["phase"].get<std::string>();
+    if (phase == "down") {
+        finger.phase = touch::Finger::Phase::Down;
+    } else if (phase == "move") {
+        finger.phase = touch::Finger::Phase::Move;
+    } else if (phase == "up") {
+        finger.phase = touch::Finger::Phase::Up;
+    } else {
+        return std::nullopt;
+    }
+    return finger;
+}
+
 /// The body of `POST /input`: `{"pad": "two", "buttons": ["r2"], "left": [x, y], "right": [x, y]}`
 /// or `{"pad": "two", "leave": true}`, each part optional; nothing when malformed or naming Guide,
 /// which belongs to the shell.
@@ -187,6 +213,16 @@ void ControlServer::serve(const std::function<ControlAnswer(const ControlRequest
     }
 }
 
+std::vector<touch::Finger> ControlServer::takeFingers() {
+    const std::lock_guard lock{mutex_};
+    return std::exchange(fingers_, {});
+}
+
+void ControlServer::publishTouch(std::string places) {
+    const std::lock_guard lock{mutex_};
+    touchPlaces_ = std::move(places);
+}
+
 std::vector<ControlInput> ControlServer::takeInput() {
     const std::lock_guard lock{mutex_};
     return std::exchange(input_, {});
@@ -267,6 +303,23 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
         const std::lock_guard lock{mutex_};
         input_.push_back(std::move(*input));
         return text(200, "OK", "held");
+    }
+    if (path == "/touch") {
+        if (request.method == "GET") {
+            const std::lock_guard lock{mutex_};
+            return lucent::http::Response::json(200, "OK", touchPlaces_);
+        }
+        if (request.method != "POST") {
+            return text(405, "Method Not Allowed", "GET or POST only");
+        }
+        const std::optional<touch::Finger> finger = readFinger(request.body);
+        if (!finger) {
+            return text(400, "Bad Request",
+                        R"(expected {"finger": id, "phase": "down|move|up", "x": px, "y": px})");
+        }
+        const std::lock_guard lock{mutex_};
+        fingers_.push_back(*finger);
+        return text(200, "OK", "queued");
     }
     if (path == "/frame.png") {
         if (request.method != "GET") {

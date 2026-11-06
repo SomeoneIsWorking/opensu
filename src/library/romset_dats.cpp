@@ -19,7 +19,7 @@ namespace {
 namespace fs = std::filesystem;
 
 // The version names the line format: a listing kept in an older one is fetched again.
-constexpr std::string_view headerTag = "# opensu romsets 2 ";
+constexpr std::string_view headerTag = "# opensu romsets 3 ";
 constexpr std::string_view listingExtension = ".xml";
 /// FinalBurn Neo's arcade listing is 14 MB, MAME 2010's 43 MB.
 constexpr std::size_t maxListingBytes = std::size_t{96} * 1024 * 1024;
@@ -31,7 +31,7 @@ std::int64_t secondsOf(RomsetDats::Clock::time_point at) {
     return std::chrono::duration_cast<std::chrono::seconds>(at.time_since_epoch()).count();
 }
 
-/// The header line `# opensu romsets 2 <crc> <fetched>` of `text`.
+/// The header line `# opensu romsets 3 <crc> <fetched>` of `text`.
 std::optional<DatStamp> stampOf(std::string_view line) {
     if (!line.starts_with(headerTag)) {
         return std::nullopt;

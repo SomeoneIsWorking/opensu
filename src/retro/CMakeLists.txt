@@ -14,7 +14,7 @@ add_library(opensu_retro STATIC
     shared_library.cpp librashader_library.cpp shader_chain.cpp shader_scale.cpp gpu_timer.cpp
     reduced_output.cpp streamed_texture.cpp fullscreen_pipeline.cpp frame_compositor.cpp presenter.cpp hardware_render.cpp
     save_state.cpp resume_state.cpp control_server.cpp control_commands.cpp overlay_pass.cpp frame_stages.cpp
-    netplay_link.cpp runner_touch.cpp runner_app.cpp)
+    netplay_link.cpp arcade_cabinet.cpp runner_touch.cpp runner_app.cpp)
 gpu2d_compile_shaders(opensu_retro shaders/frame.vert shaders/frame.frag shaders/sharp_bilinear.frag
     shaders/crt_lottes.frag shaders/sampled.frag)
 add_library(opensu::retro ALIAS opensu_retro)

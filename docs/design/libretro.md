@@ -99,11 +99,14 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/netplay_link.*` | `--netplay`: the session file read (`netplaySetupOf`), this machine's pad into `netplay::Session` each frame, the core's input from it, the system RAM's CRC-32 to compare |
 | `src/netplay/` | The session and its transport, no core or LAN knowledge above the seam (`docs/plans/mgba-netplay.md`) |
 | `src/retro/core.*` | One loaded core: `dlopen`, the `retro_*` symbols, init/load/run/unload in order, the callback trampolines |
-| `src/retro/core_environment.*` | The environment commands answered: directories, pixel format, core options, log, input descriptors, geometry and timing changes, the hardware-render commands (through its `HardwareRender`); anything else is refused. Null `data` is answered before any of them (`answerWithoutData`): whether the command is available, nothing written; false where true would say data was taken (`SET_PIXEL_FORMAT`, `SET_SYSTEM_AV_INFO`, `SET_HW_RENDER`); the option commands remove every option; the netplay commands and `GET_HW_RENDER_INTERFACE` answer as they would with data |
+| `src/retro/core_environment.*` | The environment commands answered: directories, pixel format, core options, log, input descriptors (port 0's joypad controls kept, `takeInputDescriptors`), the ports a core lists (`controllerPorts`), geometry and timing changes, the hardware-render commands (through its `HardwareRender`); anything else is refused. Null `data` is answered before any of them (`answerWithoutData`): whether the command is available, nothing written; false where true would say data was taken (`SET_PIXEL_FORMAT`, `SET_SYSTEM_AV_INFO`, `SET_HW_RENDER`); the option commands remove every option; the netplay commands and `GET_HW_RENDER_INTERFACE` answer as they would with data |
 | `src/retro/core_options.*` | The core's option definitions (v0 variables, v1, v2) and their current values: the defaults, except a value the launch chose (`--option`) that the core offers for that key |
 | `src/retro/hardware_render.*` | A GPU core: `SET_HW_RENDER` (Vulkan taken, any other context refused with its name kept as the load failure's reason), `GET_PREFERRED_HW_RENDER` (Vulkan), the context negotiation interface kept for the device, `GET_HW_RENDER_INTERFACE` (`retro_hw_render_interface_vulkan` on the presenter's instance, device and queue), `set_image`, semaphores, command buffers, the signal semaphore, the queue lock, the sync index; `context_reset` once the presenter is up, `context_destroy` before the game is unloaded; the image of each `RETRO_HW_FRAME_BUFFER_VALID` frame, kept for duplicated frames |
 | `src/retro/video_frame.*` | A frame in the core's pixel format (0RGB1555, XRGB8888, RGB565) to RGBA, turned as `SET_ROTATION` asked, duplicate frames kept |
 | `src/retro/audio_sink.*` | The core's samples into a ring, resampled with dynamic rate control so the buffer stays near its target |
+| `src/touch/` | The on-screen controls (**Touch controls** below): `touch_layer` runs a `ControlPlan` of `touch_controls`, `pad_layout` and `arcade_layout` make one, `touch_art` and `label_face` draw it |
+| `src/retro/runner_touch.*` | The runner's touch controls: laid out for the window, fingers taken, what they hold on the joypad as the pad `touch`; an arcade game's panel made again as the core names its controls |
+| `src/retro/arcade_cabinet.*` | An arcade machine's panel from the core's descriptors and the listing's `--arcade` |
 | `src/retro/joypad.*` | The pads' controls (`gamepad::Button`) and the keyboard to `RETRO_DEVICE_JOYPAD` state, one fixed mapping; the pads' sticks (`gamepad::Sticks`) to `RETRO_DEVICE_ANALOG`; which port each pad plays on (**Input**) |
 | `src/retro/save_memory.*` | The core's save RAM: loaded before the first frame (a smaller file into its start; a larger or unreadable one refused and never written over), written atomically when it changes (checked once a second) and at exit |
 | `src/retro/audio_output.*` | Where the sink's frames go: the default playback device (SDL audio stream, pulled on SDL's thread), or, hidden, drained by the clock at the output rate with nothing played |
@@ -138,7 +141,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/library/shader_pack.*` | libretro's `shaders_slang.zip`: the latest build (HEAD: `Last-Modified` and size), the download checked by length and each member's CRC-32, unpacked into `<data>/opensu/shaders/slang/` with its record, removal, the presets it holds |
 | `src/library/libretro_cores.*` | Finding a core (openSU's downloads, the cores it ships, RetroArch's and the system's folders) and its info file; core downloads from the libretro buildbot under `<data>/opensu/cores/`, with their info and record |
 | `src/library/core_bios.*` | A core's BIOS files from its core info, what it does without them, which are in the system folder |
-| `src/library/romset_dat.*` | An arcade core's ROM-set listing: a Logiqx datafile or MAME `-listxml` parsed, its line format under the cache |
+| `src/library/romset_dat.*` | An arcade core's ROM-set listing: a Logiqx datafile or MAME `-listxml` parsed (a set's `<input>` among it, `DatControls`), its line format under the cache |
 | `src/library/romset_dats.*` | The arcade cores' listings fetched over HTTPS from the catalog's `"romsets"` and kept under `<cache>/romsets/` for 30 days |
 | `src/library/romset_lists.*` | Those fetches off the library scan, one at a time on a thread, each one's state (bytes, done, failed and when it is tried again) for the Downloads page |
 | `src/library/romset_match.*` | An arcade zip's central directory, read through the `RomTree` that listed it, against each listing, the verdicts kept by file stamps, the game's emulator picked by them, a picked folder's parent and BIOS zips added to the launch |
@@ -164,8 +167,8 @@ and `hardware_render` (and through it `core_environment`) include Vulkan, only t
 ## 4. Contracts
 
 **Command line.** `opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--settings
-<file>] [--option <key>=<value>]... [--players N] [--netplay <file>] [--hidden] [--validate] [--frames N] [--frame-png <file>]
-<rom>`. `--option` sets a core option for this run: the core's value for that key when it offers
+<file>] [--option <key>=<value>]... [--players N] [--netplay <file>] [--arcade <buttons>:<ways>] [--hidden] [--touch <dp>] [--validate] [--frames N] [--frame-png <file>]
+<rom>`. `--arcade` says the game is an arcade machine and what its set's listing says of its controls (**Touch controls**). `--option` sets a core option for this run: the core's value for that key when it offers
 it, else (a warning logged) its default. `--settings` names a JSON
 object of resolved video settings (`{"video.aspect": "4:3", "video.integer": "off",
 "video.sampling": "nearest", "video.filter": "none", "video.shader": "<absolute .slangp path>",
@@ -175,7 +178,8 @@ a key it lacks keeps its default, a value that is no choice is exit 1. The runne
 the active profile's system folder), `--system` to `<data>/opensu/system/`, both from `config::Config`. `--hidden`,
 `--validate`, `--frames` and `--frame-png` are for tests and tools: `--hidden` is an unmapped SDL
 window (`SDL_WINDOW_HIDDEN`), drawing into an offscreen image, no sound device (the sink is drained
-by the clock, so rate control still runs), no pads and no keyboard; `--validate` enables
+by the clock, so rate control still runs), no pads and no keyboard; `--touch <dp>` (hidden only) shows
+the touch controls at that many pixels per dp, as Android's window does, for `POST /touch`; `--validate` enables
 `VK_LAYER_KHRONOS_validation` when installed and counts its errors; `--frames` stops after N frames;
 `--frame-png` (hidden only) writes the last image shown, letterboxing included, at the window's
 size (`OPENSU_WIDTH` × `OPENSU_HEIGHT`, 1280 × 800 by default). Inside Gamescope the window is
@@ -210,9 +214,11 @@ cannot be set up (exit 1), it writes `{"error": "<reason>"}` there instead and l
 | `POST /reset` | 200 after `retro_reset` |
 | `POST /video` | 200 once the video settings in the body (`settings::videoJson`, the `--settings` file's format) are drawn from the next frame; 400 for a body that does not parse; 409 with the reason when the shader preset cannot be built, the settings drawn before kept |
 | `GET /frame.png` | The last frame shown as PNG, letterboxing included; a swapchain's is shown once more to be copied; 500 before the first frame or while the window has nothing to draw into |
+| `POST /touch` | 200: `{"finger": id, "phase": "down"\|"move"\|"up", "x": px, "y": px}` in the target's pixels, put on the window's event queue as an SDL finger event, so it takes the path a real finger does; 400 for anything else |
+| `GET /touch` | Where the touch controls are: `[{"control": name, "x", "y", "radius"}]`, each button by its `gamepad::name`, the stick as `stick` with how far a finger reaches it |
 | `POST /input` | 200: a control pad holds `{"pad": name, "buttons": [names], "left": [x, y], "right": [x, y]}` (each part optional, sticks from -1 to 1, y down) until its next post, `{}` letting go, `{"pad": name, "leave": true}` leaving; without `"pad"` it is the one control pad, each name a pad of its own; 400 for anything else or Guide |
 
-Every route but `GET /status` and `POST /input` is queued for the frame loop, which runs it between frames, never beside `retro_run`;
+Every route but `GET /status`, `/touch` and `POST /input` is queued for the frame loop, which runs it between frames, never beside `retro_run`;
 the request waits for the answer, and is answered 503 when the loop has not taken it within 3 s or
 the runner is closing. Error bodies are the reason as plain text. The slot is
 `<saves>/<rom stem>.state`, written whole, so a crash mid-write keeps the previous state. The shell
@@ -283,6 +289,45 @@ on the virtual pad's -32768 to 32767, y down; of several pads, each axis the one
 `RETRO_DEVICE_INDEX_ANALOG_BUTTON` reads 0. The control channel's pad (`POST /input`) is one more
 source beside the pads. Under `--netplay` the core reads `NetplayLink` instead (next section). There is no mouse, so `RETRO_DEVICE_POINTER` reads 0: melonDS DS's touch
 screen is its joystick mode, the right stick moving its cursor and R2 touching.
+
+**Touch controls.** Where the runner draws its own (`shell_handoff`, or hidden with `--touch`) the
+controls show while no pad is connected and nothing covers the game. Each finger keeps the control
+it went down on, so a stick held while buttons are pressed is several controls at once; what they
+hold is one more pad, `touch`. A press stays on that pad for frames the core ran, whenever its
+finger lifts (`RunnerTouch::ran`): one, and four for Select and Start, because a CPS2 game drops a
+one-frame coin and takes a two-frame one. Every system gets the generic pad (`pad_layout`) except
+arcade.
+
+An arcade game's launch has `--arcade <buttons>:<ways>` (`app/retro_launch`, from its core's listing;
+`0:0` where the listing says nothing; `v` before a vertical stick's ways) and shows its machine's
+panel (`arcade_cabinet`, `arcade_layout`). What each core sends, checked by running them:
+
+| Core | `SET_INPUT_DESCRIPTORS` | Listing's `<input>` | The panel relies on |
+| --- | --- | --- | --- |
+| FinalBurn Neo | Per game, in the first `retro_run`: Attack, Jump; Weak Punch...; Button A-D; Fire 1. Macros on L/R, L2/R2 ("Buttons ABC", "Buttons 3x Punch"), Neo Geo's Select on L3 | None: its datafiles are Logiqx | The core |
+| FB Alpha 2012 | Per game, the same names, but only from `retro_set_controller_port_device` once every port it lists has a device; so `Core::loadGame` sets one on each port of `SET_CONTROLLER_INFO` | None | The core |
+| MAME 2010 | One table at load for every game: Button 1-7, Turbo Button, Service/Test, Toggle MAME UI | `buttons` and `joy8way`-style `<control>` | The core for which id each button is, the listing for how many and the stick's ways |
+
+So descriptors come first. A core whose action buttons are all `Button <n>` says nothing of the game
+and is cut to the listing's count. The stick's ways are the listing's, else 8 with both axes named,
+2 with one, none with neither. L3 and R3 are never panel buttons, and "Buttons ...", turbo, service,
+diagnostics, reset, test and tilt are left off. With nothing from the core a listing's count of
+buttons is numbered on the RetroPad's B, A, Y, X, L, R, L2, R2; with nothing at all it is an 8-way
+stick and four buttons. SELECT is Coin and START is Start on every arcade core, so both are always
+there, small and labelled, and pause holds Guide. A descriptor's word is the button's label ("Button
+A" reads A). The rows are by count (`rowsByCount`): one row up to four, which is Neo Geo's, 3+2, 3+3
+for Capcom's six, then 4+3, 4+4, each column on an arc. FinalBurn Neo names its controls after the
+first frame, so the panel is made from the listing first and again then.
+
+The stick goes on the left of the picture, the buttons and Coin and Start on the right: inside the
+black bar when they fit (`Presenter::picture` is where `placeFrame` puts the frame, followed as it
+changes), else sized down to `stickSmallest` and `buttonSmallest` and against the screen's edge,
+translucent where they cover the picture. A row is never turned to fit a bar: a 2800x1840 tablet at
+2.2 pixels per dp has 79 dp of black beside 4:3, so its stick and Coin and Start sit on the bar and a
+three-button row reaches about 100 dp over the picture. Art and words are rasterised at the drawn
+size. To check: `opensu-retro --hidden --touch <dp> --arcade <b>:<w>` with `OPENSU_WIDTH` and
+`OPENSU_HEIGHT` as the screen, `GET /touch`, `POST /touch`, `GET /frame.png`; the log's `arcade panel:`
+and `touch holds` lines.
 
 **Netplay.** `--netplay <file>` makes this runner one machine of a session. The file is owner-only
 JSON: `{"slot": 0, "players": 2, "delay": 2, "ahead": 6, "port": 0, "peer": "192.168.1.2:4000", "clockMs": <Unix
@@ -528,6 +573,9 @@ been asked, which a resume in a fresh run would otherwise hit.
   unreadable one refused untouched, environment answers (an OpenGL context refused by name, a
   Vulkan one taken, Vulkan preferred).
 - `netplay_link_test`: the session file and what it refuses; `tests/netplay` the session itself.
+- `arcade_panel_test`: panels from the tables FinalBurn Neo, FB Alpha 2012 and MAME 2010 send, the
+  rows by count, every control beside the picture on a wide screen, several fingers at once and the
+  stick's ways through `TouchLayer`.
 - `core_test` loads the fake core through `Core` with the real owners: frames, samples, the
   joypad and save RAM reach them, a second core and a missing library or ROM are `CoreError`s.
 - `runner_test` runs `opensu-retro --hidden --validate --frames 30 --frame-png` against the fake
@@ -538,6 +586,7 @@ been asked, which a resume in a fresh run would otherwise hit.
   save writes the `.state`, a later load leaves the `.srm`'s frame count showing the frames between
   them undone, a reset zeroes it, the stateless core's save is 409 with its reason, an unknown
   route 404, `/input` holding Start reaches the core's `.srm` and Guide or a stick past 1 is 400,
+  `/touch` with a stick and a button held at once reaches it too,
   SIGTERM exits 0 and removes the file, and a missing ROM exits 2 leaving the error. A save smaller
   than the core's RAM continues the frame count; a larger one exits 2, named in the control file,
   and is left as it was.

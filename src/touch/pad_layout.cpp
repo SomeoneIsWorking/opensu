@@ -1,6 +1,7 @@
 #include "touch/pad_layout.hpp"
 
 #include <array>
+#include <utility>
 
 namespace opensu::touch {
 namespace {
@@ -72,31 +73,38 @@ ControlPlan padLayout(const WindowSurface& surface, const ArtSource& art) {
     const Box pause{middle - (pauseSize * dp * 0.5F), top + m, pauseSize * dp, pauseSize * dp};
 
     ControlPlan plan;
-    plan.pieces.push_back({pad,
-                           art.svg("dpad.svg", pad),
-                           {Button::Up, Button::Down, Button::Left, Button::Right}});
+    plan.pieces.push_back(Piece{.box = pad,
+                                .art = art.svg("dpad.svg", pad),
+                                .lit = {Button::Up, Button::Down, Button::Left, Button::Right}});
     for (std::size_t at = 0; at < face.size(); ++at) {
-        plan.pieces.push_back(
-            {face.at(at), art.svg(faceFiles.at(at), face.at(at)), {faceButtons.at(at)}});
+        plan.pieces.push_back(Piece{.box = face.at(at),
+                                    .art = art.svg(faceFiles.at(at), face.at(at)),
+                                    .lit = {faceButtons.at(at)}});
     }
-    plan.pieces.push_back({l1, art.svg("shoulder_l.svg", l1), {Button::L1}});
-    plan.pieces.push_back({r1, art.svg("shoulder_r.svg", r1), {Button::R1}});
-    plan.pieces.push_back({select, art.svg("select.svg", select), {Button::Select}});
-    plan.pieces.push_back({start, art.svg("start.svg", start), {Button::Start}});
-    plan.pieces.push_back({pause, art.svg("pause.svg", pause), {Button::Guide}});
+    plan.pieces.push_back(
+        Piece{.box = l1, .art = art.svg("shoulder_l.svg", l1), .lit = {Button::L1}});
+    plan.pieces.push_back(
+        Piece{.box = r1, .art = art.svg("shoulder_r.svg", r1), .lit = {Button::R1}});
+    plan.pieces.push_back(
+        Piece{.box = select, .art = art.svg("select.svg", select), .lit = {Button::Select}});
+    plan.pieces.push_back(
+        Piece{.box = start, .art = art.svg("start.svg", start), .lit = {Button::Start}});
+    plan.pieces.push_back(
+        Piece{.box = pause, .art = art.svg("pause.svg", pause), .lit = {Button::Guide}});
 
     const float slack = (reach - 1.0F) * faceSize * 0.5F * dp;
-    plan.controls.push_back(Control{.hit = roundHit(pause),
-                                    .round = true,
-                                    .stick = std::nullopt,
-                                    .targets = {Target{pause.centreX(), pause.centreY(),
-                                                       Button::Guide}}});
+    plan.controls.push_back(
+        Control{.hit = roundHit(pause),
+                .round = true,
+                .stick = std::nullopt,
+                .targets = {Target{pause.centreX(), pause.centreY(), Button::Guide}}});
     plan.controls.push_back(
         Control{.hit = roundHit(pad),
                 .round = true,
-                .stick = Stick{pad.centreX(), pad.centreY(), deadZone * dp},
+                .stick = Stick{.x = pad.centreX(), .y = pad.centreY(), .deadZone = deadZone * dp},
                 .targets = {}});
-    Control faces{.hit = roundHit(faceCluster), .round = true, .stick = std::nullopt, .targets = {}};
+    Control faces{
+        .hit = roundHit(faceCluster), .round = true, .stick = std::nullopt, .targets = {}};
     for (std::size_t at = 0; at < face.size(); ++at) {
         faces.targets.push_back(
             Target{face.at(at).centreX(), face.at(at).centreY(), faceButtons.at(at)});

@@ -19,6 +19,7 @@
 #include "gamepad/pad_translator.hpp"
 #include "resume_state.hpp"
 #include "settings/video_settings.hpp"
+#include "touch/touch_surface.hpp"
 
 #include "lucent/http.h"
 
@@ -100,6 +101,10 @@ class ControlServer {
 
     /// The control pad's input posted since the last call, if any. Frame loop only.
     [[nodiscard]] std::vector<ControlInput> takeInput();
+    /// The fingers posted since the last call, if any. Frame loop only.
+    [[nodiscard]] std::vector<touch::Finger> takeFingers();
+    /// What `GET /touch` answers from now on: where the touch controls are, as JSON.
+    void publishTouch(std::string places);
 
     /// Leaves `{"error": reason}` in `file` for the shell, which removes it; logged when it cannot.
     static void reportLoadFailure(const std::filesystem::path& file, const std::string& reason);
@@ -130,6 +135,8 @@ class ControlServer {
     ResumeReport resume_;
     bool announced_{false};
     std::vector<ControlInput> input_;
+    std::vector<touch::Finger> fingers_;
+    std::string touchPlaces_{"[]"};
     /// Last, so its handler threads stop before the members they use go.
     lucent::http::Server server_;
 };

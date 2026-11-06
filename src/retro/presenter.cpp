@@ -359,9 +359,24 @@ touch::WindowSurface Presenter::surface() const {
         return touch::WindowSurface{.width = extent_.width,
                                     .height = extent_.height,
                                     .safeWidth = static_cast<float>(extent_.width),
-                                    .safeHeight = static_cast<float>(extent_.height)};
+                                    .safeHeight = static_cast<float>(extent_.height),
+                                    .dp = options_.hiddenDp};
     }
     return touch::surfaceOf(window_, extent_.width, extent_.height);
+}
+
+touch::Box Presenter::picture(const FrameImage& frame) const {
+    const VkRect2D placed = compositor_->placed(extent_, frame);
+    return touch::Box{static_cast<float>(placed.offset.x), static_cast<float>(placed.offset.y),
+                      static_cast<float>(placed.extent.width),
+                      static_cast<float>(placed.extent.height)};
+}
+
+void Presenter::inject(const touch::Finger& finger) {
+    SDL_Event event = touch::eventOf(window_, finger);
+    if (!SDL_PushEvent(&event)) {
+        lucent::warn("retro", "a finger was not queued: {}", SDL_GetError());
+    }
 }
 
 void Presenter::change(const settings::VideoSettings& video) {

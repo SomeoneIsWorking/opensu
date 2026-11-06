@@ -96,6 +96,31 @@ void flags() {
            "anything else is refused");
 }
 
+void inputDescriptors() {
+    CoreEnvironment environment{"", ""};
+    expect(!environment.takeInputDescriptors(), "nothing is named before the core says");
+    const retro_input_descriptor named[] = {
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B, "Attack"},
+        {0, RETRO_DEVICE_ANALOG, 0, RETRO_DEVICE_ID_ANALOG_X, "Left/Right"},
+        {1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A, "Jump"},
+        {0, 0, 0, 0, nullptr}};
+    expect(environment.answer(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS,
+                              const_cast<retro_input_descriptor*>(named)),
+           "the core's descriptors are taken");
+    const auto taken = environment.takeInputDescriptors();
+    expect(taken && taken->size() == 1 && taken->front().id == RETRO_DEVICE_ID_JOYPAD_B &&
+               taken->front().description == "Attack",
+           "port 0's joypad controls are kept, copied");
+    expect(!environment.takeInputDescriptors(), "they are handed over once");
+
+    const retro_controller_description pad{"Classic", RETRO_DEVICE_JOYPAD};
+    const retro_controller_info ports[] = {{&pad, 1}, {&pad, 1}, {&pad, 1}, {nullptr, 0}};
+    expect(environment.answer(RETRO_ENVIRONMENT_SET_CONTROLLER_INFO,
+                              const_cast<retro_controller_info*>(ports)) &&
+               environment.controllerPorts() == 3,
+           "the core's ports are counted");
+}
+
 void variables() {
     CoreEnvironment environment{"", ""};
     retro_variable defined[] = {{"core_speed", "Speed; normal|fast|slow"},
@@ -293,6 +318,7 @@ int main() try {
     pixelFormats();
     rotation();
     flags();
+    inputDescriptors();
     variables();
     definitions();
     avChanges();

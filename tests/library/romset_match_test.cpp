@@ -47,6 +47,7 @@ using opensu::library::Source;
 using opensu::library::roms::addBesideZips;
 using opensu::library::roms::applyRomsets;
 using opensu::library::roms::checkingRomset;
+using opensu::library::roms::DatControls;
 using opensu::library::roms::EmulatorEntry;
 using opensu::library::roms::FileTree;
 using opensu::library::roms::FolderZips;
@@ -408,6 +409,39 @@ void parsesListings() {
            "a wanted read keeps the named sets and devices with ROMs, and every link");
     expect(!RomsetDat::parse("S\tbroken\n", {}, error) && !error.empty(),
            "a malformed line is refused");
+}
+
+void readsControls() {
+    RomsetDat dat;
+    dat.addXml(R"(<mame>
+	<game name="old"><input players="2" buttons="6" coins="2"><control type="joy8way"/></input></game>
+	<game name="plus"><input players="2" buttons="3" control="joy4way"/></game>
+	<machine name="now"><input players="2" coins="2"><control type="joy" player="1" buttons="4" ways="4"/><control type="joy" player="2" buttons="4" ways="4"/></input></machine>
+	<machine name="upright"><input players="1"><control type="joy" buttons="1" ways="vertical2"/></input></machine>
+	<game name="none"/>
+</mame>)");
+    expect(dat.find("old")->controls == DatControls{6, 8, false}, "buttons on input, joy8way");
+    expect(dat.find("plus")->controls == DatControls{3, 4, false}, "a control attribute");
+    expect(dat.find("now")->controls == DatControls{4, 4, false}, "control elements' ways");
+    expect(dat.find("upright")->controls == DatControls{1, 2, true}, "a vertical stick");
+    expect(dat.find("none")->controls == DatControls{}, "a set with no input says nothing");
+    std::string error;
+    const std::optional<RomsetDat> kept = RomsetDat::parse(dat.serialize(), {}, error);
+    expect(kept && *kept == dat, "the controls are kept in the line format");
+}
+
+void fetchesListingsWithoutControls(const fs::path& base) {
+    const fs::path dir = base / "old-listing";
+    fs::create_directories(dir);
+    EmulatorEntry entry;
+    entry.id = "core";
+    std::ofstream{dir / "core.tsv"} << "# opensu romsets 2 951befac 2000000000\nS\ta\t\t\t-\n";
+    const RomsetDats dats{dir, nullptr};
+    const RomsetDats::Clock::time_point soon{std::chrono::seconds{2000000100}};
+    expect(dats.due(entry, soon), "a listing from before controls were kept is fetched again");
+    std::string error;
+    expect(dats.save(entry, RomsetDat{}, 1, soon, error) && !dats.due(entry, soon),
+           "one saved now is not due");
 }
 
 void matchesZips(const fs::path& base) {
@@ -810,6 +844,8 @@ int main() try {
     try {
         const ScratchDir scratch{OPENSU_TEST_SCRATCH, "romset_match"};
         parsesListings();
+        readsControls();
+        fetchesListingsWithoutControls(scratch.path());
         matchesZips(scratch.path());
         needsOneBiosChoice(scratch.path());
         matchesPickedFolders();

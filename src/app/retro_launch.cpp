@@ -1,6 +1,7 @@
 #include "retro_launch.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <format>
 #include <vector>
 
@@ -13,6 +14,8 @@
 #include "settings/video_settings.hpp"
 
 namespace opensu::app {
+
+constexpr std::string_view arcadeSystem = "arcade";
 
 const library::roms::EmulatorEntry* builtInOf(const library::Game& game,
                                               const library::roms::EmulatorCatalog& catalog) {
@@ -35,11 +38,35 @@ std::optional<settings::VideoSettings> retroVideoOf(const library::Game& game,
     return settings::resolveVideo(layers, library::layerKeysOf(game), presets);
 }
 
+namespace {
+
+/// `--arcade`'s value for `game` on `entry`: `0:0` when its listing says nothing of the set.
+std::string arcadeControls(const library::Game& game, const library::roms::EmulatorEntry& entry,
+                           const library::roms::RomsetDats& romsets) {
+    std::string set = game.file.stem().string();
+    std::ranges::transform(set, set.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    std::string error;
+    const std::optional<library::roms::RomsetDat> listing =
+        romsets.load(entry, library::roms::RomsetDat::Wanted{set}, error);
+    const library::roms::DatSet* found = listing ? listing->find(set) : nullptr;
+    if (found == nullptr) {
+        lucent::info("retro", "{}: no listing of {} on {}: {}", game.title, set, entry.name, error);
+        return "0:0";
+    }
+    const library::roms::DatControls& controls = found->controls;
+    return std::format("{}:{}{}", controls.buttons, controls.vertical ? "v" : "", controls.ways);
+}
+
+} // namespace
+
 std::string prepareRetroLaunch(library::Game& game, const settings::SettingLayers& layers,
                                const library::roms::EmulatorCatalog& catalog,
                                const std::filesystem::path& file,
                                const std::filesystem::path& presets,
-                               const std::filesystem::path& saves) {
+                               const std::filesystem::path& saves,
+                               const library::roms::RomsetDats& romsets) {
     const std::optional<settings::VideoSettings> video =
         retroVideoOf(game, layers, catalog, presets);
     if (!video) {
@@ -58,6 +85,10 @@ std::string prepareRetroLaunch(library::Game& game, const settings::SettingLayer
          settings::resolveCoreOptions(layers, library::layerKeysOf(game))) {
         options.emplace_back("--option");
         options.push_back(std::format("{}={}", key, value));
+    }
+    if (game.sourceId == arcadeSystem) {
+        options.emplace_back("--arcade");
+        options.push_back(arcadeControls(game, *builtInOf(game, catalog), romsets));
     }
     // First, so an option the catalog's command gives wins.
     game.launch.args.insert(game.launch.args.begin(), options.begin(), options.end());

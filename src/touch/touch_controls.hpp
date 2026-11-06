@@ -1,5 +1,6 @@
 // touch_controls — what an on-screen layout is made of, whichever controls it shows: the pieces it
-// draws and the controls a finger takes. `TouchLayer` runs any such plan; `pad_layout` makes one.
+// draws and the controls a finger takes. `TouchLayer` runs any such plan; `pad_layout` and
+// `arcade_layout` make them.
 #pragma once
 
 #include <optional>
@@ -21,7 +22,13 @@ struct Art {
 struct Piece {
     Box box;
     Art art;
+    /// Drawn while held, when it has one.
+    Art down{};
     std::vector<gamepad::Button> lit;
+    /// How strongly it is drawn with no finger on it.
+    float idle{0.65F};
+    /// How far it moves towards the directions held.
+    float lean{0.0F};
 };
 
 /// A direction control: the buttons held follow the finger's angle from its centre.
@@ -30,6 +37,10 @@ struct Stick {
     float y{0.0F};
     /// Nearer the centre than this, no direction is held.
     float deadZone{0.0F};
+    /// 8, 4 or 2.
+    unsigned ways{8};
+    /// A 2-way stick moves up and down rather than left and right.
+    bool vertical{false};
 };
 
 /// A button a finger can land on, and the point it is nearest to.

@@ -85,6 +85,11 @@ class FrameCompositor {
     void change(const settings::VideoSettings& video, VkInstance instance,
                 const std::filesystem::path& librashader);
 
+    /// Where `frame` is drawn in `extent` under the settings in force.
+    [[nodiscard]] VkRect2D placed(VkExtent2D extent, const FrameImage& frame) const {
+        return placeFrame(extent, frame, video_);
+    }
+
     /// The render pass a target's framebuffer is made for.
     [[nodiscard]] VkRenderPass renderPass() const {
         return renderPass_;

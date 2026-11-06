@@ -1,5 +1,6 @@
 // romset_dat — an arcade core's ROM-set listing: every set's ROMs (name, size, CRC-32), its
-// parent and BIOS (`romof`), its default BIOS choice, the devices it uses and its disks. Read
+// parent and BIOS (`romof`), its default BIOS choice, the devices it uses, its disks and, where
+// the listing says, its controls. Read
 // from a ClrMamePro/Logiqx XML datafile (FinalBurn Neo) or a MAME `-listxml` (`game` or
 // `machine` elements), and kept under the cache in a line format of its own.
 #pragma once
@@ -28,6 +29,18 @@ struct DatRom {
     bool operator==(const DatRom&) const = default;
 };
 
+/// What a set's `<input>` says of the player's controls; 0 where it says nothing. FinalBurn Neo's
+/// datafiles have none.
+struct DatControls {
+    unsigned buttons{0};
+    /// The stick's directions.
+    unsigned ways{0};
+    /// A 2-way stick moves up and down.
+    bool vertical{false};
+
+    bool operator==(const DatControls&) const = default;
+};
+
 struct DatSet {
     /// Lower-case short name, the zip's stem.
     std::string name;
@@ -42,6 +55,7 @@ struct DatSet {
     std::vector<std::string> devices;
     /// The CHD images the set needs, without `.chd`.
     std::vector<std::string> disks;
+    DatControls controls;
 
     bool operator==(const DatSet&) const = default;
 };

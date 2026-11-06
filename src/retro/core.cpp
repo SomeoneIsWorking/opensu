@@ -143,7 +143,11 @@ void Core::loadGame(const std::filesystem::path& rom) {
         throw CoreError{name_ + " cannot load " + contentPath_};
     }
     loaded_ = true;
-    api_.setControllerPortDevice(0, RETRO_DEVICE_JOYPAD);
+    // FB Alpha 2012 names its controls only once every port it lists has a device.
+    const unsigned ports = std::max(host_.environment.controllerPorts(), 1U);
+    for (unsigned port = 0; port < ports; ++port) {
+        api_.setControllerPortDevice(port, RETRO_DEVICE_JOYPAD);
+    }
     api_.getSystemAvInfo(&avInfo_);
     lucent::info("retro", "{}x{} at {:.3f} fps, audio {:.0f} Hz", avInfo_.geometry.base_width,
                  avInfo_.geometry.base_height, avInfo_.timing.fps, avInfo_.timing.sample_rate);

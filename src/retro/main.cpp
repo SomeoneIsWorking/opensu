@@ -2,8 +2,9 @@
 // openSU launches like any other.
 //
 //   opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--settings <file>]
-//                [--option <key>=<value>]... [--players N] [--netplay <file>] [--hidden]
-//                [--validate] [--frames N] [--frame-png <file>] <rom>
+//                [--option <key>=<value>]... [--players N] [--netplay <file>]
+//                [--arcade <buttons>:<ways>] [--hidden] [--touch <dp>] [--validate] [--frames N]
+//                [--frame-png <file>] <rom>
 //
 // Exit status: 0 on quit, 1 for a bad command line or a window, Vulkan or frame-file failure, 2
 // when the core, the game or its save cannot be loaded, 3 when --validate saw Vulkan validation
@@ -68,7 +69,8 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
             options.validation = true;
         } else if (arg == "--core" || arg == "--saves" || arg == "--system" ||
                    arg == "--settings" || arg == "--frame-png" || arg == "--frames" ||
-                   arg == "--option" || arg == "--players" || arg == "--netplay") {
+                   arg == "--option" || arg == "--players" || arg == "--netplay" ||
+                   arg == "--arcade" || arg == "--touch") {
             const std::optional<std::string> given = value();
             if (!given) {
                 return std::nullopt;
@@ -95,6 +97,21 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
                                                      given->substr(equals + 1));
             } else if (arg == "--frame-png") {
                 options.framePng = *given;
+            } else if (arg == "--arcade") {
+                options.arcade = opensu::retro::cabinetListingOf(*given);
+                if (!options.arcade) {
+                    lucent::error("retro", "--arcade takes <buttons>:<ways>, not {}", *given);
+                    return std::nullopt;
+                }
+            } else if (arg == "--touch") {
+                float dp = 0.0F;
+                const auto [end, error] =
+                    std::from_chars(given->data(), given->data() + given->size(), dp);
+                if (error != std::errc{} || end != given->data() + given->size() || dp <= 0.0F) {
+                    lucent::error("retro", "--touch takes pixels per dp, not {}", *given);
+                    return std::nullopt;
+                }
+                options.touchDp = dp;
             } else if (arg == "--netplay") {
                 std::ifstream in{*given, std::ios::binary};
                 const std::string text{std::istreambuf_iterator<char>{in},
@@ -137,13 +154,16 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
         lucent::error("retro",
                       "usage: opensu-retro --core <path.so> [--saves <dir>] "
                       "[--system <dir>] [--settings <file>] [--option <key>=<value>]... "
-                      "[--players N] [--netplay <file>] [--hidden] [--validate] [--frames N] "
-                      "[--frame-png <file>] "
-                      "<rom>");
+                      "[--players N] [--netplay <file>] [--arcade <buttons>:<ways>] [--hidden] "
+                      "[--touch <dp>] [--validate] [--frames N] [--frame-png <file>] <rom>");
         return std::nullopt;
     }
     if (options.framePng && !options.hidden) {
         lucent::error("retro", "--frame-png needs --hidden");
+        return std::nullopt;
+    }
+    if (options.touchDp && !options.hidden) {
+        lucent::error("retro", "--touch needs --hidden");
         return std::nullopt;
     }
     options.rom = *rom;

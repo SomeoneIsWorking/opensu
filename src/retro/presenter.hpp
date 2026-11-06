@@ -29,6 +29,8 @@ struct PresenterOptions {
     bool fullscreen{false};
     int width{1280};
     int height{800};
+    /// Hidden only: pixels per dp, which a window on a screen is told.
+    float hiddenDp{1.0F};
     /// The Vulkan validation layer, with its errors counted.
     bool validation{false};
     /// A Vulkan core's context negotiation: the instance and device are made through it.
@@ -70,6 +72,10 @@ class Presenter {
 
     /// What an overlay is drawn for: the target's size, its safe area and pixels per dp.
     [[nodiscard]] touch::WindowSurface surface() const;
+    /// Where `frame` is drawn on the target.
+    [[nodiscard]] touch::Box picture(const FrameImage& frame) const;
+    /// Puts `finger` on the window's event queue, as the system does for a real one.
+    void inject(const touch::Finger& finger);
     /// Android: whether the window still has a surface, which it keeps while it can be seen.
     [[nodiscard]] bool onScreen() const;
 

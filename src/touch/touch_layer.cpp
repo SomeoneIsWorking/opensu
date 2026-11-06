@@ -12,17 +12,10 @@ namespace {
 
 using gamepad::Button;
 
-constexpr float idleOpacity = 0.65F;
+/// In assets, beside the touch art.
+constexpr std::string_view fontName = "CalSans-Regular.ttf";
 
-std::vector<Button> stickButtons(const Stick& stick, float x, float y) {
-    const float dx = x - stick.x;
-    const float dy = y - stick.y;
-    if (std::hypot(dx, dy) < stick.deadZone) {
-        return {};
-    }
-    // Eight sectors: a diagonal holds both of its directions.
-    const auto sector =
-        static_cast<int>(std::lround(std::atan2(dy, dx) / (std::numbers::pi_v<float> / 4.0F))) & 7;
+std::vector<Button> eightWay(int sector) {
     switch (sector) {
     case 0:
         return {Button::Right};
@@ -43,17 +36,61 @@ std::vector<Button> stickButtons(const Stick& stick, float x, float y) {
     }
 }
 
-} // namespace
-
-TouchLayer::TouchLayer(std::filesystem::path art) : art_{std::move(art)} {
+std::vector<Button> stickButtons(const Stick& stick, float x, float y) {
+    const float dx = x - stick.x;
+    const float dy = y - stick.y;
+    if (std::hypot(dx, dy) < stick.deadZone) {
+        return {};
+    }
+    if (stick.ways == 2) {
+        if (stick.vertical) {
+            return {dy < 0.0F ? Button::Up : Button::Down};
+        }
+        return {dx < 0.0F ? Button::Left : Button::Right};
+    }
+    constexpr float eighth = std::numbers::pi_v<float> / 4.0F;
+    const float angle = std::atan2(dy, dx);
+    if (stick.ways == 4) {
+        return eightWay((static_cast<int>(std::lround(angle / (eighth * 2.0F))) * 2) & 7);
+    }
+    // A diagonal holds both of its directions.
+    return eightWay(static_cast<int>(std::lround(angle / eighth)) & 7);
 }
 
-void TouchLayer::layout(const WindowSurface& surface) {
+} // namespace
+
+TouchLayer::TouchLayer(std::filesystem::path art)
+    : fontFile_{art.parent_path() / fontName}, art_{std::move(art)} {
+}
+
+void TouchLayer::setPanel(ArcadePanel panel) {
+    panel_ = std::move(panel);
+    if (!labels_) {
+        labels_ = std::make_unique<LabelFace>(fontFile_);
+    }
+}
+
+void TouchLayer::layout(const WindowSurface& surface, const Box& picture) {
     touches_.clear();
     width_ = surface.width;
     height_ = surface.height;
-    plan_ = padLayout(surface, art_);
+    plan_ =
+        panel_ ? arcadeLayout(surface, picture, *panel_, art_, *labels_) : padLayout(surface, art_);
     dirty_ = true;
+}
+
+std::vector<ControlPlace> TouchLayer::places() const {
+    std::vector<ControlPlace> places;
+    for (const Control& control : plan_.controls) {
+        if (control.stick) {
+            places.push_back(
+                {Button::None, control.stick->x, control.stick->y, control.hit.width * 0.5F});
+        }
+        for (const Target& target : control.targets) {
+            places.push_back({target.button, target.x, target.y, 0.0F});
+        }
+    }
+    return places;
 }
 
 std::optional<std::size_t> TouchLayer::controlAt(float x, float y) const {
@@ -61,9 +98,8 @@ std::optional<std::size_t> TouchLayer::controlAt(float x, float y) const {
         const Control& control = plan_.controls[at];
         const Box& hit = control.hit;
         const bool inside =
-            control.round
-                ? std::hypot(x - hit.centreX(), y - hit.centreY()) <= hit.width * 0.5F
-                : hit.contains(x, y);
+            control.round ? std::hypot(x - hit.centreX(), y - hit.centreY()) <= hit.width * 0.5F
+                          : hit.contains(x, y);
         if (inside) {
             return at;
         }
@@ -75,9 +111,10 @@ std::vector<Button> TouchLayer::buttonsAt(const Control& control, float x, float
     if (control.stick) {
         return stickButtons(*control.stick, x, y);
     }
-    const auto nearest = std::ranges::min_element(control.targets, {}, [x, y](const Target& target) {
-        return std::hypot(x - target.x, y - target.y);
-    });
+    const auto nearest =
+        std::ranges::min_element(control.targets, {}, [x, y](const Target& target) {
+            return std::hypot(x - target.x, y - target.y);
+        });
     if (nearest == control.targets.end()) {
         return {};
     }
@@ -89,9 +126,8 @@ bool TouchLayer::finger(const Finger& finger) {
     switch (finger.phase) {
     case Finger::Phase::Down:
         if (const std::optional<std::size_t> control = controlAt(finger.x, finger.y)) {
-            touches_.insert_or_assign(
-                finger.id,
-                Touch{*control, buttonsAt(plan_.controls[*control], finger.x, finger.y)});
+            touches_.insert_or_assign(finger.id, Touch{*control, buttonsAt(plan_.controls[*control],
+                                                                           finger.x, finger.y)});
         }
         break;
     case Finger::Phase::Move:
@@ -135,40 +171,15 @@ bool TouchLayer::pressed(Button button) const {
     });
 }
 
-void TouchLayer::compose(const Art& art, const Box& box, float opacity) {
-    const int left = static_cast<int>(std::lround(box.x));
-    const int top = static_cast<int>(std::lround(box.y));
-    for (int row = 0; row < art.height; ++row) {
-        const int y = top + row;
-        if (y < 0 || y >= static_cast<int>(height_)) {
-            continue;
-        }
-        for (int column = 0; column < art.width; ++column) {
-            const int x = left + column;
-            if (x < 0 || x >= static_cast<int>(width_)) {
-                continue;
-            }
-            const unsigned char* source =
-                &art.rgba[((static_cast<std::size_t>(row) * art.width) + column) * 4];
-            const float above = static_cast<float>(source[3]) / 255.0F * opacity;
-            if (above <= 0.0F) {
-                continue;
-            }
-            unsigned char* pixel =
-                &pixels_[((static_cast<std::size_t>(y) * width_) + static_cast<std::size_t>(x)) *
-                         4];
-            const float below = static_cast<float>(pixel[3]) / 255.0F;
-            const float alpha = above + (below * (1.0F - above));
-            for (std::size_t channel = 0; channel < 3; ++channel) {
-                const float mixed =
-                    ((static_cast<float>(source[channel]) * above) +
-                     (static_cast<float>(pixel[channel]) * below * (1.0F - above))) /
-                    alpha;
-                pixel[channel] = static_cast<unsigned char>(std::lround(mixed));
-            }
-            pixel[3] = static_cast<unsigned char>(std::lround(alpha * 255.0F));
-        }
+std::pair<float, float> TouchLayer::leaning(float distance) const {
+    const float across =
+        (pressed(Button::Right) ? 1.0F : 0.0F) - (pressed(Button::Left) ? 1.0F : 0.0F);
+    const float along = (pressed(Button::Down) ? 1.0F : 0.0F) - (pressed(Button::Up) ? 1.0F : 0.0F);
+    const float length = std::hypot(across, along);
+    if (length == 0.0F) {
+        return {0.0F, 0.0F};
     }
+    return {across * distance / length, along * distance / length};
 }
 
 void TouchLayer::draw() {
@@ -177,7 +188,12 @@ void TouchLayer::draw() {
         const bool down = std::ranges::any_of(piece.lit, [this](Button button) {
             return pressed(button);
         });
-        compose(piece.art, piece.box, down ? 1.0F : idleOpacity);
+        const Art& shown = down && !piece.down.rgba.empty() ? piece.down : piece.art;
+        const auto [leanX, leanY] = leaning(piece.lean);
+        composeOver(pixels_, static_cast<int>(width_), static_cast<int>(height_), shown,
+                    ArtSpot{.left = static_cast<int>(std::lround(piece.box.x + leanX)),
+                            .top = static_cast<int>(std::lround(piece.box.y + leanY)),
+                            .opacity = down ? 1.0F : piece.idle});
     }
 }
 

@@ -126,5 +126,9 @@ emulator you picked.
 
 The runner is a second Activity in a process of its own. Cores come from the buildbot's
 `android/latest/<abi>` folder, games are copied into the app's cache before a core opens them, and
-the runner draws touch controls while no pad is connected. Back, a pad's Guide or the pause button
+the runner draws touch controls while no pad is connected. An arcade game shows its own machine's
+panel: an arcade stick, round buttons in the cabinet's number and rows, each named for what it does
+in that game when the core says, and small Coin and Start controls, since nothing starts without a
+coin. It sits on the black beside the picture where it fits, and hides like the rest when a pad
+connects. Every other system shows the usual pad. Back, a pad's Guide or the pause button
 brings the shell's Guide menu in front of the paused game; Resume goes back to it.

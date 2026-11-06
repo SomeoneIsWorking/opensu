@@ -36,6 +36,9 @@ void mapping() {
     expect(Joypad::idOf(Button::Select) == RETRO_DEVICE_ID_JOYPAD_SELECT, "Select is Select");
     expect(Joypad::idOf(Button::Up) == RETRO_DEVICE_ID_JOYPAD_UP, "Up is Up");
     expect(!Joypad::idOf(Button::Guide), "Guide belongs to the shell");
+    expect(Joypad::buttonOf(RETRO_DEVICE_ID_JOYPAD_B) == Button::A, "libretro's B is bottom");
+    expect(Joypad::buttonOf(RETRO_DEVICE_ID_JOYPAD_L2) == Button::L2, "L2 is L2");
+    expect(!Joypad::buttonOf(99), "an id past the pad is no control");
     expect(Joypad::idOfKey(SDL_SCANCODE_Z) == RETRO_DEVICE_ID_JOYPAD_B, "Z is B");
     expect(Joypad::idOfKey(SDL_SCANCODE_X) == RETRO_DEVICE_ID_JOYPAD_A, "X is A");
     expect(Joypad::idOfKey(SDL_SCANCODE_A) == RETRO_DEVICE_ID_JOYPAD_Y, "A is Y");
