@@ -34,6 +34,14 @@ Why a child window and not frames sent back to the shell: the overlay, scopes, g
 and orphan cleanup already exist for game windows; a GPU core draws with the child's own Vulkan
 device; there is no frame transport to build or to add latency.
 
+**Embedded (Android, Settings › Emulators, off by default).** `prepareRetroLaunch` adds `--embedded`
+and `Launches` picks `EmbeddedRunner` over `TaskRunnerHost`: a `SurfaceView` under SDL's
+(`setZOrderMediaOverlay`) in the shell's window, its `Surface` passed by `Messenger` to `RetroService`
+in `:retro`, where the presenter's `HostedRunnerWindow` draws on it. The process, core, sound and
+crash record are unchanged; `:retro` has no Activity, so the shell hears all input and `RunnerRelay`
+posts it. `Handoff::Hooks::shown` ends the card on `/status`'s `shown`, not on a display window.
+`docs/plans/embedded-runner.md` has the risks and the desktop routes.
+
 The runner does not use the shell's renderer: SDL3 gives it the window, keyboard and sound device, and it draws
 with Vulkan directly, so a core using libretro's Vulkan hardware interface
 (`retro_hw_render_interface_vulkan`) is handed the runner's instance, device and queue.
@@ -222,10 +230,11 @@ cannot be set up (exit 1), it writes `{"error": "<reason>"}` there instead and l
 | `POST /video` | 200 once the video settings in the body (`settings::videoJson`, the `--settings` file's format) are drawn from the next frame; 400 for a body that does not parse; 409 with the reason when the shader preset cannot be built, the settings drawn before kept |
 | `GET /frame.png` | The last frame shown as PNG, letterboxing included; a swapchain's is shown once more to be copied; 500 before the first frame or while the window has nothing to draw into |
 | `POST /touch` | 200: `{"finger": id, "phase": "down"\|"move"\|"up", "x": px, "y": px}` in the target's pixels, put on the window's event queue as an SDL finger event, so it takes the path a real finger does; 400 for anything else |
+| `POST /host` | 200: what a hosted game cannot see of the shell, any of `{"covered": bool}`, `{"pads": n}`, `{"key": {"scancode": n, "down": bool}}`, `{"screen": {"safeX", "safeY", "safeWidth", "safeHeight", "dp"}}`; 400 for anything else. A hosted game starts covered |
 | `GET /touch` | Where the touch controls are: `[{"control": name, "x", "y", "radius"}]`, each button by its `gamepad::name`, the stick as `stick` with how far a finger reaches it |
 | `POST /input` | 200: a control pad holds `{"pad": name, "buttons": [names], "left": [x, y], "right": [x, y]}` (each part optional, sticks from -1 to 1, y down) until its next post, `{}` letting go, `{"pad": name, "leave": true}` leaving; without `"pad"` it is the one control pad, each name a pad of its own; 400 for anything else or Guide |
 
-Every route but `GET /status`, `/touch` and `POST /input` is queued for the frame loop, which runs it between frames, never beside `retro_run`;
+Every route but `GET /status`, `/touch`, `POST /input` and `POST /host` is queued for the frame loop, which runs it between frames, never beside `retro_run`;
 the request waits for the answer, and is answered 503 when the loop has not taken it within 3 s or
 the runner is closing. Error bodies are the reason as plain text. The slot is
 `<saves>/<rom stem>.state`, written whole, so a crash mid-write keeps the previous state. The shell

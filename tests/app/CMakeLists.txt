@@ -127,7 +127,7 @@ opensu_warnings(core_flow_test)
 target_compile_definitions(core_flow_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME core_flow COMMAND core_flow_test)
 
-foreach(name retro_session game_end)
+foreach(name retro_session runner_relay game_end)
     add_executable(${name}_test ${name}_test.cpp)
     target_link_libraries(${name}_test PRIVATE opensu::app)
     opensu_warnings(${name}_test)

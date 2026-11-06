@@ -48,7 +48,7 @@ void requestsReachTheRunner() {
     runner.announce(entry);
     const std::optional<app::RetroSession::Status> before = session.status();
     expect(before && before->core == "fake" && before->rom == "/roms/game.gba" &&
-               before->frame == 42 && !before->hasState,
+               before->frame == 42 && !before->hasState && before->shown,
            "the runner's status is read through the announced port");
     expect(session.loadState() == "no state is saved for this game",
            "a refusal comes back as the runner's reason");

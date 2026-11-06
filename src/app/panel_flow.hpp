@@ -16,6 +16,7 @@
 #include "audio/sdl_sound_player.hpp"
 #include "installs.hpp"
 #include "ui/progress_screen.hpp"
+#include "ui/screen_images.hpp"
 
 namespace opensu::app {
 
@@ -39,14 +40,15 @@ class PanelFlow {
 
     /// The card and the questions go on `navigator`. Installs go through `steam` for Steam
     /// titles, `legendary` for Epic's and gogdl for GOG's.
-    PanelFlow(gpu2d::ui::Navigator& navigator, audio::SdlSoundPlayer& sounds, steam::Client& steam,
+    PanelFlow(gpu2d::ui::Navigator& navigator, ui::ScreenImages& images,
+              audio::SdlSoundPlayer& sounds, steam::Client& steam,
               const std::filesystem::path& dataDir, Hooks hooks);
 
     /// Whether the card is up for a launch or an install.
     [[nodiscard]] bool active() const;
 
-    /// Shows the card for a launch of `title` on its way.
-    void showLaunch(const std::string& title);
+    /// Shows the card for a launch of `title` on its way, with its `cover` when it has one.
+    void showLaunch(const std::string& title, const std::filesystem::path& cover);
     /// The launch's stage, and how far through it when it has a measure.
     void update(std::string line, std::optional<double> fraction);
     /// Takes the card down if it was up for a launch.
@@ -88,6 +90,7 @@ class PanelFlow {
     void workEnded(const InstallJob::Report& report, Installs::Work work);
 
     gpu2d::ui::Navigator& navigator_;
+    ui::ScreenImages& images_;
     audio::SdlSoundPlayer& sounds_;
     Installs install_;
     Hooks hooks_;

@@ -5,6 +5,7 @@
 #include <iterator>
 #include <vector>
 
+#include "game_overlay.hpp"
 #include "library/core_bios.hpp"
 #include "library/rom_systems.hpp"
 #include "library/shader_pack.hpp"
@@ -20,6 +21,7 @@ using library::roms::shaderPackName;
 using ui::RowKind;
 
 constexpr std::string_view checkId = "emulators.check";
+constexpr std::string_view embeddedId = "emulators.embedded";
 constexpr std::string_view emulatorId = "emulators.run.";
 constexpr std::string_view removeId = "emulators.remove.";
 constexpr std::string_view biosId = "emulators.bios.";
@@ -118,6 +120,12 @@ ui::SettingsCategory EmulatorSettings::page(std::vector<ui::SettingsRow> layerRo
         ui::makeRow(std::string{checkId}, RowKind::Action, "Check for updates",
                     "Reads each emulator's latest release; nothing updates by itself",
                     checkValue(downloads_.check(), updates)));
+    if (embedsGames()) {
+        page.rows.push_back(ui::makeHeading("Playing"));
+        page.rows.push_back(ui::makeToggle(std::string{embeddedId}, "Embedded",
+                                           "Built-in cores draw inside openSU's own window",
+                                           preferences_.values().embeddedRunner));
+    }
     page.rows.push_back(ui::makeHeading("Settings by console and core"));
     std::ranges::move(layerRows, std::back_inserter(page.rows));
     page.rows.push_back(ui::makeHeading("Downloads"));
@@ -268,6 +276,13 @@ void EmulatorSettings::addShaderPackRows(ui::SettingsCategory& page) const {
 
 void EmulatorSettings::run(const std::string& id, int step) {
     const std::string_view row{id};
+    if (row == embeddedId) {
+        if (step == 0) {
+            preferences_.values().embeddedRunner = !preferences_.values().embeddedRunner;
+            preferences_.save();
+        }
+        return;
+    }
     if (row == checkId) {
         if (step == 0) {
             downloads_.checkUpdates();

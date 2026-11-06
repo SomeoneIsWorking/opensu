@@ -9,6 +9,7 @@
 #include "library/emulator_choice.hpp"
 #include "lucent/log.h"
 #include "remote_play.hpp"
+#include "retro/embedded.hpp"
 #include "retro/save_paths.hpp"
 #include "settings/core_option_settings.hpp"
 #include "settings/video_settings.hpp"
@@ -67,7 +68,7 @@ std::string prepareRetroLaunch(library::Game& game, const settings::SettingLayer
                                const std::filesystem::path& file,
                                const std::filesystem::path& presets,
                                const std::filesystem::path& saves,
-                               const library::roms::RomsetDats& romsets) {
+                               const library::roms::RomsetDats& romsets, bool embedded) {
     const std::optional<settings::VideoSettings> video =
         retroVideoOf(game, layers, catalog, presets);
     if (!video) {
@@ -91,11 +92,18 @@ std::string prepareRetroLaunch(library::Game& game, const settings::SettingLayer
         options.emplace_back("--arcade");
         options.push_back(arcadeControls(game, *builtInOf(game, catalog), romsets));
     }
+    if (embedded) {
+        options.emplace_back(retro::embeddedArgument);
+    }
     // First, so an option the catalog's command gives wins.
     game.launch.args.insert(game.launch.args.begin(), options.begin(), options.end());
     lucent::info("retro", "{} starts with {}, its saves in {}", game.title, file.string(),
                  saves.string());
     return {};
+}
+
+bool hostedLaunch(const library::Game& game) {
+    return std::ranges::find(game.launch.args, retro::embeddedArgument) != game.launch.args.end();
 }
 
 } // namespace opensu::app

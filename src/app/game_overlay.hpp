@@ -4,8 +4,9 @@
 // (`game_overlay_gamescope.cpp`); on Windows and macOS the window itself, lowered behind the game
 // and raised over it, see-through where the window is translucent
 // (`game_overlay_raised_window.cpp`); on Android the shell's translucent Activity brought over the
-// runner's (`game_overlay_activity_task.cpp`). Where none is opened (outside the shell's session)
-// `GameScreen` hides and shows the window instead.
+// runner's, or a hosted game under the shell's own surface (`game_overlay_activity_task.cpp`).
+// Where none is opened (outside the shell's session) `GameScreen` hides and shows the window
+// instead.
 #pragma once
 
 #include <memory>
@@ -40,6 +41,9 @@ class GameOverlay {
     [[nodiscard]] virtual std::vector<input::Action>
     gameKeys(const input::Shortcuts& shortcuts) = 0;
 };
+
+/// Whether a built-in core's game can draw inside the shell's window here (`RunnerRelay`).
+[[nodiscard]] bool embedsGames() noexcept;
 
 /// The overlay over `window`, or null where the platform has none. Throws std::runtime_error when
 /// the platform has one that cannot be opened.

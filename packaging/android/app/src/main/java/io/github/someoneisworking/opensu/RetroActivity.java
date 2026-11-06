@@ -2,14 +2,6 @@ package io.github.someoneisworking.opensu;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.system.ErrnoException;
-import android.system.Os;
-import android.util.Log;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 /** openSU's libretro runner, one game per `:retro` process, as opensu-retro is on the desktop. */
 public final class RetroActivity extends LandscapeActivity {
@@ -17,26 +9,11 @@ public final class RetroActivity extends LandscapeActivity {
     static final String EXTRA_ENVIRONMENT = "io.github.someoneisworking.opensu.ENVIRONMENT";
     static final String EXTRA_FROM_GAME = "io.github.someoneisworking.opensu.FROM_GAME";
     static final String PROCESS_SUFFIX = ":retro";
-    /** Names a document a core opens by path beside the game; romset_match.hpp's besideArgument. */
-    private static final String BESIDE = "--beside";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         // The launch's environment, read by the runner's config before anything else.
-        String[] environment = getIntent().getStringArrayExtra(EXTRA_ENVIRONMENT);
-        if (environment != null) {
-            for (String entry : environment) {
-                int equals = entry.indexOf('=');
-                if (equals <= 0) {
-                    continue;
-                }
-                try {
-                    Os.setenv(entry.substring(0, equals), entry.substring(equals + 1), true);
-                } catch (ErrnoException error) {
-                    Log.e("openSU", "cannot set " + entry.substring(0, equals) + ": " + error.getMessage());
-                }
-            }
-        }
+        RunnerEnvironment.apply(getIntent().getStringArrayExtra(EXTRA_ENVIRONMENT));
         super.onCreate(savedInstanceState);
     }
 
@@ -48,36 +25,7 @@ public final class RetroActivity extends LandscapeActivity {
     // Runs on SDL's main thread, so a large game is copied off the UI thread.
     @Override
     protected String[] getArguments() {
-        String[] arguments = getIntent().getStringArrayExtra(EXTRA_ARGUMENTS);
-        if (arguments == null) {
-            return new String[0];
-        }
-        File staged = new File(getCacheDir(), "staged");
-        File[] old = staged.listFiles();
-        if (old != null) {
-            for (File file : old) {
-                file.delete();
-            }
-        }
-        staged.mkdirs();
-        DocumentTree documents = new DocumentTree(this);
-        List<String> runner = new ArrayList<>();
-        for (int i = 0; i < arguments.length; ++i) {
-            boolean beside = BESIDE.equals(arguments[i]) && i + 1 < arguments.length;
-            String argument = beside ? arguments[++i] : arguments[i];
-            // Cores open games by path, so a game in a picked folder is copied to the cache first.
-            if (DocumentTree.isDocument(argument)) {
-                try {
-                    argument = documents.stage(argument, staged).getAbsolutePath();
-                } catch (IOException | SecurityException error) {
-                    Log.e("openSU", "cannot copy " + argument + ": " + error.getMessage());
-                }
-            }
-            if (!beside) {
-                runner.add(argument);
-            }
-        }
-        return runner.toArray(new String[0]);
+        return new GameStaging(this).resolve(getIntent().getStringArrayExtra(EXTRA_ARGUMENTS));
     }
 
     /** Called from the runner's shell handoff: the shell comes over the game with its Guide menu. */

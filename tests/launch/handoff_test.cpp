@@ -302,9 +302,11 @@ struct Outcome {
 
 /// start() is documented to block, so every launch goes on its own thread.
 std::future<Outcome> startOnWorker(Handoff& handoff, const Game& game, Shell& shell,
-                                   std::vector<std::string> environment = {}) {
+                                   std::vector<std::string> environment = {},
+                                   std::function<bool()> shown = {}) {
     return std::async(std::launch::async,
-                      [&handoff, &game, &shell, environment = std::move(environment)]() {
+                      [&handoff, &game, &shell, environment = std::move(environment),
+                       shown = std::move(shown)]() {
                           Outcome outcome;
                           const Handoff::Hooks hooks{.hide =
                                                          [&shell] {
@@ -322,7 +324,8 @@ std::future<Outcome> startOnWorker(Handoff& handoff, const Game& game, Shell& sh
                                                          [&shell](int status) {
                                                              shell.endedWith.store(status);
                                                              shell.endings.fetch_add(1);
-                                                         }};
+                                                         },
+                                                     .shown = shown};
                           outcome.ok = handoff.start(game, hooks, environment, outcome.failure);
                           shell.returned.store(true);
                           return outcome;
@@ -589,6 +592,41 @@ void testShellWaitsForTheWindow() {
     const Outcome outcome = awaitStart(pending, "start() returns after forceClose()");
     expect(outcome.ok, "a forced close is not a failure");
     expect(shell.shown.load() == 1, "the shell was shown again, once");
+}
+
+/// A game in the shell's own window has none for the display to find: its first frame ends the
+/// wait.
+void testFirstFrameEndsTheCard() {
+    const Fixture fixture;
+    const RunningGame child = runningGame(fixture, "hosted", 600);
+    Shell shell;
+    FakeSteam steam;
+    FakeWindows windows;
+    Handoff handoff{searchPath(), fixture.session(), steam, &windows, fixture.base / "games"};
+    std::atomic<bool> drawn{false};
+    std::future<Outcome> pending = startOnWorker(handoff, child.game, shell, {}, [&drawn] {
+        return drawn.load();
+    });
+
+    const pid_t pid = awaitRecordedPid(child.pidFile, "the game started");
+    expect(!shell.returnedWithin(std::chrono::milliseconds{500}), "start() waits");
+    expect(shell.hidden.load() == 0, "the card stays until a frame is on screen");
+    const std::optional<LaunchProgress> reported = shell.latestProgress();
+    expect(reported && reported->stage == LaunchProgress::Stage::Starting,
+           "the card goes on saying it is starting");
+    const std::vector<pid_t> asked = windows.asked();
+    expect(std::ranges::find(asked, pid) == asked.end(), "the display is not asked");
+
+    drawn.store(true);
+    expect(waitUntil(
+               [&shell] {
+                   return shell.hidden.load() == 1;
+               },
+               std::chrono::seconds{1}),
+           "the first frame hands over at once");
+    handoff.forceClose();
+    const Outcome outcome = awaitStart(pending, "start() returns after forceClose()");
+    expect(outcome.ok, "a forced close is not a failure");
 }
 
 /// A game that leaves before it ever shows a window is reported, and never hid the shell.
@@ -1206,6 +1244,7 @@ int main() {
     testSteamLaunchErrorIsTheFailure();
     testSteamRunningGameIsReturnedTo();
     testShellWaitsForTheWindow();
+    testFirstFrameEndsTheCard();
     testGameLeavingBeforeAWindowFails();
     testSteamBlockedAndFailedAreRefused();
     testSteamForceCloseKillsTheGameNotTheClient();

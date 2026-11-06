@@ -31,12 +31,15 @@ retroVideoOf(const library::Game& game, const settings::SettingLayers& layers,
 /// Readies `game`, about to start, for `opensu-retro`: its saves in its console's folder under
 /// `saves` (the profile's, `retro::profileSaveFolder`), its settings written to `file` (a shader
 /// preset as its path under `presets`, the shader pack) and the options naming both added, an
-/// arcade game's controls read from `romsets`. A game on no built-in core is left alone. Empty
-/// when done, else why the file could not be written.
+/// arcade game's controls read from `romsets`, and `--embedded` when `embedded`. A game on no
+/// built-in core is left alone. Empty when done, else why the file could not be written.
 [[nodiscard]] std::string
 prepareRetroLaunch(library::Game& game, const settings::SettingLayers& layers,
                    const library::roms::EmulatorCatalog& catalog, const std::filesystem::path& file,
                    const std::filesystem::path& presets, const std::filesystem::path& saves,
-                   const library::roms::RomsetDats& romsets);
+                   const library::roms::RomsetDats& romsets, bool embedded);
+
+/// Whether `game`'s command runs it inside the shell's window.
+[[nodiscard]] bool hostedLaunch(const library::Game& game);
 
 } // namespace opensu::app

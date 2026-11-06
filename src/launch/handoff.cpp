@@ -21,6 +21,8 @@ using Clock = std::chrono::system_clock;
 
 /// How often the process table is consulted while waiting.
 constexpr auto pollInterval = std::chrono::milliseconds{750};
+/// How often a game in the shell's window is asked for its first frame.
+constexpr auto firstFrameInterval = std::chrono::milliseconds{50};
 
 } // namespace
 
@@ -34,9 +36,9 @@ Handoff::Handoff(std::vector<std::filesystem::path> executablePath, std::string 
       outputDir_{std::move(outputDir)}, steam_{steam}, windows_{windows} {
 }
 
-void Handoff::pause() {
+void Handoff::pause(std::chrono::milliseconds interval) {
     std::unique_lock lock{wakeMutex_};
-    wake_.wait_for(lock, pollInterval, [this] {
+    wake_.wait_for(lock, interval, [this] {
         return forced_.load();
     });
 }
@@ -160,13 +162,13 @@ Handoff::Shown Handoff::awaitSteamWindow(const library::Game& game, int baseline
             failure = game.title + " did not start";
             return Shown::Failed;
         }
-        pause();
+        pause(pollInterval);
     }
     return Shown::Forced;
 }
 
-Handoff::Shown Handoff::awaitScopeWindow(const library::Game& game, const Report& report,
-                                         std::string& failure) {
+Handoff::Shown Handoff::awaitScopeWindow(const library::Game& game, const Hooks& hooks,
+                                         const Report& report, std::string& failure) {
     // The started process says nothing useful about a successful launch, but the instance
     // emptying out means nothing will appear.
     const Clock::time_point deadline = Clock::now() + Handoff::startTimeout;
@@ -179,11 +181,13 @@ Handoff::Shown Handoff::awaitScopeWindow(const library::Game& game, const Report
                 lucent::info("launch", "{} is running", game.title);
             }
             appeared = true;
-            if (windows_ == nullptr || windows_->anyOwnedBy(processes)) {
+            if (hooks.shown ? hooks.shown()
+                            : windows_ == nullptr || windows_->anyOwnedBy(processes)) {
                 return Shown::Window;
             }
-            report(LaunchProgress{.stage = LaunchProgress::Stage::Loading});
-            pause();
+            report(LaunchProgress{.stage = hooks.shown ? LaunchProgress::Stage::Starting
+                                                       : LaunchProgress::Stage::Loading});
+            pause(hooks.shown ? firstFrameInterval : pollInterval);
             continue;
         }
         if (appeared) {
@@ -192,7 +196,7 @@ Handoff::Shown Handoff::awaitScopeWindow(const library::Game& game, const Report
                 return Shown::Failed;
             }
             report(LaunchProgress{.stage = LaunchProgress::Stage::Loading});
-            pause();
+            pause(pollInterval);
             continue;
         }
         report(LaunchProgress{.stage = LaunchProgress::Stage::Starting});
@@ -206,7 +210,7 @@ Handoff::Shown Handoff::awaitScopeWindow(const library::Game& game, const Report
             failure = game.title + " did not start";
             return Shown::Failed;
         }
-        pause();
+        pause(pollInterval);
     }
     return Shown::Forced;
 }
@@ -316,7 +320,7 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
     };
 
     const Shown shown = viaSteam ? awaitSteamWindow(game, baseline, report, failure)
-                                 : awaitScopeWindow(game, report, failure);
+                                 : awaitScopeWindow(game, hooks, report, failure);
     // Read after the wait: forceClose() sets forced_ before the game is ended, so one that vanished
     // because the player closed it is not a failure.
     if (shown == Shown::Forced || forced_.load()) {
@@ -342,7 +346,7 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
     // Phase two: the game leaves. No time bound: the player can always force-close from
     // the pad.
     while (!forced_.load() && stillRunning(game, viaSteam)) {
-        pause();
+        pause(pollInterval);
     }
 
     finish();

@@ -33,5 +33,7 @@
                   android:taskAffinity="${applicationId}.retro" android:excludeFromRecents="true"
                   android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode|density"
                   android:exported="false" android:screenOrientation="sensorLandscape" />
+        <!-- The same runner, drawing on a surface of the shell's when Embedded is on. -->
+        <service android:name=".RetroService" android:process=":retro" android:exported="false" />
     </application>
 </manifest>

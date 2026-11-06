@@ -98,6 +98,7 @@
 #include "remote_touch.hpp"
 #include "retro/resume_file.hpp"
 #include "retro_session.hpp"
+#include "runner_relay.hpp"
 #include "save_copy_controller.hpp"
 #include "save_sharing.hpp"
 #include "search_controller.hpp"
@@ -556,7 +557,8 @@ class ShellApp final {
                                  }}};
     /// The Settings screen's Emulators category.
     EmulatorSettings emulatorSettings_{
-        emulatorDownloads_, EmulatorSettings::Hooks{[this](const std::string& text, bool isError) {
+        emulatorDownloads_, preferences_,
+        EmulatorSettings::Hooks{[this](const std::string& text, bool isError) {
             shell_.setToast(text, isError);
         }}};
     /// What the layered editor edits, from Settings, a game's details or the Guide menu.
@@ -744,6 +746,10 @@ class ShellApp final {
         openNightLightOutput(settings_.loginSession, environment_.insideGamescope)};
     /// The running game's opensu-retro control channel, when it runs on one.
     RetroSession retro_{environment_.runtimeDir};
+    /// The player's input while a game draws in this window.
+    RunnerRelay relay_{[this](const std::string& route, const std::string& body) {
+        retro_.relay(route, body);
+    }};
     /// Where keys, pad chords and the game-time watcher come out as the shell's buttons.
     ShortcutRouter router_{shell_.shortcuts(), shell_.chords(), volume_, retro_,
                            ShortcutRouter::Hooks{.quit =
@@ -1497,7 +1503,11 @@ class ShellApp final {
     /// What the launch panel is up for, and the one install that runs. After steam_, so the
     /// install is stopped before the client it drives. Main loop only.
     PanelFlow panels_{
-        shell_.screens().navigator(), sounds_, steam_, environment_.dataDir,
+        shell_.screens().navigator(),
+        shell_.screens().images(),
+        sounds_,
+        steam_,
+        environment_.dataDir,
         PanelFlow::Hooks{.cancelLaunch =
                              [this] {
                                  cancelLaunch();

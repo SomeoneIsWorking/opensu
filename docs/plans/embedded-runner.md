@@ -4,6 +4,7 @@ Requested 2026-11-06: a game on a built-in core draws inside openSU's own window
 still in a process of its own, so starting one is no visible switch and a core crash leaves the
 shell up with its toast. Android first, behind Settings › Emulators "Embedded", off until it is
 proven on the tablet. `docs/design/libretro.md` §2 is the arrangement this replaces in that mode.
+Built behind the setting; not yet run on a device.
 
 ## Android
 
@@ -23,7 +24,7 @@ it, no frame copied. `SurfaceControlViewHost` would need API 30; the floor is 28
 | Touch panel | Still the runner's, drawn into its own swapchain by `OverlayPass`; `/host` gives it the window's dp and safe area and tells it when it is covered |
 | GPU cores | Unchanged: they see the runner's instance, device and queue, and the extensions are the two SDL named. A lost surface loses the swapchain only |
 | Lifecycle | `surfaceDestroyed` sends a null surface; the game waits, the device stays, and the next `Surface` makes a swapchain. A resize makes one too. Every message is oneway, so a hung runner cannot stall the shell. A shell that dies takes `:retro` with it (`onDestroy`) |
-| Launch | `Launches` keeps one start, stop and exit record; `RunnerHost` is the only difference. Zip staging and `--beside` move from `RetroActivity` to `GameStaging`, which both use |
+| Launch | `Launches` keeps one start, stop and exit record; `RunnerHost` (`TaskRunnerHost`, `EmbeddedRunner`) is the only difference. Zip staging and `--beside` move from `RetroActivity` to `GameStaging`, which both use |
 
 What goes away in this mode: `seeThrough`, `overGame`, task bouncing, `resume`'s `startActivity`,
 `openShellMenu`'s `startActivity`. They stay for the default mode and go with `RetroActivity` once
@@ -46,8 +47,8 @@ document's size and date hold, the oldest removed past 4 GiB.
 - `RunnerContext` is an `Activity` that never attaches: anything in SDL touching its window throws.
   The proper fix is SDL's context typed `Context`, in a fork that android-port pins; that rebuilds
   the machine's shared Android prefix for every port, so it waits on a reason beyond this.
-- A crash shows the last frame until `Launches.running` notices, up to the 750 ms poll plus the
-  exit record's wait.
+- A crash drops the game's view as soon as the binding dies; the shell stays clear until
+  `Launches.running` notices, up to the 750 ms poll plus the exit record's wait.
 
 ## Desktop, not built
 

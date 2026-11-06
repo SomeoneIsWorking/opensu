@@ -29,6 +29,8 @@ class RetroSession {
         std::string rom;
         std::uint64_t frame{0};
         bool hasState{false};
+        /// A frame has reached the screen.
+        bool shown{false};
         /// When the state the game resumed from was taken; nothing when it did not resume.
         std::optional<std::chrono::system_clock::time_point> resumedFrom;
         /// Why the game's resume state was not loaded; empty when none was refused.
@@ -73,6 +75,10 @@ class RetroSession {
     [[nodiscard]] std::string hold(bool held);
     /// Shows the game under `video` from its next frame.
     [[nodiscard]] std::string setVideo(const settings::VideoSettings& video);
+
+    /// Posts `body` to `route`, for the input of a game in the shell's window; one it does not
+    /// take is logged.
+    void relay(const std::string& route, const std::string& body);
 
     /// What the Guide menu's game rows and the game chords ask for.
     enum class Command : std::uint8_t { SaveState, LoadState, Reset };

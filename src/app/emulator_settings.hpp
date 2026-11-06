@@ -15,6 +15,7 @@
 
 #include "emulator_downloads.hpp"
 #include "library/core_bios.hpp"
+#include "preferences.hpp"
 #include "ui/setting_row.hpp"
 
 namespace opensu::app {
@@ -26,8 +27,8 @@ class EmulatorSettings {
         std::function<void(const std::string& text, bool error)> say;
     };
 
-    EmulatorSettings(EmulatorDownloads& downloads, Hooks hooks)
-        : downloads_{downloads}, hooks_{std::move(hooks)} {
+    EmulatorSettings(EmulatorDownloads& downloads, Preferences& preferences, Hooks hooks)
+        : downloads_{downloads}, preferences_{preferences}, hooks_{std::move(hooks)} {
     }
 
     /// The category's id, which its rows' ids start with.
@@ -80,6 +81,7 @@ class EmulatorSettings {
     [[nodiscard]] std::string noteOf(const library::roms::EmulatorEntry& entry) const;
 
     EmulatorDownloads& downloads_;
+    Preferences& preferences_;
     Hooks hooks_;
     library::roms::Emulators found_{downloads_.discover()};
 };

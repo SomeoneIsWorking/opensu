@@ -18,6 +18,7 @@
 #include "config/config.hpp"
 #include "frame_png.hpp"
 #include "game_end.hpp"
+#include "game_overlay.hpp"
 #include "gpu2d/gpu_error.hpp"
 #include "input/chord_set.hpp"
 #include "input/key_names.hpp"
@@ -467,6 +468,11 @@ void ShellApp::handleEvents(const std::vector<gamepad::Event>& incoming) {
             remoteInput_.button(event);
             continue;
         }
+        // The relay has already given them to the game.
+        if (relay_.forwarding() && event.kind == gamepad::Event::Kind::Button &&
+            event.button != gamepad::Button::Guide) {
+            continue;
+        }
         switch (event.kind) {
         case gamepad::Event::Kind::Connected:
             lucent::info("gamepad", "controller ready: {}", event.device);
@@ -564,9 +570,12 @@ void ShellApp::handlePointer() {
     // The phone's own navigation, not a keyboard: it leaves the touch controls up.
     if (window_->systemBack()) {
         // A remote game has no use for it, as a game on the runner has none: it opens the menu.
-        actOn(remoteHasControls() ? gamepad::Button::Guide : gamepad::Button::B);
+        actOn(remoteHasControls() || relay_.forwarding() ? gamepad::Button::Guide
+                                                         : gamepad::Button::B);
     }
-    pointer(window_->pointer());
+    if (!relay_.forwarding()) {
+        pointer(window_->pointer());
+    }
     const bool controls =
         remoteHasControls() && window_->hasTouchscreen() && pads_->connected().empty();
     handleEvents(remoteTouch_->follow(controls, window_->touchSurface(), window_->fingers()));
@@ -823,7 +832,8 @@ bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> e
     std::string control = retro_.begin();
     if (const std::string refused = prepareRetroLaunch(
             started, gameSettings_.layers(), emulatorSettings_.catalog(), retro_.settingsFile(),
-            emulatorDownloads_.shaderPack().root(), saves, romsetLists_.dats());
+            emulatorDownloads_.shaderPack().root(), saves, romsetLists_.dats(),
+            preferences_.values().embeddedRunner && embedsGames());
         !refused.empty()) {
         static_cast<void>(retro_.end());
         shell_.setToast("cannot write " + game.title + "'s settings: " + refused, true);
@@ -832,7 +842,10 @@ bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> e
 
     // input-sound.md 3.4 OpenAppRom: every game launch.
     sounds_.play(audio::Effect::OpenAppRom);
-    panels_.showLaunch(game.title);
+    panels_.showLaunch(game.title, game.artwork);
+    if (hostedLaunch(started)) {
+        relay_.open();
+    }
     recordLaunch(game);
 
     std::vector<std::string> environment = padOwner_.hold(mappings_.forGame(game));
@@ -1397,6 +1410,7 @@ void ShellApp::serviceRequests() {
     }
     if (!launching) {
         panels_.endLaunch();
+        relay_.close();
     }
     panels_.service();
     if (const std::optional<std::string> reload = bridge_.takeReload()) {
@@ -1410,6 +1424,8 @@ void ShellApp::serviceRequests() {
     if (running != gameScreen_.running()) {
         gameScreen_.setRunning(running);
     }
+    relay_.follow(running, gameScreen_.mode() == display::OverlayMode::Interactive,
+                  pads_->connected().size(), window_->touchSurface());
     if (const bool inGame = running || remotePlay_.streaming(); inGame != shell_.inGame()) {
         shell_.setInGame(inGame);
         closePages();

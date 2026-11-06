@@ -1,10 +1,12 @@
 #include "game_launch.hpp"
 
+#include <functional>
 #include <optional>
 #include <utility>
 
 #include "game_end.hpp"
 #include "lucent/log.h"
+#include "retro_launch.hpp"
 
 namespace opensu::app {
 
@@ -44,6 +46,13 @@ bool GameLaunch::start(library::Game game, std::vector<std::string> environment)
         std::optional<int> exitStatus;
         // The window belongs to the loop's thread, so the handoff thread only raises flags and the
         // loop does the work.
+        std::function<bool()> shown;
+        if (hostedLaunch(copy)) {
+            shown = [this] {
+                const std::optional<RetroSession::Status> status = retro_.status();
+                return status && status->shown;
+            };
+        }
         const launch::Handoff::Hooks hooks{.hide =
                                                [this] {
                                                    mailbox_.postGameRunning(true);
@@ -59,7 +68,8 @@ bool GameLaunch::start(library::Game game, std::vector<std::string> environment)
                                            .ended =
                                                [&exitStatus](int status) {
                                                    exitStatus = status;
-                                               }};
+                                               },
+                                           .shown = std::move(shown)};
         handoff_.start(copy, hooks, environment, failure);
         bool cancelled = false;
         {

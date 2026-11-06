@@ -375,7 +375,8 @@ struct Rig {
             failures.push_back(why);
         }};
     app::EmulatorSettings emulatorSettings{
-        downloads, app::EmulatorSettings::Hooks{[this](const std::string& text, bool error) {
+        downloads, preferences,
+        app::EmulatorSettings::Hooks{[this](const std::string& text, bool error) {
             said.push_back({text, error});
         }}};
     app::GamePresentation presentation{gameSettings, nullptr, [] {

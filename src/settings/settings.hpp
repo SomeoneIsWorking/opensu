@@ -90,6 +90,10 @@ struct Settings {
 
     /// Whether the UI sounds play.
     bool uiSounds{true};
+
+    /// Built-in cores' games draw in the shell's window, the core still in its own process
+    /// (`GameOverlay`'s `embedsGames`).
+    bool embeddedRunner{false};
     /// Whether openSU looks for ROM folders when `romFolders` is empty; off once the player removed
     /// their last one, until they ask it to find them.
     bool findRomFolders{true};

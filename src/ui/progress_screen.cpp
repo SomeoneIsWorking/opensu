@@ -3,10 +3,15 @@
 #include "gpu2d/ui/layout.hpp"
 #include "gpu2d/ui/widgets.hpp"
 
+#include "image_view.hpp"
+
 namespace opensu::ui {
 namespace {
 
 namespace tk = gpu2d::ui;
+
+constexpr float coverAspect = 2.0f / 3.0f;
+constexpr float coverHeight = 220.0f;
 
 } // namespace
 
@@ -17,6 +22,9 @@ std::unique_ptr<tk::Widget> ProgressScreen::build(const tk::Theme& theme) {
     root->pad(tk::Insets::all(spacing.pad));
     tk::Card& card = root->add<tk::Card>();
     card.pad(tk::Insets::symmetric(spacing.pad * 1.5f, spacing.pad * 1.4f)).space(spacing.pad);
+    if (images_ != nullptr && !now.cover.empty()) {
+        card.add<ImageView>(*images_, now.cover, coverAspect).fixHeight(coverHeight);
+    }
     card.add<tk::Label>(now.title, tk::TextRole::Title, true);
     card.add<tk::Label>(now.line, tk::TextRole::Body, true).colour(theme.colours.inkMuted);
     card.add<tk::Progress>(now.fraction);

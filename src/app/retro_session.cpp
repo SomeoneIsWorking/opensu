@@ -113,6 +113,7 @@ std::optional<RetroSession::Status> RetroSession::status() {
                   .rom = body.value("rom", std::string{}),
                   .frame = body.value("frame", std::uint64_t{0}),
                   .hasState = body.value("hasState", false),
+                  .shown = body.value("shown", false),
                   .resumedFrom = std::nullopt,
                   .resumeRefused = body.value("resumeRefused", std::string{})};
     if (body.contains("resumedFrom") && body["resumedFrom"].is_number_integer()) {
@@ -120,6 +121,12 @@ std::optional<RetroSession::Status> RetroSession::status() {
             std::chrono::seconds{body["resumedFrom"].get<std::int64_t>()}};
     }
     return status;
+}
+
+void RetroSession::relay(const std::string& route, const std::string& body) {
+    if (const std::string refused = post(route, body); !refused.empty()) {
+        lucent::debug("retro", "{} not taken: {}", route, refused);
+    }
 }
 
 std::string RetroSession::post(std::string_view target, const std::string& body) {

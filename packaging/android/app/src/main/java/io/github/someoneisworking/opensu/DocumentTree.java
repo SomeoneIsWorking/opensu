@@ -187,20 +187,37 @@ final class DocumentTree {
         }
     }
 
-    /** Copies the document into `folder` under its own name, for programs that take a file path. */
-    File stage(String location, File folder) throws IOException {
-        Uri uri = Uri.parse(location);
-        File target = new File(folder, new File(name(uri)).getName());
+    /** The document's size, 0 when the provider does not say. */
+    long size(Uri uri) {
+        try (Cursor cursor = context.getContentResolver().query(
+                uri, new String[] {Document.COLUMN_SIZE}, null, null, null)) {
+            return cursor != null && cursor.moveToFirst() && !cursor.isNull(0)
+                    ? cursor.getLong(0) : 0;
+        }
+    }
+
+    /** What changes when the document does: its size and date; null when the provider lacks one. */
+    String stamp(Uri uri) {
+        try (Cursor cursor = context.getContentResolver().query(uri,
+                new String[] {Document.COLUMN_SIZE, Document.COLUMN_LAST_MODIFIED}, null, null, null)) {
+            if (cursor == null || !cursor.moveToFirst() || cursor.isNull(0) || cursor.isNull(1)) {
+                return null;
+            }
+            return cursor.getLong(0) + " " + cursor.getLong(1);
+        }
+    }
+
+    /** Copies the document to `target`, for programs that take a file path. */
+    void copy(Uri uri, File target) throws IOException {
         try (InputStream in = context.getContentResolver().openInputStream(uri);
              OutputStream out = new FileOutputStream(target)) {
             if (in == null) {
-                throw new IOException("cannot open " + location);
+                throw new IOException("cannot open " + uri);
             }
             byte[] buffer = new byte[1 << 16];
             for (int read = in.read(buffer); read >= 0; read = in.read(buffer)) {
                 out.write(buffer, 0, read);
             }
         }
-        return target;
     }
 }

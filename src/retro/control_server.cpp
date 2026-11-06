@@ -397,7 +397,7 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
                         R"(expected {"covered": bool, "pads": n, "key": {...}, "screen": {...}})");
         }
         const std::lock_guard lock{mutex_};
-        host_.push_back(std::move(*host));
+        host_.push_back(*host);
         return text(200, "OK", "taken");
     }
     if (path == "/frame.png") {

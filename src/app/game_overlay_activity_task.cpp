@@ -62,6 +62,10 @@ class ActivityTaskOverlay final : public GameOverlay {
 
 } // namespace
 
+bool embedsGames() noexcept {
+    return true;
+}
+
 std::unique_ptr<GameOverlay> openGameOverlay(ShellWindow& /*window*/) {
     return std::make_unique<ActivityTaskOverlay>();
 }

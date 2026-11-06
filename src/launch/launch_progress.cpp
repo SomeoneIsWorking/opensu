@@ -18,15 +18,15 @@ std::string describe(const LaunchProgress& progress) {
     case LaunchProgress::Stage::Installing:
         return "Installing · " + percent(progress.fraction);
     case LaunchProgress::Stage::Starting:
-        return "Starting";
+        return "Starting…";
     case LaunchProgress::Stage::Preparing:
-        return progress.task.empty() ? "Starting" : progress.task;
+        return progress.task.empty() ? "Starting…" : progress.task;
     case LaunchProgress::Stage::Loading:
         return "Loading";
     case LaunchProgress::Stage::Cancelling:
         return "Cancelling";
     }
-    return "Starting";
+    return "Starting…";
 }
 
 } // namespace opensu::launch

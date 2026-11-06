@@ -8,6 +8,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.ViewGroup;
 
 import org.libsdl.app.SDLSurface;
 
@@ -49,7 +50,14 @@ public final class ShellActivity extends LandscapeActivity {
     protected SDLSurface createSDLSurface(Context context) {
         SDLSurface surface = super.createSDLSurface(context);
         surface.getHolder().setFormat(PixelFormat.TRANSLUCENT);
+        // Above the SurfaceView a game in this window draws on.
+        surface.setZOrderMediaOverlay(true);
         return surface;
+    }
+
+    /** What SDL's surface sits in. */
+    ViewGroup contentLayout() {
+        return (ViewGroup) getContentView();
     }
 
     /** Whether Android keeps what is behind the shell on screen; below API 30 it always does. */
@@ -95,6 +103,11 @@ public final class ShellActivity extends LandscapeActivity {
             menuRequested = false;
         }
         return launches.start(program, args, environment);
+    }
+
+    /** The game in this window asked for the Guide menu. */
+    synchronized void requestMenu() {
+        menuRequested = true;
     }
 
     /** Called from the Android game overlay: whether the Guide menu was asked for since last time. */

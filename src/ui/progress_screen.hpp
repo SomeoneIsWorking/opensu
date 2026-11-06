@@ -3,6 +3,7 @@
 // does the one thing the card offers (cancel, hide) or nothing while the work cannot be left.
 #pragma once
 
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -10,6 +11,8 @@
 #include <vector>
 
 #include "gpu2d/ui/screen.hpp"
+
+#include "screen_images.hpp"
 
 namespace opensu::ui {
 
@@ -21,13 +24,18 @@ struct ProgressCard {
     std::optional<float> fraction;
     /// What Back does, as its prompt names it; empty when Back does nothing.
     std::string leave;
+    /// A picture beside the words; empty for none.
+    std::filesystem::path cover;
 };
 
 class ProgressScreen final : public gpu2d::ui::Screen {
   public:
-    /// `card` is read on every build; `leave` is what Back does while the card names it.
-    ProgressScreen(std::string id, std::function<ProgressCard()> card, std::function<void()> leave)
-        : Screen{std::move(id), {}}, card_{std::move(card)}, leave_{std::move(leave)} {
+    /// `card` is read on every build; `leave` is what Back does while the card names it; `images`
+    /// brings in a card's cover, and a card with none needs no `images`.
+    ProgressScreen(std::string id, std::function<ProgressCard()> card, std::function<void()> leave,
+                   ScreenImages* images = nullptr)
+        : Screen{std::move(id), {}}, card_{std::move(card)}, leave_{std::move(leave)},
+          images_{images} {
     }
 
     [[nodiscard]] std::string title() const override {
@@ -44,6 +52,7 @@ class ProgressScreen final : public gpu2d::ui::Screen {
   private:
     std::function<ProgressCard()> card_;
     std::function<void()> leave_;
+    ScreenImages* images_;
 };
 
 } // namespace opensu::ui

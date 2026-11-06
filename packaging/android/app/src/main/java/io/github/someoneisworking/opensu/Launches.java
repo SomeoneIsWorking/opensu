@@ -13,6 +13,7 @@ import android.os.Process;
 import android.system.OsConstants;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -22,6 +23,8 @@ import java.util.List;
  */
 final class Launches {
     static final String RUNNER_LIBRARY = "/libopensu-retro.so";
+    /** Runs the game in the shell's window; retro/embedded.hpp's embeddedArgument. */
+    private static final String EMBEDDED = "--embedded";
     private static final long START_MILLIS = 10_000;
     // The system writes a process's exit record a moment after the process goes.
     private static final long EXIT_RECORD_MILLIS = 3_000;
@@ -29,6 +32,9 @@ final class Launches {
     private static final int SIGNALLED = 128;
 
     private final ShellActivity shell;
+    private final RunnerHost tasks;
+    private final RunnerHost embedded;
+    private RunnerHost host;
     private boolean runnerStarted;
     private boolean runnerSeen;
     private boolean foreign;
@@ -40,73 +46,73 @@ final class Launches {
 
     Launches(ShellActivity shell) {
         this.shell = shell;
+        tasks = new TaskRunnerHost(shell);
+        embedded = new EmbeddedRunner(shell);
+        host = tasks;
     }
 
     synchronized String start(String program, String[] args, String[] environment) {
         runnerStarted = false;
         foreign = false;
-        Intent intent;
         if (program.endsWith(RUNNER_LIBRARY)) {
-            intent = new Intent(shell, RetroActivity.class)
-                    .putExtra(RetroActivity.EXTRA_ARGUMENTS, args)
-                    .putExtra(RetroActivity.EXTRA_ENVIRONMENT, environment);
-        } else {
-            String failure = null;
-            intent = new Intent();
-            try {
-                applyOptions(intent, program, args);
-            } catch (IllegalArgumentException bad) {
-                failure = bad.getMessage();
+            host = Arrays.asList(args).contains(EMBEDDED) ? embedded : tasks;
+            String refused = host.start(args, environment);
+            if (refused != null) {
+                return program + " cannot be opened: " + refused;
             }
-            if (failure != null) {
-                return failure;
-            }
-            if (intent.getComponent() == null) {
-                Intent launcher = shell.getPackageManager().getLaunchIntentForPackage(program);
-                if (launcher == null) {
-                    return program + " is not installed";
-                }
-                launcher.setData(intent.getData());
-                launcher.putExtras(intent);
-                intent = launcher;
-            }
-        }
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        if (program.endsWith(RUNNER_LIBRARY)) {
-            shell.seeThrough(true);
-        }
-        try {
-            shell.startActivity(intent);
-        } catch (ActivityNotFoundException | SecurityException refused) {
-            shell.seeThrough(false);
-            return program + " cannot be opened: " + refused.getMessage();
-        }
-        startedAt = System.currentTimeMillis();
-        if (program.endsWith(RUNNER_LIBRARY)) {
+            startedAt = System.currentTimeMillis();
             runnerStarted = true;
             runnerSeen = false;
             runnerGoneAt = 0;
             runnerExit = -1;
-        } else {
-            foreign = true;
-            foreignShown = false;
-            foreignOver = false;
+            return null;
         }
+        host = tasks;
+        String failure = null;
+        Intent intent = new Intent();
+        try {
+            applyOptions(intent, program, args);
+        } catch (IllegalArgumentException bad) {
+            failure = bad.getMessage();
+        }
+        if (failure != null) {
+            return failure;
+        }
+        if (intent.getComponent() == null) {
+            Intent launcher = shell.getPackageManager().getLaunchIntentForPackage(program);
+            if (launcher == null) {
+                return program + " is not installed";
+            }
+            launcher.setData(intent.getData());
+            launcher.putExtras(intent);
+            intent = launcher;
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            shell.startActivity(intent);
+        } catch (ActivityNotFoundException | SecurityException refused) {
+            return program + " cannot be opened: " + refused.getMessage();
+        }
+        startedAt = System.currentTimeMillis();
+        foreign = true;
+        foreignShown = false;
+        foreignOver = false;
         return null;
     }
 
     synchronized boolean running() {
         boolean starting = System.currentTimeMillis() - startedAt <= START_MILLIS;
         if (runnerStarted) {
-            // The :retro process is forked after startActivity returns.
+            // The :retro process is forked after the host starts it.
             if (runnerPid() != 0) {
                 runnerSeen = true;
                 return true;
             }
-            // Its task stands while it forks and goes when it dies; the shell may not have looked.
-            if (!runnerSeen && starting && runnerTask() != null) {
+            // The host stands while it forks and goes when it dies; the shell may not have looked.
+            if (!runnerSeen && starting && host.standing()) {
                 return true;
             }
+            host.ended();
             return !exitSettled();
         }
         if (foreign && !foreignShown && !starting) {
@@ -183,30 +189,17 @@ final class Launches {
 
     /** Brings the runner back to the front, right over the shell; false when there is none. */
     synchronized boolean resume() {
-        if (!runnerStarted || runnerTask() == null || runnerPid() == 0) {
-            return false;
-        }
-        // AppTask.moveToFront would put the home screen under it, where a dying game leaves it.
-        shell.startActivity(new Intent(shell, RetroActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                        | Intent.FLAG_ACTIVITY_NO_ANIMATION));
-        return true;
+        return runnerStarted && runnerPid() != 0 && host.resume();
     }
 
-    /** Brings the shell's own task back to the front, as a game ends behind it or in front. */
-    void showShell() {
-        shell.seeThrough(false);
-        ActivityManager.AppTask task = taskOf(ShellActivity.class.getName());
-        if (task != null) {
-            task.moveToFront();
-        }
+    /** Brings the shell back as a game ends behind it or in front. */
+    synchronized void showShell() {
+        host.showShell();
     }
 
     synchronized void stop() {
-        ActivityManager.AppTask task = runnerStarted ? runnerTask() : null;
-        if (task != null) {
-            // A killed activity in the background would otherwise be restored from Recents.
-            task.finishAndRemoveTask();
+        if (runnerStarted) {
+            host.stop();
         }
         int pid = runnerStarted ? runnerPid() : 0;
         if (pid != 0) {
@@ -219,6 +212,9 @@ final class Launches {
                     return;
                 }
             }
+        }
+        if (runnerStarted) {
+            host.ended();
         }
         foreignOver = true;
     }
@@ -234,21 +230,6 @@ final class Launches {
         if (foreign && foreignShown) {
             foreignOver = true;
         }
-    }
-
-    private ActivityManager.AppTask runnerTask() {
-        return taskOf(RetroActivity.class.getName());
-    }
-
-    private ActivityManager.AppTask taskOf(String activity) {
-        ActivityManager manager = (ActivityManager) shell.getSystemService(Context.ACTIVITY_SERVICE);
-        for (ActivityManager.AppTask task : manager.getAppTasks()) {
-            ComponentName base = task.getTaskInfo().baseActivity;
-            if (base != null && activity.equals(base.getClassName())) {
-                return task;
-            }
-        }
-        return null;
     }
 
     private int runnerPid() {

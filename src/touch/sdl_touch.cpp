@@ -6,6 +6,10 @@ Finger fingerOf(SDL_Window* window, const SDL_TouchFingerEvent& event) {
     int width = 0;
     int height = 0;
     SDL_GetWindowSizeInPixels(window, &width, &height);
+    return fingerOf(event, static_cast<unsigned>(width), static_cast<unsigned>(height));
+}
+
+Finger fingerOf(const SDL_TouchFingerEvent& event, unsigned width, unsigned height) {
     Finger::Phase phase = Finger::Phase::Move;
     if (event.type == SDL_EVENT_FINGER_DOWN) {
         phase = Finger::Phase::Down;

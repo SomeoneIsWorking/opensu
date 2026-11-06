@@ -17,6 +17,7 @@ using json = nlohmann::json;
 
 constexpr const char* libraryModeKey = "libraryMode";
 constexpr const char* pinLibraryDockKey = "pinLibraryDock";
+constexpr const char* embeddedRunnerKey = "embeddedRunner";
 constexpr const char* iconSizeKey = "iconSize";
 constexpr const char* sortKey = "sort";
 constexpr const char* installedOnlyKey = "installedOnly";
@@ -368,6 +369,7 @@ Settings Store::load() const {
     read.boolean(pinLibraryDockKey, settings.pinLibraryDock, "the dock stays pinned");
     read.integer(iconSizeKey, minIconSize, maxIconSize, settings.iconSize, "using the default");
     read.boolean(uiSoundsKey, settings.uiSounds, "the sounds play");
+    read.boolean(embeddedRunnerKey, settings.embeddedRunner, "games keep their own window");
     read.paths(romFoldersKey, settings.romFolders, "using the discovered ROM folders");
     read.boolean(findRomFoldersKey, settings.findRomFolders, "ROM folders are looked for");
     read.paths(gameFoldersKey, settings.gameFolders, "with no games folders");
@@ -524,6 +526,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
     json document{
         {libraryModeKey, std::string{library::key(settings.libraryMode)}},
         {pinLibraryDockKey, settings.pinLibraryDock},
+        {embeddedRunnerKey, settings.embeddedRunner},
         {iconSizeKey, settings.iconSize},
         {sortKey, std::string{library::key(settings.view.sort)}},
         {installedOnlyKey, settings.view.installedOnly},

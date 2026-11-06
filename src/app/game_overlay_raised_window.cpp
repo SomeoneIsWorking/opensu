@@ -39,6 +39,10 @@ class RaisedWindowOverlay final : public GameOverlay {
 
 } // namespace
 
+bool embedsGames() noexcept {
+    return false;
+}
+
 std::unique_ptr<GameOverlay> openGameOverlay(ShellWindow& window) {
     return std::make_unique<RaisedWindowOverlay>(window);
 }

@@ -155,16 +155,16 @@ class ControlServer {
     std::mutex mutex_;
     std::condition_variable changed_;
     std::deque<std::shared_ptr<Pending>> queue_;
-    bool closing_{false};
     std::uint64_t frame_{0};
-    bool hasState_{false};
     ResumeReport resume_;
-    bool announced_{false};
     std::vector<ControlInput> input_;
     std::vector<touch::Finger> fingers_;
     std::vector<HostInput> host_;
-    bool shown_{false};
     std::string touchPlaces_{"[]"};
+    bool closing_{false};
+    bool hasState_{false};
+    bool announced_{false};
+    bool shown_{false};
     /// Last, so its handler threads stop before the members they use go.
     lucent::http::Server server_;
 };

@@ -107,9 +107,9 @@ WindowInput SdlRunnerWindow::poll() {
 }
 
 bool SdlRunnerWindow::hasSurface() const {
-    return hidden_ || SDL_GetPointerProperty(SDL_GetWindowProperties(window_),
-                                             SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER,
-                                             nullptr) != nullptr;
+    return hidden_ ||
+           SDL_GetPointerProperty(SDL_GetWindowProperties(window_),
+                                  SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr) != nullptr;
 }
 
 VkExtent2D SdlRunnerWindow::pixels() const {

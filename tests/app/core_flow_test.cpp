@@ -120,7 +120,8 @@ struct Rig {
                                                    details.refresh();
                                                }}};
     app::EmulatorSettings emulators{
-        downloads, app::EmulatorSettings::Hooks{[this](const std::string& text, bool error) {
+        downloads, preferences,
+        app::EmulatorSettings::Hooks{[this](const std::string& text, bool error) {
             said.emplace_back(text, error);
         }}};
     /// ROMs are never uninstalled; the details page here offers no Uninstall.

@@ -57,6 +57,9 @@ class Handoff {
         /// A game in a ProcessLauncher is over without forceClose(): how its started process ended
         /// (`ProcessLauncher::exitStatus`), called before start() returns.
         std::function<void(int exitStatus)> ended;
+        /// Whether a game drawing in the shell's own window has shown itself, asked in place of
+        /// the display; empty otherwise.
+        std::function<bool()> shown;
     };
 
     /// Starts a game, calls `hide` once it shows a window, waits for it to finish,
@@ -109,7 +112,8 @@ class Handoff {
     Shown awaitSteamWindow(const library::Game& game, int baseline, const Report& report,
                            std::string& failure);
     /// Phase one for a game in a ProcessLauncher: it appears, then shows a window.
-    Shown awaitScopeWindow(const library::Game& game, const Report& report, std::string& failure);
+    Shown awaitScopeWindow(const library::Game& game, const Hooks& hooks, const Report& report,
+                           std::string& failure);
     /// Ends a Steam launch after forceClose(): asks Steam to drop each unfinished action of this
     /// launch and ends the game's processes whenever they show, until Steam has taken the request
     /// (`requested`: this launch asked it to run the game), has no action of it pending, does not
@@ -120,7 +124,7 @@ class Handoff {
     [[nodiscard]] bool stillRunning(const library::Game& game, bool viaSteam);
 
     /// Sleeps one poll interval, or less when forceClose() wakes it.
-    void pause();
+    void pause(std::chrono::milliseconds interval);
 
     std::vector<std::filesystem::path> executablePath_;
     std::string session_;

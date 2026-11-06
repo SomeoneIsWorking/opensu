@@ -57,7 +57,8 @@ class FakeRunner {
             const nlohmann::json status{{"core", "fake"},
                                         {"rom", "/roms/game.gba"},
                                         {"frame", 42},
-                                        {"hasState", hasState.load()}};
+                                        {"hasState", hasState.load()},
+                                        {"shown", true}};
             return lucent::http::Response::json(200, "OK", status.dump());
         }
         {

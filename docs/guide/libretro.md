@@ -126,8 +126,9 @@ emulator you picked.
 ## On Android
 
 The runner is a second Activity in a process of its own. Cores come from the buildbot's
-`android/latest/<abi>` folder, games are copied into the app's cache before a core opens them, and
-the runner draws touch controls while no pad is connected. An arcade game shows its own machine's
+`android/latest/<abi>` folder, games in a picked folder are copied into the app's cache before a core
+opens them and kept there while the file's size and date hold, up to 4 GiB with the games played
+longest ago going first, and the runner draws touch controls while no pad is connected. An arcade game shows its own machine's
 panel: an arcade stick, round buttons in the cabinet's number and rows, each named for what it does
 in that game when the core says, and small Coin and Start controls, since nothing starts without a
 coin. A fighter's punches and kicks show a fist or a foot with L, M or H, punches above kicks. It
@@ -138,3 +139,7 @@ for a system or a game, and changes a running game at once. MAME 2010 is not off
 build crashes on load, so a set only it matches reads "No arcade core matches this romset". Back, a
 pad's Guide or the pause button
 brings the shell's Guide menu in front of the paused game; Resume goes back to it.
+
+Settings › Emulators › Embedded draws the game inside openSU's own window instead, with the core
+still in its own process: there is no switch of apps, the card shows the cover and "Starting…" until
+the first frame, and a core that crashes leaves the shell up with its toast. It is off by default.

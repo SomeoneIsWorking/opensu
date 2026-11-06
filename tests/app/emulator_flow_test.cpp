@@ -114,7 +114,8 @@ struct Rig {
                                                    details.refresh();
                                                }}};
     app::EmulatorSettings emulators{
-        downloads, app::EmulatorSettings::Hooks{[this](const std::string& text, bool error) {
+        downloads, preferences,
+        app::EmulatorSettings::Hooks{[this](const std::string& text, bool error) {
             said.emplace_back(text, error);
         }}};
     app::GamePresentation presentation{gameSettings, nullptr, [] {
@@ -318,6 +319,11 @@ void detailsCancels(const fs::path& root) {
 
 void settingsUpdateRemoveAndDefault(const fs::path& root) {
     Rig rig{root};
+    expect(!rig.preferences.values().embeddedRunner, "games keep their own window by default");
+    rig.emulators.run("emulators.embedded", 0);
+    expect(rig.preferences.values().embeddedRunner, "the Embedded row turns it on");
+    rig.emulators.run("emulators.embedded", 0);
+    expect(!rig.preferences.values().embeddedRunner, "and off");
     ui::SettingsCategory page = downloadsOf(rig.emulators);
     expect(rowOf(page, "emulators.run.emu").value == "Download" &&
                rowOf(page, "emulators.run.emu").note.starts_with("Not installed"),

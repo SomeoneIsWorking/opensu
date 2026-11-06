@@ -20,9 +20,10 @@ class LicenceDialog final : public gpu2d::ui::Dialog {
 
 } // namespace
 
-PanelFlow::PanelFlow(gpu2d::ui::Navigator& navigator, audio::SdlSoundPlayer& sounds,
-                     steam::Client& steam, const std::filesystem::path& dataDir, Hooks hooks)
-    : navigator_{navigator}, sounds_{sounds},
+PanelFlow::PanelFlow(gpu2d::ui::Navigator& navigator, ui::ScreenImages& images,
+                     audio::SdlSoundPlayer& sounds, steam::Client& steam,
+                     const std::filesystem::path& dataDir, Hooks hooks)
+    : navigator_{navigator}, images_{images}, sounds_{sounds},
       install_{steam, "legendary", GogInstallJob::Options{.dataDir = dataDir}, hooks.installFolder,
                hooks.playing},
       hooks_{std::move(hooks)} {
@@ -45,7 +46,8 @@ bool PanelFlow::licenceWaits() const {
 }
 
 void PanelFlow::showCard(const std::string& title, std::string line) {
-    shown_ = ui::ProgressCard{.title = title, .line = std::move(line), .fraction = {}, .leave = {}};
+    shown_ = ui::ProgressCard{
+        .title = title, .line = std::move(line), .fraction = {}, .leave = {}, .cover = {}};
     if (card() != nullptr) {
         return;
     }
@@ -56,7 +58,8 @@ void PanelFlow::showCard(const std::string& title, std::string line) {
         },
         [this] {
             leave();
-        }));
+        },
+        &images_));
 }
 
 void PanelFlow::closeCard() {
@@ -80,9 +83,10 @@ void PanelFlow::leave() {
     }
 }
 
-void PanelFlow::showLaunch(const std::string& title) {
-    showCard(title, "Starting");
+void PanelFlow::showLaunch(const std::string& title, const std::filesystem::path& cover) {
+    showCard(title, "Starting…");
     shown_.leave = "Cancel";
+    shown_.cover = cover;
     use_ = Use::Launch;
 }
 
