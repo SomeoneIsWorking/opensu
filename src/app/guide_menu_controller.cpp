@@ -5,8 +5,8 @@
 #include <iterator>
 #include <memory>
 
-#include "lucent/log.h"
 #include "guide_menu_screen.hpp"
+#include "lucent/log.h"
 #include "settings/settings.hpp"
 #include "ui/moment_text.hpp"
 

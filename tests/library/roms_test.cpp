@@ -47,10 +47,10 @@ using opensu::library::roms::Provider;
 using opensu::library::roms::RomsetDat;
 using opensu::library::roms::RomsetDats;
 using opensu::library::roms::RomsetLists;
+using opensu::library::roms::systemForFolder;
 using opensu::test::zipfixture::buildZip;
 using opensu::test::zipfixture::crcOf;
 using opensu::test::zipfixture::FixtureEntry;
-using opensu::library::roms::systemForFolder;
 
 EmulatorCatalog shipped() {
     return EmulatorCatalog::shipped(OPENSU_ASSETS_DIR, "/home/p");
@@ -367,7 +367,8 @@ void installedCoresFirst(const Fixture& f) {
         }
         return ids;
     };
-    const std::vector<std::string> catalog = order(Emulators::discover(shipped(), EmulatorSearch{}, {}));
+    const std::vector<std::string> catalog =
+        order(Emulators::discover(shipped(), EmulatorSearch{}, {}));
     expect(catalog.size() > 2 && catalog.front() == "fbneo-core",
            "with nothing installed the catalog's order stands");
     write(cores / ("mame2010_libretro" + std::string{coreTarget.librarySuffix}));
