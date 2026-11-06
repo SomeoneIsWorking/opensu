@@ -57,6 +57,8 @@ class RetroSession {
     };
     /// The UDP port the running game's netplay session bound; nothing until it says.
     [[nodiscard]] std::optional<std::uint16_t> netplayPort();
+    /// The last frame the game showed, as PNG; nothing when it does not answer.
+    [[nodiscard]] std::optional<std::string> frame();
     /// The running core's options; none when it does not answer.
     [[nodiscard]] std::vector<CoreOption> options();
     [[nodiscard]] std::string setOption(const std::string& key, const std::string& value);

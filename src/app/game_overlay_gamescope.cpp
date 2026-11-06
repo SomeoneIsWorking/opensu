@@ -10,6 +10,9 @@ class GamescopeGameOverlay final : public GameOverlay {
     explicit GamescopeGameOverlay(std::uint64_t window) : overlay_{window} {
     }
 
+    [[nodiscard]] bool seesGame() const override {
+        return true;
+    }
     void enter() override {
         overlay_.enter();
     }

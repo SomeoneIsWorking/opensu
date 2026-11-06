@@ -175,11 +175,11 @@ WindowInput Presenter::poll() {
         case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
             stale_ = true;
             break;
-        case SDL_EVENT_WINDOW_MINIMIZED:
-            input.shown = false;
+        case SDL_EVENT_WINDOW_FOCUS_LOST:
+            input.focused = false;
             break;
-        case SDL_EVENT_WINDOW_RESTORED:
-            input.shown = true;
+        case SDL_EVENT_WINDOW_FOCUS_GAINED:
+            input.focused = true;
             break;
         case SDL_EVENT_FINGER_DOWN:
         case SDL_EVENT_FINGER_MOTION:
@@ -267,6 +267,7 @@ void Presenter::createSwapchain() {
     lucent::info("retro", "swapchain {}x{}, surface {}x{} turned {}", extent.width, extent.height,
                  capabilities.currentExtent.width, capabilities.currentExtent.height,
                  static_cast<unsigned>(capabilities.currentTransform));
+    readable_ = (capabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
     std::uint32_t images = capabilities.minImageCount + 1;
     if (capabilities.maxImageCount > 0) {
         images = std::min(images, capabilities.maxImageCount);
@@ -287,7 +288,8 @@ void Presenter::createSwapchain() {
         .imageColorSpace = format.colorSpace,
         .imageExtent = extent_,
         .imageArrayLayers = 1,
-        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                      (capabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT),
         .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = nullptr,
@@ -347,6 +349,11 @@ void Presenter::dropSurface() {
     lucent::info("retro", "the window's surface let go");
 }
 
+bool Presenter::onScreen() const {
+    return SDL_GetPointerProperty(SDL_GetWindowProperties(window_),
+                                  SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr) != nullptr;
+}
+
 touch::WindowSurface Presenter::surface() const {
     if (options_.hidden) {
         return touch::WindowSurface{.width = extent_.width,
@@ -369,6 +376,7 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
                         const touch::OverlayImage* overlay, FrameStages& stages) {
     using Stage = FrameStages::Stage;
     uploadPending_ = uploadPending_ || fresh;
+    lastFrame_ = frame;
     syncPending_.waits.insert(syncPending_.waits.end(), sync.waits.begin(), sync.waits.end());
     syncPending_.commands.insert(syncPending_.commands.end(), sync.commands.begin(),
                                  sync.commands.end());
@@ -439,6 +447,9 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
         overlay_->recordUpload(commands_, *overlay);
         overlay_->recordDraw(commands_, targets_[index].framebuffer, extent_);
     }
+    if (capture_ != VK_NULL_HANDLE) {
+        recordCapture(targets_[index].image);
+    }
     check(vkEndCommandBuffer(commands_), "vkEndCommandBuffer");
 
     std::vector<VkSemaphore> waits;
@@ -494,8 +505,37 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
     }
 }
 
+void Presenter::recordCapture(VkImage image) {
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    vkCmdPipelineBarrier(commands_, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    VkBufferImageCopy region{};
+    region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    region.imageExtent = {extent_.width, extent_.height, 1};
+    vkCmdCopyImageToBuffer(commands_, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, capture_, 1,
+                           &region);
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    barrier.dstAccessMask = 0;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    vkCmdPipelineBarrier(commands_, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                         &barrier);
+    captured_ = true;
+}
+
 Readback Presenter::readBack() {
-    if (!options_.hidden || !drawnOffscreen_) {
+    if (options_.hidden ? !drawnOffscreen_
+                        : !lastFrame_ || !readable_ || stale_ || targets_.empty()) {
         return {};
     }
     check(vkWaitForFences(vk_, 1, &done_, VK_TRUE, UINT64_MAX), "vkWaitForFences");
@@ -515,36 +555,55 @@ Readback Presenter::readBack() {
         memory = device_->allocate(needs, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         check(vkBindBufferMemory(vk_, buffer, memory, 0), "vkBindBufferMemory");
-        check(vkResetFences(vk_, 1, &done_), "vkResetFences");
-        check(vkResetCommandBuffer(commands_, 0), "vkResetCommandBuffer");
-        VkCommandBufferBeginInfo begin{};
-        begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        check(vkBeginCommandBuffer(commands_, &begin), "vkBeginCommandBuffer");
-        VkBufferImageCopy region{};
-        region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-        region.imageExtent = {extent_.width, extent_.height, 1};
-        vkCmdCopyImageToBuffer(commands_, targets_.front().image,
-                               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer, 1, &region);
-        check(vkEndCommandBuffer(commands_), "vkEndCommandBuffer");
-        VkSubmitInfo submit{};
-        submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submit.commandBufferCount = 1;
-        submit.pCommandBuffers = &commands_;
-        check(device_->submit(submit, done_), "vkQueueSubmit");
-        check(vkWaitForFences(vk_, 1, &done_, VK_TRUE, UINT64_MAX), "vkWaitForFences");
+        if (options_.hidden) {
+            check(vkResetFences(vk_, 1, &done_), "vkResetFences");
+            check(vkResetCommandBuffer(commands_, 0), "vkResetCommandBuffer");
+            VkCommandBufferBeginInfo begin{};
+            begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+            check(vkBeginCommandBuffer(commands_, &begin), "vkBeginCommandBuffer");
+            VkBufferImageCopy region{};
+            region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+            region.imageExtent = {extent_.width, extent_.height, 1};
+            vkCmdCopyImageToBuffer(commands_, targets_.front().image,
+                                   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer, 1, &region);
+            check(vkEndCommandBuffer(commands_), "vkEndCommandBuffer");
+            VkSubmitInfo submit{};
+            submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+            submit.commandBufferCount = 1;
+            submit.pCommandBuffers = &commands_;
+            check(device_->submit(submit, done_), "vkQueueSubmit");
+            check(vkWaitForFences(vk_, 1, &done_, VK_TRUE, UINT64_MAX), "vkWaitForFences");
+        } else {
+            // A swapchain image is out of reach once presented, so the frame is shown once more.
+            capture_ = buffer;
+            captured_ = false;
+            FrameStages unmeasured;
+            present(*lastFrame_, false, {}, nullptr, unmeasured);
+            capture_ = VK_NULL_HANDLE;
+            check(vkWaitForFences(vk_, 1, &done_, VK_TRUE, UINT64_MAX), "vkWaitForFences");
+            if (!captured_) {
+                vkDestroyBuffer(vk_, buffer, nullptr);
+                vkFreeMemory(vk_, memory, nullptr);
+                return {};
+            }
+        }
         void* mapped = nullptr;
         check(vkMapMemory(vk_, memory, 0, VK_WHOLE_SIZE, 0, &mapped), "vkMapMemory");
         const auto* bytes = static_cast<const std::uint8_t*>(mapped);
         result.rgba.assign(bytes, bytes + size);
         vkUnmapMemory(vk_, memory);
         // The swapchain is composited opaque; a shader preset may leave alpha below 1.
-        for (std::size_t at = 3; at < result.rgba.size(); at += 4) {
-            result.rgba[at] = 0xFF;
+        for (std::size_t at = 0; at + 3 < result.rgba.size(); at += 4) {
+            if (format_ == VK_FORMAT_B8G8R8A8_UNORM) {
+                std::swap(result.rgba[at], result.rgba[at + 2]);
+            }
+            result.rgba[at + 3] = 0xFF;
         }
         result.width = extent_.width;
         result.height = extent_.height;
     } catch (...) {
+        capture_ = VK_NULL_HANDLE;
         vkDestroyBuffer(vk_, buffer, nullptr);
         vkFreeMemory(vk_, memory, nullptr);
         throw;

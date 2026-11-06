@@ -301,7 +301,8 @@ Every Windows backend is one source file picked in its owner's CMakeLists; Linux
 - `library::windowsBuildsNative`: GOG, Epic and own `.exe` games run as they are, without the Wine
   runner; legendary and gogdl are found on `PATH` as `.exe`.
 - `app::GameOverlay`: `game_overlay_raised_window.cpp`. Launch minimizes the shell's window; the
-  Guide raises it and its close lowers it again; the game's end raises it. No game-time keys.
+  Guide raises it and its close lowers it again; the game's end raises it. No game-time keys. The
+  window is opaque here, so a built-in game's last frame is drawn behind the menu (`GameBackdrop`).
 - `app::ShellSession`: `shell_session_win32.cpp` (the shell on the desktop, game windows from
   `Win32Windows`, no Steam window hiding, `coversMonitor` false so the window keeps its size).
 - Controller batteries: `PadSource::battery`. `SdlPads` reads `SDL_GetGamepadPowerInfo` (and asks SDL
@@ -578,14 +579,16 @@ it, a text field types on Android's own keyboard (`KeyboardPad::systemTyping`,
 Back from a game: the runner and the shell are Activities in tasks of their own (`RetroActivity`
 has its own `taskAffinity` and stays out of Recents). Back, a pad's Guide or the touch pause
 button in the runner asks for the shell's menu (`shell_handoff::openMenu`, `RetroActivity.openShellMenu`):
-the shell comes to the front and, finding the game running, opens its Guide menu
+the shell comes over the game and, finding it running, opens its Guide menu
 (`game_overlay_activity_task.cpp` reads the request as Guide), whose save, load, reset and options
-go over `retro_session`'s loopback as on the desktop. The runner keeps running its loop in the
-background (SDL's block-on-pause off, Back trapped) without running the core, so it answers them;
-its Vulkan surface is lost with the window and made again on return. Resume sends the runner's task
+go over `retro_session`'s loopback as on the desktop. The shell's window is translucent while the
+runner plays, so the game goes on showing and running beside and behind the panel
+(`docs/design/libretro.md`, The Guide over the game); out of sight the runner keeps its loop
+(SDL's block-on-pause off, Back trapped) without running the core, so it still answers, and its
+Vulkan surface is lost with the window and made again on return. Resume sends the runner's task
 back to the front (`Launches.resume`); Close game removes its task and process (`Launches.stop`) and
 brings the shell forward (`Launches.showShell`), as the Windows overlay raises the shell when a game
-ends. The shell cannot draw over the runner, so its menu shows over its own backdrop, not the game.
+ends.
 The runner draws its own touch controls while no pad is connected (`TouchLayer`, art in
 `assets/touch/`, through `OverlayPass` over the frame): sized in dp inside the safe area,
 multi-touch, its buttons held on the joypad as one more pad. The swapchain is drawn upright on a

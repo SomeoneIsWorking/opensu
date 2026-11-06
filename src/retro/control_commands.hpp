@@ -1,6 +1,6 @@
 // control_commands — what each control channel command does to the running game, run by the frame
 // loop between frames: the state slot saved and loaded, reset, live video settings, the core's
-// options listed and changed, the last frame read back in hidden runs, and Save and close, after
+// options listed and changed, the last frame read back, and Save and close, after
 // which the game runs no more frames.
 #pragma once
 
@@ -28,8 +28,6 @@ class ControlCommands {
         ResumeState& resume;
         Presenter& presenter;
         CoreOptions& options;
-        /// Whether the run is hidden, the only one whose frame is read back.
-        bool hidden;
         /// Whether the run is a netplay session, whose machines must stay the same.
         bool netplay;
     };

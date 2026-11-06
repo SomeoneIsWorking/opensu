@@ -7,12 +7,15 @@ namespace {
 
 using android::ActivityCall;
 
-/// The shell's Activity in front of the runner's: the runner pauses its game and brings the shell
-/// forward when Guide, Back or its pause button is pressed, which reads here as Guide. Hiding the
-/// menu sends the game back to the front; when the game ends the shell comes back in front of
-/// whatever Android shows next.
+/// The shell's translucent Activity over the runner's: the runner brings the shell forward when
+/// Guide, Back or its pause button is pressed, which reads here as Guide, and goes on showing
+/// through it. Hiding the menu sends the game back to the front; when the game ends the shell turns
+/// opaque and comes back in front of whatever Android shows next.
 class ActivityTaskOverlay final : public GameOverlay {
   public:
+    [[nodiscard]] bool seesGame() const override {
+        return true;
+    }
     void enter() override {
     }
     void show(display::OverlayMode mode) override {

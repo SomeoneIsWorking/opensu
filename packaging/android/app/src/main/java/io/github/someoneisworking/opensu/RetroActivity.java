@@ -13,6 +13,7 @@ import java.io.IOException;
 public final class RetroActivity extends LandscapeActivity {
     static final String EXTRA_ARGUMENTS = "io.github.someoneisworking.opensu.ARGUMENTS";
     static final String EXTRA_ENVIRONMENT = "io.github.someoneisworking.opensu.ENVIRONMENT";
+    static final String EXTRA_FROM_GAME = "io.github.someoneisworking.opensu.FROM_GAME";
     static final String PROCESS_SUFFIX = ":retro";
 
     @Override
@@ -70,10 +71,12 @@ public final class RetroActivity extends LandscapeActivity {
         return arguments;
     }
 
-    /** Called from the runner's shell handoff: the shell comes to the front, where its Guide menu opens. */
+    /** Called from the runner's shell handoff: the shell comes over the game with its Guide menu. */
     public void openShellMenu() {
         startActivity(new Intent(this, ShellActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
+                .putExtra(EXTRA_FROM_GAME, true)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                        | Intent.FLAG_ACTIVITY_NO_ANIMATION));
     }
 
     // The process is the game's: it ends with the runner, so the next launch starts clean.

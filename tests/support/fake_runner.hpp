@@ -64,6 +64,9 @@ class FakeRunner {
             const std::lock_guard lock{mutex_};
             calls_.push_back(path);
         }
+        if (path == "/frame.png") {
+            return lucent::http::Response::json(200, "OK", "png bytes");
+        }
         if (path == "/options") {
             const nlohmann::json options = nlohmann::json::array({{{"key", "mgba_color"},
                                                                    {"label", "Color correction"},

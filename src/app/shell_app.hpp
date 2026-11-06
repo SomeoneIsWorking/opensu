@@ -39,6 +39,7 @@
 #include "emulator_settings.hpp"
 #include "focus_follow.hpp"
 #include "frame_timing.hpp"
+#include "game_backdrop.hpp"
 #include "game_launch.hpp"
 #include "game_match_controller.hpp"
 #include "game_presentation.hpp"
@@ -286,7 +287,7 @@ class ShellApp final {
     /// Ends the running game from a menu.
     void closeRunningGame();
     /// Shows the newest picture of a remote game and hands it to the shell to draw.
-    void showRemotePicture();
+    void showGamePicture();
     /// Whether a remote game has the player's controls: it streams and no menu is up.
     [[nodiscard]] bool remoteHasControls();
     /// Sends the player's controls to the remote game, or lets go of them while a menu is up.
@@ -395,6 +396,7 @@ class ShellApp final {
     ui::Shell shell_;
     /// The remote game's picture the shell draws, on the window's device once it is open.
     std::unique_ptr<RemotePicture> remotePicture_;
+    std::unique_ptr<GameBackdrop> gameBackdrop_;
     /// The player's controls while a remote game has them.
     RemoteInput remoteInput_;
     std::unique_ptr<RemoteTouch> remoteTouch_;

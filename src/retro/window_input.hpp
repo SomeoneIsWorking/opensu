@@ -21,8 +21,8 @@ struct WindowInput {
     bool quit{false};
     std::vector<Key> keys;
     std::vector<touch::Finger> fingers;
-    /// The window came back (true) or was minimized (false), as Android does in the background.
-    std::optional<bool> shown;
+    /// The window took (true) or lost (false) the input, as Android does under another Activity.
+    std::optional<bool> focused;
 };
 
 } // namespace opensu::retro

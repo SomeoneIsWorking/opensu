@@ -120,6 +120,7 @@ def compiler_defines(env: Mapping[str, str]) -> list[str]:
     return [
         f"-DCMAKE_C_COMPILER={clang / 'clang'}",
         f"-DCMAKE_CXX_COMPILER={clang / 'clang++'}",
+        f"-DCMAKE_OBJCXX_COMPILER={clang / 'clang++'}",
         "-DCMAKE_OSX_ARCHITECTURES=arm64",
         f"-DCMAKE_OSX_DEPLOYMENT_TARGET={DEPLOYMENT_TARGET}",
         f"-DCMAKE_OSX_SYSROOT={env['SDKROOT']}",

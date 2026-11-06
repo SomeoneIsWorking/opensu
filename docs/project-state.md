@@ -142,7 +142,7 @@ Visible deltas from the baseline:
   Steam, and Big Picture opened any other way is closed and the shell put back in front.
 - Shipped as a Linux x86_64 AppImage with the Gamescope fork inside, a Windows x64 per-user
   installer (S046), or built from source; an Android APK (arm64-v8a, x86_64) runs the shell and
-  plays ROMs from folders picked through Android's folder picker on the built-in cores, with touch controls in the runner and the shell's Guide menu brought in front of the paused game (S042), and plays a paired PC's games by remote play (S052). A macOS (Apple silicon) app is built, signed ad hoc, as a launcher (S047). On each of them openSU has no: Gamescope (nested session, login session, FSR,
+  plays ROMs from folders picked through Android's folder picker on the built-in cores, with touch controls in the runner and the shell's Guide menu over the running game (S042), and plays a paired PC's games by remote play (S052). A macOS (Apple silicon) app is built, signed ad hoc, as a launcher (S047). On each of them openSU has no: Gamescope (nested session, login session, FSR,
   frame generation, Alt+F4 handling); Managed or Isolated Steam (Steam is the player's own, Normal);
   virtual pads remapping another program's input; the Power, Bluetooth and brightness tabs. Windows
   runs a store's Windows builds itself, Linux under Wine, macOS not at all (it installs a store's
@@ -219,6 +219,7 @@ game has been observed running yet.
 | S058 | Link play on `opensu-retro`: the pinned mGBA fork (`mgba-link-core`, Linux), split screen with `--players`, Play linked and Play with <paired openSU> on the details page over `/lan/netplay`, which refuses a differing core revision, BIOS or core option and gives a clock cartridge the asker's time; GBA only (`docs/plans/mgba-netplay.md`) | partial | S032, S052 | G001 |
 | S059 | Play online by code with no server (`src/online/`, `docs/design/online.md`): Play online gives a code, Settings › Play online joins, a reply code only when needed, UPnP or NAT-PMP with a short lease, a plain failure naming Tailscale; any built-in core, rollback where the core can and lockstep otherwise, one console on each machine; shown across simulated NATs, not across two real networks (`docs/plans/wan-netplay.md`) | partial | S058 | G001 |
 | S057 | Remote play together: up to four paired guests in one host's game, a stream, pad and game port each, one encode per codec in use, one sound encode, a guest asking to join with the host's question; shown with two hidden guests on one host in a headless Gamescope on a two-player NES ROM in the built-in runner: frames matching by number, each guest lighting its own half through its own pad, one guest capped onto HEVC while the other stays on PyroWave, one leaving without moving the other ; invitations, Guide › Players with Kick and a game the host plays itself shown in frames; Continue here on a linked device: the seat's pad, port and runner stay while the stream moves, the host's own seat lent, a dropped guest's seat held 120 s, shown with two hidden guests of one linked profile (`docs/plans/remote-play-together.md`; not between two machines) | partial | S052 | G001 |
+| S060 | The Guide over the game (`docs/design/libretro.md`): a panel over the live picture on Linux in Gamescope and Android, by the compositor. The Android tablet showed the clock ticking beside the panel, one Activity launch each way, 59.7 frames/s with the Guide open or shut, and Library still one opaque layer at 16.7 ms. macOS is the same route, seen only in CI; Windows draws the runner's last frame as a backdrop, its window having no alpha on every GPU | partial | S042 | G005 |
 
 ## Capability details
 
@@ -2194,7 +2195,7 @@ callers have no `#ifdef`. Linux backends are the previous code moved:
 | --- | --- | --- |
 | `launch::ProcessLauncher` (was `Instance`) | `process_launcher_systemd_scope.cpp` | `process_launcher_unavailable.cpp`: `start` fails with "<program> cannot be started: launching is not available on <OS>" |
 | `gamepad::PadSource`, `openPadSource` | `EvdevPads` (was `Pads`): grabs, virtual pads | `SdlPads`: SDL gamepad events, no grab, no virtual pads; `PadOwner`'s claims collapse to Free and Away |
-| `app::GameOverlay`, `openGameOverlay` | Gamescope overlay atoms and XInput2 game keys | none (null) |
+| `app::GameOverlay`, `openGameOverlay` | Gamescope overlay atoms and XInput2 game keys | Windows, macOS: the raised window (macOS see-through, Windows a `GameBackdrop`); Android: the translucent `ShellActivity` over the runner's |
 | `steam::clientModes` | Normal, Managed, Isolated | Normal; the Steam mode row is hidden |
 | `config::Locations` on `lucent::platform` | `$XDG_*_HOME/opensu`, `/run/user/<uid>/opensu`, as before | APPDATA/LOCALAPPDATA, Application Support/Caches/TMPDIR as `openSU` |
 | `library::coreTarget` | `nightly/linux/x86_64/latest/`, `.so` | `windows/x86_64` `.dll`, `apple/osx/arm64` `.dylib`, `android/latest/<abi>` `_android.so`; any other OS/arch refuses to configure |

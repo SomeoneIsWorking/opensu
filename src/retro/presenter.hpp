@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include <SDL3/SDL_video.h>
@@ -69,6 +70,8 @@ class Presenter {
 
     /// What an overlay is drawn for: the target's size, its safe area and pixels per dp.
     [[nodiscard]] touch::WindowSurface surface() const;
+    /// Android: whether the window still has a surface, which it keeps while it can be seen.
+    [[nodiscard]] bool onScreen() const;
 
     /// Draws `frame`, uploading it first when `fresh`, with what a Vulkan core handed over (kept
     /// for the next frame drawn when this one is skipped), and `overlay` over it when given;
@@ -83,8 +86,8 @@ class Presenter {
     /// Waits until the last frame submitted is done on the GPU (a core's wait_sync_index).
     [[nodiscard]] VkResult waitForFrame();
 
-    /// Hidden only: the last image presented, opaque as the window shows it; empty before the
-    /// first.
+    /// The last image presented, opaque as the window shows it, shown again where it is a
+    /// swapchain's; empty before the first or while there is nothing to draw into.
     [[nodiscard]] Readback readBack();
 
     [[nodiscard]] std::size_t validationErrors() const {
@@ -113,6 +116,8 @@ class Presenter {
     void createSwapchain();
     [[nodiscard]] VkFramebuffer makeFramebuffer(VkImageView view) const;
     void destroyTargets();
+    /// Records copying `image`, drawn and ready to present, into `capture_`.
+    void recordCapture(VkImage image);
     /// The swapchain, its targets and the window's surface let go, once the surface is lost.
     void dropSurface();
 
@@ -143,6 +148,13 @@ class Presenter {
     /// The hidden presenter's one target and its memory.
     VkDeviceMemory offscreenMemory_{VK_NULL_HANDLE};
     bool drawnOffscreen_{false};
+    /// The swapchain's images can be copied from.
+    bool readable_{false};
+    /// The frame `readBack` shows again; its pixels are the core's until its next frame.
+    std::optional<FrameImage> lastFrame_;
+    /// Where the next frame presented is copied while `readBack` waits for it.
+    VkBuffer capture_{VK_NULL_HANDLE};
+    bool captured_{false};
     /// A fresh frame not yet uploaded, kept across a frame skipped for a stale swapchain.
     bool uploadPending_{false};
     /// A core's hand-over not yet submitted, kept the same way.

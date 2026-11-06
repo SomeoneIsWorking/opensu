@@ -19,7 +19,9 @@ better (Switch, PS2 and later, Wii U, GameCube/Wii, Xbox, Xbox 360).
 Each game runs `opensu-retro`, a second executable built from this repository, in the game's own
 systemd scope like any other emulator. It loads one core with `dlopen`, opens its own window and
 runs the core's frame loop. Gamescope shows that window, the shell's overlay goes over it, and the
-handoff sees it appear and end exactly as it sees a standalone emulator.
+handoff sees it appear and end exactly as it sees a standalone emulator. On Android, Windows and
+macOS the runner has its own window or Activity the same way and the system compositor, not
+openSU, puts the shell's panels over it (below).
 
 ```
 shell ── Handoff (scope) ──▶ opensu-retro --core <so> [options] <rom>
@@ -35,6 +37,50 @@ device; there is no frame transport to build or to add latency.
 The runner does not use the shell's renderer: SDL3 gives it the window, keyboard and sound device, and it draws
 with Vulkan directly, so a core using libretro's Vulkan hardware interface
 (`retro_hw_render_interface_vulkan`) is handed the runner's instance, device and queue.
+
+**The Guide over the game.** The picture never crosses a process: while a game runs the shell draws
+only its panels on a clear (alpha 0) frame, and its window lies over the game's. The game keeps
+running under an open Guide, sound included, on its own frame clock; the shell only rests its pads
+(`GameScreen`). Save and close is the one thing that stops it.
+
+| Where | How | Game shown |
+| --- | --- | --- |
+| Linux, Gamescope | `GamescopeOverlay`: the window on a 32-bit visual, `STEAM_OVERLAY` | live, any game |
+| Android | `ShellActivity`'s window goes translucent (`Activity.setTranslucent`, under a `windowIsTranslucent` theme) as the runner starts and opaque when the game ends, on a `PixelFormat.TRANSLUCENT` `SurfaceView`; the shell's task comes over the runner's, which Android keeps visible, paused but not stopped | live, the built-in runner |
+| macOS | `RaisedWindowOverlay` over a window gpu2d made non-opaque with its Metal layer | live, any game, where the two windows overlap |
+| Windows | `RaisedWindowOverlay` over an opaque window; `GameBackdrop` reads the runner's last frame (`GET /frame.png`) as the menu opens and draws it behind the panels | the last frame, the built-in runner; nothing else |
+
+Linux has no other path: an interactive shell always runs in openSU's own Gamescope
+(`runInOwnSession`), and only `--hidden` and `--render` run without one, with no window to overlay.
+
+Android stops an opaque window's neighbours, which was the Guide's solid background before: an
+opaque `ShellActivity` in front leaves the runner's task invisible and its surface destroyed. The
+Library stays opaque, so the launcher behind it can stop. `Activity.setTranslucent` is public from
+API 30; below it the shell stays translucent, as the theme says, and the Library's alpha of 1 hides
+what lies behind. The shell is over the game only when the game opened it; left by Home or Recents
+and brought back, it sends the game forward (`Launches.resume`) rather than show the home screen
+behind the menu, and the player opens the Guide from there. Only the game brings the shell forward
+and only the shell's resume sends the game, so the two cannot bounce. `AppTask.moveToFront` puts the
+home screen right under the task it moves, so moving the shell over the game that way would hide
+the game; only the runner's `startActivity` puts the shell over it. A game being closed stays
+behind the menu until it has gone (`GameScreen::closing`): sent forward, it would stop the shell,
+whose SDL thread then blocks and never sees the game end. A standalone
+emulator on Android gets no Guide at all: nothing of openSU's hears its input, and the shell coming
+forward means the game is over.
+
+Under the shell the runner is `covered`: it has lost window focus (SDL pauses only on `onStop` from
+API 24, and a paused window under a translucent shell is never stopped), the touch
+pad hides and lets go of its buttons, and the frames go on. It waits only when the window has no
+surface left (Home, the screen off: `Presenter::onScreen`).
+
+Windows is a backdrop because no transparent route works on every GPU there. SDL GPU refuses
+`SDL_WINDOW_TRANSPARENT` (`SDL_ClaimWindowForGPUDevice`), because its D3D12 flip-model swapchain
+cannot carry alpha, and Vulkan's Win32 surface offers premultiplied alpha per driver: NVIDIA reports
+it, AMD's reports `VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR` only
+([AMD-Gfx-Drivers#120](https://github.com/GPUOpen-Drivers/AMD-Gfx-Drivers/issues/120),
+[SDL#16497](https://github.com/libsdl-org/SDL/issues/16497)). The way to a live overlay on Windows
+is DirectComposition. `RaisedWindowOverlay::seesGame` asks the window, so a translucent one drops
+the backdrop by itself.
 
 One core per process is also what libretro's callbacks assume: they carry no context pointer, so
 the runner's callback trampolines reach the one loaded core through a single pointer in
@@ -59,7 +105,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/joypad.*` | The pads' controls (`gamepad::Button`) and the keyboard to `RETRO_DEVICE_JOYPAD` state, one fixed mapping; the pads' sticks (`gamepad::Sticks`) to `RETRO_DEVICE_ANALOG`; which port each pad plays on (**Input**) |
 | `src/retro/save_memory.*` | The core's save RAM: loaded before the first frame (a smaller file into its start; a larger or unreadable one refused and never written over), written atomically when it changes (checked once a second) and at exit |
 | `src/retro/audio_output.*` | Where the sink's frames go: the default playback device (SDL audio stream, pulled on SDL's thread), or, hidden, drained by the clock at the output rate with nothing played |
-| `src/retro/presenter.*` | The only owner of the SDL window and Vulkan presentation: window events, swapchain (recreated on resize or out-of-date), each frame's command buffer, submission (a GPU core's semaphores waited, its command buffers first, its signal semaphore signalled) and present; hidden, an offscreen image instead of a swapchain, read back for `--frame-png`; the wait on the last frame a core's `wait_sync_index` is |
+| `src/retro/presenter.*` | The only owner of the SDL window and Vulkan presentation: window events, swapchain (recreated on resize or out-of-date), each frame's command buffer, submission (a GPU core's semaphores waited, its command buffers first, its signal semaphore signalled) and present; hidden, an offscreen image instead of a swapchain, read back for `--frame-png`; the last frame read back from either (`readBack`); whether Android's window still has a surface (`onScreen`); the wait on the last frame a core's `wait_sync_index` is |
 | `src/retro/frame_compositor.*` | What is drawn into a target (`change` swaps the video settings between frames, the new preset built before the old one goes): the render pass the targets' framebuffers are made for, the frame texture uploaded each fresh frame or a GPU core's own image sampled in its layout (queue family ownership taken and given back when it names another family, then a barrier so the core's next writes wait for the read), one pipeline drawing it where `placeFrame` puts it for the video settings (aspect, integer scale, overscale clipped to the target) with the chosen sampling and filter, black around it; with a shader preset its chain draws into that rectangle instead, from the texture or the core's image |
 | `src/retro/frame_filter.*` | The fragment shader for a sampling and filter, the built-in filters' parameters (`scanlineGrid`, `lcdGrid`, `crtLottes`) and the push block each draw hands the shader |
 | `src/retro/librashader_library.*` | librashader opened by its path (`Config::librashader`), ABI and API checked, its calls with their errors as `ShaderError`; a missing file refuses the preset |
@@ -100,6 +146,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/app/emulator_downloads.*`, `emulator_settings.*`, `details_controller.*` | Download, update check, update and removal of a core and of the shader pack, on the same paths as an AppImage; the Shader presets rows; the details page's video sources, Game settings button and Clear |
 | `src/library/linked_play.*`, `src/app/lan_netplay.*` | A game on the link core: split screen and netplay commands (`linkable`, `splitScreenGame`, `netplayGame`); the shell's half of a session (Play with <name>, the question, saves, the session's file) |
 | `src/app/retro_session.*` | The shell's side of the control channel: each launch's control file, the port read from it, the requests (`setVideo` for `POST /video`), the load failure handed over and the file removed |
+| `src/app/game_backdrop.*` | The game's last frame behind the menu where the window cannot show it (`GameOverlay::seesGame`) |
 | `src/app/guide_menu_controller.*` | Save and close, Game settings, Save state, Load state and Reset game while the running game answers on a control channel; the resumed or refused row |
 | `src/app/game_end.*`, `src/launch/handoff.*` | How a game ended (`Hooks::ended`, the scope's exit status) and the toast it gets |
 
@@ -160,7 +207,7 @@ cannot be set up (exit 1), it writes `{"error": "<reason>"}` there instead and l
 | `POST /state/load` | 200; 404 when no state is saved; 409 when the core refuses it |
 | `POST /reset` | 200 after `retro_reset` |
 | `POST /video` | 200 once the video settings in the body (`settings::videoJson`, the `--settings` file's format) are drawn from the next frame; 400 for a body that does not parse; 409 with the reason when the shader preset cannot be built, the settings drawn before kept |
-| `GET /frame.png` | The last frame shown as PNG, letterboxing included (hidden runs only; 409 otherwise) |
+| `GET /frame.png` | The last frame shown as PNG, letterboxing included; a swapchain's is shown once more to be copied; 500 before the first frame or while the window has nothing to draw into |
 | `POST /input` | 200: a control pad holds `{"pad": name, "buttons": [names], "left": [x, y], "right": [x, y]}` (each part optional, sticks from -1 to 1, y down) until its next post, `{}` letting go, `{"pad": name, "leave": true}` leaving; without `"pad"` it is the one control pad, each name a pad of its own; 400 for anything else or Guide |
 
 Every route but `GET /status` and `POST /input` is queued for the frame loop, which runs it between frames, never beside `retro_run`;

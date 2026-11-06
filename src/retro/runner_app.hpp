@@ -1,8 +1,9 @@
 // runner_app — opensu-retro composed: the core and its owners, the window, the pads and keyboard,
 // the sound device, and the loop that runs frames at the core's rate on a clock. Where the shell
-// cannot draw over it (`shell_handoff`), Guide, Back and the touch pause button bring the shell's
-// menu forward, the touch controls show while no pad is connected, and the game waits while the
-// runner is in the background, the control channel still served.
+// does not hear its input (`shell_handoff`), Guide, Back and the touch pause button bring the
+// shell's menu over the game, which goes on under it, the touch controls show while no pad is
+// connected and nothing covers the game, and the game waits only while it is out of sight, the
+// control channel still served.
 #pragma once
 
 #include <cstdint>

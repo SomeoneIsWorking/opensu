@@ -1,11 +1,15 @@
 package io.github.someoneisworking.opensu;
 
+import android.content.Context;
 import android.content.Intent;
+import android.graphics.PixelFormat;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
+
+import org.libsdl.app.SDLSurface;
 
 import java.io.IOException;
 
@@ -22,6 +26,8 @@ public final class ShellActivity extends LandscapeActivity {
     private String pickedFolder;
     /** The shell came to the front over a running game, so its Guide menu opens; taken once. */
     private boolean menuRequested;
+    /** The game opened the shell and nothing has come between them since. */
+    private volatile boolean overGame;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,6 +41,22 @@ public final class ShellActivity extends LandscapeActivity {
         volume = new MusicVolume(this);
         documents = new DocumentTree(this);
         super.onCreate(savedInstanceState);
+        seeThrough(false);
+    }
+
+    // Its alpha reaches the compositor, so what it leaves clear shows the game behind it.
+    @Override
+    protected SDLSurface createSDLSurface(Context context) {
+        SDLSurface surface = super.createSDLSurface(context);
+        surface.getHolder().setFormat(PixelFormat.TRANSLUCENT);
+        return surface;
+    }
+
+    /** Whether Android keeps what is behind the shell on screen; below API 30 it always does. */
+    void seeThrough(boolean through) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            runOnUiThread(() -> setTranslucent(through));
+        }
     }
 
     @Override
@@ -47,11 +69,24 @@ public final class ShellActivity extends LandscapeActivity {
     protected void onResume() {
         super.onResume();
         launches.shellResumed();
-        if (launches.running()) {
+        // Back from the launcher the game goes first, or the home screen would show behind the menu.
+        if (launches.running() && (overGame || !launches.resume())) {
             synchronized (this) {
                 menuRequested = true;
             }
         }
+    }
+
+    @Override
+    protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        overGame = false;
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        overGame = intent.getBooleanExtra(RetroActivity.EXTRA_FROM_GAME, false);
     }
 
     /** Called from the intent ProcessLauncher backend: null once started, else why not. */
@@ -76,6 +111,7 @@ public final class ShellActivity extends LandscapeActivity {
 
     /** Called from the Android game overlay: the running game comes back to the front. */
     public boolean resumeGame() {
+        overGame = false;
         return launches.resume();
     }
 

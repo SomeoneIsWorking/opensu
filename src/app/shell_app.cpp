@@ -882,6 +882,7 @@ bool ShellApp::menusBlocked() {
 }
 
 void ShellApp::closeRunningGame() {
+    gameScreen_.closing();
     launches_.close();
 }
 
@@ -1330,10 +1331,14 @@ display::Placed ShellApp::remotePlacement() const {
     return remotePicture_->placement({.width = window.width, .height = window.height});
 }
 
-void ShellApp::showRemotePicture() {
+void ShellApp::showGamePicture() {
     if (!remotePlay_.streaming()) {
         remotePicture_->clear();
-        shell_.setPicture(std::nullopt);
+        const GameOverlay* overlay = gameScreen_.overlay();
+        gameBackdrop_->follow(overlay != nullptr && !overlay->seesGame() &&
+                                  gameScreen_.mode() == display::OverlayMode::Interactive,
+                              retro_);
+        shell_.setPicture(gameBackdrop_->view());
         shell_.setPictureControls(std::nullopt);
         return;
     }
@@ -1498,7 +1503,7 @@ int ShellApp::run() {
         publishSnapshot();
         // An unmapped window draws nothing, and its artwork still streams in.
         shell_.loadArtwork();
-        showRemotePicture();
+        showGamePicture();
         const ShellWindow::Presented presented =
             window_->present([this](ui::Canvas& canvas, const gpu2d::Surface& target) {
                 shell_.draw(canvas, target);
@@ -1527,6 +1532,7 @@ bool ShellApp::openWindow(const std::string& title, bool hidden) {
             std::make_unique<RemotePicture>(window_->device(), window_->importsDmabuf());
         remoteTouch_ =
             std::make_unique<RemoteTouch>(window_->device(), environment_.assetsDir / "touch");
+        gameBackdrop_ = std::make_unique<GameBackdrop>(window_->device());
     } catch (const gpu2d::GpuError& error) {
         lucent::error("shell", "could not open a window: {}", error.what());
         window_.reset();

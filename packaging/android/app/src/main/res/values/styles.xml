@@ -3,4 +3,8 @@
     <style name="OpensuTheme" parent="android:Theme.Material.NoActionBar.Fullscreen">
         <item name="android:windowBackground">@android:color/black</item>
     </style>
+    <!-- The shell's window can go translucent over the runner's only with a translucent theme. -->
+    <style name="OpensuShellTheme" parent="OpensuTheme">
+        <item name="android:windowIsTranslucent">true</item>
+    </style>
 </resources>

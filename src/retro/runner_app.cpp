@@ -145,7 +145,7 @@ std::string buttonList(const std::vector<gamepad::Button>& buttons) {
     return list.empty() ? "nothing" : list;
 }
 
-/// Asks for the shell's menu, the game waiting while it is up.
+/// Asks for the shell's menu, which comes over the game.
 void openShellMenu(const char* by) {
     lucent::info("retro", "{} asks for the shell's menu", by);
     if (!shell_handoff::openMenu()) {
@@ -227,8 +227,8 @@ RunnerExit RunnerApp::run() {
 
     const bool handoff = shell_handoff::active() && !options_.hidden;
     if (handoff) {
-        // Back asks for the shell's menu instead of closing the Activity, and the loop keeps
-        // serving the shell's save and load requests while the shell is in front.
+        // Back asks for the shell's menu instead of closing the Activity, and the loop goes on
+        // under the shell, serving its save and load requests.
         SDL_SetHint(SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1");
         SDL_SetHint(SDL_HINT_ANDROID_BLOCK_ON_PAUSE, "0");
     }
@@ -270,7 +270,6 @@ RunnerExit RunnerApp::run() {
                               .resume = resume,
                               .presenter = *presenter,
                               .options = environment.options(),
-                              .hidden = options_.hidden,
                               .netplay = netplay != nullptr}};
 
     std::unique_ptr<touch::TouchLayer> touch =
@@ -279,7 +278,9 @@ RunnerExit RunnerApp::run() {
     /// Fingers lifted in the frame they went down, let go the next.
     std::vector<touch::Finger> liftNext;
     bool padConnected = pads && !pads->connected().empty();
-    /// In the background: the game waits.
+    /// Another Activity has the screen's input, usually the shell over the game.
+    bool covered = false;
+    /// Out of sight: the game waits.
     bool waiting = false;
 
     RunnerExit exit = RunnerExit::Quit;
@@ -294,9 +295,13 @@ RunnerExit RunnerApp::run() {
         if (input.quit) {
             break;
         }
-        if (handoff && input.shown) {
-            waiting = !*input.shown;
-            lucent::info("retro", "the game {}", waiting ? "waits in the background" : "goes on");
+        if (handoff && input.focused) {
+            covered = !*input.focused;
+            lucent::info("retro", "the game is {}", covered ? "covered" : "in front");
+        }
+        if (const bool outOfSight = covered && !presenter->onScreen(); outOfSight != waiting) {
+            waiting = outOfSight;
+            lucent::info("retro", "the game {}", waiting ? "waits out of sight" : "goes on");
         }
         if (!options_.hidden) {
             for (const WindowInput::Key& key : input.keys) {
@@ -325,7 +330,7 @@ RunnerExit RunnerApp::run() {
                 joypad.sticks(source, axes.sticks);
             }
         }
-        const bool touchShown = touch && !padConnected && !waiting;
+        const bool touchShown = touch && !padConnected && !covered;
         if (touch) {
             const touch::WindowSurface surface = presenter->surface();
             if (surface.width != laidOut.width || surface.height != laidOut.height ||

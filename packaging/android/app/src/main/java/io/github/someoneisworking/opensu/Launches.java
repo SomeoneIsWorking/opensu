@@ -1,6 +1,5 @@
 package io.github.someoneisworking.opensu;
 
-import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
@@ -22,7 +21,7 @@ final class Launches {
     static final String RUNNER_LIBRARY = "/libopensu-retro.so";
     private static final long START_MILLIS = 10_000;
 
-    private final Activity shell;
+    private final ShellActivity shell;
     private boolean runnerStarted;
     private boolean runnerSeen;
     private boolean foreign;
@@ -30,7 +29,7 @@ final class Launches {
     private boolean foreignOver;
     private long startedAt;
 
-    Launches(Activity shell) {
+    Launches(ShellActivity shell) {
         this.shell = shell;
     }
 
@@ -64,9 +63,13 @@ final class Launches {
             }
         }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        if (program.endsWith(RUNNER_LIBRARY)) {
+            shell.seeThrough(true);
+        }
         try {
             shell.startActivity(intent);
         } catch (ActivityNotFoundException | SecurityException refused) {
+            shell.seeThrough(false);
             return program + " cannot be opened: " + refused.getMessage();
         }
         startedAt = System.currentTimeMillis();
@@ -110,6 +113,7 @@ final class Launches {
 
     /** Brings the shell's own task back to the front, as a game ends behind it or in front. */
     void showShell() {
+        shell.seeThrough(false);
         ActivityManager.AppTask task = taskOf(ShellActivity.class.getName());
         if (task != null) {
             task.moveToFront();

@@ -116,10 +116,6 @@ ControlAnswer ControlCommands::perform(const ControlRequest& request) {
         answer = suspend();
         break;
     case ControlCommand::Frame: {
-        if (!parts_.hidden) {
-            answer = {409, "the frame is read back in hidden runs only"};
-            break;
-        }
         std::string error;
         answer.png = framePng(parts_.presenter, error);
         if (answer.png.empty()) {

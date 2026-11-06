@@ -38,6 +38,11 @@ class GameScreen {
     [[nodiscard]] bool running() const noexcept {
         return running_;
     }
+    /// The game is being closed: the overlay stays up until it has gone, for on Android bringing
+    /// the game forward lets the system stop the shell that has to see it end.
+    void closing() noexcept {
+        closing_ = true;
+    }
     /// What is wanted over the running game: `Interactive` for a menu or page, `Passive` for the
     /// chord list. Applied once per change.
     void show(display::OverlayMode wanted);
@@ -60,6 +65,7 @@ class GameScreen {
 
     bool hidden_;
     bool running_{false};
+    bool closing_{false};
     std::function<void(bool blocked)> blockPads_;
     ShellWindow* window_{};
     display::OverlayMode mode_{display::OverlayMode::Hidden};

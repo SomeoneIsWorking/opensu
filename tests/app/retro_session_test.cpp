@@ -56,6 +56,7 @@ void requestsReachTheRunner() {
     const std::optional<app::RetroSession::Status> after = session.status();
     expect(after && after->hasState, "the runner has the state");
     expect(session.loadState().empty() && session.reset().empty(), "load and reset are done");
+    expect(session.frame() == "png bytes", "the last frame is read");
     const std::vector<app::RetroSession::CoreOption> options = session.options();
     expect(options.size() == 1 && options.front().definition.key == "mgba_color" &&
                options.front().value == "OFF" && options.front().definition.values.size() == 2,
@@ -63,7 +64,8 @@ void requestsReachTheRunner() {
     expect(session.setOption("mgba_color", "GBA").empty(), "an option is set");
     expect(session.options().front().value == "GBA", "the runner holds the new value");
     expect(runner.calls() == std::vector<std::string>{"/state/load", "/state/save", "/state/load",
-                                                      "/reset", "/options", "/option", "/options"},
+                                                      "/reset", "/frame.png", "/options", "/option",
+                                                      "/options"},
            "each request reached the runner once");
     runner.stop();
     expect(!session.status(), "a runner that is gone has no status");

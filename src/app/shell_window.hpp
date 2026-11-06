@@ -68,6 +68,10 @@ class ShellWindow {
     [[nodiscard]] SDL_GPUDevice& device() const noexcept {
         return window_.device();
     }
+    /// Whether what the window leaves clear shows what lies below it.
+    [[nodiscard]] bool translucent() const noexcept {
+        return window_.translucent();
+    }
     /// Whether the device samples DMA-BUFs (`gpu2d::DmabufPicture`).
     [[nodiscard]] bool importsDmabuf() const noexcept {
         return window_.importsDmabuf();

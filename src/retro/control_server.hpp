@@ -30,7 +30,7 @@ enum class ControlCommand : std::uint8_t {
     Reset,
     /// Show frames under `ControlRequest::video` from the next one.
     Video,
-    /// The last image shown, as PNG; hidden runs only.
+    /// The last image shown, as PNG.
     Frame,
     Options,
     Option,

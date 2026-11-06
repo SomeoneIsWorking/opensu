@@ -153,6 +153,10 @@ std::optional<std::string> RetroSession::get(std::string_view target) {
     return result.body;
 }
 
+std::optional<std::string> RetroSession::frame() {
+    return get("/frame.png");
+}
+
 std::vector<RetroSession::CoreOption> RetroSession::options() {
     std::vector<CoreOption> out;
     const std::optional<std::string> body = get("/options");

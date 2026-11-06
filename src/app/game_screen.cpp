@@ -26,6 +26,7 @@ void GameScreen::takeFocus() {
 
 void GameScreen::setRunning(bool running) {
     running_ = running;
+    closing_ = false;
     mode_ = display::OverlayMode::Hidden;
     if (overlay_) {
         if (running) {
@@ -46,7 +47,9 @@ void GameScreen::show(display::OverlayMode wanted) {
     const bool interactive = wanted == display::OverlayMode::Interactive;
     mode_ = wanted;
     if (overlay_) {
-        overlay_->show(wanted);
+        if (!closing_) {
+            overlay_->show(wanted);
+        }
     } else if (interactive != wasInteractive) {
         showWindow(interactive);
     }
