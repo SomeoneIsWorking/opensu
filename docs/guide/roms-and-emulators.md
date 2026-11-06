@@ -90,7 +90,9 @@ The details page's **Saves** names the folder (by its name) or the WebDAV server
 ## Emulator downloads
 
 Emulators that publish an official AppImage (Cemu, Eden, PCSX2, RPCS3, DuckStation, PPSSPP, Azahar,
-mGBA, xemu) can be downloaded from a ROM's details page ("Download <emulator>") or from Settings ›
+mGBA, xemu) download by themselves when you press Play on a ROM that needs one, and the game starts
+when the download ends; Cancel on that card stops it. A romset still being checked waits on the same
+card. They can also be downloaded from a ROM's details page ("Download <emulator>") or from Settings ›
 Emulators, into `~/.local/share/opensu/emulators/<id>/`. A download is checked against the
 release's published SHA-256 and refused on a mismatch; without one, only HTTPS from the project's
 own host is accepted and the checksum seen is recorded. Settings › Emulators also checks for

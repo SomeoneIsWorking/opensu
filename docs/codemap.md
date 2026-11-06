@@ -117,6 +117,7 @@ on the same rule.
 | `src/app/shortcut_router.*` | Keys, pad events and game keys onto shell events and actions through `Shortcuts`; every action that is not a button is done here (quick menu, volume, quit, and the game actions, with a toast when no game runs) |
 | `src/app/frame_png.*` | The drawn shell as PNG bytes, for the control channel's frame and `--render`; icons the draw asked for are waited for and the frame drawn again |
 | `src/app/frame_timing.*` | How long the loop's frames take, start to start, and the longest of the last second (`/state` `worstFrameUs`) |
+| `src/app/play_wait.*` | Play on a game that cannot start yet: the launch card stays up while its emulator downloads or its romset is checked, then the game starts |
 | `src/app/panel_flow.*` | The launch and install card (a `ProgressScreen` with Cancel or Hide), the install offer of one copy (`Dialog`), Steam's licence agreement (`Dialog`, Decline is the way out; waits while a game launches or runs), and what the install jobs report |
 | `src/app/launch_mailbox.*` | What the launch and sign-in threads hand the loop: the game-running flag, the latest progress line, the next toast |
 | `src/app/home_screen.*` | Home as the navigator's root: a gpu2d `CellGrid` over `ui::HomeGrid` (empty over a running game); A, Y, X, Select, Search and Start to the app's hooks, Back out of the search or folder (never pops) |

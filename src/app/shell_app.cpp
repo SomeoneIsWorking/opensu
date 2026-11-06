@@ -767,6 +767,9 @@ bool ShellApp::launch(const library::Game& game, std::vector<std::string> enviro
         return true;
     }
     if (game.launch.empty()) {
+        if (playWait_.begin(game, environment, profile)) {
+            return true;
+        }
         shell_.setToast(
             game.unavailable.empty() ? "no way to start " + game.title : game.unavailable, true);
         return false;
@@ -785,6 +788,13 @@ bool ShellApp::launch(const library::Game& game, std::vector<std::string> enviro
         return true;
     }
     return startLaunch(game, std::move(environment), profile, profileRunnerSaves(profile));
+}
+
+std::optional<library::Game> ShellApp::localGame(const std::string& id) const {
+    const auto found = std::ranges::find_if(games_, [&id](const library::Game& game) {
+        return game.id == id && game.installed && game.source != library::Source::Remote;
+    });
+    return found == games_.end() ? std::nullopt : std::optional{*found};
 }
 
 bool ShellApp::launchSession(const library::Game& game, const std::filesystem::path& saves) {
@@ -893,6 +903,7 @@ std::vector<library::Game> ShellApp::copiesOffered(const library::Game& game) co
 }
 
 void ShellApp::cancelLaunch() {
+    playWait_.cancel();
     launches_.cancel();
 }
 
@@ -1420,7 +1431,8 @@ void ShellApp::serviceRequests() {
         panels_.update(launch::describe(*progress),
                        measured ? std::optional{progress->fraction} : std::nullopt);
     }
-    if (!launching) {
+    playWait_.service();
+    if (!launching && !playWait_.waiting() && !launches_.running()) {
         panels_.endLaunch();
         relay_.close();
     }

@@ -85,6 +85,7 @@
 #include "own_games_controller.hpp"
 #include "pad_owner.hpp"
 #include "panel_flow.hpp"
+#include "play_wait.hpp"
 #include "path_editor.hpp"
 #include "player_files.hpp"
 #include "player_profiles.hpp"
@@ -226,6 +227,8 @@ class ShellApp final {
     /// game is asked of it. False when it was refused.
     bool launch(const library::Game& game, std::vector<std::string> environment,
                 const std::string& profile);
+    /// The installed game here with this id.
+    [[nodiscard]] std::optional<library::Game> localGame(const std::string& id) const;
     /// Starts `game` now as `profile` with `saves` as its save folder, `extra` added to its
     /// environment; false when it was refused.
     bool startLaunch(const library::Game& game, std::vector<std::string> extra,
@@ -825,12 +828,8 @@ class ShellApp final {
                 [this](const std::string& text, bool isError) {
                     shell_.setToast(text, isError);
                 },
-            .find = [this](const std::string& id) -> std::optional<library::Game> {
-                const auto found = std::ranges::find_if(games_, [&id](const library::Game& game) {
-                    return game.id == id && game.installed &&
-                           game.source != library::Source::Remote;
-                });
-                return found == games_.end() ? std::nullopt : std::optional{*found};
+            .find = [this](const std::string& id) {
+                return localGame(id);
             },
             .launch =
                 [this](const library::Game& game, std::vector<std::string> environment,
@@ -1511,6 +1510,46 @@ class ShellApp final {
     /// The session the shell runs in (Gamescope's windows and focus); null outside one.
     std::unique_ptr<ShellSession> session_;
     launch::Handoff handoff_;
+    /// A Play waiting for its emulator or romset, on the launch card. Main loop only.
+    PlayWait playWait_{PlayWait::Hooks{
+        .find =
+            [this](const std::string& id) {
+                return localGame(id);
+            },
+        .play =
+            [this](const library::Game& game, std::vector<std::string> environment,
+                   const std::string& profile) {
+                static_cast<void>(launch(game, std::move(environment), profile));
+            },
+        .show =
+            [this](const library::Game& game) {
+                panels_.showLaunch(game.title, game.artwork);
+            },
+        .update =
+            [this](std::string line, std::optional<double> fraction) {
+                panels_.update(std::move(line), fraction);
+            },
+        .refuse =
+            [this](const std::string& text) {
+                shell_.setToast(text, true);
+            },
+        .progress =
+            [this] {
+                return emulatorDownloads_.progress();
+            },
+        .finished =
+            [this] {
+                return emulatorDownloads_.lastFinished();
+            },
+        .download =
+            [this](const std::string& id) {
+                return emulatorDownloads_.start(id);
+            },
+        .cancelDownload =
+            [this](const std::string& id) {
+                emulatorDownloads_.cancel(id);
+            },
+    }};
     /// What the launch panel is up for, and the one install that runs. After steam_, so the
     /// install is stopped before the client it drives. Main loop only.
     PanelFlow panels_{

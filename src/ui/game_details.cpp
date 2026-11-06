@@ -56,6 +56,9 @@ std::string emulatorText(const library::Game& game) {
         if (!game.romset.empty()) {
             return "none for this romset";
         }
+        if (const library::EmulatorOption* missing = emulatorToDownload(game)) {
+            return missing->name + " · downloads when you press Play";
+        }
         return game.unavailable.empty() ? "none installed" : game.unavailable;
     }
     std::string text = chosen->name + (chosen->installed ? " · installed" : " · not installed");

@@ -168,8 +168,8 @@ void addConversions(Game& game, const RomFolder& folder, const RomNode& zip,
 /// the search picked when it matches, else the first matching one installed, else the first
 /// matching one (to download). With no match and every core checked the game cannot start and
 /// says so; `romset` names the matches, `romsetNearest` the nearest core's gap. With no match
-/// while a core's verdict is pending the game waits: `romset` is `checkingRomset` and it cannot
-/// start until the listings are in. Unchecked verdicts change nothing.
+/// while a core's verdict is pending the game waits: `romset` is `checkingRomset`, and Play holds
+/// on the launch card until the listings are in (`app::PlayWait`). Unchecked verdicts change nothing.
 void applyRomsets(Game& game, std::string_view set, const std::vector<RomsetVerdict>& verdicts);
 
 /// The text a game shows when no arcade core matches its romset.

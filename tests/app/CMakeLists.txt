@@ -121,6 +121,11 @@ opensu_warnings(emulator_flow_test)
 target_compile_definitions(emulator_flow_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME emulator_flow COMMAND emulator_flow_test)
 
+add_executable(play_wait_test play_wait_test.cpp)
+target_link_libraries(play_wait_test PRIVATE opensu::app)
+opensu_warnings(play_wait_test)
+add_test(NAME play_wait COMMAND play_wait_test)
+
 add_executable(core_flow_test core_flow_test.cpp)
 target_link_libraries(core_flow_test PRIVATE opensu::app ZLIB::ZLIB)
 opensu_warnings(core_flow_test)
