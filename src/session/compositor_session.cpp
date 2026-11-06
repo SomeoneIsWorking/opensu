@@ -8,6 +8,8 @@
 
 #include <pthread.h>
 
+#include <string_view>
+
 #include "launch/child_environment.hpp"
 #include "launch/command.hpp"
 #include "launch/process_launcher.hpp"
@@ -20,6 +22,8 @@ namespace fs = std::filesystem;
 
 constexpr auto stopWait = std::chrono::milliseconds{60000};
 constexpr long pollNanoseconds = 200'000'000;
+/// Gamescope shows only a toplevel's own surface, so a Qt game's GL child window stays blank there.
+constexpr std::string_view qtOnXwayland = "QT_QPA_PLATFORM=xcb";
 
 /// Takes a pending signal of `signals`, waiting at most `wait`.
 bool takeSignal(const sigset_t& signals, const timespec& wait) {
@@ -102,7 +106,7 @@ int CompositorSession::runOnce(const display::Output& output, const std::string&
     if (!compositor.start(session_ + "-compositor.scope", gamescope_.string(),
                           gamescopeArgs(output, self, args), failure,
                           {std::string{sessionVariable} + "=" + session_,
-                           std::string{launch::gamescopeWsiOff} + "=1"},
+                           std::string{launch::gamescopeWsiOff} + "=1", std::string{qtOnXwayland}},
                           {}, logOf(logDir_, output))) {
         lucent::error("session", "{}", failure);
         return -1;

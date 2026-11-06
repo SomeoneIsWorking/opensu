@@ -2,6 +2,9 @@
 
 On Linux openSU runs games inside its own pinned
 [Gamescope fork](https://github.com/SomeoneIsWorking/gamescope) ([building.md](building.md#the-gamescope-fork)).
+Qt programs in it run through Xwayland (`QT_QPA_PLATFORM=xcb`): Gamescope shows a Wayland window's
+own surface only, so a Qt emulator's picture would stay blank.
+
 Started from a desktop, openSU starts that Gamescope nested in the desktop, and Steam and games run
 inside it; Alt+F4 in KDE closes the game in front instead of ending the session. From Launch until
 the game is over everything stays in openSU's window: a launcher or splash, and any gap while a game
