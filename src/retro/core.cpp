@@ -153,6 +153,12 @@ void Core::run() {
     api_.run();
 }
 
+void Core::runQuiet() {
+    quiet_ = true;
+    api_.run();
+    quiet_ = false;
+}
+
 void Core::reset() {
     api_.reset();
 }
@@ -163,6 +169,14 @@ std::vector<std::byte> Core::serialize() {
         return {};
     }
     return state;
+}
+
+std::size_t Core::serializeSize() const {
+    return api_.serializeSize();
+}
+
+bool Core::serializeInto(std::span<std::byte> state) {
+    return api_.serialize(state.data(), state.size());
 }
 
 bool Core::unserialize(std::span<const std::byte> state) {
@@ -191,6 +205,9 @@ bool Core::environment(unsigned command, void* data) {
 }
 
 void Core::video(const void* data, unsigned width, unsigned height, std::size_t pitch) {
+    if (quiet_) {
+        return;
+    }
     if (data == RETRO_HW_FRAME_BUFFER_VALID) {
         host_.environment.hardware().frameReady(width, height);
         return;
@@ -199,7 +216,9 @@ void Core::video(const void* data, unsigned width, unsigned height, std::size_t 
 }
 
 void Core::audio(std::span<const std::int16_t> interleaved) {
-    host_.audio.push(interleaved);
+    if (!quiet_) {
+        host_.audio.push(interleaved);
+    }
 }
 
 std::int16_t Core::input(const InputQuery& query) const {

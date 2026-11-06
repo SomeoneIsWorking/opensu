@@ -64,12 +64,18 @@ class Core {
 
     /// One frame.
     void run();
+    /// One frame with its picture and sound thrown away, as a frame run again is.
+    void runQuiet();
 
     /// Restarts the game, as the console's reset button.
     void reset();
 
     /// The game's whole state: empty when the core cannot serialize.
     [[nodiscard]] std::vector<std::byte> serialize();
+    /// How many bytes `serialize` needs now; 0 when the core cannot.
+    [[nodiscard]] std::size_t serializeSize() const;
+    /// The state into `state`, of `serializeSize` bytes; false when the core refuses.
+    [[nodiscard]] bool serializeInto(std::span<std::byte> state);
     /// Puts back a state from serialize(); false when the core refuses it.
     [[nodiscard]] bool unserialize(std::span<const std::byte> state);
 
@@ -127,6 +133,7 @@ class Core {
     void close();
 
     CoreHost host_;
+    bool quiet_{false};
     std::unique_ptr<SharedLibrary> library_;
     Api api_{};
     bool initialised_{false};

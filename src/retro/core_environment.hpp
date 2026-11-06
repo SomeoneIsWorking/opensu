@@ -57,11 +57,15 @@ class CoreEnvironment {
         netplaySlot_ = slot;
         netplayClock_ = clock;
     }
+    /// Whether going back to a state a few frames old is safe with this core, which a core's
+    /// serialization quirks and a picture kept on the GPU rule out.
+    [[nodiscard]] bool canRollBack() const noexcept;
 
   private:
     std::string systemDir_;
     std::string saveDir_;
     retro_pixel_format pixelFormat_{RETRO_PIXEL_FORMAT_0RGB1555};
+    std::uint64_t serializationQuirks_{0};
     CoreOptions options_;
     HardwareRender hardware_;
     std::optional<retro_system_timing> timing_;

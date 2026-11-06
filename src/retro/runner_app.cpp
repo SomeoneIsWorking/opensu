@@ -255,6 +255,9 @@ RunnerExit RunnerApp::run() {
     hardware.attach(*presenter);
     // After a GPU core's context is up, which its state may need.
     const ResumeReport resumed = resume.resume(*core);
+    if (netplay) {
+        netplay->attach(*core, environment);
+    }
     const std::unique_ptr<AudioOutput> audio = openAudio(sink, options_.hidden);
     const std::unique_ptr<gamepad::PadSource> pads = options_.hidden ? nullptr : openPads();
     const std::unique_ptr<ControlServer> control = openControl(options_, *core, netplay.get());
@@ -377,7 +380,7 @@ RunnerExit RunnerApp::run() {
             continue;
         }
         if (netplay) {
-            const bool ready = netplay->ready(netplayWait);
+            const bool ready = netplay->ready(*core, netplayWait);
             if (netplay->ended() != netplay::SessionEnd::None) {
                 break;
             }
@@ -452,8 +455,11 @@ RunnerExit RunnerApp::run() {
     };
     if (netplay) {
         netplay->leave();
-        lucent::info("retro", "netplay: {} after {} frames, {} stalls, {} state checks matched",
-                     endOf(netplay->ended()), frame, netplay->stalls(), netplay->matched());
+        lucent::info("retro",
+                     "netplay: {} after {} frames, {} stalls, {} frames run again, {} state "
+                     "checks matched",
+                     endOf(netplay->ended()), frame, netplay->stalls(), netplay->replayed(),
+                     netplay->matched());
     }
     lucent::info("retro", "ran {} frames; sound: {} ms played as silence, {} ms dropped", frame,
                  millisecondsOf(sink.underrunFrames()), millisecondsOf(sink.overrunFrames()));

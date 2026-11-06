@@ -3,9 +3,12 @@
 // machines differ, when one leaves and when one goes quiet.
 #include "netplay/session.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <deque>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -143,12 +146,12 @@ void differingGamesEndIt() {
     Session b{link.two, {.players = 2, .slot = 1, .delay = 2}};
     runBoth(a, b, Session::checkInterval);
     expect(a.checkDue() && b.checkDue(), "the frame to compare comes round");
-    a.check(0xABCD);
-    b.check(0xABCD);
+    a.check(a.frame(), 0xABCD);
+    b.check(b.frame(), 0xABCD);
     expect(a.ready(0ms) || a.ended() == SessionEnd::None, "the same checksum plays on");
     runBoth(a, b, Session::checkInterval);
-    a.check(1);
-    b.check(2);
+    a.check(a.frame(), 1);
+    b.check(b.frame(), 2);
     static_cast<void>(a.ready(0ms));
     static_cast<void>(b.ready(0ms));
     expect(a.ended() == SessionEnd::Desync && b.ended() == SessionEnd::Desync,
@@ -174,7 +177,108 @@ void quietEndsIt() {
 
 } // namespace
 
+/// One machine's frames with a pretend game: its state is the sum of what each frame ran on.
+struct Machine {
+    Session session;
+    std::map<std::uint64_t, std::uint32_t> before;
+    std::uint32_t state{0};
+    std::uint64_t replayed{0};
+
+    Machine(Link& link, unsigned slot, unsigned ahead)
+        : session{link, SessionConfig{.players = 2,
+                                      .slot = slot,
+                                      .delay = 2,
+                                      .ahead = ahead,
+                                      .quiet = 5s,
+                                      .joining = 5s}} {
+    }
+
+    void runFrame() {
+        before[session.frame()] = state;
+        state = state * 31 + session.input(0).buttons * 7U + session.input(1).buttons;
+        session.advance();
+    }
+
+    /// Goes back to the first frame run on a wrong guess and runs up to where it was.
+    void rollBack() {
+        const std::optional<std::uint64_t> wrong = session.takeWrong();
+        if (!wrong) {
+            return;
+        }
+        const std::uint64_t target = session.frame();
+        state = before.at(*wrong);
+        session.rewind(*wrong);
+        while (session.frame() < target) {
+            runFrame();
+            ++replayed;
+        }
+    }
+
+    void tick(std::uint16_t buttons) {
+        session.submit({.buttons = buttons, .sticks = {}});
+        const bool ready = session.ready(0ms);
+        rollBack();
+        if (ready) {
+            runFrame();
+        }
+    }
+};
+
+void aLateInputIsPutRightByRollback() {
+    Pair pair;
+    Machine a{pair.one, 0, 6};
+    Machine b{pair.two, 1, 6};
+    // `a` runs ahead on nothing heard, then hears `b` pressing all along.
+    for (int frame = 0; frame < 5; ++frame) {
+        a.tick(0);
+    }
+    expect(a.session.frame() == 5, "a machine runs ahead of the input it has");
+    for (int frame = 0; frame < 5; ++frame) {
+        b.tick(4);
+    }
+    for (int frame = 0; frame < 40; ++frame) {
+        a.tick(0);
+        b.tick(4);
+    }
+    expect(a.replayed > 0, "the wrong guess was run again");
+    for (int settled = 0; settled < 20; ++settled) {
+        a.session.submit({});
+        b.session.submit({});
+        static_cast<void>(a.session.ready(0ms));
+        static_cast<void>(b.session.ready(0ms));
+        a.rollBack();
+        b.rollBack();
+    }
+    const std::uint64_t common = std::min({a.session.confirmed(), b.session.confirmed(),
+                                           a.session.frame(), b.session.frame()}) -
+                                 1;
+    expect(a.before.at(common) == b.before.at(common), "both reach one state on real input");
+}
+
+void aMachineStopsAtItsReach() {
+    Pair pair;
+    Machine a{pair.one, 0, 3};
+    for (int frame = 0; frame < 20; ++frame) {
+        a.tick(0);
+    }
+    expect(a.session.frame() == 5, "delay and reach bound how far a silent peer lets it run");
+}
+
+void lockstepNeverGuesses() {
+    Pair pair;
+    Machine a{pair.one, 0, 3};
+    a.session.lockstep();
+    for (int frame = 0; frame < 20; ++frame) {
+        a.tick(0);
+    }
+    expect(a.session.frame() == 5, "delay takes up what reach would have covered");
+    expect(!a.session.takeWrong(), "and nothing is guessed");
+}
+
 int main() try {
+    aLateInputIsPutRightByRollback();
+    aMachineStopsAtItsReach();
+    lockstepNeverGuesses();
     sameInputOnSameFrame();
     lossCostsNothing();
     waitsForTheOther();

@@ -1,6 +1,7 @@
 #include "session.hpp"
 
 #include <algorithm>
+#include <utility>
 
 #include "fileio/little_endian.hpp"
 #include "lucent/log.h"
@@ -98,8 +99,12 @@ void Session::takeInput(std::string_view body) {
     for (std::size_t index = 0; index < count; ++index) {
         const std::uint64_t at = first + index;
         if (at == player.known) {
-            player.frames[at % ring] = inputAt(body, inputHeader + index * inputBytes);
+            const PlayerInput real = inputAt(body, inputHeader + index * inputBytes);
+            player.frames[at % ring] = real;
             ++player.known;
+            if (at < frame_ && player.used[at % ring] != real) {
+                wrong_ = std::min(wrong_.value_or(at), at);
+            }
         }
     }
 }
@@ -149,10 +154,38 @@ void Session::take(std::string_view message) {
     }
 }
 
-bool Session::allKnown() const {
+bool Session::canRun() const {
     return std::ranges::all_of(players_, [this](const Player& player) {
-        return player.known > frame_;
+        return player.known + config_.ahead > frame_;
     });
+}
+
+std::uint64_t Session::confirmed() const {
+    return std::ranges::min(players_, {}, &Player::known).known;
+}
+
+std::optional<std::uint64_t> Session::takeWrong() {
+    return std::exchange(wrong_, std::nullopt);
+}
+
+void Session::rewind(std::uint64_t frame) noexcept {
+    frame_ = frame;
+}
+
+void Session::lockstep() noexcept {
+    config_.delay += std::exchange(config_.ahead, 0U);
+    for (Player& player : players_) {
+        player.known = config_.delay;
+    }
+}
+
+void Session::restartJoining() noexcept {
+    started_ = Clock::now();
+    heard_.reset();
+}
+
+void Session::end(SessionEnd why) noexcept {
+    ended_ = why;
 }
 
 bool Session::ready(std::chrono::milliseconds wait) {
@@ -162,7 +195,7 @@ bool Session::ready(std::chrono::milliseconds wait) {
     if (ended_ != SessionEnd::None) {
         return false;
     }
-    if (allKnown()) {
+    if (canRun()) {
         stalled_ = false;
         return true;
     }
@@ -182,14 +215,19 @@ bool Session::ready(std::chrono::milliseconds wait) {
     if (over && ended_ == SessionEnd::None) {
         ended_ = SessionEnd::Quiet;
     }
-    return ended_ == SessionEnd::None && allKnown();
+    return ended_ == SessionEnd::None && canRun();
 }
 
 const PlayerInput& Session::input(unsigned slot) const {
-    return players_[slot].frames[frame_ % ring];
+    const Player& player = players_[slot];
+    const std::uint64_t latest = std::min(frame_, player.known - 1);
+    return player.frames[latest % ring];
 }
 
 void Session::advance() {
+    for (unsigned slot = 0; slot < players_.size(); ++slot) {
+        players_[slot].used[frame_ % ring] = input(slot);
+    }
     ++frame_;
 }
 
@@ -197,15 +235,15 @@ bool Session::checkDue() const noexcept {
     return frame_ % checkInterval == 0 && frame_ != 0;
 }
 
-void Session::check(std::uint32_t checksum) {
-    ownChecks_.insert_or_assign(frame_, checksum);
+void Session::check(std::uint64_t frame, std::uint32_t checksum) {
+    ownChecks_.insert_or_assign(frame, checksum);
     trim(ownChecks_);
     std::string message;
     message.push_back(static_cast<char>(Message::Check));
-    fileio::appendLittleEndian(message, frame_, 8);
+    fileio::appendLittleEndian(message, frame, 8);
     fileio::appendLittleEndian(message, checksum, 4);
     transport_.send(message);
-    compare(frame_);
+    compare(frame);
 }
 
 void Session::leave() {

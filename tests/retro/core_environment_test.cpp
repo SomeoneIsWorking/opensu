@@ -189,9 +189,35 @@ void avChanges() {
     expect(withTiming && withTiming->base_width == 256, "with its geometry");
 }
 
+void savestates() {
+    CoreEnvironment environment{"", ""};
+    int context = -1;
+    expect(environment.answer(RETRO_ENVIRONMENT_GET_SAVESTATE_CONTEXT, &context) &&
+               context == RETRO_SAVESTATE_CONTEXT_NORMAL,
+           "a state is an ordinary one outside a session");
+    environment.joinNetplay(1, {});
+    expect(environment.answer(RETRO_ENVIRONMENT_GET_SAVESTATE_CONTEXT, &context) &&
+               context == RETRO_SAVESTATE_CONTEXT_ROLLBACK_NETPLAY,
+           "a session's state says it may cross machines");
+    expect(environment.canRollBack(), "a core with no quirks can roll back");
+    std::uint64_t quirks = RETRO_SERIALIZATION_QUIRK_FRONT_VARIABLE_SIZE;
+    expect(environment.answer(RETRO_ENVIRONMENT_SET_SERIALIZATION_QUIRKS, &quirks) && quirks == 0,
+           "a size of the frontend's own choosing is not offered");
+    expect(environment.canRollBack(), "and rules nothing out");
+    for (const std::uint64_t quirk :
+         {RETRO_SERIALIZATION_QUIRK_INCOMPLETE, RETRO_SERIALIZATION_QUIRK_MUST_INITIALIZE,
+          RETRO_SERIALIZATION_QUIRK_CORE_VARIABLE_SIZE, RETRO_SERIALIZATION_QUIRK_SINGLE_SESSION}) {
+        quirks = quirk;
+        expect(environment.answer(RETRO_ENVIRONMENT_SET_SERIALIZATION_QUIRKS, &quirks) &&
+                   !environment.canRollBack(),
+               "a quirk keeps the core on lockstep");
+    }
+}
+
 } // namespace
 
 int main() try {
+    savestates();
     directories();
     pixelFormats();
     flags();

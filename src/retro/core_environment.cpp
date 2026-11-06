@@ -84,6 +84,19 @@ bool CoreEnvironment::answer(unsigned command, void* data) {
         }
         *static_cast<unsigned*>(data) = *netplaySlot_;
         return true;
+    case RETRO_ENVIRONMENT_GET_SAVESTATE_CONTEXT:
+        // A session's states may cross to another machine and binary.
+        *static_cast<int*>(data) = netplaySlot_ ? RETRO_SAVESTATE_CONTEXT_ROLLBACK_NETPLAY
+                                                : RETRO_SAVESTATE_CONTEXT_NORMAL;
+        return true;
+    case RETRO_ENVIRONMENT_SET_SERIALIZATION_QUIRKS:
+    case RETRO_ENVIRONMENT_SET_SERIALIZATION_QUIRKS_2: {
+        auto* quirks = static_cast<std::uint64_t*>(data);
+        // This frontend cannot give a state a size of its own choosing.
+        *quirks &= ~static_cast<std::uint64_t>(RETRO_SERIALIZATION_QUIRK_FRONT_VARIABLE_SIZE);
+        serializationQuirks_ = *quirks;
+        return true;
+    }
     case getNetplayClock:
         if (!netplayClock_) {
             return false;
@@ -143,6 +156,14 @@ bool CoreEnvironment::answer(unsigned command, void* data) {
         lucent::debug("retro", "refused environment command {}", command);
         return false;
     }
+}
+
+bool CoreEnvironment::canRollBack() const noexcept {
+    constexpr std::uint64_t ruledOut =
+        RETRO_SERIALIZATION_QUIRK_INCOMPLETE | RETRO_SERIALIZATION_QUIRK_MUST_INITIALIZE |
+        RETRO_SERIALIZATION_QUIRK_CORE_VARIABLE_SIZE | RETRO_SERIALIZATION_QUIRK_SINGLE_SESSION |
+        RETRO_SERIALIZATION_QUIRK_ENDIAN_DEPENDENT | RETRO_SERIALIZATION_QUIRK_PLATFORM_DEPENDENT;
+    return (serializationQuirks_ & ruledOut) == 0 && !hardware_.requested();
 }
 
 std::optional<retro_system_timing> CoreEnvironment::takeTiming() {

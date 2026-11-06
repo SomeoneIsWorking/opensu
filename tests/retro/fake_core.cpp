@@ -1,6 +1,7 @@
 // A libretro core for the runner's tests: four colour bars in RGB565 (yellow when its option is not
-// the default), a 440 Hz tone at 32 kHz, the joypad read each frame, and save RAM holding the frame
-// count, the last joypad bits and the ROM's first byte. Its state is the save RAM and the frame
+// the default), a 440 Hz tone at 32 kHz, the joypad read each frame with each of the first two
+// ports' held buttons blanking a band of the picture, and save RAM holding the frame count, the
+// last joypad bits of both ports and the ROM's first byte. Its state is the save RAM and the frame
 // counter; reset zeroes the frame count. Built with FAKE_CORE_CRASH it crashes in retro_run, with
 // FAKE_CORE_NO_STATE it cannot serialize.
 #include <array>
@@ -23,6 +24,7 @@ constexpr std::uint16_t green = 0x07E0;
 constexpr std::uint16_t blue = 0x001F;
 constexpr std::uint16_t white = 0xFFFF;
 constexpr std::uint16_t yellow = 0xFFE0;
+constexpr unsigned bandRows = 8;
 
 struct FakeCore {
     retro_environment_t environment{nullptr};
@@ -34,6 +36,7 @@ struct FakeCore {
     std::array<std::uint8_t, 256> saveRam{};
     std::array<std::int16_t, 1068> samples{};
     double phase{0.0};
+    bool bars{true};
     std::uint64_t frames{0};
 };
 
@@ -55,12 +58,29 @@ retro_core_option_v2_definition definitions[] = {
 
 retro_core_options_v2 options{nullptr, definitions};
 
+void drawRow(unsigned y, bool bars) {
+    for (unsigned x = 0; x < width; ++x) {
+        const std::uint16_t colours[] = {red, green, blue, white};
+        core.pixels[static_cast<std::size_t>(y) * width + x] =
+            bars ? colours[x / (width / 4)] : yellow;
+    }
+}
+
 void draw(bool bars) {
+    core.bars = bars;
     for (unsigned y = 0; y < height; ++y) {
-        for (unsigned x = 0; x < width; ++x) {
-            const std::uint16_t colours[] = {red, green, blue, white};
-            core.pixels[static_cast<std::size_t>(y) * width + x] =
-                bars ? colours[x / (width / 4)] : yellow;
+        drawRow(y, bars);
+    }
+}
+
+/// The band of `port`, blank while it holds a button.
+void drawBand(unsigned port, bool held) {
+    const unsigned top = height - (port + 1) * bandRows;
+    for (unsigned y = top; y < top + bandRows; ++y) {
+        drawRow(y, core.bars);
+        if (held) {
+            std::memset(&core.pixels[static_cast<std::size_t>(y) * width], 0,
+                        width * sizeof(std::uint16_t));
         }
     }
 }
@@ -152,6 +172,12 @@ RETRO_API void retro_run() {
         core.input(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_MASK));
     core.saveRam[4] = static_cast<std::uint8_t>(buttons);
     core.saveRam[5] = static_cast<std::uint8_t>(buttons >> 8U);
+    const auto second = static_cast<std::uint16_t>(
+        core.input(1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_MASK));
+    core.saveRam[8] = static_cast<std::uint8_t>(second);
+    core.saveRam[9] = static_cast<std::uint8_t>(second >> 8U);
+    drawBand(0, buttons != 0);
+    drawBand(1, second != 0);
 
     std::uint32_t count = 0;
     std::memcpy(&count, core.saveRam.data(), sizeof(count));

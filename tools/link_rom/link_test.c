@@ -1,6 +1,7 @@
 // A GBA link-cable test in multiplayer mode: each player sends its colour (blue added while A is
 // held), the parent starts a transfer every frame, and every screen draws what each of the four
-// players sent, so a working link shows the same bands on every GBA. Built with `CLOCK_CARTRIDGE`,
+// players sent, so a working link shows the same bands on every GBA. The top right corner lights
+// while this GBA's A is held, which shows on a core with no link. Built with `CLOCK_CARTRIDGE`,
 // it reads the cartridge's real-time clock every frame and draws it under the bands, with how many
 // times this save has booted, kept in the cartridge's flash.
 #include <stdint.h>
@@ -31,6 +32,7 @@ enum {
     bandRows = 32,
     barTop = idRows + 4 * bandRows,
     barRows = 160 - barTop,
+    cornerColumns = 20,
 };
 
 // SIOCNT: multiplayer mode at 115200 bps; SI low on the parent; SD all ready; ID; start/busy.
@@ -197,6 +199,12 @@ int main(void) {
                 fillRow(row, (id + 1) * 60, white, 0);
             }
             shownId = id;
+        }
+        for (uint32_t row = 0; row < idRows; ++row) {
+            volatile uint16_t* line = (volatile uint16_t*)(vram + row * width * 2);
+            for (uint32_t x = width - cornerColumns; x < width; ++x) {
+                line[x] = (keys & keyA) ? white : 0;
+            }
         }
         for (uint32_t player = 0; player < 4; ++player) {
             const uint16_t sent = REG16(siomulti + player * 2);
