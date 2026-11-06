@@ -37,7 +37,7 @@ enum class HomeMode : std::uint8_t {
 
 /// The level `text` spells for OPENSU_BATTERY, `65` or `65,charging`, or nothing for another
 /// spelling.
-[[nodiscard]] std::optional<device::BatteryStatus> batteryStandInOf(std::string_view text) noexcept;
+[[nodiscard]] std::optional<device::BatteryStatus> batteryStandInOf(std::string_view text);
 
 /// Emulator commands per system, as "SYSTEM=program|arg|arg".
 using EmulatorCommands = std::map<std::string, std::vector<std::string>, std::less<>>;

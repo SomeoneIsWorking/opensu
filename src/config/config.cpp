@@ -173,7 +173,7 @@ std::optional<HomeMode> homeModeOf(std::string_view text) noexcept {
     return std::nullopt;
 }
 
-std::optional<device::BatteryStatus> batteryStandInOf(std::string_view text) noexcept {
+std::optional<device::BatteryStatus> batteryStandInOf(std::string_view text) {
     constexpr std::string_view charging = ",charging";
     const bool isCharging = text.ends_with(charging);
     const std::string_view level =
