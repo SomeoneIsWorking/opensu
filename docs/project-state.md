@@ -1903,6 +1903,21 @@ attract. armwar stayed on FB Alpha 2012 with FinalBurn Neo and MAME 2010 install
 left out of the scan. Unverified:
 a picked Android folder, a set leaning on a parent or BIOS zip on the tablet, a vertical game.
 
+Verified (BIOS zip, Emulator row, Guide hold, 2026-11-06, `scratch/legacy-arcade/t/`, same setup): the
+Arcade shelf listed armwar, avspu, mslug3, mslug5 and sfiii3n, no `neogeo`, and mslug3 still loaded
+through `neogeo.zip`. The Emulator row on mslug3's This game tab is the ninth, eight presses from the
+top (`g1`); one Right set FinalBurn Neo (`g2`), Play then toasted "FinalBurn Neo (built-in) is not
+installed" and the details page's Download row installed it and refreshed in place (`h3`). A details
+page held open through the listings went from "Checking romset…" to its verdict (`e0`, `e1`). The Guide
+holds the game: `/status` went 1307, then 1312 four times over four seconds, and 1405, 1469, 1532 after
+B (`[guide] the game is held`, `[retro] the game holds under the Guide`, `[retro] the game goes on`);
+the runner's `/frame.png` kept the picture (`i2`) and `/status` answered throughout. A on Resume let it
+go; a page opened from the Guide kept it held; Save state wrote `mslug3.state` with the frame still at
+2504; Save and close wrote `mslug3.resume` and the run ended at `ran 2504 frames`, `sound: 42 ms played
+as silence` over about 30 s held. The next launch logged `resumed from` and counted frames, and Close
+game from the Guide ended it. Unverified: the hold, the crash toast and the BIOS rule on Android; the
+hold refused in a netplay session in the running product (`holdStopsTheFrames` and the 409 route only).
+
 The listings download off the library scan (`library/romset_lists`): arcade games are listed at
 once, a game with no match yet while a listing downloads shows "Checking romset…" and its Play says
 the lists are downloading, each listing is a Downloads page row ("Romset list · <core>", bytes and
