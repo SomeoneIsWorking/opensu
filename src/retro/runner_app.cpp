@@ -27,11 +27,11 @@
 #include "lucent/log.h"
 #include "presenter.hpp"
 #include "resume_state.hpp"
+#include "runner_touch.hpp"
 #include "save_memory.hpp"
 #include "save_paths.hpp"
 #include "save_state.hpp"
 #include "shell_handoff.hpp"
-#include "touch/touch_layer.hpp"
 #include "video_frame.hpp"
 
 namespace opensu::retro {
@@ -134,15 +134,6 @@ std::unique_ptr<ControlServer> openControl(const RunnerOptions& options, const C
         return nullptr;
     }
     return control;
-}
-
-/// `buttons` by their prompts, "nothing" for none.
-std::string buttonList(const std::vector<gamepad::Button>& buttons) {
-    std::string list;
-    for (const gamepad::Button button : buttons) {
-        list += (list.empty() ? "" : " ") + std::string{gamepad::prompt(button)};
-    }
-    return list.empty() ? "nothing" : list;
 }
 
 /// Asks for the shell's menu, which comes over the game.
@@ -272,11 +263,8 @@ RunnerExit RunnerApp::run() {
                               .options = environment.options(),
                               .netplay = netplay != nullptr}};
 
-    std::unique_ptr<touch::TouchLayer> touch =
-        handoff ? std::make_unique<touch::TouchLayer>(options_.touchArt) : nullptr;
-    touch::WindowSurface laidOut{};
-    /// Fingers lifted in the frame they went down, let go the next.
-    std::vector<touch::Finger> liftNext;
+    std::unique_ptr<RunnerTouch> touch =
+        handoff ? std::make_unique<RunnerTouch>(options_.touchArt, joypad) : nullptr;
     bool padConnected = pads && !pads->connected().empty();
     /// Another Activity has the screen's input, usually the shell over the game.
     bool covered = false;
@@ -331,44 +319,8 @@ RunnerExit RunnerApp::run() {
             }
         }
         const bool touchShown = touch && !padConnected && !covered;
-        if (touch) {
-            const touch::WindowSurface surface = presenter->surface();
-            if (surface.width != laidOut.width || surface.height != laidOut.height ||
-                surface.dp != laidOut.dp) {
-                touch->layout(surface);
-                laidOut = surface;
-                joypad.hold("touch", {});
-            }
-            const bool pausing = touch->pressed(gamepad::Button::Guide);
-            bool changed = false;
-            if (touchShown) {
-                std::vector<touch::Finger> fingers = std::exchange(liftNext, {});
-                fingers.insert(fingers.end(), input.fingers.begin(), input.fingers.end());
-                std::vector<std::uint64_t> wentDown;
-                for (const touch::Finger& finger : fingers) {
-                    // A tap shorter than a frame is held for one, so the game sees it.
-                    if (finger.phase == touch::Finger::Phase::Up &&
-                        std::ranges::find(wentDown, finger.id) != wentDown.end()) {
-                        liftNext.push_back(finger);
-                        continue;
-                    }
-                    if (finger.phase == touch::Finger::Phase::Down) {
-                        wentDown.push_back(finger.id);
-                    }
-                    changed = touch->finger(finger) || changed;
-                }
-            } else {
-                liftNext.clear();
-                changed = touch->releaseAll();
-            }
-            if (changed) {
-                const std::vector<gamepad::Button> held = touch->held();
-                joypad.hold("touch", held);
-                lucent::info("retro", "touch holds {}", buttonList(held));
-                if (!pausing && touch->pressed(gamepad::Button::Guide)) {
-                    openShellMenu("the pause button");
-                }
-            }
+        if (touch && touch->follow(presenter->surface(), touchShown, input.fingers)) {
+            openShellMenu("the pause button");
         }
 
         if (control) {
