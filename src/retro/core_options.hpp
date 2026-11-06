@@ -35,6 +35,10 @@ class CoreOptions {
     explicit CoreOptions(OptionValues chosen = {}) : chosen_{std::move(chosen)} {
     }
 
+    /// No options defined: what null definitions mean to libretro.
+    void clear() noexcept {
+        options_.clear();
+    }
     /// v0: "Description; first|second|...", whose first value is the default.
     void defineVariables(const retro_variable* variables);
     /// v1: definitions ending at a null key.

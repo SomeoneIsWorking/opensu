@@ -214,9 +214,66 @@ void savestates() {
     }
 }
 
+void withoutData() {
+    CoreEnvironment environment{"", ""};
+    for (const unsigned command :
+         {RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY,
+          RETRO_ENVIRONMENT_GET_LOG_INTERFACE, RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS,
+          RETRO_ENVIRONMENT_GET_CAN_DUPE, RETRO_ENVIRONMENT_GET_INPUT_BITMASKS,
+          RETRO_ENVIRONMENT_GET_SAVESTATE_CONTEXT, RETRO_ENVIRONMENT_SET_SERIALIZATION_QUIRKS,
+          RETRO_ENVIRONMENT_SET_SERIALIZATION_QUIRKS_2, RETRO_ENVIRONMENT_GET_CORE_OPTIONS_VERSION,
+          RETRO_ENVIRONMENT_GET_VARIABLE, RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE,
+          RETRO_ENVIRONMENT_SET_GEOMETRY, RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER,
+          RETRO_ENVIRONMENT_SET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE,
+          RETRO_ENVIRONMENT_GET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_SUPPORT}) {
+        expect(environment.answer(command, nullptr), "an answered command is available");
+    }
+    expect(!environment.takeGeometry(), "and nothing was taken");
+
+    for (const unsigned command :
+         {RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO,
+          RETRO_ENVIRONMENT_SET_HW_RENDER}) {
+        expect(!environment.answer(command, nullptr), "no data is not data taken");
+    }
+    expect(environment.pixelFormat() == RETRO_PIXEL_FORMAT_0RGB1555 && !environment.takeTiming() &&
+               !environment.hardware().requested(),
+           "and changes nothing");
+
+    expect(!environment.answer(RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE, nullptr),
+           "no render interface before the presenter is up");
+    expect(!environment.answer(RETRO_ENVIRONMENT_GET_NETPLAY_CLIENT_INDEX, nullptr) &&
+               !environment.answer(opensu::retro::getNetplayClock, nullptr),
+           "no netplay answers outside a session");
+    environment.joinNetplay(1, {});
+    expect(environment.answer(RETRO_ENVIRONMENT_GET_NETPLAY_CLIENT_INDEX, nullptr) &&
+               environment.answer(opensu::retro::getNetplayClock, nullptr),
+           "and both in one");
+    expect(!environment.answer(RETRO_ENVIRONMENT_GET_RUMBLE_INTERFACE, nullptr),
+           "a refused command stays refused");
+
+    retro_variable defined[] = {{"core_speed", "Speed; normal|fast"}, {nullptr, nullptr}};
+    for (const unsigned command :
+         {RETRO_ENVIRONMENT_SET_VARIABLES, RETRO_ENVIRONMENT_SET_CORE_OPTIONS,
+          RETRO_ENVIRONMENT_SET_CORE_OPTIONS_INTL, RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2,
+          RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2_INTL}) {
+        environment.answer(RETRO_ENVIRONMENT_SET_VARIABLES, defined);
+        expect(environment.answer(command, nullptr) && environment.options().size() == 0,
+               "no definitions removes the options");
+    }
+
+    environment.answer(RETRO_ENVIRONMENT_SET_VARIABLES, defined);
+    expect(environment.options().set("core_speed", "fast") &&
+               environment.answer(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, nullptr),
+           "asking about the update flag");
+    bool updated = false;
+    expect(environment.answer(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated) && updated,
+           "leaves it set");
+}
+
 } // namespace
 
 int main() try {
+    withoutData();
     savestates();
     directories();
     pixelFormats();

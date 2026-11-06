@@ -81,8 +81,7 @@ void CoreOptions::define(const std::string& key, Defined defined) {
 
 void CoreOptions::defineVariables(const retro_variable* variables) {
     options_.clear();
-    for (const retro_variable* variable = variables;
-         variable != nullptr && variable->key != nullptr; ++variable) {
+    for (const retro_variable* variable = variables; variable->key != nullptr; ++variable) {
         const std::string_view text = variable->value != nullptr ? variable->value : "";
         const std::size_t separator = text.find("; ");
         if (separator == std::string_view::npos) {

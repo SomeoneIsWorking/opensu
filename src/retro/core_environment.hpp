@@ -31,7 +31,8 @@ class CoreEnvironment {
     CoreEnvironment(const std::filesystem::path& systemDir, const std::filesystem::path& saveDir,
                     OptionValues options = {});
 
-    /// Answers one command as libretro's environment callback does: false when refused.
+    /// Answers one command as libretro's environment callback does: false when refused. Null
+    /// `data` asks whether the command is available and writes nothing.
     bool answer(unsigned command, void* data);
 
     [[nodiscard]] retro_pixel_format pixelFormat() const {
@@ -62,6 +63,8 @@ class CoreEnvironment {
     [[nodiscard]] bool canRollBack() const noexcept;
 
   private:
+    bool answerWithoutData(unsigned command);
+
     std::string systemDir_;
     std::string saveDir_;
     retro_pixel_format pixelFormat_{RETRO_PIXEL_FORMAT_0RGB1555};

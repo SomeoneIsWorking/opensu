@@ -44,6 +44,11 @@ void logLine(retro_log_level level, const char* format, ...) {
     }
 }
 
+bool refuse(unsigned command) {
+    lucent::debug("retro", "refused environment command {}", command);
+    return false;
+}
+
 } // namespace
 
 CoreEnvironment::CoreEnvironment(const std::filesystem::path& systemDir,
@@ -51,7 +56,55 @@ CoreEnvironment::CoreEnvironment(const std::filesystem::path& systemDir,
     : systemDir_{systemDir.string()}, saveDir_{saveDir.string()}, options_{std::move(options)} {
 }
 
+bool CoreEnvironment::answerWithoutData(unsigned command) {
+    lucent::debug("retro", "environment command {} without data", command);
+    switch (command) {
+    case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY:
+    case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY:
+    case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:
+    case RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS:
+    case RETRO_ENVIRONMENT_GET_CAN_DUPE:
+    case RETRO_ENVIRONMENT_GET_INPUT_BITMASKS:
+    case RETRO_ENVIRONMENT_GET_SAVESTATE_CONTEXT:
+    case RETRO_ENVIRONMENT_SET_SERIALIZATION_QUIRKS:
+    case RETRO_ENVIRONMENT_SET_SERIALIZATION_QUIRKS_2:
+    case RETRO_ENVIRONMENT_GET_CORE_OPTIONS_VERSION:
+    case RETRO_ENVIRONMENT_GET_VARIABLE:
+    case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE:
+    case RETRO_ENVIRONMENT_SET_GEOMETRY:
+    case RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER:
+    case RETRO_ENVIRONMENT_SET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE:
+    case RETRO_ENVIRONMENT_GET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_SUPPORT:
+        return true;
+    // For these true says the data was taken, and there is none.
+    case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT:
+    case RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO:
+    case RETRO_ENVIRONMENT_SET_HW_RENDER:
+        return false;
+    case RETRO_ENVIRONMENT_SET_VARIABLES:
+    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS:
+    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_INTL:
+    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2:
+    case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2_INTL:
+        options_.clear();
+        return true;
+    case RETRO_ENVIRONMENT_GET_NETPLAY_CLIENT_INDEX:
+        return netplaySlot_.has_value();
+    case getNetplayClock:
+        return netplayClock_.has_value();
+    case RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE: {
+        const retro_hw_render_interface* unused = nullptr;
+        return hardware_.renderInterface(&unused);
+    }
+    default:
+        return refuse(command);
+    }
+}
+
 bool CoreEnvironment::answer(unsigned command, void* data) {
+    if (data == nullptr) {
+        return answerWithoutData(command);
+    }
     switch (command) {
     case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY:
         *static_cast<const char**>(data) = systemDir_.c_str();
@@ -153,8 +206,7 @@ bool CoreEnvironment::answer(unsigned command, void* data) {
     case RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE:
         return hardware_.renderInterface(static_cast<const retro_hw_render_interface**>(data));
     default:
-        lucent::debug("retro", "refused environment command {}", command);
-        return false;
+        return refuse(command);
     }
 }
 
