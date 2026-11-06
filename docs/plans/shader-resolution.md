@@ -54,10 +54,11 @@ fork change is needed.
 - Linux: `opensu-retro --hidden` with crt-1tap-bloom under Auto logs no step; with the target made
   large (`OPENSU_WIDTH=16384 OPENSU_HEIGHT=4096`) Full falls to 31/s while Auto logs the steps
   down, holds the core's rate, and steps back up when `POST /video` lowers the work.
-- The tablet: crt-1tap-bloom under Full holds the old 33/s; under Auto it logs the steps down and
-  holds the core's rate; frames from both, read from the screen.
+- The tablet: crt-1tap-bloom under Full holds the old 33/s; under Auto it logs the steps down to
+  50% and holds 49/s, short of the core's rate
+  (`docs/issues/retro-frame-waits-for-the-gpu.md`).
 
 ## State
 
-Built and shown on Linux 2026-11-05 (`docs/design/libretro.md`, Shader resolution). Not yet shown on
-the tablet: it was in Smart Cover mode, which takes no input.
+Built and shown on Linux 2026-11-05 (`docs/design/libretro.md`, Shader resolution). Shown on the
+tablet 2026-11-06 with 0.6.0: Full 33/s with the shader at 24 ms, Auto 49/s with it at 13 ms.
