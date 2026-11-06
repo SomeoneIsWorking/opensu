@@ -334,7 +334,10 @@ ControlPlan arcadeLayout(const WindowSurface& surface, const Box& picture, const
     const float roundSide = pauseSize * dp;
     const float panelTop = middleY - (panelHeight * 0.5F);
     const float roundsY = upright ? std::min(coin.y, panelTop - gap - roundSide) : top + gap;
-    const float roundsLeft = placed((2.0F * roundSide) + gap, left, leftBar, false, gap);
+    const float roundsWidth = (2.0F * roundSide) + gap;
+    // Upright they stand in the middle of the panel, away from the thumb on the stick.
+    const float roundsLeft = upright ? left + ((coin.x - left - roundsWidth) * 0.5F)
+                                     : placed(roundsWidth, left, leftBar, false, gap);
     const Box pause{roundsLeft, roundsY, roundSide, roundSide};
     const Box turn{roundsLeft + roundSide + gap, roundsY, roundSide, roundSide};
 
