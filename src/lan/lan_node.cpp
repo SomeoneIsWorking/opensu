@@ -524,7 +524,7 @@ void LanNode::work(const std::stop_token& stop) {
         if (stop.stop_requested()) {
             return;
         }
-        if (remote_->replace(std::move(games))) {
+        if (remote_->update(std::move(games), book_.paired())) {
             changed_();
         }
         if (complete) {

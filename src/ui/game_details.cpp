@@ -28,7 +28,7 @@ std::string badgeOf(const library::Game& game) {
         }
     }
     if (game.source == library::Source::Remote) {
-        return "On " + game.hostName;
+        return "On " + game.hostName + (game.hostOnline ? "" : " · offline");
     }
     return std::string{library::label(game.source)};
 }

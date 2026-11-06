@@ -44,7 +44,8 @@ std::vector<Launcher> hostLaunchers(const std::vector<Game>& games, bool ready) 
                                  .ready = ready,
                                  .loading = false,
                                  .hostId = game.hostId,
-                                 .hostName = game.hostName});
+                                 .hostName = game.hostName,
+                                 .online = game.hostOnline});
     }
     std::ranges::sort(hosts, [](const Launcher& a, const Launcher& b) {
         return std::tie(a.hostName, a.hostId) < std::tie(b.hostName, b.hostId);

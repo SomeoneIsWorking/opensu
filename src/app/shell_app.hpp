@@ -374,7 +374,8 @@ class ShellApp final {
                 library::steam::Library::discover(resolved_.home, resolved_.steamRoots));
         }};
     /// The paired openSUs' games, which `lan_` fills and the catalog lists; before the catalog.
-    std::shared_ptr<lan::RemoteLibrary> remoteGames_{std::make_shared<lan::RemoteLibrary>()};
+    std::shared_ptr<lan::RemoteLibrary> remoteGames_{
+        std::make_shared<lan::RemoteLibrary>(environment_.cacheDir / "lan-library.json")};
     /// Lists every store off the loop; the loop takes what has arrived.
     library::CatalogLoader catalogLoader_;
     /// Downloaded artwork, and the worker that fills it in.

@@ -44,6 +44,8 @@ struct Launcher {
     /// For `Source::Remote`, the openSU whose games it holds: its peer id and name.
     std::string hostId{};
     std::string hostName{};
+    /// For `Source::Remote`, whether that openSU answers now.
+    bool online{true};
 
     bool operator==(const Launcher&) const = default;
 };

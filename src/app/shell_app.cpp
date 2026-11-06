@@ -759,6 +759,10 @@ bool ShellApp::launch(const library::Game& game, std::vector<std::string> enviro
         return false;
     }
     if (game.source == library::Source::Remote) {
+        if (!game.hostOnline) {
+            shell_.setToast(game.hostName + " is offline; start openSU there", true);
+            return false;
+        }
         remotePlay_.start(
             game,
             stream::wire::PadMapping{.map = padOwner_.forwarding(mappings_.forGame(game)),

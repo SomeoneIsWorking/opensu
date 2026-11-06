@@ -28,6 +28,8 @@ LanService::LanService(Places places, Preferences& preferences, gpu2d::ui::Navig
       remote_{std::move(remote)}, hooks_{std::move(hooks)} {
     if (active) {
         start();
+    } else {
+        remote_->replace({});
     }
 }
 

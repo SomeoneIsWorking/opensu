@@ -1221,6 +1221,27 @@ void systemDiscoveryPairs(const fs::path& root) {
            "the guest lists the host's game");
 }
 
+void anOfflineHostStaysListed(const fs::path& scratch) {
+    const fs::path file = scratch / "lan-library.json";
+    const lan::Peer host{"host", "Den"};
+    const lan::Peer other{"other", "Loft"};
+    lan::RemoteLibrary library{file};
+    const lan::wire::ListedGame listed{.id = "g", .title = "Game", .cover = {}, .playingAs = {}};
+    expect(library.update({lan::remoteGame(host, listed, {})}, {host, other}), "a host lists");
+    expect(library.update({}, {host, other}) && library.games().size() == 1 &&
+               !library.games().front().hostOnline,
+           "a host gone quiet stays, offline");
+    lan::RemoteLibrary restarted{file};
+    expect(restarted.games().size() == 1 && restarted.games().front().title == "Game" &&
+               !restarted.games().front().hostOnline,
+           "the listing survives a restart, offline until the host answers");
+    expect(restarted.update({lan::remoteGame(host, listed, {})}, {host}) &&
+               restarted.games().front().hostOnline,
+           "the host answers and is online");
+    expect(restarted.update({}, {other}) && restarted.games().empty(),
+           "a forgotten host's games leave");
+}
+
 } // namespace
 
 int main(int argc, char** argv) try {
@@ -1233,6 +1254,7 @@ int main(int argc, char** argv) try {
     bothSidesDeriveOneSecret();
     signedRequestsAreCheckedOnce(scratch.path());
     pairedNodesListEachOthersGames(scratch.path());
+    anOfflineHostStaysListed(scratch.path());
     bundlesStayInTheirSlots();
     sharedSavesFollowThePlayer(scratch.path());
     romsComeOverInChunks(scratch.path());
