@@ -7,7 +7,6 @@
 #include <array>
 #include <cmath>
 #include <cstring>
-#include <map>
 #include <memory>
 #include <span>
 #include <stdexcept>
@@ -26,6 +25,7 @@ extern "C" {
 
 #include "codec_backends.hpp"
 #include "lucent/log.h"
+#include "predicted_frames.hpp"
 
 namespace opensu::stream::backend {
 namespace {
@@ -294,42 +294,16 @@ class Decoder final : public VideoDecoder {
     }
 
     bool push(const wire::VideoPacket& packet) override {
-        if (packet.frame < frame_) {
-            return false;
-        }
-        if (packet.frame != frame_) {
-            // A frame lost on the way leaves the ones after it nothing to build on.
-            if (frame_ != 0 && (!whole_ || packet.frame != frame_ + 1)) {
-                awaitingKey_ = true;
-            }
-            frame_ = packet.frame;
-            expected_ = packet.parts;
-            key_ = packet.key;
-            whole_ = false;
-            parts_.clear();
-        }
-        parts_[packet.part] = packet.data;
-        if (whole_ || parts_.size() != expected_) {
-            return false;
-        }
-        whole_ = true;
-        if (awaitingKey_ && !key_) {
-            return false;
-        }
-        awaitingKey_ = false;
-        return true;
+        return frames_.push(packet);
     }
 
     bool decode(Picture& picture, PictureMemory memory) override {
-        coded_.clear();
-        for (const auto& [part, data] : parts_) {
-            coded_ += data;
-        }
+        const std::string coded = frames_.coded();
         Packet packet{av_packet_alloc()};
-        check(av_new_packet(packet.get(), static_cast<int>(coded_.size())), "take a packet");
-        std::memcpy(packet->data, coded_.data(), coded_.size());
+        check(av_new_packet(packet.get(), static_cast<int>(coded.size())), "take a packet");
+        std::memcpy(packet->data, coded.data(), coded.size());
         if (const int sent = avcodec_send_packet(context_.get(), packet.get()); sent < 0) {
-            awaitingKey_ = true;
+            frames_.lost();
             check(sent, "decode a picture");
         }
         Frame surface{av_frame_alloc()};
@@ -338,7 +312,7 @@ class Decoder final : public VideoDecoder {
             return false;
         }
         if (got < 0) {
-            awaitingKey_ = true;
+            frames_.lost();
             check(got, "decode a picture");
         }
         if (memory == PictureMemory::Dmabuf && exported(*surface, picture)) {
@@ -375,7 +349,7 @@ class Decoder final : public VideoDecoder {
     }
 
     [[nodiscard]] bool awaitingKey() const noexcept override {
-        return awaitingKey_;
+        return frames_.awaitingKey();
     }
 
   private:
@@ -422,15 +396,7 @@ class Decoder final : public VideoDecoder {
     CodecNames names_;
     Buffer device_;
     Context context_;
-    /// The frame whose packets are coming, by part.
-    std::uint32_t frame_{0};
-    std::size_t expected_{0};
-    bool key_{false};
-    bool whole_{false};
-    std::map<std::uint16_t, std::string> parts_;
-    /// A frame was lost or failed: nothing decodes until a key frame.
-    bool awaitingKey_{true};
-    std::string coded_;
+    PredictedFrames frames_;
 };
 
 } // namespace

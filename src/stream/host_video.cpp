@@ -136,7 +136,11 @@ std::optional<std::pair<std::uint32_t, Picture>> HostVideo::lastSent() const {
     }
     const std::span<const std::uint8_t> planes{last_};
     const std::size_t chromaAt = lastStride_ * static_cast<std::size_t>(lastHeight_);
-    Picture picture{.width = lastWidth_, .height = lastHeight_, .rgba = {}, .dmabuf = std::nullopt};
+    Picture picture{.width = lastWidth_,
+                    .height = lastHeight_,
+                    .rgba = {},
+                    .dmabuf = std::nullopt,
+                    .frame = std::nullopt};
     rgbaFromYcbcr(YcbcrPlanes{.luma = planes.subspan(0, chromaAt),
                               .blue = planes.subspan(chromaAt),
                               .red = planes.subspan(chromaAt + 1),

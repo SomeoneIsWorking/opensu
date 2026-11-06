@@ -13,6 +13,10 @@ bool pyroWaveBuilt() noexcept {
     return false;
 }
 
+bool pyroWaveDecodes() {
+    return false;
+}
+
 std::unique_ptr<VideoEncoder> openPyroWaveEncoder() {
     throw std::runtime_error{missing};
 }

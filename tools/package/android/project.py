@@ -26,13 +26,14 @@ def stage(layout: config.Layout, port: ModuleType) -> Path:
 
 
 def stage_libraries(layout: config.Layout, port: ModuleType, profile: object, abi: str) -> None:
-    """libmain.so, SDL3 and libc++ through android-port; then the runner and librashader beside
-    them, where `installLayout` looks."""
+    """libmain.so, SDL3 and libc++ through android-port; then the runner, librashader and PyroWave
+    beside them, where `installLayout` and the loader look."""
     port.stage_package_runtime(profile)
     built = layout.native_dir(abi)
     for library in (
         built / "src" / "libopensu-retro.so",
         built / "lib" / "opensu" / "librashader.so",
+        built / "lib" / "opensu" / "libpyrowave-shared.so",
     ):
         if not library.is_file():
             raise config.refuse(f"the {abi} build has no {library.name}")

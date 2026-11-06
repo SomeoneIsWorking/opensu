@@ -190,9 +190,6 @@ struct Rig {
                          },
                          [](const library::Game&, const std::string&) {
                          },
-                         [] {
-                             return false;
-                         },
                          [](const library::Game&) {
                          }}} {
     }

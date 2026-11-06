@@ -10,6 +10,7 @@ LIBRARIES = (
     "libmain.so",
     "libopensu-retro.so",
     "librashader.so",
+    "libpyrowave-shared.so",
     "libSDL3.so",
     "libc++_shared.so",
 )

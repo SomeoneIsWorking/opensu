@@ -28,10 +28,6 @@ sockaddr_in socketAddress(const UdpAddress& address) {
 
 } // namespace
 
-std::string udpMissing() {
-    return {};
-}
-
 class UdpSocket::Descriptor {
   public:
     Descriptor() noexcept : fd{opened()} {

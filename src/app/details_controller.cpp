@@ -99,7 +99,7 @@ ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) co
         view.linked = true;
         view.partners = hooks_.partners();
     }
-    view.online = library::netplayable(game) && hooks_.onlineAvailable();
+    view.online = library::netplayable(game);
     view.copySaves = hooks_.copySavesOffer(game);
     const SharedSaves::View shared = hooks_.sharedSaves(game);
     view.sharedSaves = shared.fact;

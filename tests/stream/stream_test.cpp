@@ -809,7 +809,7 @@ void theBucketHoldsBackWhatItsRateHasNoRoomFor() {
 }
 
 void thisSystemReachesWhatItBuilds() {
-    expect(stream::playingMissing().empty(), "every desktop plays a host's game");
+    expect(stream::playingMissing().empty(), "every platform plays a host's game");
 #ifdef __linux__
     expect(stream::hostingMissing().empty(), "Linux hosts");
 #else

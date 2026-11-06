@@ -51,10 +51,11 @@ using VideoCodecs = std::uint8_t;
 /// "pyrowave", "h264", "hevc" or "av1".
 [[nodiscard]] std::string_view nameOf(VideoCodec codec) noexcept;
 
-/// The codecs this machine codes: PyroWave where it is built, and each hardware codec its VA-API
-/// driver and libavcodec encode.
+/// The codecs this machine codes: PyroWave where it is built, and each hardware codec its driver
+/// encodes.
 [[nodiscard]] VideoCodecs encodableHere();
-/// The codecs this machine decodes, likewise.
+/// The codecs this machine decodes: PyroWave where its GPU can make a decoder, which this tries,
+/// and each hardware codec.
 [[nodiscard]] VideoCodecs decodableHere();
 
 /// One coded frame: its packets in order, each at most `videoPacketBytes`.
@@ -88,6 +89,8 @@ struct Picture {
     int height{0};
     std::vector<std::uint8_t> rgba;
     std::optional<gpu2d::DmabufYcbcr> dmabuf;
+    /// The frame this shows, from a decoder that gives pictures after later frames went in.
+    std::optional<std::uint32_t> frame;
 };
 
 /// Where a decoder leaves its picture: read back into `Picture::rgba`, or in DMA-BUFs where the
@@ -112,6 +115,14 @@ class VideoDecoder {
     /// Decodes the frame `push` said was whole into `picture`, left in `memory`; false when the
     /// codec gave no picture for it. Throws `std::runtime_error` when the codec fails.
     virtual bool decode(Picture& picture, PictureMemory memory) = 0;
+    /// Whether frames went in that have not come out; `collect` is then asked until they have.
+    [[nodiscard]] virtual bool behind() const noexcept {
+        return false;
+    }
+    /// A picture of a frame that went in earlier, without waiting; false when none is ready.
+    virtual bool collect(Picture& /*picture*/) {
+        return false;
+    }
     /// Whether every frame is coded on its own, so one may be skipped without harm.
     [[nodiscard]] virtual bool intraOnly() const noexcept = 0;
     /// Whether a loss left it waiting for a key frame, decoding nothing until one comes.

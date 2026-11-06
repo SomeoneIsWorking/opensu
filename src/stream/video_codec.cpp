@@ -24,7 +24,7 @@ VideoCodecs encodableHere() {
 }
 
 VideoCodecs decodableHere() {
-    const VideoCodecs pyroWave = backend::pyroWaveBuilt() ? codecBit(VideoCodec::PyroWave) : 0;
+    const VideoCodecs pyroWave = backend::pyroWaveDecodes() ? codecBit(VideoCodec::PyroWave) : 0;
     return static_cast<VideoCodecs>(pyroWave | backend::hardwareDecoders());
 }
 

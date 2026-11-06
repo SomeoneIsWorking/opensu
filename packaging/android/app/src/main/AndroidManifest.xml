@@ -3,6 +3,7 @@
     <!-- Artwork, catalogs and cores come over the network; the control channel is loopback; LAN
          peers reach the listener. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- mDNS answers are multicast, which the Wi-Fi driver drops without a multicast lock. -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />

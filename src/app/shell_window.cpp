@@ -18,6 +18,7 @@
 #include "display/output.hpp"
 #include "lucent/log.h"
 #include "sdl_keys.hpp"
+#include "touch/sdl_touch.hpp"
 
 namespace opensu::app {
 namespace {
@@ -102,6 +103,19 @@ void ShellWindow::raise() {
     SDL_RaiseWindow(window_.window());
 }
 
+bool ShellWindow::hasTouchscreen() const noexcept {
+    int count = 0;
+    const SDL_TouchID* devices = SDL_GetTouchDevices(&count);
+    SDL_free(const_cast<SDL_TouchID*>(devices));
+    return count > 0;
+}
+
+touch::WindowSurface ShellWindow::touchSurface() const {
+    const gpu2d::PixelSize window = size();
+    return touch::surfaceOf(window_.window(), static_cast<unsigned>(window.width),
+                            static_cast<unsigned>(window.height));
+}
+
 bool ShellWindow::hasScreenKeyboard() const noexcept {
     return SDL_HasScreenKeyboardSupport();
 }
@@ -125,6 +139,7 @@ void ShellWindow::lower() {
 bool ShellWindow::pollEvents() {
     keys_.nextFrame();
     pointer_ = PointerFrame{};
+    fingers_.clear();
     systemBack_ = false;
     screenKeyboardHidden_ = false;
     SDL_Event event;
@@ -176,6 +191,12 @@ void ShellWindow::handle(const SDL_Event& event) {
         break;
     case SDL_EVENT_SCREEN_KEYBOARD_HIDDEN:
         screenKeyboardHidden_ = screenKeyboard_;
+        break;
+    case SDL_EVENT_FINGER_DOWN:
+    case SDL_EVENT_FINGER_MOTION:
+    case SDL_EVENT_FINGER_UP:
+    case SDL_EVENT_FINGER_CANCELED:
+        fingers_.push_back(touch::fingerOf(window_.window(), event.tfinger));
         break;
     case SDL_EVENT_MOUSE_MOTION:
         pointer_.point = ui::Point{event.motion.x, event.motion.y};

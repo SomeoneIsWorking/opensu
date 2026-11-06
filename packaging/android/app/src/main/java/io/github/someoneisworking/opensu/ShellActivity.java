@@ -16,6 +16,7 @@ public final class ShellActivity extends LandscapeActivity {
     private DocumentTree documents;
     /** The LAN announcement and browsing while LAN is on, else null. */
     private LanDiscovery lan;
+    private WifiHold wifiHold;
     private static final int PICK_FOLDER = 0x5af;
     /** The folder picker's answer until native code takes it: a tree URI, "" when cancelled. */
     private String pickedFolder;
@@ -161,6 +162,14 @@ public final class ShellActivity extends LandscapeActivity {
             lan = null;
         }
         return refusal;
+    }
+
+    /** Called from native code while a remote game streams here. */
+    public synchronized void holdWifi(boolean held) {
+        if (wifiHold == null) {
+            wifiHold = new WifiHold(this);
+        }
+        wifiHold.set(held);
     }
 
     public synchronized void lanStop() {

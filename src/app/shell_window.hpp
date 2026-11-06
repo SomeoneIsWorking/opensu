@@ -24,6 +24,7 @@
 #include "display/output.hpp"
 #include "input/key_names.hpp"
 #include "input/keyboard_bindings.hpp"
+#include "touch/touch_surface.hpp"
 #include "ui/paint.hpp"
 
 namespace opensu::app {
@@ -108,6 +109,14 @@ class ShellWindow {
     [[nodiscard]] bool systemBack() const noexcept {
         return systemBack_;
     }
+    /// What the fingers did this frame, oldest first.
+    [[nodiscard]] const std::vector<touch::Finger>& fingers() const noexcept {
+        return fingers_;
+    }
+    /// Whether this machine has a touchscreen.
+    [[nodiscard]] bool hasTouchscreen() const noexcept;
+    /// The window as an on-screen pad covers it.
+    [[nodiscard]] touch::WindowSurface touchSurface() const;
     /// Whether the system has an on-screen keyboard (Android's) a text field can ask for.
     [[nodiscard]] bool hasScreenKeyboard() const noexcept;
     /// Shows or hides the system's on-screen keyboard; it types through the same text events.
@@ -172,6 +181,7 @@ class ShellWindow {
     gpu2d::Canvas canvas_;
     input::KeyFrame keys_;
     std::vector<std::uint8_t> keysHeld_;
+    std::vector<touch::Finger> fingers_;
     PointerFrame pointer_;
     /// The mouse's buttons held, as `PointerFrame::held`; kept across frames.
     std::uint8_t pointerHeld_{0};

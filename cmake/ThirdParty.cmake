@@ -11,6 +11,8 @@ set(OPENSU_GAMESCOPE_REPOSITORY "https://github.com/SomeoneIsWorking/gamescope.g
 set(OPENSU_GAMESCOPE_COMMIT "93e22887f846ba1445d7d99794f573c90ec04a08")
 set(OPENSU_MGBA_LINK_REPOSITORY "https://github.com/SomeoneIsWorking/mgba.git")
 set(OPENSU_MGBA_LINK_COMMIT "9011d575f9dad11b948924bdf3e9b27e68257270")
+set(OPENSU_OPUS_REPOSITORY "https://github.com/xiph/opus.git")
+set(OPENSU_OPUS_COMMIT "ddbe48383984d56acd9e1ab6a090c54ca6b735a6")
 set(OPENSU_SDL_REPOSITORY "https://github.com/SomeoneIsWorking/SDL.git")
 set(OPENSU_SDL_COMMIT "3daf0f7f1518493e98aef87f90991214804499c9")
 set(OPENSU_SDL_TTF_REPOSITORY "https://github.com/libsdl-org/SDL_ttf.git")

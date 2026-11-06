@@ -26,9 +26,6 @@ struct UdpAddress {
 /// `dotted` ("192.168.1.20") and `port`; nothing when `dotted` is not an IPv4 address.
 [[nodiscard]] std::optional<UdpAddress> udpAddress(const std::string& dotted, std::uint16_t port);
 
-/// Why this system has no socket for a session; empty where it has.
-[[nodiscard]] std::string udpMissing();
-
 /// The largest datagram a session takes.
 inline constexpr std::size_t largestDatagram = 65536;
 

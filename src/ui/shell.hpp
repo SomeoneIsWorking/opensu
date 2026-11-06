@@ -197,6 +197,12 @@ class Shell {
         picture_ = picture;
     }
 
+    /// An on-screen pad the size of the target, over the picture; nothing for none. Its owner keeps
+    /// it alive until the frame is submitted.
+    void setPictureControls(std::optional<gpu2d::TextureView> controls) noexcept {
+        pictureControls_ = controls;
+    }
+
     [[nodiscard]] const std::string& status() const noexcept {
         return hud_.status();
     }
@@ -290,6 +296,7 @@ class Shell {
     bool inGame_{false};
     bool standsIn_{false};
     std::optional<gpu2d::TextureView> picture_;
+    std::optional<gpu2d::TextureView> pictureControls_;
 };
 
 } // namespace opensu::ui

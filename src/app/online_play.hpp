@@ -50,9 +50,6 @@ class OnlinePlay {
     OnlinePlay(gpu2d::ui::Navigator& navigator, audio::SdlSoundPlayer& sounds, NetplayRun& run,
                KeyboardPad& keyboard, Preferences& preferences, Hooks hooks);
 
-    /// Whether this system has what a session needs.
-    [[nodiscard]] static bool available();
-
     /// The Settings category's id, which its rows' ids start with.
     static constexpr std::string_view categoryId = "online";
     [[nodiscard]] ui::SettingsCategory page() const;

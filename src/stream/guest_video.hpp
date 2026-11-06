@@ -89,14 +89,23 @@ class GuestVideo {
         std::int64_t hostAheadUs{0};
     };
     void decodeLoop(const std::stop_token& stop);
-    /// One packet into the decoder, and the frame out once it is whole. Decoding thread.
+    /// One packet into the decoder, and a frame out if one is ready. Decoding thread.
     void decode(const Queued& queued);
+    /// `picture`, of the frame numbered in it or else `number`, as the newest decoded.
+    void finish(VideoCodec codec, Picture picture, std::uint32_t number);
+    /// Whether a decoder holds frames that have not come out, and any it has ready.
+    [[nodiscard]] bool behind() const;
+    void collect();
 
     /// Each codec's decoder once its first packet came, and the codec of the frame shown last;
     /// on the decoding thread.
     std::map<VideoCodec, std::unique_ptr<VideoDecoder>> decoders_;
+    /// Codecs whose decoder failed to open; their packets are dropped, not tried again.
+    VideoCodecs undecodable_{0};
     /// The frame whose packets are going into the decoder, on the decoding thread.
     std::optional<Times> building_;
+    /// Whole frames given to a decoder whose pictures have not come out, oldest first.
+    std::deque<Times> inFlight_;
     /// The decoder last given a packet waits for a key frame.
     std::atomic<bool> keyWanted_{false};
     std::atomic<PictureMemory> memory_;

@@ -95,6 +95,7 @@
 #include "remote_input.hpp"
 #include "remote_picture.hpp"
 #include "remote_play.hpp"
+#include "remote_touch.hpp"
 #include "retro/resume_file.hpp"
 #include "retro_session.hpp"
 #include "save_copy_controller.hpp"
@@ -396,6 +397,7 @@ class ShellApp final {
     std::unique_ptr<RemotePicture> remotePicture_;
     /// The player's controls while a remote game has them.
     RemoteInput remoteInput_;
+    std::unique_ptr<RemoteTouch> remoteTouch_;
     TopBarClock clock_{shell_, environment_.clock24Hour};
     FrameTiming frameTiming_;
     /// The on-screen keyboard the pad types into text fields with.
@@ -717,9 +719,6 @@ class ShellApp final {
             },
             [this](const library::Game& game, const std::string& peerId) {
                 lanNetplay_.play(game, peerId);
-            },
-            [this] {
-                return OnlinePlay::available();
             },
             [this](const library::Game& game) {
                 onlinePlay_.host(game);

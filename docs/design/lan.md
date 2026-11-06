@@ -338,6 +338,24 @@ that profile's; the host's own active profile does not change.
   reaches the top with under 2 % of its datagrams lost. A codec that will not open on the host is
   refused and the next planned. Every switch codes a key frame. With neither end's hardware codec
   in common PyroWave codes whatever the link carries, and says so.
+- Hardware codecs on Android (`hardware_codec_mediacodec.cpp`, decode only): the vendor's
+  decoder through `AMediaCodec`, the platform's software ones refused. It asks for `low-latency`
+  and opens again without it where configure refuses (OMX.hisi does), since the NDK cannot ask
+  which decoders have the feature. Pictures come out after later frames went in, so the frame's
+  number rides as the presentation time and comes back with the picture
+  (`Picture::frame`); `GuestVideo` keeps frames in flight and asks every 2 ms (`behind`,
+  `collect`), and when several are ready only the newest is converted. Output is ByteBuffer YUV
+  through `rgbaFromYcbcr`, uploaded as any CPU picture. `stream::PredictedFrames`, shared with
+  VA-API, joins a frame's packets and skips to the next key frame after a loss.
+- Video on the Kirin T90A (Maleoon 910, Vulkan 1.2) is HEVC at 1280x720: PyroWave cannot run,
+  because the driver has no `VK_EXT_subgroup_size_control`, so `pyrowave_decoder_create` fails and
+  `decodableHere` leaves it out. OMX.hisi's HEVC decodes a frame in about 11 ms and the CPU
+  conversion takes about 10 ms; capture to submit measured 38 ms p50 and 70 ms p95 over Wi-Fi.
+  The window imports no DMA-BUFs there, so frames cross through CPU memory; the next step down
+  is decoding to an `AHardwareBuffer` the window's Vulkan device imports, which removes the
+  conversion and the upload.
+- The guest holds `stream::LinkHold` for the session: on Android a low-latency `WifiLock`
+  (`WifiHold.java`).
 - Hardware codecs (`hardware_codec_vaapi.cpp`): libavcodec on a VA-API DRM device, CBR at the
   plan's rate with a two-frame buffer, no B-frames, one frame in flight, a key frame every 300
   frames or when asked, reopened when the rate moves by a fifth. The guest decodes the same way
@@ -375,7 +393,10 @@ that profile's; the host's own active profile does not change.
   (`PadOwner::forwarding`, the same `ForwardMap` a local launch gives its pads, and the chord hold
   delay) goes with each ping; the host's `RemotePad` plays the pad through a `PadTranslator` with
   it, as a local game's virtual pad is played. Guide
-  opens this openSU's own menu, whose Close game row reads End remote play.
+  opens this openSU's own menu, whose Close game row reads End remote play; the system's Back
+  does the same while the game has the controls. With a touchscreen and no pad connected the
+  runner's on-screen pad is drawn over the picture (`app::RemoteTouch` on `touch::TouchLayer`)
+  and its buttons, pause as Guide, enter as any pad's would; fingers on it are not pointer input.
 
 ## Playing a ROM together
 
@@ -495,13 +516,14 @@ Library on both sides.
   own capture, sound or virtual pads, so `stream::hostingMissing` says so and `LanService::share`
   lists nothing there: no guest is offered their games.
 - Windows and macOS are guests: Winsock or POSIX UDP, Opus from vcpkg and PyroWave from the
-  third-party prefix. PyroWave needs Vulkan with subgroup size control, which is checked when a
-  session opens its decoder; VA-API is Linux only, so PyroWave is their one codec. On Metal through
+  third-party prefix. PyroWave needs Vulkan with subgroup size control; `decodableHere` tries a
+  decoder as a session opens, so a guest whose GPU cannot make one never reports PyroWave and
+  the host plans a hardware codec. VA-API is Linux only, so PyroWave is their one codec. On Metal through
   MoltenVK PyroWave decodes but `pyrowave_encoder_create` fails, so `stream_test` checks macOS on
   `tests/stream/coded_picture.bin`, a frame coded on Linux.
-- Android builds no part of remote play (no UDP backend, Opus or PyroWave):
-  `stream::playingMissing` keeps remote games out of its catalog and `hostingMissing` its own games
-  off the listing.
+- Android is a guest: POSIX UDP, Opus from the third-party prefix, hardware decoding through
+  MediaCodec, PyroWave where the GPU allows it. `hostingMissing` keeps its own games off the
+  listing. A lossy Wi-Fi link drives `LinkRate` to its floor (`docs/issues/stream-over-lossy-wifi.md`).
 - Hardware codecs need a VA-API driver that encodes (host) or decodes (guest) them. Fedora's own
   Mesa encodes none and decodes only AV1 there; RPM Fusion's `mesa-va-drivers-freeworld` adds
   H.264 and HEVC. The AppImage is built without them (`OPENSU_BUILD_VAAPI=OFF`: libavcodec's
@@ -546,6 +568,12 @@ the guest walk Settings › LAN › ROMs on <host>, a console, Whole console, Ba
 reaches `done` for each game, the guest's library shows them and they play. Kill the host by its
 PID during a large file and start it again: the guest's log says "goes on from byte". A signed,
 sealed `/lan/roms/chunk` for `../x` or an unlisted file gets 403 and the host logs the refusal.
+
+Remote play on a tablet: start a hidden host with its own data directories and a test ROM, pair
+through Settings › LAN, and take the game from Library by touch. `adb forward` to the tablet's
+control port gives `/state`: `remoteVideo` has the stages and `remoteAudio` the packets; `adb
+exec-out screencap` shows the picture, the pad and the Guide; the host logs `plays port 1` at the
+first button.
 
 Remote play: `tests/stream/stream_test.cpp`, which CI also runs on Windows and macOS, checks what
 each system reaches (`remote_reach`), sealing and replay, the payloads, a host and a

@@ -5,8 +5,9 @@
 # openSU's RPATH names; the app's Frameworks on macOS (`@executable_path/../Frameworks`); beside
 # `opensu.exe` on Windows, whose tests find it through PATH (`opensu_pyrowave_path`).
 #
+# `<prefix>/<libdir>/opensu/` too on Android, from where the package puts it beside libmain.so.
+#
 # OPENSU_BUILD_PYROWAVE=OFF builds without it: remote play then refuses to start with the reason.
-# Built on Linux, Windows and macOS; Android builds without it.
 
 include(GNUInstallDirs)
 include(ThirdParty)
@@ -74,6 +75,6 @@ function(opensu_pyrowave_path directory)
     endforeach()
 endfunction()
 
-if(OPENSU_BUILD_PYROWAVE AND NOT ANDROID)
+if(OPENSU_BUILD_PYROWAVE)
     opensu_add_pyrowave()
 endif()

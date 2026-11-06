@@ -189,9 +189,7 @@ std::vector<ui::SettingsCategory> SettingsController::build() const {
     if (in.lan) {
         pages.push_back(lan_.page());
     }
-    if (OnlinePlay::available()) {
-        pages.push_back(online_.page());
-    }
+    pages.push_back(online_.page());
     pages.push_back(profiles_.page());
     pages.push_back(saves_.page());
     pages.push_back(aboutPage());

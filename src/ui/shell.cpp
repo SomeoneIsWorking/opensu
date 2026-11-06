@@ -194,6 +194,10 @@ void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
         canvas.begin(target, clear);
         if (picture_) {
             drawPicture(canvas, *picture_, target);
+            if (pictureControls_) {
+                const gpu2d::Rect whole{0.0F, 0.0F, size.x, size.y};
+                canvas.image(*pictureControls_, whole, whole, white);
+            }
         } else if (standsIn_) {
             hud_.drawGround(canvas);
         }

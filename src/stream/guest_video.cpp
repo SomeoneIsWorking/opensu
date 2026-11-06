@@ -1,6 +1,7 @@
 #include "guest_video.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <format>
 #include <stdexcept>
 #include <utility>
@@ -17,6 +18,8 @@ constexpr std::size_t framesKept = 600;
 /// Decoded frames waiting to be shown that are remembered; older ones were never shown.
 constexpr std::size_t waitingKept = 8;
 constexpr double microsPerMilli = 1000.0;
+/// How often a decoder holding frames is asked for its pictures between packets.
+constexpr auto collectEvery = std::chrono::milliseconds{2};
 
 } // namespace
 
@@ -42,9 +45,12 @@ void GuestVideo::decodeLoop(const std::stop_token& stop) {
     while (!stop.stop_requested()) {
         {
             std::unique_lock lock{queueMutex_};
-            if (!queued_.wait(lock, stop, [this] {
-                    return !queue_.empty();
-                })) {
+            const auto packets = [this] {
+                return !queue_.empty();
+            };
+            if (behind()) {
+                queued_.wait_for(lock, stop, collectEvery, packets);
+            } else if (!queued_.wait(lock, stop, packets)) {
                 return;
             }
             batch.swap(queue_);
@@ -75,6 +81,7 @@ void GuestVideo::decodeLoop(const std::stop_token& stop) {
             late_ += lateFrames;
         }
         batch.clear();
+        collect();
     }
 }
 
@@ -101,38 +108,78 @@ void GuestVideo::decode(const Queued& queued) {
     }
     building_->receivedUs = static_cast<double>(queued.receivedUs);
     const auto codec = static_cast<VideoCodec>(packet.codec);
-    std::unique_ptr<VideoDecoder>& decoder = decoders_[codec];
-    if (!decoder) {
-        try {
-            decoder = openDecoder(codec);
-        } catch (const std::runtime_error& failure) {
-            lucent::warn("video", "cannot decode {}: {}", nameOf(codec), failure.what());
-            decoders_.erase(codec);
-            building_.reset();
-            return;
-        }
+    if (holds(undecodable_, codec)) {
+        building_.reset();
+        return;
     }
-    const bool whole = decoder->push(packet);
+    std::unique_ptr<VideoDecoder>& decoder = decoders_[codec];
+    bool whole = false;
+    try {
+        if (!decoder) {
+            decoder = openDecoder(codec);
+        }
+        whole = decoder->push(packet);
+    } catch (const std::runtime_error& failure) {
+        lucent::warn("video", "cannot decode {}: {}", nameOf(codec), failure.what());
+        undecodable_ = static_cast<VideoCodecs>(undecodable_ | codecBit(codec));
+        decoders_.erase(codec);
+        building_.reset();
+        return;
+    }
     // Asked again with each packet while the decoder waits, so a lost ask or key frame is mended.
     keyWanted_ = decoder->awaitingKey();
     if (!whole) {
         return;
     }
-    Frame frame{.number = packet.frame, .picture = {}};
+    inFlight_.push_back(*building_);
+    if (inFlight_.size() > waitingKept) {
+        inFlight_.pop_front();
+    }
+    building_.reset();
+    Picture picture;
     try {
-        if (!decoder->decode(frame.picture, memory_.load())) {
-            building_.reset();
-            return;
+        if (decoder->decode(picture, memory_.load())) {
+            finish(codec, std::move(picture), packet.frame);
         }
     } catch (const std::runtime_error& failure) {
         lucent::warn("video", "frame {} did not decode: {}", packet.frame, failure.what());
         keyWanted_ = decoder->awaitingKey();
-        building_.reset();
+    }
+}
+
+bool GuestVideo::behind() const {
+    return std::ranges::any_of(decoders_, [](const auto& entry) {
+        return entry.second->behind();
+    });
+}
+
+void GuestVideo::collect() {
+    for (const auto& [codec, decoder] : decoders_) {
+        if (!decoder->behind()) {
+            continue;
+        }
+        Picture picture;
+        try {
+            if (decoder->collect(picture)) {
+                finish(codec, std::move(picture), 0);
+            }
+        } catch (const std::runtime_error& failure) {
+            lucent::warn("video", "a frame did not decode: {}", failure.what());
+            keyWanted_ = decoder->awaitingKey();
+        }
+    }
+}
+
+void GuestVideo::finish(VideoCodec codec, Picture picture, std::uint32_t number) {
+    const std::uint32_t shows = picture.frame.value_or(number);
+    const auto found = std::ranges::find(inFlight_, shows, &Times::number);
+    if (found == inFlight_.end()) {
         return;
     }
-    Times times = *building_;
+    Times times = *found;
+    inFlight_.erase(inFlight_.begin(), found + 1);
     times.decodedUs = static_cast<double>(wire::nowMicros());
-    building_.reset();
+    Frame frame{.number = shows, .picture = std::move(picture)};
     const std::lock_guard lock{mutex_};
     ++decoded_;
     if (nameOf(codec) != codec_) {

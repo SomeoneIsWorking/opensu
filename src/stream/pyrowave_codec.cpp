@@ -40,6 +40,10 @@ class Device {
     pyrowave_device device_{};
 };
 
+/// The picture a decoder is tried at; the device's limits, not its size, decide.
+constexpr int probeWidth = 1280;
+constexpr int probeHeight = 720;
+
 int even(int value) {
     return value & ~1;
 }
@@ -134,6 +138,18 @@ class Decoder final : public VideoDecoder {
     Decoder(Decoder&&) = delete;
     Decoder& operator=(Decoder&&) = delete;
 
+    void open(int width, int height) {
+        drop();
+        const pyrowave_decoder_create_info info{.device = device_.get(),
+                                                .width = width,
+                                                .height = height,
+                                                .chroma = PYROWAVE_CHROMA_SUBSAMPLING_420,
+                                                .fragment_path = false};
+        check(pyrowave_decoder_create(&info, &decoder_), "make a decoder");
+        width_ = width;
+        height_ = height;
+    }
+
     bool push(const wire::VideoPacket& packet) override {
         const int width = packet.width;
         const int height = packet.height;
@@ -141,15 +157,7 @@ class Decoder final : public VideoDecoder {
             return false;
         }
         if (decoder_ == nullptr || width != width_ || height != height_) {
-            drop();
-            const pyrowave_decoder_create_info info{.device = device_.get(),
-                                                    .width = width,
-                                                    .height = height,
-                                                    .chroma = PYROWAVE_CHROMA_SUBSAMPLING_420,
-                                                    .fragment_path = false};
-            check(pyrowave_decoder_create(&info, &decoder_), "make a decoder");
-            width_ = width;
-            height_ = height;
+            open(width, height);
             lucent::info("video", "decoding {}x{} pictures", width, height);
         }
         if (pyrowave_decoder_push_packet(decoder_, packet.data.data(), packet.data.size()) !=
@@ -220,6 +228,17 @@ class Decoder final : public VideoDecoder {
 
 bool pyroWaveBuilt() noexcept {
     return true;
+}
+
+bool pyroWaveDecodes() {
+    try {
+        Decoder decoder;
+        decoder.open(probeWidth, probeHeight);
+        return true;
+    } catch (const std::runtime_error& failure) {
+        lucent::info("video", "this GPU does not decode PyroWave: {}", failure.what());
+        return false;
+    }
 }
 
 std::unique_ptr<VideoEncoder> openPyroWaveEncoder() {

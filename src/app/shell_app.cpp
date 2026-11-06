@@ -560,16 +560,22 @@ void ShellApp::handlePads() {
 void ShellApp::handlePointer() {
     // The phone's own navigation, not a keyboard: it leaves the touch controls up.
     if (window_->systemBack()) {
-        actOn(gamepad::Button::B);
+        // A remote game has no use for it, as a game on the runner has none: it opens the menu.
+        actOn(remoteHasControls() ? gamepad::Button::Guide : gamepad::Button::B);
     }
     pointer(window_->pointer());
+    const bool controls =
+        remoteHasControls() && window_->hasTouchscreen() && pads_->connected().empty();
+    handleEvents(remoteTouch_->follow(controls, window_->touchSurface(), window_->fingers()));
 }
 
 void ShellApp::pointer(const PointerFrame& frame) {
     using gpu2d::ui::PointerEvent;
     using gpu2d::ui::PointerKind;
     if (remoteHasControls()) {
-        remoteInput_.pointer(frame, remotePlacement());
+        if (!frame.touch || !remoteTouch_->shown()) {
+            remoteInput_.pointer(frame, remotePlacement());
+        }
         return;
     }
     const bool moved = frame.delta.x != 0.0f || frame.delta.y != 0.0f;
@@ -1328,6 +1334,7 @@ void ShellApp::showRemotePicture() {
     if (!remotePlay_.streaming()) {
         remotePicture_->clear();
         shell_.setPicture(std::nullopt);
+        shell_.setPictureControls(std::nullopt);
         return;
     }
     if (std::optional<stream::GuestVideo::Frame> frame = remotePlay_.takePicture()) {
@@ -1336,6 +1343,7 @@ void ShellApp::showRemotePicture() {
         }
     }
     shell_.setPicture(remotePicture_->view());
+    shell_.setPictureControls(remoteTouch_->view());
 }
 
 /// Applies what the launch thread and the control channel asked for. Everything
@@ -1517,6 +1525,8 @@ bool ShellApp::openWindow(const std::string& title, bool hidden) {
         shell_.attach(window_->device());
         remotePicture_ =
             std::make_unique<RemotePicture>(window_->device(), window_->importsDmabuf());
+        remoteTouch_ =
+            std::make_unique<RemoteTouch>(window_->device(), environment_.assetsDir / "touch");
     } catch (const gpu2d::GpuError& error) {
         lucent::error("shell", "could not open a window: {}", error.what());
         window_.reset();

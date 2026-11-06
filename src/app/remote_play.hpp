@@ -48,6 +48,7 @@
 #include "stream/host_input.hpp"
 #include "stream/host_stream.hpp"
 #include "stream/host_video.hpp"
+#include "stream/link_hold.hpp"
 
 namespace opensu::app {
 
@@ -375,6 +376,7 @@ class RemotePlay {
     bool saidWaiting_{false};
     stream::PictureMemory pictures_{stream::PictureMemory::Cpu};
     /// Before the stream, whose thread feeds them; the speaker before the sound that plays on it.
+    std::unique_ptr<stream::LinkHold> link_;
     std::unique_ptr<stream::GuestVideo> video_;
     std::unique_ptr<audio::LiveSound> speaker_;
     std::unique_ptr<stream::GuestAudio> audio_;

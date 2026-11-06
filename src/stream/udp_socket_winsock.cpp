@@ -30,10 +30,6 @@ std::system_error socketError(const std::string& what) {
 } // namespace
 
 /// A Winsock socket, and the Winsock use it counts (WSAStartup counts each one).
-std::string udpMissing() {
-    return {};
-}
-
 class UdpSocket::Descriptor {
   public:
     Descriptor() {

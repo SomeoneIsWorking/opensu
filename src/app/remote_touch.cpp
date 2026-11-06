@@ -1,0 +1,66 @@
+#include "remote_touch.hpp"
+
+#include <algorithm>
+#include <utility>
+
+namespace opensu::app {
+
+RemoteTouch::RemoteTouch(SDL_GPUDevice& device, std::filesystem::path art)
+    : device_{&device}, layer_{std::move(art)} {
+}
+
+std::vector<gamepad::Event> RemoteTouch::follow(bool shown, const touch::WindowSurface& surface,
+                                                std::span<const touch::Finger> fingers) {
+    std::vector<gamepad::Event> events;
+    shown_ = shown;
+    if (!shown) {
+        layer_.releaseAll();
+        noteHeld(events);
+        texture_.reset();
+        return events;
+    }
+    if (surface.width != laidOut_.width || surface.height != laidOut_.height ||
+        surface.dp != laidOut_.dp) {
+        layer_.layout(surface);
+        laidOut_ = surface;
+        noteHeld(events);
+    }
+    for (const touch::Finger& finger : fingers) {
+        if (layer_.finger(finger)) {
+            noteHeld(events);
+        }
+    }
+    return events;
+}
+
+void RemoteTouch::noteHeld(std::vector<gamepad::Event>& events) {
+    const std::vector<gamepad::Button> held = layer_.held();
+    const auto note = [&events](gamepad::Button button, bool pressed) {
+        events.push_back(gamepad::Event{.button = button, .pressed = pressed});
+    };
+    for (const gamepad::Button button : held_) {
+        if (std::ranges::find(held, button) == held.end()) {
+            note(button, false);
+        }
+    }
+    for (const gamepad::Button button : held) {
+        if (std::ranges::find(held_, button) == held_.end()) {
+            note(button, true);
+        }
+    }
+    held_ = held;
+}
+
+std::optional<gpu2d::TextureView> RemoteTouch::view() {
+    if (!shown_) {
+        return std::nullopt;
+    }
+    const touch::OverlayImage image = layer_.image();
+    if (image.changed || !texture_) {
+        texture_.emplace(*device_, image.rgba, static_cast<int>(image.width),
+                         static_cast<int>(image.height), gpu2d::Filter::Nearest);
+    }
+    return texture_->view();
+}
+
+} // namespace opensu::app

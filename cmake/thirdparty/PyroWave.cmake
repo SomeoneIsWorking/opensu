@@ -2,7 +2,8 @@
 # fork, `libpyrowave-shared`, built with CMake against the part of Granite it needs (volk and the
 # Vulkan headers): our fork, the commit PyroWave's own checkout script pins and macOS's sleep. Both
 # are MIT. It is
-# built with this prefix's own compilers: the Windows toolchain file, macOS's SDK and target.
+# built with this prefix's own compilers: the Windows toolchain file, macOS's SDK and target, the
+# NDK's ABI, API level and C++ runtime.
 
 set(root "${CMAKE_BINARY_DIR}/pyrowave")
 set(stage "${root}/prefix")
@@ -13,6 +14,10 @@ if(WIN32)
 elseif(APPLE)
     set(runtime "lib/libpyrowave-shared.1.dylib")
     set(import_library "")
+elseif(ANDROID)
+    # Android's loader takes no versioned names.
+    set(runtime "lib/libpyrowave-shared.so")
+    set(import_library "")
 else()
     set(runtime "lib/libpyrowave-shared.so.1")
     set(import_library "")
@@ -20,7 +25,7 @@ endif()
 
 set(forwarded "")
 foreach(variable IN ITEMS CMAKE_TOOLCHAIN_FILE CMAKE_OSX_ARCHITECTURES CMAKE_OSX_DEPLOYMENT_TARGET
-                          CMAKE_OSX_SYSROOT)
+                          CMAKE_OSX_SYSROOT ANDROID_ABI ANDROID_PLATFORM ANDROID_STL)
     if(DEFINED ${variable})
         list(APPEND forwarded "-D${variable}=${${variable}}")
     endif()

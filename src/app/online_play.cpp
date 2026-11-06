@@ -15,7 +15,6 @@
 #include "lucent/log.h"
 #include "online_screen.hpp"
 #include "secrets/secret.hpp"
-#include "stream/udp_socket.hpp"
 #include "ui/entry_screen.hpp"
 
 namespace opensu::app {
@@ -68,10 +67,6 @@ OnlinePlay::OnlinePlay(gpu2d::ui::Navigator& navigator, audio::SdlSoundPlayer& s
                        Hooks hooks)
     : navigator_{navigator}, sounds_{sounds}, run_{run}, keyboard_{keyboard},
       preferences_{preferences}, hooks_{std::move(hooks)} {
-}
-
-bool OnlinePlay::available() {
-    return stream::udpMissing().empty();
 }
 
 ui::SettingsCategory OnlinePlay::page() const {

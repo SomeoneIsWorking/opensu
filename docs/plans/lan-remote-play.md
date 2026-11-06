@@ -47,5 +47,5 @@ fork as any third-party code.
    on one; analogue triggers, mouse buttons held and the wheel; the guest's game mapping played by
    the host's remote pad. Shown with two hidden openSUs over Avahi on a full-screen moving Game Boy
    ROM, the switch forced by a link cap on the guest (`POST /remote/link`).
-4. Windows, macOS and Android guests and hosts; the guest decoding straight into the presenter's
+4. Windows, macOS and Android guests and hosts (Android as a guest shown on a tablet, S052); the guest decoding straight into the presenter's
    image (needs Vulkan interop SDL GPU does not offer); hardware codecs in the AppImage.

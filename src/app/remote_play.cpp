@@ -706,6 +706,7 @@ void RemotePlay::serviceGuest() {
             return;
         }
         try {
+            link_ = std::make_unique<stream::LinkHold>();
             video_ = std::make_unique<stream::GuestVideo>(pictures_);
             speaker_ = hooks_.speaker ? hooks_.speaker() : nullptr;
             audio_ = std::make_unique<stream::GuestAudio>(
@@ -760,6 +761,7 @@ void RemotePlay::drop() {
     audio_.reset();
     speaker_.reset();
     video_.reset();
+    link_.reset();
     joined_ = false;
 }
 
