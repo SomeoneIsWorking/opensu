@@ -199,6 +199,8 @@ class GuideMenuController final : public ui::RowActions {
     std::function<void()> closeShown_;
     /// A page covered the menu at the last `service`.
     bool covered_{false};
+    /// The local game was last told to wait for the menu.
+    bool holding_{false};
     /// The running game's opensu-retro state, read as the menu opens and after each command.
     std::optional<RetroSession::Status> retroStatus_;
     std::optional<int> brightnessLevel_;

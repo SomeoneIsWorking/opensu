@@ -43,11 +43,17 @@ class ControlCommands {
         return suspended_;
     }
 
+    /// Whether the shell's Guide asks the game to wait for it.
+    [[nodiscard]] bool held() const noexcept {
+        return held_;
+    }
+
   private:
     [[nodiscard]] ControlAnswer suspend();
 
     Parts parts_;
     bool suspended_{false};
+    bool held_{false};
 };
 
 } // namespace opensu::retro

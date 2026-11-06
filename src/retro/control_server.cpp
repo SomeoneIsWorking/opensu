@@ -350,6 +350,10 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
         command.command = ControlCommand::Option;
     } else if (path == "/suspend") {
         command.command = ControlCommand::Suspend;
+    } else if (path == "/hold") {
+        command.command = ControlCommand::Hold;
+    } else if (path == "/release") {
+        command.command = ControlCommand::Release;
     } else {
         return text(404, "Not Found", "no such route");
     }

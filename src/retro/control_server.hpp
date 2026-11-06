@@ -38,6 +38,10 @@ enum class ControlCommand : std::uint8_t {
     /// Save and close: the resume state taken and the save RAM written; the game runs no more
     /// frames while the shell closes it.
     Suspend,
+    /// The shell's Guide came over the game: its frames stop, the picture stays.
+    Hold,
+    /// The Guide left.
+    Release,
 };
 
 /// A command for the frame loop and what it carries.

@@ -5,6 +5,7 @@
 #include <iterator>
 #include <memory>
 
+#include "lucent/log.h"
 #include "guide_menu_screen.hpp"
 #include "settings/settings.hpp"
 #include "ui/moment_text.hpp"
@@ -93,6 +94,14 @@ void GuideMenuController::service() {
         read();
     }
     covered_ = isOpen() && !front;
+    // Players elsewhere cannot wait for this menu.
+    const bool hold = isOpen() && context_.inGame && !context_.remote && context_.guests.empty();
+    if (hold != holding_) {
+        holding_ = hold;
+        const std::string refused = retro_.hold(hold);
+        lucent::info("guide", "the game {}{}", hold ? "is held" : "is let go",
+                     refused.empty() ? std::string{} : ": " + refused);
+    }
 }
 
 void GuideMenuController::toggle(Landing landing) {

@@ -36,6 +36,14 @@ DeviceOutput::~DeviceOutput() {
 void DeviceOutput::service(Clock::time_point /*now*/) {
 }
 
+void DeviceOutput::hold(bool held) {
+    if (held) {
+        SDL_PauseAudioStreamDevice(stream_);
+    } else {
+        SDL_ResumeAudioStreamDevice(stream_);
+    }
+}
+
 void DeviceOutput::feed(SDL_AudioStream* stream, int bytes) {
     if (bytes <= 0) {
         return;
@@ -57,6 +65,10 @@ void ClockOutput::service(Clock::time_point now) {
     const auto frames = static_cast<std::size_t>(owed_);
     owed_ -= static_cast<double>(frames);
     sink_.discard(frames);
+}
+
+void ClockOutput::hold(bool /*held*/) {
+    last_ = {};
 }
 
 } // namespace opensu::retro

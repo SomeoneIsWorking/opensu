@@ -25,6 +25,8 @@ class AudioOutput {
 
     /// Called once per loop iteration on the main thread.
     virtual void service(Clock::time_point now) = 0;
+    /// Stops the sound while `held`; the sink keeps what it has for when it goes on.
+    virtual void hold(bool held) = 0;
 };
 
 /// The sink played on the default playback device.
@@ -39,6 +41,7 @@ class DeviceOutput final : public AudioOutput {
     DeviceOutput& operator=(DeviceOutput&&) = delete;
 
     void service(Clock::time_point now) override;
+    void hold(bool held) override;
 
   private:
     /// The device thread asking for `bytes` more.
@@ -56,6 +59,7 @@ class ClockOutput final : public AudioOutput {
     explicit ClockOutput(AudioSink& sink);
 
     void service(Clock::time_point now) override;
+    void hold(bool held) override;
 
   private:
     AudioSink& sink_;

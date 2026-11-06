@@ -69,6 +69,8 @@ class RetroSession {
     /// Save and close's first half: the runner keeps a resume state, writes the game's save and
     /// runs no more frames, waiting to be closed.
     [[nodiscard]] std::string suspend();
+    /// Stops or restarts the game's frames and sound, its picture staying; a netplay game refuses.
+    [[nodiscard]] std::string hold(bool held);
     /// Shows the game under `video` from its next frame.
     [[nodiscard]] std::string setVideo(const settings::VideoSettings& video);
 

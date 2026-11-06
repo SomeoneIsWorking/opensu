@@ -72,8 +72,12 @@ forward means the game is over.
 
 Under the shell the runner is `covered`: it has lost window focus (SDL pauses only on `onStop` from
 API 24, and a paused window under a translucent shell is never stopped), the touch
-pad hides and lets go of its buttons, and the frames go on. It waits only when the window has no
-surface left (Home, the screen off: `Presenter::onScreen`).
+pad hides and lets go of its buttons. While the Guide is open `GuideMenuController` holds a local
+game (`POST /hold`, `/release`): the core stops and the sound with it, the picture stays and the
+control channel goes on answering, so Save and close and Resume work. A game held on Android goes on
+if it comes back in front with the Guide left open (Home and back). A game with guests, one streamed
+from elsewhere and a netplay session, which refuses the request, keep running: they cannot pause.
+With no surface left (Home, the screen off: `Presenter::onScreen`) the game waits.
 
 Windows is a backdrop because no transparent route works on every GPU there. SDL GPU refuses
 `SDL_WINDOW_TRANSPARENT` (`SDL_ClaimWindowForGPUDevice`), because its D3D12 flip-model swapchain
@@ -210,6 +214,7 @@ cannot be set up (exit 1), it writes `{"error": "<reason>"}` there instead and l
 | Route | Answer |
 | --- | --- |
 | `GET /status` | `{"core", "rom", "frame", "hasState"}`: the core's name, the ROM path, frames run, whether the slot holds a state; `resumedFrom` (Unix seconds) when the game resumed, `resumeRefused` (the reason) when its resume state was not loaded |
+| `POST /hold`, `POST /release` | The Guide came over the game and left: frames and sound stop, the picture stays. 409 in a netplay session |
 | `POST /suspend` | Save and close: 200 once the save RAM is written and the resume state taken, after which the runner runs no more frames and waits to be closed; 409 when the core cannot serialize; 500 when either file cannot be written, the game going on |
 | `POST /state/save` | 200; 409 with the reason when the core cannot serialize (`retro_serialize_size` 0 or `retro_serialize` false); 500 when the slot cannot be written |
 | `POST /state/load` | 200; 404 when no state is saved; 409 when the core refuses it |

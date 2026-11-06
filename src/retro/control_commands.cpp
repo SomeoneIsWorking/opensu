@@ -24,7 +24,8 @@ ControlAnswer answerOf(const StateOutcome& outcome) {
 
 bool changesTheGame(ControlCommand command) {
     return command == ControlCommand::LoadState || command == ControlCommand::Reset ||
-           command == ControlCommand::Option || command == ControlCommand::Suspend;
+           command == ControlCommand::Option || command == ControlCommand::Suspend ||
+           command == ControlCommand::Hold;
 }
 
 std::string optionsJson(const CoreOptions& options) {
@@ -114,6 +115,12 @@ ControlAnswer ControlCommands::perform(const ControlRequest& request) {
         break;
     case ControlCommand::Suspend:
         answer = suspend();
+        break;
+    case ControlCommand::Hold:
+        held_ = true;
+        break;
+    case ControlCommand::Release:
+        held_ = false;
         break;
     case ControlCommand::Frame: {
         std::string error;

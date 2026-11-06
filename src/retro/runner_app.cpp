@@ -275,6 +275,8 @@ RunnerExit RunnerApp::run() {
     bool covered = false;
     /// Out of sight: the game waits.
     bool waiting = false;
+    /// Under the Guide: the core and its sound stop, the picture stays.
+    bool holding = false;
 
     RunnerExit exit = RunnerExit::Quit;
     std::uint64_t frame = 0;
@@ -344,6 +346,12 @@ RunnerExit RunnerApp::run() {
             std::this_thread::sleep_until(next);
             continue;
         }
+        // In front again without the Guide closing (Home and back), the game must not stay held.
+        if (const bool held = commands.held() && (!handoff || covered); held != holding) {
+            holding = held;
+            audio->hold(holding);
+            lucent::info("retro", "the game {}", holding ? "holds under the Guide" : "goes on");
+        }
         if (netplay) {
             const bool ready = netplay->ready(*core, netplayWait);
             if (netplay->ended() != netplay::SessionEnd::None) {
@@ -354,14 +362,16 @@ RunnerExit RunnerApp::run() {
             }
         }
         const Clock::time_point started = Clock::now();
-        core->run();
-        stages.add(FrameStages::Stage::Core, Clock::now() - started);
-        ++frame;
-        if (touch) {
-            touch->ran();
-        }
-        if (netplay) {
-            netplay->ran(*core);
+        if (!holding) {
+            core->run();
+            stages.add(FrameStages::Stage::Core, Clock::now() - started);
+            ++frame;
+            if (touch) {
+                touch->ran();
+            }
+            if (netplay) {
+                netplay->ran(*core);
+            }
         }
         if (control) {
             control->publish(frame, state.exists());
@@ -374,7 +384,9 @@ RunnerExit RunnerApp::run() {
             geometry = *changed;
         }
         const Clock::time_point now = Clock::now();
-        audio->service(now);
+        if (!holding) {
+            audio->service(now);
+        }
         stages.add(FrameStages::Stage::Audio, Clock::now() - now);
         const bool coreImageFresh = hardware.takeFresh();
         const bool pixelsFresh = video.takeFresh();

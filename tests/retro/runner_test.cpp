@@ -256,6 +256,25 @@ void resetRestarts(const Paths& paths) {
     expect(countIn(read(saves / "game.srm")) <= 200, "the reset zeroed the core's frame count");
 }
 
+void holdStopsTheFrames(const Paths& paths) {
+    const std::filesystem::path control = paths.root / "run" / "hold.json";
+    const std::filesystem::path saves = paths.root / "hold-saves";
+    const pid_t child = spawn({paths.runner, "--core", paths.core, "--saves", saves.string(),
+                               "--hidden", "--frames", "120", paths.rom.string()},
+                              control);
+    const std::uint16_t port = awaitPort(control, child);
+    awaitFrame(port, 10);
+    expect(post(port, "/hold").status == 200, "the game is held");
+    const std::uint64_t held = status(port)["frame"].get<std::uint64_t>();
+    std::this_thread::sleep_for(std::chrono::milliseconds{200});
+    expect(status(port)["frame"].get<std::uint64_t>() == held, "a held game runs no frames");
+    expect(post(port, "/state/save").status == 200, "the channel answers while it is held");
+    expect(status(port)["hasState"] == true, "and /status follows");
+    expect(post(port, "/release").status == 200, "the game is let go");
+    const Status ended = wait(child);
+    expect(ended.exited && ended.code == 0, "it runs on to its last frame");
+}
+
 /// Where the touch controls say `name` is.
 nlohmann::json touchControl(std::uint16_t port, std::string_view name) {
     const nlohmann::json places = nlohmann::json::parse(get(port, "/touch").body);
@@ -436,6 +455,7 @@ int main(int argc, char** argv) try {
     try {
         stateRoundTrip(paths);
         resetRestarts(paths);
+        holdStopsTheFrames(paths);
         touchReachesCore(paths);
         statelessCoreRefuses(paths, stateless);
         loadFailureIsReported(paths);

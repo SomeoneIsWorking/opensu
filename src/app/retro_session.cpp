@@ -217,6 +217,10 @@ std::string RetroSession::suspend() {
     return post("/suspend");
 }
 
+std::string RetroSession::hold(bool held) {
+    return post(held ? "/hold" : "/release");
+}
+
 std::string RetroSession::setVideo(const settings::VideoSettings& video) {
     return post("/video", settings::videoJson(video));
 }
