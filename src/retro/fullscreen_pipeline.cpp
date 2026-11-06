@@ -102,15 +102,16 @@ VkRenderPass makeColourPass(VkDevice device, VkFormat format, VkAttachmentLoadOp
     subpass.pColorAttachments = &reference;
     std::array<VkSubpassDependency, 2> dependencies{};
     // The swapchain image is free once acquired; the offscreen one once read back; a loaded one
-    // once the drawing before is done.
+    // once the drawing before is done. Both load ops take this one dependency, since the overlay's
+    // pass draws on framebuffers made for the compositor's and compatible passes must match.
     dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
     dependencies[0].dstSubpass = 0;
     dependencies[0].srcStageMask =
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT;
     dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependencies[0].srcAccessMask = loads ? VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT : 0;
+    dependencies[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     dependencies[0].dstAccessMask =
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | (loads ? VK_ACCESS_COLOR_ATTACHMENT_READ_BIT : 0);
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
     dependencies[1].srcSubpass = 0;
     dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
     dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
