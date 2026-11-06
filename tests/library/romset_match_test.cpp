@@ -420,7 +420,15 @@ void readsControls() {
 	<machine name="now"><input players="2" coins="2"><control type="joy" player="1" buttons="4" ways="4"/><control type="joy" player="2" buttons="4" ways="4"/></input></machine>
 	<machine name="upright"><input players="1"><control type="joy" buttons="1" ways="vertical2"/></input></machine>
 	<game name="none"/>
+	<game name="sf2" sourcefile="cps1.c"><input buttons="6"><control type="joy8way"/></input></game>
+	<machine name="sfa" sourcefile="capcom/cps2.cpp"><input buttons="6"/></machine>
+	<game name="gwing2" sourcefile="naomi.c"><input buttons="6"/></game>
+	<game name="dino" sourcefile="cps1.c"><input buttons="2"/></game>
 </mame>)");
+    expect(dat.find("sf2")->controls.fighter && dat.find("sfa")->controls.fighter,
+           "six buttons on a Capcom fighter's board");
+    expect(!dat.find("gwing2")->controls.fighter, "not six on another board");
+    expect(!dat.find("dino")->controls.fighter, "nor fewer on that board");
     expect(dat.find("old")->controls == DatControls{6, 8, false}, "buttons on input, joy8way");
     expect(dat.find("plus")->controls == DatControls{3, 4, false}, "a control attribute");
     expect(dat.find("now")->controls == DatControls{4, 4, false}, "control elements' ways");
@@ -436,7 +444,7 @@ void fetchesListingsWithoutControls(const fs::path& base) {
     fs::create_directories(dir);
     EmulatorEntry entry;
     entry.id = "core";
-    std::ofstream{dir / "core.tsv"} << "# opensu romsets 2 951befac 2000000000\nS\ta\t\t\t-\n";
+    std::ofstream{dir / "core.tsv"} << "# opensu romsets 3 951befac 2000000000\nS\ta\t\t\t-\n";
     const RomsetDats dats{dir, nullptr};
     const RomsetDats::Clock::time_point soon{std::chrono::seconds{2000000100}};
     expect(dats.due(entry, soon), "a listing from before controls were kept is fetched again");

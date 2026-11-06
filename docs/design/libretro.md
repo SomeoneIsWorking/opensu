@@ -306,7 +306,8 @@ one-frame coin and takes a two-frame one. Every system gets the generic pad (`pa
 arcade.
 
 An arcade game's launch has `--arcade <buttons>:<ways>` (`app/retro_launch`, from its core's listing;
-`0:0` where the listing says nothing; `v` before a vertical stick's ways) and shows its machine's
+`0:0` where the listing says nothing; `v` before a vertical stick's ways, `f` after them for a
+fighter's board) and shows its machine's
 panel (`arcade_cabinet`, `arcade_layout`). What each core sends, checked by running them:
 
 | Core | `SET_INPUT_DESCRIPTORS` | Listing's `<input>` | The panel relies on |
@@ -326,13 +327,33 @@ A" reads A). The rows are by count (`rowsByCount`): one row up to four, which is
 for Capcom's six, then 4+3, 4+4, each column on an arc. FinalBurn Neo names its controls after the
 first frame, so the panel is made from the listing first and again then.
 
+A button the core calls a punch or a kick shows a fist or a foot (`assets/touch/fist.svg`,
+`foot.svg`) over its strength, L, M or H (`arcade_cabinet`: Weak, Light, Low; Medium, Mid, Middle;
+Strong, Heavy, Hard, High, Fierce; a plain Punch has no letter, and a named move such as Hurricane
+Kick keeps its name). When every button is one, they run punches above kicks, weakest first. A
+core with numbered buttons says nothing of this, so the listing does: six buttons on driver `cps1`,
+`cps2`, `cps3` or `sf` (`romset_dat`'s `DatControls::fighter`) read as three punches then three
+kicks. Against MAME 2010's listing that is 213 sets of 28 games, bootlegs included. It wrongly
+catches JoJo's two games (seven sets), whose fourth button is the Stand. The manufacturer would be
+worse: NAOMI, ZN and ST-V list six for the cabinet, so it catches Giga Wing 2 and Cannon Spike.
+
 The stick goes on the left of the picture, the buttons and Coin and Start on the right: inside the
 black bar when they fit (`Presenter::picture` is where `placeFrame` puts the frame, followed as it
-changes), else sized down to `stickSmallest` and `buttonSmallest` and against the screen's edge,
-translucent where they cover the picture. A row is never turned to fit a bar: a 2800x1840 tablet at
-2.2 pixels per dp has 79 dp of black beside 4:3, so its stick and Coin and Start sit on the bar and a
-three-button row reaches about 100 dp over the picture. Art and words are rasterised at the drawn
-size. To check: `opensu-retro --hidden --touch <dp> --arcade <b>:<w>` with `OPENSU_WIDTH` and
+changes), else against the screen's edge, translucent where they cover the picture. A thumb's size
+comes before the bar: the stick is never under 168 dp, and a row takes what its bar gives down to
+52 dp, or 13 mm (84 dp) when the bar cannot hold it at that, short of running under the stick on an
+upright screen. A row is never turned to fit a bar: a 2800x1840 tablet at 2.2 pixels per dp has 79
+dp of black beside 4:3, so its stick reaches about 95 dp over the picture and a three-button row
+about 200 dp, with Coin and Start small on the bar.
+
+`touch.size` (Touch controls size, 75 to 175%, under Video in every scope) scales every control of
+the pad and the panel together, by scaling `dp` in `TouchLayer::layout`; each layout then caps `dp`
+(`WindowSurface::dpWithin`) so its controls stay on the safe area. It travels with the video
+settings: the launch's `--settings` file and `POST /video`, so it changes in a running game from
+the Guide's Game settings. Fingers down at that moment are let go.
+
+Art and words are rasterised at the drawn size. To check:
+`opensu-retro --hidden --touch <dp> --arcade <b>:<w>` with `OPENSU_WIDTH` and
 `OPENSU_HEIGHT` as the screen, `GET /touch`, `POST /touch`, `GET /frame.png`; the log's `arcade panel:`
 and `touch holds` lines.
 

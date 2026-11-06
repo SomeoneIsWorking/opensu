@@ -56,7 +56,8 @@ std::string arcadeControls(const library::Game& game, const library::roms::Emula
         return "0:0";
     }
     const library::roms::DatControls& controls = found->controls;
-    return std::format("{}:{}{}", controls.buttons, controls.vertical ? "v" : "", controls.ways);
+    return std::format("{}:{}{}{}", controls.buttons, controls.vertical ? "v" : "", controls.ways,
+                       controls.fighter ? "f" : "");
 }
 
 } // namespace

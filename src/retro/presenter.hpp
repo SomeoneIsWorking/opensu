@@ -88,6 +88,8 @@ class Presenter {
     /// Shows frames under `video` from the next one drawn (`FrameCompositor::change`); a shader
     /// preset that cannot run throws ShaderError and the settings in force stay.
     void change(const settings::VideoSettings& video);
+    /// The settings in force.
+    [[nodiscard]] const settings::VideoSettings& video() const;
 
     /// Waits until the last frame submitted is done on the GPU (a core's wait_sync_index).
     [[nodiscard]] VkResult waitForFrame();

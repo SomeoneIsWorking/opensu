@@ -70,12 +70,17 @@ void TouchLayer::setPanel(ArcadePanel panel) {
     }
 }
 
+void TouchLayer::setSize(float size) {
+    size_ = size;
+}
+
 void TouchLayer::layout(const WindowSurface& surface, const Box& picture) {
     touches_.clear();
     width_ = surface.width;
     height_ = surface.height;
-    plan_ =
-        panel_ ? arcadeLayout(surface, picture, *panel_, art_, *labels_) : padLayout(surface, art_);
+    WindowSurface sized = surface;
+    sized.dp *= size_;
+    plan_ = panel_ ? arcadeLayout(sized, picture, *panel_, art_, *labels_) : padLayout(sized, art_);
     dirty_ = true;
 }
 

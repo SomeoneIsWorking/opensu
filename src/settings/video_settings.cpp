@@ -1,11 +1,17 @@
 #include "video_settings.hpp"
 
 #include <algorithm>
+#include <charconv>
+#include <system_error>
 
 #include <nlohmann/json.hpp>
 
 namespace opensu::settings {
 namespace {
+
+bool touchSizeFits(int size) {
+    return size >= touchSizeSmallest && size <= touchSizeLargest;
+}
 
 const ChoiceKey& aspectKey() {
     return videoKeys[0];
@@ -58,10 +64,29 @@ void declareVideo(Schema& schema) {
         return !applies(shaderKey).empty();
     };
     schema.add(std::move(resolution));
+    Setting touchSize;
+    touchSize.key = std::string{touchSizeKey};
+    touchSize.label = "Touch controls size";
+    touchSize.help = "How big the on-screen stick, buttons, Coin and Start are, as far as they fit";
+    touchSize.section = section;
+    touchSize.type = SettingType::Slider;
+    touchSize.range = {.low = touchSizeSmallest, .high = touchSizeLargest, .step = 5};
+    touchSize.unit = "%";
+    touchSize.fallback = std::to_string(touchSizeDefault);
+    schema.add(std::move(touchSize));
 }
 
 Resolved resolveShader(const SettingLayers& layers, const LayerKeys& keys) {
     return layers.resolve(keys, shaderKey, std::string{});
+}
+
+int resolveTouchSize(const SettingLayers& layers, const LayerKeys& keys) {
+    const std::string kept =
+        layers.resolve(keys, touchSizeKey, std::to_string(touchSizeDefault)).value;
+    int size = touchSizeDefault;
+    const auto [end, error] = std::from_chars(kept.data(), kept.data() + kept.size(), size);
+    const bool whole = error == std::errc{} && end == kept.data() + kept.size();
+    return whole && touchSizeFits(size) ? size : touchSizeDefault;
 }
 
 VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
@@ -79,6 +104,7 @@ VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
         .filter = static_cast<Filter>(index(filterKey())),
         .shaderPreset = shader.empty() ? std::filesystem::path{} : presets / shader,
         .shaderResolution = static_cast<ShaderResolution>(index(shaderResolutionKey())),
+        .touchSize = resolveTouchSize(layers, keys),
     };
 }
 
@@ -94,6 +120,7 @@ std::string videoJson(const VideoSettings& video) {
         {std::string{shaderKey}, video.shaderPreset.string()},
         {std::string{shaderResolutionKey().key},
          spelling(shaderResolutionKey(), video.shaderResolution)},
+        {std::string{touchSizeKey}, video.touchSize},
     };
     return document.dump();
 }
@@ -127,6 +154,14 @@ std::optional<VideoSettings> parseVideoJson(std::string_view text, std::string& 
         }
         shader = found->get<std::string>();
     }
+    int touchSize = touchSizeDefault;
+    if (const auto found = document.find(std::string{touchSizeKey}); found != document.end()) {
+        if (!found->is_number_integer() || !touchSizeFits(found->get<int>())) {
+            error = found->dump() + " is not a " + std::string{touchSizeKey};
+            return std::nullopt;
+        }
+        touchSize = found->get<int>();
+    }
     return VideoSettings{
         .aspect = static_cast<Aspect>(chosen[0]),
         .integer = static_cast<IntegerScale>(chosen[1]),
@@ -134,6 +169,7 @@ std::optional<VideoSettings> parseVideoJson(std::string_view text, std::string& 
         .filter = static_cast<Filter>(chosen[3]),
         .shaderPreset = std::move(shader),
         .shaderResolution = static_cast<ShaderResolution>(chosen[4]),
+        .touchSize = touchSize,
     };
 }
 

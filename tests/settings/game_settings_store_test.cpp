@@ -120,6 +120,9 @@ void launchFile() {
     std::string error;
     expect(parseVideoJson(videoJson(video), error) == video, "the launch file round trips");
     expect(parseVideoJson("{}", error) == VideoSettings{}, "a key it lacks keeps its default");
+    const std::optional<VideoSettings> sized = parseVideoJson(R"({"touch.size": 150})", error);
+    expect(sized && sized->touchSize == 150, "the touch size");
+    expect(!parseVideoJson(R"({"touch.size": 400})", error), "a size out of the range is refused");
     expect(!parseVideoJson(R"({"video.aspect": "wide"})", error) && !error.empty(),
            "a value that is no choice is refused");
 }

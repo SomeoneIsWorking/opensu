@@ -29,6 +29,7 @@ using opensu::touch::ArcadePanel;
 using opensu::touch::Box;
 using opensu::touch::ControlPlace;
 using opensu::touch::Finger;
+using opensu::touch::Limb;
 using opensu::touch::TouchLayer;
 using opensu::touch::WindowSurface;
 
@@ -80,7 +81,8 @@ void namedByTheCore() {
                                                {RETRO_DEVICE_ID_JOYPAD_L2, "Buttons 3x Punch"},
                                                {RETRO_DEVICE_ID_JOYPAD_R2, "Buttons 3x Kick"}}),
                                     {});
-    expect(sf2.buttons.size() == 6 && sf2.buttons[3].label == "Weak Kick",
+    expect(sf2.buttons.size() == 6 && sf2.buttons[3].label == "L" &&
+               sf2.buttons[3].limb == Limb::Kick,
            "the core's macros are no buttons of the machine");
 
     const ArcadePanel neogeo = panelOf(withStick({{RETRO_DEVICE_ID_JOYPAD_L3, "Select"},
@@ -179,7 +181,7 @@ void rowsOfTheCabinet() {
     expect(place(four, Button::A).x < place(four, Button::B).x &&
                place(four, Button::X).x < place(four, Button::Y).x,
            "Neo Geo's four run in one row");
-    expect(std::abs(place(four, Button::Y).y - place(four, Button::A).y) < 40.0F,
+    expect(std::abs(place(four, Button::Y).y - place(four, Button::A).y) < 50.0F,
            "with no row below");
 }
 
@@ -198,14 +200,38 @@ void onTheBlack() {
     expect(place(places, Button::None).x < picture.x, "the stick left of it");
     expect(place(places, Button::A).x > picture.x + picture.width, "the buttons right of it");
 
-    // A narrow bar: the stick still fits it, the row keeps to the edge.
+    // A narrow bar: thumbs come first, so the controls keep their size and reach over the picture.
     const WindowSurface tablet = surface(2800, 1840, 2.2F);
     const Box narrow = fourThree(tablet);
     layer.layout(tablet, narrow);
     const std::vector<ControlPlace> edge = layer.places();
-    expect(place(edge, Button::None).x < narrow.x, "the stick is on the black");
-    expect(place(edge, Button::X).x > narrow.x + narrow.width, "the last button is too");
-    expect(place(edge, Button::Select).x > narrow.x + narrow.width, "and Coin");
+    expect(place(edge, Button::None).radius >= 126.0F * tablet.dp, "the stick stays d-pad sized");
+    const float step = place(edge, Button::B).x - place(edge, Button::A).x;
+    expect(std::abs(step - (92.0F * tablet.dp)) < 1.0F, "the buttons are 13 mm");
+    expect(place(edge, Button::A).x < narrow.x + narrow.width, "and over the picture");
+    expect(place(edge, Button::X).x > narrow.x + narrow.width, "the last one on the black");
+    expect(place(edge, Button::Select).x > narrow.x + narrow.width, "and Coin stays small there");
+
+    // Six that just fit stay on the black, at the generic pad's size.
+    layer.setPanel(numbered(6));
+    const WindowSurface phone = surface(2400, 1080, 2.75F);
+    const Box beside = fourThree(phone);
+    layer.layout(phone, beside);
+    const std::vector<ControlPlace> six = layer.places();
+    const float across = place(six, Button::B).x - place(six, Button::A).x - (8.0F * phone.dp);
+    expect(place(six, Button::A).x - (across * 0.5F) >= beside.x + beside.width,
+           "the first column clears the picture");
+    expect(across >= 52.0F * phone.dp, "at a thumb's size");
+
+    // Upright there is no bar, and the buttons give way to the stick.
+    layer.setPanel(numbered(4));
+    const WindowSurface upright = surface(1080, 2400, 2.75F);
+    layer.layout(upright, Box{0.0F, 0.0F, 1080.0F, 810.0F});
+    const std::vector<ControlPlace> standing = layer.places();
+    const float step2 = place(standing, Button::B).x - place(standing, Button::A).x;
+    const ControlPlace& standingStick = place(standing, Button::None);
+    const float stickEdge = standingStick.x + (standingStick.radius * 2.0F / 3.0F);
+    expect(place(standing, Button::A).x - (step2 * 0.5F) >= stickEdge, "clear of the stick");
 }
 
 void severalFingers() {
@@ -256,6 +282,75 @@ void thePadStays() {
 }
 
 } // namespace
+
+void fightersByName() {
+    const ArcadePanel sf2 = panelOf(withStick({{RETRO_DEVICE_ID_JOYPAD_B, "Weak Kick"},
+                                               {RETRO_DEVICE_ID_JOYPAD_A, "Medium Kick"},
+                                               {RETRO_DEVICE_ID_JOYPAD_R, "Strong Kick"},
+                                               {RETRO_DEVICE_ID_JOYPAD_Y, "Weak Punch"},
+                                               {RETRO_DEVICE_ID_JOYPAD_X, "Medium Punch"},
+                                               {RETRO_DEVICE_ID_JOYPAD_L, "Strong Punch"},
+                                               {RETRO_DEVICE_ID_JOYPAD_L2, "Buttons 3x Punch"}}),
+                                    {});
+    expect(sf2.buttons.size() == 6, "a macro is not on the panel");
+    expect(labels(sf2) == std::vector<std::string>{"L", "M", "H", "L", "M", "H"},
+           "strengths weakest first");
+    expect(sf2.buttons[0].limb == Limb::Punch && sf2.buttons[0].button == Button::X &&
+               sf2.buttons[3].limb == Limb::Kick,
+           "punches before kicks, each keeping its core's input");
+
+    const ArcadePanel kombat = panelOf(withStick({{RETRO_DEVICE_ID_JOYPAD_B, "High Punch"},
+                                                  {RETRO_DEVICE_ID_JOYPAD_A, "Block"},
+                                                  {RETRO_DEVICE_ID_JOYPAD_Y, "Low Kick"},
+                                                  {RETRO_DEVICE_ID_JOYPAD_X, "Hurricane Kick"},
+                                                  {RETRO_DEVICE_ID_JOYPAD_L, "Punch"}}),
+                                       {});
+    expect(labels(kombat) == std::vector<std::string>{"H", "Block", "L", "Hurricane Kick", ""},
+           "other buttons keep their names and their place");
+    expect(kombat.buttons[3].limb == Limb::None, "a named move is no strength");
+    expect(kombat.buttons[4].limb == Limb::Punch, "a plain punch is a fist alone");
+
+    const ArcadePanel numberedSix = panelOf({}, {.buttons = 6, .ways = 8, .fighter = true});
+    expect(labels(numberedSix) == std::vector<std::string>{"L", "M", "H", "L", "M", "H"} &&
+               numberedSix.buttons[2].limb == Limb::Punch &&
+               numberedSix.buttons[3].limb == Limb::Kick,
+           "a fighter's board reads its six as punches then kicks");
+    expect(panelOf({}, {.buttons = 6, .ways = 8}).buttons[0].limb == Limb::None,
+           "six on any other board stay numbered");
+    expect(cabinetListingOf("6:8f") == CabinetListing{6, 8, false, true}, "the launch says so");
+
+    TouchLayer layer{"no-art"};
+    layer.setPanel(numberedSix);
+    const WindowSurface target = surface(2400, 1080, 2.0F);
+    layer.layout(target, fourThree(target));
+    const std::vector<ControlPlace> rows = layer.places();
+    expect(place(rows, Button::Y).y > place(rows, Button::A).y + 100.0F, "kicks under punches");
+}
+
+void sizes() {
+    const WindowSurface phone = surface(2400, 1080, 2.75F);
+    const auto onScreen = [&phone](TouchLayer& layer, const Box& picture) {
+        layer.setSize(1.75F);
+        layer.layout(phone, picture);
+        for (const ControlPlace& control : layer.places()) {
+            expect(control.x >= 0.0F && control.x <= 2400.0F && control.y >= 0.0F &&
+                       control.y <= 1080.0F,
+                   "the largest size stays on screen");
+        }
+    };
+    TouchLayer pad{"no-art"};
+    pad.layout(phone);
+    const float faces = place(pad.places(), Button::B).x - place(pad.places(), Button::X).x;
+    pad.setSize(0.75F);
+    pad.layout(phone);
+    const float small = place(pad.places(), Button::B).x - place(pad.places(), Button::X).x;
+    expect(std::abs(small - (faces * 0.75F)) < 1.0F, "a smaller size scales the pad");
+    onScreen(pad, {});
+
+    TouchLayer panel{"no-art"};
+    panel.setPanel(numbered(6));
+    onScreen(panel, fourThree(phone));
+}
 
 void shortTaps() {
     Joypad joypad{1};
@@ -315,6 +410,8 @@ int main() try {
     severalFingers();
     waysOfTheStick();
     thePadStays();
+    fightersByName();
+    sizes();
     shortTaps();
     std::printf("arcade_panel: all checks passed\n");
     return 0;

@@ -4,12 +4,16 @@
 #include <array>
 #include <cctype>
 #include <charconv>
+#include <filesystem>
 #include <format>
 
 namespace opensu::library::roms {
 namespace {
 
 constexpr char field = '\t';
+constexpr unsigned fighterBoardButtons = 6;
+/// MAME's drivers for the boards Capcom's six-button fighters ran on.
+constexpr std::array<std::string_view, 4> fighterBoards{"cps1", "cps2", "cps3", "sf"};
 /// Parent and BIOS links followed from a set, past any a listing could hold.
 constexpr std::size_t maxChain = 8;
 
@@ -174,6 +178,14 @@ void readWays(std::string_view text, DatControls& controls) {
     }
 }
 
+/// Whether `sourcefile`, "cps2.c" or "capcom/cps2.cpp", runs a set that is a Capcom fighter: other
+/// boards list six for the cabinet whatever the game is.
+bool isFighterBoard(std::string_view sourcefile, const DatControls& controls) {
+    const std::string stem = std::filesystem::path{sourcefile}.stem().string();
+    return controls.buttons == fighterBoardButtons &&
+           std::ranges::find(fighterBoards, stem) != fighterBoards.end();
+}
+
 /// What an `<input>` or `<control>` tag adds; the first stick and the most buttons named stand.
 void readControls(std::string_view attributes, DatControls& controls) {
     if (const std::optional<std::string> buttons = attribute(attributes, "buttons")) {
@@ -250,11 +262,13 @@ void RomsetDat::addXml(std::string_view xml, const Wanted& wanted) {
     std::size_t at = 0;
     std::optional<DatSet> set;
     std::string firstBios;
+    std::string driver;
     const auto finish = [&] {
         if (set) {
             if (set->defaultBios.empty()) {
                 set->defaultBios = firstBios;
             }
+            set->controls.fighter = isFighterBoard(driver, set->controls);
             add(std::move(*set), wanted);
             set.reset();
         }
@@ -268,6 +282,7 @@ void RomsetDat::addXml(std::string_view xml, const Wanted& wanted) {
             finish();
             set = DatSet{};
             firstBios.clear();
+            driver = attributeOr(tag->attributes, "sourcefile");
             set->name = lower(attributeOr(tag->attributes, "name"));
             set->romof = lower(attributeOr(tag->attributes, "romof"));
             set->device = flagged(tag->attributes, "isdevice");
@@ -331,8 +346,8 @@ std::string RomsetDat::serialize() const {
             out += std::format("K\t{}\n", disk);
         }
         if (set.controls != DatControls{}) {
-            out += std::format("I\t{}\t{}\t{}\n", set.controls.buttons, set.controls.ways,
-                               set.controls.vertical ? "v" : "-");
+            out += std::format("I\t{}\t{}\t{}\t{}\n", set.controls.buttons, set.controls.ways,
+                               set.controls.vertical ? "v" : "-", set.controls.fighter ? "f" : "-");
         }
     }
     return out;
@@ -391,13 +406,13 @@ std::optional<RomsetDat> RomsetDat::parse(std::string_view text, const Wanted& w
             set->devices.emplace_back(fields[1]);
         } else if (kind == "K" && fields.size() == 2 && set) {
             set->disks.emplace_back(fields[1]);
-        } else if (kind == "I" && fields.size() == 4 && set) {
+        } else if (kind == "I" && fields.size() == 5 && set) {
             const std::optional<unsigned> buttons = numberOf<unsigned>(fields[1], 10);
             const std::optional<unsigned> ways = numberOf<unsigned>(fields[2], 10);
             if (!buttons || !ways) {
                 return malformed();
             }
-            set->controls = DatControls{*buttons, *ways, fields[3] == "v"};
+            set->controls = DatControls{*buttons, *ways, fields[3] == "v", fields[4] == "f"};
         } else {
             return malformed();
         }

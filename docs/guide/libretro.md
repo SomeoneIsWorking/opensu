@@ -130,8 +130,11 @@ The runner is a second Activity in a process of its own. Cores come from the bui
 the runner draws touch controls while no pad is connected. An arcade game shows its own machine's
 panel: an arcade stick, round buttons in the cabinet's number and rows, each named for what it does
 in that game when the core says, and small Coin and Start controls, since nothing starts without a
-coin. It sits on the black beside the picture where it fits, and hides like the rest when a pad
-connects. Every other system shows the usual pad. MAME 2010 is not offered: its Android build
-crashes on load, so a set only it matches reads "No arcade core matches this romset". Back, a pad's
-Guide or the pause button
+coin. A fighter's punches and kicks show a fist or a foot with L, M or H, punches above kicks. It
+sits on the black beside the picture where it fits, reaching over the picture rather than shrinking
+below a thumb's size, and hides like the rest when a pad connects. Every other system shows the
+usual pad. Touch controls size in Game settings makes either 75 to 175% of its size, everywhere or
+for a system or a game, and changes a running game at once. MAME 2010 is not offered: its Android
+build crashes on load, so a set only it matches reads "No arcade core matches this romset". Back, a
+pad's Guide or the pause button
 brings the shell's Guide menu in front of the paused game; Resume goes back to it.

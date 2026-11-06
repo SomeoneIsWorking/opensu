@@ -326,6 +326,9 @@ RunnerExit RunnerApp::run() {
             }
         }
         const bool touchShown = touch && !padConnected && !covered;
+        if (touch) {
+            touch->sized(presenter->video().touchSize);
+        }
         if (touch && touch->follow(presenter->surface(), touchShown, input.fingers)) {
             openShellMenu("the pause button");
         }

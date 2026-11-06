@@ -4,6 +4,8 @@
 #include <array>
 #include <cctype>
 #include <charconv>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 #include <libretro.h>
@@ -26,6 +28,21 @@ constexpr unsigned unknownButtons = 4;
 constexpr std::array<std::string_view, 7> notOnThePanel{"buttons ", "turbo", "service", "diag",
                                                         "reset",    "test",  "tilt"};
 constexpr std::string_view buttonWord = "Button ";
+constexpr std::size_t fighterButtons = 6;
+/// The strength a core's name for a punch or kick starts with, weakest first.
+constexpr std::string_view strengthOrder = "LMH";
+constexpr std::array<std::pair<std::string_view, std::string_view>, 11> strengths{
+    {{"weak", "L"},
+     {"light", "L"},
+     {"low", "L"},
+     {"medium", "M"},
+     {"mid", "M"},
+     {"middle", "M"},
+     {"strong", "H"},
+     {"heavy", "H"},
+     {"hard", "H"},
+     {"high", "H"},
+     {"fierce", "H"}}};
 
 std::string lowerCase(std::string_view text) {
     std::string lower{text};
@@ -65,6 +82,54 @@ std::string labelOf(std::string_view description) {
 }
 
 /// `count` unnamed buttons.
+/// A button named a punch or a kick, "Weak Punch" or plain "Kick", drawn so; a named move is not.
+void readLimb(ArcadeButton& button, std::string_view description) {
+    const std::string lower = lowerCase(description);
+    const std::size_t space = lower.rfind(' ');
+    const std::string_view word =
+        std::string_view{lower}.substr(space == std::string::npos ? 0 : space + 1);
+    const touch::Limb limb = word == "punch"  ? touch::Limb::Punch
+                             : word == "kick" ? touch::Limb::Kick
+                                              : touch::Limb::None;
+    if (limb == touch::Limb::None) {
+        return;
+    }
+    if (space == std::string::npos) {
+        button.limb = limb;
+        button.label.clear();
+        return;
+    }
+    const std::string_view first = std::string_view{lower}.substr(0, space);
+    const auto strength = std::ranges::find(strengths, first, [](const auto& entry) {
+        return entry.first;
+    });
+    if (strength != strengths.end()) {
+        button.limb = limb;
+        button.label = strength->second;
+    }
+}
+
+/// Punches above kicks, each weakest first, when every button is one of them.
+void cabinetOrder(std::vector<ArcadeButton>& buttons) {
+    const bool fighter = std::ranges::all_of(buttons, [](const ArcadeButton& button) {
+        return button.limb != touch::Limb::None && !button.label.empty();
+    });
+    if (fighter) {
+        std::ranges::stable_sort(buttons, {}, [](const ArcadeButton& button) {
+            return std::pair{button.limb, strengthOrder.find(button.label)};
+        });
+    }
+}
+
+/// Six numbered buttons, the first three punches and the rest kicks, in strength order.
+void numberedAsFighter(std::vector<ArcadeButton>& buttons) {
+    for (std::size_t at = 0; at < buttons.size(); ++at) {
+        const std::size_t half = fighterButtons / 2;
+        buttons[at].limb = at < half ? touch::Limb::Punch : touch::Limb::Kick;
+        buttons[at].label = strengthOrder.substr(at % half, 1);
+    }
+}
+
 std::vector<ArcadeButton> numberedButtons(unsigned count) {
     std::vector<ArcadeButton> buttons;
     for (unsigned at = 0; at < std::min<std::size_t>(count, buttonOrder.size()); ++at) {
@@ -85,6 +150,10 @@ std::optional<CabinetListing> cabinetListingOf(std::string_view text) {
     CabinetListing listing;
     const std::string_view buttons = text.substr(0, colon);
     std::string_view ways = text.substr(colon + 1);
+    if (ways.ends_with('f')) {
+        listing.fighter = true;
+        ways.remove_suffix(1);
+    }
     if (ways.starts_with('v')) {
         listing.vertical = true;
         ways.remove_prefix(1);
@@ -116,7 +185,9 @@ touch::ArcadePanel panelOf(std::span<const InputDescriptor> descriptors,
         }
         if (const std::optional<gamepad::Button> button = Joypad::buttonOf(descriptor.id)) {
             numbered = numbered && isNumbered(descriptor.description);
-            panel.buttons.push_back(ArcadeButton{*button, labelOf(descriptor.description)});
+            ArcadeButton named{*button, labelOf(descriptor.description)};
+            readLimb(named, descriptor.description);
+            panel.buttons.push_back(std::move(named));
         }
     }
     if (descriptors.empty()) {
@@ -124,6 +195,10 @@ touch::ArcadePanel panelOf(std::span<const InputDescriptor> descriptors,
     } else if (numbered && listing.buttons != 0 && listing.buttons < panel.buttons.size()) {
         panel.buttons.resize(listing.buttons);
     }
+    if (numbered && listing.fighter && panel.buttons.size() == fighterButtons) {
+        numberedAsFighter(panel.buttons);
+    }
+    cabinetOrder(panel.buttons);
     if (listing.ways != 0) {
         panel.ways = listing.ways;
         panel.vertical = listing.vertical;

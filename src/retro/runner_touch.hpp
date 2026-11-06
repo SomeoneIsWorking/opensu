@@ -15,6 +15,7 @@
 
 #include "arcade_cabinet.hpp"
 #include "joypad.hpp"
+#include "settings/video_settings.hpp"
 #include "touch/touch_layer.hpp"
 
 namespace opensu::retro {
@@ -28,6 +29,8 @@ class RunnerTouch {
     void cabinet(const CabinetListing& listing);
     /// The core named its controls.
     void named(const std::vector<InputDescriptor>& descriptors);
+    /// The player's size for the controls, a percentage; they are laid out again when it changed.
+    void sized(int percent);
     /// The frame is drawn at `picture`, which a machine's panel keeps clear of where it can.
     void showing(const touch::Box& picture);
 
@@ -61,6 +64,7 @@ class RunnerTouch {
     touch::ArcadePanel panel_;
     touch::WindowSurface laidOut_{};
     touch::Box picture_{};
+    int percent_{settings::touchSizeDefault};
     bool moved_{false};
     /// What the joypad was last told.
     std::vector<gamepad::Button> holding_;

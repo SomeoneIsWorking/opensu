@@ -4,6 +4,7 @@
 // keep to the screen's edges where they do not.
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -14,9 +15,17 @@
 namespace opensu::touch {
 
 /// A button of the machine and what it does.
+enum class Limb : std::uint8_t {
+    None,
+    Punch,
+    Kick,
+};
+
 struct ArcadeButton {
     gamepad::Button button{gamepad::Button::A};
+    /// With a limb its strength, L, M, H or nothing, shown beside the limb's drawing.
     std::string label;
+    Limb limb{Limb::None};
 
     bool operator==(const ArcadeButton&) const = default;
 };

@@ -85,6 +85,11 @@ class FrameCompositor {
     void change(const settings::VideoSettings& video, VkInstance instance,
                 const std::filesystem::path& librashader);
 
+    /// The settings in force.
+    [[nodiscard]] const settings::VideoSettings& video() const {
+        return video_;
+    }
+
     /// Where `frame` is drawn in `extent` under the settings in force.
     [[nodiscard]] VkRect2D placed(VkExtent2D extent, const FrameImage& frame) const {
         return placeFrame(extent, frame, video_);

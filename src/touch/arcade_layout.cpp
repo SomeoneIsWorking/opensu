@@ -15,25 +15,33 @@ namespace {
 using gamepad::Button;
 
 constexpr float inset = 8.0F;
-constexpr float stickSmallest = 72.0F;
-constexpr float stickLargest = 150.0F;
-/// A finger takes the stick this far from its centre at the least, past what a narrow bar draws.
-constexpr float stickReach = 92.0F;
+/// A thumb's size comes before staying on the black.
+constexpr float stickSmallest = 168.0F;
+constexpr float stickLargest = 180.0F;
 constexpr float stickDeadZone = 0.12F;
 constexpr float ballShare = 0.5F;
 constexpr float leanShare = 0.2F;
+/// The least a row shrinks to to stay on the black.
 constexpr float buttonSmallest = 52.0F;
-constexpr float buttonLargest = 70.0F;
+/// 13 mm, taken by a row that cannot stay on the black anyway.
+constexpr float buttonLargest = 84.0F;
 constexpr float buttonGap = 8.0F;
 constexpr float buttonSlack = 0.2F;
 /// How far above the panel's first column each column sits, as a share of a button: the arc a
 /// hand makes.
 constexpr std::array<float, 4> columnRise{0.0F, 0.26F, 0.34F, 0.26F};
-constexpr float pillWidth = 68.0F;
-constexpr float pillHeight = 32.0F;
+constexpr float pillWidth = 76.0F;
+constexpr float pillHeight = 36.0F;
 constexpr float pillGap = 8.0F;
 constexpr float pillSlack = 6.0F;
-constexpr float pauseSize = 40.0F;
+/// Between the pills and the buttons under them.
+constexpr float pillDrop = 14.0F;
+constexpr float pauseSize = 46.0F;
+/// Of a button: the limb's drawing, and how far above centre it sits over its strength.
+constexpr float limbShare = 0.56F;
+constexpr float limbLift = 0.1F;
+constexpr float strengthShare = 0.26F;
+constexpr float strengthDrop = 0.3F;
 constexpr float bottomMargin = 26.0F;
 /// On black nothing is hidden, so the controls need not let anything through.
 constexpr float idleOnBlack = 0.95F;
@@ -88,7 +96,7 @@ Piece labelIn(const Box& box, Art art, std::vector<Button> lit, float idle) {
 }
 
 void addStick(ControlPlan& plan, const Box& base, const ArcadePanel& panel, const Box& picture,
-              float dp, const ArtSource& art) {
+              const ArtSource& art) {
     const std::vector<Button> directions{Button::Up, Button::Down, Button::Left, Button::Right};
     const float idle = idleFor(base, picture);
     plan.pieces.push_back(Piece{.box = base,
@@ -105,7 +113,7 @@ void addStick(ControlPlan& plan, const Box& base, const ArcadePanel& panel, cons
                                 .lit = directions,
                                 .idle = idle,
                                 .lean = base.width * leanShare});
-    const float reach = std::max(base.width * 0.75F, stickReach * dp);
+    const float reach = base.width * 0.75F;
     plan.controls.push_back(
         Control{.hit = {base.centreX() - reach, base.centreY() - reach, reach * 2.0F, reach * 2.0F},
                 .round = true,
@@ -164,17 +172,64 @@ struct ButtonRows {
     }
 };
 
-ButtonRows rowsFor(std::size_t count, float bar, float dp) {
+/// The cabinet's rows for `panel`: a fighter's punches above its kicks.
+std::array<std::size_t, 2> rowsOf(const ArcadePanel& panel) {
+    const auto limbs = [&panel](Limb limb) {
+        return static_cast<std::size_t>(
+            std::ranges::count(panel.buttons, limb, &ArcadeButton::limb));
+    };
+    const std::size_t punches = limbs(Limb::Punch);
+    const std::size_t kicks = limbs(Limb::Kick);
+    if (punches != 0 && kicks != 0 && punches + kicks == panel.buttons.size()) {
+        return {punches, kicks};
+    }
+    return rowsByCount.at(std::min(panel.buttons.size(), rowsByCount.size() - 1));
+}
+
+/// `panel`'s buttons for a `bar` wide, or over the picture up to `room` when the bar cannot hold
+/// them.
+ButtonRows rowsFor(const ArcadePanel& panel, float bar, float room, float dp) {
     ButtonRows rows;
-    rows.rows = rowsByCount.at(std::min(count, rowsByCount.size() - 1));
+    rows.rows = rowsOf(panel);
     rows.gap = buttonGap * dp;
     if (rows.widest() == 0) {
         return rows;
     }
     const auto columns = static_cast<float>(rows.widest());
-    const float room = (bar - (2.0F * inset * dp) - ((columns - 1.0F) * rows.gap)) / columns;
-    rows.size = std::clamp(room, buttonSmallest * dp, buttonLargest * dp);
+    const float gaps = (columns - 1.0F) * rows.gap;
+    const float onBar = (bar - gaps) / columns;
+    const float across = onBar >= buttonSmallest * dp ? onBar : (room - gaps) / columns;
+    rows.size = std::clamp(across, buttonSmallest * dp, buttonLargest * dp);
     return rows;
+}
+
+/// `button`'s face: its name, or its limb over its strength.
+void addFace(ControlPlan& plan, const ArcadeButton& button, const Box& box, float idle,
+             const ArtSource& art, LabelFace& labels) {
+    if (button.limb == Limb::None) {
+        const float type = button.label.size() <= 2 ? box.width * 0.42F : box.width * 0.24F;
+        plan.pieces.push_back(labelIn(box, labels.label(button.label, type, box.width * 0.72F),
+                                      {button.button}, idle));
+        return;
+    }
+    const bool alone = button.label.empty();
+    const float side = box.width * limbShare;
+    const float lift = alone ? 0.0F : box.width * limbLift;
+    const Box drawing{box.centreX() - (side * 0.5F), box.centreY() - (side * 0.5F) - lift, side,
+                      side};
+    plan.pieces.push_back(
+        Piece{.box = drawing,
+              .art = art.svg(button.limb == Limb::Punch ? "fist.svg" : "foot.svg", drawing),
+              .down = {},
+              .lit = {button.button},
+              .idle = idle,
+              .lean = 0.0F});
+    if (!alone) {
+        const Box under{box.x, box.y + (box.height * strengthDrop), box.width, box.height};
+        plan.pieces.push_back(
+            labelIn(under, labels.label(button.label, box.width * strengthShare, box.width * 0.5F),
+                    {button.button}, idle));
+    }
 }
 
 void addButtons(ControlPlan& plan, const ButtonRows& rows, float left, float top,
@@ -203,9 +258,7 @@ void addButtons(ControlPlan& plan, const ButtonRows& rows, float left, float top
                                         .lit = {button.button},
                                         .idle = idle,
                                         .lean = 0.0F});
-            const float type = button.label.size() <= 2 ? rows.size * 0.42F : rows.size * 0.24F;
-            plan.pieces.push_back(labelIn(box, labels.label(button.label, type, rows.size * 0.72F),
-                                          {button.button}, idle));
+            addFace(plan, button, box, idle, art, labels);
             cluster.targets.push_back(Target{box.centreX(), box.centreY(), button.button});
             ++at;
         }
@@ -220,7 +273,13 @@ void addButtons(ControlPlan& plan, const ButtonRows& rows, float left, float top
 
 ControlPlan arcadeLayout(const WindowSurface& surface, const Box& picture, const ArcadePanel& panel,
                          const ArtSource& art, LabelFace& labels) {
-    const float dp = surface.dp;
+    const ButtonRows largest{.rows = rowsOf(panel), .size = buttonLargest, .gap = buttonGap};
+    const ButtonRows smallest{.rows = largest.rows, .size = buttonSmallest, .gap = buttonGap};
+    const float pills = pillDrop + (2.0F * pillHeight) + pillGap;
+    const float dp = surface.dpWithin((panel.ways != 0 ? stickSmallest + inset : 0.0F) +
+                                          (2.0F * inset) + smallest.width(),
+                                      std::max(stickLargest, largest.height() + pills) +
+                                          bottomMargin + pauseSize + (2.0F * inset));
     const float gap = inset * dp;
     const float left = surface.safeX;
     const float top = surface.safeY;
@@ -232,7 +291,9 @@ ControlPlan arcadeLayout(const WindowSurface& surface, const Box& picture, const
 
     const float stickSide =
         std::clamp(leftBar - (2.0F * gap), stickSmallest * dp, stickLargest * dp);
-    const ButtonRows rows = rowsFor(panel.buttons.size(), rightBar, dp);
+    const float stickTaken = panel.ways != 0 ? stickSide + gap : 0.0F;
+    const float buttonRoom = surface.safeWidth - stickTaken - (2.0F * gap);
+    const ButtonRows rows = rowsFor(panel, rightBar, buttonRoom, dp);
     const float panelHeight = std::max(panel.ways != 0 ? stickSide : 0.0F, rows.height());
     const float middleY = bottom - (bottomMargin * dp) - (panelHeight * 0.5F);
 
@@ -261,7 +322,7 @@ ControlPlan arcadeLayout(const WindowSurface& surface, const Box& picture, const
     const bool sideBySide = rightBar >= (2.0F * pillW) + pillStep + (2.0F * gap);
     const float pillsWidth = sideBySide ? (2.0F * pillW) + pillStep : pillW;
     const float pillsLeft = placed(pillsWidth, rightStart, rightBar, true, gap);
-    const float pillsBottom = buttonsTop - (14.0F * dp);
+    const float pillsBottom = buttonsTop - (pillDrop * dp);
     const Box start{sideBySide ? pillsLeft + pillW + pillStep : pillsLeft, pillsBottom - pillH,
                     pillW, pillH};
     const Box coin{pillsLeft, sideBySide ? start.y : start.y - pillH - pillStep, pillW, pillH};
@@ -273,7 +334,7 @@ ControlPlan arcadeLayout(const WindowSurface& surface, const Box& picture, const
     if (panel.ways != 0) {
         const Box base{placed(stickSide, left, leftBar, false, gap), middleY - (stickSide * 0.5F),
                        stickSide, stickSide};
-        addStick(plan, base, panel, picture, dp, art);
+        addStick(plan, base, panel, picture, art);
     }
     return plan;
 }

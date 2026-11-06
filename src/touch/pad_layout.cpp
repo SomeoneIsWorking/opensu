@@ -8,19 +8,21 @@ namespace {
 
 using gamepad::Button;
 
-constexpr float margin = 28.0F;
-constexpr float padSize = 140.0F;
-constexpr float faceSize = 52.0F;
-constexpr float faceSpread = 47.0F;
-constexpr float shoulderWidth = 84.0F;
-constexpr float shoulderHeight = 38.0F;
-constexpr float pillWidth = 70.0F;
-constexpr float pillHeight = 30.0F;
-constexpr float pauseSize = 42.0F;
+constexpr float margin = 24.0F;
+constexpr float padSize = 168.0F;
+constexpr float faceSize = 64.0F;
+constexpr float faceSpread = 58.0F;
+constexpr float shoulderWidth = 96.0F;
+constexpr float shoulderHeight = 44.0F;
+constexpr float pillWidth = 80.0F;
+constexpr float pillHeight = 34.0F;
+constexpr float pauseSize = 46.0F;
+/// What must stay apart: the d-pad from the faces, the shoulders from both.
+constexpr float clearance = 16.0F;
 /// Hit regions reach this much past what is drawn, so a thumb need not land inside.
 constexpr float reach = 1.4F;
 /// Nearer the d-pad's centre than this, no direction is held.
-constexpr float deadZone = 14.0F;
+constexpr float deadZone = 16.0F;
 
 constexpr std::array<Button, 4> faceButtons{Button::A, Button::B, Button::X, Button::Y};
 constexpr std::array<const char*, 4> faceFiles{"face_a.svg", "face_b.svg", "face_x.svg",
@@ -42,7 +44,9 @@ Control rectangle(const Box& box, float slack, Button button) {
 } // namespace
 
 ControlPlan padLayout(const WindowSurface& surface, const ArtSource& art) {
-    const float dp = surface.dp;
+    const float faceArea = (faceSpread * 2.0F) + faceSize;
+    const float dp = surface.dpWithin((margin * 2.0F) + padSize + clearance + faceArea,
+                                      (margin * 2.0F) + faceArea + shoulderHeight + clearance);
     const float m = margin * dp;
     const float left = surface.safeX;
     const float top = surface.safeY;

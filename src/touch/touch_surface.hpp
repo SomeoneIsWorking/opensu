@@ -2,6 +2,7 @@
 // surface it covers and the overlay it draws for it.
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <span>
 
@@ -53,6 +54,11 @@ struct WindowSurface {
     float safeWidth{0.0F};
     float safeHeight{0.0F};
     float dp{1.0F};
+
+    /// `dp`, less if controls `width` by `height` dp would run off the safe area at it.
+    [[nodiscard]] float dpWithin(float width, float height) const {
+        return std::min({dp, safeWidth / width, safeHeight / height});
+    }
 };
 
 /// The overlay to draw: rows of RGBA, top first, the size of the target. `changed` when it differs

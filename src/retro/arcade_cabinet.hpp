@@ -28,6 +28,8 @@ struct CabinetListing {
     unsigned ways{0};
     /// A 2-way stick moves up and down.
     bool vertical{false};
+    /// A Capcom fighter's board, its buttons numbered punches then kicks.
+    bool fighter{false};
 
     bool operator==(const CabinetListing&) const = default;
 };

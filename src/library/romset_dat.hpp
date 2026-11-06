@@ -37,6 +37,8 @@ struct DatControls {
     unsigned ways{0};
     /// A 2-way stick moves up and down.
     bool vertical{false};
+    /// A six-button set on a Capcom fighter's board, numbered punches then kicks.
+    bool fighter{false};
 
     bool operator==(const DatControls&) const = default;
 };

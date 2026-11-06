@@ -1,5 +1,6 @@
 // video_settings — how opensu-retro shows a game's frame: its aspect, integer scaling, sampling,
-// filter, shader preset and the resolution the preset is drawn at.
+// filter, shader preset and the resolution the preset is drawn at, and the size of the touch
+// controls over it.
 // The keys and choices the setting layers keep them under, a game's values resolved from those
 // layers, and their JSON: the per-launch file the shell writes and `opensu-retro --settings`
 // reads, and the body of the runner's `POST /video`. A shader
@@ -63,6 +64,11 @@ enum class ShaderResolution : std::uint8_t {
     Full,
 };
 
+inline constexpr std::string_view touchSizeKey = "touch.size";
+inline constexpr int touchSizeSmallest = 75;
+inline constexpr int touchSizeLargest = 175;
+inline constexpr int touchSizeDefault = 100;
+
 struct VideoSettings {
     Aspect aspect{Aspect::Core};
     IntegerScale integer{IntegerScale::Off};
@@ -71,6 +77,8 @@ struct VideoSettings {
     /// A slang preset (`.slangp`) run in place of the sampling and filter; empty for none.
     std::filesystem::path shaderPreset;
     ShaderResolution shaderResolution{ShaderResolution::Auto};
+    /// The touch controls' size, a percentage of their own.
+    int touchSize{touchSizeDefault};
 
     bool operator==(const VideoSettings&) const = default;
 };
@@ -127,6 +135,9 @@ void declareVideo(Schema& schema);
 
 /// `keys`' video settings, each from its winning layer; a kept value that is no choice is
 /// reported and the default used. The shader preset is found under `presets`, the shader pack.
+/// The controls' size where `keys` look; the default for a value out of the range.
+[[nodiscard]] int resolveTouchSize(const SettingLayers& layers, const LayerKeys& keys);
+
 [[nodiscard]] VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
                                          const std::filesystem::path& presets);
 /// The preset `keys` resolve to, relative to the shader pack, with its layer; "" for none.

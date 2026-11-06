@@ -38,6 +38,8 @@ class TouchLayer {
 
     /// Shows `panel` instead of the pad from the next `layout`.
     void setPanel(ArcadePanel panel);
+    /// Draws the controls at `size` times their size from the next `layout`, as far as they fit.
+    void setSize(float size);
     /// Places the controls on `surface`, a panel around the frame at `picture`; fingers down are
     /// let go.
     void layout(const WindowSurface& surface, const Box& picture = {});
@@ -76,6 +78,7 @@ class TouchLayer {
     /// Made for a panel: the pad has no words.
     std::unique_ptr<LabelFace> labels_;
     ControlPlan plan_;
+    float size_{1.0F};
     unsigned width_{0};
     unsigned height_{0};
     std::map<std::uint64_t, Touch> touches_;

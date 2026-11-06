@@ -383,6 +383,10 @@ void Presenter::change(const settings::VideoSettings& video) {
     compositor_->change(video, instance_->handle(), options_.librashader);
 }
 
+const settings::VideoSettings& Presenter::video() const {
+    return compositor_->video();
+}
+
 VkResult Presenter::waitForFrame() {
     return vkWaitForFences(vk_, 1, &done_, VK_TRUE, UINT64_MAX);
 }

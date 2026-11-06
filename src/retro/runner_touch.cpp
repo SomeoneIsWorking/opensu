@@ -49,7 +49,10 @@ void RunnerTouch::shape(const std::vector<InputDescriptor>& descriptors,
     panel_ = std::move(panel);
     std::string named;
     for (const touch::ArcadeButton& button : panel_.buttons) {
-        named += (named.empty() ? "" : ", ") + button.label;
+        const std::string_view limb = button.limb == touch::Limb::Punch  ? " Punch"
+                                      : button.limb == touch::Limb::Kick ? " Kick"
+                                                                         : "";
+        named += (named.empty() ? "" : ", ") + button.label + std::string{limb};
     }
     lucent::info("retro", "arcade panel: {}-way stick, {} buttons ({})", panel_.ways,
                  panel_.buttons.size(), named);
@@ -65,6 +68,14 @@ void RunnerTouch::cabinet(const CabinetListing& listing) {
 void RunnerTouch::named(const std::vector<InputDescriptor>& descriptors) {
     if (listing_) {
         shape(descriptors, *listing_);
+    }
+}
+
+void RunnerTouch::sized(int percent) {
+    if (percent != percent_) {
+        percent_ = percent;
+        layer_.setSize(static_cast<float>(percent) / 100.0F);
+        place();
     }
 }
 
