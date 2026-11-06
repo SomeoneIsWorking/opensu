@@ -13,8 +13,9 @@ class TopBarClock {
   public:
     using Clock = std::chrono::steady_clock;
 
-    /// Writes into `shell`; `hour24` is the clock's format.
-    TopBarClock(ui::Shell& shell, bool hour24) noexcept : shell_{shell}, hour24_{hour24} {
+    /// Writes into `shell`; `hour24` is the clock's format, `battery` reads the level it sets.
+    TopBarClock(ui::Shell& shell, bool hour24, device::BatteryReader battery) noexcept
+        : shell_{shell}, hour24_{hour24}, battery_{battery} {
     }
 
     /// Sets the clock and the battery on the first call and once each minute has turned.

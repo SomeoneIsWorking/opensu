@@ -49,6 +49,8 @@ Visible deltas from the baseline:
 - Delta from iiSU: the status pill is sized to what it shows (launcher column, the measured
   `clock | NN% battery` row, padding at each end), not iiSU's fixed width, so a PC without a
   battery gets a pill that fits its clock. It stays right-aligned.
+- Delta from iiSU: the battery icon is filled to the exact percentage, not iiSU's five drawables,
+  and charging keeps the level under the bolt.
 - A details page replaces the direct launch: A (Enter, left click) on a game opens it, as do Y and
   the context menu's Details. It is a toolkit screen (`app/details_screen`): the cover, title,
   store or system badge, installed state, last played and play time beside Play or Install and
@@ -284,7 +286,8 @@ fixes `darkHeroScrim`) and `PagePillPainter` (dark variant). The shell composes
 them under `Hud`: iiSU's single-screen top bar (`TopBarMetrics` for is7/hs7/a32.o
 sizes, `StatusPillPainter` for the clock and battery, `TopBarLayout` for the pill and the launcher cells it paints and hit-tests at, `ClockText`
 for o28.g's format and k42's minute tick), the corner hints and openSU's toast.
-The battery comes from `device::BatteryReader` (`SDL_GetPowerInfo`, the system battery only); the
+The battery comes from `device::BatteryReader` (`SDL_GetPowerInfo`, the system battery only), its
+icon filled to the exact percentage from the right, charging with a bolt over the fill; the
 12/24-hour choice from the LC_TIME locale in `config`. The title pill (`jj2.c`)
 names the focused tile everywhere, Home included, where iiSU's Home shows none. There are no feature tiles or badges on game tiles.
 
@@ -530,7 +533,7 @@ to the console.
 
 Verified by `tests/ui` (layout numbers hand-computed from `hx2.g` and `zj2`,
 neighbour and page-crossing rules, motion curves, tile geometry from `tj2.V`,
-top-bar sizes at 640/853/1280 dp, clock formats and battery icon slots),
+top-bar sizes at 640/853/1280 dp, clock formats, the battery fill and bolt colours),
 `tests/device` (SDL's power states as the battery, controller batteries from a fake sysfs) and by rendering both modes
 offscreen at 1280×800 and 1920×1080 and looking at them.
 

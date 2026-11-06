@@ -23,6 +23,10 @@ add_test(NAME config_time_format COMMAND config_test time-format)
 
 add_test(NAME config_gamescope COMMAND config_test gamescope)
 
+add_test(NAME config_battery_stand_in COMMAND config_test battery-stand-in)
+set_tests_properties(config_battery_stand_in PROPERTIES
+    ENVIRONMENT_MODIFICATION "OPENSU_BATTERY=set:37,charging")
+
 # The user directories: XDG's on Linux, the Library and $TMPDIR on macOS.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_test(NAME config_data_dir COMMAND config_test data-dir)

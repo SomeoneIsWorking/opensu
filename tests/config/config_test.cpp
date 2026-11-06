@@ -39,6 +39,22 @@ int main(int argc, char** argv) try {
         std::printf("config: all checks passed\n");
         return 0;
     }
+    if (which == "battery-stand-in") {
+        using opensu::config::batteryStandInOf;
+        expect(config.batteryStandIn && config.batteryStandIn->percent == 37 &&
+                   config.batteryStandIn->charging,
+               "OPENSU_BATTERY is read");
+        const auto plain = batteryStandInOf("65");
+        expect(plain && plain->percent == 65 && !plain->charging, "a bare level discharges");
+        expect(batteryStandInOf("0").has_value() && batteryStandInOf("100").has_value(),
+               "the ends");
+        expect(!batteryStandInOf("101") && !batteryStandInOf("-1"), "out of range");
+        expect(!batteryStandInOf("") && !batteryStandInOf(",charging") &&
+                   !batteryStandInOf("65,full"),
+               "other spellings");
+        std::printf("config: all checks passed\n");
+        return 0;
+    }
     if (which == "gamescope") {
         using opensu::config::gamescopeBeside;
         const std::filesystem::path rel{OPENSU_GAMESCOPE_RELATIVE};

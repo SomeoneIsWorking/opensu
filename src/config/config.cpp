@@ -65,6 +65,19 @@ HomeMode envHomeMode(const char* name, HomeMode fallback) {
     return fallback;
 }
 
+std::optional<device::BatteryStatus> envBattery(const char* name) {
+    const std::string_view raw = env(name);
+    if (raw.empty()) {
+        return std::nullopt;
+    }
+    const std::optional<device::BatteryStatus> status = batteryStandInOf(raw);
+    if (!status) {
+        lucent::warn("config", "{} is not 0 to 100, with ,charging or not; using the machine's",
+                     name);
+    }
+    return status;
+}
+
 /// Splits a path list on the platform's separator. A trailing or repeated separator is not
 /// an error, so an empty element is simply dropped.
 std::vector<std::filesystem::path> splitPaths(std::string_view raw) {
@@ -158,6 +171,20 @@ std::optional<HomeMode> homeModeOf(std::string_view text) noexcept {
         return HomeMode::WiiSu;
     }
     return std::nullopt;
+}
+
+std::optional<device::BatteryStatus> batteryStandInOf(std::string_view text) noexcept {
+    constexpr std::string_view charging = ",charging";
+    const bool isCharging = text.ends_with(charging);
+    const std::string_view level =
+        isCharging ? text.substr(0, text.size() - charging.size()) : text;
+    int percent = -1;
+    const auto [end, error] = std::from_chars(level.data(), level.data() + level.size(), percent);
+    if (error != std::errc{} || end != level.data() + level.size() || percent < 0 ||
+        percent > 100) {
+        return std::nullopt;
+    }
+    return device::BatteryStatus{percent, isCharging};
 }
 
 std::filesystem::path gamescopeBeside(const std::filesystem::path& executable) {
@@ -267,6 +294,7 @@ Config read() {
     value.libretroThumbnails = std::string{env("OPENSU_LIBRETRO_THUMBNAILS")};
     value.steamStandIn = std::string{env("OPENSU_STEAM_STAND_IN")};
     value.geProtonRelease = std::string{env("OPENSU_GE_PROTON_RELEASE")};
+    value.batteryStandIn = envBattery("OPENSU_BATTERY");
     value.keyring = env("OPENSU_SECRET_STORE") != "file";
     for (const char* name : {"LC_ALL", "LC_MESSAGES", "LANG"}) {
         if (const std::string_view locale = env(name); !locale.empty()) {

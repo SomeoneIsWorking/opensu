@@ -20,12 +20,20 @@ struct BatteryStatus {
 
 class BatteryReader {
   public:
+    /// With a `standIn`, a test run's level (`Config::batteryStandIn`), which `read` gives.
+    explicit BatteryReader(std::optional<BatteryStatus> standIn = std::nullopt) noexcept
+        : standIn_{standIn} {
+    }
+
     /// The system battery, or nothing when the machine has none or its level is unknown.
     [[nodiscard]] std::optional<BatteryStatus> read() const;
 
     /// What SDL's `state` and `percent` (-1 when unknown) say of a battery: the system's, or a
     /// gamepad's.
     [[nodiscard]] static std::optional<BatteryStatus> statusOf(SDL_PowerState state, int percent);
+
+  private:
+    std::optional<BatteryStatus> standIn_;
 };
 
 /// The battery of a wireless controller, found by the controller's unique id (its Bluetooth

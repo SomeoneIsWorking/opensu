@@ -398,7 +398,8 @@ class ShellApp final {
     /// The player's controls while a remote game has them.
     RemoteInput remoteInput_;
     std::unique_ptr<RemoteTouch> remoteTouch_;
-    TopBarClock clock_{shell_, environment_.clock24Hour};
+    TopBarClock clock_{shell_, environment_.clock24Hour,
+                       device::BatteryReader{environment_.batteryStandIn}};
     FrameTiming frameTiming_;
     /// The on-screen keyboard the pad types into text fields with.
     KeyboardPad keyboardPad_{shell_.keyboard(), shell_.screens().navigator(), sounds_};

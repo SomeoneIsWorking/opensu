@@ -318,7 +318,7 @@ on the same rule.
 | `src/net/web_client.*` | openSU's one HTTP client, over libcurl (`docs/design/net.md`): every request takes its caller's stop token first and ends the moment it is requested; `get` (HTTPS GETs with headers, and plain HTTP to other openSUs on the LAN), `request` with a body cap and what it sends (`Sent`: a method such as PUT, MOVE or MKCOL, a body, Basic credentials kept to the URL's origin), the answer's headers (`Answer::header`), with `Guard::progress` progress, cancel and a stall limit instead of a time limit; `download` streamed to a file; `request` and `download` with each redirect hop checked (`Refusal`); `head` and `BodyFacts` (Last-Modified and Content-Length of a response); a URL's origin (`originOf`); percent-encoding a query value (`percentEncode`) |
 | `src/net/result.hpp` | What a request comes to (`net::Result<T>`): its value, a `Failure` with its reason, or `Stopped`, which is no error; `as` carries a failure or stop over to another result type |
 | `src/vdf/` | Valve KeyValues parsers: text, and binary (`binary.*`, Steam's `shortcuts.vdf`) |
-| `src/device/battery.*`, `controller_batteries_sysfs.cpp` | The system battery's level and charging state from `SDL_GetPowerInfo` (every OS); a wireless controller's battery from sysfs by its unique id (`EvdevPads`); `BatteryReader::statusOf` maps SDL's power states for `SdlPads` |
+| `src/device/battery.*`, `controller_batteries_sysfs.cpp` | The system battery's level and charging state from `SDL_GetPowerInfo` (every OS), or `OPENSU_BATTERY`'s stand-in for a test run; a wireless controller's battery from sysfs by its unique id (`EvdevPads`); `BatteryReader::statusOf` maps SDL's power states for `SdlPads` |
 | `src/gamepad/event.*` | The shell's controls (`Button`, `Event`; `stick` marks a left stick direction) (`opensu_pad`) |
 | `src/gamepad/pad_source.hpp`, `pad_source_evdev.cpp` (Linux), `pad_source_sdl.cpp` (elsewhere) | The pads interface every reader implements (`PadSource`: events, connected pads, sticks and triggers (`axes`), claims, chords, kept virtual pads, a virtual pad lent to a guest (`lendPad`, `returnPad`), whether it grabs), `PadInfo`, `Claim`, `OwnVirtualPads`; `openPadSource` picks the OS's backend in `src/gamepad/CMakeLists.txt` |
 | `src/gamepad/sdl_pads.*` | SDL's gamepads as a `PadSource` (no grab, no virtual pads), caught with an event watch; SDL's buttons and axes as controls (`SdlPadState`, the translator's thresholds); built on Linux too |
@@ -576,7 +576,7 @@ Pure model, unit-tested without a GPU (`opensu_grid`, `opensu_hud_model`):
 | `src/ui/top_bar_metrics.*` | Top bar sizes in dp (`is7`, `hs7`, `dl3`) |
 | `src/ui/top_bar_layout.*` | The status pill and the launcher badge cells in it, in pixels, and how far a badge's hit reaches past it. The Hud paints from it |
 | `src/ui/corner_hints.*` | Which prompts the bottom corners name and the button each sends, from what each button does now (`HintContext`) |
-| `src/ui/clock_text.*`, `battery_icon.*` | Clock string and battery drawable choice |
+| `src/ui/clock_text.*`, `battery_icon.*` | Clock string; the battery level's fill width and charging bolt colour |
 | `src/ui/panel_frame.hpp` | The frame and chrome heights the side menus are laid out in |
 | `src/ui/moment_text.*` | A save's time as the player reads it (`momentText`: "2026-11-04 18:09") |
 | `src/ui/size_text.*` | A size as the player reads it, the one rule every screen uses (`sizeText`, decimal steps: "45.2 GB") |

@@ -13,6 +13,8 @@
 #include <string_view>
 #include <vector>
 
+#include "device/battery.hpp"
+
 namespace opensu::config {
 
 /// The separator of a list of paths in the environment (PATH): `;` where `:` is in a path (a
@@ -32,6 +34,10 @@ enum class HomeMode : std::uint8_t {
 [[nodiscard]] std::string_view key(HomeMode mode) noexcept;
 /// The mode spelled `text`, or nothing for another spelling.
 [[nodiscard]] std::optional<HomeMode> homeModeOf(std::string_view text) noexcept;
+
+/// The level `text` spells for OPENSU_BATTERY, `65` or `65,charging`, or nothing for another
+/// spelling.
+[[nodiscard]] std::optional<device::BatteryStatus> batteryStandInOf(std::string_view text) noexcept;
 
 /// Emulator commands per system, as "SYSTEM=program|arg|arg".
 using EmulatorCommands = std::map<std::string, std::vector<std::string>, std::less<>>;
@@ -194,6 +200,10 @@ struct Config {
     /// SteamGridDB's API root, from OPENSU_STEAMGRIDDB_API, which points a test run at a stand-in;
     /// empty for SteamGridDB's own.
     std::string steamGridDbApi;
+
+    /// The level a test run shows as the system battery, from OPENSU_BATTERY; nothing for the
+    /// machine's own.
+    std::optional<device::BatteryStatus> batteryStandIn;
 
     /// The GE-Proton release openSU installs, as GitHub release JSON, from
     /// OPENSU_GE_PROTON_RELEASE (a test run names an older release by tag); empty for the latest.

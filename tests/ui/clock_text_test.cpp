@@ -3,14 +3,12 @@
 
 #include <cstdio>
 
-#include "battery_icon.hpp"
 #include "check.hpp"
 #include "support/test_main.hpp"
 
 namespace {
 
 using opensu::test::expect;
-using opensu::ui::BatteryIcon;
 using opensu::ui::ClockText;
 
 void twentyFourHour() {
@@ -34,23 +32,12 @@ void minuteBoundary() {
     expect(ClockText::untilNextMinute(60, 0).count() == 1000, "a leap second still waits one");
 }
 
-void batterySlots() {
-    // iiSU a32.p thresholds.
-    expect(BatteryIcon::slot(80, false) == 0 && BatteryIcon::slot(79, false) == 1, "80 is full");
-    expect(BatteryIcon::slot(60, false) == 1 && BatteryIcon::slot(40, false) == 2, "60 and 40");
-    expect(BatteryIcon::slot(20, false) == 3 && BatteryIcon::slot(19, false) == 4, "below 20");
-    expect(BatteryIcon::slot(100, true) == 0 && BatteryIcon::slot(99, true) == 1, "charged");
-    expect(BatteryIcon::slot(60, true) == 2 && BatteryIcon::slot(59, true) == 3, "charging 60");
-    expect(BatteryIcon::slot(30, true) == 3 && BatteryIcon::slot(29, true) == 4, "charging 30");
-}
-
 } // namespace
 
 int main() try {
     twentyFourHour();
     twelveHour();
     minuteBoundary();
-    batterySlots();
     std::printf("clock_text: all checks passed\n");
     return 0;
 } catch (...) {

@@ -4,30 +4,22 @@
 
 namespace opensu::ui {
 
-int BatteryIcon::slot(int percent, bool charging) noexcept {
+float BatteryIcon::fillWidth(int percent, float inner, float sliver) noexcept {
     const int level = std::clamp(percent, 0, 100);
-    if (charging) {
-        if (level == 100) {
-            return 0;
-        }
-        if (level >= 80) {
-            return 1;
-        }
-        if (level >= 60) {
-            return 2;
-        }
-        return level < 30 ? 4 : 3;
+    if (level == 0) {
+        return 0.0f;
     }
-    if (level >= 80) {
-        return 0;
+    return std::min(std::max(inner * static_cast<float>(level) / 100.0f, sliver), inner);
+}
+
+std::uint32_t BatteryIcon::boltColour(int percent) noexcept {
+    if (percent >= 80) {
+        return boltColours[0];
     }
-    if (level >= 60) {
-        return 1;
+    if (percent >= 60) {
+        return boltColours[1];
     }
-    if (level >= 40) {
-        return 2;
-    }
-    return level < 20 ? 4 : 3;
+    return percent >= 30 ? boltColours[2] : boltColours[3];
 }
 
 } // namespace opensu::ui

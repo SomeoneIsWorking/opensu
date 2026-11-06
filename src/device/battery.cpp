@@ -5,6 +5,9 @@
 namespace opensu::device {
 
 std::optional<BatteryStatus> BatteryReader::read() const {
+    if (standIn_) {
+        return standIn_;
+    }
     int percent = -1;
     const SDL_PowerState state = SDL_GetPowerInfo(nullptr, &percent);
     return statusOf(state, percent);

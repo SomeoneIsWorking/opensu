@@ -8,7 +8,7 @@ else()
     target_sources(opensu_config PRIVATE locations.cpp install_layout_beside.cpp)
 endif()
 target_include_directories(opensu_config PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
-target_link_libraries(opensu_config PUBLIC opensu::command lucent::lucent PRIVATE opensu::clock PkgConfig::SDL3)
+target_link_libraries(opensu_config PUBLIC opensu::command opensu::device lucent::lucent PRIVATE opensu::clock PkgConfig::SDL3)
 target_compile_features(opensu_config PUBLIC cxx_std_20)
 target_compile_definitions(opensu_config PUBLIC OPENSU_GAMESCOPE_RELATIVE="${OPENSU_GAMESCOPE_RELATIVE}"
     OPENSU_LIBRASHADER_RELATIVE="${OPENSU_LIBRASHADER_RELATIVE}"
