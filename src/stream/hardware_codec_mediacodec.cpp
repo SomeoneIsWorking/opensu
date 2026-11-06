@@ -22,6 +22,9 @@
 namespace opensu::stream::backend {
 namespace {
 
+/// A small picture's key frame can outgrow a byte a pixel.
+constexpr int leastInputBytes = 1 << 20;
+
 constexpr std::array<std::pair<VideoCodec, const char*>, 3> mimeTypes{{
     {VideoCodec::Av1, "video/av01"},
     {VideoCodec::Hevc, "video/hevc"},
@@ -186,7 +189,7 @@ class Decoder final : public VideoDecoder {
         AMediaFormat_setInt32(format.get(), AMEDIAFORMAT_KEY_HEIGHT, size_.height);
         AMediaFormat_setInt32(format.get(), AMEDIAFORMAT_KEY_COLOR_FORMAT, colourFlexible);
         AMediaFormat_setInt32(format.get(), AMEDIAFORMAT_KEY_MAX_INPUT_SIZE,
-                              size_.width * size_.height);
+                              std::max(size_.width * size_.height, leastInputBytes));
         AMediaFormat_setInt32(format.get(), "priority", 0);
         if (lowLatency) {
             AMediaFormat_setInt32(format.get(), "low-latency", 1);

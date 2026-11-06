@@ -66,8 +66,12 @@ VkSurfaceKHR SdlRunnerWindow::makeSurface(VkInstance instance) {
 }
 
 void SdlRunnerWindow::resize(unsigned width, unsigned height) {
-    if (!SDL_SetWindowFullscreen(window_, false) ||
-        !SDL_SetWindowSize(window_, static_cast<int>(width), static_cast<int>(height))) {
+    const int wide = static_cast<int>(width);
+    const int high = static_cast<int>(height);
+    // Gamescope fills the screen with a window unless its size hints fix its size.
+    if (!SDL_SetWindowFullscreen(window_, false) || !SDL_SetWindowMinimumSize(window_, 0, 0) ||
+        !SDL_SetWindowMaximumSize(window_, wide, high) ||
+        !SDL_SetWindowMinimumSize(window_, wide, high) || !SDL_SetWindowSize(window_, wide, high)) {
         lucent::warn("retro", "the window stays its size: {}", SDL_GetError());
     }
 }

@@ -332,11 +332,13 @@ that profile's; the host's own active profile does not change.
   fork's `exact_size` key, so the stream holds the game's own pixels and no bars. The host repeats
   the shape shown as a `Shape` datagram every second. A picture the core turns keeps the screen's
   size.
+- A guest that asks again while its seat is held gets the seat back at once, unasked (`offer`).
 - A guest's pad is one of the kept virtual pads (`PadSource::seatPad`), which Steam and Proton
   already read; a pad made later is not seen by a game they run. None kept, it gets its own.
 - A game Steam starts misses the sink's environment, so every second the host moves the audio
   streams of the game's processes into the sink (`GameSound::adopt`, the `default` metadata's
   `target.object`).
+- A hardware rate is at most 2 bits a pixel, since a constant rate pads a small picture to the plan.
 - Scaling on the guest: every built-in runner game sends the player's sampling in `Shape`, whatever
   its size, and the guest scales by it, nearest or smooth. Any other game is upscaled through
   FSR 1 (`gpu2d::Canvas::upscaled`).
@@ -353,10 +355,11 @@ that profile's; the host's own active profile does not change.
   burst's quickest: the queue it met), and every 20 ms while probe datagrams come. PyroWave codes
   while 80 % of what the link delivered is at least 100 Mbit/s (its budget that share, at most
   200 Mbit/s); below that the best hardware codec both ends have codes at 60 % of it, 2 to
-  40 Mbit/s. While running, each second of reports is judged: over 5 % lost (1 % on a
-  hardware codec, which decodes nothing from a loss to the next key frame) replans PyroWave at what
+  40 Mbit/s. While running, each second of reports is judged: over 5 % lost replans PyroWave at what
   was delivered, and takes a hardware codec's rate down by a quarter, since a calm picture delivers
-  far less than the link carries; under 1 % (0.1 % on hardware) raises the rate (×1.25 PyroWave, ×1.15 hardware). On a
+  far less than the link carries; parity mends less than that, which a lower rate would not cure.
+  Under 1 % (2 % on hardware) raises the rate (×1.25 PyroWave; ×1.35 hardware, at most every 10 s,
+  since each new rate reopens the encoder on a key frame). On a
   hardware codec a probe every 10 s (doubling to 20 s each time one fails) ramps what the host
   sends, video and probe datagrams together, from the plan's rate up to 131 Mbit/s over two seconds
   (geometrically, as BBR's bandwidth probe grows) and holds it 200 ms; it stops at the first report
@@ -404,7 +407,9 @@ that profile's; the host's own active profile does not change.
   what is over a frame's worth when no video waits, so the video keeps its burst and the two
   together never pass the probe's rate.
 - Guest: `stream::GuestStream` receives; `stream::GuestVideo` queues video packets and decodes on a
-  thread of its own, a decoder per codec: a frame missing a packet is dropped when the next begins
+  thread of its own, a decoder per codec: a hardware frame's lost packets are rebuilt from the
+  parity sent after it (`stream::frame_parity`, Reed-Solomon, a fifth of the plan's rate, per block
+  of 64 packets). A frame still missing a packet is dropped when the next begins
   (nothing waits for a resend); on a hardware codec every frame after it is dropped until a key
   frame, which the guest asks for while the decoder waits (KeyFrame, at most every 100 ms); a whole PyroWave frame two
   newer ones began after is skipped as late. The loop

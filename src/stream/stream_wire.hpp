@@ -37,7 +37,9 @@ struct Pong {
 [[nodiscard]] std::optional<Pong> readPong(std::string_view payload);
 
 /// Packet `part` of the `parts` of frame `frame`, `width` by `height`, coded with `codec`
-/// (`VideoCodec`'s value); `key` when the frame needs none before it. `capturedUs` is when the host
+/// (`VideoCodec`'s value); `key` when the frame needs none before it. Parts from `parts` on are the
+/// frame's `parity` packets (`frame_parity`), and `lastBytes` is how long its last part is.
+/// `capturedUs` is when the host
 /// took the frame, `encodedUs` when the encoder had it and `sentUs` when its first packet went out.
 struct VideoPacket {
     std::uint32_t frame{0};
@@ -47,6 +49,8 @@ struct VideoPacket {
     bool key{false};
     std::uint16_t part{0};
     std::uint16_t parts{0};
+    std::uint16_t parity{0};
+    std::uint16_t lastBytes{0};
     std::uint64_t capturedUs{0};
     std::uint64_t encodedUs{0};
     std::uint64_t sentUs{0};
@@ -55,7 +59,7 @@ struct VideoPacket {
 [[nodiscard]] std::string write(const VideoPacket& packet);
 [[nodiscard]] std::optional<VideoPacket> readVideoPacket(std::string_view payload);
 /// The bytes `write` puts before a video packet's data.
-inline constexpr std::size_t videoHeaderBytes = 4 + 2 + 2 + 1 + 1 + 2 + 2 + 8 + 8 + 8;
+inline constexpr std::size_t videoHeaderBytes = 4 + 2 + 2 + 1 + 1 + 2 + 2 + 2 + 2 + 8 + 8 + 8;
 
 /// One datagram of probe `burst`, the `index`th, sent at `sentUs` on the host's clock, padded to
 /// `bytes` of payload.

@@ -470,6 +470,10 @@ RunnerExit RunnerApp::run() {
                 fittedHeight = shown.height;
                 presenter->fitWindow(shown.width, shown.height);
             }
+            if (nativeWindow) {
+                // The guest gives the picture its shape; bars here would be coded and squeezed.
+                shown.aspect = 0.0F;
+            }
         }
         std::optional<touch::OverlayImage> overlay;
         if (const auto named = environment.takeInputDescriptors()) {

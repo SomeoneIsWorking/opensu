@@ -1,6 +1,7 @@
 // predicted_frames — a hardware codec's frames as their packets come, for its decoder: the parts
-// put together in order, and the rule that a frame lost leaves the ones after it nothing to build
-// on, so nothing is decoded until the next key frame.
+// put together in order, those lost rebuilt from the frame's parity (`frame_parity`), and the rule
+// that a frame lost leaves the ones after it nothing to build on, so nothing is decoded until the
+// next key frame.
 #pragma once
 
 #include <cstddef>
@@ -30,9 +31,12 @@ class PredictedFrames {
     /// The frame whose packets are coming, by part.
     std::uint32_t frame_{0};
     std::size_t expected_{0};
+    std::size_t lastBytes_{0};
     bool key_{false};
     bool whole_{false};
     std::map<std::uint16_t, std::string> parts_;
+    /// Its parity packets, by index among them.
+    std::map<std::uint16_t, std::string> parity_;
     bool awaitingKey_{true};
 };
 

@@ -22,7 +22,7 @@ endif()
 
 add_library(opensu_stream STATIC stream_wire.cpp link_rate.cpp link_cap.cpp token_bucket.cpp
     host_stream.cpp audience.cpp guest_stream.cpp remote_reach.cpp video_codec.cpp picture_colour.cpp
-    predicted_frames.cpp host_video.cpp guest_video.cpp host_audio.cpp guest_audio.cpp)
+    frame_parity.cpp predicted_frames.cpp host_video.cpp guest_video.cpp host_audio.cpp guest_audio.cpp)
 add_library(opensu::stream ALIAS opensu_stream)
 target_include_directories(opensu_stream PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/..")

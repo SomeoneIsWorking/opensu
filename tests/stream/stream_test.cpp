@@ -15,6 +15,7 @@
 #include <mutex>
 #include <numbers>
 #include <optional>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
@@ -23,6 +24,7 @@
 
 #include "lan/pairing_keys.hpp"
 #include "stream/audio_codec.hpp"
+#include "stream/frame_parity.hpp"
 #include "stream/guest_audio.hpp"
 #include "stream/guest_stream.hpp"
 #include "stream/host_stream.hpp"
@@ -30,6 +32,7 @@
 #include "stream/link_cap.hpp"
 #include "stream/link_rate.hpp"
 #include "stream/packet_seal.hpp"
+#include "stream/predicted_frames.hpp"
 #include "stream/remote_reach.hpp"
 #include "stream/stream_wire.hpp"
 #include "stream/token_bucket.hpp"
@@ -628,6 +631,58 @@ std::vector<std::uint64_t> drive(stream::LinkRate& link, std::uint64_t fromUs, s
     return rates;
 }
 
+/// A frame of 130 packets over three blocks, sent to a decoder's frames without those in `lost`.
+bool arrivesWhole(stream::PredictedFrames& frames, std::uint32_t number,
+                  const std::set<std::size_t>& lost) {
+    std::vector<std::string> parts;
+    for (std::size_t i = 0; i < 130; ++i) {
+        std::string part(stream::videoPacketBytes, '\0');
+        for (std::size_t at = 0; at < part.size(); ++at) {
+            part[at] = static_cast<char>((at * 31 + i * 7 + number) % 251);
+        }
+        parts.push_back(std::move(part));
+    }
+    parts.back().resize(77);
+    const std::vector<std::string> parity = stream::parityOf(parts);
+    expect(parity.size() == stream::parityFor(parts.size()), "parity is as long as promised");
+    stream::wire::VideoPacket packet{.frame = number,
+                                     .width = 2,
+                                     .height = 2,
+                                     .key = number == 1,
+                                     .parts = static_cast<std::uint16_t>(parts.size()),
+                                     .parity = static_cast<std::uint16_t>(parity.size()),
+                                     .lastBytes = 77,
+                                     .data = {}};
+    bool whole = false;
+    for (std::size_t i = 0; i < parts.size() + parity.size(); ++i) {
+        packet.part = static_cast<std::uint16_t>(i);
+        packet.data = i < parts.size() ? parts[i] : parity[i - parts.size()];
+        if (!lost.contains(i) && frames.push(packet)) {
+            whole = true;
+        }
+    }
+    std::string all;
+    for (const std::string& part : parts) {
+        all += part;
+    }
+    return whole && frames.coded() == all;
+}
+
+void lostPacketsComeBackFromParity() {
+    stream::PredictedFrames frames;
+    expect(arrivesWhole(frames, 1, {}), "a frame nothing was lost from is whole");
+    std::set<std::size_t> lost{64, 129};
+    for (std::size_t i = 0; i < 13; ++i) {
+        lost.insert(i * 4);
+    }
+    expect(arrivesWhole(frames, 2, lost), "as much as a block's parity comes back, the last too");
+    expect(!frames.awaitingKey(), "and the next frame still has its reference");
+    lost.insert(1);
+    expect(!arrivesWhole(frames, 3, lost), "one packet more than the parity is a frame lost");
+    expect(!arrivesWhole(frames, 4, {}), "and what follows waits for a key frame");
+    expect(frames.awaitingKey(), "which the decoder asks for");
+}
+
 void aCalmPictureKeepsItsRateAfterALoss() {
     using stream::VideoCodec;
     const stream::VideoCodecs hevc = stream::codecBit(VideoCodec::Hevc);
@@ -885,6 +940,7 @@ int main(int argc, char** argv) try {
     payloadsReadAsWritten();
     aSessionCarriesInputAndEnds();
     noCommonCodecEndsTheSession();
+    lostPacketsComeBackFromParity();
     aCalmPictureKeepsItsRateAfterALoss();
     theHostsEndReachesTheGuest();
     aPictureCodedElsewhereDecodes();

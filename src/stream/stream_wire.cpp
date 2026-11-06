@@ -131,6 +131,8 @@ std::string write(const VideoPacket& packet) {
     out.push_back(static_cast<char>(packet.key ? 1 : 0));
     appendLittleEndian(out, packet.part, 2);
     appendLittleEndian(out, packet.parts, 2);
+    appendLittleEndian(out, packet.parity, 2);
+    appendLittleEndian(out, packet.lastBytes, 2);
     appendLittleEndian(out, packet.capturedUs, 8);
     appendLittleEndian(out, packet.encodedUs, 8);
     appendLittleEndian(out, packet.sentUs, 8);
@@ -149,12 +151,14 @@ std::optional<VideoPacket> readVideoPacket(std::string_view payload) {
     packet.key = flags == 1;
     packet.part = static_cast<std::uint16_t>(in.take(2));
     packet.parts = static_cast<std::uint16_t>(in.take(2));
+    packet.parity = static_cast<std::uint16_t>(in.take(2));
+    packet.lastBytes = static_cast<std::uint16_t>(in.take(2));
     packet.capturedUs = in.take(8);
     packet.encodedUs = in.take(8);
     packet.sentUs = in.take(8);
     packet.data = in.rest();
     if (!in.ok() || flags > 1 || packet.data.empty() || packet.width == 0 || packet.height == 0 ||
-        packet.part >= packet.parts) {
+        packet.parts == 0 || packet.part >= packet.parts + packet.parity) {
         return std::nullopt;
     }
     return packet;

@@ -1,5 +1,7 @@
 #include "predicted_frames.hpp"
 
+#include "frame_parity.hpp"
+
 namespace opensu::stream {
 
 bool PredictedFrames::push(const wire::VideoPacket& packet) {
@@ -13,12 +15,24 @@ bool PredictedFrames::push(const wire::VideoPacket& packet) {
         }
         frame_ = packet.frame;
         expected_ = packet.parts;
+        lastBytes_ = packet.lastBytes;
         key_ = packet.key;
         whole_ = false;
         parts_.clear();
+        parity_.clear();
     }
-    parts_[packet.part] = packet.data;
-    if (whole_ || parts_.size() != expected_) {
+    if (whole_) {
+        return false;
+    }
+    if (packet.part < expected_) {
+        parts_[packet.part] = packet.data;
+    } else {
+        parity_[static_cast<std::uint16_t>(packet.part - expected_)] = packet.data;
+    }
+    if (parts_.size() < expected_ && parts_.size() + parity_.size() >= expected_) {
+        restoreParts(parts_, parity_, expected_, lastBytes_);
+    }
+    if (parts_.size() != expected_) {
         return false;
     }
     whole_ = true;

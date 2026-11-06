@@ -228,9 +228,25 @@ lan::PlayOutcome RemotePlay::offer(const lan::Peer& peer, const std::string& gam
         }
     }
     if (hosted_) {
-        const Hosted& hosted = *hosted_;
+        Hosted& hosted = *hosted_;
         if (hosted.gameId != gameId) {
             return refuse("it is streaming " + hosted.title + " now");
+        }
+        const auto held = std::ranges::find_if(hosted.guests, [&peer](const auto& guest) {
+            return guest->peer.id == peer.id && !guest->stream && !guest->kicked;
+        });
+        if (held != hosted.guests.end()) {
+            try {
+                return lan::PlayOutcome{.port = takeOver(hosted, **held, peer, keys),
+                                        .waiting = false,
+                                        .joined = true,
+                                        .continued = false,
+                                        .refusal = {}};
+            } catch (const std::runtime_error& failure) {
+                lucent::warn("remote", "{} cannot take its seat back: {}", peer.name,
+                             failure.what());
+                return refuse(failure.what());
+            }
         }
         if (std::ranges::any_of(hosted.guests, [&peer](const std::unique_ptr<Guest>& guest) {
                 return guest->peer.id == peer.id && guest->stream;
@@ -841,7 +857,7 @@ void RemotePlay::tellGuests(Hosted& hosted, const GameFacts& facts) {
     if (hosted.forGuest && hosted.audio) {
         // Steam starts its games itself, so they miss the sink's environment.
         if (const std::optional<library::Game> game = hooks_.find(hosted.gameId)) {
-            hosted.audio->adopt(launch::ProcessTree::matching(game->processHint));
+            hosted.audio->adopt(launch::ProcessTree::treesMatching(game->processHint));
         }
     }
     const stream::PictureSize picture = facts.picture;

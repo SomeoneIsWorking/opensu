@@ -1,6 +1,9 @@
 #include "host_video.hpp"
 
+#include "frame_parity.hpp"
+
 #include <algorithm>
+#include <initializer_list>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -22,6 +25,20 @@ PictureSize within(PictureSize size, int side) {
     }
     return PictureSize{.width = size.width * side / longest,
                        .height = size.height * side / longest};
+}
+
+/// All a hardware codec's picture can use: at a constant rate it pads a small one up to the plan.
+constexpr double mostBitsPerPixel = 2;
+
+/// The rate an encoder codes `frame` at: the plan's, less the parity sent beside it.
+std::uint64_t codedBits(const CapturedFrame& frame, VideoCodec codec, std::uint64_t bitsPerSecond) {
+    if (codec == VideoCodec::PyroWave) {
+        return bitsPerSecond;
+    }
+    const double most =
+        static_cast<double>(frame.width) * frame.height * videoFramesPerSecond * mostBitsPerPixel;
+    return static_cast<std::uint64_t>(
+        std::min(static_cast<double>(bitsPerSecond) / (1 + parityShare), most));
 }
 
 } // namespace
@@ -134,7 +151,7 @@ bool HostVideo::code(const CapturedFrame& frame, VideoCodec codec, const Group& 
     }
     CodedFrame coded;
     try {
-        coded = encoding.encoder->encode(frame, group.bitsPerSecond, key);
+        coded = encoding.encoder->encode(frame, codedBits(frame, codec, group.bitsPerSecond), key);
     } catch (const std::runtime_error& failure) {
         encodings_.erase(codec);
         for (HostStream* stream : group.guests) {
@@ -146,6 +163,10 @@ bool HostVideo::code(const CapturedFrame& frame, VideoCodec codec, const Group& 
         return false;
     }
     const std::uint64_t encodedUs = wire::nowMicros();
+    std::vector<std::string> parity;
+    if (codec != VideoCodec::PyroWave) {
+        parity = parityOf(coded.packets);
+    }
     wire::VideoPacket packet{.frame = number,
                              .width = static_cast<std::uint16_t>(frame.width & ~1),
                              .height = static_cast<std::uint16_t>(frame.height & ~1),
@@ -153,16 +174,20 @@ bool HostVideo::code(const CapturedFrame& frame, VideoCodec codec, const Group& 
                              .key = coded.key,
                              .part = 0,
                              .parts = static_cast<std::uint16_t>(coded.packets.size()),
+                             .parity = static_cast<std::uint16_t>(parity.size()),
+                             .lastBytes = static_cast<std::uint16_t>(coded.packets.back().size()),
                              .capturedUs = frame.capturedUs,
                              .encodedUs = encodedUs,
                              .sentUs = wire::nowMicros(),
                              .data = {}};
     std::vector<std::string> payloads;
-    payloads.reserve(coded.packets.size());
-    for (std::string& data : coded.packets) {
-        packet.data = std::move(data);
-        payloads.push_back(wire::write(packet));
-        ++packet.part;
+    payloads.reserve(coded.packets.size() + parity.size());
+    for (std::vector<std::string>* packets : {&coded.packets, &parity}) {
+        for (std::string& data : *packets) {
+            packet.data = std::move(data);
+            payloads.push_back(wire::write(packet));
+            ++packet.part;
+        }
     }
     for (std::size_t i = 0; i + 1 < group.guests.size(); ++i) {
         group.guests[i]->sendFrame(payloads);

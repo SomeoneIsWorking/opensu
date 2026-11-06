@@ -42,10 +42,13 @@ constexpr std::uint64_t fewestJudged = 30;
 constexpr double probeLoss = 0.02;
 constexpr double overLoss = 0.05;
 constexpr double quiet = 0.01;
-constexpr double hardwareOverLoss = 0.01;
-constexpr double hardwareQuiet = 0.001;
+// Parity mends a Wi-Fi's steady loss, which a lower rate would not cure.
+constexpr double hardwareOverLoss = 0.05;
+constexpr double hardwareQuiet = 0.02;
 constexpr double pyroWaveRaise = 1.25;
-constexpr double hardwareRaise = 1.15;
+constexpr double hardwareRaise = 1.35;
+/// How long a hardware rate stands before a raise: a new rate reopens the encoder on a key frame.
+constexpr std::uint64_t hardwareRaiseGapUs = 10'000'000;
 /// A hardware codec's rate after a lossy window. What it delivered says nothing of the link: a calm
 /// picture sends far less than the plan allows.
 constexpr double hardwareBackOff = 0.75;
@@ -266,7 +269,7 @@ void LinkRate::judge(std::uint64_t nowUs) {
     }
     LinkPlan raised = *plan_;
     const std::uint64_t top = pyroWave ? pyroWaveTop : hardwareTop;
-    if (raised.bitsPerSecond >= top) {
+    if (raised.bitsPerSecond >= top || (!pyroWave && nowUs - changedUs_ < hardwareRaiseGapUs)) {
         return;
     }
     raised.bitsPerSecond =
