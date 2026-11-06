@@ -19,6 +19,7 @@
 #include <unistd.h>
 
 #include "library/appimage_runtime.hpp"
+#include "library/core_target.hpp"
 #include "library/downloaded_emulators.hpp"
 #include "library/romset_dat.hpp"
 #include "library/romset_dats.hpp"
@@ -30,7 +31,9 @@ namespace {
 
 namespace fs = std::filesystem;
 using opensu::library::Game;
+using opensu::library::roms::arcadeCoresOf;
 using opensu::library::roms::checkingRomset;
+using opensu::library::roms::coreTarget;
 using opensu::library::roms::EmulatorCatalog;
 using opensu::library::roms::EmulatorEntry;
 using opensu::library::roms::Emulators;
@@ -355,6 +358,27 @@ void writeAppImage(const fs::path& path, bool classic) {
     fs::permissions(path, fs::perms::owner_all);
 }
 
+void installedCoresFirst(const Fixture& f) {
+    const fs::path cores = f.base / "arcade-cores";
+    const auto order = [](const Emulators& emulators) {
+        std::vector<std::string> ids;
+        for (const EmulatorEntry* entry : arcadeCoresOf(emulators)) {
+            ids.push_back(entry->id);
+        }
+        return ids;
+    };
+    const std::vector<std::string> catalog = order(Emulators::discover(shipped(), EmulatorSearch{}, {}));
+    expect(catalog.size() > 2 && catalog.front() == "fbneo-core",
+           "with nothing installed the catalog's order stands");
+    write(cores / ("mame2010_libretro" + std::string{coreTarget.librarySuffix}));
+    EmulatorSearch search;
+    search.cores = opensu::library::roms::CoreSearch{{}, {}, {cores}, {}};
+    const std::vector<std::string> installed = order(Emulators::discover(shipped(), search, {}));
+    expect(installed.front() == "mame2010-core" && installed[1] == "fbneo-core" &&
+               installed.size() == catalog.size(),
+           "an installed core's listing is asked for first, the rest in the catalog's order");
+}
+
 void biosIsNoGame(const Fixture& f) {
     const std::string program = "program rom";
     const std::string bios = "bios rom";
@@ -479,6 +503,7 @@ int main() try {
     emulatorsAreFound(fixture);
     providerLists(fixture);
     biosIsNoGame(fixture);
+    installedCoresFirst(fixture);
     downloadsMergeWithDetected(fixture);
     std::printf("roms: all checks passed\n");
     return 0;

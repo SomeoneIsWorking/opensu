@@ -21,6 +21,10 @@ namespace opensu::library::roms {
 discoverRoots(const std::filesystem::path& home,
               const std::vector<std::filesystem::path>& mountDirs);
 
+/// The arcade cores that name a listing, those installed first: their listings are fetched in
+/// this order, so what can run a game now is matched first.
+[[nodiscard]] std::vector<const EmulatorEntry*> arcadeCoresOf(const Emulators& emulators);
+
 /// The folders drives are mounted under for the user whose home is `home`.
 [[nodiscard]] std::vector<std::filesystem::path>
 standardMountDirs(const std::filesystem::path& home);

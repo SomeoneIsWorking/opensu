@@ -193,7 +193,9 @@ so the shell toasts it); 2 when the core or game cannot be loaded (the reason lo
 3 when `--validate` saw validation errors; a crash is the signal it died of. The shell learns how a
 game ended from the scope: the handoff reports the started process's status (`Instance::exitStatus`,
 128 plus the signal) through `Handoff::Hooks::ended`, except for a game force-closed from a menu.
-A death by any signal but SIGTERM, SIGKILL, SIGINT and SIGHUP is toasted as `<title> crashed
+On Android `Launches` reads the runner's end from `ApplicationExitInfo` (API 30+, older ones report
+a plain end), waiting up to 3 s for the record, and a crash with no signal of its own counts as
+SIGABRT. A death by any signal but SIGTERM, SIGKILL, SIGINT and SIGHUP is toasted as `<title> crashed
 (SIGSEGV)`; a load failure the runner left in its control file is toasted as its reason instead.
 Other ends keep the launch's own toast (`<title> closed`, or its failure).
 
@@ -510,9 +512,10 @@ automatic emulator stays the standalone one where it is installed.
 (HTTPS datafiles merged in order) or `"romsets": {"release": {api, asset, downloads}}` (the latest
 release's zip holding one `.xml`, size and SHA-256 checked). `RomsetDats::refresh` fetches a
 listing that is missing or older than 30 days, every redirect hop on the file's origin, and keeps
-the old one when the fetch fails; a file in an older line format counts as none. A library scan never waits on a fetch: `RomsetMatcher` asks
+the old one when the fetch fails; a file in an older line format counts as none. A library scan
+never waits on a fetch: `RomsetMatcher` asks
 `RomsetLists` for each due listing and matches with what is kept; `RomsetLists` fetches them in
-turn on its own thread, a failed one again no sooner than an hour later, and keeps every fetch's
+turn on its own thread, installed cores' first (`arcadeCoresOf`), a failed one again no sooner than an hour later, and keeps every fetch's
 state for the session. While a core's listing downloads and none is kept its verdict is `Pending`;
 with no match yet and a verdict pending the game's romset reads "Checking romset…", it cannot start
 (`unavailable` says the lists are downloading) and a system's emulator pick waits. Each fetch is a

@@ -95,6 +95,20 @@ std::string missingEmulator(const RomSystem& system, const Emulators& emulators)
 
 } // namespace
 
+std::vector<const EmulatorEntry*> arcadeCoresOf(const Emulators& emulators) {
+    std::vector<const EmulatorEntry*> cores;
+    for (const EmulatorEntry& entry : emulators.catalog().entries()) {
+        if (entry.serves("arcade") && !entry.romsets.empty()) {
+            cores.push_back(&entry);
+        }
+    }
+    std::ranges::stable_partition(cores, [&emulators](const EmulatorEntry* entry) {
+        const EmulatorInstall* install = emulators.installed(entry->id);
+        return install != nullptr && install->problem.empty();
+    });
+    return cores;
+}
+
 std::vector<fs::path> standardMountDirs(const fs::path& home) {
     const std::string user = home.filename().string();
     return {"/mnt", "/media/" + user, "/run/media/" + user};
@@ -126,12 +140,7 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
     std::vector<Game> games;
     const NameMap arcade = names_.load();
     const Emulators emulators = emulators_.discover();
-    std::vector<const EmulatorEntry*> arcadeCores;
-    for (const EmulatorEntry& entry : emulators.catalog().entries()) {
-        if (entry.serves("arcade") && !entry.romsets.empty()) {
-            arcadeCores.push_back(&entry);
-        }
-    }
+    const std::vector<const EmulatorEntry*> arcadeCores = arcadeCoresOf(emulators);
     // False for a BIOS: no game, though the folder still lends it to the games beside it.
     const auto byRomset = [&](Game& game, const RomFolder& folder, const RomNode& zip) {
         const std::string set = romsetOf(zip.name);
