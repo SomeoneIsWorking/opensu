@@ -128,12 +128,12 @@ struct Game {
     /// for a game on this machine.
     std::string hostId;
     std::string hostName;
-    /// Whether that openSU answers now; a game listed earlier stays, offline, until it is back.
-    bool hostOnline{true};
     /// A remote game running there: the profiles playing a seat in it, which one of them here can
     /// continue.
     std::vector<std::string> playingAs;
 
+    /// Whether that openSU answers now; a game listed earlier stays, offline, until it is back.
+    bool hostOnline{true};
     /// Whether the title can be launched now.
     bool installed{false};
     /// The store has a newer build than the installed one; set only for an installed store game.
