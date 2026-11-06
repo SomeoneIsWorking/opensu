@@ -229,6 +229,7 @@ cannot be set up (exit 1), it writes `{"error": "<reason>"}` there instead and l
 | `POST /state/save` | 200; 409 with the reason when the core cannot serialize (`retro_serialize_size` 0 or `retro_serialize` false); 500 when the slot cannot be written |
 | `POST /state/load` | 200; 404 when no state is saved; 409 when the core refuses it |
 | `POST /reset` | 200 after `retro_reset` |
+| `POST /turn` | 200 once Rotate screen changed (`ScreenTurn::toggle`), the Guide's row |
 | `POST /video` | 200 once the video settings in the body (`settings::videoJson`, the `--settings` file's format) are drawn from the next frame; 400 for a body that does not parse; 409 with the reason when the shader preset cannot be built, the settings drawn before kept |
 | `GET /frame.png` | The last frame shown as PNG, letterboxing included; a swapchain's is shown once more to be copied; 500 before the first frame or while the window has nothing to draw into |
 | `POST /touch` | 200: `{"finger": id, "phase": "down"\|"move"\|"up", "x": px, "y": px}` in the target's pixels, put on the window's event queue as an SDL finger event, so it takes the path a real finger does; 400 for anything else |
@@ -362,6 +363,41 @@ the pad and the panel together, by scaling `dp` in `TouchLayer::layout`; each la
 (`WindowSurface::dpWithin`) so its controls stay on the safe area. It travels with the video
 settings: the launch's `--settings` file and `POST /video`, so it changes in a running game from
 the Guide's Game settings. Fingers down at that moment are let go.
+
+On an upright target (`WindowSurface::upright`) neither layout looks for bars: the controls stand
+in a band along the bottom, pause and Rotate screen above the stick and Coin and Start above the
+buttons on a panel, a row of L, pause, Rotate screen and R and a row of Select and Start above the
+d-pad and faces on the pad. `ControlPlan::band` is its height, at most `uprightShare` of the screen
+since `dp` shrinks to keep it there, and while the controls show the runner keeps the picture off it
+(`FrameCompositor::reserve`). A landscape target has no band, so nothing changes there.
+
+**Rotate screen.** `ScreenTurn` owns whether it is on. The touch button beside pause (`Button::Rotate`,
+which is no pad's and reaches no game; `TouchLayer::offerRotate`, so a remote game's pad has none),
+F9, `POST /turn` from the Guide's row and `video.rotate` through `POST /video` all end in
+`ScreenTurn::set`. Nothing rotates by itself: a vertical game starts upright on the landscape screen
+like any other (`SET_ROTATION` turns its frame in `VideoFrame`), and only a press changes that.
+
+With `shell_handoff` it asks for the fixed `SCREEN_ORIENTATION_PORTRAIT` or `_LANDSCAPE`
+(`LandscapeActivity.turnScreen`), kept for SDL's `setOrientationBis`; a game that never pressed it
+stays on the manifest's `sensorLandscape`. The native call lands on whatever is the runner's context.
+`RetroActivity` turns itself and tells the shell; the embedded `RunnerContext` has no window and only
+tells the shell. Both use the Messenger `ShellActivity.runnerInbox`, `RetroService.TURN`, which
+`RetroActivity` gets as a launch extra and `RetroService` as `START`'s `replyTo`. So the shell always
+stands as the game does, and the Guide over a portrait game stays portrait in both modes, the shell's
+pages laying out for that window. A host's `ended` puts the shell back on `sensorLandscape`
+(`endTurn`). `/host` only carries shell to runner, so it has no part in this; F9 from the shell's
+keyboard reaches a hosted game as a `/host` key like any other. Elsewhere it turns the picture a quarter
+clockwise for a rotated monitor or cabinet (`FrameCompositor::turn`): `placeFrame` places the frame in
+the extent swapped, `frame.vert`'s `turned` constant turns the texture coordinates, and a shader preset
+draws into `reduced_output`'s image at scale or below, since librashader cannot turn its output, which
+is then drawn turned.
+
+The choice is `video.rotate`, kept per game. The shell cannot hear the runner on Android, so a press is
+written to the control file as `"turned"` (`ControlServer::noteTurned`), and the file stays when the
+runner exits rather than being removed. `LayeredSettings::keepScreenTurn` reads it through
+`RetroSession::screenTurned` when the Guide opens, after its row and when the game ends, and keeps it at
+the Game layer if it differs from what the layers resolve to. The next launch reads it from `--settings`
+like any video setting; set in Global or a system's scope it applies to more than one game.
 
 Art and words are rasterised at the drawn size. To check:
 `opensu-retro --hidden --touch <dp> --arcade <b>:<w>` with `OPENSU_WIDTH` and

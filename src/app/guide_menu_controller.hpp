@@ -87,6 +87,8 @@ class GuideMenuController final : public ui::RowActions {
         std::function<void()> closeGame;
         /// Opens the running game's settings over the menu.
         std::function<void()> openGameSettings;
+        /// Keeps a Rotate screen press as the running game's own setting.
+        std::function<void()> keepScreenTurn;
         /// Gives the screen the interface size the preferences now hold.
         std::function<void()> applyLayout;
         /// Closes openSU, back to the desktop.

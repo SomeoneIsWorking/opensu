@@ -3,7 +3,8 @@
 // arcade machine's panel (`arcade_layout`): each finger keeps the control it went down on, so
 // several are held at once and a thumb slides within one; the buttons held reach the game as a
 // pad's do, and the pause button holds Guide, which asks for the shell's menu as a pad's Guide
-// does. The pieces are composed into an overlay the size of the surface.
+// does; the runner's Rotate screen button holds Rotate the same way. The pieces are composed into
+// an overlay the size of the surface.
 #pragma once
 
 #include <cstdint>
@@ -38,6 +39,8 @@ class TouchLayer {
 
     /// Shows `panel` instead of the pad from the next `layout`.
     void setPanel(ArcadePanel panel);
+    /// Shows Rotate screen on the pad from the next `layout`, as a panel always does.
+    void offerRotate();
     /// Draws the controls at `size` times their size from the next `layout`, as far as they fit.
     void setSize(float size);
     /// Places the controls on `surface`, a panel around the frame at `picture`; fingers down are
@@ -45,6 +48,10 @@ class TouchLayer {
     void layout(const WindowSurface& surface, const Box& picture = {});
     /// Where the controls are now.
     [[nodiscard]] std::vector<ControlPlace> places() const;
+    /// How much of the target's bottom they keep from the picture.
+    [[nodiscard]] float band() const {
+        return plan_.band;
+    }
 
     /// Takes a finger; reports whether the buttons held changed.
     bool finger(const Finger& finger);
@@ -79,6 +86,7 @@ class TouchLayer {
     std::unique_ptr<LabelFace> labels_;
     ControlPlan plan_;
     float size_{1.0F};
+    bool rotate_{false};
     unsigned width_{0};
     unsigned height_{0};
     std::map<std::uint64_t, Touch> touches_;

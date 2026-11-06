@@ -55,6 +55,10 @@ struct WindowSurface {
     float safeHeight{0.0F};
     float dp{1.0F};
 
+    /// A portrait target: the controls go under the picture rather than beside it.
+    [[nodiscard]] bool upright() const {
+        return height > width;
+    }
     /// `dp`, less if controls `width` by `height` dp would run off the safe area at it.
     [[nodiscard]] float dpWithin(float width, float height) const {
         return std::min({dp, safeWidth / width, safeHeight / height});

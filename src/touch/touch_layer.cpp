@@ -70,6 +70,10 @@ void TouchLayer::setPanel(ArcadePanel panel) {
     }
 }
 
+void TouchLayer::offerRotate() {
+    rotate_ = true;
+}
+
 void TouchLayer::setSize(float size) {
     size_ = size;
 }
@@ -80,7 +84,8 @@ void TouchLayer::layout(const WindowSurface& surface, const Box& picture) {
     height_ = surface.height;
     WindowSurface sized = surface;
     sized.dp *= size_;
-    plan_ = panel_ ? arcadeLayout(sized, picture, *panel_, art_, *labels_) : padLayout(sized, art_);
+    plan_ = panel_ ? arcadeLayout(sized, picture, *panel_, art_, *labels_)
+                   : padLayout(sized, art_, rotate_);
     dirty_ = true;
 }
 

@@ -1395,6 +1395,12 @@ class ShellApp final {
                 [this] {
                     openGameSettings(launches_.game(), EditorLook::Panel);
                 },
+            .keepScreenTurn =
+                [this] {
+                    if (launches_.running()) {
+                        layered_.keepScreenTurn(launches_.game());
+                    }
+                },
             .applyLayout =
                 [this] {
                     applyLayout();

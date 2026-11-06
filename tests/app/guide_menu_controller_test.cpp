@@ -77,6 +77,9 @@ struct Rig {
                              [this] {
                                  calls.emplace_back("gameSettings");
                              },
+                         .keepScreenTurn =
+                             [] {
+                             },
                          .applyLayout =
                              [this] {
                                  calls.emplace_back("layout");

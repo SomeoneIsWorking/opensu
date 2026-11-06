@@ -28,6 +28,7 @@ constexpr std::string_view kickPrefix = "guide.kick/";
 constexpr const char* saveStateId = "guide.saveState";
 constexpr const char* loadStateId = "guide.loadState";
 constexpr const char* resetGameId = "guide.resetGame";
+constexpr const char* rotateScreenId = "guide.rotateScreen";
 constexpr const char* homeId = "guide.home";
 constexpr const char* libraryId = "guide.library";
 constexpr const char* searchId = "guide.search";
@@ -113,6 +114,7 @@ void GuideMenuController::toggle(Landing landing) {
     sounds_.play(audio::Effect::OpenContextMenu);
     closeShown_ = {};
     context_ = hooks_.context();
+    hooks_.keepScreenTurn();
     read();
     navigator_.push(std::make_unique<GuideMenuScreen>(*this, landing));
 }
@@ -170,6 +172,7 @@ std::vector<SettingsRow> GuideMenuController::places() const {
             rows.push_back(ui::makePage(gameSettingsId, "Game settings", {}, {}));
         }
         if (retroStatus_) {
+            rows.push_back(action(rotateScreenId, "Rotate screen"));
             rows.push_back(action(saveStateId, "Save state"));
             if (retroStatus_->hasState) {
                 rows.push_back(asking(loadStateId, "Load state",
@@ -349,7 +352,7 @@ void GuideMenuController::run(const std::string& id, int step) {
     } else if (id == resumeId) {
         close();
     } else if (id == closeGameId || id == saveAndCloseId || id == saveStateId ||
-               id == loadStateId || id == resetGameId) {
+               id == loadStateId || id == resetGameId || id == rotateScreenId) {
         runGame(id);
     } else if (id == homeId) {
         leave([this] {
@@ -390,9 +393,11 @@ void GuideMenuController::runGame(const std::string& id) {
     }
     const RetroSession::Command command = id == saveStateId   ? RetroSession::Command::SaveState
                                           : id == loadStateId ? RetroSession::Command::LoadState
-                                                              : RetroSession::Command::Reset;
+                                          : id == resetGameId ? RetroSession::Command::Reset
+                                                              : RetroSession::Command::TurnScreen;
     const RetroSession::Outcome outcome = retro_.perform(command);
     hooks_.say(outcome.text, outcome.error);
+    hooks_.keepScreenTurn();
     read();
 }
 

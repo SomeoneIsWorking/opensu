@@ -8,6 +8,8 @@
 
 namespace opensu::touch {
 
-[[nodiscard]] ControlPlan padLayout(const WindowSurface& surface, const ArtSource& art);
+/// The pad on `surface`, with Rotate screen beside pause when `rotate`.
+[[nodiscard]] ControlPlan padLayout(const WindowSurface& surface, const ArtSource& art,
+                                    bool rotate);
 
 } // namespace opensu::touch

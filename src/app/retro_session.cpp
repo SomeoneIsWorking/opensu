@@ -24,6 +24,14 @@ nlohmann::json readControl(const std::filesystem::path& file) {
     return nlohmann::json::parse(text, nullptr, false);
 }
 
+/// The player's Rotate screen choice in a control file's `control`.
+std::optional<bool> turnedIn(const nlohmann::json& control) {
+    if (!control.is_object() || !control.contains("turned") || !control["turned"].is_boolean()) {
+        return std::nullopt;
+    }
+    return control["turned"].get<bool>();
+}
+
 /// The settings file beside control file `control`.
 std::filesystem::path settingsBeside(const std::filesystem::path& control) {
     std::filesystem::path file = control;
@@ -62,12 +70,18 @@ std::string RetroSession::end() {
     if (control.is_object() && control.contains("error") && control["error"].is_string()) {
         failure = control["error"].get<std::string>();
     }
+    turned_ = turnedIn(control);
     std::error_code error;
     std::filesystem::remove(file_, error);
     std::filesystem::remove(settingsBeside(file_), error);
     file_.clear();
     port_.reset();
     return failure;
+}
+
+std::optional<bool> RetroSession::screenTurned() {
+    const std::lock_guard lock{mutex_};
+    return file_.empty() ? std::exchange(turned_, std::nullopt) : turnedIn(readControl(file_));
 }
 
 std::optional<std::uint16_t> RetroSession::port() {
@@ -247,6 +261,10 @@ RetroSession::Outcome RetroSession::perform(Command command) {
     case Command::Reset:
         refused = reset();
         done = "Game reset";
+        break;
+    case Command::TurnScreen:
+        refused = post("/turn");
+        done = "Screen rotated";
         break;
     }
     return refused.empty() ? Outcome{std::move(done), false} : Outcome{std::move(refused), true};

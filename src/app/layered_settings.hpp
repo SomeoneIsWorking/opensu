@@ -99,6 +99,8 @@ class LayeredSettings {
                                              const std::string& key) const;
     /// Puts back what `remove` took.
     void restore(const settings::Layer& scope, const std::string& key);
+    /// Keeps the player's last Rotate screen press as `game`'s own, when it changes what it has.
+    void keepScreenTurn(const library::Game& game);
     /// Removes everything `scope` keeps; how many went.
     std::size_t clear(const settings::Layer& scope);
 

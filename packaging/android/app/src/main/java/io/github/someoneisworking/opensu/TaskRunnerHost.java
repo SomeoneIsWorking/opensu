@@ -21,6 +21,7 @@ final class TaskRunnerHost implements RunnerHost {
             shell.startActivity(new Intent(shell, RetroActivity.class)
                     .putExtra(RetroActivity.EXTRA_ARGUMENTS, arguments)
                     .putExtra(RetroActivity.EXTRA_ENVIRONMENT, environment)
+                    .putExtra(RetroActivity.EXTRA_SHELL, shell.runnerInbox())
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         } catch (ActivityNotFoundException | SecurityException refused) {
             shell.seeThrough(false);
@@ -66,6 +67,7 @@ final class TaskRunnerHost implements RunnerHost {
 
     @Override
     public void ended() {
+        shell.endTurn();
     }
 
     private ActivityManager.AppTask runnerTask() {

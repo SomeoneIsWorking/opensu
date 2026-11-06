@@ -341,6 +341,14 @@ const settings::VideoSettings& Presenter::video() const {
     return compositor_->video();
 }
 
+void Presenter::turnPicture(bool turned) {
+    compositor_->turn(turned);
+}
+
+void Presenter::reserve(std::uint32_t height) noexcept {
+    compositor_->reserve(height);
+}
+
 VkResult Presenter::waitForFrame() {
     return vkWaitForFences(vk_, 1, &done_, VK_TRUE, UINT64_MAX);
 }

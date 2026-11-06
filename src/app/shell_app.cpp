@@ -1406,6 +1406,7 @@ void ShellApp::serviceRequests() {
     const bool launching = launches_.running();
     saveSharing_.playing(launching ? &launches_.game() : nullptr);
     if (const std::optional<library::Game> ended = launches_.takeEnded()) {
+        layered_.keepScreenTurn(*ended);
         lanNetplay_.ended(*ended);
         netplayRun_.ended(*ended);
         onlinePlay_.ended();

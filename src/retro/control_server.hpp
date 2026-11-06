@@ -31,6 +31,8 @@ enum class ControlCommand : std::uint8_t {
     Reset,
     /// Show frames under `ControlRequest::video` from the next one.
     Video,
+    /// Rotate screen.
+    Turn,
     /// The last image shown, as PNG.
     Frame,
     Options,
@@ -113,6 +115,10 @@ class ControlServer {
         netplayPort_ = port;
     }
 
+    /// Keeps the player's Rotate screen choice in the control file, which stays for the shell to
+    /// read when the channel closes. Frame loop only.
+    void noteTurned(bool turned);
+
     /// What /status reports from now on. Frame loop only.
     void publish(std::uint64_t frame, bool hasState);
     /// A frame reached the target, which /status reports from now on.
@@ -139,6 +145,8 @@ class ControlServer {
     [[nodiscard]] lucent::http::Response handle(const lucent::http::Request& request);
 
   private:
+    /// The control file's text while the channel is open.
+    [[nodiscard]] std::string announcement() const;
     struct Pending {
         ControlRequest request;
         bool taken{false};
@@ -150,6 +158,8 @@ class ControlServer {
 
     std::filesystem::path file_;
     std::optional<std::uint16_t> netplayPort_;
+    /// The player's Rotate screen choice; nothing until they press it.
+    std::optional<bool> turned_;
     std::string core_;
     std::string rom_;
     std::mutex mutex_;

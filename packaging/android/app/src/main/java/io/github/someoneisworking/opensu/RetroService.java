@@ -9,6 +9,8 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.Process;
+import android.os.RemoteException;
+import android.util.Log;
 import android.view.Surface;
 
 import io.github.someoneisworking.android.AndroidStdioLog;
@@ -25,6 +27,8 @@ public final class RetroService extends Service {
     static final int SURFACE = 2;
     static final int SIZE = 3;
     static final int MENU = 4;
+    /** To the shell: Rotate screen, arg1 1 for portrait. */
+    static final int TURN = 5;
     private static final String RUNNER = "opensu-retro";
 
     private final Messenger inbox = new Messenger(new Handler(Looper.getMainLooper(), message -> {
@@ -32,6 +36,15 @@ public final class RetroService extends Service {
         return true;
     }));
     private RunnerContext context;
+
+    /** The shell stands as the game does, over it and with the game in its window. */
+    static void tellTurn(Messenger shell, boolean portrait) {
+        try {
+            shell.send(Message.obtain(null, TURN, portrait ? 1 : 0, 0));
+        } catch (RemoteException gone) {
+            Log.w("openSU", "the shell did not take the screen's turn: " + gone.getMessage());
+        }
+    }
 
     @Override
     public void onCreate() {

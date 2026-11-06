@@ -131,7 +131,8 @@ VkRenderPass makeColourPass(VkDevice device, VkFormat format, VkAttachmentLoadOp
 }
 
 VkPipeline makeFullscreenPipeline(VkDevice device, VkRenderPass pass, VkPipelineLayout layout,
-                                  std::span<const std::uint32_t> fragment, bool blended) {
+                                  std::span<const std::uint32_t> fragment, bool blended,
+                                  Facing facing) {
     const VkShaderModule vertexModule = makeShader(device, vertexCode);
     VkShaderModule fragmentModule = VK_NULL_HANDLE;
     try {
@@ -151,9 +152,13 @@ VkPipeline makeFullscreenPipeline(VkDevice device, VkRenderPass pass, VkPipeline
             .pSpecializationInfo = nullptr,
         };
     };
-    const std::array<VkPipelineShaderStageCreateInfo, 2> stages{
+    const VkBool32 turned = facing == Facing::Turned ? VK_TRUE : VK_FALSE;
+    const VkSpecializationMapEntry turnedEntry{0, 0, sizeof(turned)};
+    const VkSpecializationInfo turning{1, &turnedEntry, sizeof(turned), &turned};
+    std::array<VkPipelineShaderStageCreateInfo, 2> stages{
         stage(VK_SHADER_STAGE_VERTEX_BIT, vertexModule),
         stage(VK_SHADER_STAGE_FRAGMENT_BIT, fragmentModule)};
+    stages[0].pSpecializationInfo = &turning;
     VkPipelineVertexInputStateCreateInfo vertexInput{};
     vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     VkPipelineInputAssemblyStateCreateInfo assembly{};

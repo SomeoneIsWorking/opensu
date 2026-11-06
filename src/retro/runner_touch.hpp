@@ -42,6 +42,15 @@ class RunnerTouch {
     /// The core ran a frame, which counts against the presses still owed one.
     void ran();
 
+    /// Whether Rotate screen went down since the last call.
+    [[nodiscard]] bool takeRotate() {
+        return std::exchange(rotate_, false);
+    }
+    /// How much of the target's bottom the controls keep from the picture.
+    [[nodiscard]] float band() const {
+        return layer_.band();
+    }
+
     /// Where the controls are, as `GET /touch` gives it.
     [[nodiscard]] std::string places() const;
     /// Whether the controls moved since the last call.
@@ -66,6 +75,7 @@ class RunnerTouch {
     touch::Box picture_{};
     int percent_{settings::touchSizeDefault};
     bool moved_{false};
+    bool rotate_{false};
     /// What the joypad was last told.
     std::vector<gamepad::Button> holding_;
     /// Frames each press still stays held for, its finger up or not.

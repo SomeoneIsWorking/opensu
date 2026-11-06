@@ -15,8 +15,8 @@ namespace opensu::retro {
 
 class ReducedOutput {
   public:
-    /// Images of `format`, drawn into targets through `pass`. Throws VulkanError.
-    ReducedOutput(VulkanDevice& device, VkFormat format, VkRenderPass pass);
+    /// Images of `format`, drawn into targets through `pass` facing `facing`. Throws VulkanError.
+    ReducedOutput(VulkanDevice& device, VkFormat format, VkRenderPass pass, Facing facing);
     ReducedOutput(const ReducedOutput&) = delete;
     ReducedOutput& operator=(const ReducedOutput&) = delete;
     ReducedOutput(ReducedOutput&&) = delete;

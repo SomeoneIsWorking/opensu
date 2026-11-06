@@ -85,6 +85,19 @@ void loadFailureIsHandedOver() {
     expect(session.end().empty(), "it is handed over once");
 }
 
+void rotateIsLeftForTheShell() {
+    const test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "retro_session_turned"};
+    app::RetroSession session{scratch.path()};
+    const std::filesystem::path file = fileOf(session.begin());
+    std::ofstream{file} << R"({"port": 1, "pid": 1})";
+    expect(!session.screenTurned(), "no press, nothing to keep");
+    std::ofstream{file} << R"({"turned": true})";
+    expect(session.screenTurned() == true, "a press is read while the game runs");
+    expect(session.end().empty(), "the choice is no failure");
+    expect(session.screenTurned() == true, "and from the file the runner left");
+    expect(!session.screenTurned(), "which is handed over once");
+}
+
 } // namespace
 
 int main() try {
@@ -92,6 +105,7 @@ int main() try {
         eachLaunchHasItsOwnFile();
         requestsReachTheRunner();
         loadFailureIsHandedOver();
+        rotateIsLeftForTheShell();
     } catch (const std::exception& error) {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;

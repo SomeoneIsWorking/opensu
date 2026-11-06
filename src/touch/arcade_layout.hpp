@@ -1,7 +1,8 @@
 // arcade_layout — an arcade game's own control panel: an arcade stick on the left, round buttons in
 // the cabinet's rows on the right, each named for what it does, Coin and Start as small controls of
-// their own and a pause button. Controls sit on the black beside the picture wherever they fit and
-// keep to the screen's edges where they do not.
+// their own, a pause button and Rotate screen beside it. Controls sit on the black beside the
+// picture wherever they fit and keep to the screen's edges where they do not; on an upright screen
+// they stand in a band under the picture, which `ControlPlan::band` keeps clear.
 #pragma once
 
 #include <cstdint>

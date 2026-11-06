@@ -9,7 +9,8 @@ constexpr std::uint32_t sampledCode[] = {
 
 } // namespace
 
-ReducedOutput::ReducedOutput(VulkanDevice& device, VkFormat format, VkRenderPass pass)
+ReducedOutput::ReducedOutput(VulkanDevice& device, VkFormat format, VkRenderPass pass,
+                             Facing facing)
     : device_{device}, vk_{device.handle()}, format_{format} {
     try {
         input_ = std::make_unique<SampledInput>(vk_, VK_FILTER_LINEAR);
@@ -20,7 +21,7 @@ ReducedOutput::ReducedOutput(VulkanDevice& device, VkFormat format, VkRenderPass
         create.pSetLayouts = &setLayout;
         check(vkCreatePipelineLayout(vk_, &create, nullptr, &pipelineLayout_),
               "vkCreatePipelineLayout");
-        pipeline_ = makeFullscreenPipeline(vk_, pass, pipelineLayout_, sampledCode, false);
+        pipeline_ = makeFullscreenPipeline(vk_, pass, pipelineLayout_, sampledCode, false, facing);
     } catch (...) {
         release();
         throw;

@@ -1,5 +1,6 @@
 // control_commands — what each control channel command does to the running game, run by the frame
-// loop between frames: the state slot saved and loaded, reset, live video settings, the core's
+// loop between frames: the state slot saved and loaded, reset, live video settings, Rotate screen,
+// the core's
 // options listed and changed, the last frame read back, and Save and close, after
 // which the game runs no more frames.
 #pragma once
@@ -13,6 +14,7 @@
 #include "resume_state.hpp"
 #include "save_memory.hpp"
 #include "save_state.hpp"
+#include "screen_turn.hpp"
 
 namespace opensu::retro {
 
@@ -28,6 +30,7 @@ class ControlCommands {
         ResumeState& resume;
         Presenter& presenter;
         CoreOptions& options;
+        ScreenTurn& screen;
         /// Whether the run is a netplay session, whose machines must stay the same.
         bool netplay;
     };

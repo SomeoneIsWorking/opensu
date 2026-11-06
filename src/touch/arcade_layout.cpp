@@ -125,6 +125,21 @@ void addStick(ControlPlan& plan, const Box& base, const ArcadePanel& panel, cons
                 .targets = {}});
 }
 
+/// A small round button of its own: pause, Rotate screen.
+void addRound(ControlPlan& plan, const Box& box, const char* file, Button button,
+              const Box& picture, const ArtSource& art) {
+    plan.pieces.push_back(Piece{.box = box,
+                                .art = art.svg(file, box),
+                                .down = {},
+                                .lit = {button},
+                                .idle = idleFor(box, picture),
+                                .lean = 0.0F});
+    plan.controls.push_back(Control{.hit = box.grown(box.width * 0.2F),
+                                    .round = true,
+                                    .stick = std::nullopt,
+                                    .targets = {Target{box.centreX(), box.centreY(), button}}});
+}
+
 void addPill(ControlPlan& plan, const Box& box, const char* word, Button button,
              const gpu2d::Colour& colour, const Box& picture, float dp, const ArtSource& art,
              LabelFace& labels) {
@@ -276,17 +291,20 @@ ControlPlan arcadeLayout(const WindowSurface& surface, const Box& picture, const
     const ButtonRows largest{.rows = rowsOf(panel), .size = buttonLargest, .gap = buttonGap};
     const ButtonRows smallest{.rows = largest.rows, .size = buttonSmallest, .gap = buttonGap};
     const float pills = pillDrop + (2.0F * pillHeight) + pillGap;
+    const bool upright = surface.upright();
+    const float tall = std::max(stickLargest, largest.height() + pills) + bottomMargin + pauseSize +
+                       (2.0F * inset);
     const float dp = surface.dpWithin((panel.ways != 0 ? stickSmallest + inset : 0.0F) +
                                           (2.0F * inset) + smallest.width(),
-                                      std::max(stickLargest, largest.height() + pills) +
-                                          bottomMargin + pauseSize + (2.0F * inset));
+                                      upright ? tall / uprightShare : tall);
     const float gap = inset * dp;
     const float left = surface.safeX;
     const float top = surface.safeY;
     const float right = surface.safeX + surface.safeWidth;
     const float bottom = surface.safeY + surface.safeHeight;
-    const float leftBar = std::max(0.0F, picture.x - left);
-    const float rightStart = std::min(right, picture.x + picture.width);
+    // Upright the panel stands under the picture, so there are no bars beside it.
+    const float leftBar = upright ? 0.0F : std::max(0.0F, picture.x - left);
+    const float rightStart = upright ? right : std::min(right, picture.x + picture.width);
     const float rightBar = std::max(0.0F, right - rightStart);
 
     const float stickSide =
@@ -297,35 +315,33 @@ ControlPlan arcadeLayout(const WindowSurface& surface, const Box& picture, const
     const float panelHeight = std::max(panel.ways != 0 ? stickSide : 0.0F, rows.height());
     const float middleY = bottom - (bottomMargin * dp) - (panelHeight * 0.5F);
 
-    ControlPlan plan;
-    const float pauseSide = pauseSize * dp;
-    const Box pause{placed(pauseSide, left, leftBar, false, gap), top + gap, pauseSide, pauseSide};
-    plan.pieces.push_back(Piece{.box = pause,
-                                .art = art.svg("pause.svg", pause),
-                                .down = {},
-                                .lit = {Button::Guide},
-                                .idle = idleFor(pause, picture),
-                                .lean = 0.0F});
-    plan.controls.push_back(
-        Control{.hit = pause.grown(pauseSide * 0.2F),
-                .round = true,
-                .stick = std::nullopt,
-                .targets = {Target{pause.centreX(), pause.centreY(), Button::Guide}}});
-
     const float buttonsLeft = placed(rows.width(), rightStart, rightBar, true, gap);
     const float buttonsTop = middleY - (rows.height() * 0.5F);
 
     // Stacked when the bar cannot take them side by side.
-    const float pillW = std::min(pillWidth * dp, std::max(rightBar - (2.0F * gap), 54.0F * dp));
+    const float pillRoom = upright ? pillWidth * dp : rightBar - (2.0F * gap);
+    const float pillW = std::min(pillWidth * dp, std::max(pillRoom, 54.0F * dp));
     const float pillH = pillHeight * dp;
     const float pillStep = pillGap * dp;
-    const bool sideBySide = rightBar >= (2.0F * pillW) + pillStep + (2.0F * gap);
+    const bool sideBySide = upright || rightBar >= (2.0F * pillW) + pillStep + (2.0F * gap);
     const float pillsWidth = sideBySide ? (2.0F * pillW) + pillStep : pillW;
     const float pillsLeft = placed(pillsWidth, rightStart, rightBar, true, gap);
     const float pillsBottom = buttonsTop - (pillDrop * dp);
     const Box start{sideBySide ? pillsLeft + pillW + pillStep : pillsLeft, pillsBottom - pillH,
                     pillW, pillH};
     const Box coin{pillsLeft, sideBySide ? start.y : start.y - pillH - pillStep, pillW, pillH};
+
+    const float roundSide = pauseSize * dp;
+    const float panelTop = middleY - (panelHeight * 0.5F);
+    const float roundsY = upright ? std::min(coin.y, panelTop - gap - roundSide) : top + gap;
+    const float roundsLeft = placed((2.0F * roundSide) + gap, left, leftBar, false, gap);
+    const Box pause{roundsLeft, roundsY, roundSide, roundSide};
+    const Box turn{roundsLeft + roundSide + gap, roundsY, roundSide, roundSide};
+
+    ControlPlan plan;
+    plan.band = upright ? static_cast<float>(surface.height) - roundsY + gap : 0.0F;
+    addRound(plan, pause, "pause.svg", Button::Guide, picture, art);
+    addRound(plan, turn, "rotate.svg", Button::Rotate, picture, art);
     addPill(plan, coin, "COIN", Button::Select, coinColour, picture, dp, art, labels);
     addPill(plan, start, "START", Button::Start, startColour, picture, dp, art, labels);
 

@@ -74,7 +74,14 @@ VkRect2D letterbox(VkExtent2D extent, float aspect) {
 }
 
 VkRect2D placeFrame(VkExtent2D extent, const FrameImage& frame,
-                    const settings::VideoSettings& video) {
+                    const settings::VideoSettings& video, bool turned) {
+    if (turned) {
+        const VkRect2D upright = placeFrame({extent.height, extent.width}, frame, video);
+        VkRect2D rect{};
+        rect.offset = {upright.offset.y, upright.offset.x};
+        rect.extent = {upright.extent.height, upright.extent.width};
+        return rect;
+    }
     using settings::Aspect;
     using settings::IntegerScale;
     const auto width = static_cast<float>(frame.width);
@@ -187,6 +194,14 @@ void FrameCompositor::change(const settings::VideoSettings& video, VkInstance in
     createPipeline();
 }
 
+void FrameCompositor::turn(bool turned) {
+    check(device_.waitIdle(), "vkDeviceWaitIdle");
+    destroyPipeline();
+    reduced_.reset();
+    turned_ = turned;
+    createPipeline();
+}
+
 void FrameCompositor::noteUntimed() const {
     if (scale_.timed() && !timer_.available()) {
         lucent::warn("retro", "the GPU's queue keeps no timestamps, so the shader preset stays at "
@@ -207,8 +222,8 @@ void FrameCompositor::createPipeline() {
     layout.pPushConstantRanges = &push;
     check(vkCreatePipelineLayout(vk_, &layout, nullptr, &pipelineLayout_),
           "vkCreatePipelineLayout");
-    pipeline_ =
-        makeFullscreenPipeline(vk_, renderPass_, pipelineLayout_, fragmentShader(video_), false);
+    pipeline_ = makeFullscreenPipeline(vk_, renderPass_, pipelineLayout_, fragmentShader(video_),
+                                       false, facing());
     if (texture_.ready()) {
         input_->bind(texture_.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
@@ -230,8 +245,9 @@ void FrameCompositor::recordChain(VkCommandBuffer commands, const DrawTarget& ta
                                   VkExtent2D extent, const FrameImage& frame,
                                   const ChainImage& source) {
     timer_.recordStart(commands);
-    const VkRect2D rect = placeFrame(extent, frame, video_);
-    if (scale_.scale() < 1.0F) {
+    const VkRect2D rect = placed(extent, frame);
+    // librashader cannot turn its output, so a turned picture is drawn from the reduced image.
+    if (scale_.scale() < 1.0F || turned_) {
         recordReducedChain(commands, target, extent, frame, source, rect);
     } else {
         recordFullChain(commands, target, extent, frame, source, rect);
@@ -269,10 +285,11 @@ void FrameCompositor::recordReducedChain(VkCommandBuffer commands, const DrawTar
                                          VkExtent2D extent, const FrameImage& frame,
                                          const ChainImage& source, VkRect2D rect) {
     if (!reduced_) {
-        reduced_ = std::make_unique<ReducedOutput>(device_, format_, renderPass_);
+        reduced_ = std::make_unique<ReducedOutput>(device_, format_, renderPass_, facing());
     }
-    const VkExtent2D size{scaled(rect.extent.width, scale_.scale()),
-                          scaled(rect.extent.height, scale_.scale())};
+    const std::uint32_t wide = turned_ ? rect.extent.height : rect.extent.width;
+    const std::uint32_t high = turned_ ? rect.extent.width : rect.extent.height;
+    const VkExtent2D size{scaled(wide, scale_.scale()), scaled(high, scale_.scale())};
     const ChainImage output = reduced_->recordBegin(commands, size);
     chain_->record(commands, source, output, VkRect2D{{0, 0}, size}, frame.aspect);
     reduced_->recordEnd(commands);
@@ -306,7 +323,7 @@ void FrameCompositor::recordDraw(VkCommandBuffer commands, const DrawTarget& tar
     }
     beginPass(commands, target, extent);
     const std::optional<VkViewport> viewport =
-        ready ? placeViewport(commands, placeFrame(extent, frame, video_), extent) : std::nullopt;
+        ready ? placeViewport(commands, placed(extent, frame), extent) : std::nullopt;
     if (viewport) {
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
         const VkDescriptorSet set = input_->set();
@@ -314,9 +331,11 @@ void FrameCompositor::recordDraw(VkCommandBuffer commands, const DrawTarget& tar
                                 &set, 0, nullptr);
         const auto texelsWide = static_cast<float>(source.extent.width);
         const auto texelsHigh = static_cast<float>(source.extent.height);
-        const FramePush push = framePush(video_, {texelsWide, texelsHigh},
-                                         {wholeScale(viewport->width, texelsWide, false),
-                                          wholeScale(viewport->height, texelsHigh, false)});
+        const float drawnWide = turned_ ? viewport->height : viewport->width;
+        const float drawnHigh = turned_ ? viewport->width : viewport->height;
+        const FramePush push = framePush(
+            video_, {texelsWide, texelsHigh},
+            {wholeScale(drawnWide, texelsWide, false), wholeScale(drawnHigh, texelsHigh, false)});
         vkCmdPushConstants(commands, pipelineLayout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0, push.size,
                            push.bytes.data());
         vkCmdDraw(commands, 3, 1, 0, 0);

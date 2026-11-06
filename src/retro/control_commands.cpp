@@ -42,9 +42,11 @@ std::string optionsJson(const CoreOptions& options) {
     return list.dump();
 }
 
-ControlAnswer changeVideo(Presenter& presenter, const settings::VideoSettings& video) {
+ControlAnswer changeVideo(Presenter& presenter, ScreenTurn& screen,
+                          const settings::VideoSettings& video) {
     try {
         presenter.change(video);
+        screen.set(video.turned);
     } catch (const ShaderError& failure) {
         lucent::error("retro", "{}", failure.what());
         return {409, failure.what()};
@@ -101,7 +103,10 @@ ControlAnswer ControlCommands::perform(const ControlRequest& request) {
         lucent::info("retro", "game reset");
         break;
     case ControlCommand::Video:
-        answer = changeVideo(parts_.presenter, request.video);
+        answer = changeVideo(parts_.presenter, parts_.screen, request.video);
+        break;
+    case ControlCommand::Turn:
+        parts_.screen.toggle();
         break;
     case ControlCommand::Options:
         answer.json = optionsJson(parts_.options);

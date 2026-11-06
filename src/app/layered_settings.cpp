@@ -243,6 +243,20 @@ void LayeredSettings::restore(const Layer& scope, const std::string& key) {
     changed(key);
 }
 
+void LayeredSettings::keepScreenTurn(const library::Game& game) {
+    const std::optional<bool> turned = retro_.screenTurned();
+    if (!turned) {
+        return;
+    }
+    const settings::ChoiceKey& key = settings::turnedKey();
+    const std::string value = settings::turnedValue(*turned);
+    const settings::LayerKeys keys = library::layerKeysOf(game);
+    if (gameSettings_.layers().resolve(keys, key.key, std::string{key.defaultKey()}).value !=
+        value) {
+        set(forGame(game), Layer{Layer::Kind::Game, keys.game}, std::string{key.key}, value);
+    }
+}
+
 std::size_t LayeredSettings::clear(const Layer& scope) {
     const bool picked = gameSettings_.layers().at(scope, library::emulatorKey) != nullptr;
     const std::size_t cleared = gameSettings_.clear(scope);

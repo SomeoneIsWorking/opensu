@@ -2,12 +2,14 @@ package io.github.someoneisworking.opensu;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Messenger;
 
 /** openSU's libretro runner, one game per `:retro` process, as opensu-retro is on the desktop. */
 public final class RetroActivity extends LandscapeActivity {
     static final String EXTRA_ARGUMENTS = "io.github.someoneisworking.opensu.ARGUMENTS";
     static final String EXTRA_ENVIRONMENT = "io.github.someoneisworking.opensu.ENVIRONMENT";
     static final String EXTRA_FROM_GAME = "io.github.someoneisworking.opensu.FROM_GAME";
+    static final String EXTRA_SHELL = "io.github.someoneisworking.opensu.SHELL";
     static final String PROCESS_SUFFIX = ":retro";
 
     @Override
@@ -26,6 +28,16 @@ public final class RetroActivity extends LandscapeActivity {
     @Override
     protected String[] getArguments() {
         return new GameStaging(this).resolve(getIntent().getStringArrayExtra(EXTRA_ARGUMENTS));
+    }
+
+    /** Called from the runner's shell handoff; the shell turns too, to come over the game as it is. */
+    @Override
+    public void turnScreen(boolean portrait) {
+        super.turnScreen(portrait);
+        Messenger shell = getIntent().getParcelableExtra(EXTRA_SHELL);
+        if (shell != null) {
+            RetroService.tellTurn(shell, portrait);
+        }
     }
 
     /** Called from the runner's shell handoff: the shell comes over the game with its Guide menu. */

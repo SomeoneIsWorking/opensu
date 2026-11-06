@@ -6,9 +6,7 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.graphics.PixelFormat;
 import android.os.Bundle;
-import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
@@ -24,7 +22,6 @@ import android.view.ViewGroup;
  */
 final class EmbeddedRunner implements RunnerHost, ServiceConnection, SurfaceHolder.Callback {
     private final ShellActivity shell;
-    private final Messenger inbox;
     private volatile boolean bound;
     private volatile String[] arguments;
     private volatile String[] environment;
@@ -37,12 +34,6 @@ final class EmbeddedRunner implements RunnerHost, ServiceConnection, SurfaceHold
 
     EmbeddedRunner(ShellActivity shell) {
         this.shell = shell;
-        inbox = new Messenger(new Handler(Looper.getMainLooper(), message -> {
-            if (message.what == RetroService.MENU) {
-                shell.requestMenu();
-            }
-            return true;
-        }));
     }
 
     @Override
@@ -85,6 +76,7 @@ final class EmbeddedRunner implements RunnerHost, ServiceConnection, SurfaceHold
     @Override
     public void ended() {
         shell.runOnUiThread(this::close);
+        shell.endTurn();
     }
 
     private void showView() {
@@ -121,7 +113,7 @@ final class EmbeddedRunner implements RunnerHost, ServiceConnection, SurfaceHold
         launch.putStringArray(RetroActivity.EXTRA_ARGUMENTS, arguments);
         launch.putStringArray(RetroActivity.EXTRA_ENVIRONMENT, environment);
         start.setData(launch);
-        start.replyTo = inbox;
+        start.replyTo = shell.runnerInbox();
         send(start);
         if (surface != null) {
             sendSurface();

@@ -31,6 +31,14 @@ const ChoiceKey& shaderResolutionKey() {
 
 } // namespace
 
+const ChoiceKey& turnedKey() {
+    return videoKeys[5];
+}
+
+std::string turnedValue(bool turned) {
+    return std::string{turnedChoices[turned ? 1 : 0].key};
+}
+
 void declareVideo(Schema& schema) {
     const std::string section{videoSection};
     const auto withoutShader = [](const SettingLookup& applies) {
@@ -74,6 +82,10 @@ void declareVideo(Schema& schema) {
     touchSize.unit = "%";
     touchSize.fallback = std::to_string(touchSizeDefault);
     schema.add(std::move(touchSize));
+    schema.add(choiceSetting(turnedKey(),
+                             "Android plays this game in portrait; a desktop turns the picture a "
+                             "quarter, for a rotated monitor or cabinet",
+                             section, SettingType::Toggle));
 }
 
 Resolved resolveShader(const SettingLayers& layers, const LayerKeys& keys) {
@@ -105,6 +117,7 @@ VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
         .shaderPreset = shader.empty() ? std::filesystem::path{} : presets / shader,
         .shaderResolution = static_cast<ShaderResolution>(index(shaderResolutionKey())),
         .touchSize = resolveTouchSize(layers, keys),
+        .turned = index(turnedKey()) == 1,
     };
 }
 
@@ -121,6 +134,7 @@ std::string videoJson(const VideoSettings& video) {
         {std::string{shaderResolutionKey().key},
          spelling(shaderResolutionKey(), video.shaderResolution)},
         {std::string{touchSizeKey}, video.touchSize},
+        {std::string{turnedKey().key}, turnedValue(video.turned)},
     };
     return document.dump();
 }
@@ -170,6 +184,7 @@ std::optional<VideoSettings> parseVideoJson(std::string_view text, std::string& 
         .shaderPreset = std::move(shader),
         .shaderResolution = static_cast<ShaderResolution>(chosen[4]),
         .touchSize = touchSize,
+        .turned = chosen[5] == 1,
     };
 }
 

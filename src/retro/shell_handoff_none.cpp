@@ -10,4 +10,8 @@ bool openMenu() {
     return false;
 }
 
+bool turnScreen(bool) {
+    return false;
+}
+
 } // namespace opensu::retro::shell_handoff

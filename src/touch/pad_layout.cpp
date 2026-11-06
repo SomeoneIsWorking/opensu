@@ -43,10 +43,13 @@ Control rectangle(const Box& box, float slack, Button button) {
 
 } // namespace
 
-ControlPlan padLayout(const WindowSurface& surface, const ArtSource& art) {
+ControlPlan padLayout(const WindowSurface& surface, const ArtSource& art, bool rotate) {
+    const bool upright = surface.upright();
     const float faceArea = (faceSpread * 2.0F) + faceSize;
-    const float dp = surface.dpWithin((margin * 2.0F) + padSize + clearance + faceArea,
-                                      (margin * 2.0F) + faceArea + shoulderHeight + clearance);
+    const float tall = (margin * 2.0F) + faceArea + shoulderHeight + clearance;
+    const float dp =
+        surface.dpWithin((margin * 2.0F) + padSize + clearance + faceArea,
+                         upright ? (tall + pillHeight + clearance) / uprightShare : tall);
     const float m = margin * dp;
     const float left = surface.safeX;
     const float top = surface.safeY;
@@ -66,17 +69,22 @@ ControlPlan padLayout(const WindowSurface& surface, const ArtSource& art) {
                                   faceAt(faceX - spread, faceY), faceAt(faceX, faceY - spread)};
     const float cluster = (spread * 2.0F) + faceSide;
     const Box faceCluster{faceX - (cluster * 0.5F), faceY - (cluster * 0.5F), cluster, cluster};
-    const Box l1{left + m, top + m, shoulderWidth * dp, shoulderHeight * dp};
-    const Box r1{right - m - (shoulderWidth * dp), top + m, shoulderWidth * dp,
-                 shoulderHeight * dp};
+    // Upright the rows stand above the d-pad and the faces, under the picture.
+    const float apart = clearance * dp;
+    const float pillY =
+        upright ? faceCluster.y - apart - (pillHeight * dp) : bottom - m - (pillHeight * dp);
+    const float rowY = upright ? pillY - apart - (pauseSize * dp) : top + m;
+    const Box l1{left + m, rowY, shoulderWidth * dp, shoulderHeight * dp};
+    const Box r1{right - m - (shoulderWidth * dp), rowY, shoulderWidth * dp, shoulderHeight * dp};
     const float middle = left + (surface.safeWidth * 0.5F);
     const float gap = 10.0F * dp;
-    const float pillY = bottom - m - (pillHeight * dp);
     const Box select{middle - gap - (pillWidth * dp), pillY, pillWidth * dp, pillHeight * dp};
     const Box start{middle + gap, pillY, pillWidth * dp, pillHeight * dp};
-    const Box pause{middle - (pauseSize * dp * 0.5F), top + m, pauseSize * dp, pauseSize * dp};
+    const Box pause{middle - (pauseSize * dp * 0.5F), rowY, pauseSize * dp, pauseSize * dp};
+    const Box turn{pause.x + pause.width + gap, rowY, pause.width, pause.height};
 
     ControlPlan plan;
+    plan.band = upright ? static_cast<float>(surface.height) - rowY + apart : 0.0F;
     plan.pieces.push_back(Piece{.box = pad,
                                 .art = art.svg("dpad.svg", pad),
                                 .lit = {Button::Up, Button::Down, Button::Left, Button::Right}});
@@ -95,6 +103,10 @@ ControlPlan padLayout(const WindowSurface& surface, const ArtSource& art) {
         Piece{.box = start, .art = art.svg("start.svg", start), .lit = {Button::Start}});
     plan.pieces.push_back(
         Piece{.box = pause, .art = art.svg("pause.svg", pause), .lit = {Button::Guide}});
+    if (rotate) {
+        plan.pieces.push_back(
+            Piece{.box = turn, .art = art.svg("rotate.svg", turn), .lit = {Button::Rotate}});
+    }
 
     const float slack = (reach - 1.0F) * faceSize * 0.5F * dp;
     plan.controls.push_back(
@@ -102,6 +114,13 @@ ControlPlan padLayout(const WindowSurface& surface, const ArtSource& art) {
                 .round = true,
                 .stick = std::nullopt,
                 .targets = {Target{pause.centreX(), pause.centreY(), Button::Guide}}});
+    if (rotate) {
+        plan.controls.push_back(
+            Control{.hit = roundHit(turn),
+                    .round = true,
+                    .stick = std::nullopt,
+                    .targets = {Target{turn.centreX(), turn.centreY(), Button::Rotate}}});
+    }
     plan.controls.push_back(
         Control{.hit = roundHit(pad),
                 .round = true,

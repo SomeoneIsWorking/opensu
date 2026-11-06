@@ -38,6 +38,7 @@ std::string buttonList(const std::vector<gamepad::Button>& buttons) {
 
 RunnerTouch::RunnerTouch(std::filesystem::path art, Joypad& joypad)
     : layer_{std::move(art)}, joypad_{joypad} {
+    layer_.offerRotate();
 }
 
 void RunnerTouch::shape(const std::vector<InputDescriptor>& descriptors,
@@ -141,6 +142,8 @@ bool RunnerTouch::follow(const touch::WindowSurface& surface, bool shown,
         return false;
     }
     const bool pausing = holds(holding_, gamepad::Button::Guide);
+    rotate_ = rotate_ ||
+              (!holds(holding_, gamepad::Button::Rotate) && holds(held, gamepad::Button::Rotate));
     holding_ = std::move(held);
     joypad_.hold("touch", holding_);
     lucent::info("retro", "touch holds {}", buttonList(holding_));

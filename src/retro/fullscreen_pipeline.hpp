@@ -51,11 +51,18 @@ class SampledInput {
 [[nodiscard]] VkRenderPass makeColourPass(VkDevice device, VkFormat format, VkAttachmentLoadOp load,
                                           VkImageLayout initial, VkImageLayout final);
 
+/// How a pipeline faces what it draws in its viewport.
+enum class Facing : std::uint8_t {
+    Upright,
+    /// A quarter turn clockwise.
+    Turned,
+};
+
 /// A pipeline in `pass` drawing frame.vert's triangle with `fragment`, viewport and scissor set
 /// when drawing; `blended` mixes it over the target by its alpha. Throws VulkanError.
 [[nodiscard]] VkPipeline makeFullscreenPipeline(VkDevice device, VkRenderPass pass,
                                                 VkPipelineLayout layout,
                                                 std::span<const std::uint32_t> fragment,
-                                                bool blended);
+                                                bool blended, Facing facing = Facing::Upright);
 
 } // namespace opensu::retro

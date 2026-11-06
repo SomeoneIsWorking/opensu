@@ -64,6 +64,11 @@ struct Control {
 struct ControlPlan {
     std::vector<Piece> pieces;
     std::vector<Control> controls;
+    /// How much of the target's bottom the controls keep from the picture, in pixels.
+    float band{0.0F};
 };
+
+/// The most of an upright target the controls take; beyond it they shrink.
+inline constexpr float uprightShare = 0.5F;
 
 } // namespace opensu::touch

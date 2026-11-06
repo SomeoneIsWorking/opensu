@@ -100,6 +100,10 @@ class Presenter {
     void change(const settings::VideoSettings& video);
     /// The settings in force.
     [[nodiscard]] const settings::VideoSettings& video() const;
+    /// Draws the picture a quarter turned, or upright (`FrameCompositor::turn`).
+    void turnPicture(bool turned);
+    /// Keeps the picture off the target's bottom `height` pixels.
+    void reserve(std::uint32_t height) noexcept;
 
     /// Waits until the last frame submitted is done on the GPU (a core's wait_sync_index).
     [[nodiscard]] VkResult waitForFrame();

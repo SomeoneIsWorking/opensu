@@ -30,6 +30,8 @@ enum class Button : std::uint8_t {
     Right,
     /// Opens the search; no pad button is bound to it (the options panel has its entry).
     Search,
+    /// The runner's Rotate screen touch button; it is no pad's and reaches no game.
+    Rotate,
 };
 
 /// The control's lowercase spelling ("up", "l2", "select"), as the control channel and the settings

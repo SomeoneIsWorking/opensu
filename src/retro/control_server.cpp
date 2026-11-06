@@ -207,9 +207,29 @@ ControlServer::~ControlServer() {
     if (server_.running()) {
         server_.stop();
     }
-    if (announced_) {
+    // A Rotate screen choice stays in the file for the shell, which removes it.
+    if (announced_ && !turned_) {
         std::error_code error;
         std::filesystem::remove(file_, error);
+    }
+}
+
+std::string ControlServer::announcement() const {
+    nlohmann::json announce{{"port", server_.port()}, {"pid", launch::ownProcessId()}};
+    if (netplayPort_) {
+        announce["netplayPort"] = *netplayPort_;
+    }
+    if (turned_) {
+        announce["turned"] = *turned_;
+    }
+    return announce.dump();
+}
+
+void ControlServer::noteTurned(bool turned) {
+    turned_ = turned;
+    std::string error;
+    if (!fileio::writeWhole(file_, announcement(), error)) {
+        lucent::error("retro", "cannot keep the screen's turn: {}", error);
     }
 }
 
@@ -218,12 +238,8 @@ bool ControlServer::start() {
         lucent::error("retro", "the control channel cannot listen");
         return false;
     }
-    nlohmann::json announce{{"port", server_.port()}, {"pid", launch::ownProcessId()}};
-    if (netplayPort_) {
-        announce["netplayPort"] = *netplayPort_;
-    }
     std::string error;
-    if (!fileio::writeWhole(file_, announce.dump(), error)) {
+    if (!fileio::writeWhole(file_, announcement(), error)) {
         lucent::error("retro", "cannot announce the control channel: {}", error);
         server_.stop();
         return false;
@@ -433,6 +449,8 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
         command.command = ControlCommand::Hold;
     } else if (path == "/release") {
         command.command = ControlCommand::Release;
+    } else if (path == "/turn") {
+        command.command = ControlCommand::Turn;
     } else {
         return text(404, "Not Found", "no such route");
     }

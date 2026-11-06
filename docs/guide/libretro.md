@@ -140,7 +140,7 @@ in that game when the core says, and small Coin and Start controls, since nothin
 coin. A fighter's punches and kicks show a fist or a foot with L, M or H, punches above kicks. It
 sits on the black beside the picture where it fits, reaching over the picture rather than shrinking
 below a thumb's size, and hides like the rest when a pad connects. Every other system shows the
-usual pad. Touch controls size in Game settings makes either 75 to 175% of its size, everywhere or
+usual pad. In portrait the controls stand under the picture instead of beside it. Touch controls size in Game settings makes either 75 to 175% of its size, everywhere or
 for a system or a game, and changes a running game at once. MAME 2010 is not offered: its Android
 build crashes on load, so a set only it matches reads "No arcade core matches this romset". Back, a
 pad's Guide or the pause button
@@ -149,3 +149,9 @@ brings the shell's Guide menu in front of the paused game; Resume goes back to i
 Settings › Emulators › Embedded draws the game inside openSU's own window instead, with the core
 still in its own process: there is no switch of apps, the card shows the cover and "Starting…" until
 the first frame, and a core that crashes leaves the shell up with its toast. It is off by default.
+
+A vertical arcade game starts upright on the landscape screen like everything else, with black beside
+it. Rotate screen, the small button beside pause or the row in the Guide, stands the device in portrait
+for it, and pressing it again goes back; the screen no longer follows the sensor after that. The choice
+is kept for that game, and Rotate screen in Game settings shows it. On a desktop the same button, row or
+F9 turns the picture a quarter for a rotated monitor or cabinet.

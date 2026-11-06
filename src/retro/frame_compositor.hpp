@@ -5,9 +5,11 @@
 // filter, at the resolution `shader_scale` holds: below full, into `reduced_output`'s image, then
 // drawn into the rectangle. The presenter owns the window, the targets and the submission; this
 // owns the render pass every target's framebuffer is made for. `frame_filter` picks the built-in
-// shader.
+// shader. It turns the picture a quarter for a rotated monitor (`turn`), a preset's by way of
+// `reduced_output`, and keeps it off a band along the bottom (`reserve`).
 #pragma once
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
@@ -54,10 +56,10 @@ struct FrameImage {
 /// The largest rectangle of `aspect` centred in `extent`; all of it when `aspect` is not positive.
 [[nodiscard]] VkRect2D letterbox(VkExtent2D extent, float aspect);
 
-/// Where `frame` is drawn in `extent` under `video`, centred. An overscaled frame is larger than
-/// `extent` and starts before it.
+/// Where `frame` is drawn in `extent` under `video`, centred, `turned` a quarter. An overscaled
+/// frame is larger than `extent` and starts before it.
 [[nodiscard]] VkRect2D placeFrame(VkExtent2D extent, const FrameImage& frame,
-                                  const settings::VideoSettings& video);
+                                  const settings::VideoSettings& video, bool turned = false);
 
 /// An image the compositor draws into, with the framebuffer made for its render pass.
 struct DrawTarget {
@@ -90,9 +92,18 @@ class FrameCompositor {
         return video_;
     }
 
+    /// Draws the picture a quarter turn clockwise from the next frame, or upright again. Waits for
+    /// the GPU. Throws VulkanError.
+    void turn(bool turned);
+    /// Keeps the picture off the target's bottom `height` pixels.
+    void reserve(std::uint32_t height) noexcept {
+        reserved_ = height;
+    }
+
     /// Where `frame` is drawn in `extent` under the settings in force.
     [[nodiscard]] VkRect2D placed(VkExtent2D extent, const FrameImage& frame) const {
-        return placeFrame(extent, frame, video_);
+        const std::uint32_t height = extent.height - std::min(reserved_, extent.height);
+        return placeFrame({extent.width, height}, frame, video_, turned_);
     }
 
     /// The render pass a target's framebuffer is made for.
@@ -136,6 +147,9 @@ class FrameCompositor {
     /// The passes drawn into the reduced output at `scale_`, then it into `rect` of `target`.
     void recordReducedChain(VkCommandBuffer commands, const DrawTarget& target, VkExtent2D extent,
                             const FrameImage& frame, const ChainImage& source, VkRect2D rect);
+    [[nodiscard]] Facing facing() const noexcept {
+        return turned_ ? Facing::Turned : Facing::Upright;
+    }
     /// Begins the render pass on `target`, cleared black.
     void beginPass(VkCommandBuffer commands, const DrawTarget& target, VkExtent2D extent) const;
     /// Under Auto, says once when the GPU cannot be timed, so the scale stays full.
@@ -161,6 +175,8 @@ class FrameCompositor {
     VkPipelineLayout pipelineLayout_{VK_NULL_HANDLE};
     VkPipeline pipeline_{VK_NULL_HANDLE};
     StreamedTexture texture_;
+    bool turned_{false};
+    std::uint32_t reserved_{0};
 };
 
 } // namespace opensu::retro

@@ -1,6 +1,7 @@
 // shell_handoff — where the shell does not hear the runner's input (Android, where each is an
 // Activity of its own): Guide and Back bring the shell's Activity over the game, whose window it
-// lets show through, and the runner draws its own touch pad. Picked in CMakeLists.txt:
+// lets show through, the runner draws its own touch pad, and Rotate screen turns the Activity.
+// Picked in CMakeLists.txt:
 // `shell_handoff_android.cpp`; `shell_handoff_none.cpp` elsewhere, where the shell hears Guide
 // itself.
 #pragma once
@@ -12,5 +13,9 @@ namespace opensu::retro::shell_handoff {
 
 /// Brings the shell over the game for its menu; false when it could not be asked.
 bool openMenu();
+
+/// Asks the Activity, or the shell's for a hosted game, to stand in portrait, or in landscape;
+/// false when it could not be asked.
+bool turnScreen(bool portrait);
 
 } // namespace opensu::retro::shell_handoff

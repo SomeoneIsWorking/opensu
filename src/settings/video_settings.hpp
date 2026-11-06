@@ -1,6 +1,6 @@
 // video_settings — how opensu-retro shows a game's frame: its aspect, integer scaling, sampling,
-// filter, shader preset and the resolution the preset is drawn at, and the size of the touch
-// controls over it.
+// filter, shader preset and the resolution the preset is drawn at, whether the player rotated the
+// screen, and the size of the touch controls over it.
 // The keys and choices the setting layers keep them under, a game's values resolved from those
 // layers, and their JSON: the per-launch file the shell writes and `opensu-retro --settings`
 // reads, and the body of the runner's `POST /video`. A shader
@@ -79,6 +79,8 @@ struct VideoSettings {
     ShaderResolution shaderResolution{ShaderResolution::Auto};
     /// The touch controls' size, a percentage of their own.
     int touchSize{touchSizeDefault};
+    /// Rotate screen is on; the runner's `ScreenTurn` carries it out.
+    bool turned{false};
 
     bool operator==(const VideoSettings&) const = default;
 };
@@ -112,13 +114,19 @@ inline constexpr std::array<ChoiceText, 2> shaderResolutionChoices{{
     {"full", "Full"},
 }};
 
+inline constexpr std::array<ChoiceText, 2> turnedChoices{{
+    {"off", "Off"},
+    {"on", "On"},
+}};
+
 /// The video settings, each with its choices in the order of its enum.
-inline constexpr std::array<ChoiceKey, 5> videoKeys{{
+inline constexpr std::array<ChoiceKey, 6> videoKeys{{
     {"video.aspect", "Aspect", aspectChoices},
     {"video.integer", "Integer scale", integerChoices},
     {"video.sampling", "Sampling", samplingChoices},
     {"video.filter", "Filter", filterChoices},
     {"video.shader-resolution", "Shader resolution", shaderResolutionChoices},
+    {"video.rotate", "Rotate screen", turnedChoices},
 }};
 
 /// The shader preset: a `.slangp` path relative to the shader pack, or "" for none at this layer.
@@ -129,14 +137,17 @@ inline constexpr std::string_view shaderLabel = "Shader preset";
 inline constexpr std::string_view videoSection = "Video";
 
 /// Declares the video settings in `schema`: Aspect, Integer scale, Sampling and Filter (both
-/// hidden while a shader preset applies, which replaces them), the shader preset, then Shader
-/// resolution (shown only while a preset applies).
+/// hidden while a shader preset applies, which replaces them), the shader preset, Shader
+/// resolution (shown only while a preset applies), Touch controls size and Rotate screen.
 void declareVideo(Schema& schema);
 
 /// `keys`' video settings, each from its winning layer; a kept value that is no choice is
 /// reported and the default used. The shader preset is found under `presets`, the shader pack.
 /// The controls' size where `keys` look; the default for a value out of the range.
 [[nodiscard]] int resolveTouchSize(const SettingLayers& layers, const LayerKeys& keys);
+/// The key Rotate screen is kept under, and its spelling for `turned`.
+[[nodiscard]] const ChoiceKey& turnedKey();
+[[nodiscard]] std::string turnedValue(bool turned);
 
 [[nodiscard]] VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
                                          const std::filesystem::path& presets);

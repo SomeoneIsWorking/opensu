@@ -24,4 +24,19 @@ bool openMenu() {
     return true;
 }
 
+bool turnScreen(bool portrait) {
+    const android::ActivityCall call;
+    if (!call.ready()) {
+        lucent::warn("retro", "the screen cannot be turned: no Activity");
+        return false;
+    }
+    call.env()->CallVoidMethod(call.activity(), call.method("turnScreen", "(Z)V"),
+                               static_cast<jboolean>(portrait));
+    if (const std::string failure = call.takeException(); !failure.empty()) {
+        lucent::warn("retro", "the screen cannot be turned: {}", failure);
+        return false;
+    }
+    return true;
+}
+
 } // namespace opensu::retro::shell_handoff

@@ -58,6 +58,13 @@ public final class RunnerContext extends Activity {
         return sizeSerial;
     }
 
+    /** Called from the runner's shell handoff: the shell's Activity is the one to turn. */
+    public synchronized void turnScreen(boolean portrait) {
+        if (shell != null) {
+            RetroService.tellTurn(shell, portrait);
+        }
+    }
+
     /** Called from the runner's shell handoff: the shell opens its Guide menu over the game. */
     public synchronized void openShellMenu() {
         if (shell == null) {

@@ -6,6 +6,9 @@ import android.graphics.PixelFormat;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Messenger;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.ViewGroup;
@@ -29,6 +32,14 @@ public final class ShellActivity extends LandscapeActivity {
     private boolean menuRequested;
     /** The game opened the shell and nothing has come between them since. */
     private volatile boolean overGame;
+    private final Messenger runnerInbox = new Messenger(new Handler(Looper.getMainLooper(), message -> {
+        if (message.what == RetroService.MENU) {
+            requestMenu();
+        } else if (message.what == RetroService.TURN) {
+            turnScreen(message.arg1 != 0);
+        }
+        return true;
+    }));
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,6 +64,11 @@ public final class ShellActivity extends LandscapeActivity {
         // Above the SurfaceView a game in this window draws on.
         surface.setZOrderMediaOverlay(true);
         return surface;
+    }
+
+    /** Where the runner's process tells the shell what it cannot hear; every message is oneway. */
+    Messenger runnerInbox() {
+        return runnerInbox;
     }
 
     /** What SDL's surface sits in. */

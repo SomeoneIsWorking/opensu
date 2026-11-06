@@ -401,6 +401,70 @@ void shortTaps() {
     expect(tap(Button::Guide), "a tap on pause asks for the menu");
 }
 
+void uprightUnderThePicture() {
+    const WindowSurface tablet = surface(1840, 2800, 2.2F);
+    const auto underBand = [&tablet](const TouchLayer& layer) {
+        const float top = static_cast<float>(tablet.height) - layer.band();
+        expect(layer.band() > 0.0F && layer.band() <= static_cast<float>(tablet.height) / 2.0F,
+               "the controls keep a band, at most half the screen");
+        for (const ControlPlace& at : layer.places()) {
+            expect(at.y >= top && at.y <= static_cast<float>(tablet.height) && at.x >= 0.0F &&
+                       at.x <= static_cast<float>(tablet.width),
+                   "every control stands in it");
+        }
+    };
+
+    TouchLayer panel{"no-art"};
+    panel.setPanel(panelOf({}, CabinetListing{6, 8, false}));
+    panel.layout(tablet);
+    underBand(panel);
+    const std::vector<ControlPlace> places = panel.places();
+    const ControlPlace& pause = place(places, Button::Guide);
+    const ControlPlace& rotate = place(places, Button::Rotate);
+    expect(rotate.y == pause.y && rotate.x > pause.x, "Rotate screen stands beside pause");
+
+    panel.setSize(1.75F);
+    panel.layout(tablet);
+    underBand(panel);
+
+    TouchLayer pad{"no-art"};
+    pad.offerRotate();
+    pad.layout(tablet);
+    underBand(pad);
+    expect(!pad.places().empty(), "the pad stands there too");
+
+    TouchLayer wide{"no-art"};
+    wide.setPanel(panelOf({}, CabinetListing{3, 8, false}));
+    wide.layout(surface(2800, 1840, 2.2F));
+    expect(wide.band() == 0.0F, "a landscape screen keeps no band");
+}
+
+void rotatePressedOnce() {
+    Joypad joypad{1};
+    RunnerTouch touch{"no-art", joypad};
+    const WindowSurface target = surface(2400, 1080, 2.0F);
+    touch.follow(target, true, {});
+    expect(touch.places().find("rotate") != std::string::npos, "the runner's pad offers it");
+
+    TouchLayer layer{"no-art"};
+    layer.offerRotate();
+    layer.layout(target);
+    const std::vector<ControlPlace> places = layer.places();
+    const ControlPlace& at = place(places, Button::Rotate);
+    const std::array<Finger, 2> tap{
+        Finger{.id = 1, .x = at.x, .y = at.y, .phase = Finger::Phase::Down},
+        Finger{.id = 1, .x = at.x, .y = at.y, .phase = Finger::Phase::Up}};
+    expect(!touch.follow(target, true, tap), "it is no pause");
+    expect(touch.takeRotate(), "a tap presses it");
+    expect(!touch.takeRotate(), "once");
+
+    TouchLayer remote{"no-art"};
+    remote.layout(target);
+    for (const ControlPlace& shown : remote.places()) {
+        expect(shown.button != Button::Rotate, "a remote game's pad has none");
+    }
+}
+
 int main() try {
     namedByTheCore();
     countedByTheListing();
@@ -413,6 +477,8 @@ int main() try {
     fightersByName();
     sizes();
     shortTaps();
+    uprightUnderThePicture();
+    rotatePressedOnce();
     std::printf("arcade_panel: all checks passed\n");
     return 0;
 } catch (...) {

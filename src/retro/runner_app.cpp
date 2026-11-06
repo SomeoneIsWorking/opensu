@@ -31,6 +31,7 @@
 #include "save_memory.hpp"
 #include "save_paths.hpp"
 #include "save_state.hpp"
+#include "screen_turn.hpp"
 #include "shell_handoff.hpp"
 #include "video_frame.hpp"
 
@@ -135,6 +136,9 @@ std::unique_ptr<ControlServer> openControl(const RunnerOptions& options, const C
     }
     return control;
 }
+
+/// Rotate screen on a keyboard.
+constexpr int rotateKey = SDL_SCANCODE_F9;
 
 /// Asks for the shell's menu, which comes over the game.
 void openShellMenu(const char* by) {
@@ -258,12 +262,14 @@ RunnerExit RunnerApp::run() {
     if (control) {
         control->reportResume(resumed);
     }
+    ScreenTurn screen{*presenter, control.get(), options_.video.turned};
     ControlCommands commands{{.core = *core,
                               .state = state,
                               .saves = saves,
                               .resume = resume,
                               .presenter = *presenter,
                               .options = environment.options(),
+                              .screen = screen,
                               .netplay = netplay != nullptr}};
 
     std::unique_ptr<RunnerTouch> touch =
@@ -290,6 +296,13 @@ RunnerExit RunnerApp::run() {
     Clock::time_point next = Clock::now();
     Clock::time_point nextSave = next + saveInterval;
     FrameStages stages;
+    const auto heardKey = [&joypad, &screen](int scancode, bool down) {
+        if (scancode != rotateKey) {
+            joypad.key(scancode, down);
+        } else if (down) {
+            screen.toggle();
+        }
+    };
     while (!options_.frames || frame < *options_.frames) {
         const WindowInput input = presenter->poll();
         if (input.quit) {
@@ -312,7 +325,7 @@ RunnerExit RunnerApp::run() {
                     presenter->place(*host.screen);
                 }
                 if (host.key) {
-                    joypad.key(host.key->scancode, host.key->down);
+                    heardKey(host.key->scancode, host.key->down);
                 }
             }
         }
@@ -330,7 +343,7 @@ RunnerExit RunnerApp::run() {
                     }
                     continue;
                 }
-                joypad.key(key.scancode, key.down);
+                heardKey(key.scancode, key.down);
             }
         }
         if (pads) {
@@ -356,6 +369,10 @@ RunnerExit RunnerApp::run() {
         if (touch && touch->follow(presenter->surface(), touchShown, input.fingers)) {
             openShellMenu("the pause button");
         }
+        if (touch && touch->takeRotate()) {
+            screen.toggle();
+        }
+        presenter->reserve(touchShown ? static_cast<std::uint32_t>(touch->band()) : 0U);
 
         if (control) {
             for (const ControlInput& held : control->takeInput()) {

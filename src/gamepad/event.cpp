@@ -7,25 +7,14 @@ namespace opensu::gamepad {
 
 namespace {
 
-constexpr std::array<std::pair<std::string_view, Button>, 18> names{{
-    {"a", Button::A},
-    {"b", Button::B},
-    {"x", Button::X},
-    {"y", Button::Y},
-    {"l1", Button::L1},
-    {"r1", Button::R1},
-    {"l2", Button::L2},
-    {"r2", Button::R2},
-    {"l3", Button::L3},
-    {"r3", Button::R3},
-    {"select", Button::Select},
-    {"start", Button::Start},
-    {"guide", Button::Guide},
-    {"up", Button::Up},
-    {"down", Button::Down},
-    {"left", Button::Left},
-    {"right", Button::Right},
-    {"search", Button::Search},
+constexpr std::array<std::pair<std::string_view, Button>, 19> names{{
+    {"a", Button::A},           {"b", Button::B},           {"x", Button::X},
+    {"y", Button::Y},           {"l1", Button::L1},         {"r1", Button::R1},
+    {"l2", Button::L2},         {"r2", Button::R2},         {"l3", Button::L3},
+    {"r3", Button::R3},         {"select", Button::Select}, {"start", Button::Start},
+    {"guide", Button::Guide},   {"up", Button::Up},         {"down", Button::Down},
+    {"left", Button::Left},     {"right", Button::Right},   {"search", Button::Search},
+    {"rotate", Button::Rotate},
 }};
 
 } // namespace
@@ -86,6 +75,8 @@ std::string_view prompt(Button button) {
         return "RIGHT";
     case Button::Search:
         return "SEARCH";
+    case Button::Rotate:
+        return "ROTATE";
     case Button::None:
         break;
     }

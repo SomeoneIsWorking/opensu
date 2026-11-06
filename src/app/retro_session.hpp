@@ -1,7 +1,7 @@
 // retro_session — the shell's side of opensu-retro's control channel: the control file each launch
 // names in OPENSU_RETRO_CONTROL and the settings file beside it, the port read from the control
-// file once the runner announces one, the requests the Guide menu and the game chords send, and the
-// load failure a runner leaves there.
+// file once the runner announces one, the requests the Guide menu and the game chords send, the
+// Rotate screen choice and the load failure a runner leaves there.
 #pragma once
 
 #include <chrono>
@@ -50,6 +50,10 @@ class RetroSession {
     /// removed. Any thread.
     [[nodiscard]] std::string end();
 
+    /// What the player last chose with Rotate screen in the launch running or just over; nothing
+    /// when they did not press it. Any thread.
+    [[nodiscard]] std::optional<bool> screenTurned();
+
     /// The running game's state when it runs on opensu-retro and answers; nothing otherwise.
     [[nodiscard]] std::optional<Status> status();
     /// One of the running core's options: how the core defines it and its value now.
@@ -81,7 +85,7 @@ class RetroSession {
     void relay(const std::string& route, const std::string& body);
 
     /// What the Guide menu's game rows and the game chords ask for.
-    enum class Command : std::uint8_t { SaveState, LoadState, Reset };
+    enum class Command : std::uint8_t { SaveState, LoadState, Reset, TurnScreen };
     /// How a command went, as the toast says it.
     struct Outcome {
         std::string text;
@@ -100,6 +104,8 @@ class RetroSession {
     std::mutex mutex_;
     std::filesystem::path file_;
     std::optional<std::uint16_t> port_;
+    /// The choice of the launch just over, until it is taken.
+    std::optional<bool> turned_;
     unsigned launches_{0};
 };
 
