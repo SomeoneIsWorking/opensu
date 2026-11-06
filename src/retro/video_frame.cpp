@@ -42,21 +42,47 @@ void convertRow(const std::uint8_t* in, std::uint8_t* out, unsigned width,
     }
 }
 
+/// `from`, `width` by `height`, into `to`, turned `quarterTurns` (1 to 3) times counter-clockwise.
+void turn(const std::uint8_t* from, std::uint8_t* to, unsigned width, unsigned height,
+          unsigned quarterTurns) {
+    const std::size_t turnedWidth = quarterTurns == 2 ? width : height;
+    for (unsigned y = 0; y < height; ++y) {
+        for (unsigned x = 0; x < width; ++x) {
+            std::size_t at = 0;
+            if (quarterTurns == 1) {
+                at = static_cast<std::size_t>(width - 1 - x) * turnedWidth + y;
+            } else if (quarterTurns == 2) {
+                at = static_cast<std::size_t>(height - 1 - y) * turnedWidth + (width - 1 - x);
+            } else {
+                at = static_cast<std::size_t>(x) * turnedWidth + (height - 1 - y);
+            }
+            std::memcpy(to + at * 4, from + (static_cast<std::size_t>(y) * width + x) * 4, 4);
+        }
+    }
+}
+
 } // namespace
 
 void VideoFrame::take(const void* data, unsigned width, unsigned height, std::size_t pitch,
-                      retro_pixel_format format) {
+                      retro_pixel_format format, unsigned quarterTurns) {
     if (data == nullptr) {
         return;
     }
-    width_ = width;
-    height_ = height;
-    rgba_.resize(static_cast<std::size_t>(width) * height * 4);
+    const std::size_t bytes = static_cast<std::size_t>(width) * height * 4;
+    rgba_.resize(bytes);
+    std::vector<std::uint8_t>& drawn = quarterTurns == 0 ? rgba_ : drawn_;
+    drawn.resize(bytes);
     const auto* rows = static_cast<const std::uint8_t*>(data);
     for (unsigned y = 0; y < height; ++y) {
-        convertRow(rows + y * pitch, rgba_.data() + static_cast<std::size_t>(y) * width * 4, width,
+        convertRow(rows + y * pitch, drawn.data() + static_cast<std::size_t>(y) * width * 4, width,
                    format);
     }
+    if (quarterTurns != 0) {
+        turn(drawn_.data(), rgba_.data(), width, height, quarterTurns);
+    }
+    const bool sideways = quarterTurns % 2 != 0;
+    width_ = sideways ? height : width;
+    height_ = sideways ? width : height;
     fresh_ = true;
 }
 

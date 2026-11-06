@@ -212,7 +212,8 @@ void Core::video(const void* data, unsigned width, unsigned height, std::size_t 
         host_.environment.hardware().frameReady(width, height);
         return;
     }
-    host_.video.take(data, width, height, pitch, host_.environment.pixelFormat());
+    host_.video.take(data, width, height, pitch, host_.environment.pixelFormat(),
+                     host_.environment.rotation());
 }
 
 void Core::audio(std::span<const std::int16_t> interleaved) {

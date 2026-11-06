@@ -43,6 +43,20 @@ void pixelFormats() {
            "an unknown format is refused and changes nothing");
 }
 
+void rotation() {
+    CoreEnvironment environment{"", ""};
+    unsigned quarterTurns = 3;
+    expect(environment.answer(RETRO_ENVIRONMENT_SET_ROTATION, nullptr),
+           "a software core may ask for a rotation");
+    expect(environment.answer(RETRO_ENVIRONMENT_SET_ROTATION, &quarterTurns) &&
+               environment.rotation() == 3,
+           "the rotation a core asks for is kept");
+    quarterTurns = 4;
+    expect(!environment.answer(RETRO_ENVIRONMENT_SET_ROTATION, &quarterTurns) &&
+               environment.rotation() == 3,
+           "a rotation past three quarters is refused");
+}
+
 void flags() {
     CoreEnvironment environment{"", ""};
     bool value = false;
@@ -277,6 +291,7 @@ int main() try {
     savestates();
     directories();
     pixelFormats();
+    rotation();
     flags();
     variables();
     definitions();

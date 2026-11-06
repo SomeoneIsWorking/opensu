@@ -134,7 +134,9 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
     }
     const auto byRomset = [&](Game& game, const RomFolder& folder, const RomNode& zip) {
         if (const std::string set = romsetOf(zip.name); !set.empty()) {
-            applyRomsets(game, set, romsets_.check(folder, zip, arcadeCores));
+            const std::vector<RomsetVerdict> verdicts = romsets_.check(folder, zip, arcadeCores);
+            addBesideZips(game, folder, verdicts);
+            applyRomsets(game, set, verdicts);
         }
     };
     romsets_.begin(RomsetMatcher::Clock::now());

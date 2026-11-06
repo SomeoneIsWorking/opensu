@@ -44,6 +44,7 @@ using opensu::library::Game;
 using opensu::library::LaunchSpec;
 using opensu::library::RomsetFit;
 using opensu::library::Source;
+using opensu::library::roms::addBesideZips;
 using opensu::library::roms::applyRomsets;
 using opensu::library::roms::checkingRomset;
 using opensu::library::roms::EmulatorEntry;
@@ -273,6 +274,31 @@ void matchesPickedFolders() {
     expect(matchSet("clone", dat, zips).fit == RomsetFit::Matches,
            "the parent beside it in a picked folder lends the clone its ROMs");
     expect(zips.stampOf("parent.zip").modified == 2, "the listing's time stamps the parent");
+
+    RomsetVerdict matched = matchSet("clone", dat, zips);
+    expect(matched.zips == std::vector<std::string>{"parent"},
+           "the verdict names the zips it held");
+    matched.emulatorId = "fbalpha";
+    Game game;
+    game.emulator = "FB Alpha";
+    game.launch = LaunchSpec{"retro", {"clone-uri"}};
+    game.emulatorOptions = {
+        EmulatorOption{"FB Alpha", true, game.launch, "fbalpha", true, {}, {}, {}, {}, false}};
+    addBesideZips(game, folder, {matched});
+    const std::string parentUri = folder.find("parent.zip")->location.string();
+    const std::vector<std::string> beside{"--beside", parentUri, "clone-uri"};
+    expect(game.launch.args == beside && game.emulatorOptions[0].launch.args == beside,
+           "a launch from a picked folder names the parent's document to copy beside the game");
+
+    const fs::path onDisk = "/roms/parent.zip";
+    const std::vector<RomNode> local{RomNode{onDisk, "parent.zip"}};
+    const RomFolder files{tree, "/roms", local};
+    Game fromDisk = game;
+    fromDisk.launch.args = {"clone"};
+    fromDisk.emulatorOptions[0].launch.args = {"clone"};
+    addBesideZips(fromDisk, files, {matched});
+    expect(fromDisk.launch.args == std::vector<std::string>{"clone"},
+           "a zip that opens by path is already beside the game");
 }
 
 void parsesListings() {

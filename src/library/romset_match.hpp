@@ -112,6 +112,8 @@ struct RomsetVerdict {
     /// The ROMs and disks the set needs, and those of them not found.
     std::size_t required{0};
     std::vector<std::string> missing;
+    /// The sets beside it whose zips the match held: parent, BIOS, devices.
+    std::vector<std::string> zips;
 
     bool operator==(const RomsetVerdict&) const = default;
 };
@@ -121,6 +123,14 @@ struct RomsetVerdict {
 
 /// What a mismatching verdict reads as: "has no set armwar", "lacks 2 of 16 files: a, b".
 [[nodiscard]] std::string gapOf(const RomsetVerdict& verdict, std::string_view set);
+
+/// Before a game in a picked folder starts, these documents are copied beside it, for cores open
+/// a parent's and BIOS's zips by path: `--beside <uri>`, which the Android launch takes out.
+inline constexpr std::string_view besideArgument = "--beside";
+
+/// Gives the launch of each of `game`'s cores `verdicts` match the zips in `folder` that it
+/// leans on and no core could open by path; call before `applyRomsets`.
+void addBesideZips(Game& game, const RomFolder& folder, const std::vector<RomsetVerdict>& verdicts);
 
 /// Marks each of the game's emulators with its verdict and picks the emulator by them: the one
 /// the search picked when it matches, else the first matching one installed, else the first

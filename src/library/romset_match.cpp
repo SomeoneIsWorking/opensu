@@ -251,6 +251,9 @@ RomsetVerdict matchSet(std::string_view name, const RomsetDat& dat, FolderZips& 
             for (const ZipMember& member : *members) {
                 held.emplace(member.crc32, member.size);
             }
+            if (zip != name) {
+                verdict.zips.emplace_back(zip);
+            }
         }
     };
     std::ranges::for_each(chain, hold);
@@ -293,6 +296,30 @@ std::string gapOf(const RomsetVerdict& verdict, std::string_view set) {
         text += std::format(" and {} more", verdict.missing.size() - named);
     }
     return text;
+}
+
+void addBesideZips(Game& game, const RomFolder& folder,
+                   const std::vector<RomsetVerdict>& verdicts) {
+    for (const RomsetVerdict& verdict : verdicts) {
+        const auto option =
+            std::ranges::find(game.emulatorOptions, verdict.emulatorId, &EmulatorOption::id);
+        if (option == game.emulatorOptions.end() || !option->installed ||
+            verdict.fit != RomsetFit::Matches) {
+            continue;
+        }
+        for (const std::string& set : verdict.zips) {
+            const RomNode* zip = folder.find(set + std::string{zipExtension});
+            if (zip == nullptr || zip->local) {
+                continue;
+            }
+            const std::vector<std::string> beside{std::string{besideArgument},
+                                                  zip->location.string()};
+            option->launch.args.insert(option->launch.args.begin(), beside.begin(), beside.end());
+            if (option->name == game.emulator) {
+                game.launch.args.insert(game.launch.args.begin(), beside.begin(), beside.end());
+            }
+        }
+    }
 }
 
 void applyRomsets(Game& game, std::string_view set, const std::vector<RomsetVerdict>& verdicts) {
@@ -408,7 +435,8 @@ void RomsetMatcher::loadKept() {
                     verdict.at("id").get<std::string>(),
                     fitOf(verdict.at("fit").get<std::string>()), verdict.at("listed").get<bool>(),
                     verdict.at("required").get<std::size_t>(),
-                    verdict.at("missing").get<std::vector<std::string>>()});
+                    verdict.at("missing").get<std::vector<std::string>>(),
+                    verdict.at("zips").get<std::vector<std::string>>()});
             }
             kept_.emplace(path, std::move(kept));
         }
@@ -514,7 +542,8 @@ void RomsetMatcher::save() {
                                 {"fit", fitName(verdict.fit)},
                                 {"listed", verdict.listed},
                                 {"required", verdict.required},
-                                {"missing", verdict.missing}});
+                                {"missing", verdict.missing},
+                                {"zips", verdict.zips}});
         }
         zips[path] = {{"zip", stampJson(kept.zip)},
                       {"stamps", kept.stamps},

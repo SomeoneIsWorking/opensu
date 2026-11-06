@@ -1,5 +1,5 @@
-// video_frame — the core's latest frame in its pixel format (0RGB1555, XRGB8888, RGB565) as RGBA.
-// A duplicated frame keeps the one before it.
+// video_frame — the core's latest frame in its pixel format (0RGB1555, XRGB8888, RGB565) as RGBA,
+// turned as the core asked (SET_ROTATION). A duplicated frame keeps the one before it.
 #pragma once
 
 #include <cstddef>
@@ -13,9 +13,10 @@ namespace opensu::retro {
 
 class VideoFrame {
   public:
-    /// A frame from the core, rows `pitch` bytes apart; null `data` repeats the last frame.
+    /// A frame from the core, rows `pitch` bytes apart, turned `quarterTurns` times
+    /// counter-clockwise; null `data` repeats the last frame.
     void take(const void* data, unsigned width, unsigned height, std::size_t pitch,
-              retro_pixel_format format);
+              retro_pixel_format format, unsigned quarterTurns = 0);
 
     /// Rows of `width` RGBA pixels, top first.
     [[nodiscard]] std::span<const std::uint8_t> rgba() const {
@@ -33,6 +34,8 @@ class VideoFrame {
 
   private:
     std::vector<std::uint8_t> rgba_;
+    /// The frame as the core drew it, when it is turned.
+    std::vector<std::uint8_t> drawn_;
     unsigned width_{0};
     unsigned height_{0};
     bool fresh_{false};

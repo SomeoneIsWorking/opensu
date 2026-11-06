@@ -88,6 +88,8 @@ bool CoreEnvironment::answerWithoutData(unsigned command) {
     case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2_INTL:
         options_.clear();
         return true;
+    case RETRO_ENVIRONMENT_SET_ROTATION:
+        return !hardware_.requested();
     case RETRO_ENVIRONMENT_GET_NETPLAY_CLIENT_INDEX:
         return netplaySlot_.has_value();
     case getNetplayClock:
@@ -119,6 +121,15 @@ bool CoreEnvironment::answer(unsigned command, void* data) {
             return false;
         }
         pixelFormat_ = format;
+        return true;
+    }
+    case RETRO_ENVIRONMENT_SET_ROTATION: {
+        // A core's own image is drawn as it stands; only pixels are turned.
+        const unsigned quarterTurns = *static_cast<const unsigned*>(data);
+        if (quarterTurns > 3 || hardware_.requested()) {
+            return refuse(command);
+        }
+        rotation_ = quarterTurns;
         return true;
     }
     case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:

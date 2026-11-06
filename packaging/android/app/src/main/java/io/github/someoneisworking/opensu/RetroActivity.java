@@ -8,6 +8,8 @@ import android.util.Log;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /** openSU's libretro runner, one game per `:retro` process, as opensu-retro is on the desktop. */
 public final class RetroActivity extends LandscapeActivity {
@@ -15,6 +17,8 @@ public final class RetroActivity extends LandscapeActivity {
     static final String EXTRA_ENVIRONMENT = "io.github.someoneisworking.opensu.ENVIRONMENT";
     static final String EXTRA_FROM_GAME = "io.github.someoneisworking.opensu.FROM_GAME";
     static final String PROCESS_SUFFIX = ":retro";
+    /** Names a document a core opens by path beside the game; romset_match.hpp's besideArgument. */
+    private static final String BESIDE = "--beside";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,18 +61,23 @@ public final class RetroActivity extends LandscapeActivity {
         }
         staged.mkdirs();
         DocumentTree documents = new DocumentTree(this);
+        List<String> runner = new ArrayList<>();
         for (int i = 0; i < arguments.length; ++i) {
-            if (!DocumentTree.isDocument(arguments[i])) {
-                continue;
-            }
+            boolean beside = BESIDE.equals(arguments[i]) && i + 1 < arguments.length;
+            String argument = beside ? arguments[++i] : arguments[i];
             // Cores open games by path, so a game in a picked folder is copied to the cache first.
-            try {
-                arguments[i] = documents.stage(arguments[i], staged).getAbsolutePath();
-            } catch (IOException | SecurityException error) {
-                Log.e("openSU", "cannot copy " + arguments[i] + ": " + error.getMessage());
+            if (DocumentTree.isDocument(argument)) {
+                try {
+                    argument = documents.stage(argument, staged).getAbsolutePath();
+                } catch (IOException | SecurityException error) {
+                    Log.e("openSU", "cannot copy " + argument + ": " + error.getMessage());
+                }
+            }
+            if (!beside) {
+                runner.add(argument);
             }
         }
-        return arguments;
+        return runner.toArray(new String[0]);
     }
 
     /** Called from the runner's shell handoff: the shell comes over the game with its Guide menu. */

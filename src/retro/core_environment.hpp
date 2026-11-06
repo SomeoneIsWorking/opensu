@@ -38,6 +38,10 @@ class CoreEnvironment {
     [[nodiscard]] retro_pixel_format pixelFormat() const {
         return pixelFormat_;
     }
+    /// The quarter turns counter-clockwise the core's frames are shown with (SET_ROTATION).
+    [[nodiscard]] unsigned rotation() const noexcept {
+        return rotation_;
+    }
     [[nodiscard]] const CoreOptions& options() const {
         return options_;
     }
@@ -68,6 +72,7 @@ class CoreEnvironment {
     std::string systemDir_;
     std::string saveDir_;
     retro_pixel_format pixelFormat_{RETRO_PIXEL_FORMAT_0RGB1555};
+    unsigned rotation_{0};
     std::uint64_t serializationQuirks_{0};
     CoreOptions options_;
     HardwareRender hardware_;

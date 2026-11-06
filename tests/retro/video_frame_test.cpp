@@ -34,6 +34,39 @@ void xrgb8888() {
     expectPixel(frame.rgba(), 3, 0xFF, 0xFF, 0xFF, "XRGB8888 white");
 }
 
+void turnsFrames() {
+    // Three wide and two high, its right column black.
+    constexpr std::uint32_t red = 0xFF0000;
+    constexpr std::uint32_t green = 0x00FF00;
+    constexpr std::uint32_t blue = 0x0000FF;
+    constexpr std::uint32_t white = 0xFFFFFF;
+    constexpr std::uint32_t black = 0;
+    const std::array<std::uint32_t, 6> rows{red, green, black, blue, white, black};
+    VideoFrame frame;
+    frame.take(rows.data(), 3, 2, 12, RETRO_PIXEL_FORMAT_XRGB8888, 1);
+    expect(frame.width() == 2 && frame.height() == 3, "a quarter turn swaps the frame's sides");
+    expectPixel(frame.rgba(), 0, 0, 0, 0, "the top right corner turns to the top left");
+    expectPixel(frame.rgba(), 2, 0, 0xFF, 0, "the middle of the top row turns left");
+    expectPixel(frame.rgba(), 3, 0xFF, 0xFF, 0xFF, "the second row's middle turns right");
+    expectPixel(frame.rgba(), 4, 0xFF, 0, 0, "the top left corner turns to the bottom left");
+    expectPixel(frame.rgba(), 5, 0, 0, 0xFF, "the bottom left corner turns to the bottom right");
+
+    frame.take(rows.data(), 3, 2, 12, RETRO_PIXEL_FORMAT_XRGB8888, 2);
+    expect(frame.width() == 3 && frame.height() == 2, "a half turn keeps the frame's sides");
+    expectPixel(frame.rgba(), 1, 0xFF, 0xFF, 0xFF, "a half turn puts the bottom row on top");
+    expectPixel(frame.rgba(), 5, 0xFF, 0, 0, "a half turn puts the top left at the bottom right");
+
+    frame.take(rows.data(), 3, 2, 12, RETRO_PIXEL_FORMAT_XRGB8888, 3);
+    expect(frame.width() == 2 && frame.height() == 3, "three quarter turns swap the sides");
+    expectPixel(frame.rgba(), 0, 0, 0, 0xFF, "the bottom left corner turns to the top left");
+    expectPixel(frame.rgba(), 1, 0xFF, 0, 0, "the top left corner turns to the top right");
+    expectPixel(frame.rgba(), 5, 0, 0, 0, "the top right corner turns to the bottom right");
+
+    frame.take(rows.data(), 3, 2, 12, RETRO_PIXEL_FORMAT_XRGB8888);
+    expect(frame.width() == 3 && frame.height() == 2, "an unturned frame keeps its sides");
+    expectPixel(frame.rgba(), 1, 0, 0xFF, 0, "an unturned frame stays as drawn");
+}
+
 void rgb565() {
     const std::array<std::uint16_t, 4> pixels{0xF800, 0x07E0, 0x001F, 0x8410};
     VideoFrame frame;
@@ -70,6 +103,7 @@ void duplicates() {
 
 int main() try {
     xrgb8888();
+    turnsFrames();
     rgb565();
     xrgb1555();
     duplicates();
