@@ -25,6 +25,7 @@
 
 #include "config/config.hpp"
 #include "lucent/log.h"
+#include "lucent/text.h"
 
 #include "retro/joypad.hpp"
 #include "retro/runner_app.hpp"
@@ -106,7 +107,7 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
             } else if (arg == "--touch") {
                 float dp = 0.0F;
                 const auto [end, error] =
-                    std::from_chars(given->data(), given->data() + given->size(), dp);
+                    lucent::text::from_chars_real(given->data(), given->data() + given->size(), dp);
                 if (error != std::errc{} || end != given->data() + given->size() || dp <= 0.0F) {
                     lucent::error("retro", "--touch takes pixels per dp, not {}", *given);
                     return std::nullopt;
