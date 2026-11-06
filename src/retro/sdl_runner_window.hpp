@@ -29,6 +29,7 @@ class SdlRunnerWindow final : public RunnerWindow {
     [[nodiscard]] WindowInput poll() override;
     [[nodiscard]] bool hasSurface() const override;
     [[nodiscard]] VkExtent2D pixels() const override;
+    void resize(unsigned width, unsigned height) override;
     [[nodiscard]] touch::WindowSurface surface(unsigned width, unsigned height) const override;
     void inject(const touch::Finger& finger) override;
 

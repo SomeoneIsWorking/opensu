@@ -343,6 +343,10 @@ void Presenter::turnPicture(bool turned) {
     compositor_->turn(turned);
 }
 
+void Presenter::fitWindow(unsigned width, unsigned height) {
+    window_->resize(width, height);
+}
+
 void Presenter::reserve(std::uint32_t height) noexcept {
     compositor_->reserve(height);
 }

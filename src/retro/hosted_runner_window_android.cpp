@@ -91,6 +91,9 @@ class HostedRunnerWindow final : public RunnerWindow {
         return native_ != nullptr;
     }
 
+    void resize(unsigned /*width*/, unsigned /*height*/) override {
+    }
+
     [[nodiscard]] VkExtent2D pixels() const override {
         if (native_ == nullptr) {
             return {};

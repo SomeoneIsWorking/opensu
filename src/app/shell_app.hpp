@@ -872,10 +872,23 @@ class ShellApp final {
                     });
                     return found != games_.end() && launch(*found, {}, {});
                 },
-            .panel =
+            .facts =
                 [this] {
                     const std::optional<RetroSession::Status> status = retro_.status();
-                    return status ? status->panel : std::string{};
+                    if (!status) {
+                        return RemotePlay::GameFacts{};
+                    }
+                    return RemotePlay::GameFacts{
+                        .panel = status->panel,
+                        .picture = {.width = static_cast<int>(status->pictureWidth),
+                                    .height = static_cast<int>(status->pictureHeight)},
+                        .aspect = status->pictureAspect};
+                },
+            .nativeWindow =
+                [this] {
+                    if (const std::string refused = retro_.native(); !refused.empty()) {
+                        lucent::warn("remote", "the game keeps its window: {}", refused);
+                    }
                 },
             .name =
                 [this] {

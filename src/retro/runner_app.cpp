@@ -54,6 +54,15 @@ Clock::duration frameInterval(double fps) {
     return std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>{1.0 / rate});
 }
 
+/// Tells the shell the picture's size, or none when the core turns it, whose frames then differ.
+void reportPicture(ControlServer& control, const retro_game_geometry& geometry, unsigned turns) {
+    const float height = static_cast<float>(geometry.base_height);
+    const float own = height > 0.0F ? static_cast<float>(geometry.base_width) / height : 0.0F;
+    control.reportPicture(turns == 0 ? geometry.base_width : 0U,
+                          turns == 0 ? geometry.base_height : 0U,
+                          geometry.aspect_ratio > 0.0F ? geometry.aspect_ratio : own);
+}
+
 float aspectOf(const retro_game_geometry& geometry) {
     return geometry.aspect_ratio > 0.0F ? geometry.aspect_ratio : 0.0F;
 }
@@ -206,6 +215,7 @@ RunnerExit RunnerApp::run() {
         return RunnerExit::LoadFailed;
     }
     retro_game_geometry geometry = core->avInfo().geometry;
+    bool nativeWindow = false;
     Clock::duration interval = frameInterval(core->avInfo().timing.fps);
     sink.setCoreRate(core->avInfo().timing.sample_rate);
 
@@ -431,6 +441,16 @@ RunnerExit RunnerApp::run() {
         }
         if (const auto changed = environment.takeGeometry()) {
             geometry = *changed;
+            if (nativeWindow) {
+                presenter->fitWindow(geometry.base_width, geometry.base_height);
+            }
+        }
+        if (control) {
+            reportPicture(*control, geometry, environment.rotation());
+            if (control->takeNative()) {
+                nativeWindow = true;
+                presenter->fitWindow(geometry.base_width, geometry.base_height);
+            }
         }
         const Clock::time_point now = Clock::now();
         if (!holding) {

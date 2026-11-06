@@ -1,6 +1,7 @@
 #include "remote_play.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <format>
 #include <iterator>
 #include <span>
@@ -21,8 +22,10 @@ using Clock = std::chrono::steady_clock;
 constexpr std::chrono::seconds answerKept{30};
 /// How often a guest waiting on the game's start hears its step again: a datagram can be lost.
 constexpr std::chrono::milliseconds stageEvery{500};
-/// How often guests hear the game's arcade panel, which a core may name late.
-constexpr std::chrono::seconds panelEvery{1};
+/// How often guests hear the game's panel and shape, which a core may name late.
+constexpr std::chrono::seconds factsEvery{1};
+/// The longest side of a picture sent at its own size, for the guest to upscale.
+constexpr int lowResSide = 640;
 
 void wipe(lan::StreamKeys& keys) {
     secrets::wipeBytes(keys.host.data(), keys.host.size());
@@ -653,15 +656,9 @@ void RemotePlay::serviceHost(const library::Game* running, const std::string& pr
             }
         }
     }
-    if (hooks_.panel && Clock::now() - hosted.panelSent >= panelEvery) {
-        hosted.panelSent = Clock::now();
-        if (const std::string panel = hooks_.panel(); !panel.empty()) {
-            for (const std::unique_ptr<Guest>& guest : hosted.guests) {
-                if (guest->stream) {
-                    guest->stream->send(stream::PacketKind::Panel, panel);
-                }
-            }
-        }
+    if (hooks_.facts && Clock::now() - hosted.factsSent >= factsEvery) {
+        hosted.factsSent = Clock::now();
+        tellGuests(hosted, hooks_.facts());
     }
     const bool held = hosted.forGuest && !shown_;
     if (held && !hosted.stage.empty() && Clock::now() - hosted.stageSent >= stageEvery) {
@@ -837,6 +834,35 @@ void RemotePlay::drop() {
     link_.reset();
     joined_ = false;
     pictured_ = false;
+}
+
+void RemotePlay::tellGuests(Hosted& hosted, const GameFacts& facts) {
+    const stream::PictureSize picture = facts.picture;
+    const bool lowRes = picture.width > 0 && picture.height > 0 &&
+                        std::max(picture.width, picture.height) <= lowResSide;
+    if (hosted.forGuest && lowRes && hosted.video && picture != hosted.native) {
+        lucent::info("remote", "a {}x{} picture goes at its own size", picture.width,
+                     picture.height);
+        hosted.native = picture;
+        hooks_.nativeWindow();
+        hosted.video->native(picture);
+    }
+    for (const std::unique_ptr<Guest>& guest : hosted.guests) {
+        if (!guest->stream) {
+            continue;
+        }
+        if (!facts.panel.empty()) {
+            guest->stream->send(stream::PacketKind::Panel, facts.panel);
+        }
+        if (hosted.native.width > 0) {
+            guest->stream->send(stream::PacketKind::Shape,
+                                std::to_string(std::lround(facts.aspect * 10000.0F)));
+        }
+    }
+}
+
+float RemotePlay::shape() const {
+    return guest_ ? guest_->shape() : 0.0F;
 }
 
 std::string RemotePlay::panel() const {

@@ -57,6 +57,8 @@ class ScreenCapture {
     /// Asks Gamescope for frames that fit `size`, its aspect kept; it never scales up. Reconnects
     /// when the size is new; throws `std::runtime_error` when that fails.
     void fit(PictureSize size);
+    /// As `fit`, for frames of exactly `size`, whatever the screen's shape.
+    void fitExactly(PictureSize size);
 
   private:
     class Stream;

@@ -171,9 +171,10 @@ void Shell::drawPicture(Canvas& canvas, const gpu2d::TextureView& picture,
     const int height = target.height;
     canvas.fillRect(gpu2d::Rect{0.0F, 0.0F, static_cast<float>(width), static_cast<float>(height)},
                     black);
+    const float own = static_cast<float>(picture.width) / static_cast<float>(picture.height);
     const display::Placed placed =
         display::letterbox({.width = width, .height = height - pictureBand_},
-                           static_cast<float>(picture.width) / static_cast<float>(picture.height));
+                           pictureShape_ > 0.0F ? pictureShape_ : own);
     canvas.image(picture,
                  gpu2d::Rect{0.0F, 0.0F, static_cast<float>(picture.width),
                              static_cast<float>(picture.height)},

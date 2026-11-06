@@ -28,6 +28,8 @@ namespace {
 
 /// Gamescope's format key for the size a consumer wants (`SPA_FORMAT_VIDEO_requested_size`).
 constexpr std::uint32_t requestedSizeKey = 0x70000;
+/// The openSU fork's key for a size of the consumer's own shape.
+constexpr std::uint32_t exactSizeKey = 0x70002;
 
 /// The process at the other end of the Unix socket `path`.
 pid_t peerOf(const std::filesystem::path& path) {
@@ -97,12 +99,13 @@ class ScreenCapture::Stream {
         drop();
     }
 
-    void fit(PictureSize size) {
+    void fit(PictureSize size, bool exact) {
         const PipeWireSession::Lock lock{session_};
-        if (size == requested_) {
+        if (size == requested_ && exact == exact_) {
             return;
         }
         requested_ = size;
+        exact_ = exact;
         lucent::info("capture", "asking Gamescope for {}x{}", size.width, size.height);
         pw_stream_destroy(stream_);
         stream_ = nullptr;
@@ -179,7 +182,7 @@ class ScreenCapture::Stream {
         spa_pod_builder_fraction(&builder, 1000, 1);
         spa_pod_builder_pop(&builder, &choice);
         if (requested_.width > 0 && requested_.height > 0) {
-            spa_pod_builder_prop(&builder, requestedSizeKey, 0);
+            spa_pod_builder_prop(&builder, exact_ ? exactSizeKey : requestedSizeKey, 0);
             spa_pod_builder_rectangle(&builder, static_cast<std::uint32_t>(requested_.width),
                                       static_cast<std::uint32_t>(requested_.height));
         }
@@ -334,6 +337,7 @@ class ScreenCapture::Stream {
     /// Gamescope's node, and the size asked of it.
     std::string serial_;
     PictureSize requested_;
+    bool exact_{false};
 };
 
 std::string ScreenCapture::missing() {
@@ -346,7 +350,11 @@ ScreenCapture::ScreenCapture(Setup setup) : stream_{std::make_unique<Stream>(std
 ScreenCapture::~ScreenCapture() = default;
 
 void ScreenCapture::fit(PictureSize size) {
-    stream_->fit(size);
+    stream_->fit(size, false);
+}
+
+void ScreenCapture::fitExactly(PictureSize size) {
+    stream_->fit(size, true);
 }
 
 } // namespace opensu::stream

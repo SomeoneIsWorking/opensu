@@ -35,6 +35,10 @@ HostVideo::HostVideo(Audience& audience, const std::filesystem::path& gamescopeS
 }
 
 void HostVideo::fit() {
+    if (native_.width > 0) {
+        capture_.fitExactly(native_);
+        return;
+    }
     PictureSize largest;
     audience_.visit([&largest](std::span<HostStream* const> streams) {
         for (const HostStream* stream : streams) {

@@ -61,6 +61,15 @@ class RemotePlay {
     /// How long a seat waits for its player once the guest went quiet.
     static constexpr std::chrono::seconds seatHold{120};
 
+    /// What a built-in runner reports of the game it runs; empty for any other game.
+    struct GameFacts {
+        /// Its arcade panel (`touch::panelText`).
+        std::string panel;
+        /// Its picture in pixels, 0 by 0 when the runner turns it, and its shape as shown.
+        stream::PictureSize picture;
+        float aspect{0.0F};
+    };
+
     struct Hooks {
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
@@ -89,8 +98,10 @@ class RemotePlay {
             invite;
         /// Plays host `hostId`'s game `gameId` from here; false when the catalog does not list it.
         std::function<bool(const std::string& hostId, const std::string& gameId)> join;
-        /// The running game's arcade panel (`touch::panelText`); empty for none.
-        std::function<std::string()> panel;
+        /// What the running game tells its guests.
+        std::function<GameFacts()> facts;
+        /// Asks the running game's window to take its picture's own size.
+        std::function<void()> nativeWindow;
         /// The name this openSU goes by.
         std::function<std::string()> name;
         /// The first pad's virtual pad for a player who continues from another openSU, and given
@@ -219,6 +230,9 @@ class RemotePlay {
     /// loop only.
     void input(const stream::wire::PadState& pad, const stream::wire::KeyState& keys,
                const stream::wire::MouseState& mouse);
+    /// The shape the host's picture is shown at, width over height; 0 for the frames' own. Main
+    /// loop only.
+    [[nodiscard]] float shape() const;
     /// The arcade panel of the host's game (`touch::panelText`); empty for none. Main loop only.
     [[nodiscard]] std::string panel() const;
     /// The pixels the host's picture is shown in here. Main loop only.
@@ -298,8 +312,10 @@ class RemotePlay {
         /// The step its start is at, and when the guests last heard it.
         std::string stage;
         std::chrono::steady_clock::time_point stageSent;
-        /// When the guests last heard the game's arcade panel.
-        std::chrono::steady_clock::time_point panelSent;
+        /// When the guests last heard the game's panel and picture shape.
+        std::chrono::steady_clock::time_point factsSent;
+        /// The low-res picture sent at its own size; none for the screen's.
+        stream::PictureSize native;
     };
     /// A guest's ask to join, until it hears the answer.
     struct Ask {
@@ -350,6 +366,8 @@ class RemotePlay {
     void hold(Hosted& hosted, Guest& guest);
     /// Tells the paired openSUs when who may continue what changed. Holding `hostMutex_`.
     void publishSeats();
+    /// Sends the guests `facts`, and a low-res picture at its own size.
+    void tellGuests(Hosted& hosted, const GameFacts& facts);
     void serviceHost(const library::Game* running, const std::string& profile);
     void serviceGuest();
     /// Ends the guest's session here, the stream first.

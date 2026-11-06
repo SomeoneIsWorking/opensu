@@ -1,6 +1,7 @@
 #include "guest_stream.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <chrono>
 #include <deque>
 #include <utility>
@@ -170,6 +171,11 @@ void GuestStream::sendInput() {
     if (mouse) {
         send(PacketKind::Mouse, wire::write(*mouse));
     }
+}
+
+float GuestStream::shape() const {
+    const std::lock_guard lock{mutex_};
+    return shape_;
 }
 
 std::string GuestStream::panel() const {
@@ -343,6 +349,16 @@ void GuestStream::handle(const Opened& opened, std::uint64_t receivedUs) {
             finish(end->reason);
         }
         break;
+    case PacketKind::Shape: {
+        unsigned shape = 0;
+        const std::string_view text = opened.payload;
+        const auto parsed = std::from_chars(text.data(), text.data() + text.size(), shape);
+        if (parsed.ec == std::errc{} && shape > 0) {
+            const std::lock_guard lock{mutex_};
+            shape_ = static_cast<float>(shape) / 10000.0F;
+        }
+        break;
+    }
     case PacketKind::Panel: {
         const std::lock_guard lock{mutex_};
         panel_ = opened.payload;

@@ -8,6 +8,7 @@
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_init.h>
+#include <SDL3/SDL_video.h>
 #include <SDL3/SDL_vulkan.h>
 
 #include "lucent/log.h"
@@ -62,6 +63,13 @@ VkSurfaceKHR SdlRunnerWindow::makeSurface(VkInstance instance) {
         return VK_NULL_HANDLE;
     }
     return surface;
+}
+
+void SdlRunnerWindow::resize(unsigned width, unsigned height) {
+    if (!SDL_SetWindowFullscreen(window_, false) ||
+        !SDL_SetWindowSize(window_, static_cast<int>(width), static_cast<int>(height))) {
+        lucent::warn("retro", "the window stays its size: {}", SDL_GetError());
+    }
 }
 
 void SdlRunnerWindow::destroySurface(VkInstance instance, VkSurfaceKHR surface) {

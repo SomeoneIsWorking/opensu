@@ -307,6 +307,7 @@ void HostStream::handle(const Opened& opened) {
     case PacketKind::Netplay:
     case PacketKind::Stage:
     case PacketKind::Panel:
+    case PacketKind::Shape:
         break;
     }
 }

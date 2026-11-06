@@ -197,6 +197,10 @@ class Shell {
         picture_ = picture;
     }
 
+    /// The picture's shape, width over height; 0 for its own.
+    void setPictureShape(float shape) noexcept {
+        pictureShape_ = shape;
+    }
     /// How much of the target's bottom the picture stays out of, for controls under it.
     void setPictureBand(int band) noexcept {
         pictureBand_ = band;
@@ -302,6 +306,7 @@ class Shell {
     bool standsIn_{false};
     std::optional<gpu2d::TextureView> picture_;
     int pictureBand_{0};
+    float pictureShape_{0.0F};
     std::optional<gpu2d::TextureView> pictureControls_;
 };
 

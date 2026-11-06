@@ -37,6 +37,11 @@ class HostVideo {
     HostVideo(HostVideo&&) = delete;
     HostVideo& operator=(HostVideo&&) = delete;
 
+    /// Frames of exactly `size` from now on, whatever the guests show them in. Main loop only.
+    void native(PictureSize size) noexcept {
+        native_ = size;
+    }
+
     /// While `held`, nothing is sent: the Gamescope still shows the shell, not the game. Any
     /// thread.
     void hold(bool held) noexcept {
@@ -72,6 +77,7 @@ class HostVideo {
 
     Audience& audience_;
     std::atomic<bool> held_{false};
+    PictureSize native_;
     /// Capture thread only.
     std::map<VideoCodec, Encoding> encodings_;
     std::uint32_t frames_{0};

@@ -47,6 +47,8 @@ enum class PacketKind : std::uint8_t {
     Stage = 14,
     /// The arcade panel of the game (`touch::panelText`).
     Panel = 15,
+    /// The picture's shape as shown: width over height in ten-thousandths, as decimal text.
+    Shape = 16,
 };
 
 /// Bytes a sealed datagram adds to its payload: the header and the tag.

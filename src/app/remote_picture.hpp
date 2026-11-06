@@ -34,6 +34,10 @@ class RemotePicture {
     [[nodiscard]] std::optional<gpu2d::TextureView> view() const;
     /// Where it is drawn in `window`: letterboxed, or all of it while there is none.
     [[nodiscard]] display::Placed placement(display::Size window) const;
+    /// Shows the picture at `shape`, width over height; 0 keeps the frames' own.
+    void shapeAs(float shape) noexcept {
+        shape_ = shape;
+    }
     /// The host frame shown since the last call, once; nothing when no new one came.
     [[nodiscard]] std::optional<std::uint32_t> takeFresh();
     /// `newest` (the session's newest picture) as PNG, its number with it; a picture left in
@@ -45,6 +49,7 @@ class RemotePicture {
     std::optional<gpu2d::Texture> texture_;
     std::optional<gpu2d::DmabufPicture> imported_;
     bool showsImported_{false};
+    float shape_{0.0F};
     int width_{0};
     int height_{0};
     std::uint32_t number_{0};

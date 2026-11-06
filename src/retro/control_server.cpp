@@ -256,6 +256,18 @@ void ControlServer::publish(std::uint64_t frame, bool hasState) {
     hasState_ = hasState;
 }
 
+void ControlServer::reportPicture(unsigned width, unsigned height, float aspect) {
+    const std::lock_guard lock{mutex_};
+    pictureWidth_ = width;
+    pictureHeight_ = height;
+    pictureAspect_ = aspect;
+}
+
+bool ControlServer::takeNative() {
+    const std::lock_guard lock{mutex_};
+    return std::exchange(nativeAsked_, false);
+}
+
 void ControlServer::reportPanel(std::string panel) {
     const std::lock_guard lock{mutex_};
     panel_ = std::move(panel);
@@ -362,8 +374,15 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
             return text(405, "Method Not Allowed", "GET only");
         }
         const std::lock_guard lock{mutex_};
-        nlohmann::json status{{"core", core_},   {"rom", rom_},     {"frame", frame_},
-                              {"shown", shown_}, {"panel", panel_}, {"hasState", hasState_}};
+        nlohmann::json status{{"core", core_},
+                              {"rom", rom_},
+                              {"frame", frame_},
+                              {"shown", shown_},
+                              {"panel", panel_},
+                              {"pictureWidth", pictureWidth_},
+                              {"pictureHeight", pictureHeight_},
+                              {"pictureAspect", pictureAspect_},
+                              {"hasState", hasState_}};
         if (resume_.from) {
             status["resumedFrom"] =
                 std::chrono::duration_cast<std::chrono::seconds>(resume_.from->time_since_epoch())
@@ -373,6 +392,14 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
             status["resumeRefused"] = resume_.refused;
         }
         return lucent::http::Response::json(200, "OK", status.dump());
+    }
+    if (path == "/native") {
+        if (request.method != "POST") {
+            return text(405, "Method Not Allowed", "POST only");
+        }
+        const std::lock_guard lock{mutex_};
+        nativeAsked_ = true;
+        return text(200, "OK", "queued");
     }
     if (path == "/input") {
         if (request.method != "POST") {

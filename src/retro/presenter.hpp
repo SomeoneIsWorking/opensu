@@ -74,6 +74,8 @@ class Presenter {
 
     /// What an overlay is drawn for: the target's size, its safe area and pixels per dp.
     [[nodiscard]] touch::WindowSurface surface() const;
+    /// Shrinks the window to `width` x `height`, the size of the picture it shows.
+    void fitWindow(unsigned width, unsigned height);
     /// Where `frame` is drawn on the target.
     [[nodiscard]] touch::Box picture(const FrameImage& frame) const;
     /// Puts `finger` on the window's event queue, as the system does for a real one.

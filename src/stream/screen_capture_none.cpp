@@ -20,4 +20,7 @@ ScreenCapture::~ScreenCapture() = default;
 void ScreenCapture::fit(PictureSize /*size*/) {
 }
 
+void ScreenCapture::fitExactly(PictureSize /*size*/) {
+}
+
 } // namespace opensu::stream

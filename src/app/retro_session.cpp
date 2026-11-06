@@ -128,6 +128,9 @@ std::optional<RetroSession::Status> RetroSession::status() {
                   .frame = body.value("frame", std::uint64_t{0}),
                   .hasState = body.value("hasState", false),
                   .panel = body.value("panel", std::string{}),
+                  .pictureWidth = body.value("pictureWidth", 0U),
+                  .pictureHeight = body.value("pictureHeight", 0U),
+                  .pictureAspect = body.value("pictureAspect", 0.0F),
                   .shown = body.value("shown", false),
                   .resumedFrom = std::nullopt,
                   .resumeRefused = body.value("resumeRefused", std::string{})};
@@ -229,6 +232,10 @@ std::string RetroSession::saveState() {
 
 std::string RetroSession::loadState() {
     return post("/state/load");
+}
+
+std::string RetroSession::native() {
+    return post("/native");
 }
 
 std::string RetroSession::reset() {

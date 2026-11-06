@@ -79,7 +79,8 @@ display::Placed RemotePicture::placement(display::Size window) const {
     if (!texture_ && !showsImported_) {
         return display::Placed{.x = 0, .y = 0, .width = window.width, .height = window.height};
     }
-    return display::letterbox(window, static_cast<float>(width_) / static_cast<float>(height_));
+    const float own = static_cast<float>(width_) / static_cast<float>(height_);
+    return display::letterbox(window, shape_ > 0.0F ? shape_ : own);
 }
 
 std::optional<std::uint32_t> RemotePicture::takeFresh() {

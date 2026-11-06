@@ -31,6 +31,10 @@ class RetroSession {
         bool hasState{false};
         /// The machine's panel (`touch::panelText`); empty for no arcade game.
         std::string panel;
+        /// The core's picture in pixels, 0 by 0 when it is turned, and its shape as shown.
+        unsigned pictureWidth{0};
+        unsigned pictureHeight{0};
+        float pictureAspect{0.0F};
         /// A frame has reached the screen.
         bool shown{false};
         /// When the state the game resumed from was taken; nothing when it did not resume.
@@ -73,6 +77,8 @@ class RetroSession {
     /// Each asks the runner and answers empty when it was done, else why not.
     [[nodiscard]] std::string saveState();
     [[nodiscard]] std::string loadState();
+    /// Asks the window to take the picture's own size; the reason when refused, else empty.
+    [[nodiscard]] std::string native();
     [[nodiscard]] std::string reset();
     /// Save and close's first half: the runner keeps a resume state, writes the game's save and
     /// runs no more frames, waiting to be closed.

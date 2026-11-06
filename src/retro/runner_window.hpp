@@ -36,6 +36,8 @@ class RunnerWindow {
     [[nodiscard]] virtual bool hasSurface() const = 0;
     /// Its size in pixels, for a surface that leaves the swapchain's size to the application.
     [[nodiscard]] virtual VkExtent2D pixels() const = 0;
+    /// Leaves the full screen for a window of `width` x `height` pixels, where windows can change.
+    virtual void resize(unsigned width, unsigned height) = 0;
     /// What an overlay on a `width` x `height` target is drawn for.
     [[nodiscard]] virtual touch::WindowSurface surface(unsigned width, unsigned height) const = 0;
     /// Queues a finger as if it had touched the window.
