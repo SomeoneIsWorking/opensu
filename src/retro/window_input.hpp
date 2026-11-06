@@ -19,6 +19,10 @@ struct WindowInput {
     };
 
     bool quit{false};
+    /// Its size changed, so the swapchain is made again.
+    bool resized{false};
+    /// What it drew into is gone, a new surface or none yet in its place.
+    bool surfaceLost{false};
     std::vector<Key> keys;
     std::vector<touch::Finger> fingers;
     /// The window took (true) or lost (false) the input, as Android does under another Activity.

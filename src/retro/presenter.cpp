@@ -5,13 +5,8 @@
 #include <stdexcept>
 #include <string>
 
-#include <SDL3/SDL_error.h>
-#include <SDL3/SDL_events.h>
-#include <SDL3/SDL_init.h>
-#include <SDL3/SDL_vulkan.h>
-
 #include "lucent/log.h"
-#include "touch/sdl_touch.hpp"
+#include "sdl_runner_window.hpp"
 
 namespace opensu::retro {
 namespace {
@@ -66,35 +61,17 @@ Presenter::~Presenter() {
 }
 
 void Presenter::open() {
-    if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
-        throw std::runtime_error{std::string{"video: "} + SDL_GetError()};
-    }
-    videoUp_ = true;
-    SDL_WindowFlags flags = SDL_WINDOW_HIDDEN;
+    window_ = std::make_unique<SdlRunnerWindow>(SdlRunnerWindow::Options{
+        .hidden = options_.hidden,
+        .fullscreen = options_.fullscreen,
+        .width = options_.width,
+        .height = options_.height,
+    });
+    instance_ = std::make_unique<VulkanInstance>(
+        options_.hidden ? std::span<const char* const>{} : window_->surfaceExtensions(),
+        options_.validation, options_.negotiation);
     if (!options_.hidden) {
-        flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
-        if (options_.fullscreen) {
-            flags |= SDL_WINDOW_FULLSCREEN;
-        }
-    }
-    window_ = SDL_CreateWindow("openSU", options_.width, options_.height, flags);
-    if (window_ == nullptr) {
-        throw std::runtime_error{std::string{"window: "} + SDL_GetError()};
-    }
-    std::span<const char* const> extensions;
-    if (!options_.hidden) {
-        Uint32 count = 0;
-        const char* const* names = SDL_Vulkan_GetInstanceExtensions(&count);
-        if (names == nullptr) {
-            throw std::runtime_error{std::string{"Vulkan window: "} + SDL_GetError()};
-        }
-        extensions = {names, count};
-    }
-    instance_ =
-        std::make_unique<VulkanInstance>(extensions, options_.validation, options_.negotiation);
-    if (!options_.hidden &&
-        !SDL_Vulkan_CreateSurface(window_, instance_->handle(), nullptr, &surface_)) {
-        throw std::runtime_error{std::string{"Vulkan surface: "} + SDL_GetError()};
+        surface_ = window_->openSurface(instance_->handle());
     }
     device_ = std::make_unique<VulkanDevice>(*instance_, surface_, options_.negotiation);
     vk_ = device_->handle();
@@ -149,54 +126,18 @@ void Presenter::release() {
     }
     device_.reset();
     if (surface_ != VK_NULL_HANDLE) {
-        SDL_Vulkan_DestroySurface(instance_->handle(), surface_, nullptr);
+        window_->destroySurface(instance_->handle(), surface_);
         surface_ = VK_NULL_HANDLE;
     }
     instance_.reset();
-    if (window_ != nullptr) {
-        SDL_DestroyWindow(window_);
-        window_ = nullptr;
-    }
-    if (videoUp_) {
-        SDL_QuitSubSystem(SDL_INIT_VIDEO);
-        videoUp_ = false;
-    }
+    window_.reset();
 }
 
 WindowInput Presenter::poll() {
-    WindowInput input;
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-        switch (event.type) {
-        case SDL_EVENT_QUIT:
-        case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-            input.quit = true;
-            break;
-        case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-            stale_ = true;
-            break;
-        case SDL_EVENT_WINDOW_FOCUS_LOST:
-            input.focused = false;
-            break;
-        case SDL_EVENT_WINDOW_FOCUS_GAINED:
-            input.focused = true;
-            break;
-        case SDL_EVENT_FINGER_DOWN:
-        case SDL_EVENT_FINGER_MOTION:
-        case SDL_EVENT_FINGER_UP:
-        case SDL_EVENT_FINGER_CANCELED:
-            input.fingers.push_back(touch::fingerOf(window_, event.tfinger));
-            break;
-        case SDL_EVENT_KEY_DOWN:
-        case SDL_EVENT_KEY_UP:
-            if (!event.key.repeat) {
-                input.keys.push_back(
-                    {static_cast<int>(event.key.scancode), event.type == SDL_EVENT_KEY_DOWN});
-            }
-            break;
-        default:
-            break;
-        }
+    WindowInput input = window_->poll();
+    stale_ = stale_ || input.resized;
+    if (input.surfaceLost) {
+        dropSurface();
     }
     return input;
 }
@@ -247,15 +188,11 @@ void Presenter::createSwapchain() {
         transform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
     }
     if (extent.width == UINT32_MAX) {
-        int width = 0;
-        int height = 0;
-        SDL_GetWindowSizeInPixels(window_, &width, &height);
-        extent.width =
-            std::clamp(static_cast<std::uint32_t>(std::max(width, 0)),
-                       capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-        extent.height =
-            std::clamp(static_cast<std::uint32_t>(std::max(height, 0)),
-                       capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+        const VkExtent2D pixels = window_->pixels();
+        extent.width = std::clamp(pixels.width, capabilities.minImageExtent.width,
+                                  capabilities.maxImageExtent.width);
+        extent.height = std::clamp(pixels.height, capabilities.minImageExtent.height,
+                                   capabilities.maxImageExtent.height);
     }
     destroyTargets();
     if (extent.width == 0 || extent.height == 0) {
@@ -343,15 +280,14 @@ void Presenter::dropSurface() {
     destroyTargets();
     vkDestroySwapchainKHR(vk_, swapchain_, nullptr);
     swapchain_ = VK_NULL_HANDLE;
-    SDL_Vulkan_DestroySurface(instance_->handle(), surface_, nullptr);
+    window_->destroySurface(instance_->handle(), surface_);
     surface_ = VK_NULL_HANDLE;
     stale_ = true;
     lucent::info("retro", "the window's surface let go");
 }
 
 bool Presenter::onScreen() const {
-    return SDL_GetPointerProperty(SDL_GetWindowProperties(window_),
-                                  SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr) != nullptr;
+    return window_->hasSurface();
 }
 
 touch::WindowSurface Presenter::surface() const {
@@ -362,7 +298,7 @@ touch::WindowSurface Presenter::surface() const {
                                     .safeHeight = static_cast<float>(extent_.height),
                                     .dp = options_.hiddenDp};
     }
-    return touch::surfaceOf(window_, extent_.width, extent_.height);
+    return window_->surface(extent_.width, extent_.height);
 }
 
 touch::Box Presenter::picture(const FrameImage& frame) const {
@@ -373,10 +309,7 @@ touch::Box Presenter::picture(const FrameImage& frame) const {
 }
 
 void Presenter::inject(const touch::Finger& finger) {
-    SDL_Event event = touch::eventOf(window_, finger);
-    if (!SDL_PushEvent(&event)) {
-        lucent::warn("retro", "a finger was not queued: {}", SDL_GetError());
-    }
+    window_->inject(finger);
 }
 
 void Presenter::change(const settings::VideoSettings& video) {
@@ -404,8 +337,8 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
     }
     if (!options_.hidden && surface_ == VK_NULL_HANDLE) {
         // The surface was lost (Android in the background); the window may not have one yet.
-        if (!SDL_Vulkan_CreateSurface(window_, instance_->handle(), nullptr, &surface_)) {
-            surface_ = VK_NULL_HANDLE;
+        surface_ = window_->makeSurface(instance_->handle());
+        if (surface_ == VK_NULL_HANDLE) {
             return;
         }
         lucent::info("retro", "the window's surface made again");

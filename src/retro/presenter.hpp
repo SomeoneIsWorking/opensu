@@ -1,4 +1,4 @@
-// presenter — the runner's window and where its frames go: an SDL window and its events, the
+// presenter — where the runner's frames go: its window (`RunnerWindow`) and events, the
 // Vulkan swapchain (or, hidden, an offscreen image that can be read back) and each frame's
 // submission. What is drawn into a target is `FrameCompositor`'s, with an overlay over it drawn by
 // `OverlayPass`. A surface lost with the window (Android in the background) is let go and made
@@ -12,12 +12,12 @@
 #include <optional>
 #include <vector>
 
-#include <SDL3/SDL_video.h>
 #include <vulkan/vulkan.h>
 
 #include "frame_compositor.hpp"
 #include "frame_stages.hpp"
 #include "overlay_pass.hpp"
+#include "runner_window.hpp"
 #include "vulkan_device.hpp"
 #include "window_input.hpp"
 
@@ -130,8 +130,7 @@ class Presenter {
     void dropSurface();
 
     PresenterOptions options_;
-    bool videoUp_{false};
-    SDL_Window* window_{nullptr};
+    std::unique_ptr<RunnerWindow> window_;
     std::unique_ptr<VulkanInstance> instance_;
     VkSurfaceKHR surface_{VK_NULL_HANDLE};
     std::unique_ptr<VulkanDevice> device_;
