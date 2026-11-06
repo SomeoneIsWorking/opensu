@@ -124,6 +124,8 @@ class LinkRate {
     std::uint64_t nextProbeUs_{0};
     std::uint64_t probeGapUs_{0};
     std::size_t switches_{0};
+    /// The judged windows in a row that lost too much.
+    int lossyWindows_{0};
     double deliveredBps_{0};
     double loss_{0};
     /// What the link was last found to carry.

@@ -49,6 +49,9 @@ constexpr double pyroWaveRaise = 1.25;
 constexpr double hardwareRaise = 1.35;
 /// How long a hardware rate stands before a raise: a new rate reopens the encoder on a key frame.
 constexpr std::uint64_t hardwareRaiseGapUs = 10'000'000;
+/// The lossy windows in a row a hardware rate stands: a Wi-Fi scan loses a second or two at any
+/// rate, and a new rate reopens the encoder on a key frame.
+constexpr int hardwareLossyWindows = 3;
 /// A hardware codec's rate after a lossy window. What it delivered says nothing of the link: a calm
 /// picture sends far less than the plan allows.
 constexpr double hardwareBackOff = 0.75;
@@ -252,10 +255,12 @@ void LinkRate::judge(std::uint64_t nowUs) {
     deliveredBps_ = deliveredBetween(from->report, from->atUs, last.report, last.atUs);
     heard_.erase(heard_.begin(), heard_.end() - 1);
     const bool pyroWave = plan_->codec == VideoCodec::PyroWave;
-    if (loss_ > (pyroWave ? overLoss : hardwareOverLoss)) {
+    lossyWindows_ = loss_ > (pyroWave ? overLoss : hardwareOverLoss) ? lossyWindows_ + 1 : 0;
+    if (lossyWindows_ > 0) {
         if (pyroWave) {
             choose(deliveredBps_, nowUs, "the link lost frames");
-        } else {
+        } else if (lossyWindows_ >= hardwareLossyWindows) {
+            lossyWindows_ = 0;
             LinkPlan lowered = *plan_;
             lowered.bitsPerSecond = std::max(
                 hardwareFloor, static_cast<std::uint64_t>(

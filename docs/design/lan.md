@@ -356,8 +356,9 @@ that profile's; the host's own active profile does not change.
   while 80 % of what the link delivered is at least 100 Mbit/s (its budget that share, at most
   200 Mbit/s); below that the best hardware codec both ends have codes at 60 % of it, 2 to
   40 Mbit/s. While running, each second of reports is judged: over 5 % lost replans PyroWave at what
-  was delivered, and takes a hardware codec's rate down by a quarter, since a calm picture delivers
-  far less than the link carries; parity mends less than that, which a lower rate would not cure.
+  was delivered, and three such windows in a row take a hardware codec's rate down by a quarter (a Wi-Fi
+  scan loses a second or two at any rate), since a calm picture delivers far less than the link
+  carries; parity mends less than that, which a lower rate would not cure.
   Under 1 % (2 % on hardware) raises the rate (×1.25 PyroWave; ×1.35 hardware, at most every 10 s,
   since each new rate reopens the encoder on a key frame). On a
   hardware codec a probe every 10 s (doubling to 20 s each time one fails) ramps what the host
