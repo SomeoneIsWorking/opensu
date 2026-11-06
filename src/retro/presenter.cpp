@@ -187,7 +187,6 @@ void Presenter::createSwapchain() {
         return;
     }
     check(read, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
-    VkExtent2D extent = capabilities.currentExtent;
     // A display turned from its natural orientation (Android landscape) asks for frames drawn
     // turned; they are drawn upright and the system turns them, which it reports as suboptimal.
     VkSurfaceTransformFlagBitsKHR transform = capabilities.currentTransform;
@@ -197,13 +196,12 @@ void Presenter::createSwapchain() {
     if (turnedBySystem_) {
         transform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
     }
-    if (extent.width == UINT32_MAX) {
-        const VkExtent2D pixels = window_->pixels();
-        extent.width = std::clamp(pixels.width, capabilities.minImageExtent.width,
-                                  capabilities.maxImageExtent.width);
-        extent.height = std::clamp(pixels.height, capabilities.minImageExtent.height,
-                                   capabilities.maxImageExtent.height);
-    }
+    // Android's currentExtent can still be the size before a turn, and it would scale that up.
+    const VkExtent2D pixels = window_->pixels();
+    const VkExtent2D extent{.width = std::clamp(pixels.width, capabilities.minImageExtent.width,
+                                                capabilities.maxImageExtent.width),
+                            .height = std::clamp(pixels.height, capabilities.minImageExtent.height,
+                                                 capabilities.maxImageExtent.height)};
     destroyTargets();
     if (extent.width == 0 || extent.height == 0) {
         // Minimised: nothing to draw into until the window comes back.
