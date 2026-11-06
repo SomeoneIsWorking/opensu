@@ -162,6 +162,12 @@ lists are downloading), each list is a Downloads page row with its bytes and end
 toasted, and the catalog is read again when one ends. Proof: `scratch/romset-downloads/` (empty
 cache; frames `02`, `10`-`15`, `armwar-runner-status.txt`, `shell-run1.log`, `shell-run2.log`).
 
+MAME 2010 crashes on load on Android, on any game by the code: the buildbot's arm64 core is built
+from `jni/Android.mk`, which lacks the Makefile's `-fno-delete-null-pointer-checks`, so clang drops
+the `(this)` test in `device_config::subtag` and `machine_config::detokenize` reads a null owner.
+Its catalog entry has `"notOn": {"android": ...}` as a stopgap until the buildbot's core carries the
+flag; the flag has been sent upstream. Until then sfiii3n has no core on Android.
+
 Not done: samples are never required; 7z sets are not matched (the arcade system lists `.zip`
 only). A romset list row has no Cancel or Retry button; a failed list is asked for again by the
 first scan an hour later. CHD disks are not staged on a picked folder. A vertical game's rotation

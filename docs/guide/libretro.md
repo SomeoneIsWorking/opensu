@@ -131,5 +131,7 @@ the runner draws touch controls while no pad is connected. An arcade game shows 
 panel: an arcade stick, round buttons in the cabinet's number and rows, each named for what it does
 in that game when the core says, and small Coin and Start controls, since nothing starts without a
 coin. It sits on the black beside the picture where it fits, and hides like the rest when a pad
-connects. Every other system shows the usual pad. Back, a pad's Guide or the pause button
+connects. Every other system shows the usual pad. MAME 2010 is not offered: its Android build
+crashes on load, so a set only it matches reads "No arcade core matches this romset". Back, a pad's
+Guide or the pause button
 brings the shell's Guide menu in front of the paused game; Resume goes back to it.

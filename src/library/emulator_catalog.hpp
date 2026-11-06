@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "core_bios.hpp"
+#include "core_target.hpp"
 
 namespace opensu::library::roms {
 
@@ -137,10 +138,12 @@ class EmulatorCatalog {
     explicit EmulatorCatalog(std::vector<EmulatorEntry> entries) : entries_{std::move(entries)} {
     }
 
-    /// The catalog in `json`, with `~` in a config path meaning `home`. Nothing, with `error`
-    /// naming the entry and field, when it is malformed.
+    /// The catalog in `json` for `system` (an entry's `"notOn"` leaves it out there), with `~` in
+    /// a config path meaning `home`. Nothing, with `error` naming the entry and field, when it is
+    /// malformed.
     [[nodiscard]] static std::optional<EmulatorCatalog>
-    parse(std::string_view json, const std::filesystem::path& home, std::string& error);
+    parse(std::string_view json, const std::filesystem::path& home, std::string& error,
+          std::string_view system = coreTarget.system);
 
     /// The catalog shipped in `assetsDir`; empty, with the reason logged, when it cannot be read.
     [[nodiscard]] static EmulatorCatalog shipped(const std::filesystem::path& assetsDir,

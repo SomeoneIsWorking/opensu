@@ -123,6 +123,7 @@ else()
     message(FATAL_ERROR "The libretro buildbot folder for ${CMAKE_SYSTEM_NAME} on "
         "${CMAKE_SYSTEM_PROCESSOR} is not known; add it to src/library/CMakeLists.txt")
 endif()
+string(TOLOWER "${CMAKE_SYSTEM_NAME}" opensu_core_system)
 # Which store builds run here (`store_builds.hpp`): Windows runs its own, Linux its own and Windows
 # ones under Wine, macOS only its own.
 if(WIN32)
@@ -146,6 +147,7 @@ set_source_files_properties(linked_play.cpp PROPERTIES
 target_compile_definitions(opensu_library PUBLIC
     OPENSU_CORE_BUILDBOT_FOLDER="${opensu_core_folder}"
     OPENSU_CORE_LIBRARY_SUFFIX="${opensu_core_suffix}"
+    OPENSU_CORE_SYSTEM="${opensu_core_system}"
     OPENSU_WINDOWS_BUILDS_NATIVE=${opensu_windows_builds_native}
     OPENSU_WINDOWS_BUILDS_RUN=${opensu_windows_builds_run}
     OPENSU_GOG_OWN_PLATFORM="${opensu_gog_own_platform}"

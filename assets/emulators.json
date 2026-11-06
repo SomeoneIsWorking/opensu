@@ -381,6 +381,9 @@
       "name": "MAME 2010 (built-in)",
       "systems": ["arcade"],
       "core": "mame2010_libretro",
+      "notOn": {
+        "android": "STOPGAP: drop once the buildbot's Android core has -fno-delete-null-pointer-checks, because it crashes on load"
+      },
       "romsets": {
         "files": [
           "https://raw.githubusercontent.com/libretro/mame2010-libretro/master/metadata/mame2010.xml"

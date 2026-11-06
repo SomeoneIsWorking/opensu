@@ -177,6 +177,18 @@ void checkCore(const json& object, const std::string& core, const std::string& w
     }
 }
 
+/// Whether the entry's `"notOn"`, the systems it must not run on with why, names `system`.
+bool leftOut(const json& object, std::string_view system, const std::string& where) {
+    const auto notOn = object.find("notOn");
+    if (notOn == object.end()) {
+        return false;
+    }
+    if (!notOn->is_object()) {
+        throw Malformed{where + ": \"notOn\" is not an object"};
+    }
+    return notOn->contains(std::string{system});
+}
+
 EmulatorEntry entryOf(const json& object, const fs::path& home, std::size_t index) {
     std::string where = "emulator " + std::to_string(index);
     if (!object.is_object()) {
@@ -277,7 +289,7 @@ bool EmulatorEntry::serves(std::string_view system) const {
 }
 
 std::optional<EmulatorCatalog> EmulatorCatalog::parse(std::string_view text, const fs::path& home,
-                                                      std::string& error) {
+                                                      std::string& error, std::string_view system) {
     const json root = json::parse(text, nullptr, false);
     if (root.is_discarded() || !root.is_object()) {
         error = "not a JSON object";
@@ -295,7 +307,9 @@ std::optional<EmulatorCatalog> EmulatorCatalog::parse(std::string_view text, con
             if (std::ranges::find(entries, entry.id, &EmulatorEntry::id) != entries.end()) {
                 throw Malformed{entry.id + ": listed twice"};
             }
-            entries.push_back(std::move(entry));
+            if (!leftOut(object, system, entry.id)) {
+                entries.push_back(std::move(entry));
+            }
         }
     } catch (const Malformed& malformed) {
         error = malformed.what();
