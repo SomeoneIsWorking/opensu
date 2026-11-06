@@ -55,6 +55,12 @@ std::string stepName(online::Meeting::Step step) {
     return {};
 }
 
+std::optional<library::Game> gameAsked(const std::vector<library::Game>& games,
+                                       const lan::wire::NetplayAsk& asked) {
+    const library::Game* found = NetplayRun::romOf(games, asked);
+    return found != nullptr ? std::optional<library::Game>{*found} : std::nullopt;
+}
+
 } // namespace
 
 OnlinePlay::OnlinePlay(gpu2d::ui::Navigator& navigator, audio::SdlSoundPlayer& sounds,
@@ -127,9 +133,7 @@ void OnlinePlay::startHost(const library::Game& game) {
     answered_ = false;
     replyDraft_.clear();
     replyProblem_.clear();
-    hashing_ = std::async(std::launch::async, [file = game.file] {
-        return NetplayRun::sha256Of(file);
-    });
+    hashing_ = std::async(std::launch::async, &NetplayRun::sha256Of, game.file);
     openScreen();
 }
 
@@ -331,10 +335,7 @@ std::string OnlinePlay::code() const {
 }
 
 void OnlinePlay::lookFor(const lan::wire::NetplayAsk& asked) {
-    lookup_ = std::async(std::launch::async, [games = hooks_.games(), asked] {
-        const library::Game* found = NetplayRun::romOf(games, asked);
-        return found != nullptr ? std::optional<library::Game>{*found} : std::nullopt;
-    });
+    lookup_ = std::async(std::launch::async, gameAsked, hooks_.games(), asked);
 }
 
 void OnlinePlay::serviceLookup() {
