@@ -50,6 +50,19 @@ Windows host with clang-cl and vcpkg, `--platform macos` on an Apple silicon Mac
 LLVM and vcpkg. `--jobs N` caps the compilers and clang-tidy processes that run at once, the fork's
 ninja included (one per core by default).
 
+One build, lint, test or package run goes at a time on a machine, across every agent, always at full
+width: a run takes 4 to 5 GB, and several at once run the machine out of memory. Work in parallel is
+edits only, in source-only worktrees with no build tree of their own. To check a commit, put it in
+the one shared checkout and tree when no other run is going:
+
+```
+git -C build/agent-src switch --detach <commit>
+uv run --directory build/agent-src --frozen python -m tools.check build --build-dir ../agent
+```
+
+Hidden proof runs use the same tree's binaries. Whoever coordinates the agents gives out the turns;
+no `--jobs` cap, memory guard or queue stands in for that.
+
 On Linux the host needs podman and none of the build tools or dev packages: `deps`, `configure`,
 `build` and `lint` run in the build image, `packaging/ci/Containerfile` on the host's own Fedora
 release (from `/etc/os-release`), so the binaries link against runtime libraries the host already
