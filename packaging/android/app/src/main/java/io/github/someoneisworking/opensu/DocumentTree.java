@@ -6,10 +6,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,7 +23,7 @@ import java.util.List;
 final class DocumentTree {
     private static final String[] COLUMNS = {
         Document.COLUMN_DOCUMENT_ID, Document.COLUMN_DISPLAY_NAME, Document.COLUMN_MIME_TYPE,
-        Document.COLUMN_SIZE,
+        Document.COLUMN_SIZE, Document.COLUMN_LAST_MODIFIED,
     };
 
     private final Context context;
@@ -41,7 +43,7 @@ final class DocumentTree {
                 : DocumentsContract.getTreeDocumentId(uri);
     }
 
-    /** One row per child, "d|f TAB size TAB name TAB uri"; null when `location` is no readable folder. */
+    /** One row per child, "d|f TAB size TAB modified TAB name TAB uri"; null when `location` is no readable folder. */
     String[] children(String location) {
         Uri uri = Uri.parse(location);
         Uri listing;
@@ -58,13 +60,26 @@ final class DocumentTree {
             while (cursor.moveToNext()) {
                 boolean folder = Document.MIME_TYPE_DIR.equals(cursor.getString(2));
                 long size = cursor.isNull(3) ? 0 : cursor.getLong(3);
+                long modified = cursor.isNull(4) ? 0 : cursor.getLong(4);
                 Uri child = DocumentsContract.buildDocumentUriUsingTree(uri, cursor.getString(0));
-                rows.add((folder ? "d" : "f") + "\t" + size + "\t" + cursor.getString(1) + "\t" + child);
+                rows.add((folder ? "d" : "f") + "\t" + size + "\t" + modified + "\t" + cursor.getString(1)
+                        + "\t" + child);
             }
         } catch (SecurityException | IllegalArgumentException refused) {
             return null;
         }
         return rows.toArray(new String[0]);
+    }
+
+    /** The document open for reading: a descriptor the caller closes, or -1 when it cannot be opened. */
+    int open(String location) {
+        try {
+            ParcelFileDescriptor file =
+                    context.getContentResolver().openFileDescriptor(Uri.parse(location), "r");
+            return file == null ? -1 : file.detachFd();
+        } catch (FileNotFoundException | SecurityException | IllegalArgumentException refused) {
+            return -1;
+        }
     }
 
     /** A picked folder or a document in it as the player reads it: "ROMs" or "ROMs/nes". */

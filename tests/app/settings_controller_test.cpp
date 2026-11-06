@@ -958,6 +958,10 @@ class ReleasingTree final : public library::roms::RomTree {
     children(const fs::path& /*folder*/) const override {
         return std::nullopt;
     }
+    [[nodiscard]] std::unique_ptr<library::roms::RomFile>
+    open(const fs::path& /*file*/) const override {
+        return nullptr;
+    }
     [[nodiscard]] std::string label(const fs::path& folder) const override {
         return folder.filename().string();
     }

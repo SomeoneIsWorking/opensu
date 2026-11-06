@@ -4,9 +4,7 @@
 #include <cctype>
 #include <format>
 #include <fstream>
-#include <iterator>
 #include <set>
-#include <system_error>
 #include <utility>
 
 #include <nlohmann/json.hpp>
@@ -28,17 +26,8 @@ constexpr std::uint32_t maxDirectory = 16U * 1024 * 1024;
 /// Parent, BIOS and their parents: no listing chains further.
 constexpr std::size_t maxChain = 8;
 constexpr std::size_t namedMissing = 4;
-constexpr int keptVersion = 1;
-
-std::optional<std::string> readAt(std::ifstream& in, std::uint64_t offset, std::size_t size) {
-    std::string bytes(size, '\0');
-    in.seekg(static_cast<std::streamoff>(offset));
-    in.read(bytes.data(), static_cast<std::streamsize>(size));
-    if (!in || static_cast<std::size_t>(in.gcount()) != size) {
-        return std::nullopt;
-    }
-    return bytes;
-}
+constexpr int keptVersion = 2;
+constexpr std::string_view zipExtension = ".zip";
 
 std::string_view fitName(RomsetFit fit) {
     switch (fit) {
@@ -106,40 +95,36 @@ void addNeeds(const DatSet& set, const RomsetDat& dat, const std::string& bios,
 
 } // namespace
 
-std::optional<std::vector<ZipMember>> readZipMembers(const fs::path& zip, std::string& error) {
-    std::error_code ec;
-    const std::uintmax_t size = fs::file_size(zip, ec);
-    if (ec) {
-        error = zip.string() + ": " + ec.message();
-        return std::nullopt;
-    }
-    std::ifstream in{zip, std::ios::binary};
-    const std::size_t tailSize = static_cast<std::size_t>(std::min<std::uintmax_t>(size, maxTail));
+std::optional<std::vector<ZipMember>> readZipMembers(RomFile& zip, std::string_view label,
+                                                     std::string& error) {
+    const std::string name{label};
+    const std::uint64_t size = zip.size();
+    const std::size_t tailSize = static_cast<std::size_t>(std::min<std::uint64_t>(size, maxTail));
     const std::uint64_t tailOffset = size - tailSize;
-    const std::optional<std::string> tail = readAt(in, tailOffset, tailSize);
+    const std::optional<std::string> tail = zip.read(tailOffset, tailSize);
     if (!tail) {
-        error = zip.string() + " cannot be read";
+        error = name + " cannot be read";
         return std::nullopt;
     }
     const std::optional<zip::Directory> directory = zip::findDirectory(*tail, tailOffset, error);
     if (!directory) {
-        error = zip.string() + ": " + error;
+        error = name + ": " + error;
         return std::nullopt;
     }
     if (directory->size > maxDirectory ||
         std::uint64_t{directory->offset} + directory->size > size) {
-        error = zip.string() + ": the central directory is out of the file";
+        error = name + ": the central directory is out of the file";
         return std::nullopt;
     }
-    const std::optional<std::string> bytes = readAt(in, directory->offset, directory->size);
+    const std::optional<std::string> bytes = zip.read(directory->offset, directory->size);
     if (!bytes) {
-        error = zip.string() + "'s central directory cannot be read";
+        error = name + "'s central directory cannot be read";
         return std::nullopt;
     }
     const std::optional<std::vector<zip::Entry>> entries =
         zip::parseDirectory(*bytes, *directory, error);
     if (!entries) {
-        error = zip.string() + ": " + error;
+        error = name + ": " + error;
         return std::nullopt;
     }
     std::vector<ZipMember> members;
@@ -150,30 +135,78 @@ std::optional<std::vector<ZipMember>> readZipMembers(const fs::path& zip, std::s
     return members;
 }
 
-FileStamp FileStamp::of(const fs::path& file) {
-    std::error_code ec;
-    const std::uintmax_t size = fs::file_size(file, ec);
-    if (ec) {
-        return FileStamp{file.string(), -1, 0};
+std::string romsetOf(std::string_view fileName) {
+    std::string name = lower(fileName);
+    if (!name.ends_with(zipExtension)) {
+        return {};
     }
-    const fs::file_time_type modified = fs::last_write_time(file, ec);
-    return FileStamp{file.string(), static_cast<std::int64_t>(size),
-                     ec ? 0 : static_cast<std::int64_t>(modified.time_since_epoch().count())};
+    name.resize(name.size() - zipExtension.size());
+    return name;
 }
 
-fs::path FolderZips::zipOf(std::string_view set) const {
-    return folder_ / (std::string{set} + ".zip");
+RomFolder::RomFolder(const RomTree& tree, fs::path location, std::span<const RomNode> entries)
+    : tree_{&tree}, location_{std::move(location)} {
+    for (const RomNode& entry : entries) {
+        entries_.emplace(lower(entry.name), &entry);
+    }
+}
+
+const RomNode* RomFolder::find(std::string_view name) const {
+    const auto found = entries_.find(name);
+    return found == entries_.end() ? nullptr : found->second;
+}
+
+RomsetDat::Wanted RomFolder::sets() const {
+    RomsetDat::Wanted sets;
+    for (const auto& [name, entry] : entries_) {
+        if (std::string set = romsetOf(name); !entry->folder && !set.empty()) {
+            sets.insert(std::move(set));
+        }
+    }
+    return sets;
+}
+
+const RomNode* FolderZips::nodeOf(std::string_view relative) {
+    const std::size_t slash = relative.find('/');
+    if (slash == std::string_view::npos) {
+        return folder_->find(relative);
+    }
+    const std::string_view inner = relative.substr(0, slash);
+    auto listed = subfolders_.find(inner);
+    if (listed == subfolders_.end()) {
+        const RomNode* node = folder_->find(inner);
+        std::vector<RomNode> entries;
+        if (node != nullptr && node->folder) {
+            entries = folder_->tree().children(node->location).value_or(std::vector<RomNode>{});
+        }
+        listed = subfolders_.emplace(std::string{inner}, std::move(entries)).first;
+    }
+    const auto file = std::ranges::find_if(listed->second, [&](const RomNode& entry) {
+        return lower(entry.name) == relative.substr(slash + 1);
+    });
+    return file == listed->second.end() ? nullptr : &*file;
+}
+
+FileStamp FolderZips::stampOf(std::string_view relative) {
+    const std::string path = lower(relative);
+    const RomNode* node = nodeOf(path);
+    if (node == nullptr) {
+        return FileStamp{path, -1, 0};
+    }
+    return FileStamp{path, static_cast<std::int64_t>(node->size), node->modified};
 }
 
 const std::vector<ZipMember>* FolderZips::members(std::string_view set) {
     auto found = zips_.find(set);
     if (found == zips_.end()) {
-        const fs::path zip = zipOf(set);
-        FileStamp stamp = FileStamp::of(zip);
+        const std::string zip = std::string{set} + std::string{zipExtension};
+        FileStamp stamp = stampOf(zip);
         std::optional<std::vector<ZipMember>> members;
         if (stamp.size >= 0) {
-            std::string error;
-            members = readZipMembers(zip, error);
+            std::string error = zip + " cannot be opened";
+            if (const std::unique_ptr<RomFile> file = folder_->tree().open(nodeOf(zip)->location)) {
+                members = readZipMembers(*file, zip, error);
+            }
             if (!members) {
                 lucent::warn("roms", "{}", error);
             }
@@ -185,7 +218,7 @@ const std::vector<ZipMember>* FolderZips::members(std::string_view set) {
 }
 
 bool FolderZips::hasDisk(std::string_view set, std::string_view disk) {
-    FileStamp stamp = FileStamp::of(folder_ / std::string{set} / (std::string{disk} + ".chd"));
+    FileStamp stamp = stampOf(std::string{set} + "/" + std::string{disk} + ".chd");
     const bool there = stamp.size >= 0;
     if (std::ranges::find(looked_, stamp) == looked_.end()) {
         looked_.push_back(std::move(stamp));
@@ -402,22 +435,15 @@ RomsetMatcher::stampsOf(std::span<const EmulatorEntry* const> cores) {
     return stamps;
 }
 
-const RomsetDat* RomsetMatcher::datFor(const EmulatorEntry& entry, const fs::path& folder) {
-    if (folder != loadedFolder_) {
+const RomsetDat* RomsetMatcher::datFor(const EmulatorEntry& entry, const RomFolder& folder) {
+    if (folder.location() != loadedFolder_) {
         loaded_.clear();
-        loadedFolder_ = folder;
+        loadedFolder_ = folder.location();
     }
     auto found = loaded_.find(entry.id);
     if (found == loaded_.end()) {
-        RomsetDat::Wanted wanted;
-        std::error_code ec;
-        for (const fs::directory_entry& file : fs::directory_iterator{folder, ec}) {
-            if (file.path().extension() == ".zip") {
-                wanted.insert(lower(file.path().stem().string()));
-            }
-        }
         std::string error;
-        std::optional<RomsetDat> dat = dats_.load(entry, wanted, error);
+        std::optional<RomsetDat> dat = dats_.load(entry, folder.sets(), error);
         if (!dat) {
             lucent::warn("roms", "{}", error);
         }
@@ -426,7 +452,7 @@ const RomsetDat* RomsetMatcher::datFor(const EmulatorEntry& entry, const fs::pat
     return found->second ? &*found->second : nullptr;
 }
 
-std::vector<RomsetVerdict> RomsetMatcher::check(const fs::path& zip,
+std::vector<RomsetVerdict> RomsetMatcher::check(const RomFolder& folder, const RomNode& zip,
                                                 std::span<const EmulatorEntry* const> cores) {
     std::vector<RomsetVerdict> verdicts;
     if (!dats_.enabled() || cores.empty()) {
@@ -439,21 +465,21 @@ std::vector<RomsetVerdict> RomsetMatcher::check(const fs::path& zip,
     const bool pending = std::ranges::any_of(cores, [&](const EmulatorEntry* entry) {
         return !stamps.contains(entry->id) && lists_->fetching(entry->id);
     });
-    const FileStamp stamp = FileStamp::of(zip);
-    if (const auto kept = kept_.find(zip.string());
+    FolderZips zips{folder};
+    const FileStamp stamp = zips.stampOf(zip.name);
+    const std::string key = zip.location.string();
+    if (const auto kept = kept_.find(key);
         !pending && kept != kept_.end() && kept->second.zip == stamp &&
         kept->second.stamps == stamps &&
-        std::ranges::all_of(kept->second.looked, [](const FileStamp& looked) {
-            return FileStamp::of(looked.path) == looked;
+        std::ranges::all_of(kept->second.looked, [&](const FileStamp& looked) {
+            return zips.stampOf(looked.path) == looked;
         })) {
         return kept->second.verdicts;
     }
-    const std::string set = lower(zip.stem().string());
-    FolderZips zips{zip.parent_path()};
+    const std::string set = romsetOf(zip.name);
     for (const EmulatorEntry* entry : cores) {
         RomsetVerdict verdict;
-        if (const RomsetDat* dat =
-                stamps.contains(entry->id) ? datFor(*entry, zip.parent_path()) : nullptr) {
+        if (const RomsetDat* dat = stamps.contains(entry->id) ? datFor(*entry, folder) : nullptr) {
             verdict = matchSet(set, *dat, zips);
         } else if (lists_->fetching(entry->id)) {
             verdict.fit = RomsetFit::Pending;
@@ -466,7 +492,7 @@ std::vector<RomsetVerdict> RomsetMatcher::check(const fs::path& zip,
     }
     // A pending verdict is not kept: a fetch that fails leaves every stamp as it was.
     if (!pending) {
-        kept_.insert_or_assign(zip.string(), Kept{stamp, stamps, zips.looked(), verdicts});
+        kept_.insert_or_assign(key, Kept{stamp, stamps, zips.looked(), verdicts});
         changed_ = true;
     }
     return verdicts;

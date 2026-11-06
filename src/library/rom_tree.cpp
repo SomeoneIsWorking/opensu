@@ -1,6 +1,7 @@
 #include "rom_tree.hpp"
 
 #include <algorithm>
+#include <fstream>
 #include <system_error>
 
 #include "fileio/folder_access.hpp"
@@ -9,12 +10,45 @@ namespace opensu::library::roms {
 
 namespace fs = std::filesystem;
 
+namespace {
+
+class LocalFile final : public RomFile {
+  public:
+    LocalFile(const fs::path& file, std::uint64_t size) : in_{file, std::ios::binary}, size_{size} {
+    }
+
+    [[nodiscard]] bool opened() const {
+        return in_.is_open();
+    }
+    [[nodiscard]] std::uint64_t size() const override {
+        return size_;
+    }
+    [[nodiscard]] std::optional<std::string> read(std::uint64_t offset, std::size_t size) override {
+        std::string bytes(size, '\0');
+        in_.clear();
+        in_.seekg(static_cast<std::streamoff>(offset));
+        in_.read(bytes.data(), static_cast<std::streamsize>(size));
+        if (!in_ || static_cast<std::size_t>(in_.gcount()) != size) {
+            return std::nullopt;
+        }
+        return bytes;
+    }
+
+  private:
+    std::ifstream in_;
+    std::uint64_t size_;
+};
+
+} // namespace
+
 RomNode FileTree::node(const fs::path& path) {
     std::error_code ec;
     RomNode node{path, path.filename().string(), fs::is_directory(path, ec)};
     if (!node.folder) {
         const std::uintmax_t size = fs::file_size(path, ec);
         node.size = ec ? 0 : size;
+        const fs::file_time_type modified = fs::last_write_time(path, ec);
+        node.modified = ec ? 0 : static_cast<std::int64_t>(modified.time_since_epoch().count());
     }
     return node;
 }
@@ -30,6 +64,19 @@ std::optional<std::vector<RomNode>> FileTree::children(const fs::path& folder) c
     }
     std::ranges::sort(nodes, {}, &RomNode::location);
     return nodes;
+}
+
+std::unique_ptr<RomFile> FileTree::open(const fs::path& file) const {
+    std::error_code ec;
+    const std::uintmax_t size = fs::file_size(file, ec);
+    if (ec) {
+        return nullptr;
+    }
+    auto opened = std::make_unique<LocalFile>(file, size);
+    if (!opened->opened()) {
+        return nullptr;
+    }
+    return opened;
 }
 
 std::string FileTree::label(const fs::path& folder) const {

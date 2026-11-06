@@ -1,4 +1,8 @@
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include <algorithm>
+#include <cerrno>
 #include <charconv>
 #include <string_view>
 #include <system_error>
@@ -12,6 +16,44 @@ namespace opensu::library::roms {
 namespace {
 
 namespace fs = std::filesystem;
+
+/// A document as the descriptor its provider opened; a provider's pipe cannot be read at an offset.
+class DocumentFile final : public RomFile {
+  public:
+    explicit DocumentFile(int descriptor) : descriptor_{descriptor} {
+    }
+    ~DocumentFile() override {
+        ::close(descriptor_);
+    }
+    DocumentFile(const DocumentFile&) = delete;
+    DocumentFile& operator=(const DocumentFile&) = delete;
+    DocumentFile(DocumentFile&&) = delete;
+    DocumentFile& operator=(DocumentFile&&) = delete;
+
+    [[nodiscard]] std::uint64_t size() const override {
+        struct stat status{};
+        return ::fstat(descriptor_, &status) == 0 ? static_cast<std::uint64_t>(status.st_size) : 0;
+    }
+    [[nodiscard]] std::optional<std::string> read(std::uint64_t offset, std::size_t size) override {
+        std::string bytes(size, '\0');
+        std::size_t got = 0;
+        while (got < size) {
+            const ssize_t read = ::pread(descriptor_, bytes.data() + got, size - got,
+                                         static_cast<off_t>(offset + got));
+            if (read < 0 && errno == EINTR) {
+                continue;
+            }
+            if (read <= 0) {
+                return std::nullopt;
+            }
+            got += static_cast<std::size_t>(read);
+        }
+        return bytes;
+    }
+
+  private:
+    int descriptor_;
+};
 
 /// The filesystem, and the folders picked through the system picker by their document URIs.
 class DocumentTree final : public RomTree {
@@ -40,6 +82,23 @@ class DocumentTree final : public RomTree {
         }
         std::ranges::sort(nodes, {}, &RomNode::name);
         return nodes;
+    }
+
+    [[nodiscard]] std::unique_ptr<RomFile> open(const fs::path& file) const override {
+        if (!file.string().starts_with("content://")) {
+            return files_.open(file);
+        }
+        const android::ActivityCall call;
+        if (!call.ready()) {
+            return nullptr;
+        }
+        const jint descriptor = call.env()->CallIntMethod(
+            call.activity(), call.method("openDocument", "(Ljava/lang/String;)I"),
+            call.env()->NewStringUTF(file.c_str()));
+        if (!call.takeException().empty() || descriptor < 0) {
+            return nullptr;
+        }
+        return std::make_unique<DocumentFile>(descriptor);
     }
 
     [[nodiscard]] std::string label(const fs::path& folder) const override {
@@ -125,12 +184,14 @@ class DocumentTree final : public RomTree {
     }
 
   private:
-    /// "d|f TAB size TAB name TAB uri", as DocumentTree.java lists a folder.
+    /// "d|f TAB size TAB modified TAB name TAB uri", as DocumentTree.java lists a folder.
     static std::optional<RomNode> parse(std::string_view row) {
         const std::size_t first = row.find('\t');
         const std::size_t second = row.find('\t', first + 1);
         const std::size_t third = row.find('\t', second + 1);
-        if (first != 1 || second == std::string_view::npos || third == std::string_view::npos) {
+        const std::size_t fourth = row.find('\t', third + 1);
+        if (first != 1 || second == std::string_view::npos || third == std::string_view::npos ||
+            fourth == std::string_view::npos) {
             return std::nullopt;
         }
         RomNode node;
@@ -138,8 +199,10 @@ class DocumentTree final : public RomTree {
         node.local = false;
         const std::string_view size = row.substr(first + 1, second - first - 1);
         std::from_chars(size.data(), size.data() + size.size(), node.size);
-        node.name = std::string{row.substr(second + 1, third - second - 1)};
-        node.location = fs::path{std::string{row.substr(third + 1)}};
+        const std::string_view modified = row.substr(second + 1, third - second - 1);
+        std::from_chars(modified.data(), modified.data() + modified.size(), node.modified);
+        node.name = std::string{row.substr(third + 1, fourth - third - 1)};
+        node.location = fs::path{std::string{row.substr(fourth + 1)}};
         return node;
     }
 

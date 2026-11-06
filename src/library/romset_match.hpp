@@ -2,6 +2,7 @@
 // (names, sizes, CRC-32s; nothing inflated) is compared with each core's listing (`RomsetDats`):
 // the set of the zip's name matches a core when every ROM it needs is in the zip, in the zips of
 // its parent and BIOS, or in its devices' zips, all in the same folder, and its disks are there.
+// Every file is reached through the `RomTree` that listed the folder, a picked document tree too.
 // Verdicts are kept under `<cache>/romsets/matches.json` by the size and modification time of
 // the zip and of every file the match looked at, so a library scan reads each zip once. A scan
 // never waits on a listing: one not kept yet is asked of `RomsetLists`, and its verdict is
@@ -12,6 +13,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -20,6 +22,7 @@
 
 #include "emulator_catalog.hpp"
 #include "game.hpp"
+#include "rom_tree.hpp"
 #include "romset_dat.hpp"
 #include "romset_dats.hpp"
 #include "romset_lists.hpp"
@@ -33,27 +36,55 @@ struct ZipMember {
     std::uint32_t crc32{0};
 };
 
-/// The members of `zip`, read from its central directory only. Nothing, with `error`, when it
-/// is not a zip that can be read (zip64 included).
-[[nodiscard]] std::optional<std::vector<ZipMember>> readZipMembers(const std::filesystem::path& zip,
-                                                                   std::string& error);
+/// The members of `zip`, read from its central directory only and named `label` in `error`.
+/// Nothing, with `error`, when it is not a zip that can be read (zip64 included).
+[[nodiscard]] std::optional<std::vector<ZipMember>>
+readZipMembers(RomFile& zip, std::string_view label, std::string& error);
+
+/// The set a file of this name holds: its stem, lower case; empty when it is no zip.
+[[nodiscard]] std::string romsetOf(std::string_view fileName);
 
 /// A file as it was when a match looked at it; `size` -1 when it was not there.
 struct FileStamp {
+    /// Lower case and relative to the zip's folder: `avsp.zip`, `<set>/<disk>.chd`.
     std::string path;
     std::int64_t size{-1};
     std::int64_t modified{0};
 
-    [[nodiscard]] static FileStamp of(const std::filesystem::path& file);
     bool operator==(const FileStamp&) const = default;
+};
+
+/// One folder of a ROM tree as a listing read it; `entries` outlives it.
+class RomFolder {
+  public:
+    RomFolder(const RomTree& tree, std::filesystem::path location,
+              std::span<const RomNode> entries);
+
+    [[nodiscard]] const RomTree& tree() const noexcept {
+        return *tree_;
+    }
+    [[nodiscard]] const std::filesystem::path& location() const noexcept {
+        return location_;
+    }
+    /// The entry of lower-case `name`; null when the folder has none.
+    [[nodiscard]] const RomNode* find(std::string_view name) const;
+    /// The sets its zips hold.
+    [[nodiscard]] RomsetDat::Wanted sets() const;
+
+  private:
+    const RomTree* tree_;
+    std::filesystem::path location_;
+    std::map<std::string, const RomNode*, std::less<>> entries_;
 };
 
 /// What the zips of one folder hold, each read once, and every file looked at.
 class FolderZips {
   public:
-    explicit FolderZips(std::filesystem::path folder) : folder_{std::move(folder)} {
+    explicit FolderZips(const RomFolder& folder) : folder_{&folder} {
     }
 
+    /// `relative` as it is now.
+    [[nodiscard]] FileStamp stampOf(std::string_view relative);
     /// The members of `<set>.zip`; null when it is not there or cannot be read.
     [[nodiscard]] const std::vector<ZipMember>* members(std::string_view set);
     /// Whether `<set>/<disk>.chd` is there.
@@ -64,10 +95,11 @@ class FolderZips {
     }
 
   private:
-    [[nodiscard]] std::filesystem::path zipOf(std::string_view set) const;
+    [[nodiscard]] const RomNode* nodeOf(std::string_view relative);
 
-    std::filesystem::path folder_;
+    const RomFolder* folder_;
     std::map<std::string, std::optional<std::vector<ZipMember>>, std::less<>> zips_;
+    std::map<std::string, std::vector<RomNode>, std::less<>> subfolders_;
     std::vector<FileStamp> looked_;
 };
 
@@ -118,10 +150,10 @@ class RomsetMatcher {
     /// Starts a library scan at `now`.
     void begin(Clock::time_point now);
 
-    /// Each of `cores`' verdicts on `zip`, kept from an earlier scan when nothing it was matched
-    /// with has changed. A core whose listing is not kept is pending while `RomsetLists` fetches
-    /// it, else unchecked.
-    [[nodiscard]] std::vector<RomsetVerdict> check(const std::filesystem::path& zip,
+    /// Each of `cores`' verdicts on `zip` of `folder`, kept from an earlier scan when nothing it
+    /// was matched with has changed. A core whose listing is not kept is pending while
+    /// `RomsetLists` fetches it, else unchecked.
+    [[nodiscard]] std::vector<RomsetVerdict> check(const RomFolder& folder, const RomNode& zip,
                                                    std::span<const EmulatorEntry* const> cores);
 
     /// Keeps the verdicts when they changed; a failure is logged.
@@ -141,8 +173,7 @@ class RomsetMatcher {
     [[nodiscard]] std::map<std::string, std::uint32_t, std::less<>>
     stampsOf(std::span<const EmulatorEntry* const> cores);
     /// `entry`'s listing with the sets of `folder`'s zips; null when it cannot be had.
-    [[nodiscard]] const RomsetDat* datFor(const EmulatorEntry& entry,
-                                          const std::filesystem::path& folder);
+    [[nodiscard]] const RomsetDat* datFor(const EmulatorEntry& entry, const RomFolder& folder);
 
     RomsetLists* lists_{nullptr};
     RomsetDats dats_;

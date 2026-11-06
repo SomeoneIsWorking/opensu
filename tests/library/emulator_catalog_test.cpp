@@ -47,7 +47,8 @@ void shippedCatalogParses() {
            "the mGBA link core ships with openSU, for GBA, and is never downloaded");
     expect(catalog.find("mgba") != nullptr && !catalog.find("mgba")->builtIn(),
            "the standalone mGBA stays beside it");
-    for (const char* id : {"fbneo-core", "mame2003-plus-core", "mame2010-core", "mame-core"}) {
+    for (const char* id :
+         {"fbneo-core", "fbalpha2012-core", "mame2003-plus-core", "mame2010-core", "mame-core"}) {
         const EmulatorEntry* arcade = catalog.find(id);
         expect(arcade != nullptr && arcade->builtIn() && arcade->serves("arcade") &&
                    !arcade->romsets.empty(),

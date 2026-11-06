@@ -177,6 +177,11 @@ public final class ShellActivity extends LandscapeActivity {
         return documents.children(location);
     }
 
+    /** Called from the document RomTree: a document open for reading, its descriptor the caller's. */
+    public int openDocument(String location) {
+        return documents.open(location);
+    }
+
     /** Called from the document RomTree: whether openSU may write in a picked folder. */
     public boolean documentWritable(String location) {
         return documents.writable(location);

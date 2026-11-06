@@ -355,6 +355,17 @@
       }
     },
     {
+      "id": "fbalpha2012-core",
+      "name": "FB Alpha 2012 (built-in)",
+      "systems": ["arcade"],
+      "core": "fbalpha2012_libretro",
+      "romsets": {
+        "files": [
+          "https://raw.githubusercontent.com/HerbFargus/retropie-dat/eab9ff866e84fff8560b18886a2e48a965695014/lr-fbalpha2012/FBA%200.2.97.29.dat"
+        ]
+      }
+    },
+    {
       "id": "mame2003-plus-core",
       "name": "MAME 2003-Plus (built-in)",
       "systems": ["arcade"],

@@ -14,7 +14,10 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <map>
+#include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -44,11 +47,15 @@ using opensu::library::Source;
 using opensu::library::roms::applyRomsets;
 using opensu::library::roms::checkingRomset;
 using opensu::library::roms::EmulatorEntry;
+using opensu::library::roms::FileTree;
 using opensu::library::roms::FolderZips;
 using opensu::library::roms::matchSet;
 using opensu::library::roms::noRomsetMatch;
 using opensu::library::roms::readZipMembers;
 using opensu::library::roms::ReleaseSource;
+using opensu::library::roms::RomFile;
+using opensu::library::roms::RomFolder;
+using opensu::library::roms::RomNode;
 using opensu::library::roms::RomsetDat;
 using opensu::library::roms::RomsetDats;
 using opensu::library::roms::RomsetFetch;
@@ -58,6 +65,7 @@ using opensu::library::roms::RomsetMatcher;
 using opensu::library::roms::romsetRetryAfter;
 using opensu::library::roms::RomsetSource;
 using opensu::library::roms::RomsetVerdict;
+using opensu::library::roms::RomTree;
 using opensu::settings::Layer;
 using opensu::settings::SettingLayers;
 using opensu::test::LoopbackServer;
@@ -158,6 +166,115 @@ void writeZip(const fs::path& file, const std::vector<FixtureEntry>& entries) {
     std::ofstream{file, std::ios::binary | std::ios::trunc} << buildZip(entries);
 }
 
+/// A folder as a library scan lists it.
+struct Listed {
+    explicit Listed(const fs::path& path)
+        : nodes{tree.children(path).value_or(std::vector<RomNode>{})}, folder{tree, path, nodes} {
+    }
+
+    FileTree tree;
+    std::vector<RomNode> nodes;
+    RomFolder folder;
+};
+
+std::vector<RomsetVerdict> checkZip(RomsetMatcher& matcher, const fs::path& zip,
+                                    const std::vector<const EmulatorEntry*>& cores) {
+    const Listed listed{zip.parent_path()};
+    return matcher.check(listed.folder, *listed.folder.find(zip.filename().string()), cores);
+}
+
+std::optional<std::vector<opensu::library::roms::ZipMember>> membersOf(const fs::path& zip,
+                                                                       std::string& error) {
+    const std::unique_ptr<RomFile> file = FileTree{}.open(zip);
+    expect(file != nullptr, "a zip on disk opens");
+    return readZipMembers(*file, zip.string(), error);
+}
+
+/// Bytes read at offsets, as a document's descriptor gives them.
+class DocumentBytes final : public RomFile {
+  public:
+    explicit DocumentBytes(std::string bytes) : bytes_{std::move(bytes)} {
+    }
+    [[nodiscard]] std::uint64_t size() const override {
+        return bytes_.size();
+    }
+    [[nodiscard]] std::optional<std::string> read(std::uint64_t offset, std::size_t size) override {
+        if (offset + size > bytes_.size()) {
+            return std::nullopt;
+        }
+        return bytes_.substr(offset, size);
+    }
+
+  private:
+    std::string bytes_;
+};
+
+/// A picked folder: nothing here opens as a path, every file is reached through its URI.
+class PickedTree final : public RomTree {
+  public:
+    void add(const std::string& name, std::string bytes, std::int64_t modified) {
+        RomNode node{uriOf(name), name, false, bytes.size(), false, modified};
+        std::erase_if(nodes_, [&](const RomNode& old) {
+            return old.name == name;
+        });
+        nodes_.push_back(std::move(node));
+        files_.insert_or_assign(uriOf(name), std::move(bytes));
+    }
+    [[nodiscard]] const std::vector<RomNode>& nodes() const noexcept {
+        return nodes_;
+    }
+
+    [[nodiscard]] std::optional<std::vector<RomNode>>
+    children(const fs::path& /*folder*/) const override {
+        return nodes_;
+    }
+    [[nodiscard]] std::unique_ptr<RomFile> open(const fs::path& file) const override {
+        const auto found = files_.find(file.string());
+        return found == files_.end() ? nullptr : std::make_unique<DocumentBytes>(found->second);
+    }
+    [[nodiscard]] std::string label(const fs::path& folder) const override {
+        return folder.string();
+    }
+    [[nodiscard]] std::string writeRefusal(const fs::path& /*folder*/) const override {
+        return {};
+    }
+    void release(const fs::path& /*folder*/) const override {
+    }
+    [[nodiscard]] bool place(const fs::path& /*folder*/, std::string_view /*relative*/,
+                             const fs::path& /*staged*/, std::string& /*error*/) const override {
+        return false;
+    }
+
+  private:
+    [[nodiscard]] static std::string uriOf(const std::string& name) {
+        return "content://provider/tree/roms/document/roms%2FArcade%2F" + name;
+    }
+
+    std::vector<RomNode> nodes_;
+    std::map<std::string, std::string> files_;
+};
+
+void matchesPickedFolders() {
+    RomsetDat dat;
+    dat.addXml(datafile());
+    PickedTree tree;
+    tree.add("Clone.zip", buildZip({member("c.1", cloneProgram)}), 1);
+    {
+        const RomFolder folder{tree, "content://provider/tree/roms", tree.nodes()};
+        FolderZips zips{folder};
+        expect(matchSet("clone", dat, zips).missing == std::vector<std::string>{"g.1"},
+               "a zip in a picked folder is read through its URI");
+        expect(folder.sets() == RomsetDat::Wanted{"clone"}, "a picked folder's zips name its sets");
+        expect(zips.stampOf("parent.zip").size == -1, "a parent not in the listing is absent");
+    }
+    tree.add("parent.zip", buildZip({member("p.1", program), member("g.1", graphics)}), 2);
+    const RomFolder folder{tree, "content://provider/tree/roms", tree.nodes()};
+    FolderZips zips{folder};
+    expect(matchSet("clone", dat, zips).fit == RomsetFit::Matches,
+           "the parent beside it in a picked folder lends the clone its ROMs");
+    expect(zips.stampOf("parent.zip").modified == 2, "the listing's time stamps the parent");
+}
+
 void parsesListings() {
     RomsetDat dat;
     dat.addXml(datafile());
@@ -199,7 +316,8 @@ void matchesZips(const fs::path& base) {
     const fs::path folder = base / "match";
     writeZip(folder / "clone.zip", {member("c.1", cloneProgram)});
     {
-        FolderZips zips{folder};
+        const Listed listed{folder};
+        FolderZips zips{listed.folder};
         const RomsetVerdict alone = matchSet("clone", dat, zips);
         expect(alone.listed && alone.fit == RomsetFit::Mismatch && alone.required == 2 &&
                    alone.missing == std::vector<std::string>{"g.1"},
@@ -208,7 +326,8 @@ void matchesZips(const fs::path& base) {
     writeZip(folder / "parent.zip",
              {member("renamed.bin", program, true), member("g.1", graphics)});
     {
-        FolderZips zips{folder};
+        const Listed listed{folder};
+        FolderZips zips{listed.folder};
         expect(matchSet("clone", dat, zips).fit == RomsetFit::Matches,
                "the parent's zip in the folder lends the clone its ROMs");
         expect(matchSet("parent", dat, zips).fit == RomsetFit::Matches,
@@ -221,7 +340,8 @@ void matchesZips(const fs::path& base) {
     writeZip(folder / "game.zip", {member("p.1", program)});
     writeZip(folder / "bios.zip", {member("eu.bin", biosEurope)});
     {
-        FolderZips zips{folder};
+        const Listed listed{folder};
+        FolderZips zips{listed.folder};
         const RomsetVerdict noDevice = matchSet("game", dat, zips);
         expect(noDevice.missing == std::vector<std::string>{"dl-1425.bin"} &&
                    noDevice.required == 3,
@@ -229,39 +349,41 @@ void matchesZips(const fs::path& base) {
     }
     writeZip(folder / "qsound.zip", {member("dl-1425.bin", dsp)});
     {
-        FolderZips zips{folder};
+        const Listed listed{folder};
+        FolderZips zips{listed.folder};
         expect(matchSet("game", dat, zips).fit == RomsetFit::Matches,
                "the device's zip in the folder holds its ROM");
         expect(std::ranges::any_of(zips.looked(),
                                    [&](const auto& stamp) {
-                                       return stamp.path == (folder / "qsound.zip").string() &&
-                                              stamp.size > 0;
+                                       return stamp.path == "qsound.zip" && stamp.size > 0;
                                    }),
                "every zip the match read is recorded with its stamp");
     }
 
     writeZip(folder / "disky.zip", {member("p.1", program)});
     {
-        FolderZips zips{folder};
+        const Listed listed{folder};
+        FolderZips zips{listed.folder};
         expect(matchSet("disky", dat, zips).missing == std::vector<std::string>{"disky-hdd.chd"},
                "a set's disk must be beside it");
     }
     fs::create_directories(folder / "disky");
     std::ofstream{folder / "disky" / "disky-hdd.chd"} << "chd";
     {
-        FolderZips zips{folder};
+        const Listed listed{folder};
+        FolderZips zips{listed.folder};
         expect(matchSet("disky", dat, zips).fit == RomsetFit::Matches,
                "a disk in the set's folder is found");
     }
 
     std::string error;
-    const auto members = readZipMembers(folder / "parent.zip", error);
+    const auto members = membersOf(folder / "parent.zip", error);
     expect(members && members->size() == 2 && (*members)[0].name == "renamed.bin" &&
                (*members)[0].crc32 == crcOf(std::string{program}) &&
                (*members)[0].size == program.size(),
            "a zip's members are read from its central directory");
     std::ofstream{folder / "broken.zip"} << "not a zip";
-    expect(!readZipMembers(folder / "broken.zip", error) && !error.empty(),
+    expect(!membersOf(folder / "broken.zip", error) && !error.empty(),
            "a file that is no zip is refused with its reason");
 }
 
@@ -301,7 +423,7 @@ void keepsVerdicts(const fs::path& base) {
     {
         RomsetMatcher matcher{lists};
         matcher.begin(now);
-        const std::vector<RomsetVerdict> verdicts = matcher.check(folder / "clone.zip", cores);
+        const std::vector<RomsetVerdict> verdicts = checkZip(matcher, folder / "clone.zip", cores);
         expect(verdicts.size() == 2 && verdicts[0].emulatorId == "fbneo" &&
                    verdicts[0].fit == RomsetFit::Mismatch && verdicts[1].listed == false,
                "each core's verdict is given in the order asked");
@@ -314,23 +436,23 @@ void keepsVerdicts(const fs::path& base) {
     {
         RomsetMatcher matcher{lists};
         matcher.begin(now);
-        expect(matcher.check(folder / "clone.zip", cores)[0].listed,
+        expect(checkZip(matcher, folder / "clone.zip", cores)[0].listed,
                "an unchanged zip's verdict is the kept one");
         writeZip(folder / "parent.zip", {member("p.1", program), member("g.1", graphics)});
-        expect(!matcher.check(folder / "clone.zip", cores)[0].listed,
+        expect(!checkZip(matcher, folder / "clone.zip", cores)[0].listed,
                "a parent zip appearing beside it makes the zip match again");
     }
     expect(dats.save(fbneo, fbneoDat, 3, now, error), "a changed listing is kept");
     {
         RomsetMatcher matcher{lists};
         matcher.begin(now);
-        expect(matcher.check(folder / "clone.zip", cores)[0].fit == RomsetFit::Matches,
+        expect(checkZip(matcher, folder / "clone.zip", cores)[0].fit == RomsetFit::Matches,
                "a listing with a new stamp matches the zip again");
     }
     {
         RomsetMatcher nowhere;
         nowhere.begin(now);
-        expect(nowhere.check(folder / "clone.zip", cores).empty(),
+        expect(checkZip(nowhere, folder / "clone.zip", cores).empty(),
                "a matcher that is nowhere gives no verdicts");
     }
 }
@@ -443,7 +565,7 @@ void fetchesOffTheScan(const fs::path& base) {
     const std::vector<const EmulatorEntry*> cores{&slow};
     RomsetMatcher matcher{lists};
     matcher.begin(now);
-    expect(matcher.check(folder / "clone.zip", cores)[0].fit == RomsetFit::Pending &&
+    expect(checkZip(matcher, folder / "clone.zip", cores)[0].fit == RomsetFit::Pending &&
                lists.fetching("slow"),
            "a scan does not wait for a listing that downloads; its verdict is pending");
     host.release();
@@ -453,7 +575,7 @@ void fetchesOffTheScan(const fs::path& base) {
         },
         "the slow listing arrives");
     matcher.begin(now);
-    expect(matcher.check(folder / "clone.zip", cores)[0].fit == RomsetFit::Matches,
+    expect(checkZip(matcher, folder / "clone.zip", cores)[0].fit == RomsetFit::Matches,
            "the next scan matches with the listing that arrived");
 }
 
@@ -493,6 +615,18 @@ void picksTheEmulator() {
     expect(other.emulatorOptions[0].romset == RomsetFit::Mismatch &&
                other.emulatorOptions[0].romsetGap == "lacks 1 of 4 files: a.key",
            "a mismatching core says what the set lacks for it");
+
+    Game lighter = arcadeGame();
+    lighter.emulatorOptions.insert(
+        lighter.emulatorOptions.begin() + 1,
+        EmulatorOption{"FB Alpha", false, {}, "fbalpha", true, {}, {}, {}, {}, false});
+    applyRomsets(lighter, "clone",
+                 {verdict("fbneo", RomsetFit::Mismatch, {"a.key"}),
+                  verdict("fbalpha", RomsetFit::Matches), verdict("mame2010", RomsetFit::Matches),
+                  verdict("mame", RomsetFit::Mismatch, {"a.key"})});
+    expect(lighter.emulator == "FB Alpha" && lighter.unavailable == "FB Alpha is not installed",
+           "with no matching core installed the first in the catalog's order is offered, never "
+           "the installed one that does not match");
 
     Game download = arcadeGame();
     applyRomsets(download, "clone",
@@ -576,6 +710,7 @@ int main() try {
         const ScratchDir scratch{OPENSU_TEST_SCRATCH, "romset_match"};
         parsesListings();
         matchesZips(scratch.path());
+        matchesPickedFolders();
         keepsVerdicts(scratch.path());
         fetchesOffTheScan(scratch.path());
         picksTheEmulator();

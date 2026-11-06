@@ -132,6 +132,11 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
             arcadeCores.push_back(&entry);
         }
     }
+    const auto byRomset = [&](Game& game, const RomFolder& folder, const RomNode& zip) {
+        if (const std::string set = romsetOf(zip.name); !set.empty()) {
+            applyRomsets(game, set, romsets_.check(folder, zip, arcadeCores));
+        }
+    };
     romsets_.begin(RomsetMatcher::Clock::now());
     switch_.begin();
     for (const fs::path& root : roots_) {
@@ -145,8 +150,10 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
             if (system == nullptr || !folder.folder) {
                 continue;
             }
-            for (const RomNode& entry :
-                 tree_->children(folder.location).value_or(std::vector<RomNode>{})) {
+            const std::vector<RomNode> entries =
+                tree_->children(folder.location).value_or(std::vector<RomNode>{});
+            const RomFolder here{*tree_, folder.location, entries};
+            for (const RomNode& entry : entries) {
                 const std::optional<fs::path> file = gameFile(*tree_, *system, entry);
                 if (!file) {
                     continue;
@@ -184,9 +191,15 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
                 } else {
                     game.unavailable = missingEmulator(*system, emulators);
                 }
-                if (entry.local && system->key == "arcade" && file->extension() == ".zip") {
-                    applyRomsets(game, lowerAscii(file->stem().string()),
-                                 romsets_.check(*file, arcadeCores));
+                if (system->key == "arcade" && !entry.folder) {
+                    byRomset(game, here, entry);
+                } else if (system->key == "arcade") {
+                    const std::vector<RomNode> own =
+                        tree_->children(entry.location).value_or(std::vector<RomNode>{});
+                    const auto zip = std::ranges::find(own, *file, &RomNode::location);
+                    if (zip != own.end()) {
+                        byRomset(game, RomFolder{*tree_, entry.location, own}, *zip);
+                    }
                 }
                 games.push_back(std::move(game));
             }
