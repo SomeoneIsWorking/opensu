@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace opensu::ui {
@@ -28,6 +29,9 @@ enum class RowKind : std::uint8_t {
     /// Opens a page of more rows, named by the row's id.
     Page,
 };
+
+/// What a row reads when the command line or the environment openSU was started with set it.
+inline constexpr std::string_view startedWith = "Set by how openSU was started";
 
 /// One line of a category.
 struct SettingsRow {

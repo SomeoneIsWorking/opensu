@@ -81,7 +81,7 @@ std::string_view trimmed(std::string_view text) {
     return text;
 }
 
-/// `move 640 400`, `click 640 400`, `down 640 400 right`, `up 640 400 right` or
+/// `move 640 400`, `click 640 400`, `tap 640 400`, `down 640 400 right`, `up 640 400 right` or
 /// `wheel 640 400 -1`, or nothing for another body.
 std::optional<PointerInjection> pointerNamed(std::string_view body) {
     std::array<std::string_view, 4> words{};
@@ -114,6 +114,10 @@ std::optional<PointerInjection> pointerNamed(std::string_view body) {
     }
     if (words[0] == "click" && count == 3) {
         pointer.kind = PointerInjection::Kind::Click;
+        return pointer;
+    }
+    if (words[0] == "tap" && count == 3) {
+        pointer.kind = PointerInjection::Kind::Tap;
         return pointer;
     }
     if ((words[0] == "down" || words[0] == "up") && count == 4) {
@@ -389,8 +393,8 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
         }
         const std::optional<PointerInjection> pointer = pointerNamed(trimmed(request.body));
         if (!pointer) {
-            return refuse("body must be move X Y, click X Y, down X Y BUTTON, up X Y BUTTON or "
-                          "wheel X Y NOTCHES, BUTTON left, middle or right");
+            return refuse("body must be move X Y, click X Y, tap X Y, down X Y BUTTON, up X Y "
+                          "BUTTON or wheel X Y NOTCHES, BUTTON left, middle or right");
         }
         target_.injectPointer(*pointer);
         return lucent::http::Response::json(200, "OK",

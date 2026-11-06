@@ -28,6 +28,7 @@ constexpr const char* copiesKey = "copies";
 constexpr const char* homeModeKey = "homeMode";
 constexpr const char* uiSoundsKey = "uiSounds";
 constexpr const char* romFoldersKey = "romFolders";
+constexpr const char* findRomFoldersKey = "findRomFolders";
 constexpr const char* gameFoldersKey = "gameFolders";
 constexpr const char* steamRootsKey = "steamRoots";
 constexpr const char* uiScaleKey = "uiScale";
@@ -392,6 +393,7 @@ Settings Store::load() const {
     read.integer(iconSizeKey, minIconSize, maxIconSize, settings.iconSize, "using the default");
     read.boolean(uiSoundsKey, settings.uiSounds, "the sounds play");
     read.paths(romFoldersKey, settings.romFolders, "using the discovered ROM folders");
+    read.boolean(findRomFoldersKey, settings.findRomFolders, "ROM folders are looked for");
     read.paths(gameFoldersKey, settings.gameFolders, "with no games folders");
     read.paths(steamRootsKey, settings.steamRoots, "using the discovered Steam roots");
     read.installFolders(installFoldersKey, settings.installFolders,
@@ -561,6 +563,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {lastPlayedKey, settings.lastPlayed.entries()},
         {uiSoundsKey, settings.uiSounds},
         {romFoldersKey, listOf(settings.romFolders)},
+        {findRomFoldersKey, settings.findRomFolders},
         {gameFoldersKey, listOf(settings.gameFolders)},
         {steamRootsKey, listOf(settings.steamRoots)},
         {installFoldersKey, folders},
@@ -612,6 +615,23 @@ void Settings::addRomFolder(const std::filesystem::path& folder) {
     }
 }
 
+void Settings::removeRomFolder(const std::filesystem::path& folder) {
+    if (std::erase(romFolders, folder) > 0 && romFolders.empty()) {
+        findRomFolders = false;
+    }
+}
+
+bool Settings::namesFolder(const std::filesystem::path& folder) const {
+    const auto holds = [&folder](const std::vector<std::filesystem::path>& folders) {
+        return std::ranges::find(folders, folder) != folders.end();
+    };
+    return holds(romFolders) || holds(gameFolders) || holds(steamRoots) ||
+           saveShareFolder == folder || installFolders.defaultFolder() == folder ||
+           std::ranges::any_of(installStores, [this, &folder](library::Source store) {
+               return installFolders.storeFolder(store) == folder;
+           });
+}
+
 void Settings::addGameFolder(const std::filesystem::path& folder) {
     if (std::ranges::find(gameFolders, folder) == gameFolders.end()) {
         gameFolders.push_back(folder);
@@ -628,6 +648,7 @@ config::Config resolved(config::Config base, const Settings& settings) {
     if (!settings.steamRoots.empty()) {
         base.steamRoots = settings.steamRoots;
     }
+    base.findRomRoots = settings.findRomFolders;
     base.gameFolders = settings.gameFolders;
     return base;
 }

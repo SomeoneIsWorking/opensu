@@ -172,8 +172,9 @@ struct FramePng {
 
 /// A pointer event `POST /pointer` injects, in window pixels.
 struct PointerInjection {
-    /// A click is the left button down and up; down and up hold `button` across frames.
-    enum class Kind : std::uint8_t { Move, Click, Down, Up, Wheel };
+    /// A click is the left button down and up, a tap the same from a finger; down and up hold
+    /// `button` across frames.
+    enum class Kind : std::uint8_t { Move, Click, Tap, Down, Up, Wheel };
     enum class Button : std::uint8_t { Left, Middle, Right };
     Kind kind{Kind::Move};
     float x{};

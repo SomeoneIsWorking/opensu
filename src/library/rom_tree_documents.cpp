@@ -4,6 +4,7 @@
 #include <system_error>
 
 #include "activity_call.hpp"
+#include "lucent/log.h"
 #include "rom_tree.hpp"
 
 namespace opensu::library::roms {
@@ -73,6 +74,23 @@ class DocumentTree final : public RomTree {
             return "openSU may only read " + label(folder) + "; pick it again to let it write";
         }
         return {};
+    }
+
+    void release(const fs::path& folder) const override {
+        if (!folder.string().starts_with("content://")) {
+            return;
+        }
+        const android::ActivityCall call;
+        if (!call.ready()) {
+            lucent::warn("roms", "the app cannot be asked to release {}", folder.string());
+            return;
+        }
+        call.env()->CallVoidMethod(call.activity(),
+                                   call.method("releaseDocument", "(Ljava/lang/String;)V"),
+                                   call.env()->NewStringUTF(folder.c_str()));
+        if (const std::string thrown = call.takeException(); !thrown.empty()) {
+            lucent::warn("roms", "the grant on {} stays: {}", folder.string(), thrown);
+        }
     }
 
     [[nodiscard]] bool place(const fs::path& folder, std::string_view relative,

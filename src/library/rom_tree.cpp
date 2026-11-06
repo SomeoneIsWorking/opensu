@@ -36,6 +36,9 @@ std::string FileTree::label(const fs::path& folder) const {
     return folder.string();
 }
 
+void FileTree::release(const fs::path& /*folder*/) const {
+}
+
 std::string FileTree::writeRefusal(const fs::path& folder) const {
     std::error_code ec;
     if (!fs::is_directory(folder, ec)) {

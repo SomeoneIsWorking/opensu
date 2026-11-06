@@ -1736,6 +1736,23 @@ path. Seen in a hidden run through the real clipboard (`/clipboard`, then `/key 
 backslashed path with a CRLF into the chooser, identified, and a stand-in key into the SteamGridDB
 card by Ctrl+V and by a right click, shown as dots and absent from the log.
 
+Settings › Library lists each added ROM folder with Remove (`app::RomFolderSettings`, confirm
+first). It forgets the folder only: Home choices, play history, hidden marks and per-game layers
+stay keyed by `rom:<path>`, saves by the ROM's stem, and the same path added again finds them.
+`Settings::findRomFolders` goes off with the last folder, so an emptied list reads no folders
+instead of discovering one back; Find ROM folders automatically turns it on. Seen in hidden runs
+(2026-11-06, `scratch/rom-folder-remove/`, each restart fed the settings file the run before saved,
+as a hidden run deletes its copy): two folders by pad, the Game Boy and SNES tiles and a game added
+to Home gone 55 ms after Remove, the NES tile kept, still gone after a restart, ROM files, a `.srm`,
+`lastPlayed`, `home` and `game-settings.json` unchanged, and all back once the folder was added
+through the chooser; a folder deleted from disk by touch (`POST /pointer` `tap X Y`, SDL's touch
+mouse events); the last folder, a `ROMs` that discovery would find, leaving 0 games through a
+restart. A forgotten `content://` tree's persisted grant is released unless another setting names
+it (`DocumentTree.release`): compiled for Android and covered with a stand-in tree, not yet run on a
+device. A tap on the read-only ROM folders row reaches no widget (`hitTest` takes only focusable or
+pressable ones): 21 finger taps across it moved nothing. The tablet's Sort by change at 12:13 on
+2026-11-06 had no frame of Sort by before the tap, while other agents shared the tablet.
+
 Add a game is one of Library's add tiles (`app::LibraryAdditions`): Add a ROM folder opens
 Settings' own folder flow (Android's folder picker there) and the library reads the folder at once;
 Set up Steam, Epic, GOG, emulators, plugins and LAN each open that switch in Settings ›

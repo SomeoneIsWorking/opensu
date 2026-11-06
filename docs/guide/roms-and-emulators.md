@@ -9,6 +9,15 @@ Library › Add a ROM folder, adds one (on Android through the system's folder p
 folders automatically forgets the added ones; either is read at once, without a restart.
 `OPENSU_ROM_ROOTS` overrides the search ([environment.md](environment.md)).
 
+Settings › Library lists each added folder with Remove, which asks first. It only forgets the
+folder, one that is no longer on disk included: no file changes and its games leave Library at once.
+What belongs to those games stays: Home entries, play history, hidden marks, per-game settings and
+emulator picks are kept by the game's path, and saves by the ROM's name, so adding the same folder
+again brings it all back. Reset emulator choices and the hidden count include those kept entries
+meanwhile. Removing the last added folder leaves no ROM folders, rather than starting the search:
+add one, or press Find ROM folders automatically. On Android, removing a folder also gives back the
+access the system granted, so adding it again goes through the folder picker.
+
 A system folder holds game files or game folders; in a folder, the base game is started rather than
 its updates and DLC. Library has one tile per console, and each console's shelf its games.
 

@@ -937,6 +937,110 @@ void typedPathIsValidated(const fs::path& root) {
            "a good typed path is taken");
 }
 
+/// A tree that notes which grants it gave back.
+class ReleasingTree final : public library::roms::RomTree {
+  public:
+    explicit ReleasingTree(std::vector<fs::path>& released) : released_{released} {
+    }
+
+    [[nodiscard]] std::optional<std::vector<library::roms::RomNode>>
+    children(const fs::path& /*folder*/) const override {
+        return std::nullopt;
+    }
+    [[nodiscard]] std::string label(const fs::path& folder) const override {
+        return folder.filename().string();
+    }
+    [[nodiscard]] std::string writeRefusal(const fs::path& /*folder*/) const override {
+        return {};
+    }
+    void release(const fs::path& folder) const override {
+        released_.push_back(folder);
+    }
+    [[nodiscard]] bool place(const fs::path& /*folder*/, std::string_view /*relative*/,
+                             const fs::path& /*staged*/, std::string& /*error*/) const override {
+        return false;
+    }
+
+  private:
+    std::vector<fs::path>& released_;
+};
+
+void oneRomFolderIsRemoved(const fs::path& root) {
+    Rig rig{root / "remove"};
+    const fs::path kept = root / "remove" / "kept";
+    const fs::path gone = root / "remove" / "gone";
+    fs::create_directories(kept);
+    rig.preferences.values().romFolders = {kept, gone};
+    rig.controller.refresh();
+    rig.controller.open();
+    rig.enter("Library");
+    const std::string row = "roms.remove." + gone.string();
+    expect(rig.rowOf(row).value == "Remove", "each added folder has a Remove row");
+    rig.focus(row);
+    rig.act(Button::A);
+    expect(rig.top() == "dialog" && rig.preferences.values().romFolders.size() == 2,
+           "Remove asks first");
+    rig.act(Button::B);
+    expect(rig.top() == "settings" && rig.preferences.values().romFolders.size() == 2,
+           "Back on the question keeps the folder");
+    rig.focus(row);
+    rig.act(Button::A);
+    rig.focus("dialog/1");
+    rig.act(Button::A);
+    expect(rig.onDisk().romFolders == std::vector<fs::path>{kept} && rig.romFolderChanges == 1 &&
+               rig.onDisk().findRomFolders && fs::is_directory(kept),
+           "a folder not on disk is forgotten, kept, and read at once; the other stays");
+    expect(rig.said.back().text == "ROM folder removed", "the removal is told");
+
+    rig.focus("roms.remove." + kept.string());
+    rig.act(Button::A);
+    rig.focus("dialog/1");
+    rig.act(Button::A);
+    expect(rig.onDisk().romFolders.empty() && !rig.onDisk().findRomFolders &&
+               rig.rowOf("roms.list").value == "None" && fs::is_directory(kept),
+           "the last folder gone, none is looked for and its files stay");
+    rig.focus("roms.reset");
+    rig.act(Button::A);
+    expect(rig.onDisk().findRomFolders && rig.rowOf("roms.list").value == "Found automatically",
+           "finding them again turns the search back on");
+}
+
+void aRemovedFolderGivesItsGrantBack(const fs::path& root) {
+    Rig rig{root / "grants"};
+    const fs::path shared{"content://tree/shared"};
+    const fs::path alone{"content://tree/alone"};
+    const fs::path other{"content://tree/other"};
+    settings::Settings& v = rig.preferences.values();
+    v.romFolders = {shared, alone, other};
+    v.gameFolders = {shared};
+    std::vector<fs::path> released;
+    app::RomFolderSettings folders{rig.preferences,
+                                   rig.config,
+                                   rig.screens.navigator,
+                                   rig.sounds,
+                                   std::make_unique<ReleasingTree>(released),
+                                   {.changed =
+                                        [] {
+                                        },
+                                    .say =
+                                        [](const std::string&) {
+                                        }}};
+    const auto remove = [&](const fs::path& folder) {
+        folders.run("roms.remove." + folder.string(), 0);
+        rig.screens.frame();
+        rig.focus("dialog/1");
+        rig.act(Button::A);
+    };
+    remove(alone);
+    expect(released == std::vector<fs::path>{alone}, "a folder nothing else names is released");
+    remove(shared);
+    expect(released.size() == 1, "a folder a setting still names keeps its grant");
+    v.gameFolders.clear();
+    folders.run("roms.reset", 0);
+    expect(released == std::vector<fs::path>{alone, other},
+           "finding them automatically releases what it forgets");
+}
+
 void rootsAreAddedAndReset(const fs::path& root) {
     Rig rig{root / "roots"};
     const fs::path roms = root / "roots" / "roms";
@@ -1742,6 +1846,8 @@ int main() try {
     refusedFoldersStayOpen(root);
     typedPathIsValidated(root);
     rootsAreAddedAndReset(root);
+    oneRomFolderIsRemoved(root);
+    aRemovedFolderGivesItsGrantBack(root);
     hiddenAndEmulatorsReset(root);
     shortcutsAreRemappedAndKept(root);
     guideChordsAreSetOnTheirPage(root);

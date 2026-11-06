@@ -131,6 +131,8 @@ struct Config {
 
     /// Whether the clock reads 24-hour time, from the LC_TIME locale's time format.
     bool clock24Hour{true};
+    /// Whether empty `romRoots` are discovered; else there are none.
+    bool findRomRoots{true};
 
     /// Window size.
     int width{1280};

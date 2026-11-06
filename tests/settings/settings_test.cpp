@@ -161,6 +161,7 @@ void installAndSources(const fs::path& root) {
     saved.uiSounds = false;
     saved.homeMode = opensu::config::HomeMode::WiiSu;
     saved.romFolders = {"/mnt/roms", "/home/p/Roms"};
+    saved.findRomFolders = false;
     saved.steamRoots = {"/mnt/steam"};
     saved.installFolders.setDefault("/mnt/games");
     saved.installFolders.setStore(opensu::library::Source::Gog, "/mnt/gog");
@@ -287,6 +288,22 @@ void resolution() {
     expect(over.homeMode == opensu::config::HomeMode::Standard &&
                over.romRoots == chosen.romFolders && over.steamRoots == env.steamRoots,
            "what the player set wins over the environment, field by field");
+    expect(untouched.findRomRoots, "ROM folders are looked for until the player says otherwise");
+    Settings emptied;
+    emptied.romFolders = {"/set/a", "/set/b"};
+    emptied.removeRomFolder("/absent");
+    emptied.removeRomFolder("/set/a");
+    expect(emptied.romFolders == std::vector<std::filesystem::path>{"/set/b"} &&
+               emptied.findRomFolders,
+           "one of several folders goes; the rest stand");
+    emptied.removeRomFolder("/set/b");
+    expect(!opensu::settings::resolved(opensu::config::Config{}, emptied).findRomRoots,
+           "the last one gone, none are looked for");
+    emptied.saveShareFolder = "/share";
+    emptied.installFolders.setStore(opensu::library::Source::Gog, "/gog");
+    expect(emptied.namesFolder("/share") && emptied.namesFolder("/gog") &&
+               !emptied.namesFolder("/set/b"),
+           "a folder is named by whatever setting keeps it");
 }
 
 void steppedScale() {

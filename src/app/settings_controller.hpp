@@ -34,13 +34,13 @@
 #include "layer_settings.hpp"
 #include "layered_settings.hpp"
 #include "library/library_query.hpp"
-#include "library/rom_tree.hpp"
 #include "mapping_editor.hpp"
 #include "online_play.hpp"
 #include "path_editor.hpp"
 #include "plugin_settings.hpp"
 #include "preferences.hpp"
 #include "profile_settings.hpp"
+#include "rom_folder_settings.hpp"
 #include "save_settings.hpp"
 #include "settings/install_folders.hpp"
 #include "shortcut_editor.hpp"
@@ -212,8 +212,20 @@ class SettingsController final : public ui::RowActions {
     Preferences& preferences_;
     const config::Config& defaults_;
     Hooks hooks_;
-    /// Names ROM folders, a picked Android folder by its name.
-    std::unique_ptr<library::roms::RomTree> romTree_{library::roms::openRomTree()};
+    RomFolderSettings romFolders_{preferences_,
+                                  defaults_,
+                                  navigator_,
+                                  sounds_,
+                                  library::roms::openRomTree(),
+                                  RomFolderSettings::Hooks{.changed =
+                                                               [this] {
+                                                                   changed();
+                                                                   hooks_.libraryFoldersChanged();
+                                                               },
+                                                           .say =
+                                                               [this](const std::string& text) {
+                                                                   hooks_.say(text, false);
+                                                               }}};
     /// The categories and pages as last built; emptied by `refresh`.
     std::optional<std::vector<ui::SettingsCategory>> categories_;
     std::map<std::string, ui::SettingsCategory, std::less<>> pages_;

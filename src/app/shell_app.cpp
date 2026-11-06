@@ -278,6 +278,7 @@ void ShellApp::addRomFolder(const std::filesystem::path& folder) {
 void ShellApp::libraryFoldersChanged() {
     const config::Config resolved = settings::resolved(environment_, preferences_.values());
     resolved_.romRoots = resolved.romRoots;
+    resolved_.findRomRoots = resolved.findRomRoots;
     resolved_.gameFolders = resolved.gameFolders;
     catalogLoader_.replace(catalogOf(integrations_.catalogStores()));
 }
@@ -1295,6 +1296,9 @@ void ShellApp::postPointer(const PointerInjection& injected) {
     case Kind::Click:
         window_->pressPointer(at, SDL_BUTTON_LEFT, true);
         window_->pressPointer(at, SDL_BUTTON_LEFT, false);
+        break;
+    case Kind::Tap:
+        window_->tapPointer(at);
         break;
     case Kind::Down:
     case Kind::Up:

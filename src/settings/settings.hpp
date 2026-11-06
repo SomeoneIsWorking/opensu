@@ -94,6 +94,9 @@ struct Settings {
 
     /// Whether the UI sounds play.
     bool uiSounds{true};
+    /// Whether openSU looks for ROM folders when `romFolders` is empty; off once the player removed
+    /// their last one, until they ask it to find them.
+    bool findRomFolders{true};
 
     /// ROM roots the player set; the environment's, else the discovered ones, when empty.
     std::vector<std::filesystem::path> romFolders;
@@ -155,6 +158,10 @@ struct Settings {
 
     /// Adds `folder` to `romFolders` unless it is there already.
     void addRomFolder(const std::filesystem::path& folder);
+    /// Takes `folder` out of `romFolders`; the last one gone, none is looked for.
+    void removeRomFolder(const std::filesystem::path& folder);
+    /// Whether any folder the settings keep is `folder`.
+    [[nodiscard]] bool namesFolder(const std::filesystem::path& folder) const;
     /// Adds `folder` to `gameFolders` unless it is there already.
     void addGameFolder(const std::filesystem::path& folder);
 

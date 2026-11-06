@@ -182,6 +182,11 @@ public final class ShellActivity extends LandscapeActivity {
         return documents.writable(location);
     }
 
+    /** Called from the document RomTree: gives back the grant on a folder no longer used. */
+    public void releaseDocument(String location) {
+        documents.release(location);
+    }
+
     /** Called from the document RomTree: puts a staged file in a picked folder; null, else why not. */
     public String placeDocument(String location, String relative, String file) {
         return documents.place(location, relative, file);

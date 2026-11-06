@@ -380,6 +380,7 @@ void testPointer() {
 
     expect(channel.handle(post("/pointer", "move 640 400")).status == 200 &&
                channel.handle(post("/pointer", " click 12.5 30\n")).status == 200 &&
+               channel.handle(post("/pointer", "tap 7 8")).status == 200 &&
                channel.handle(post("/pointer", "wheel 640 400 -2")).status == 200 &&
                channel.handle(post("/pointer", "down 5 6 right")).status == 200 &&
                channel.handle(post("/pointer", "up 5 6 middle")).status == 200,
@@ -387,6 +388,7 @@ void testPointer() {
     expect(shell.pointers ==
                std::vector<PointerInjection>{
                    at(Kind::Move, 640.0f, 400.0f), at(Kind::Click, 12.5f, 30.0f),
+                   at(Kind::Tap, 7.0f, 8.0f),
                    at(Kind::Wheel, 640.0f, 400.0f, PointerButton::Left, -2.0f),
                    at(Kind::Down, 5.0f, 6.0f, PointerButton::Right),
                    at(Kind::Up, 5.0f, 6.0f, PointerButton::Middle)},
@@ -399,7 +401,7 @@ void testPointer() {
     }
     const Request get{.method = "GET", .target = "/pointer", .headers = {}, .body = {}};
     expect(channel.handle(get).status != 200, "the pointer is POST only");
-    expect(shell.pointers.size() == 5, "a refused pointer reaches nobody");
+    expect(shell.pointers.size() == 6, "a refused pointer reaches nobody");
 
     expect(channel.handle(post("/remote/link", "60000000\n")).status == 200 &&
                channel.handle(post("/remote/link", "0")).status == 200 &&

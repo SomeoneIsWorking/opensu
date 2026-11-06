@@ -12,6 +12,9 @@ std::vector<std::filesystem::path> romRootsOf(const config::Config& config) {
     if (!config.romRoots.empty()) {
         return config.romRoots;
     }
+    if (!config.findRomRoots) {
+        return {};
+    }
     return roms::discoverRoots(config.home, roms::standardMountDirs(config.home));
 }
 

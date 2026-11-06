@@ -3,6 +3,7 @@ package io.github.someoneisworking.opensu;
 import android.content.ContentResolver;
 import android.content.UriPermission;
 import android.content.Context;
+import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.DocumentsContract;
@@ -97,6 +98,20 @@ final class DocumentTree {
             }
         }
         return false;
+    }
+
+    /** Gives back the grant kept on the picked tree `location`, when one is held. */
+    void release(String location) {
+        Uri tree = Uri.parse(location);
+        ContentResolver resolver = context.getContentResolver();
+        for (UriPermission grant : resolver.getPersistedUriPermissions()) {
+            if (grant.getUri().equals(tree)) {
+                int modes = (grant.isReadPermission() ? Intent.FLAG_GRANT_READ_URI_PERMISSION : 0)
+                        | (grant.isWritePermission() ? Intent.FLAG_GRANT_WRITE_URI_PERMISSION : 0);
+                resolver.releasePersistableUriPermission(tree, modes);
+                return;
+            }
+        }
     }
 
     /** The child of `parent` (a document of `tree`) named `name`, or null. */

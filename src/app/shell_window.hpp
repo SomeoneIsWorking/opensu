@@ -142,6 +142,8 @@ class ShellWindow {
     void movePointer(ui::Point at);
     /// Posts the mouse's `button` (an `SDL_BUTTON_*`) going down or up at `at`.
     void pressPointer(ui::Point at, std::uint8_t button, bool down);
+    /// Posts what SDL makes of a finger's tap at `at`.
+    void tapPointer(ui::Point at);
     /// Posts the wheel turning `notches` at `at`, positive away from the player.
     void turnWheel(ui::Point at, float notches);
 

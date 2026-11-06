@@ -278,6 +278,30 @@ void ShellWindow::pressPointer(ui::Point at, std::uint8_t button, bool down) {
     post(event);
 }
 
+void ShellWindow::tapPointer(ui::Point at) {
+    SDL_Event event{};
+    event.motion.type = SDL_EVENT_MOUSE_MOTION;
+    event.motion.windowID = SDL_GetWindowID(window_.window());
+    event.motion.which = SDL_TOUCH_MOUSEID;
+    event.motion.x = at.x;
+    event.motion.y = at.y;
+    event.motion.xrel = 1.0f;
+    event.motion.yrel = 1.0f;
+    post(event);
+    for (const bool down : {true, false}) {
+        SDL_Event press{};
+        press.button.type = down ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
+        press.button.windowID = SDL_GetWindowID(window_.window());
+        press.button.which = SDL_TOUCH_MOUSEID;
+        press.button.button = SDL_BUTTON_LEFT;
+        press.button.down = down;
+        press.button.clicks = 1;
+        press.button.x = at.x;
+        press.button.y = at.y;
+        post(press);
+    }
+}
+
 void ShellWindow::turnWheel(ui::Point at, float notches) {
     SDL_Event event{};
     event.wheel.type = SDL_EVENT_MOUSE_WHEEL;
