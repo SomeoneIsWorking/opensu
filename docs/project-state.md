@@ -1877,8 +1877,8 @@ avpe.04d" and refused Play with that toast (`final-avsp-play-refused.png`). Over
 FinalBurn Neo, MAME 2003-Plus and MAME (a 416 MB core) downloaded and loaded armwar in the runner:
 FinalBurn Neo loaded and showed its error screen for the missing `armwar.key`, frames counting
 (`scratch/fbneo-crash/after/armwar-f300.png`), MAME 2003-Plus refused `armwar.key` and MAME
-`armwar.key`, `dl-1425.bin`, the files the match named. Unverified: a romset that matches
-FinalBurn Neo, MAME 2003-Plus or current MAME running to gameplay (none in the player's folder).
+`armwar.key`, `dl-1425.bin`, the files the match named. Unverified: a romset that matches MAME
+2003-Plus or current MAME alone running to gameplay (none in the player's folder).
 
 Verified (FB Alpha 2012, 2026-11-06, `scratch/legacy-arcade/p/`, empty data dir,
 `OPENSU_ROM_ROOTS=/mnt/Boy/ROM`, hidden shell on `build/agent`): the listing fetched ("3159 romsets
@@ -1891,8 +1891,16 @@ intro (`g1`), MAIN-CONTROL SYSTEM OK (`g3`), attract art (`g4`), two coins and S
 (`m1`). Save and close left `<rom>.resume` and a 128-byte `<rom>.nv`; a first try refused the resume
 in the next run, since fixed in `Core::unserialize`, and avspu then logged `resumed from` (`m2`). With
 MAME 2010 installed and FB Alpha 2012 not (`scratch/legacy-arcade/q/`), armwar stays on MAME 2010.
-Unverified: a picked Android folder, a set leaning on a parent or BIOS zip on the tablet, a vertical
-game.
+
+Verified (Neo Geo and CPS3 sets, 2026-11-06, `scratch/legacy-arcade/r/`, same setup): the log named
+mslug3, mslug5 and neogeo as matching FinalBurn Neo, FB Alpha 2012, MAME 2010 and MAME, and sfiii3n
+as matching MAME 2010 alone. mslug3 on FinalBurn Neo reached attract (`m2`), then coin and Start to
+play (`m5`), logged `core FinalBurn Neo v1.0.0.03`. sfiii3n on MAME 2010 ran its attract (`s6`), then
+coin and Start to Player Select (`s7`), logged `core MAME 2010 0.139`. With the Arcade pick on FB
+Alpha 2012, mslug3 (`m6`) loaded through `neogeo.zip` and mslug5 (`m7`) through its own zip, to
+attract. armwar stayed on FB Alpha 2012 with FinalBurn Neo and MAME 2010 installed (`w3-7`).
+`neogeo.zip` shows as a game and Play reaches FinalBurn Neo's not-working screen (`n4`). Unverified:
+a picked Android folder, a set leaning on a parent or BIOS zip on the tablet, a vertical game.
 
 The listings download off the library scan (`library/romset_lists`): arcade games are listed at
 once, a game with no match yet while a listing downloads shows "Checking romset…" and its Play says

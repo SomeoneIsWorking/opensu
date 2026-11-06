@@ -35,7 +35,8 @@ Each arcade core names its romset listing: FinalBurn Neo's arcade and Neo Geo da
 mamedev's latest release
 (SHA-256 checked). They are downloaded in the background, shown on the Downloads page, kept under
 `<cache>/opensu/romsets/` and fetched again after 30 days. Each arcade zip is matched against every
-listing, with its parent's, BIOS's and devices' zips in the same folder counted. The game runs on
+listing, with its parent's, BIOS's and devices' zips in the same folder counted. A FinalBurn listing
+names every BIOS a game could use, so one of them is enough there. The game runs on
 the first matching core installed, else the first matching core is offered for download; with none
 it is listed but cannot start, and its details page names the nearest core and the files it lacks.
 This works in a folder picked on Android too, where a game's parent and BIOS zips are copied beside

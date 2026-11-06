@@ -465,7 +465,7 @@ automatic emulator stays the standalone one where it is installed.
 (HTTPS datafiles merged in order) or `"romsets": {"release": {api, asset, downloads}}` (the latest
 release's zip holding one `.xml`, size and SHA-256 checked). `RomsetDats::refresh` fetches a
 listing that is missing or older than 30 days, every redirect hop on the file's origin, and keeps
-the old one when the fetch fails. A library scan never waits on a fetch: `RomsetMatcher` asks
+the old one when the fetch fails; a file in an older line format counts as none. A library scan never waits on a fetch: `RomsetMatcher` asks
 `RomsetLists` for each due listing and matches with what is kept; `RomsetLists` fetches them in
 turn on its own thread, a failed one again no sooner than an hour later, and keeps every fetch's
 state for the session. While a core's listing downloads and none is kept its verdict is `Pending`;
@@ -475,8 +475,9 @@ row of the Downloads page ("Romset list · <core>", bytes, then Finished, or Fai
 and the retry time) and its end is toasted; the shell then reads the catalog again, which gives the
 verdicts. A pending verdict is never kept in `matches.json`. A zip's set is
 its stem, lower case. A set matches a core when every ROM it needs (a `nodump`, optional or
-CRC-less ROM is not needed; of BIOS-choice ROMs only the default choice's) is found by CRC-32 and
-size in the zip, its `romof` chain's zips or its devices' zips (a device's own devices included)
+CRC-less ROM is not needed; of BIOS-choice ROMs only the default choice's; in a listing with no
+`biosset`, as FinalBurn's are, any one of the `isbios` set's ROMs stands for them all, which
+`RomsetDat::markChoices` marks) is found by CRC-32 and size in the zip, its `romof` chain's zips or its devices' zips (a device's own devices included)
 in the same folder, and each disk is at `<set>/<disk>.chd`. `applyRomsets` keeps the search's
 emulator when it matches, else takes the first matching one installed, else names the first
 matching one as not installed (the details page offers its download); with every core checked and

@@ -128,11 +128,21 @@ has every ROM. Against the core's driver tables (`src/burn/drv`, revision 0ce315
 3,159 sets are there and 3,132 of those compared agree; the 0.2.97.30 one has 189 sets the core
 lacks. The core's own `version.h` says .30 and its core info .29.
 
-The player's arcade folder holds `armwar.zip` and `avspu.zip`, both matching FB Alpha 2012 and MAME
-2010 member for member. FinalBurn Neo, MAME 2003-Plus and MAME want the CPS2 `.key` files (and MAME
+The player's arcade folder holds armwar, avspu, mslug3, mslug5, neogeo and sfiii3n. armwar and avspu
+match FB Alpha 2012 and MAME 2010 member for member. FinalBurn Neo, MAME 2003-Plus and MAME want the CPS2 `.key` files (and MAME
 `qsound.zip`'s `dl-1425.bin`), avspu also the later 1 MB `avp.14m`-`avp.20m` dumps. FinalBurn Neo
-without its key loads and shows its error screen, frames counting. Proof:
-`scratch/legacy-arcade/` and `docs/project-state.md` S031.
+without its key loads and shows its error screen, frames counting. mslug3 and mslug5 match FinalBurn
+Neo, FB Alpha 2012, MAME 2010 and MAME. sfiii3n is the split-`simm` layout only MAME 2010's listing
+has, so it runs there; its zip is a real mismatch for the others. Proof: `scratch/legacy-arcade/` and
+`docs/project-state.md` S031.
+
+FinalBurn's datafiles write no `biosset`: `neogeo` lists all 29 (FB Alpha) or 38 (FinalBurn Neo) BIOS
+ROMs as plain rows, so a Neo Geo game asked for every one and the player's 25-member `neogeo.zip`
+read as a mismatch, though the core needs `sm1.sm1`, `sfix.sfix`, `000-lo.lo` and one system BIOS.
+`RomsetDat::markChoices` now marks a BIOS's rows in a listing with no `biosset` anywhere, and the
+match asks for one of them. The listing cannot tell a fixed ROM from a choice, so a `neogeo.zip`
+without `sfix.sfix` still matches and the core refuses it at load. Listings with `biosset` (every
+MAME) keep their exact rule, and a BIOS there without choices needs every ROM.
 
 On a picked Android folder the scan never reached the matcher: `roms.cpp` skipped nodes that do not
 open as a path, so the search's first installed core kept the game. Zips are now read through
@@ -149,10 +159,10 @@ cache; frames `02`, `10`-`15`, `armwar-runner-status.txt`, `shell-run1.log`, `sh
 
 Not done: samples are never required; 7z sets are not matched (the arcade system lists `.zip`
 only). A romset list row has no Cancel or Retry button; a failed list is asked for again by the
-first scan an hour later. CHD disks are not staged on a picked folder. FB Alpha's datafile marks no
-BIOS as optional, so a Neo Geo game asks for all 29 of `neogeo.zip`'s ROMs where the core needs 4
-(`sm1.sm1`, `sfix.sfix`, `000-lo.lo` and one system BIOS): a smaller `neogeo.zip` reads as a mismatch.
-A vertical game's rotation has not been run: there is no vertical set here.
+first scan an hour later. CHD disks are not staged on a picked folder. A vertical game's rotation
+has not been run: there is no vertical set here. `neogeo.zip` is listed as a game: it matches, and
+Play shows FinalBurn Neo's "known but marked as not working" screen. Listings mark it `isbios`, so
+the scan could hide such zips.
 
 ## Steam modes in session mode
 
