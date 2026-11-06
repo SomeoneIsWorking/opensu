@@ -185,18 +185,15 @@ void testState() {
 
     Response fresh = channel.handle(get);
     expect(fresh.status == 200 && contains(fresh.body, "\"section\":\"home\"") &&
-               contains(fresh.body, "\"libraryMode\":\"standard\"") &&
-               contains(fresh.body, "\"modeChooserOpen\":false"),
-           "the state names the section, Library's mode and whether the picker is up");
+               contains(fresh.body, "\"libraryMode\":\"standard\""),
+           "the state names the section and Library's mode");
 
     shell.state.section = "library";
     shell.state.libraryMode = "carousel";
-    shell.state.modeChooserOpen = true;
     shell.state.shelf = "ps2";
     Response library = channel.handle(get);
     expect(contains(library.body, "\"section\":\"library\"") &&
                contains(library.body, "\"libraryMode\":\"carousel\"") &&
-               contains(library.body, "\"modeChooserOpen\":true") &&
                contains(library.body, "\"shelf\":\"ps2\""),
            "the state follows the shell");
 

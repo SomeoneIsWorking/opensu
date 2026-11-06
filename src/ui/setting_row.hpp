@@ -3,6 +3,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -85,6 +86,18 @@ struct Options {
 /// A choice row; its value reads the chosen option.
 [[nodiscard]] SettingsRow makeChoice(std::string id, std::string label, std::string note,
                                      Options options);
+/// Every entry of `all` as a choice's options, labelled by `label`, `now` chosen.
+template <typename T, std::size_t N, typename Label>
+Options optionsOf(const std::array<T, N>& all, T now, Label label) {
+    Options options;
+    for (std::size_t i = 0; i < N; ++i) {
+        options.labels.emplace_back(label(all[i]));
+        if (all[i] == now) {
+            options.chosen = i;
+        }
+    }
+    return options;
+}
 /// The entry `step` places from `now` in `offered`, wrapping; A steps forward.
 template <typename T> T stepped(const std::vector<T>& offered, const T& now, int step) {
     const auto at = std::ranges::find(offered, now);

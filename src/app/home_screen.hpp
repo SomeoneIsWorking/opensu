@@ -33,7 +33,7 @@ class HomeScreen final : public gpu2d::ui::Screen {
         /// Select or a right click: the focused tile's menu.
         std::function<void()> options;
         std::function<void()> search;
-        /// Start: the layout picker.
+        /// Start: the Guide menu.
         std::function<void()> menu;
         /// B: out of the search or the folder.
         std::function<void()> back;

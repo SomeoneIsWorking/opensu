@@ -74,8 +74,8 @@ def _close_guide(shell: HiddenShell) -> None:
 
 
 def _settings(shell: HiddenShell) -> None:
-    # Guide menu rows: Home, Library, Devices, Downloads, Settings.
-    shell.press("guide", "down", "down", "down", "down", "a")
+    # Guide menu rows: Home, Library, Search, Devices, Downloads, Settings.
+    shell.press("guide", "down", "down", "down", "down", "down", "a")
     shell.wait_for("settingsOpen", True)
 
 
@@ -165,15 +165,14 @@ def _close_context_menu(shell: HiddenShell) -> None:
     shell.wait_for("contextMenuOpen", False)
 
 
-def _options_panel(shell: HiddenShell) -> None:
+def _library_guide(shell: HiddenShell) -> None:
     _library(shell)
     shell.press("start")
-    shell.wait_for("modeChooserOpen", True)
+    shell.wait_for("guideMenuOpen", True)
 
 
-def _close_options_panel(shell: HiddenShell) -> None:
-    shell.press("b")
-    shell.wait_for("modeChooserOpen", False)
+def _close_library_guide(shell: HiddenShell) -> None:
+    _close_guide(shell)
     _home(shell)
 
 
@@ -302,8 +301,8 @@ def _start_epic_install(shell: HiddenShell) -> None:
 
 
 def _open_downloads(shell: HiddenShell) -> None:
-    # Guide menu rows: Home, Library, Devices, Downloads, Settings.
-    shell.press("guide", "down", "down", "down", "a")
+    # Guide menu rows: Home, Library, Search, Devices, Downloads, Settings.
+    shell.press("guide", "down", "down", "down", "down", "a")
     shell.wait_for("downloadsOpen", True)
 
 
@@ -517,7 +516,7 @@ SCENES: tuple[Scene, ...] = (
         _leave_global_mapping,
     ),
     Scene("context-menu", "A game tile's menu", _context_menu, _close_context_menu),
-    Scene("options-panel", "Library's options panel", _options_panel, _close_options_panel),
+    Scene("guide-library", "The Guide menu over Library", _library_guide, _close_library_guide),
     Scene("search", "Search with results", _search, _close_search, readme=True),
     Scene("volume", "The volume display", _volume, _volume_gone, settle=VOLUME_SETTLE_SECONDS),
     Scene(

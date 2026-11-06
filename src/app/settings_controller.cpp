@@ -11,7 +11,6 @@
 #include "night_light.hpp"
 #include "settings/install_folders.hpp"
 #include "settings_screen.hpp"
-#include "ui/icon_size.hpp"
 #include "ui/interface_input.hpp"
 
 namespace opensu::app {
@@ -22,17 +21,11 @@ using gpu2d::ui::Screen;
 using ui::RowKind;
 using ui::SettingsRow;
 
-constexpr const char* layoutId = "layout";
-constexpr const char* iconSizeId = "iconSize";
 constexpr const char* scrollModeId = "scrollMode";
-constexpr const char* pinDockId = "pinDock";
 constexpr const char* nightLightId = "nightLight";
 constexpr const char* shortcutId = "shortcut.";
 constexpr const char* shortcutsResetId = "shortcuts.reset";
 constexpr const char* keyboardId = "keyboard";
-constexpr const char* sortId = "sort";
-constexpr const char* sourceId = "source";
-constexpr const char* installedId = "installedOnly";
 constexpr const char* hiddenId = "hidden";
 constexpr const char* emulatorsId = "emulators";
 constexpr const char* steamAddId = "steam.add";
@@ -75,19 +68,6 @@ std::size_t around(std::size_t value, int step, std::size_t count) {
     const auto size = static_cast<int>(count);
     return static_cast<std::size_t>(
         (static_cast<int>(value) + (step == 0 ? 1 : step) % size + size) % size);
-}
-
-/// Every entry of `all` as a choice's options, labelled by `label`, `now` chosen.
-template <typename T, std::size_t N, typename Label>
-ui::Options optionsOf(const std::array<T, N>& all, T now, Label label) {
-    ui::Options options;
-    for (std::size_t i = 0; i < N; ++i) {
-        options.labels.emplace_back(label(all[i]));
-        if (all[i] == now) {
-            options.chosen = i;
-        }
-    }
-    return options;
 }
 
 } // namespace
@@ -190,30 +170,23 @@ std::vector<ui::SettingsCategory> SettingsController::build() const {
 ui::SettingsCategory SettingsController::appearancePage() const {
     const settings::Settings& v = preferences_.values();
     ui::SettingsCategory page{"appearance", "Appearance", {}};
-    page.rows.push_back(ui::makeChoice(
-        layoutId, "Library layout", "How Library lays out its tiles",
-        optionsOf(library::allLibraryModes, v.libraryMode, [](library::LibraryMode mode) {
-            return std::string{library::label(mode)};
-        })));
-    page.rows.push_back(
-        ui::makeSlider(iconSizeId, "Icon size", "How large the shelf's tiles are",
-                       ui::SliderRange{v.iconSize, ui::minIconLevel, ui::maxIconLevel}));
+    page.rows.push_back(shelf_.layout("How Library lays out its tiles"));
+    page.rows.push_back(shelf_.iconSize("How large the shelf's tiles are"));
     const config::HomeMode mode = v.homeMode.value_or(defaults_.homeMode);
     page.rows.push_back(ui::makeChoice(
         scrollModeId, "Scroll mode", "How the home grid scrolls",
         ui::Options{{"Scrolling", "Pages"}, mode == config::HomeMode::WiiSu ? 1U : 0U}));
-    page.rows.push_back(ui::makeToggle(pinDockId, "Pin navigation bar on Library",
-                                       "Keep the dock up on Library", v.pinLibraryDock));
+    page.rows.push_back(shelf_.pin("Keep the dock up on Library"));
     if (nightLightSupported()) {
         page.rows.push_back(
             ui::makeChoice(nightLightId, "Night light",
                            inForce_.loginSession()
                                ? "Warms the screen's colours at night"
                                : "For session mode; here the desktop's own night light applies",
-                           optionsOf(settings::allNightLightChoices, v.nightLight,
-                                     [](settings::NightLightChoice choice) {
-                                         return std::string{settings::label(choice)};
-                                     })));
+                           ui::optionsOf(settings::allNightLightChoices, v.nightLight,
+                                         [](settings::NightLightChoice choice) {
+                                             return std::string{settings::label(choice)};
+                                         })));
     }
     page.rows.push_back(
         ui::makeRow("appearance.scale", RowKind::Info, "Interface size", "In the Guide menu", ""));
@@ -229,22 +202,9 @@ ui::SettingsCategory SettingsController::libraryPage() const {
                                     "Home and Remove from Home are in a game's "
                                     "or console's menu and on a game's details page",
                                     ""));
-    page.rows.push_back(
-        ui::makeChoice(sortId, "Sort by", "How games are ordered",
-                       optionsOf(library::allSortKeys, v.view.sort, [](library::SortKey key) {
-                           return std::string{library::label(key)};
-                       })));
-    ui::Options sources;
-    for (const library::SourceChoice& choice : hooks_.sourceChoices()) {
-        if (choice.key == v.view.source) {
-            sources.chosen = sources.labels.size();
-        }
-        sources.labels.push_back(choice.label);
-    }
-    page.rows.push_back(
-        ui::makeChoice(sourceId, "Show", "Which store's games show", std::move(sources)));
-    page.rows.push_back(ui::makeToggle(installedId, "Installed games only",
-                                       "Hide games you have not installed", v.view.installedOnly));
+    page.rows.push_back(shelf_.sort("How games are ordered"));
+    page.rows.push_back(shelf_.source("Which store's games show"));
+    page.rows.push_back(shelf_.installedOnly("Hide games you have not installed"));
     ui::SettingsRow hidden = ui::makeRow(
         hiddenId, RowKind::Action, "Show hidden games again", "Brings back every game you hid",
         v.hidden.keys().empty() ? "None hidden"
@@ -309,10 +269,10 @@ ui::SettingsCategory SettingsController::controlsPage() const {
     std::ranges::move(mappings_.settingsRows(), std::back_inserter(page.rows));
     page.rows.push_back(
         ui::makeChoice(keyboardId, "Keyboard", "The on-screen keyboard the fields open",
-                       optionsOf(input::allKeyboardStyles, preferences_.values().keyboardStyle,
-                                 [](input::KeyboardStyle style) {
-                                     return std::string{input::label(style)};
-                                 })));
+                       ui::optionsOf(input::allKeyboardStyles, preferences_.values().keyboardStyle,
+                                     [](input::KeyboardStyle style) {
+                                         return std::string{input::label(style)};
+                                     })));
     page.rows.push_back(ui::makeHeading("Shortcuts"));
     for (const input::Action action : input::allActions) {
         const bool listening = shortcutEditor_.target() == action;
@@ -539,14 +499,16 @@ void SettingsController::openPage(const std::string& id) {
 }
 
 void SettingsController::setLevel(const std::string& id, int level) {
-    const int next = std::clamp(level, ui::minIconLevel, ui::maxIconLevel);
-    if (id == iconSizeId && next != preferences_.values().iconSize) {
-        preferences_.values().iconSize = next;
-        changed();
+    if (shelf_.setLevel(id, level)) {
+        refresh();
     }
 }
 
 void SettingsController::run(const std::string& id, int step) {
+    if (shelf_.run(id, step)) {
+        refresh();
+        return;
+    }
     if (id == keyboardId) {
         settings::Settings& v = preferences_.values();
         const auto from = static_cast<std::size_t>(v.keyboardStyle);
@@ -636,8 +598,7 @@ void SettingsController::run(const std::string& id, int step) {
     } else if (id == RomFolderSettings::addId || id == steamAddId || id == gameAddId ||
                id.starts_with(installStoreId)) {
         chooseFolder(id);
-    } else if (id == layoutId || id == scrollModeId || id == pinDockId || id == nightLightId ||
-               id == soundsId) {
+    } else if (id == scrollModeId || id == nightLightId || id == soundsId) {
         runAppearance(id, step);
         return;
     } else {
@@ -649,16 +610,10 @@ void SettingsController::run(const std::string& id, int step) {
 
 void SettingsController::runAppearance(const std::string& id, int step) {
     settings::Settings& v = preferences_.values();
-    if (id == layoutId) {
-        v.libraryMode = library::allLibraryModes[around(static_cast<std::size_t>(v.libraryMode),
-                                                        step, library::allLibraryModes.size())];
-        hooks_.reshow();
-    } else if (id == scrollModeId) {
+    if (id == scrollModeId) {
         v.homeMode = v.homeMode.value_or(defaults_.homeMode) == config::HomeMode::WiiSu
                          ? config::HomeMode::Standard
                          : config::HomeMode::WiiSu;
-    } else if (id == pinDockId) {
-        v.pinLibraryDock = !v.pinLibraryDock;
     } else if (id == nightLightId) {
         v.nightLight = settings::allNightLightChoices[around(
             static_cast<std::size_t>(v.nightLight), step, settings::allNightLightChoices.size())];
@@ -680,22 +635,7 @@ void SettingsController::runControls(const std::string& id) {
 
 void SettingsController::runLibrary(const std::string& id, int step) {
     settings::Settings& v = preferences_.values();
-    if (id == sortId) {
-        v.view.sort = library::allSortKeys[around(static_cast<std::size_t>(v.view.sort), step,
-                                                  library::allSortKeys.size())];
-        hooks_.reshow();
-    } else if (id == sourceId) {
-        const std::vector<library::SourceChoice> choices = hooks_.sourceChoices();
-        const auto at = std::ranges::find(choices, v.view.source, &library::SourceChoice::key);
-        const std::size_t from = at == choices.end()
-                                     ? choices.size() - 1
-                                     : static_cast<std::size_t>(at - choices.begin());
-        v.view.source = choices[around(from, step, choices.size())].key;
-        hooks_.reshow();
-    } else if (id == installedId) {
-        v.view.installedOnly = !v.view.installedOnly;
-        hooks_.reshow();
-    } else if (id == hiddenId) {
+    if (id == hiddenId) {
         v.hidden = library::HiddenGames{};
         hooks_.reshow();
     } else if (id == emulatorsId) {

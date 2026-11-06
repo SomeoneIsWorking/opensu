@@ -88,7 +88,7 @@ through gpu2d.
 
 1. Before any change, the current build renders a fixed set of screens to PNG
    (`tools.screenshots --parity DIR`: the README scenes plus a console shelf, Settings pages, the
-   options panel, search, the dock glass over artwork, the volume OSD, the session dialog and the
+   Guide menu over Library, search, the dock glass over artwork, the volume OSD, the session dialog and the
    Downloads page, in a run of its own with a stand-in `legendary`), driven
    through `--hidden` and the control channel with the demo library; each frame is taken once
    `/state` reports `artworkPending` 0, so covers still decoding never read as a difference. These are the references, kept

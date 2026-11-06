@@ -14,7 +14,7 @@ namespace tk = gpu2d::ui;
 
 /// The places' column and the quick card's width, in dp.
 constexpr float placesDp = 220.0f;
-constexpr float quickDp = 300.0f;
+constexpr float quickDp = 340.0f;
 
 void paintScrim(tk::Painter& painter, const gpu2d::Rect& viewport) {
     painter.canvas.fillRect(viewport, painter.fade(painter.theme.colours.scrim));
@@ -36,8 +36,9 @@ std::unique_ptr<tk::Widget> GuideMenuScreen::build(const tk::Theme& theme) {
     for (const ui::SettingsRow& row : controller_.places()) {
         ui::addRow(places.rows(), row, controller_);
     }
-    tk::Column& side = body.add<tk::Column>();
-    side.fixWidth(quickDp);
+    tk::ScrollView& quick = body.add<tk::ScrollView>("guide/quick");
+    quick.fixWidth(quickDp);
+    tk::Column& side = quick.content<tk::Column>();
     tk::Card& card = side.add<tk::Card>();
     card.pad(tk::Insets::all(spacing.gap * 2.0f)).space(spacing.gap);
     for (const ui::SettingsRow& row : controller_.quick()) {

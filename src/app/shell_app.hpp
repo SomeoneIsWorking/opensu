@@ -70,7 +70,6 @@
 #include "launch_mailbox.hpp"
 #include "layered_editor.hpp"
 #include "layered_settings.hpp"
-#include "layout_picker.hpp"
 #include "library/catalog.hpp"
 #include "library/catalog_loader.hpp"
 #include "library/game_saves.hpp"
@@ -464,26 +463,16 @@ class ShellApp final {
                                    covers_.coverMissing(id);
                                }}};
     /// After the preferences they keep and the shelf they re-show.
-    LayoutPicker layoutPicker_{shell_.screens().navigator(), sounds_, preferences_,
-                               LayoutPicker::Hooks{[this](std::size_t focus) {
-                                                       showShelf(focus);
-                                                   },
-                                                   [this] {
-                                                       return shell_.grid().focusIndex();
-                                                   },
-                                                   [this] {
-                                                       applyLayout();
-                                                   },
-                                                   [this] {
-                                                       return library::sourceChoices(games_,
-                                                                                     sources_);
-                                                   },
-                                                   [this] {
-                                                       search_.open();
-                                                   },
-                                                   [this] {
-                                                       settingsScreen_.open();
-                                                   }}};
+    ShelfOptions shelfOptions_{preferences_, ShelfOptions::Hooks{[this] {
+                                                                     applyLayout();
+                                                                 },
+                                                                 [this] {
+                                                                     refreshShelf();
+                                                                 },
+                                                                 [this] {
+                                                                     return library::sourceChoices(
+                                                                         games_, sources_);
+                                                                 }}};
     SearchController search_{SearchController::Parts{.navigator = shell_.screens().navigator(),
                                                      .chrome = shell_.screens().chrome(),
                                                      .keyboard = keyboardPad_,
@@ -1218,6 +1207,7 @@ class ShellApp final {
                                      onlinePlay_,
                                      saveSettings_,
                                      profileSettings_,
+                                     shelfOptions_,
                                      integrations_},
         sounds_,
         preferences_,
@@ -1230,9 +1220,6 @@ class ShellApp final {
                                   },
                                   [this] {
                                       reloadCatalog();
-                                  },
-                                  [this] {
-                                      return library::sourceChoices(games_, sources_);
                                   },
                                   [this] {
                                       return Installs::ownFolders(
@@ -1315,7 +1302,7 @@ class ShellApp final {
     GuideMenuController guideMenu_{
         shell_.screens().navigator(),
         GuideMenuController::Services{host_.power.get(), host_.session.get(), volume_, brightness_,
-                                      retro_, preferences_, profiles_.book()},
+                                      retro_, preferences_, shelfOptions_, profiles_.book()},
         sounds_,
         GuideMenuController::Hooks{
             .context =
@@ -1337,7 +1324,10 @@ class ShellApp final {
                         .invitable = here ? remotePlay_.notGuests(lan_.announced())
                                           : std::vector<lan::Peer>{},
                         .guests = here ? remotePlay_.guests() : std::vector<lan::Peer>{},
-                        .closesWithGuest = here && remotePlay_.closesWithGuest()};
+                        .closesWithGuest = here && remotePlay_.closesWithGuest(),
+                        .page = !inGame && shell_.screens().navigator().atRoot()
+                                    ? std::optional{browser_.section()}
+                                    : std::nullopt};
                 },
             .showSection =
                 [this](library::Section section) {
@@ -1357,6 +1347,10 @@ class ShellApp final {
                 [this] {
                     closePages();
                     settingsScreen_.open();
+                },
+            .openSearch =
+                [this] {
+                    search_.open();
                 },
             .closeGame =
                 [this] {

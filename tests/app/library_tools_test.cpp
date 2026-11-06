@@ -12,7 +12,6 @@
 #include "audio/sdl_sound_player.hpp"
 #include "context_menu_controller.hpp"
 #include "keyboard_pad.hpp"
-#include "layout_picker.hpp"
 #include "preferences.hpp"
 #include "search_controller.hpp"
 #include "search_screen.hpp"
@@ -26,12 +25,10 @@ namespace {
 namespace fs = std::filesystem;
 using namespace opensu;
 using app::ContextMenuController;
-using app::LayoutPicker;
 using app::Preferences;
 using app::SearchController;
 using gamepad::Button;
 using gpu2d::ui::Action;
-using library::LibraryMode;
 using test::expect;
 
 library::Game hades() {
@@ -400,125 +397,6 @@ void searchTypesAndCloses(const fs::path& root) {
            "B with no petal closes the keyboard, the search kept");
 }
 
-void optionsChangeAndKeep(const fs::path& root) {
-    const fs::path file = root / "options" / "settings.json";
-    Rig rig{file};
-    test::InterfaceRig ui;
-    std::size_t reshown = 0;
-    std::size_t applied = 0;
-    bool searchOpened = false;
-    bool settingsOpened = false;
-    LayoutPicker picker{
-        ui.navigator,
-        rig.sounds,
-        rig.preferences,
-        {.reshow =
-             [&](std::size_t) {
-                 ++reshown;
-             },
-         .focusIndex =
-             [] {
-                 return std::size_t{0};
-             },
-         .applyLayout =
-             [&] {
-                 ++applied;
-             },
-         .sourceChoices =
-             [] {
-                 return std::vector<library::SourceChoice>{
-                     {"", "All sources"}, {"launcher:epic", "Epic"}, {"gc", "GameCube"}};
-             },
-         .openSearch =
-             [&] {
-                 searchOpened = true;
-             },
-         .openSettings =
-             [&] {
-                 settingsOpened = true;
-             }}};
-    const auto open = [&](bool inLibrary) {
-        picker.open(inLibrary);
-        ui.frame(1.0);
-    };
-    const auto press = [&](std::initializer_list<Action> actions) {
-        for (const Action action : actions) {
-            ui.navigator.act(action);
-            ui.frame(1.0);
-        }
-    };
-    const auto at = [&](std::string_view id) {
-        ui.navigator.focus(id);
-        ui.frame(1.0);
-    };
-
-    open(true);
-    expect(picker.isOpen() && ui.navigator.focused() == app::layoutCardId(LibraryMode::Standard),
-           "Library's panel opens on the layout in use");
-    press({Action::Right});
-    expect(ui.navigator.focused() == app::layoutCardId(LibraryMode::Xmb),
-           "Right moves to the next card");
-    press({Action::Down});
-    expect(ui.navigator.focused() == app::optionIconSizeId, "Down leaves the cards for the rows");
-    press({Action::Accept, Action::Right, Action::Right});
-    expect(rig.preferences.values().iconSize == 11 && applied == 2 &&
-               settings::Store{file}.load().iconSize == 11,
-           "Right grows the icons, kept at once");
-    picker.setLevel(std::string{app::optionIconSizeId}, 99);
-    expect(rig.preferences.values().iconSize == settings::maxIconSize, "the slider clamps");
-    press({Action::Accept, Action::Back});
-    expect(!picker.isOpen(), "A lets the slider go, then B closes it");
-
-    open(true);
-    press({Action::Right, Action::Accept});
-    expect(!picker.isOpen() && rig.preferences.values().libraryMode == LibraryMode::Xmb &&
-               settings::Store{file}.load().libraryMode == LibraryMode::Xmb && reshown == 1,
-           "A on a card uses its layout, keeps it and closes the panel");
-
-    open(true);
-    at(app::optionSortId);
-    press({Action::Right});
-    expect(rig.preferences.values().view.sort == library::SortKey::Name, "Right steps the sort");
-    press({Action::Left});
-    expect(rig.preferences.values().view.sort == library::SortKey::Recent, "Left steps back");
-    at(app::optionSourceId);
-    press({Action::Right});
-    expect(rig.preferences.values().view.source == "launcher:epic",
-           "Right moves to the next source");
-    press({Action::Left, Action::Left});
-    expect(rig.preferences.values().view.source == "gc", "Left wraps to the last source");
-    at(app::optionInstalledId);
-    press({Action::Accept});
-    at(app::optionHiddenId);
-    press({Action::Accept});
-    const settings::Settings saved = settings::Store{file}.load();
-    expect(saved.view.installedOnly && saved.view.source == "gc" && !saved.view.hiddenOnly,
-           "the filters are kept, the hidden filter is not");
-    expect(rig.preferences.values().view.hiddenOnly && reshown >= 6,
-           "the hidden filter applies now");
-    at(app::optionPinId);
-    press({Action::Accept});
-    expect(!rig.preferences.values().pinLibraryDock, "A toggles the pin");
-    at(app::optionSearchId);
-    press({Action::Accept});
-    expect(!picker.isOpen() && searchOpened, "the Search row closes the panel and opens search");
-
-    open(true);
-    at(app::optionSettingsId);
-    press({Action::Accept});
-    expect(!picker.isOpen() && settingsOpened,
-           "the Settings row closes the panel and opens the Settings screen");
-
-    open(false);
-    expect(ui.navigator.focused() == app::optionSortId &&
-               ui.navigator.find(app::layoutCardId(LibraryMode::Standard)) == nullptr &&
-               ui.navigator.find(app::optionIconSizeId) == nullptr,
-           "Home's panel has no layout rows and opens on the sort");
-    press({Action::Menu});
-    expect(!picker.isOpen(), "START closes it");
-    expect(rig.failures.empty(), "nothing failed to save");
-}
-
 } // namespace
 
 int main() try {
@@ -527,7 +405,6 @@ int main() try {
     menuEntriesFollowTheTile();
     hidingPersistsAndMenuRoutes(root);
     searchTypesAndCloses(root);
-    optionsChangeAndKeep(root);
     fs::remove_all(root);
     std::printf("library_tools: all checks passed\n");
     return 0;

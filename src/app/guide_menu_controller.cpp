@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <iterator>
 #include <memory>
 
 #include "guide_menu_screen.hpp"
@@ -28,6 +29,7 @@ constexpr const char* loadStateId = "guide.loadState";
 constexpr const char* resetGameId = "guide.resetGame";
 constexpr const char* homeId = "guide.home";
 constexpr const char* libraryId = "guide.library";
+constexpr const char* searchId = "guide.search";
 constexpr const char* devicesId = "guide.devices";
 constexpr const char* downloadsId = "guide.downloads";
 constexpr const char* settingsId = "guide.settings";
@@ -162,6 +164,9 @@ std::vector<SettingsRow> GuideMenuController::places() const {
         rows.push_back(action(homeId, "Home"));
         rows.push_back(action(libraryId, "Library"));
     }
+    if (context_.page) {
+        rows.push_back(action(searchId, "Search"));
+    }
     rows.push_back(action(devicesId, "Devices"));
     rows.push_back(action(downloadsId, "Downloads"));
     rows.push_back(action(settingsId, "Settings"));
@@ -204,6 +209,11 @@ std::vector<SettingsRow> GuideMenuController::quick() const {
         players.labels.push_back(profile.name);
     }
     rows.push_back(ui::makeChoice(profileId, "Profile", {}, std::move(players)));
+    if (context_.page) {
+        rows.push_back(
+            ui::makeHeading(*context_.page == library::Section::Home ? "Home" : "Library"));
+        std::ranges::move(shelf_.rowsFor(*context_.page), std::back_inserter(rows));
+    }
     return rows;
 }
 
@@ -284,6 +294,9 @@ void GuideMenuController::refuse(const std::string& reason, const std::string& w
 }
 
 void GuideMenuController::run(const std::string& id, int step) {
+    if (shelf_.run(id, step)) {
+        return;
+    }
     if (id == muteId) {
         refuse(volume_.system().toggleMute());
     } else if (id == scaleId) {
@@ -306,6 +319,8 @@ void GuideMenuController::run(const std::string& id, int step) {
         leave([this] {
             hooks_.showSection(library::Section::Library);
         });
+    } else if (id == searchId) {
+        leave(hooks_.openSearch);
     } else if (id == devicesId) {
         leave(hooks_.openDevices);
     } else if (id == downloadsId) {
@@ -388,6 +403,9 @@ void GuideMenuController::stepProfile(int step) {
 }
 
 void GuideMenuController::setLevel(const std::string& id, int level) {
+    if (shelf_.setLevel(id, level)) {
+        return;
+    }
     if (id == volumeId) {
         refuse(volume_.system().setPercent(std::clamp(level, 0, 100)));
     } else if (id == brightnessId) {

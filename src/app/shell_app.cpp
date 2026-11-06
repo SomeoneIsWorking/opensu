@@ -174,8 +174,7 @@ void ShellApp::buildHome() {
                                              },
                                          .menu =
                                              [this] {
-                                                 layoutPicker_.open(browser_.section() ==
-                                                                    library::Section::Library);
+                                                 toggleGuide(GuideMenuController::Landing::Places);
                                              },
                                          .back =
                                              [this] {
@@ -892,7 +891,7 @@ bool ShellApp::menusBlocked() {
     return panels_.active() || paths_.active() || artworkSettings_.typing() || mappings_.active() ||
            (sessionInstall_ && sessionInstall_->active()) ||
            (polkitPrompt_ && polkitPrompt_->asking()) || shortcutEditor_.capturing() ||
-           search_.isOpen() || layoutPicker_.isOpen();
+           search_.isOpen();
 }
 
 void ShellApp::closeRunningGame() {
@@ -1147,7 +1146,6 @@ void ShellApp::publishSnapshot() {
     next.focusedTitle = grid.focusedTitle();
     next.section = std::string{library::key(browser_.section())};
     next.libraryMode = std::string{library::key(preferences_.values().libraryMode)};
-    next.modeChooserOpen = layoutPicker_.isOpen();
     next.searchOpen = search_.isOpen();
     next.searchText = preferences_.values().view.search;
     next.contextMenuOpen = contextMenu_.isOpen();

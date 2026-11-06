@@ -202,7 +202,6 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     text("focusedTitle", snapshot.focusedTitle);
     text("section", snapshot.section);
     text("libraryMode", snapshot.libraryMode);
-    flag("modeChooserOpen", snapshot.modeChooserOpen);
     flag("searchOpen", snapshot.searchOpen);
     text("searchText", snapshot.searchText);
     flag("contextMenuOpen", snapshot.contextMenuOpen);

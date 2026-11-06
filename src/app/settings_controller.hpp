@@ -43,6 +43,7 @@
 #include "rom_folder_settings.hpp"
 #include "save_settings.hpp"
 #include "settings/install_folders.hpp"
+#include "shelf_options.hpp"
 #include "shortcut_editor.hpp"
 #include "steam_library_settings.hpp"
 #include "ui/row_widgets.hpp"
@@ -63,8 +64,6 @@ class SettingsController final : public ui::RowActions {
         std::function<void()> reshow;
         /// Reads the stores again.
         std::function<void()> reloadCatalog;
-        /// The sources the source filter cycles through.
-        std::function<std::vector<library::SourceChoice>()> sourceChoices;
         /// Where each store installs when no folder is set, as far as it is known now.
         std::function<settings::StoreFolders()> storeFolders;
         /// Tells the player something; `error` marks a refusal.
@@ -95,6 +94,7 @@ class SettingsController final : public ui::RowActions {
         OnlinePlay& online;
         SaveSettings& saves;
         ProfileSettings& profiles;
+        ShelfOptions& shelf;
         /// Which pages and rows show: those of the integrations in force.
         const IntegrationsInForce& inForce;
     };
@@ -112,8 +112,9 @@ class SettingsController final : public ui::RowActions {
           integrations_{services.integrations}, artwork_{services.artwork},
           interfaceSounds_{services.interfaceSounds}, lan_{services.lan}, online_{services.online},
           lanRoms_{services.lanRoms}, lanProfiles_{services.lanProfiles}, saves_{services.saves},
-          profiles_{services.profiles}, inForce_{services.inForce}, sounds_{sounds},
-          preferences_{preferences}, defaults_{defaults}, hooks_{std::move(hooks)} {
+          profiles_{services.profiles}, shelf_{services.shelf}, inForce_{services.inForce},
+          sounds_{sounds}, preferences_{preferences}, defaults_{defaults},
+          hooks_{std::move(hooks)} {
     }
 
     /// Opens the screen on its first category.
@@ -207,6 +208,7 @@ class SettingsController final : public ui::RowActions {
     LanProfiles& lanProfiles_;
     SaveSettings& saves_;
     ProfileSettings& profiles_;
+    ShelfOptions& shelf_;
     const IntegrationsInForce& inForce_;
     audio::SdlSoundPlayer& sounds_;
     Preferences& preferences_;

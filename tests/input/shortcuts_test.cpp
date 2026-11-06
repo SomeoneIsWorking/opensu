@@ -150,7 +150,7 @@ void remapReplacesTheFirstBinding() {
 void conflictsAreRefused() {
     Shortcuts s;
     const std::string taken = s.rebind(Action::VolumeMute, Combo{keys::E});
-    expect(taken.find("already Options") != std::string::npos, "naming who has the key");
+    expect(taken.find("already Menu") != std::string::npos, "naming who has the key");
     expect(s.primary(Action::VolumeMute) == Combo{keys::M, true, false}, "and nothing changed");
     expect(!s.rebind(Action::Quit, Combo{keys::LeftShift}).empty(), "a modifier alone is refused");
     expect(!s.rebind(Action::Quit, Combo{keys::LeftAlt}).empty(), "so is a key no cap names");

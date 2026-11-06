@@ -62,8 +62,6 @@ struct ShellSnapshot {
     std::string libraryMode{"standard"};
     /// The text in the search panel, or the search still applied.
     std::string searchText;
-    /// Whether the Library options panel is up.
-    bool modeChooserOpen{false};
     /// Whether the search panel is up.
     bool searchOpen{false};
     /// Whether a context menu is up.
@@ -75,6 +73,10 @@ struct ShellSnapshot {
     bool folderPickerOpen{false};
     /// Whether the Settings screen is waiting for a new shortcut.
     bool capturingShortcut{false};
+    /// Whether the Devices page is open.
+    bool devicesOpen{false};
+    /// Whether the Downloads page is open.
+    bool downloadsOpen{false};
     /// The mapping editor's state (`ui::MappingPage::state`), empty while it is closed.
     std::string mapping;
     /// The mapping editor's focus (`ui::MappingPage::focusName`): an item's id, or a choice's
@@ -109,11 +111,9 @@ struct ShellSnapshot {
     /// focused widget; empty while none is open.
     std::string screen;
     std::string screenFocus;
-    /// Whether the Devices page is open, and which tab it shows.
-    bool devicesOpen{false};
+    /// The tab the Devices page shows.
     std::string devicesTab;
-    /// Whether the Downloads page is open, and every download it lists, in its order.
-    bool downloadsOpen{false};
+    /// Every download the Downloads page lists, in its order.
     std::vector<DownloadLine> downloads{};
     /// The night light's temperature for now, and whether openSU shows it (its login session).
     std::size_t nightLightKelvin{0};

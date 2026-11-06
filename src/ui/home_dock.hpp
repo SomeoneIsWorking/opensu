@@ -53,7 +53,7 @@ class HomeDock final : public gpu2d::ui::Screen {
     /// Makes `section` the chosen one; `reveal` slides the bar in for a moment (iiSU
     /// `jk2.java:937`), as an L1 or R1 press does.
     void setSection(library::Section section, bool reveal);
-    /// Whether the bar stays up on Library (the picker's "Pin navigation bar" option).
+    /// Whether the bar stays up on Library (the "Pin navigation bar" row).
     void setPinLibrary(bool pinned);
     /// The highest point this frame draws the dock at, or nothing while it is not drawn.
     [[nodiscard]] std::optional<float> top() const;

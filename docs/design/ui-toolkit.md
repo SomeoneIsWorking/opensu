@@ -21,10 +21,9 @@ Evidence: every screen captured at 1280x800 with a map of how each is reached
 
 ### Behaviour the player sees
 
-- Five ways to change a choice: Settings rows (A opens the row, then Left/Right), game settings
+- Four ways to change a choice: Settings rows (A opens the row, then Left/Right), game settings
   tabs (tick Override, then A opens a list where Left/Right do nothing), layer pages (Left/Right at
-  once, the first step only pins "Core" with no visible change), the START panel (Left/Right at
-  once, A steps), the details emulator button (Left/Right cycle, A steps).
+  once, the first step only pins "Core" with no visible change), the details emulator button (Left/Right cycle, A steps).
 - Layered settings: an Override checkbox beside the value is two controls for one decision;
   unticking throws the chosen value away; "Default" never says which layer a value comes from; the
   Global tab offers "Not set, the layer below decides" with nothing below it; in game the layer

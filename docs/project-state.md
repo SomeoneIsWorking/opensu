@@ -320,7 +320,7 @@ for the console; the focused title sits right of the card (cap 25.8 dp, #4D4655 
 Carousel: focused item at 0.5 W (also the first), shared bottom edge at 918/1080, title centred at
 cap top 364/1080 (cap 12.9 dp), a marker under the focused game; the entrance fades the focused
 tile in 130 ms and its neighbours 170 ms later. Console cards sit 2 dp inside their slot, game cards
-fill it; only Standard draws the cyan-violet focus ring. START opens the options panel (`app::LayoutPicker`, a toolkit overlay; A on a layout card uses it);
+fill it; only Standard draws the cyan-violet focus ring. START opens the Guide menu, which holds the page's rows (`app::ShelfOptions`);
 the choice is saved by `settings::Store`. Home is always the grid. iiSU's placeholders (empty glass cells, four pages minimum, `ou4.q`) are
 left out everywhere (see the delta above). The ROMs category level's left inset equals Home's (8 dp
 edge inset, measured the same in both captures). Page dots and the right arrow draw in WiiSu (Paged) mode
@@ -1241,11 +1241,14 @@ tested with real processes and a fake `steam`; a real Steam launch is not yet ex
 
 Guide (a tap on the pad's Guide button, which comes out on release so Guide + A can be a chord, or
 Shift+Tab, Steam's overlay key, read by `session::GameKeys` over a game) opens one menu down the
-left edge, on the `gpu2d::ui` toolkit (`GuideMenuScreen`). Its places: Home and Library outside a
+left edge, on the `gpu2d::ui` toolkit (`GuideMenuScreen`). Its places: Home, Library and, straight over either, Search outside a
 game; Resume, Close game, Game settings, and for a game on `opensu-retro` Save state, Load state and
 Reset game over one; then Devices, Downloads, Settings and Power. Beside them stand the changes
 made in place, each of which exists only here: Volume, Mute, Brightness (where a backlight exists)
-and Interface size. Right from a place reaches Volume, where Left goes back to the places until A
+and Interface size; straight over Home or Library, then the rows that do something on that page
+(`ShelfOptions::rowsFor`: Icon size, Sort by, Show, Installed and Hidden games only, in Library
+Library layout and the pin too), each kept at once and shown on the page behind. Start opens and
+closes the menu on Home and Library. Right from a place reaches Volume, where Left goes back to the places until A
 holds the slider (then Left and Right change it, A keeps it, B puts it back); Guide + A (Ctrl+Tab on
 a keyboard) opens the same menu with Volume focused. Close game, Load state, Reset game, Restart, Shut down and Switch to
 session mode ask first through the one `confirm` dialog (its action focused, so A, A does it). Power opens a list over
@@ -1263,7 +1266,7 @@ output (the outputs, A makes one the default) and Display (output size and rate)
 brightness and the interface size point to the Guide menu.
 
 Press counts (hidden run): the volume a step up from Home: Guide + A, A, Right = 3 (or Guide,
-Right, A, Right = 4); Downloads: Guide, Down × 3, A = 5; Close game over a game: Guide, Down, A, A
+Right, A, Right = 4); Downloads: Guide, Down × 4, A = 6; Close game over a game: Guide, Down, A, A
 = 4 (it asks first, its Close focused).
 
 A hidden run reads Bluetooth and the backlight and changes nothing, never runs a power command,
@@ -2081,7 +2084,7 @@ the 52 dp buttons) are in the display's dp (`fingerDp`), never smaller than the 
 Shown on the AVD (`codex_shared_api35`, x86_64) at 1080x1920 (420 dpi) and 1600x1920 (320 dpi)
 with real `adb shell input` taps, swipes and key events: the top-bar Menu button opening the Guide
 menu and Settings, its Back button and Android's Back closing a page or the menu, the corner
-prompts (Select opening a console, Menu the Library options, Options a tile's menu, Back), every
+prompts (Select opening a console, Menu the Guide menu, Options a tile's menu, Back), every
 hint bar's buttons, a slider dragged, a choice's arrow and a toggle tapped, a list dragged,
 a breadcrumb tapped, a long press opening a game's menu, Details from it, a scrim tap closing a
 dialog, the folder picker through Android's own, the dock tapped and a hidden dock shown by a

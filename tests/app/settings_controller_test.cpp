@@ -139,6 +139,16 @@ struct Rig {
                          [this] {
                              ++chordChanges;
                          }},
+          shelf{preferences,
+                {[this] {
+                     ++applied;
+                 },
+                 [] {
+                 },
+                 [] {
+                     return std::vector<library::SourceChoice>{{"", "All sources"},
+                                                               {"launcher:epic", "Epic"}};
+                 }}},
           controller{screens.navigator,
                      chrome,
                      app::SettingsController::Services{paths,
@@ -161,6 +171,7 @@ struct Rig {
                                                        online,
                                                        saveSettings,
                                                        profileSettings,
+                                                       shelf,
                                                        inForce},
                      sounds,
                      preferences,
@@ -174,11 +185,6 @@ struct Rig {
                           },
                       .reloadCatalog =
                           [] {
-                          },
-                      .sourceChoices =
-                          [] {
-                              return std::vector<library::SourceChoice>{{"", "All sources"},
-                                                                        {"launcher:epic", "Epic"}};
                           },
                       .storeFolders =
                           [this] {
@@ -578,6 +584,7 @@ struct Rig {
                                                         [] {
                                                             return false;
                                                         }}};
+    app::ShelfOptions shelf;
     app::SettingsController controller;
     bool steamReady{false};
     int applied{0};
@@ -1103,7 +1110,7 @@ void shortcutsAreRemappedAndKept(const fs::path& root) {
     const input::Combo taken = need(input::comboNamed("e"), "a key name");
     rig.shortcutEditor.captureKey(taken);
     expect(rig.shortcutEditor.capturing() && rig.said.back().error &&
-               rig.said.back().text.find("already Options") != std::string::npos,
+               rig.said.back().text.find("already Menu") != std::string::npos,
            "a key another action has is refused and the editor keeps listening");
     expect(rig.shortcuts.primary(input::Action::Quit) == input::comboNamed("q"), "nothing changed");
 

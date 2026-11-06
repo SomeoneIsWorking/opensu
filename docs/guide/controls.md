@@ -15,10 +15,10 @@ everywhere, and on Android touch: a click or tap focuses and presses.
 | Y | Y | Details page |
 | X | F | Refresh the library |
 | Select | Tab, Menu key, Shift+F10, right click | The focused tile's menu |
-| Start | E | Menu: Library's layout (Standard, XMB or Carousel), icon size and sort |
+| Start | E | The Guide menu on Home and Library, for pads and tablets with no usable Guide button |
 | LB / RB | `[` / `]` (R for next) | Previous / next section: Home, Library |
 | | `/`, Ctrl+F | Search across every store |
-| Guide | Shift+Tab | The Guide menu: Home, Library, Devices, Downloads, Settings, Power |
+| Guide | Shift+Tab | The Guide menu: Home, Library, Search, Devices, Downloads, Settings, Power, and beside them the rows for the page you are on |
 | Guide + A | Ctrl+Tab | Quick menu (the Guide menu on Volume, Mute, Brightness, Interface size and Profile), over a game too |
 | Guide + Up / Down / Left | Ctrl+Up / Ctrl+Down / Ctrl+M | Volume up / down / mute |
 | | Q | Quit openSU |
@@ -48,9 +48,9 @@ add tiles (Add a game, Add a ROM folder, Set up <integration>), All games and on
   on the LAN) or a console you took off. **Remove from Home** takes it off again, an installed game
   or a console too; its place in Library stays. A console opens its ROMs from Home as it does in
   Library. Both are in the tile's menu (Select or a right click) and on a game's details page.
-- Consoles come first, in Library's order, then the games in the sort the Start menu picks
+- Consoles come first, in Library's order, then the games in the sort the Guide menu picks
   (Recently played by default: installed first, then the latest played, then by name).
-- A hidden game stays off Home whatever you chose; the Start menu's filters narrow Home too.
+- A hidden game stays off Home whatever you chose; the Guide menu's filters narrow Home too.
 - An installed game or a console you never took off stays on Home, and a game you install later or
   a console whose first ROM you add joins it unless you took it off before.
 - Settings › Library says what Home shows. The choices are kept in `settings.json` (`home`).
@@ -58,6 +58,14 @@ add tiles (Add a game, Add a ROM folder, Set up <integration>), All games and on
 Settings › Controls › Shortcuts sets the key for every action (and the pad chord for those that
 take one); Restore default shortcuts puts them back. Its Keyboard row picks the on-screen keyboard
 the text fields open.
+
+## The Guide menu on Home and Library
+
+Guide or Start opens the menu; Start closes it again. Over Home and Library it holds Search among
+the places, and under Volume and the rest the rows that do something on that page: Icon size, Sort
+by, Show, Installed games only and Hidden games only, and in Library also Library layout and Pin
+navigation bar. A change is kept at once and shows on the page behind. Hidden games only lasts
+until openSU closes. Over a game or another screen these rows are not there.
 
 ## Over a game
 

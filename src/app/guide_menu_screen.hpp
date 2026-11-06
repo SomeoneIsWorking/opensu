@@ -1,7 +1,7 @@
 // guide_menu_screen — the Guide menu on the interface toolkit: a panel down the left edge over the
 // dimmed home screen or game, its places in a column and the changes made in place on a card
-// beside them, so Right from any place reaches Volume. Power, Invite to play and Players each
-// open a list over the menu.
+// beside them, scrolling when taller than the window, so Right from any place reaches Volume.
+// Power, Invite to play and Players each open a list over the menu.
 #pragma once
 
 #include <functional>
