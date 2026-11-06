@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "hosted_runner_window.hpp"
 #include "lucent/log.h"
 #include "sdl_runner_window.hpp"
 
@@ -61,15 +62,19 @@ Presenter::~Presenter() {
 }
 
 void Presenter::open() {
-    window_ = std::make_unique<SdlRunnerWindow>(SdlRunnerWindow::Options{
-        .hidden = options_.hidden,
-        .fullscreen = options_.fullscreen,
-        .width = options_.width,
-        .height = options_.height,
-    });
-    instance_ = std::make_unique<VulkanInstance>(
-        options_.hidden ? std::span<const char* const>{} : window_->surfaceExtensions(),
-        options_.validation, options_.negotiation);
+    if (options_.hosted) {
+        window_ = openHostedWindow();
+    } else {
+        window_ = std::make_unique<SdlRunnerWindow>(SdlRunnerWindow::Options{
+            .hidden = options_.hidden,
+            .fullscreen = options_.fullscreen,
+            .width = options_.width,
+            .height = options_.height,
+        });
+    }
+    instance_ = std::make_unique<VulkanInstance>(options_.hidden ? std::span<const char* const>{}
+                                                                 : window_->surfaceExtensions(),
+                                                 options_.validation, options_.negotiation);
     if (!options_.hidden) {
         surface_ = window_->openSurface(instance_->handle());
     }
@@ -175,8 +180,13 @@ VkFramebuffer Presenter::makeFramebuffer(VkImageView view) const {
 void Presenter::createSwapchain() {
     stale_ = false;
     VkSurfaceCapabilitiesKHR capabilities;
-    check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device_->physical(), surface_, &capabilities),
-          "vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
+    const VkResult read =
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device_->physical(), surface_, &capabilities);
+    if (read == VK_ERROR_SURFACE_LOST_KHR) {
+        dropSurface();
+        return;
+    }
+    check(read, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
     VkExtent2D extent = capabilities.currentExtent;
     // A display turned from its natural orientation (Android landscape) asks for frames drawn
     // turned; they are drawn upright and the system turns them, which it reports as suboptimal.
@@ -240,6 +250,11 @@ void Presenter::createSwapchain() {
     const VkResult made = vkCreateSwapchainKHR(vk_, &create, nullptr, &replaced);
     vkDestroySwapchainKHR(vk_, swapchain_, nullptr);
     swapchain_ = VK_NULL_HANDLE;
+    // The shell can take a surface away at any moment; its next one is on the way.
+    if (made == VK_ERROR_SURFACE_LOST_KHR || made == VK_ERROR_NATIVE_WINDOW_IN_USE_KHR) {
+        dropSurface();
+        return;
+    }
     check(made, "vkCreateSwapchainKHR");
     swapchain_ = replaced;
 
@@ -291,6 +306,12 @@ bool Presenter::onScreen() const {
 }
 
 touch::WindowSurface Presenter::surface() const {
+    if (placed_) {
+        touch::WindowSurface surface = *placed_;
+        surface.width = extent_.width;
+        surface.height = extent_.height;
+        return surface;
+    }
     if (options_.hidden) {
         return touch::WindowSurface{.width = extent_.width,
                                     .height = extent_.height,
@@ -435,6 +456,7 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
     step(Stage::Record);
     if (options_.hidden) {
         drawnOffscreen_ = true;
+        shown_ = true;
         return;
     }
     VkPresentInfoKHR presentInfo{};
@@ -455,6 +477,7 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
     } else {
         check(presented, "vkQueuePresentKHR");
     }
+    shown_ = shown_ || presented == VK_SUCCESS || presented == VK_SUBOPTIMAL_KHR;
 }
 
 void Presenter::recordCapture(VkImage image) {

@@ -77,6 +77,59 @@ std::optional<touch::Finger> readFinger(const std::string& body) {
     return finger;
 }
 
+/// The body of `POST /host`: `{"covered": true}`, `{"pads": 1}`, `{"key": {"scancode": 4, "down":
+/// true}}` or `{"screen": {"safeX": 0, "safeY": 0, "safeWidth": 1280, "safeHeight": 800, "dp":
+/// 2}}`, any of them together; nothing when malformed.
+std::optional<HostInput> readHost(const std::string& body) {
+    const nlohmann::json posted = nlohmann::json::parse(body, nullptr, false);
+    if (!posted.is_object()) {
+        return std::nullopt;
+    }
+    HostInput host;
+    if (const auto covered = posted.find("covered"); covered != posted.end()) {
+        if (!covered->is_boolean()) {
+            return std::nullopt;
+        }
+        host.covered = covered->get<bool>();
+    }
+    if (const auto pads = posted.find("pads"); pads != posted.end()) {
+        if (!pads->is_number_unsigned()) {
+            return std::nullopt;
+        }
+        host.pads = pads->get<unsigned>();
+    }
+    if (const auto key = posted.find("key"); key != posted.end()) {
+        if (!key->is_object() || !key->contains("scancode") ||
+            !(*key)["scancode"].is_number_integer() || !key->contains("down") ||
+            !(*key)["down"].is_boolean()) {
+            return std::nullopt;
+        }
+        host.key = HostInput::Key{(*key)["scancode"].get<int>(), (*key)["down"].get<bool>()};
+    }
+    if (const auto screen = posted.find("screen"); screen != posted.end()) {
+        touch::WindowSurface placed;
+        const std::pair<const char*, float*> parts[] = {{"safeX", &placed.safeX},
+                                                        {"safeY", &placed.safeY},
+                                                        {"safeWidth", &placed.safeWidth},
+                                                        {"safeHeight", &placed.safeHeight},
+                                                        {"dp", &placed.dp}};
+        if (!screen->is_object()) {
+            return std::nullopt;
+        }
+        for (const auto& [name, value] : parts) {
+            if (!screen->contains(name) || !(*screen)[name].is_number()) {
+                return std::nullopt;
+            }
+            *value = (*screen)[name].get<float>();
+        }
+        if (placed.dp <= 0.0F) {
+            return std::nullopt;
+        }
+        host.screen = placed;
+    }
+    return host;
+}
+
 /// The body of `POST /input`: `{"pad": "two", "buttons": ["r2"], "left": [x, y], "right": [x, y]}`
 /// or `{"pad": "two", "leave": true}`, each part optional; nothing when malformed or naming Guide,
 /// which belongs to the shell.
@@ -187,6 +240,11 @@ void ControlServer::publish(std::uint64_t frame, bool hasState) {
     hasState_ = hasState;
 }
 
+void ControlServer::reportShown() {
+    const std::lock_guard lock{mutex_};
+    shown_ = true;
+}
+
 void ControlServer::reportResume(const ResumeReport& report) {
     const std::lock_guard lock{mutex_};
     resume_ = report;
@@ -216,6 +274,11 @@ void ControlServer::serve(const std::function<ControlAnswer(const ControlRequest
 std::vector<touch::Finger> ControlServer::takeFingers() {
     const std::lock_guard lock{mutex_};
     return std::exchange(fingers_, {});
+}
+
+std::vector<HostInput> ControlServer::takeHost() {
+    const std::lock_guard lock{mutex_};
+    return std::exchange(host_, {});
 }
 
 void ControlServer::publishTouch(std::string places) {
@@ -278,8 +341,11 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
             return text(405, "Method Not Allowed", "GET only");
         }
         const std::lock_guard lock{mutex_};
-        nlohmann::json status{
-            {"core", core_}, {"rom", rom_}, {"frame", frame_}, {"hasState", hasState_}};
+        nlohmann::json status{{"core", core_},
+                              {"rom", rom_},
+                              {"frame", frame_},
+                              {"shown", shown_},
+                              {"hasState", hasState_}};
         if (resume_.from) {
             status["resumedFrom"] =
                 std::chrono::duration_cast<std::chrono::seconds>(resume_.from->time_since_epoch())
@@ -320,6 +386,19 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
         const std::lock_guard lock{mutex_};
         fingers_.push_back(*finger);
         return text(200, "OK", "queued");
+    }
+    if (path == "/host") {
+        if (request.method != "POST") {
+            return text(405, "Method Not Allowed", "POST only");
+        }
+        std::optional<HostInput> host = readHost(request.body);
+        if (!host) {
+            return text(400, "Bad Request",
+                        R"(expected {"covered": bool, "pads": n, "key": {...}, "screen": {...}})");
+        }
+        const std::lock_guard lock{mutex_};
+        host_.push_back(std::move(*host));
+        return text(200, "OK", "taken");
     }
     if (path == "/frame.png") {
         if (request.method != "GET") {

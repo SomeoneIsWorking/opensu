@@ -73,6 +73,24 @@ struct ControlInput {
     bool leave{false};
 };
 
+/// What `POST /host` says, a hosted game's window being the shell's: each part only when it
+/// changed.
+struct HostInput {
+    struct Key {
+        /// An SDL_Scancode.
+        int scancode{0};
+        bool down{false};
+    };
+
+    /// A menu of the shell's is over the game, or no longer.
+    std::optional<bool> covered;
+    /// How many pads the shell hears.
+    std::optional<unsigned> pads;
+    /// The screen the game is on: its safe area and pixels per dp.
+    std::optional<touch::WindowSurface> screen;
+    std::optional<Key> key;
+};
+
 class ControlServer {
   public:
     /// How long a request waits for the frame loop to take it before it is answered 503.
@@ -97,6 +115,8 @@ class ControlServer {
 
     /// What /status reports from now on. Frame loop only.
     void publish(std::uint64_t frame, bool hasState);
+    /// A frame reached the target, which /status reports from now on.
+    void reportShown();
     /// How the game's start went with its resume state, which /status reports from now on.
     void reportResume(const ResumeReport& report);
 
@@ -107,6 +127,8 @@ class ControlServer {
     [[nodiscard]] std::vector<ControlInput> takeInput();
     /// The fingers posted since the last call, if any. Frame loop only.
     [[nodiscard]] std::vector<touch::Finger> takeFingers();
+    /// What the shell said of a hosted game's window since the last call. Frame loop only.
+    [[nodiscard]] std::vector<HostInput> takeHost();
     /// What `GET /touch` answers from now on: where the touch controls are, as JSON.
     void publishTouch(std::string places);
 
@@ -140,6 +162,8 @@ class ControlServer {
     bool announced_{false};
     std::vector<ControlInput> input_;
     std::vector<touch::Finger> fingers_;
+    std::vector<HostInput> host_;
+    bool shown_{false};
     std::string touchPlaces_{"[]"};
     /// Last, so its handler threads stop before the members they use go.
     lucent::http::Server server_;

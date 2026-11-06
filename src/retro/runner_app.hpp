@@ -62,6 +62,9 @@ struct RunnerOptions {
     std::filesystem::path touchArt;
     /// Hidden only: the touch controls at this many pixels per dp, for tools.
     std::optional<float> touchDp;
+    /// Drawn in the shell's window: its surface where it can be, and the shell's input and
+    /// menu in place of pads and a window of its own.
+    bool embedded{false};
     /// An arcade game, with what its set's listing says of its controls.
     std::optional<CabinetListing> arcade;
 };

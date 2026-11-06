@@ -3,8 +3,8 @@
 //
 //   opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--settings <file>]
 //                [--option <key>=<value>]... [--players N] [--netplay <file>]
-//                [--arcade <buttons>:<ways>] [--hidden] [--touch <dp>] [--validate] [--frames N]
-//                [--frame-png <file>] <rom>
+//                [--arcade <buttons>:<ways>] [--hidden] [--embedded] [--touch <dp>] [--validate]
+//                [--frames N] [--frame-png <file>] <rom>
 //
 // Exit status: 0 on quit, 1 for a bad command line or a window, Vulkan or frame-file failure, 2
 // when the core, the game or its save cannot be loaded, 3 when --validate saw Vulkan validation
@@ -27,6 +27,7 @@
 #include "lucent/log.h"
 #include "lucent/text.h"
 
+#include "retro/embedded.hpp"
 #include "retro/joypad.hpp"
 #include "retro/runner_app.hpp"
 #include "retro/save_paths.hpp"
@@ -66,6 +67,8 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
         };
         if (arg == "--hidden") {
             options.hidden = true;
+        } else if (arg == opensu::retro::embeddedArgument) {
+            options.embedded = true;
         } else if (arg == "--validate") {
             options.validation = true;
         } else if (arg == "--core" || arg == "--saves" || arg == "--system" ||

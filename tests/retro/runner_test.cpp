@@ -322,6 +322,41 @@ void touchReachesCore(const Paths& paths) {
     expect((held & (1U << RETRO_DEVICE_ID_JOYPAD_B)) != 0, "a button held with it does too");
 }
 
+/// A game in the shell's window: it reports its first frame and hears what it cannot see from
+/// `/host`, the way `RunnerRelay` tells it.
+void embeddedFollowsTheShell(const Paths& paths) {
+    constexpr int scancodeX = 27;
+    const std::filesystem::path control = paths.root / "run" / "embedded.json";
+    const std::filesystem::path saves = paths.root / "embedded-saves";
+    const pid_t child = spawn({paths.runner, "--core", paths.core, "--saves", saves.string(),
+                               "--hidden", "--embedded", "--touch", "1", "--arcade", "3:8",
+                               "--frames", "100000", paths.rom.string()},
+                              control);
+    const std::uint16_t port = awaitPort(control, child);
+    awaitFrame(port, 5);
+    expect(status(port)["shown"] == true, "the first frame is reported shown");
+    expect(post(port, "/host", R"({"covered": "yes"})").status == 400, "a bad /host is refused");
+    expect(post(port, "/host", R"({"pads": 0})").status == 200, "the pads are taken");
+    expect(post(port, "/host", R"({"covered": false})").status == 200, "in front is taken");
+    awaitFrame(port, status(port)["frame"].get<std::uint64_t>() + 5);
+    const double before = touchControl(port, "a")["x"].get<double>();
+    const std::string screen =
+        R"({"screen": {"safeX": 0, "safeY": 0, "safeWidth": 1280, "safeHeight": 720, "dp": 2}})";
+    expect(post(port, "/host", screen.c_str()).status == 200, "the screen is taken");
+    const std::string key =
+        nlohmann::json{{"key", {{"scancode", scancodeX}, {"down", true}}}}.dump();
+    expect(post(port, "/host", key.c_str()).status == 200, "a key is taken");
+    awaitFrame(port, status(port)["frame"].get<std::uint64_t>() + 10);
+    expect(touchControl(port, "a")["x"].get<double>() != before, "the screen lays the panel out");
+    kill(child, SIGTERM);
+    expect(wait(child).exited, "the runner quits");
+    const std::string saved = read(saves / "game.srm");
+    expect(saved.size() > 5, "the save holds the held buttons");
+    const unsigned held = static_cast<unsigned char>(saved[4]) |
+                          (static_cast<unsigned>(static_cast<unsigned char>(saved[5])) << 8U);
+    expect((held & (1U << RETRO_DEVICE_ID_JOYPAD_A)) != 0, "the key reaches the core");
+}
+
 void statelessCoreRefuses(const Paths& paths, const std::string& stateless) {
     const std::filesystem::path control = paths.root / "run" / "stateless.json";
     const std::filesystem::path saves = paths.root / "stateless-saves";
@@ -457,6 +492,7 @@ int main(int argc, char** argv) try {
         resetRestarts(paths);
         holdStopsTheFrames(paths);
         touchReachesCore(paths);
+        embeddedFollowsTheShell(paths);
         statelessCoreRefuses(paths, stateless);
         loadFailureIsReported(paths);
         savesOfOtherSizes(paths);

@@ -28,15 +28,16 @@ target_link_libraries(opensu_retro
 # Where the shell cannot draw over the runner (Android), Guide and Back bring the shell's Activity
 # forward and the runner draws its own touch controls.
 if(ANDROID)
-    target_sources(opensu_retro PRIVATE shell_handoff_android.cpp)
-    target_link_libraries(opensu_retro PRIVATE opensu::android)
+    target_sources(opensu_retro PRIVATE shell_handoff_android.cpp hosted_runner_window_android.cpp)
+    target_compile_definitions(opensu_retro PRIVATE VK_USE_PLATFORM_ANDROID_KHR)
+    target_link_libraries(opensu_retro PRIVATE opensu::android android)
 else()
-    target_sources(opensu_retro PRIVATE shell_handoff_none.cpp)
+    target_sources(opensu_retro PRIVATE shell_handoff_none.cpp hosted_runner_window_none.cpp)
 endif()
 target_compile_features(opensu_retro PUBLIC cxx_std_20)
 opensu_warnings(opensu_retro)
 
-# On Android the runner is libopensu-retro.so, which the `:retro` Activity loads.
+# On Android the runner is libopensu-retro.so, which `:retro` loads, in its Activity or Service.
 if(ANDROID)
     add_library(opensu-retro SHARED main.cpp)
 else()

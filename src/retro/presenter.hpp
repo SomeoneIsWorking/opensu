@@ -27,6 +27,8 @@ struct PresenterOptions {
     /// An unmapped window and an offscreen image in place of a swapchain.
     bool hidden{false};
     bool fullscreen{false};
+    /// Draws into the surface the shell passed (`hosted_runner_window`), not a window of its own.
+    bool hosted{false};
     int width{1280};
     int height{800};
     /// Hidden only: pixels per dp, which a window on a screen is told.
@@ -78,6 +80,14 @@ class Presenter {
     void inject(const touch::Finger& finger);
     /// Android: whether the window still has a surface, which it keeps while it can be seen.
     [[nodiscard]] bool onScreen() const;
+    /// What the shell says of the screen a hosted game is on, read by `surface` from now on.
+    void place(const touch::WindowSurface& screen) noexcept {
+        placed_ = screen;
+    }
+    /// Whether a frame has reached the target.
+    [[nodiscard]] bool shown() const noexcept {
+        return shown_;
+    }
 
     /// Draws `frame`, uploading it first when `fresh`, with what a Vulkan core handed over (kept
     /// for the next frame drawn when this one is skipped), and `overlay` over it when given;
@@ -131,6 +141,8 @@ class Presenter {
 
     PresenterOptions options_;
     std::unique_ptr<RunnerWindow> window_;
+    std::optional<touch::WindowSurface> placed_;
+    bool shown_{false};
     std::unique_ptr<VulkanInstance> instance_;
     VkSurfaceKHR surface_{VK_NULL_HANDLE};
     std::unique_ptr<VulkanDevice> device_;

@@ -114,9 +114,9 @@ void holdControlPad(Joypad& joypad, const ControlInput& held) {
     }
     joypad.hold(source, held.buttons);
     joypad.sticks(source, held.sticks);
-    lucent::info("retro", "control pad holds {} buttons, left stick {},{}, right stick {},{}",
-                 held.buttons.size(), held.sticks.leftX, held.sticks.leftY, held.sticks.rightX,
-                 held.sticks.rightY);
+    lucent::debug("retro", "control pad holds {} buttons, left stick {},{}, right stick {},{}",
+                  held.buttons.size(), held.sticks.leftX, held.sticks.leftY, held.sticks.rightX,
+                  held.sticks.rightY);
 }
 
 /// The control channel when the shell asked for one and it listens; none otherwise.
@@ -216,7 +216,7 @@ RunnerExit RunnerApp::run() {
     SaveState state{saveStateFile(options_.saves, options_.rom)};
     ResumeState resume{resumeStateFile(options_.saves, options_.rom), coreName(options_.core)};
 
-    const bool handoff = shell_handoff::active() && !options_.hidden;
+    const bool handoff = options_.embedded || (shell_handoff::active() && !options_.hidden);
     if (handoff) {
         // Back asks for the shell's menu instead of closing the Activity, and the loop goes on
         // under the shell, serving its save and load requests.
@@ -228,6 +228,7 @@ RunnerExit RunnerApp::run() {
         presenter = std::make_unique<Presenter>(PresenterOptions{
             .hidden = options_.hidden,
             .fullscreen = options_.fullscreen,
+            .hosted = options_.embedded && !options_.hidden,
             .width = options_.width,
             .height = options_.height,
             .hiddenDp = options_.touchDp.value_or(1.0F),
@@ -251,7 +252,8 @@ RunnerExit RunnerApp::run() {
         netplay->attach(*core, environment);
     }
     const std::unique_ptr<AudioOutput> audio = openAudio(sink, options_.hidden);
-    const std::unique_ptr<gamepad::PadSource> pads = options_.hidden ? nullptr : openPads();
+    const std::unique_ptr<gamepad::PadSource> pads =
+        options_.hidden || options_.embedded ? nullptr : openPads();
     const std::unique_ptr<ControlServer> control = openControl(options_, *core, netplay.get());
     if (control) {
         control->reportResume(resumed);
@@ -271,8 +273,11 @@ RunnerExit RunnerApp::run() {
         touch->cabinet(*options_.arcade);
     }
     bool padConnected = pads && !pads->connected().empty();
-    /// Another Activity has the screen's input, usually the shell over the game.
-    bool covered = false;
+    /// Another Activity has the screen's input, usually the shell over the game, or the shell
+    /// says a menu of its own is up.
+    // A hosted game is covered until the shell has told it what it needs to show its panel.
+    bool covered = options_.embedded;
+    bool announcedShown = false;
     /// Out of sight: the game waits.
     bool waiting = false;
     /// Under the Guide: the core and its sound stop, the picture stays.
@@ -294,7 +299,26 @@ RunnerExit RunnerApp::run() {
             covered = !*input.focused;
             lucent::info("retro", "the game is {}", covered ? "covered" : "in front");
         }
-        if (const bool outOfSight = covered && !presenter->onScreen(); outOfSight != waiting) {
+        if (control) {
+            for (const HostInput& host : control->takeHost()) {
+                if (host.covered) {
+                    covered = *host.covered;
+                    lucent::info("retro", "the game is {}", covered ? "covered" : "in front");
+                }
+                if (host.pads) {
+                    padConnected = *host.pads > 0;
+                }
+                if (host.screen) {
+                    presenter->place(*host.screen);
+                }
+                if (host.key) {
+                    joypad.key(host.key->scancode, host.key->down);
+                }
+            }
+        }
+        // A shell in the background cannot say so, and a hosted surface going says it for it.
+        if (const bool outOfSight = (covered || options_.embedded) && !presenter->onScreen();
+            outOfSight != waiting) {
             waiting = outOfSight;
             lucent::info("retro", "the game {}", waiting ? "waits out of sight" : "goes on");
         }
@@ -325,7 +349,7 @@ RunnerExit RunnerApp::run() {
                 joypad.sticks(source, axes.sticks);
             }
         }
-        const bool touchShown = touch && !padConnected && !covered;
+        const bool touchShown = touch && !padConnected && !covered && !waiting;
         if (touch) {
             touch->sized(presenter->video().touchSize);
         }
@@ -428,6 +452,11 @@ RunnerExit RunnerApp::run() {
             lucent::error("retro", "{}", failure.what());
             exit = RunnerExit::PresenterFailed;
             break;
+        }
+        if (control && !announcedShown && presenter->shown()) {
+            announcedShown = true;
+            control->reportShown();
+            lucent::info("retro", "the first frame is on screen");
         }
         if (now >= nextSave) {
             saves.flush(core->saveRam());
