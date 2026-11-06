@@ -43,6 +43,9 @@ enum class HomeMode : std::uint8_t {
 using EmulatorCommands = std::map<std::string, std::vector<std::string>, std::less<>>;
 
 /// The whole environment, resolved once.
+/// A shell-like command's words; single or double quotes let a word hold spaces.
+[[nodiscard]] std::vector<std::string> splitWords(std::string_view text);
+
 /// `path` as the player reads it: under `home`, written from `~`.
 [[nodiscard]] std::string shownPath(const std::filesystem::path& path,
                                     const std::filesystem::path& home);

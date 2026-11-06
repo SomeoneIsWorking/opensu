@@ -51,6 +51,8 @@ struct LaunchSpec {
     std::vector<std::string> args;
     /// The folder it starts in; empty for openSU's own.
     std::filesystem::path workingDirectory{};
+    /// "NAME=value" pairs set over everything else the launch gives it.
+    std::vector<std::string> environment{};
     /// Set when the game's zip must be rebuilt first; its location in `args` gives way to the
     /// rebuilt one.
     std::optional<RomConversion> conversion{};
@@ -165,6 +167,9 @@ struct Game {
     /// The installed build is a Windows one this OS runs under Wine (`wine::prepare`); GOG, Epic
     /// and an added `.exe`. Never on Windows, which runs them itself (`windowsBuildsNative`).
     bool windowsInstall{false};
+    /// The Wine prefix another launcher keeps the game in, which it stays in; empty when openSU
+    /// picks one (`wine::prefixFor`).
+    std::filesystem::path winePrefix;
     /// A picture of the game's own that a shortcut names: a file, or a theme icon's name; empty
     /// for none, its program's own icon then standing in.
     std::filesystem::path iconSource;
@@ -177,6 +182,8 @@ struct Game {
     /// A game a games folder holds: it comes and goes with its file, so it has no entry to rename,
     /// repoint or remove.
     bool fromGameFolder{false};
+    /// A game imported from Lutris, whose config names its file: that is changed in Lutris.
+    bool fromLutris{false};
 
     int playtimeMinutes{0};
     std::optional<std::chrono::system_clock::time_point> lastPlayed;

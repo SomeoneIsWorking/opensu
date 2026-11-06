@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <sqlite3.h>
@@ -214,26 +215,57 @@ void lutrisGamesAreRead(const fs::path& dir) {
                         "(3, 'Gone', 0, '', 'wine', '', ''),"
                         "(9, 'Elden Ring', 1, 'elden', 'steam', '', ''),"
                         "(4, 'Resident Evil 4 Remake', 1, 're4', 'wine', '', ''),"
-                        "(5, 'Portal', 1, '', 'steam', 'steam', '400');",
+                        "(5, 'Portal', 1, '', 'steam', 'steam', '400'),"
+                        "(6, 'Old Wine', 1, 'pinned', 'wine', '', ''),"
+                        "(7, 'Emulated', 1, 'shad', 'linux', '', '');",
                         nullptr, nullptr, nullptr) == SQLITE_OK,
            "the fake holds games");
     sqlite3_close(database);
+    const fs::path re4Exe = dir / "Resident Evil 4/re4.exe";
+    fs::create_directories(re4Exe.parent_path());
+    std::ofstream{re4Exe} << "MZ";
+    std::ofstream{dir / "old.exe"} << "MZ";
     std::ofstream{dir / "lutris/games/re4.yml"}
-        << "game:\n  exe: /games/Resident Evil 4/re4.exe\n  prefix: /pfx\nsystem:\n  env:\n"
+        << "game:\n  args: -dx12 'two words'\n  exe: " << re4Exe.string()
+        << "\n"
+           "  prefix: /pfx\n  working_dir: /games\nsystem:\n  env:\n"
            "    GAMEID: '2050650'\nwine:\n  overrides:\n    winmm: n, b\n";
     std::ofstream{dir / "lutris/games/lies.yml"} << "system:\n  env:\n    GAMEID: umu-1627720\n";
     std::ofstream{dir / "lutris/games/elden.yml"} << "game:\n  appid: 1245620\n";
+    std::ofstream{dir / "lutris/games/pinned.yml"}
+        << "game:\n  exe: " << (dir / "old.exe").string()
+        << "\n  prefix: /pfx\nwine:\n  version: lutris-7.2\n";
+    const fs::path appImage = dir / "tool.AppImage";
+    std::ofstream{appImage} << "#!/bin/sh\n";
+    fs::permissions(appImage, fs::perms::owner_all);
+    std::ofstream{dir / "lutris/games/shad.yml"}
+        << "game:\n  args: -d\n  exe: " << appImage.string() << "\n";
     const auto before = fs::last_write_time(db);
     const std::vector<own::Entry> found = own::lutrisGames(dir / "lutris");
-    expect(found.size() == 4 && found[0].title == "Elden Ring" && found[0].originId == "9" &&
-               found[1].title == "Lies of P" && found[0].origin == own::Origin::Lutris,
+    expect(found.size() == 6 && found[0].title == "Elden Ring" && found[0].originId == "9" &&
+               found[2].title == "Lies of P" && found[0].origin == own::Origin::Lutris,
            "installed games by name");
-    expect(found[3].title == "Resident Evil 4 Remake" && found[3].steamAppId == "2050650",
+    const auto named = [&found](std::string_view title) {
+        return *std::ranges::find(found, title, &own::Entry::title);
+    };
+    const own::Entry re4 = named("Resident Evil 4 Remake");
+    expect(re4.file == re4Exe && re4.winePrefix == "/pfx" && re4.workingDirectory == "/games" &&
+               re4.args == std::vector<std::string>{"-dx12", "two words"},
+           "a game on Lutris's GE-Proton starts from its config");
+    expect(re4.environment ==
+               std::vector<std::string>{"GAMEID=2050650", "WINEDLLOVERRIDES=winmm=n,b"},
+           "its environment and DLL overrides come with it");
+    expect(named("Old Wine").file.empty(), "a game on a Wine build of its own stays with Lutris");
+    expect(named("Lies of P").file.empty(), "a game with no program stays with Lutris");
+    expect(named("Elden Ring").file.empty(), "a Steam game stays with Lutris");
+    expect(named("Emulated").file == appImage && named("Emulated").winePrefix.empty(),
+           "a Linux game starts from its config");
+    expect(re4.title == "Resident Evil 4 Remake" && re4.steamAppId == "2050650",
            "a Wine game is the Steam app umu runs it as");
-    expect(found[3].lutrisProgram == "re4.exe", "a game's program is its exe's file name");
-    expect(found[1].steamAppId == "1627720", "umu's umu- prefix is dropped");
+    expect(re4.lutrisProgram == "re4.exe", "a game's program is its exe's file name");
+    expect(named("Lies of P").steamAppId == "1627720", "umu's umu- prefix is dropped");
     expect(found[0].steamAppId == "1245620", "a Steam runner's game is its appid");
-    expect(found[2].title == "Portal" && found[2].steamAppId == "400",
+    expect(named("Portal").steamAppId == "400",
            "a game from Lutris's Steam service is its service id");
     expect(fs::last_write_time(db) == before && !fs::exists(dir / "lutris/pga.db-journal") &&
                !fs::exists(dir / "lutris/pga.db-shm"),
@@ -254,6 +286,10 @@ void lutrisGamesAreRead(const fs::path& dir) {
     expect(games.size() == 2 && games[0].artworkKey == "2050650",
            "an entry imported without its Steam app takes the one Lutris names");
     expect(games[1].artworkKey == "999", "the entry's own match wins over Lutris's");
+    expect(games[0].launch.program == re4Exe.string() && games[0].fromLutris &&
+               games[0].winePrefix == "/pfx" && games[0].launch.environment.size() == 2,
+           "a listed Lutris game takes how it starts from Lutris");
+    expect(games[1].launch.program == "lutris", "one Lutris's config cannot say stays with Lutris");
     expect(games[0].processHint == "re4.exe", "a Lutris game is watched by its program");
 }
 

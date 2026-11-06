@@ -210,6 +210,10 @@ void prefixesAreSharedUnlessOwn(const fs::path& dir) {
            "an id cannot leave the prefixes folder");
     own.set(gog.id, false);
     expect(!own.contains(gog.id), "set back to shared");
+    Game kept = windowsGame(Source::Own, "4");
+    kept.winePrefix = dir / "lutris-prefix";
+    expect(wine::prefixFor(data, kept, own) == kept.winePrefix,
+           "a game another launcher keeps in a prefix stays there");
 }
 
 void launchesGetTheRunnerAndPrefix(const fs::path& dir) {

@@ -1,6 +1,9 @@
 #include "lutris_games.hpp"
 
+#include <algorithm>
+#include <format>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -8,8 +11,10 @@
 
 #include <sqlite3.h>
 
+#include "config/config.hpp"
 #include "game.hpp"
 #include "lutris_config.hpp"
+#include "lutris_wine.hpp"
 
 namespace opensu::library::own {
 namespace {
@@ -86,6 +91,59 @@ std::string programOf(const fs::path& lutrisData, const std::string& configpath)
     return fs::path{exe}.filename().string();
 }
 
+/// The value Lutris gives Wine for a game's DLL overrides: `name=value;...`, no spaces.
+std::string dllOverrides(const fs::path& config) {
+    std::string overrides;
+    for (auto& [dll, how] : lutris::configMapping(config, {"wine", "overrides"})) {
+        std::erase(how, ' ');
+        overrides += overrides.empty() ? "" : ";";
+        overrides += dll;
+        overrides += '=';
+        overrides += how;
+    }
+    return overrides;
+}
+
+/// Fills in how Lutris starts `entry` when openSU can start it the same way: a Linux program, or
+/// a Windows `.exe` Lutris runs on the newest GE-Proton in a prefix it names. A game on a Wine
+/// build keeps it: a Proton build would upgrade that prefix under Lutris.
+void readStart(const fs::path& lutrisData, const std::string& configpath, const std::string& runner,
+               Entry& entry) {
+    if (configpath.empty()) {
+        return;
+    }
+    const fs::path config = lutris::gameConfig(lutrisData, configpath);
+    const fs::path exe = lutris::configValue(config, {"game", "exe"});
+    const std::optional<Kind> kind = kindOf(exe);
+    if (!exe.is_absolute() || !kind) {
+        return;
+    }
+    std::vector<std::string> environment;
+    for (const auto& [name, value] : lutris::configMapping(config, {"system", "env"})) {
+        environment.push_back(std::format("{}={}", name, value));
+    }
+    if (runner == "wine" && *kind == Kind::Windows) {
+        std::string version = lutris::configValue(config, {"wine", "version"});
+        if (version.empty()) {
+            version = lutris::defaultWineVersion(lutrisData);
+        }
+        const fs::path prefix = lutris::configValue(config, {"game", "prefix"});
+        if (version != lutris::geProtonLatest || !prefix.is_absolute()) {
+            return;
+        }
+        entry.winePrefix = prefix;
+        if (const std::string overrides = dllOverrides(config); !overrides.empty()) {
+            environment.push_back("WINEDLLOVERRIDES=" + overrides);
+        }
+    } else if (runner != "linux" || *kind == Kind::Windows) {
+        return;
+    }
+    entry.file = exe;
+    entry.args = config::splitWords(lutris::configValue(config, {"game", "args"}));
+    entry.workingDirectory = lutris::configValue(config, {"game", "working_dir"});
+    entry.environment = std::move(environment);
+}
+
 } // namespace
 
 std::vector<Entry> lutrisGames(const fs::path& lutrisData) {
@@ -118,6 +176,8 @@ std::vector<Entry> lutrisGames(const fs::path& lutrisData) {
         if (name.empty()) {
             continue;
         }
+        const std::string configpath = column(statement.get(), 2);
+        const std::string runner = column(statement.get(), 3);
         entries.push_back(
             Entry{.id = {},
                   .title = std::move(name),
@@ -126,10 +186,10 @@ std::vector<Entry> lutrisGames(const fs::path& lutrisData) {
                   .workingDirectory = {},
                   .origin = Origin::Lutris,
                   .originId = column(statement.get(), 0),
-                  .steamAppId =
-                      steamAppOf(lutrisData, column(statement.get(), 2), column(statement.get(), 3),
-                                 column(statement.get(), 4), column(statement.get(), 5)),
-                  .lutrisProgram = programOf(lutrisData, column(statement.get(), 2))});
+                  .steamAppId = steamAppOf(lutrisData, configpath, runner,
+                                           column(statement.get(), 4), column(statement.get(), 5)),
+                  .lutrisProgram = programOf(lutrisData, configpath)});
+        readStart(lutrisData, configpath, runner, entries.back());
     }
     return entries;
 }

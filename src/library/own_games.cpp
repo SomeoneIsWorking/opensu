@@ -97,7 +97,8 @@ void fileLaunch(const Entry& entry, Kind kind, Game& game) {
     LaunchSpec launch{.program = entry.file.string(),
                       .args = entry.args,
                       .workingDirectory = entry.workingDirectory.empty() ? entry.file.parent_path()
-                                                                         : entry.workingDirectory};
+                                                                         : entry.workingDirectory,
+                      .environment = entry.environment};
     switch (kind) {
     case Kind::Windows:
         game.windowsInstall = !windowsBuildsNative;
@@ -294,7 +295,9 @@ Game gameOf(const Entry& entry) {
     game.iconIndex = entry.iconIndex;
     game.installed = true;
     game.fromGameFolder = entry.origin == Origin::Folder;
-    if (entry.origin == Origin::Lutris) {
+    game.fromLutris = entry.origin == Origin::Lutris;
+    game.winePrefix = entry.winePrefix;
+    if (game.fromLutris && entry.file.empty()) {
         game.processHint = entry.lutrisProgram;
         game.launch =
             LaunchSpec{.program = "lutris", .args = {"lutris:rungameid/" + entry.originId}};
@@ -349,11 +352,20 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
             if (entry.origin != Origin::Lutris) {
                 continue;
             }
-            if (const auto found = known.find(entry.originId); found != known.end()) {
-                entry.lutrisProgram = found->second.lutrisProgram;
-                if (entry.steamAppId.empty()) {
-                    entry.steamAppId = found->second.steamAppId;
-                }
+            const auto found = known.find(entry.originId);
+            if (found == known.end()) {
+                entry.file.clear();
+                continue;
+            }
+            Entry& lutris = found->second;
+            entry.file = std::move(lutris.file);
+            entry.args = std::move(lutris.args);
+            entry.workingDirectory = std::move(lutris.workingDirectory);
+            entry.lutrisProgram = std::move(lutris.lutrisProgram);
+            entry.winePrefix = std::move(lutris.winePrefix);
+            entry.environment = std::move(lutris.environment);
+            if (entry.steamAppId.empty()) {
+                entry.steamAppId = std::move(lutris.steamAppId);
             }
         }
     }

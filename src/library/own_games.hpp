@@ -1,8 +1,8 @@
 // own_games — the games the player added themselves: a Linux program, a script or an AppImage, a
 // Windows `.exe` (run under Wine by `wine::prepare`, in a prefix of its own), or an entry imported
-// from Steam's non-Steam shortcuts (`steam_shortcuts`) or from Lutris (`lutris_games`), which
-// Lutris runs. openSU keeps the entries in `<data dir>/own-games.json` and never writes in the
-// game's folder; removing an entry leaves the files alone.
+// from Steam's non-Steam shortcuts (`steam_shortcuts`) or from Lutris (`lutris_games`). openSU
+// keeps the entries in `<data dir>/own-games.json` and never writes in the game's folder; removing
+// an entry leaves the files alone.
 #pragma once
 
 #include <cstdint>
@@ -22,7 +22,7 @@ enum class Origin : std::uint8_t {
     File,
     /// One of Steam's non-Steam shortcuts.
     SteamShortcut,
-    /// A Lutris game, run through Lutris.
+    /// A Lutris game, started as its Lutris config says, or by Lutris for a runner openSU lacks.
     Lutris,
     /// Found in a games folder (`folder::scan`) on this listing, and never kept in the records.
     Folder,
@@ -33,7 +33,8 @@ struct Entry {
     /// openSU's id for it, unique in the records; the game's `sourceId`.
     std::string id;
     std::string title;
-    /// The program, script, AppImage or `.exe`; empty for a Lutris game.
+    /// The program, script, AppImage or `.exe`; for a Lutris game, what its config names on this
+    /// listing, empty when Lutris starts it.
     std::filesystem::path file;
     /// What the file is started with.
     std::vector<std::string> args{};
@@ -55,6 +56,10 @@ struct Entry {
     /// The file name of the game Lutris starts, which shows it is running; read from Lutris, never
     /// saved.
     std::string lutrisProgram{};
+    /// The prefix Lutris keeps the game in; read from Lutris, never saved.
+    std::filesystem::path winePrefix{};
+    /// "NAME=value" pairs its Lutris config sets; read from Lutris, never saved.
+    std::vector<std::string> environment{};
 
     bool operator==(const Entry&) const = default;
 };
@@ -111,15 +116,15 @@ class Records {
 
 /// The game an entry stands for: `own:<id>`, always installed, its Steam app id as its
 /// `artworkKey`, its launch built from the file
-/// (a Windows one marked `windowsInstall`, prepared by `wine::prepare`), or Lutris's
-/// `lutris lutris:rungameid/<id>`, or its shortcut's `command`. A file that is gone or cannot start
-/// leaves `launch` empty and says why in `unavailable`.
+/// (a Windows one marked `windowsInstall`, prepared by `wine::prepare`), or, for a Lutris game with
+/// no file, `lutris lutris:rungameid/<id>`, or its shortcut's `command`. A file that is gone or
+/// cannot start leaves `launch` empty and says why in `unavailable`.
 [[nodiscard]] Game gameOf(const Entry& entry);
 
 /// Lists the entries and what the games folders hold as games; absent while there are none. A
-/// folder's game whose file is an entry's already is that entry. A Lutris entry with no Steam app
-/// of its own is the app Lutris knows it as (`lutrisGames`), read from `lutrisData` on each
-/// listing.
+/// folder's game whose file is an entry's already is that entry. A Lutris entry takes how it starts
+/// from `lutrisGames` on each listing, read from `lutrisData`, and, with no Steam app of its own,
+/// the app Lutris knows it as.
 class Provider final : public library::Provider {
   public:
     Provider(Records records, std::filesystem::path lutrisData,

@@ -115,7 +115,8 @@ class OwnPrefixes {
 [[nodiscard]] std::filesystem::path ownPrefix(const std::filesystem::path& dataDir,
                                               const Game& game);
 
-/// The prefix `game` runs in: its own for a game in `own` or one the player added.
+/// The prefix `game` runs in: the one another launcher keeps it in (`Game::winePrefix`), else its
+/// own for a game in `own` or one the player added.
 [[nodiscard]] std::filesystem::path prefixFor(const std::filesystem::path& dataDir,
                                               const Game& game, const OwnPrefixes& own);
 

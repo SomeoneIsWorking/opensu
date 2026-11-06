@@ -121,7 +121,7 @@ or another install or uninstall is under way, and shows on the Downloads page wh
 
 Library's Add a game tile picks a Linux program, script or AppImage, a Windows `.exe`, or a shortcut
 (`.lnk`, `.url`, `.desktop`), and identifies it (title, platform, Steam app and cover) for you to
-confirm. Steam's non-Steam shortcuts and Lutris's games are imported read-only. An added game's details
+confirm. Steam's non-Steam shortcuts and Lutris's games are imported read-only. openSU starts a Lutris game itself, in Lutris's prefix and with its environment, unless it needs a runner openSU doesn't have; those still go through Lutris. An added game's details
 page has Remove from library under More, and its Game settings page Rename and Change file. Android has no Add a game.
 
 Add a game folder, the tile beside it and in Settings › Library, keeps a folder in step with the

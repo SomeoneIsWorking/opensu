@@ -1,7 +1,8 @@
 #include "lutris_config.hpp"
 
+#include <algorithm>
 #include <fstream>
-#include <vector>
+#include <iterator>
 
 namespace opensu::library::lutris {
 namespace {
@@ -28,27 +29,17 @@ struct Open {
     std::string key;
 };
 
-/// Whether the open mappings and then `key` are `keys`.
-bool at(const std::vector<Open>& open, std::string_view key,
-        std::initializer_list<std::string_view> keys) {
-    if (open.size() + 1 != keys.size()) {
-        return false;
-    }
-    const auto* wanted = keys.begin();
-    for (const Open& mapping : open) {
-        if (mapping.key != *wanted) {
-            return false;
-        }
-        ++wanted;
-    }
-    return key == *wanted;
-}
+/// One `key: value` line and the mappings above it.
+struct Leaf {
+    std::vector<std::string> mappings;
+    std::string key;
+    std::string value;
+};
 
-} // namespace
-
-std::string configValue(const fs::path& file, std::initializer_list<std::string_view> keys) {
+std::vector<Leaf> leavesOf(const fs::path& file) {
     std::ifstream in{file};
     std::vector<Open> open;
+    std::vector<Leaf> leaves;
     for (std::string line; std::getline(in, line);) {
         const std::string_view text{line};
         const std::size_t indent = text.find_first_not_of(' ');
@@ -66,11 +57,44 @@ std::string configValue(const fs::path& file, std::initializer_list<std::string_
         const std::string_view value = trimmed(text.substr(colon + 1));
         if (value.empty()) {
             open.push_back(Open{indent, std::string{key}});
-        } else if (at(open, key, keys)) {
-            return std::string{value};
+            continue;
+        }
+        std::vector<std::string> mappings;
+        mappings.reserve(open.size());
+        for (const Open& mapping : open) {
+            mappings.push_back(mapping.key);
+        }
+        leaves.push_back(Leaf{std::move(mappings), std::string{key}, std::string{value}});
+    }
+    return leaves;
+}
+
+/// Whether `mappings` are the first `count` of `keys` and nothing more.
+bool under(const std::vector<std::string>& mappings, std::size_t count,
+           std::initializer_list<std::string_view> keys) {
+    return mappings.size() == count && std::equal(mappings.begin(), mappings.end(), keys.begin());
+}
+
+} // namespace
+
+std::string configValue(const fs::path& file, std::initializer_list<std::string_view> keys) {
+    for (Leaf& leaf : leavesOf(file)) {
+        if (under(leaf.mappings, keys.size() - 1, keys) && leaf.key == *std::prev(keys.end())) {
+            return std::move(leaf.value);
         }
     }
     return {};
+}
+
+std::vector<std::pair<std::string, std::string>>
+configMapping(const fs::path& file, std::initializer_list<std::string_view> keys) {
+    std::vector<std::pair<std::string, std::string>> found;
+    for (Leaf& leaf : leavesOf(file)) {
+        if (under(leaf.mappings, keys.size(), keys)) {
+            found.emplace_back(std::move(leaf.key), std::move(leaf.value));
+        }
+    }
+    return found;
 }
 
 fs::path gameConfig(const fs::path& lutrisData, std::string_view configpath) {

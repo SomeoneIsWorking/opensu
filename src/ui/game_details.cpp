@@ -317,7 +317,7 @@ std::vector<SettingsRow> settingsPageRows(const std::vector<PageCopy>& page) {
     }
     if (ownedOutright(game)) {
         rows.push_back(action(copyRowId(game.id, detailsRenameId), "Rename"));
-        if (!game.file.empty()) {
+        if (!game.file.empty() && !game.fromLutris) {
             rows.push_back(action(copyRowId(game.id, detailsChangeFileId), "Change file"));
         }
     }

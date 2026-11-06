@@ -97,32 +97,6 @@ std::vector<std::filesystem::path> splitPaths(std::string_view raw) {
     return out;
 }
 
-/// Splits a shell-like command into words, honouring double quotes so an
-/// argument can contain spaces.
-std::vector<std::string> splitWords(std::string_view text) {
-    std::vector<std::string> out;
-    std::string current;
-    bool inQuotes = false;
-    for (const char c : text) {
-        if (c == '"') {
-            inQuotes = !inQuotes;
-            continue;
-        }
-        if (!inQuotes && (c == ' ' || c == '\t')) {
-            if (!current.empty()) {
-                out.push_back(current);
-                current.clear();
-            }
-            continue;
-        }
-        current.push_back(c);
-    }
-    if (!current.empty()) {
-        out.push_back(current);
-    }
-    return out;
-}
-
 /// Reads "SYSTEM=program arg;SYSTEM2=program". Splitting on '=' and then on
 /// whitespace keeps a command's own arguments unambiguous. A system name is
 /// upper-cased, because a ROM's system is matched that way.
@@ -306,6 +280,38 @@ Config read() {
     value.sessionRootStandIn = std::filesystem::path{env("OPENSU_SESSION_ROOT")};
     value.polkitHelperStandIn = std::filesystem::path{env("OPENSU_POLKIT_HELPER")};
     return value;
+}
+
+std::vector<std::string> splitWords(std::string_view text) {
+    std::vector<std::string> out;
+    std::string current;
+    char quote = '\0';
+    for (const char c : text) {
+        if (quote != '\0') {
+            if (c == quote) {
+                quote = '\0';
+            } else {
+                current.push_back(c);
+            }
+            continue;
+        }
+        if (c == '"' || c == '\'') {
+            quote = c;
+            continue;
+        }
+        if (c == ' ' || c == '\t') {
+            if (!current.empty()) {
+                out.push_back(current);
+                current.clear();
+            }
+            continue;
+        }
+        current.push_back(c);
+    }
+    if (!current.empty()) {
+        out.push_back(current);
+    }
+    return out;
 }
 
 std::string shownPath(const std::filesystem::path& path, const std::filesystem::path& home) {

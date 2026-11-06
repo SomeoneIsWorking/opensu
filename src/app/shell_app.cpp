@@ -872,6 +872,8 @@ bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> e
     std::vector<std::string> environment = padOwner_.hold(mappings_.forGame(game));
     environment.push_back(std::move(control));
     environment.insert(environment.end(), wine.environment.begin(), wine.environment.end());
+    environment.insert(environment.end(), started.launch.environment.begin(),
+                       started.launch.environment.end());
     environment.insert(environment.end(), std::make_move_iterator(extra.begin()),
                        std::make_move_iterator(extra.end()));
     // Before the game starts, so it reads the smaller screen as its own.

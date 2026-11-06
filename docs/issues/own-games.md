@@ -42,8 +42,12 @@ program, not the folder".
   comes. Old-style `.icns` elements (RLE) are not read, only PNG ones. A retyped title on the confirm
   card drops the store's match, so the title typed is what is looked up; a `steam_appid.txt` stays.
 - Imports, read only: Steam's `userdata/*/config/shortcuts.vdf` (binary KeyValues, `vdf/binary`),
-  and Lutris's `pga.db` opened `immutable`; a Lutris entry runs as
-  `lutris lutris:rungameid/<id>`, through Lutris's own runner and settings. A Lutris game is the
+  and Lutris's `pga.db` opened `immutable`. openSU starts a Lutris game itself when its runner is
+  `linux`, or `wine` on Lutris's `ge-proton` with an absolute `game.prefix`: `game.exe`, `args` and
+  `working_dir`, `system.env` and `wine.overrides`, read on each listing and never saved, under the
+  runner Settings › Wine resolves. Lutris's other options (its Gamescope, pre-launch scripts) are
+  not read. A game on a Wine build stays with Lutris, since a Proton build would upgrade the prefix
+  under it; so does any other runner (`lutris lutris:rungameid/<id>`). A Lutris game is the
   Steam app Lutris knows it as: its Steam service id, a Steam runner's `game.appid`, or
   `system.env.GAMEID` (`umu-<id>` or the bare id) in `games/<configpath>.yml`. An entry imported
   before that was read takes it from Lutris on each listing; a match the entry keeps wins.
@@ -102,7 +106,7 @@ grid with covers `r6-your-games.png`):
 ## Not reached
 
 - SteamGridDB art for own games: SteamGridDB is not connected on this machine.
-- Launching a Lutris entry (it would update Lutris's own database) or a Steam-shortcut entry.
+- Launching a Steam-shortcut entry.
 - Imported entries are not identified; they keep the title Steam or Lutris gives and have no cover
   until Choose artwork.
 - Epic's `.egstore` metadata is not read (it holds no title).

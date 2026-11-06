@@ -254,6 +254,9 @@ fs::path ownPrefix(const fs::path& dataDir, const Game& game) {
 }
 
 fs::path prefixFor(const fs::path& dataDir, const Game& game, const OwnPrefixes& own) {
+    if (!game.winePrefix.empty()) {
+        return game.winePrefix;
+    }
     return own.contains(game.id) || game.source == Source::Own ? ownPrefix(dataDir, game)
                                                                : sharedPrefix(dataDir);
 }
