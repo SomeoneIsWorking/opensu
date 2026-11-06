@@ -120,6 +120,11 @@ public final class ShellActivity extends LandscapeActivity {
         return launches.running();
     }
 
+    /** How the last launch ended: 128 plus the signal, or 0 for a plain end. */
+    public int launchExitStatus() {
+        return launches.exitStatus();
+    }
+
     /** Ends the last launch where it is ours to end (the runner), and returns once it is gone. */
     public void stopLaunch() {
         launches.stop();

@@ -25,6 +25,17 @@ bool launchRunning() {
     return call.takeException().empty() && running == JNI_TRUE;
 }
 
+/// How the Activity's last launch ended, as a process's exit status; 0 when it cannot be asked.
+int launchExitStatus() {
+    const ActivityCall call;
+    if (!call.ready()) {
+        return 0;
+    }
+    const jint status =
+        call.env()->CallIntMethod(call.activity(), call.method("launchExitStatus", "()I"));
+    return call.takeException().empty() ? status : 0;
+}
+
 } // namespace
 
 ProcessLauncher::ProcessLauncher() = default;
@@ -82,7 +93,7 @@ bool ProcessLauncher::running() {
         return true;
     }
     if (exitStatus_ < 0) {
-        exitStatus_ = 0;
+        exitStatus_ = launchExitStatus();
     }
     return false;
 }
@@ -97,6 +108,8 @@ void ProcessLauncher::stop() {
         return;
     }
     const bool wasRunning = launchRunning();
+    // Before the stop, whose kill would replace a crash the system has just recorded.
+    const int ended = launchExitStatus();
     const ActivityCall call;
     if (call.ready()) {
         call.env()->CallVoidMethod(call.activity(), call.method("stopLaunch", "()V"));
@@ -104,7 +117,7 @@ void ProcessLauncher::stop() {
     }
     if (exitStatus_ < 0) {
         // Ended by SIGKILL, as the scope's stop reports a killed game on Linux.
-        exitStatus_ = wasRunning ? 128 + 9 : 0;
+        exitStatus_ = ended != 0 ? ended : (wasRunning ? 128 + 9 : 0);
     }
 }
 

@@ -1,13 +1,16 @@
 package io.github.someoneisworking.opensu;
 
 import android.app.ActivityManager;
+import android.app.ApplicationExitInfo;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Process;
+import android.system.OsConstants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +23,10 @@ import java.util.List;
 final class Launches {
     static final String RUNNER_LIBRARY = "/libopensu-retro.so";
     private static final long START_MILLIS = 10_000;
+    // The system writes a process's exit record a moment after the process goes.
+    private static final long EXIT_RECORD_MILLIS = 3_000;
+    private static final int EXIT_RECORDS = 8;
+    private static final int SIGNALLED = 128;
 
     private final ShellActivity shell;
     private boolean runnerStarted;
@@ -28,6 +35,8 @@ final class Launches {
     private boolean foreignShown;
     private boolean foreignOver;
     private long startedAt;
+    private long runnerGoneAt;
+    private int runnerExit = -1;
 
     Launches(ShellActivity shell) {
         this.shell = shell;
@@ -76,6 +85,8 @@ final class Launches {
         if (program.endsWith(RUNNER_LIBRARY)) {
             runnerStarted = true;
             runnerSeen = false;
+            runnerGoneAt = 0;
+            runnerExit = -1;
         } else {
             foreign = true;
             foreignShown = false;
@@ -93,13 +104,81 @@ final class Launches {
                 return true;
             }
             // Its task stands while it forks and goes when it dies; the shell may not have looked.
-            return !runnerSeen && starting && runnerTask() != null;
+            if (!runnerSeen && starting && runnerTask() != null) {
+                return true;
+            }
+            return !exitSettled();
         }
         if (foreign && !foreignShown && !starting) {
             // The app never took the screen from the shell.
             foreignOver = true;
         }
         return foreign && !foreignOver;
+    }
+
+    /** How the last launch ended: 128 plus the signal, or 0 for a plain end or no record. */
+    synchronized int exitStatus() {
+        if (!runnerStarted) {
+            return 0;
+        }
+        return runnerExit >= 0 ? runnerExit : Math.max(recordedExit(), 0);
+    }
+
+    private boolean exitSettled() {
+        if (runnerExit >= 0) {
+            return true;
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            runnerExit = 0;
+            return true;
+        }
+        int recorded = recordedExit();
+        long now = System.currentTimeMillis();
+        if (runnerGoneAt == 0) {
+            runnerGoneAt = now;
+        }
+        if (recorded < 0 && now - runnerGoneAt < EXIT_RECORD_MILLIS) {
+            return false;
+        }
+        runnerExit = Math.max(recorded, 0);
+        return true;
+    }
+
+    /** The system's record of how the runner ended, or -1 with none yet. */
+    private int recordedExit() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            return -1;
+        }
+        ActivityManager manager = (ActivityManager) shell.getSystemService(Context.ACTIVITY_SERVICE);
+        String name = shell.getPackageName() + RetroActivity.PROCESS_SUFFIX;
+        List<ApplicationExitInfo> records =
+                manager.getHistoricalProcessExitReasons(shell.getPackageName(), 0, EXIT_RECORDS);
+        for (ApplicationExitInfo record : records) {
+            if (name.equals(record.getProcessName()) && record.getTimestamp() >= startedAt) {
+                return statusOf(record);
+            }
+        }
+        return -1;
+    }
+
+    private static int statusOf(ApplicationExitInfo record) {
+        switch (record.getReason()) {
+            case ApplicationExitInfo.REASON_CRASH:
+            case ApplicationExitInfo.REASON_CRASH_NATIVE:
+            case ApplicationExitInfo.REASON_ANR:
+                return SIGNALLED + crashSignal(record.getStatus());
+            case ApplicationExitInfo.REASON_SIGNALED:
+                return SIGNALLED + record.getStatus();
+            default:
+                return 0;
+        }
+    }
+
+    // The system kills a crashed process itself, and a Java crash has no signal of its own.
+    private static int crashSignal(int status) {
+        boolean ownSignal = status > 0 && status != OsConstants.SIGKILL
+                && status != OsConstants.SIGTERM;
+        return ownSignal ? status : OsConstants.SIGABRT;
     }
 
     /** Brings the runner back to the front, right over the shell; false when there is none. */
