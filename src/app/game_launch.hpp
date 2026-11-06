@@ -6,6 +6,8 @@
 // the thread uses must outlive it.
 #pragma once
 
+#include <filesystem>
+#include <functional>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -21,6 +23,10 @@ namespace opensu::app {
 
 class GameLaunch {
   public:
+    /// Turns a conversion into the zip to start, on the launch's thread; nothing, with `error`.
+    using Convert = std::function<std::optional<std::filesystem::path>(
+        const library::RomConversion& conversion, std::string& error)>;
+
     GameLaunch(launch::Handoff& handoff, LaunchMailbox& mailbox, RetroSession& retro) noexcept
         : handoff_{handoff}, mailbox_{mailbox}, retro_{retro} {
     }
@@ -30,8 +36,9 @@ class GameLaunch {
     ~GameLaunch();
 
     /// Starts `game` with each "NAME=value" of `environment` added to its environment; false when
-    /// a game is already launching or running. Main loop only.
-    bool start(library::Game game, std::vector<std::string> environment);
+    /// a game is already launching or running. `convert` serves a game whose launch has a
+    /// conversion. Main loop only.
+    bool start(library::Game game, std::vector<std::string> environment, Convert convert = {});
     /// Whether a game is launching or running. Any thread.
     [[nodiscard]] bool running() const;
     /// Whether `game` is the one launching or running.

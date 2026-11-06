@@ -157,6 +157,8 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/library/romset_dats.*` | The arcade cores' listings fetched over HTTPS from the catalog's `"romsets"` and kept under `<cache>/romsets/` for 30 days |
 | `src/library/romset_lists.*` | Those fetches off the library scan, one at a time on a thread, each one's state (bytes, done, failed and when it is tried again) for the Downloads page |
 | `src/library/romset_match.*` | An arcade zip's central directory, read through the `RomTree` that listed it, against each listing, the verdicts kept by file stamps, the game's emulator picked by them, a picked folder's parent and BIOS zips added to the launch |
+| `src/library/romset_conversions.*` | Recipes, aliases and CPS2 keys from `assets/`, and the plan that turns held zips into a listing's set. |
+| `src/library/romset_convert.*` | That plan built at launch into a cached zip, checked by CRC-32. |
 | `src/library/emulator_choice.*` | The `emulator` key at the Game and System layers: game pick, romset, system pick, search; the layer keys a game reads its settings through |
 | `assets/emulators.json`, `src/library/emulator_catalog.*` | A built-in emulator is an entry with `"core": "<name>_libretro"` and no launchers or release; `"coreOptions"` the core options it starts with (a GPU core's Vulkan renderer) |
 | `src/library/emulators.*` | A built-in emulator is installed when its core is found and `opensu-retro` is beside `opensu` (`config::retroRunnerBeside`); it starts as `opensu-retro --core <core> [--option <key>=<value>]... <rom>`, with `--hidden` from a hidden shell |
@@ -577,6 +579,27 @@ verdict names the zips it held; in a picked folder `addBesideZips` adds each to 
 matching core as `--beside <uri>`, and `RetroActivity` copies it beside the game and takes the
 argument out, for cores open them by path. Disks are not copied.
 
+**Rebuilt romsets.** A set no plain match gives a core may still convert: `convertSet` looks its
+name up through `RomsetConversions::aliasesOf` and asks `plan` for each ROM the listing wants, by
+CRC-32 from the zips held, else by a recipe keyed on the target's CRC-32, else a CPS2 `.key` from
+`assets/cps2_keys.json`. A complete plan is `RomsetFit::Converts`, which starts a game as a match
+does and reads "through conversion". Both rank alike, in catalog order, so a stock core that gives
+real button names comes before MAME 2010. The launch carries a
+`RomConversion` (target, source zips, stamp). `GameLaunch` builds it on its own thread in the shell,
+which can read Android documents, and replaces the zip in the arguments. The rebuilt zip is complete,
+so no `--beside` is added and `GameStaging` passes its path through. `RomsetConverter` writes
+`<target>.part`, checks every ROM's CRC-32 against the listing and renames it; bytes unlike the
+listing fail the launch. A recipe never forges a CRC: FinalBurn Neo finds ROMs by CRC-32 and size,
+treats a wrong one as missing, and fails a zip whose directory lies. The zip must take the driver's
+name, and its folder must not be named after a FinalBurn subsystem (`nes`, `gba`, ...), so it sits
+under the stamp.
+
+`tools/romset_conversions.py` generates the recipes without ROM data: mirrors, joins, splits and pads
+are proven by CRC arithmetic from the listings alone. Interleaves cannot be, so the CPS3 ones were
+proven on real bytes. FB Alpha 2012's key table names sets differently from FinalBurn Neo (`19xx`
+there is `19xxu`), so keys go by the `.key`'s CRC. Removing `assets/cps2_keys.json` only stops keys
+being written.
+
 **Rotation.** `SET_ROTATION` is honoured for a software core: `VideoFrame::take` turns the pixels, so
 everything after it sees an upright frame. A core's aspect is the displayed one and is not inverted.
 FB Alpha 2012, FinalBurn Neo, MAME 2003-Plus, MAME 2010 and MAME all give it that way. With a
@@ -643,4 +666,7 @@ been asked, which a resume in a fresh run would otherwise hit.
   kept verdicts and what invalidates them, the pick and the no-match text; and `RomsetLists`
   against a loopback host: two files' bytes counted together, a release zip, a 404 with its retry
   time, and a scan that gets `Pending` from a listing held back by the host instead of waiting.
+- `romset_convert_test` builds an old zip with `zip::Writer` and converts it against a written
+  listing: alias, held file, halved mirror, interleaved lanes, the key, the kept zip, a lacking
+  recipe, bytes unlike the listing refused, and the converting core picked.
 - A real core and ROM are checked by hand on this machine, never in CI (no ROMs in CI).

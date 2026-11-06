@@ -1,4 +1,4 @@
-add_library(opensu_zip STATIC zip_archive.cpp)
+add_library(opensu_zip STATIC zip_archive.cpp zip_writer.cpp)
 add_library(opensu::zip ALIAS opensu_zip)
 target_include_directories(opensu_zip PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_zip PRIVATE ZLIB::ZLIB)

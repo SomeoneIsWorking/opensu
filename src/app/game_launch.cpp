@@ -1,5 +1,6 @@
 #include "game_launch.hpp"
 
+#include <algorithm>
 #include <functional>
 #include <optional>
 #include <utility>
@@ -26,7 +27,7 @@ bool GameLaunch::runs(const library::Game& game) const {
     return running_ && game_.id == game.id;
 }
 
-bool GameLaunch::start(library::Game game, std::vector<std::string> environment) {
+bool GameLaunch::start(library::Game game, std::vector<std::string> environment, Convert convert) {
     {
         const std::lock_guard lock{mutex_};
         if (running_) {
@@ -41,7 +42,8 @@ bool GameLaunch::start(library::Game game, std::vector<std::string> environment)
         thread_.join();
     }
     // The thread owns a copy because it outlives this call.
-    thread_ = std::jthread{[this, copy = std::move(game), environment = std::move(environment)] {
+    thread_ = std::jthread{[this, copy = std::move(game), environment = std::move(environment),
+                            convert = std::move(convert)]() mutable {
         std::string failure;
         std::optional<int> exitStatus;
         // The window belongs to the loop's thread, so the handoff thread only raises flags and the
@@ -70,7 +72,20 @@ bool GameLaunch::start(library::Game game, std::vector<std::string> environment)
                                                    exitStatus = status;
                                                },
                                            .shown = std::move(shown)};
-        handoff_.start(copy, hooks, environment, failure);
+        bool ready = true;
+        if (copy.launch.conversion) {
+            const library::RomConversion conversion = *std::exchange(copy.launch.conversion, {});
+            const std::optional<std::filesystem::path> zip =
+                convert ? convert(conversion, failure) : std::nullopt;
+            ready = zip.has_value();
+            if (ready) {
+                std::ranges::replace(copy.launch.args, conversion.zips.front().string(),
+                                     zip->string());
+            }
+        }
+        if (ready) {
+            handoff_.start(copy, hooks, environment, failure);
+        }
         bool cancelled = false;
         {
             const std::lock_guard lock{mutex_};

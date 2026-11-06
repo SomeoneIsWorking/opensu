@@ -132,9 +132,9 @@ The player's arcade folder holds armwar, avspu, mslug3, mslug5, neogeo and sfiii
 match FB Alpha 2012 and MAME 2010 member for member. FinalBurn Neo, MAME 2003-Plus and MAME want the CPS2 `.key` files (and MAME
 `qsound.zip`'s `dl-1425.bin`), avspu also the later 1 MB `avp.14m`-`avp.20m` dumps. FinalBurn Neo
 without its key loads and shows its error screen, frames counting. mslug3 and mslug5 match FinalBurn
-Neo, FB Alpha 2012, MAME 2010 and MAME. sfiii3n is the split-`simm` layout only MAME 2010's listing
-has, so it runs there; its zip is a real mismatch for the others. Proof: `scratch/legacy-arcade/` and
-`docs/project-state.md` S031.
+Neo, FB Alpha 2012, MAME 2010 and MAME. sfiii3n's files are in the layout only MAME 2010's listing
+has. All three now also run on FinalBurn Neo through a rebuild (below). Proof:
+`scratch/legacy-arcade/` and `docs/project-state.md` S031.
 
 FinalBurn's datafiles write no `biosset`: `neogeo` lists all 29 (FB Alpha) or 38 (FinalBurn Neo) BIOS
 ROMs as plain rows, so a Neo Geo game asked for every one and the player's 25-member `neogeo.zip`
@@ -166,7 +166,8 @@ MAME 2010 crashes on load on Android, on any game by the code: the buildbot's ar
 from `jni/Android.mk`, which lacks the Makefile's `-fno-delete-null-pointer-checks`, so clang drops
 the `(this)` test in `device_config::subtag` and `machine_config::detokenize` reads a null owner.
 Its catalog entry has `"notOn": {"android": ...}` as a stopgap until the buildbot's core carries the
-flag; the flag has been sent upstream. Until then sfiii3n has no core on Android.
+flag; the flag has been sent upstream. sfiii3n reaches Android through a rebuild for FinalBurn Neo
+("Older romsets rebuilt for a stock core"), not yet shown on the tablet.
 
 Not done: samples are never required; 7z sets are not matched (the arcade system lists `.zip`
 only). A romset list row has no Cancel or Retry button; a failed list is asked for again by the
@@ -177,9 +178,42 @@ has not been run: there is no vertical set here.
 
 See `integrations-opt-in.md`.
 
-## A FinalBurn Neo fork for older romsets
+## Older romsets rebuilt for a stock core
 
-Closed: not needed. The player asked for a fork so older sets would play. FB Alpha 2012 runs the
-player's armwar and avspu as they are, with no `.key` (it decrypts CPS2 from its own tables), and the
-matcher already picks a core per era: 0.78, 0.139, 0.2.97.29, current. A fork would have needed the
-player's `.key` files on top. Reopen only for a set no listed core matches.
+The player: "Make a FinalBurn core that is capable of running all ROM sets if you can". No fork:
+at launch openSU rebuilds a set that matches no listing into the zip stock FinalBurn Neo asks for
+(`library/romset_convert`), so the buildbot's core runs it.
+
+Proof, 2026-11-06, a hidden shell on the buildbot's `fbneo_libretro.so` (CRC-32 92a99e81), the
+player's zips (`scratch/finalburn-fork/p/`): the log has "armwar rebuilt", "avspu rebuilt", "sfiii3n
+rebuilt", FBNeo's "No missing files, proceeding" and its `armwar.key` and `avspu.key` by CRC. armwar
+reached its mission briefing (`armwar-play-5.png`), avspu round 1 (`avspu-play-4.png`), sfiii3n a live
+round (`sfiii3n-play-4.png`). The second sfiii3n launch logged "kept". sfiii3n's panel on the runner
+with `--touch` is `6 buttons (L Punch, M Punch, H Punch, L Kick, M Kick, H Kick)`. Not shown: any of
+this on Android, where a picked folder is read through `RomTree` and the rebuilt zip is a local path
+`GameStaging` passes through.
+
+What a rebuild does, from `assets/romset_conversions.json`, written by `tools/romset_conversions.py`:
+a zip's old name to its driver, a mirrored chip halved (`avp.14m`-`.20m` are the 1 MB dump twice),
+files joined, split or padded, CPS3's 8 MB files parted into SIMMs. `assets/cps2_keys.json` supplies a
+missing `.key`; 237 of FB Alpha's 240 key table rows rebuild their key file byte for byte, and a
+row's name cannot be trusted (`19xx` there is `19xxu` here), so keys go by the `.key`'s CRC. Each ROM
+is checked by CRC against the listing.
+
+Coverage, of each listing's sets, by listing (`scratch/finalburn-fork/coverage-conversion.txt`):
+
+| Listing | Sets | Stock FBNeo | With conversion |
+| --- | --- | --- | --- |
+| FB Alpha 0.2.97.29 | 3159 | 75.0% | 92.0% |
+| MAME 0.78 | 4720 | 35.8% | 53.8% |
+| MAME 2003-Plus | 6025 | 43.9% | 56.4% |
+| MAME 2010 (0.139) | 8829 | 42.1% | 50.7% |
+
+The rest stay out: FBNeo has no driver (13, 1138, 1559, 3667), or the data differs or is missing
+(201, 1025, 1053, 611), such as MCUs and PROMs dumped later. So MAME 2003-Plus and 2010 stay, and FB
+Alpha 2012 too: of its 253 sets out of reach, 56 run on it alone, 170 on Android with MAME 2010 hidden.
+
+A different dump of the same chip (13 to 75 sets) is left out. FinalBurn Neo counts a ROM of another
+CRC as missing, and a forged zip CRC fails at load. Its `system/fbneo/patched/` folder does take
+other CRCs honestly, but a zip left there shadows the driver's real set, and no such set is here to
+prove it.

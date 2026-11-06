@@ -1860,6 +1860,10 @@ core matches this romset") and the details page names the nearest core and the f
 system's emulator pick gives way to a matching core; a game's own pick does not. The details page's
 rows go beside the buttons when they do not fit above them.
 
+Older romsets are rebuilt at launch into the zip a stock core's listing asks for
+(`library/romset_convert`); armwar, avspu and sfiii3n run that way on the buildbot's FinalBurn Neo,
+shown on 2026-11-06 in a hidden shell, not on Android (`docs/issues/more-libretro-cores.md`).
+
 Verified (arcade, 2026-10-20, `scratch/arcade/`): unit tests (`romset_match_test`: datafile and
 `-listxml` parsing, the line format round trip, parent, renamed member, BIOS choice, device of a
 device, disk, kept verdicts invalidated by a parent zip appearing and by a new listing, the pick

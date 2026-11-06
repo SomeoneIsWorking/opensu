@@ -55,3 +55,13 @@ Not found (2026-10-13): an iiSU source release, decompile, design spec or layout
 | SDL | https://github.com/libsdl-org/SDL at tag `release-3.4.18` (`829a65d7`), forked to https://github.com/SomeoneIsWorking/SDL, branch `opensu/release-3.4.18` | the shell's window, input and GPU API | zlib | the SDL openSU built against (Fedora 44's 3.4.18, the AppImage's tarball) | the fork's `libSDL3.so.0.4.18` replaces the system's under the same soname | the library, built from the fork by `cmake/thirdparty/SDL.cmake` with SDL_ttf `release-3.2.2` and SDL_image `release-3.4.8` (Fedora 44's) built against it | 3.4.18 gives no `VkDevice`, queue or external-memory import (`SDL_GPUVulkanOptions` only opts into extensions); the fork adds `SDL_PROP_GPU_TEXTURE_CREATE_VULKAN_DMABUF_*`: one DMA-BUF plane as a sampled texture, acquired from the foreign queue family |
 | SDL PR #14157 | https://github.com/libsdl-org/SDL/pull/14157, read with `gh api` | "Support creating GPU textures shared with other APIs": texture-creation properties for a DXGI shared handle (D3D12) and a CVPixelBuffer (Metal) | zlib | SDL main, open since 2025-10, not mergeable | not applicable | the design: an import is a property of `SDL_CreateGPUTexture`, so the fork's Vulkan properties follow it | its Vulkan import is "still to implement"; issue #14077 (GPU renderer external textures) and #10876 (native handles) are open |
 | FFmpeg `hwcontext_vaapi` | the system's libavutil (Fedora `libavutil-free`) | `av_hwframe_map` of a VA surface to `AV_PIX_FMT_DRM_PRIME`: `vaExportSurfaceHandle` with separate layers, after `vaSyncSurface` | LGPL-2.1+ | linked at run time | the guest's NV12 surfaces map to two layers (R8, GR88) of one object | the call; nothing copied | the mapped frame keeps the surface out of the decoder's pool until it is freed |
+
+## Arcade romset layouts (`docs/issues/more-libretro-cores.md`, checked 2026-11-06)
+
+- FinalBurn Neo (`libretro/FBNeo`, non-commercial licence): read for its loader (`open_archive`,
+  `archive_load_rom`) and driver tables. We take facts only: names, sizes, CRC-32s. No code.
+- FB Alpha 2012 (`libretro/fbalpha2012`): its CPS2 `keys_table`, 240 rows. 237 rebuild the `.key` CRC
+  FinalBurn Neo lists, which proves the numbers and the file format. Five names moved, so we key by
+  CRC. We take the numbers into `assets/cps2_keys.json`, no code; that file is removable alone.
+- `HerbFargus/retropie-dat` (GPL-2.0), `libretro/mame2003-plus-libretro` and `libretro/mame2010-libretro`
+  listings: the old sets' names, sizes and CRC-32s, used as facts to write recipes.

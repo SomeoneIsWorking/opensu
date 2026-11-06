@@ -855,7 +855,18 @@ bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> e
                        std::make_move_iterator(extra.end()));
     // Before the game starts, so it reads the smaller screen as its own.
     presentation_.follow(gameInFront(), &started);
-    const bool running = launches_.start(std::move(started), std::move(environment));
+    GameLaunch::Convert convert;
+    if (started.launch.conversion) {
+        const library::roms::EmulatorEntry* entry = builtInOf(started, emulatorSettings_.catalog());
+        if (entry != nullptr) {
+            convert = [this, built = *entry](const library::RomConversion& conversion,
+                                             std::string& error) {
+                return romsetConverter_.build(conversion, built, error);
+            };
+        }
+    }
+    const bool running =
+        launches_.start(std::move(started), std::move(environment), std::move(convert));
     if (running) {
         playingAs_ = profile;
     }

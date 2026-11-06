@@ -107,6 +107,12 @@ opensu_warnings(core_bios_test)
 target_compile_definitions(core_bios_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME core_bios COMMAND core_bios_test)
 
+add_executable(romset_convert_test romset_convert_test.cpp)
+target_link_libraries(romset_convert_test PRIVATE opensu::library opensu::zip lucent::lucent ZLIB::ZLIB)
+opensu_warnings(romset_convert_test)
+target_compile_definitions(romset_convert_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME romset_convert COMMAND romset_convert_test)
+
 add_executable(romset_match_test romset_match_test.cpp)
 target_link_libraries(romset_match_test PRIVATE opensu::library lucent::lucent ZLIB::ZLIB)
 opensu_warnings(romset_match_test)

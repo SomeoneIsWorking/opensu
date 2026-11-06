@@ -39,9 +39,9 @@ Catalog makeCatalog(const config::Config& config, bool hidden,
         roms::EmulatorSetup::standard(config, hidden, stores.standaloneEmulators);
     roms::SwitchInfo switchInfo{roms::SwitchInfo::keyDirsOf(emulators.catalog),
                                 config.cacheDir / "artwork" / "switch"};
-    catalog.add(std::make_unique<roms::Provider>(std::move(romRoots), std::move(emulators),
-                                                 roms::NameDb::under(config.cacheDir), &romsets,
-                                                 std::move(switchInfo)));
+    catalog.add(std::make_unique<roms::Provider>(
+        std::move(romRoots), std::move(emulators), roms::NameDb::under(config.cacheDir), &romsets,
+        std::move(switchInfo), roms::RomsetConversions::shipped(config.assetsDir)));
     catalog.add(std::make_unique<own::Provider>(
         own::Records{ownGames}, lutris::dataDir(config.xdgDataHome), config.gameFolders));
     return catalog;

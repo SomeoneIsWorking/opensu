@@ -23,9 +23,14 @@
 #include "emulator_catalog.hpp"
 #include "game.hpp"
 #include "rom_tree.hpp"
+#include "romset_conversions.hpp"
 #include "romset_dat.hpp"
 #include "romset_dats.hpp"
 #include "romset_lists.hpp"
+
+namespace opensu::zip {
+struct Entry;
+}
 
 namespace opensu::library::roms {
 
@@ -35,6 +40,10 @@ struct ZipMember {
     std::uint64_t size{0};
     std::uint32_t crc32{0};
 };
+
+/// The central directory of `zip`, named `label` in `error`; nothing when it cannot be read.
+[[nodiscard]] std::optional<std::vector<zip::Entry>>
+readZipEntries(RomFile& zip, std::string_view label, std::string& error);
 
 /// The members of `zip`, read from its central directory only and named `label` in `error`.
 /// Nothing, with `error`, when it is not a zip that can be read (zip64 included).
@@ -116,12 +125,28 @@ struct RomsetVerdict {
     std::vector<std::string> zips;
     /// Whether the listing marks the set a BIOS: a parent to games, never a game.
     bool bios{false};
+    /// With `Converts`, the listing's set the zip becomes.
+    std::string target{};
 
     bool operator==(const RomsetVerdict&) const = default;
 };
 
 /// `dat`'s verdict on set `name` (lower case) given what `zips` hold.
 [[nodiscard]] RomsetVerdict matchSet(std::string_view name, const RomsetDat& dat, FolderZips& zips);
+
+/// What a set asks of its listing.
+struct SetNeeds {
+    std::vector<const DatRom*> roms;
+    /// Its chain to the BIOS, then its devices.
+    std::vector<std::string> zips;
+};
+[[nodiscard]] SetNeeds needsOf(const DatSet& set, const RomsetDat& dat);
+
+/// The verdict of zip `name` on a set of `dat` it can be rebuilt into: under its own name, else
+/// one of its aliases. Nothing when no set can be.
+[[nodiscard]] std::optional<RomsetVerdict> convertSet(std::string_view name, const RomsetDat& dat,
+                                                      const RomsetConversions& conversions,
+                                                      FolderZips& zips);
 
 /// What a mismatching verdict reads as: "has no set armwar", "lacks 2 of 16 files: a, b".
 [[nodiscard]] std::string gapOf(const RomsetVerdict& verdict, std::string_view set);
@@ -133,6 +158,11 @@ inline constexpr std::string_view besideArgument = "--beside";
 /// Gives the launch of each of `game`'s cores `verdicts` match the zips in `folder` that it
 /// leans on and no core could open by path; call before `applyRomsets`.
 void addBesideZips(Game& game, const RomFolder& folder, const std::vector<RomsetVerdict>& verdicts);
+
+/// Gives the launch of each core `verdicts` rebuild `zip` for its conversion; call before
+/// `applyRomsets`. The rebuilt zip stands alone, so it needs no `addBesideZips`.
+void addConversions(Game& game, const RomFolder& folder, const RomNode& zip,
+                    const std::vector<RomsetVerdict>& verdicts);
 
 /// Marks each of the game's emulators with its verdict and picks the emulator by them: the one
 /// the search picked when it matches, else the first matching one installed, else the first
@@ -156,8 +186,9 @@ class RomsetMatcher {
 
     /// A matcher that is nowhere: every verdict is unchecked.
     RomsetMatcher() = default;
-    /// Matches with the listings `lists` keeps, asking it for those that are due.
-    explicit RomsetMatcher(RomsetLists& lists);
+    /// Matches with the listings `lists` keeps, asking it for those that are due, and rebuilds
+    /// by `conversions`.
+    explicit RomsetMatcher(RomsetLists& lists, RomsetConversions conversions = {});
 
     /// Starts a library scan at `now`.
     void begin(Clock::time_point now);
@@ -189,6 +220,7 @@ class RomsetMatcher {
 
     RomsetLists* lists_{nullptr};
     RomsetDats dats_;
+    RomsetConversions conversions_;
     Clock::time_point now_{};
     bool keptLoaded_{false};
     bool changed_{false};

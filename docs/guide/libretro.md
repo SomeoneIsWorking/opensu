@@ -44,6 +44,12 @@ This works in a folder picked on Android too, where a game's parent and BIOS zip
 it when it starts. FB Alpha 2012 keeps no `.srm`: a game's settings and high scores are in
 `<rom>.nv` in the same folder, and it plays older sets without CPS2 `.key` files.
 
+A set made for an older emulator can run on a newer core too. When its files can be turned into what
+that core's listing asks for, the details page reads "Matches FinalBurn Neo (built-in) through
+conversion" and the first start builds a new zip under `<cache>/opensu/romsets/converted/`. That takes
+a moment once; your own zip is never changed, and the cache keeps up to 2 GiB of rebuilt zips, oldest
+dropped first. CPS2 games get their `.key` file written for them.
+
 ## BIOS
 
 Settings › Emulators › BIOS files lists what each built-in core runs on: the files it looks for,

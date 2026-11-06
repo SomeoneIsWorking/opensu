@@ -74,6 +74,7 @@
 #include "library/catalog_loader.hpp"
 #include "library/game_saves.hpp"
 #include "library/lossless_scaling.hpp"
+#include "library/romset_convert.hpp"
 #include "library/shelf.hpp"
 #include "library_additions.hpp"
 #include "mapping_editor.hpp"
@@ -888,6 +889,10 @@ class ShellApp final {
                 }}};
     /// The ROM folders as LAN import writes into them; the import's thread shares it.
     std::shared_ptr<const library::roms::RomTree> romTree_{library::roms::openRomTree()};
+    /// Rebuilds an older romset for its core when its game starts.
+    library::roms::RomsetConverter romsetConverter_{
+        resolved_.cacheDir, romTree_,
+        library::roms::RomsetConversions::shipped(environment_.assetsDir), romsetLists_.dats()};
     /// Saves shared with the share Settings › Saves names and the paired openSUs.
     SaveSharing saveSharing_{
         save_sync::SaveSync::Setup{.versionsFile = files_.saveVersionsFile(),

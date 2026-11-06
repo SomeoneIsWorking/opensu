@@ -130,9 +130,10 @@ std::vector<fs::path> discoverRoots(const fs::path& home, const std::vector<fs::
 }
 
 Provider::Provider(std::vector<fs::path> roots, EmulatorSetup emulators, NameDb names,
-                   RomsetLists* romsets, SwitchInfo switchInfo)
+                   RomsetLists* romsets, SwitchInfo switchInfo, RomsetConversions conversions)
     : roots_{std::move(roots)}, emulators_{std::move(emulators)}, names_{std::move(names)},
-      romsets_{romsets == nullptr ? RomsetMatcher{} : RomsetMatcher{*romsets}},
+      romsets_{romsets == nullptr ? RomsetMatcher{}
+                                  : RomsetMatcher{*romsets, std::move(conversions)}},
       switch_{std::move(switchInfo)} {
 }
 
@@ -153,6 +154,7 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
             return false;
         }
         addBesideZips(game, folder, verdicts);
+        addConversions(game, folder, zip, verdicts);
         applyRomsets(game, set, verdicts);
         return true;
     };

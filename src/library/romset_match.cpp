@@ -24,13 +24,15 @@ constexpr std::size_t maxTail = 22 + 65535;
 /// A central directory past this is no romset's.
 constexpr std::uint32_t maxDirectory = 16U * 1024 * 1024;
 constexpr std::size_t namedMissing = 4;
-constexpr int keptVersion = 3;
+constexpr int keptVersion = 4;
 constexpr std::string_view zipExtension = ".zip";
 
 std::string_view fitName(RomsetFit fit) {
     switch (fit) {
     case RomsetFit::Matches:
         return "matches";
+    case RomsetFit::Converts:
+        return "converts";
     case RomsetFit::Mismatch:
         return "mismatch";
     case RomsetFit::Pending:
@@ -44,6 +46,9 @@ std::string_view fitName(RomsetFit fit) {
 RomsetFit fitOf(std::string_view name) {
     if (name == "matches") {
         return RomsetFit::Matches;
+    }
+    if (name == "converts") {
+        return RomsetFit::Converts;
     }
     return name == "mismatch" ? RomsetFit::Mismatch : RomsetFit::Unchecked;
 }
@@ -93,8 +98,8 @@ void addNeeds(const DatSet& set, const RomsetDat& dat, const std::string& bios,
 
 } // namespace
 
-std::optional<std::vector<ZipMember>> readZipMembers(RomFile& zip, std::string_view label,
-                                                     std::string& error) {
+std::optional<std::vector<zip::Entry>> readZipEntries(RomFile& zip, std::string_view label,
+                                                      std::string& error) {
     const std::string name{label};
     const std::uint64_t size = zip.size();
     const std::size_t tailSize = static_cast<std::size_t>(std::min<std::uint64_t>(size, maxTail));
@@ -119,10 +124,17 @@ std::optional<std::vector<ZipMember>> readZipMembers(RomFile& zip, std::string_v
         error = name + "'s central directory cannot be read";
         return std::nullopt;
     }
-    const std::optional<std::vector<zip::Entry>> entries =
-        zip::parseDirectory(*bytes, *directory, error);
+    std::optional<std::vector<zip::Entry>> entries = zip::parseDirectory(*bytes, *directory, error);
     if (!entries) {
         error = name + ": " + error;
+    }
+    return entries;
+}
+
+std::optional<std::vector<ZipMember>> readZipMembers(RomFile& zip, std::string_view label,
+                                                     std::string& error) {
+    const std::optional<std::vector<zip::Entry>> entries = readZipEntries(zip, label, error);
+    if (!entries) {
         return std::nullopt;
     }
     std::vector<ZipMember> members;
@@ -234,9 +246,8 @@ RomsetVerdict matchSet(std::string_view name, const RomsetDat& dat, FolderZips& 
     verdict.listed = true;
     verdict.bios = set->bios;
     const std::vector<std::string> chain = dat.chainOf(set->name);
-    std::vector<const DatRom*> needs;
-    std::set<std::string, std::less<>> devices;
-    addNeeds(*set, dat, defaultBiosOf(chain, dat), needs, devices);
+    const SetNeeds setNeeds = needsOf(*set, dat);
+    const std::vector<const DatRom*>& needs = setNeeds.roms;
 
     std::set<std::pair<std::uint32_t, std::uint64_t>> held;
     const auto hold = [&](std::string_view zip) {
@@ -249,8 +260,7 @@ RomsetVerdict matchSet(std::string_view name, const RomsetDat& dat, FolderZips& 
             }
         }
     };
-    std::ranges::for_each(chain, hold);
-    std::ranges::for_each(devices, hold);
+    std::ranges::for_each(setNeeds.zips, hold);
 
     std::set<std::pair<std::uint32_t, std::uint64_t>> counted;
     bool offersChoice = false;
@@ -286,6 +296,54 @@ RomsetVerdict matchSet(std::string_view name, const RomsetDat& dat, FolderZips& 
     }
     verdict.fit = verdict.missing.empty() ? RomsetFit::Matches : RomsetFit::Mismatch;
     return verdict;
+}
+
+SetNeeds needsOf(const DatSet& set, const RomsetDat& dat) {
+    SetNeeds needs;
+    needs.zips = dat.chainOf(set.name);
+    std::set<std::string, std::less<>> devices;
+    addNeeds(set, dat, defaultBiosOf(needs.zips, dat), needs.roms, devices);
+    needs.zips.insert(needs.zips.end(), devices.begin(), devices.end());
+    return needs;
+}
+
+std::optional<RomsetVerdict> convertSet(std::string_view name, const RomsetDat& dat,
+                                        const RomsetConversions& conversions, FolderZips& zips) {
+    std::vector<std::string> targets{std::string{name}};
+    const std::vector<std::string>& aliases = conversions.aliasesOf(name);
+    targets.insert(targets.end(), aliases.begin(), aliases.end());
+    for (const std::string& target : targets) {
+        const DatSet* set = dat.find(target);
+        if (set == nullptr || set->bios || set->device || !set->disks.empty()) {
+            continue;
+        }
+        const SetNeeds needs = needsOf(*set, dat);
+        RomsetVerdict verdict;
+        verdict.listed = true;
+        verdict.target = target;
+        HeldFiles held;
+        const auto hold = [&](std::string_view zip) {
+            if (const std::vector<ZipMember>* members = zips.members(zip)) {
+                for (const ZipMember& member : *members) {
+                    held.emplace(member.crc32, member.size);
+                }
+                if (zip != name && std::ranges::find(verdict.zips, zip) == verdict.zips.end()) {
+                    verdict.zips.emplace_back(zip);
+                }
+            }
+        };
+        hold(name);
+        std::ranges::for_each(needs.zips, hold);
+        const ConversionPlan plan = conversions.plan(needs.roms, held);
+        if (!plan.missing.empty()) {
+            continue;
+        }
+        verdict.required = plan.roms.size();
+        // Only ROMs no core needs were absent, so the zip serves as it is.
+        verdict.fit = plan.builds || target != name ? RomsetFit::Converts : RomsetFit::Matches;
+        return verdict;
+    }
+    return std::nullopt;
 }
 
 std::string gapOf(const RomsetVerdict& verdict, std::string_view set) {
@@ -328,6 +386,32 @@ void addBesideZips(Game& game, const RomFolder& folder,
     }
 }
 
+void addConversions(Game& game, const RomFolder& folder, const RomNode& zip,
+                    const std::vector<RomsetVerdict>& verdicts) {
+    for (const RomsetVerdict& verdict : verdicts) {
+        const auto option =
+            std::ranges::find(game.emulatorOptions, verdict.emulatorId, &EmulatorOption::id);
+        if (option == game.emulatorOptions.end() || verdict.fit != RomsetFit::Converts) {
+            continue;
+        }
+        RomConversion conversion{verdict.target,
+                                 verdict.emulatorId,
+                                 {zip.location},
+                                 std::format("{}:{}:{}", zip.name, zip.size, zip.modified)};
+        for (const std::string& set : verdict.zips) {
+            if (const RomNode* lent = folder.find(set + std::string{zipExtension})) {
+                conversion.zips.push_back(lent->location);
+                conversion.stamp +=
+                    std::format(";{}:{}:{}", lent->name, lent->size, lent->modified);
+            }
+        }
+        option->launch.conversion = conversion;
+        if (option->name == game.emulator) {
+            game.launch.conversion = std::move(conversion);
+        }
+    }
+}
+
 void applyRomsets(Game& game, std::string_view set, const std::vector<RomsetVerdict>& verdicts) {
     if (std::ranges::all_of(verdicts, [](const RomsetVerdict& verdict) {
             return verdict.fit == RomsetFit::Unchecked;
@@ -349,9 +433,12 @@ void applyRomsets(Game& game, std::string_view set, const std::vector<RomsetVerd
             }
         }
     }
+    const auto starts = [](const EmulatorOption& option) {
+        return option.romset == RomsetFit::Matches || option.romset == RomsetFit::Converts;
+    };
     std::vector<const EmulatorOption*> matching;
     for (const EmulatorOption& option : game.emulatorOptions) {
-        if (option.romset == RomsetFit::Matches) {
+        if (starts(option)) {
             matching.push_back(&option);
         }
     }
@@ -366,10 +453,12 @@ void applyRomsets(Game& game, std::string_view set, const std::vector<RomsetVerd
         std::string names;
         for (const EmulatorOption* option : matching) {
             names += (names.empty() ? "" : ", ") + option->name;
+            if (option->romset == RomsetFit::Converts) {
+                names += " through conversion";
+            }
         }
         game.romset = "Matches " + names;
-        if (current != game.emulatorOptions.end() && current->romset == RomsetFit::Matches &&
-            current->installed) {
+        if (current != game.emulatorOptions.end() && starts(*current) && current->installed) {
             return;
         }
         const auto installed = std::ranges::find_if(matching, &EmulatorOption::installed);
@@ -402,7 +491,8 @@ void applyRomsets(Game& game, std::string_view set, const std::vector<RomsetVerd
     game.unavailable = std::string{noRomsetMatch};
 }
 
-RomsetMatcher::RomsetMatcher(RomsetLists& lists) : lists_{&lists}, dats_{lists.dats()} {
+RomsetMatcher::RomsetMatcher(RomsetLists& lists, RomsetConversions conversions)
+    : lists_{&lists}, dats_{lists.dats()}, conversions_{std::move(conversions)} {
 }
 
 fs::path RomsetMatcher::keptFile() const {
@@ -443,7 +533,7 @@ void RomsetMatcher::loadKept() {
                     verdict.at("required").get<std::size_t>(),
                     verdict.at("missing").get<std::vector<std::string>>(),
                     verdict.at("zips").get<std::vector<std::string>>(),
-                    verdict.at("bios").get<bool>()});
+                    verdict.at("bios").get<bool>(), verdict.at("target").get<std::string>()});
             }
             kept_.emplace(path, std::move(kept));
         }
@@ -478,7 +568,9 @@ const RomsetDat* RomsetMatcher::datFor(const EmulatorEntry& entry, const RomFold
     auto found = loaded_.find(entry.id);
     if (found == loaded_.end()) {
         std::string error;
-        std::optional<RomsetDat> dat = dats_.load(entry, folder.sets(), error);
+        RomsetDat::Wanted wanted = folder.sets();
+        wanted.merge(conversions_.aliasTargets(wanted));
+        std::optional<RomsetDat> dat = dats_.load(entry, wanted, error);
         if (!dat) {
             lucent::warn("roms", "{}", error);
         }
@@ -516,13 +608,20 @@ std::vector<RomsetVerdict> RomsetMatcher::check(const RomFolder& folder, const R
         RomsetVerdict verdict;
         if (const RomsetDat* dat = stamps.contains(entry->id) ? datFor(*entry, folder) : nullptr) {
             verdict = matchSet(set, *dat, zips);
+            if (verdict.fit == RomsetFit::Mismatch) {
+                if (std::optional<RomsetVerdict> converted =
+                        convertSet(set, *dat, conversions_, zips)) {
+                    verdict = *std::move(converted);
+                }
+            }
         } else if (lists_->fetching(entry->id)) {
             verdict.fit = RomsetFit::Pending;
         }
         verdict.emulatorId = entry->id;
-        lucent::info("roms", "romset {}: {} {}{}", set, entry->name, fitName(verdict.fit),
+        lucent::info("roms", "romset {}: {} {}{}{}", set, entry->name, fitName(verdict.fit),
                      verdict.fit == RomsetFit::Mismatch ? " (" + gapOf(verdict, set) + ")"
-                                                        : std::string{});
+                                                        : std::string{},
+                     verdict.target.empty() ? std::string{} : " as " + verdict.target);
         verdicts.push_back(std::move(verdict));
     }
     // A pending verdict is not kept: a fetch that fails leaves every stamp as it was.
@@ -551,7 +650,8 @@ void RomsetMatcher::save() {
                                 {"required", verdict.required},
                                 {"missing", verdict.missing},
                                 {"zips", verdict.zips},
-                                {"bios", verdict.bios}});
+                                {"bios", verdict.bios},
+                                {"target", verdict.target}});
         }
         zips[path] = {{"zip", stampJson(kept.zip)},
                       {"stamps", kept.stamps},

@@ -44,7 +44,8 @@ namespace {
 /// `--arcade`'s value for `game` on `entry`: `0:0` when its listing says nothing of the set.
 std::string arcadeControls(const library::Game& game, const library::roms::EmulatorEntry& entry,
                            const library::roms::RomsetDats& romsets) {
-    std::string set = game.file.stem().string();
+    std::string set =
+        game.launch.conversion ? game.launch.conversion->target : game.file.stem().string();
     std::ranges::transform(set, set.begin(), [](unsigned char c) {
         return static_cast<char>(std::tolower(c));
     });

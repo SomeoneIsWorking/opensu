@@ -35,11 +35,25 @@ enum class Source : std::uint8_t {
 
 /// The command that starts a game. Every source fills this in, so launching
 /// needs no knowledge of which store owns a title.
+/// A romset rebuilt for its core before the game starts (`romset_convert`).
+struct RomConversion {
+    /// The core's set it becomes.
+    std::string target;
+    std::string emulatorId;
+    /// The zips it is read from, the game's own first.
+    std::vector<std::filesystem::path> zips;
+    /// Changes when any of them does.
+    std::string stamp;
+};
+
 struct LaunchSpec {
     std::string program;
     std::vector<std::string> args;
     /// The folder it starts in; empty for openSU's own.
     std::filesystem::path workingDirectory{};
+    /// Set when the game's zip must be rebuilt first; its location in `args` gives way to the
+    /// rebuilt one.
+    std::optional<RomConversion> conversion{};
 
     [[nodiscard]] bool empty() const noexcept {
         return program.empty();
@@ -51,6 +65,8 @@ enum class RomsetFit : std::uint8_t {
     /// Not an arcade core, or its listing could not be had.
     Unchecked,
     Matches,
+    /// Its listing's set can be rebuilt from the zip (`RomConversion`).
+    Converts,
     Mismatch,
     /// Its listing is downloading.
     Pending,

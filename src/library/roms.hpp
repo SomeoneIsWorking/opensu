@@ -34,7 +34,7 @@ class Provider final : public library::Provider {
     /// Arcade romsets are matched with the listings `romsets` keeps and fetches, which outlives
     /// the provider; null matches none. Switch games are titled by `switchInfo`.
     Provider(std::vector<std::filesystem::path> roots, EmulatorSetup emulators, NameDb names,
-             RomsetLists* romsets, SwitchInfo switchInfo);
+             RomsetLists* romsets, SwitchInfo switchInfo, RomsetConversions conversions = {});
 
     [[nodiscard]] Source source() const override {
         return Source::Rom;
