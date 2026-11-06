@@ -55,12 +55,13 @@ Clock::duration frameInterval(double fps) {
 }
 
 /// Tells the shell the picture's size, or none when the core turns it, whose frames then differ.
-void reportPicture(ControlServer& control, const retro_game_geometry& geometry, unsigned turns) {
-    const float height = static_cast<float>(geometry.base_height);
-    const float own = height > 0.0F ? static_cast<float>(geometry.base_width) / height : 0.0F;
-    control.reportPicture(turns == 0 ? geometry.base_width : 0U,
-                          turns == 0 ? geometry.base_height : 0U,
-                          geometry.aspect_ratio > 0.0F ? geometry.aspect_ratio : own);
+void reportPicture(ControlServer& control, const FrameImage& frame, unsigned turns,
+                   const settings::VideoSettings& video) {
+    const float height = static_cast<float>(frame.height);
+    const float own = height > 0.0F ? static_cast<float>(frame.width) / height : 0.0F;
+    control.reportPicture(turns == 0 ? frame.width : 0U, turns == 0 ? frame.height : 0U,
+                          frame.aspect > 0.0F ? frame.aspect : own,
+                          video.sampling == settings::Sampling::Nearest);
 }
 
 float aspectOf(const retro_game_geometry& geometry) {
@@ -216,6 +217,8 @@ RunnerExit RunnerApp::run() {
     }
     retro_game_geometry geometry = core->avInfo().geometry;
     bool nativeWindow = false;
+    unsigned fittedWidth = 0;
+    unsigned fittedHeight = 0;
     Clock::duration interval = frameInterval(core->avInfo().timing.fps);
     sink.setCoreRate(core->avInfo().timing.sample_rate);
 
@@ -441,16 +444,6 @@ RunnerExit RunnerApp::run() {
         }
         if (const auto changed = environment.takeGeometry()) {
             geometry = *changed;
-            if (nativeWindow) {
-                presenter->fitWindow(geometry.base_width, geometry.base_height);
-            }
-        }
-        if (control) {
-            reportPicture(*control, geometry, environment.rotation());
-            if (control->takeNative()) {
-                nativeWindow = true;
-                presenter->fitWindow(geometry.base_width, geometry.base_height);
-            }
         }
         const Clock::time_point now = Clock::now();
         if (!holding) {
@@ -468,6 +461,15 @@ RunnerExit RunnerApp::run() {
         FrameImage shown =
             coreImage.value_or(FrameImage{video.rgba(), video.width(), video.height(), aspect, {}});
         shown.interval = std::chrono::duration_cast<std::chrono::nanoseconds>(interval);
+        if (control) {
+            reportPicture(*control, shown, environment.rotation(), presenter->video());
+            nativeWindow = control->takeNative() || nativeWindow;
+            if (nativeWindow && (shown.width != fittedWidth || shown.height != fittedHeight)) {
+                fittedWidth = shown.width;
+                fittedHeight = shown.height;
+                presenter->fitWindow(shown.width, shown.height);
+            }
+        }
         std::optional<touch::OverlayImage> overlay;
         if (const auto named = environment.takeInputDescriptors()) {
             if (touch) {

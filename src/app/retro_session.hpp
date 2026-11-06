@@ -35,6 +35,7 @@ class RetroSession {
         unsigned pictureWidth{0};
         unsigned pictureHeight{0};
         float pictureAspect{0.0F};
+        bool pictureNearest{false};
         /// A frame has reached the screen.
         bool shown{false};
         /// When the state the game resumed from was taken; nothing when it did not resume.

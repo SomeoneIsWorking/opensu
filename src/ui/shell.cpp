@@ -175,12 +175,18 @@ void Shell::drawPicture(Canvas& canvas, const gpu2d::TextureView& picture,
     const display::Placed placed =
         display::letterbox({.width = width, .height = height - pictureBand_},
                            pictureShape_ > 0.0F ? pictureShape_ : own);
-    canvas.image(picture,
-                 gpu2d::Rect{0.0F, 0.0F, static_cast<float>(picture.width),
-                             static_cast<float>(picture.height)},
-                 gpu2d::Rect{static_cast<float>(placed.x), static_cast<float>(placed.y),
-                             static_cast<float>(placed.width), static_cast<float>(placed.height)},
-                 white);
+    const gpu2d::Rect where{static_cast<float>(placed.x), static_cast<float>(placed.y),
+                            static_cast<float>(placed.width), static_cast<float>(placed.height)};
+    if (pictureShape_ > 0.0F || placed.width <= picture.width) {
+        gpu2d::TextureView sampled = picture;
+        sampled.filter = pictureNearest_ ? gpu2d::Filter::Nearest : gpu2d::Filter::Linear;
+        canvas.image(sampled,
+                     gpu2d::Rect{0.0F, 0.0F, static_cast<float>(picture.width),
+                                 static_cast<float>(picture.height)},
+                     where, white);
+    } else {
+        canvas.upscaled(picture, where);
+    }
 }
 
 void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {

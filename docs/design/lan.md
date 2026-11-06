@@ -325,12 +325,14 @@ that profile's; the host's own active profile does not change.
 - A game started for a guest: `HostVideo` sends nothing until it shows a window, so the first
   picture is the game's; until then the host sends each launch step as a `Stage` datagram, every
   500 ms, and the guest's launch card shows it. Touch controls wait for the first picture.
-- A low-res game: the runner reports its picture in `/status`; for a game started for a guest
+- A low-res game: the runner reports the size of the frames the core draws, an internal
+  resolution multiplier included, in `/status`; for a game started for a guest
   whose longest side is at most 640, the host posts `/native`, the runner's window takes the
   picture's size, and `ScreenCapture::fitExactly` asks Gamescope for exactly that size through the
   fork's `exact_size` key, so the stream holds the game's own pixels and no bars. The host repeats
-  the shape shown as a `Shape` datagram every second and the guest scales to it. A picture the
-  core turns keeps the screen's size.
+  the shape shown and the player's sampling as a `Shape` datagram every second; the guest scales
+  those pixels the same way, nearest or smooth. A picture the core turns keeps the screen's size.
+  Any other picture is upscaled through FSR 1 (`gpu2d::Canvas::upscaled`).
 - An arcade game's controls: the runner reports the machine's panel in `/status`
   (`touch::panelText`), the host repeats it to its guests as a `Panel` datagram every second, and
   `RemoteTouch` shows it in place of the pad, without Rotate screen, which is the host runner's.

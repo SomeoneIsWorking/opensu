@@ -131,6 +131,7 @@ std::optional<RetroSession::Status> RetroSession::status() {
                   .pictureWidth = body.value("pictureWidth", 0U),
                   .pictureHeight = body.value("pictureHeight", 0U),
                   .pictureAspect = body.value("pictureAspect", 0.0F),
+                  .pictureNearest = body.value("pictureNearest", false),
                   .shown = body.value("shown", false),
                   .resumedFrom = std::nullopt,
                   .resumeRefused = body.value("resumeRefused", std::string{})};

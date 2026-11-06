@@ -256,11 +256,12 @@ void ControlServer::publish(std::uint64_t frame, bool hasState) {
     hasState_ = hasState;
 }
 
-void ControlServer::reportPicture(unsigned width, unsigned height, float aspect) {
+void ControlServer::reportPicture(unsigned width, unsigned height, float aspect, bool nearest) {
     const std::lock_guard lock{mutex_};
     pictureWidth_ = width;
     pictureHeight_ = height;
     pictureAspect_ = aspect;
+    pictureNearest_ = nearest;
 }
 
 bool ControlServer::takeNative() {
@@ -382,6 +383,7 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
                               {"pictureWidth", pictureWidth_},
                               {"pictureHeight", pictureHeight_},
                               {"pictureAspect", pictureAspect_},
+                              {"pictureNearest", pictureNearest_},
                               {"hasState", hasState_}};
         if (resume_.from) {
             status["resumedFrom"] =

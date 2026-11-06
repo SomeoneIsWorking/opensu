@@ -77,6 +77,7 @@
 #include "library/romset_convert.hpp"
 #include "library/shelf.hpp"
 #include "library_additions.hpp"
+#include "lucent/log.h"
 #include "mapping_editor.hpp"
 #include "netplay_run.hpp"
 #include "night_light.hpp"
@@ -882,7 +883,8 @@ class ShellApp final {
                         .panel = status->panel,
                         .picture = {.width = static_cast<int>(status->pictureWidth),
                                     .height = static_cast<int>(status->pictureHeight)},
-                        .aspect = status->pictureAspect};
+                        .aspect = status->pictureAspect,
+                        .nearest = status->pictureNearest};
                 },
             .nativeWindow =
                 [this] {

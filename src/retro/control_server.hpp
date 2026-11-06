@@ -123,8 +123,9 @@ class ControlServer {
     void publish(std::uint64_t frame, bool hasState);
     /// A frame reached the target, which /status reports from now on.
     void reportShown();
-    /// The core's picture, 0 by 0 when it is turned, which /status reports from now on.
-    void reportPicture(unsigned width, unsigned height, float aspect);
+    /// The core's picture, 0 by 0 when it is turned, and whether it is sampled nearest, which
+    /// /status reports from now on.
+    void reportPicture(unsigned width, unsigned height, float aspect, bool nearest);
     /// Whether /native asked the window to take the picture's size since the last call.
     [[nodiscard]] bool takeNative();
     /// The machine's panel (`touch::panelText`), which /status reports from now on.
@@ -185,6 +186,7 @@ class ControlServer {
     unsigned pictureWidth_{0};
     unsigned pictureHeight_{0};
     float pictureAspect_{0.0F};
+    bool pictureNearest_{false};
     bool nativeAsked_{false};
     /// Last, so its handler threads stop before the members they use go.
     lucent::http::Server server_;

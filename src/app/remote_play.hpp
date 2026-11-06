@@ -68,6 +68,8 @@ class RemotePlay {
         /// Its picture in pixels, 0 by 0 when the runner turns it, and its shape as shown.
         stream::PictureSize picture;
         float aspect{0.0F};
+        /// Whether the player's sampling for it is nearest neighbour.
+        bool nearest{false};
     };
 
     struct Hooks {
@@ -233,6 +235,8 @@ class RemotePlay {
     /// The shape the host's picture is shown at, width over height; 0 for the frames' own. Main
     /// loop only.
     [[nodiscard]] float shape() const;
+    /// Whether the host's own pixels are scaled by nearest neighbour. Main loop only.
+    [[nodiscard]] bool nearest() const;
     /// The arcade panel of the host's game (`touch::panelText`); empty for none. Main loop only.
     [[nodiscard]] std::string panel() const;
     /// The pixels the host's picture is shown in here. Main loop only.

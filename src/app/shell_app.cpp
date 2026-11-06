@@ -1425,7 +1425,7 @@ void ShellApp::showGamePicture() {
     }
     remotePicture_->shapeAs(remotePlay_.shape());
     shell_.setPicture(remotePicture_->view());
-    shell_.setPictureShape(remotePlay_.shape());
+    shell_.setPictureShape(remotePlay_.shape(), remotePlay_.nearest());
     shell_.setPictureBand(remoteTouch_->band());
     shell_.setPictureControls(remoteTouch_->view());
 }
