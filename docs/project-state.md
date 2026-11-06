@@ -1756,7 +1756,7 @@ lookup (the matched name's title) follow it: the player's PlayStation Crash Band
 (USA) matched to Crash Bandicoot 3 - Warped (Europe) took the PAL box on its details and tile
 (hidden runs, the player's files). A regional variant of the same title on a system whose tiles
 show a fitted SteamGridDB cover (SNES) keeps that cover, since SteamGridDB knows the game by its
-title. Unverified: launching a Lutris or Steam-shortcut entry.
+title. A Lutris game on `ge-proton` starts without Lutris, in its own prefix: ELDEN RING reached its title screen from the tablet, sound on the remote sink. Unverified: a Steam-shortcut entry.
 
 Every toolkit `TextField` pastes (`gpu2d::ui`): Ctrl+V, Command+V, Shift+Insert, a right click or
 long press, the regular grid's Paste key and A on the daisy wheel with no petal picked, trimmed of
