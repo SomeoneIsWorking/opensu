@@ -111,6 +111,10 @@ class GameSound::Sink {
     }
 
     void drop() noexcept {
+        for (auto& [id, output] : outputs_) {
+            pw_proxy_destroy(output.node);
+        }
+        outputs_.clear();
         if (metadata_ != nullptr) {
             pw_proxy_destroy(reinterpret_cast<pw_proxy*>(metadata_));
             metadata_ = nullptr;
@@ -160,17 +164,44 @@ class GameSound::Sink {
             if (value(PW_KEY_NODE_NAME) == self->sinkName_) {
                 self->sinkSerial_ = value(PW_KEY_OBJECT_SERIAL);
             } else if (value(PW_KEY_MEDIA_CLASS) == "Stream/Output/Audio") {
-                std::int32_t process = 0;
-                const std::string_view text = value(PW_KEY_APP_PROCESS_ID);
-                std::from_chars(text.data(), text.data() + text.size(), process);
-                self->outputs_.insert_or_assign(id, Output{.process = process, .moved = false});
+                self->watchOutput(id, type);
             }
         }
         self->moveStreams();
     }
 
+    /// The process of a stream is only in the node's own info, never in the registry's.
+    void watchOutput(std::uint32_t id, const char* type) {
+        const auto [found, added] = outputs_.try_emplace(id);
+        if (!added) {
+            return;
+        }
+        Output& output = found->second;
+        output.sink = this;
+        output.node =
+            static_cast<pw_proxy*>(pw_registry_bind(registry_, id, type, PW_VERSION_NODE, 0));
+        pw_node_add_listener(reinterpret_cast<pw_node*>(output.node), &output.listener, &nodeEvents,
+                             &output);
+    }
+
+    static void onNodeInfo(void* data, const pw_node_info* info) {
+        auto& output = *static_cast<Output*>(data);
+        const char* text =
+            info->props != nullptr ? spa_dict_lookup(info->props, PW_KEY_APP_PROCESS_ID) : nullptr;
+        if (text == nullptr) {
+            return;
+        }
+        const std::string_view digits{text};
+        std::from_chars(digits.data(), digits.data() + digits.size(), output.process);
+        output.sink->moveStreams();
+    }
+
     static void onGlobalRemove(void* data, std::uint32_t id) {
-        static_cast<Sink*>(data)->outputs_.erase(id);
+        auto& outputs = static_cast<Sink*>(data)->outputs_;
+        if (const auto found = outputs.find(id); found != outputs.end()) {
+            pw_proxy_destroy(found->second.node);
+            outputs.erase(found);
+        }
     }
 
     static void onStateChanged(void* /*data*/, pw_stream_state /*old*/, pw_stream_state state,
@@ -200,8 +231,17 @@ class GameSound::Sink {
     std::function<void(std::span<const float>, std::uint64_t)> samples_;
     PipeWireSession session_;
     struct Output {
+        Sink* sink{nullptr};
+        pw_proxy* node{nullptr};
+        spa_hook listener{};
         std::int32_t process{0};
         bool moved{false};
+    };
+
+    static constexpr pw_node_events nodeEvents{
+        .version = PW_VERSION_NODE_EVENTS,
+        .info = &Sink::onNodeInfo,
+        .param = nullptr,
     };
 
     static constexpr pw_registry_events registryEvents{

@@ -336,7 +336,7 @@ that profile's; the host's own active profile does not change.
 - A guest's pad is one of the kept virtual pads (`PadSource::seatPad`), which Steam and Proton
   already read; a pad made later is not seen by a game they run. None kept, it gets its own.
 - A game Steam starts misses the sink's environment, so every second the host moves the audio
-  streams of the game's processes into the sink (`GameSound::adopt`, the `default` metadata's
+  streams of the game's processes, read from each node's info, into the sink (`GameSound::adopt`, the `default` metadata's
   `target.object`).
 - A hardware rate is at most 2 bits a pixel, since a constant rate pads a small picture to the plan.
 - Scaling on the guest: every built-in runner game sends the player's sampling in `Shape`, whatever
