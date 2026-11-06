@@ -71,10 +71,13 @@ void leftOutPerSystem() {
         R"({"emulators":[{"id":"a","name":"A","systems":["arcade"],"core":"fbneo_libretro",
             "notOn":{"android":"why"}}]})";
     std::string error;
-    expect(EmulatorCatalog::parse(catalog, "/h", error, "android")->entries().empty(),
+    const std::optional<EmulatorCatalog> without =
+        EmulatorCatalog::parse(catalog, "/h", error, "android");
+    expect(without && without->entries().empty(),
            "an entry is left out on a system its notOn names");
-    expect(EmulatorCatalog::parse(catalog, "/h", error, "linux")->find("a") != nullptr,
-           "and stays everywhere else");
+    const std::optional<EmulatorCatalog> with =
+        EmulatorCatalog::parse(catalog, "/h", error, "linux");
+    expect(with && with->find("a") != nullptr, "and stays everywhere else");
     expect(!EmulatorCatalog::parse(
                R"({"emulators":[{"id":"a","name":"A","systems":["arcade"],
                    "core":"fbneo_libretro","notOn":"android"}]})",
@@ -88,7 +91,7 @@ void leftOutPerSystem() {
                            std::istreambuf_iterator<char>{}};
     const std::optional<EmulatorCatalog> android =
         EmulatorCatalog::parse(body, "/h", error, "android");
-    expect(android->find("mame2010-core") == nullptr &&
+    expect(android && android->find("mame2010-core") == nullptr &&
                android->find("fbalpha2012-core") != nullptr,
            "MAME 2010 is not offered on Android");
 }
