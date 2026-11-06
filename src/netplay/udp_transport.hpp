@@ -1,7 +1,7 @@
-// lan_transport — a netplay session's messages over the LAN: one UDP socket and one other player,
-// each datagram sealed with the session's key for its sender (`stream::PacketSeal`, keys from the
-// pairing through `lan::streamKeys`). The side that does not know the other's address learns it
-// from the first datagram that opens.
+// udp_transport — a netplay session's messages over UDP, on the LAN or the internet alike: one
+// socket and one other player, each datagram sealed with the session's key for its sender
+// (`stream::PacketSeal`). The peer is the address that last sent a datagram that opened, so a side
+// told nothing learns it and a NAT rebinding a port costs nothing.
 #pragma once
 
 #include <cstdint>
@@ -15,11 +15,11 @@
 
 namespace opensu::netplay {
 
-class LanTransport final : public Transport {
+class UdpTransport final : public Transport {
   public:
     /// Binds `port`, a free one when 0, and sends to `peer` once known. Throws
     /// `std::system_error` when the socket cannot be had.
-    LanTransport(std::uint16_t port, std::optional<stream::UdpAddress> peer,
+    UdpTransport(std::uint16_t port, std::optional<stream::UdpAddress> peer,
                  std::span<const std::uint8_t> sendKey, std::span<const std::uint8_t> receiveKey);
 
     [[nodiscard]] std::uint16_t port() const noexcept {

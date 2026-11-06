@@ -12,8 +12,8 @@
 
 #include "core_environment.hpp"
 #include "joypad.hpp"
-#include "netplay/lan_transport.hpp"
 #include "netplay/session.hpp"
+#include "netplay/udp_transport.hpp"
 #include "port_input.hpp"
 
 namespace opensu::retro {
@@ -75,7 +75,7 @@ class NetplayLink final : public PortInput {
     }
 
     unsigned players_;
-    netplay::LanTransport transport_;
+    netplay::UdpTransport transport_;
     netplay::Session session_;
     const Joypad& joypad_;
     bool submitted_{false};
