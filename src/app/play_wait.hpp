@@ -50,8 +50,12 @@ class PlayWait {
     void cancel();
     /// Moves the wait on. Main loop only.
     void service();
+    /// The card's line when it changed since last asked.
+    [[nodiscard]] std::optional<std::string> newLine();
 
   private:
+    void show(std::string line, std::optional<double> fraction);
+
     struct Held {
         std::string gameId;
         std::vector<std::string> environment;
@@ -64,6 +68,8 @@ class PlayWait {
 
     Hooks hooks_;
     std::optional<Held> held_;
+    std::string line_;
+    bool lineChanged_{false};
 };
 
 } // namespace opensu::app

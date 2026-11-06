@@ -37,6 +37,16 @@ bool PlayWait::begin(const library::Game& game, std::vector<std::string> environ
     return true;
 }
 
+void PlayWait::show(std::string line, std::optional<double> fraction) {
+    lineChanged_ = lineChanged_ || line != line_;
+    line_ = line;
+    hooks_.update(std::move(line), fraction);
+}
+
+std::optional<std::string> PlayWait::newLine() {
+    return std::exchange(lineChanged_, false) ? std::optional{line_} : std::nullopt;
+}
+
 void PlayWait::cancel() {
     if (!held_) {
         return;
@@ -66,8 +76,8 @@ void PlayWait::service() {
     const library::EmulatorOption* missing = ui::emulatorToDownload(*game);
     if (const std::optional<EmulatorDownloads::Progress> running = hooks_.progress()) {
         const std::optional<int> percent = running->percent();
-        hooks_.update("Downloading " + (missing != nullptr ? missing->name : "an emulator") + "…",
-                      percent ? std::optional{*percent / 100.0} : std::nullopt);
+        show("Downloading " + (missing != nullptr ? missing->name : "an emulator") + "…",
+             percent ? std::optional{*percent / 100.0} : std::nullopt);
         return;
     }
     if (missing != nullptr) {
@@ -78,7 +88,7 @@ void PlayWait::service() {
                 return;
             }
             // Installed: the library is reading it.
-            hooks_.update("Getting " + missing->name + " ready…", std::nullopt);
+            show("Getting " + missing->name + " ready…", std::nullopt);
             return;
         }
         if (const std::string refused = hooks_.download(missing->id); !refused.empty()) {
@@ -87,11 +97,11 @@ void PlayWait::service() {
             return;
         }
         held_->started = missing->id;
-        hooks_.update("Downloading " + missing->name + "…", std::nullopt);
+        show("Downloading " + missing->name + "…", std::nullopt);
         return;
     }
     if (romsetPending(*game)) {
-        hooks_.update(std::string{library::roms::checkingRomset}, std::nullopt);
+        show(std::string{library::roms::checkingRomset}, std::nullopt);
         return;
     }
     held_.reset();

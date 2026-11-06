@@ -1458,6 +1458,10 @@ void ShellApp::serviceRequests() {
         remotePlay_.hostStage(launch::describe(*progress));
     }
     playWait_.service();
+    // Here, not in the wait's hook: a guest's launch starts the wait under the host's lock.
+    if (std::optional<std::string> line = playWait_.newLine()) {
+        remotePlay_.hostStage(std::move(*line));
+    }
     const std::string remoteStage = remotePlay_.stage();
     if (!remoteStage.empty()) {
         if (!panels_.active()) {
@@ -1570,7 +1574,7 @@ int ShellApp::run() {
         lanNetplay_.service();
         onlinePlay_.service();
         saveSharing_.service();
-        remotePlay_.service(launches_.running() || saveSharing_.holding(),
+        remotePlay_.service(launches_.running() || saveSharing_.holding() || playWait_.waiting(),
                             launches_.running() ? &launches_.game() : nullptr, playingAs_,
                             mailbox_.gameRunning());
         togetherQuestions_.service();
