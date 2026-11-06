@@ -32,6 +32,8 @@ enum class Source : std::uint8_t {
 
 /// The store's name as keys spell it: "steam", "epic", "gog", "emulator", "own", "lan".
 [[nodiscard]] std::string key(Source source);
+/// The source `key` spells; nothing for none.
+[[nodiscard]] std::optional<Source> sourceOf(std::string_view key);
 
 /// The command that starts a game. Every source fills this in, so launching
 /// needs no knowledge of which store owns a title.
@@ -168,8 +170,8 @@ struct Game {
     /// has exited. Empty when the source cannot identify its own process.
     std::string processHint;
 
-    /// The stores a shelf reports the title as owned in, for the tile's store icons, in Steam,
-    /// GOG, Epic order. Set by the shelf builders; empty in the catalog and for a ROM.
+    /// The stores a tile of the title carries icons for, in Steam, GOG, Epic order. Set by the
+    /// shelf builders; empty in the catalog, on a launcher page and for a ROM.
     std::vector<Source> ownedIn;
 
     LaunchSpec launch;

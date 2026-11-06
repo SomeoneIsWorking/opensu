@@ -153,10 +153,13 @@ bool narrowing(const ViewOptions& options) noexcept {
 }
 
 LibraryView applyOptions(const std::vector<Game>& games, const std::vector<SourceStatus>& sources,
-                         const ViewOptions& options, const HiddenGames& hidden) {
+                         const ViewOptions& options, const HiddenGames& hidden,
+                         const CopyChoices& copies) {
     LibraryView view;
+    const TitleCopies titles{games, copies};
     for (const Game& game : games) {
-        if (options.installedOnly && !game.installed) {
+        const Game* copy = titles.use(game, game.source);
+        if (options.installedOnly && !(copy != nullptr ? *copy : game).installed) {
             continue;
         }
         if (!options.source.empty() && sourceKeyOf(game) != options.source) {
@@ -236,16 +239,41 @@ std::string describeResult(const ShelfItem& item) {
     return std::holds_alternative<Launcher>(item) ? "Store" : "Library";
 }
 
+std::optional<Source> pageOf(const ShelfBrowser& browser, const ViewOptions& options) {
+    if (const std::optional<Source> open = browser.launcher(); open && options.search.empty()) {
+        return open;
+    }
+    for (const Source source :
+         {Source::Steam, Source::Gog, Source::Epic, Source::Own, Source::Remote}) {
+        if (key(Folder{Launcher{source, 0, true, false}}) == options.source) {
+            return source;
+        }
+    }
+    return std::nullopt;
+}
+
 std::vector<ShelfItem> visibleShelf(ShelfBrowser& browser, const std::vector<Game>& games,
                                     const std::vector<SourceStatus>& sources,
                                     const std::vector<AddTile>& adds, const ViewOptions& options,
-                                    const HiddenGames& hidden, const HomeChoices& home) {
-    LibraryView view = applyOptions(games, sources, options, hidden);
+                                    const HiddenGames& hidden, const HomeChoices& home,
+                                    const CopyChoices& copies) {
+    LibraryView view = applyOptions(games, sources, options, hidden, copies);
     view.adds = adds;
-    if (!options.search.empty()) {
-        return searchShelf(view, options.search);
+    std::vector<ShelfItem> shelf = options.search.empty()
+                                       ? browser.shelf(view.games, view.sources, view.adds, home)
+                                       : searchShelf(view, options.search);
+    const TitleCopies titles{games, copies};
+    const std::optional<Source> page = pageOf(browser, options);
+    for (ShelfItem& item : shelf) {
+        auto* game = std::get_if<Game>(&item);
+        const Game* copy = game != nullptr ? titles.use(*game, page) : nullptr;
+        if (copy != nullptr && copy->id != game->id) {
+            std::vector<Source> stores = std::move(game->ownedIn);
+            *game = *copy;
+            game->ownedIn = std::move(stores);
+        }
     }
-    return browser.shelf(view.games, view.sources, view.adds, home);
+    return shelf;
 }
 
 } // namespace opensu::library

@@ -344,11 +344,15 @@ Library with that tile focused. A launcher page holds the store's whole library,
 not, in catalog order; All games holds every store game once. Titles are merged across
 stores by normalised title (`library::titles`: ASCII letters and digits lower-cased, "&" as
 "and", so "Hades" and "HADES™" are one; a title with no ASCII letters is never merged; a
-store never merges two of its own games). The entry is the preferred copy: installed first,
-then Steam, GOG, Epic. A store game tile (Home, All games) carries small store icons in its
-bottom-right corner for every store that owns it (`Game::ownedIn`,
-`ui::storeIconRow`); on a launcher page only the other stores are shown, and a game owned
-there alone shows none. ROM, console and launcher tiles never carry them. Inside any of the
+store never merges two of its own games). One rule says which copy an entry uses
+(`library::TitleCopies::use`): the store the player chose for the title, else the launcher
+page's own store (or the source filter's), else the preferred copy: installed first, then Steam,
+GOG, Epic. A page of the player's own games or of another openSU keeps its own copy. The grid's
+games come through it (`visibleShelf`, over the whole catalog so a filter cannot swap a chosen copy
+for another), so tile, details, Play and Install all act on one copy. A store game tile on Home
+and All games stands for the title across stores and carries small store icons in its
+bottom-right corner for every store that owns it (`Game::ownedIn`, `ui::storeIconRow`). A
+launcher page's tile carries none, nor do ROM, console and launcher tiles. Inside any of the
 three the title pill names the focused game. A store game with an update (S036) carries a down
 arrow on the store icons' disc in its top-right corner (`ui::updateBadge`), opensu's own.
 Nothing a large library does runs on the frame thread (measured on the 447-title Epic
@@ -1308,8 +1312,27 @@ Epic and GOG install. A title owned in
 several stores is installed from the stores that can: with one candidate A installs it, with
 two stores (say Steam and GOG) the panel reads "Install from" with A for the first store and X for the
 second. A launcher page installs its own store's copy; Home and All games choose among
-the copies. Launching an entry owned in several stores uses the installed copy, Steam first,
-then GOG, then Epic.
+the copies, unless the player chose one, which then installs alone wherever it is asked for
+(`library::TitleCopies::installable`). Launching uses the copy the entry uses
+(`library::TitleCopies::use`), so with no choice on Home and All games the installed one, Steam
+first, then GOG, then Epic.
+
+### A title owned in several stores
+
+The details page of a game two stores own has a Store row under Play, the copy in use chosen
+and "Also on Epic" under it. Switching makes that copy the title's everywhere: Home, All games and
+every store's launcher page, so on the Steam page a title switched to Epic shows and plays Epic's
+copy. The page follows at once: badge, status, Play or Install, Update, Uninstall. The choice is
+kept in `settings.json` (`copies`, `library::CopyChoices`, by `choiceKey`). A chosen copy that is
+not installed offers its own install and never runs the other: with Installed only on, such a title
+leaves the view as one that cannot be launched now. A chosen store that no longer lists the title
+falls back to the rule and the choice stays, since a store loading or signed out comes back. A
+game one store owns shows no row, and the row is not offered on a page of the player's own games
+or of another openSU.
+
+Each copy keeps what is kept by game id: its last played time, chosen cover, settings, mapping and
+Wine prefix, so these change with the switch and nothing is copied or lost. A store's cloud saves
+stay that store's.
 
 `app::InstallJob` is the store-neutral job (thread, latest report, licence answer);
 `app::SteamInstallJob` implements it; `app::CliInstallJob` is the base of the two jobs that

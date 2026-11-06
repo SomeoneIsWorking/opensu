@@ -1,8 +1,8 @@
 // details_controller — a game's details page and what its rows do: play or install the game,
-// update it, pick its emulator, open its settings (`LayeredEditor`), download the emulator it is
-// missing, give a Windows install its own Wine prefix or the shared one, add it to Home or remove
-// it, hide it, uninstall it
-// (asking first), rename, change the file of or remove a game the player added
+// switch which store's copy it uses, update it, pick its emulator, open its settings
+// (`LayeredEditor`), download the emulator it is missing, give a Windows install its own Wine
+// prefix or the shared one, add it to Home or remove it, hide it, uninstall it (asking first),
+// rename, change the file of or remove a game the player added
 // (`OwnGamesController`), choose its cover, open its button mapping, copy its saves between
 // emulators (`SaveCopyController`), sync them with paired openSUs (`SharedSaves`), say where Save
 // and close left it and Start fresh without that (asking first), go back. Opens
@@ -89,6 +89,10 @@ class DetailsController final : public ui::RowActions {
         std::function<void(const library::Game& game, const std::string& peerId)> playWith;
         /// Offers `game` to a friend over the internet.
         std::function<void(const library::Game& game)> playOnline;
+        /// The store copies `game`'s entry can switch between; empty when it cannot.
+        std::function<std::vector<library::Game>(const library::Game& game)> copies;
+        /// Makes `copy` the one its title uses, and shows the shelf again.
+        std::function<void(const library::Game& copy)> chooseCopy;
     };
 
     /// What the rows act on.
@@ -143,6 +147,8 @@ class DetailsController final : public ui::RowActions {
     [[nodiscard]] std::optional<library::Game> current();
     /// Picks the Emulator choice's option `step` places on, wrapping.
     void chooseEmulator(const library::Game& game, int step);
+    /// Switches the page to the store copy the Store choice's option `step` places on, wrapping.
+    void chooseCopy(const library::Game& game, int step);
     /// Starts downloading the emulator `game` is missing, or cancels its download.
     void downloadEmulator(const library::Game& game);
     /// Moves a Windows install between its own Wine prefix and the shared one.

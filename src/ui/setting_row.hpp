@@ -82,7 +82,7 @@ struct Options {
 [[nodiscard]] SettingsRow makeChoice(std::string id, std::string label, std::string note,
                                      Options options);
 /// The entry `step` places from `now` in `offered`, wrapping; A steps forward.
-template <typename T> T stepped(const std::vector<T>& offered, T now, int step) {
+template <typename T> T stepped(const std::vector<T>& offered, const T& now, int step) {
     const auto at = std::ranges::find(offered, now);
     const auto from = at == offered.end() ? 0 : at - offered.begin();
     const auto count = static_cast<long>(offered.size());

@@ -18,6 +18,7 @@ namespace opensu::ui {
 
 /// The ids of the page's launch button and action rows.
 inline constexpr std::string_view detailsLaunchId = "details.launch";
+inline constexpr std::string_view detailsStoreId = "details.store";
 inline constexpr std::string_view detailsUpdateId = "details.update";
 inline constexpr std::string_view detailsDownloadId = "details.download";
 inline constexpr std::string_view detailsEmulatorId = "details.emulator";
@@ -108,6 +109,8 @@ struct GameSettingsView {
     std::vector<Partner> partners;
     /// Whether it can be offered to a friend over the internet: the Play online row.
     bool online{false};
+    /// The stores the player can switch the game's copy between, the Store row; empty for no row.
+    std::vector<library::Source> stores;
 };
 
 /// What the page says about the facts' setting `label` reading `value`.

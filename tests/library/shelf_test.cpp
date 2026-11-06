@@ -270,16 +270,13 @@ void testLauncherShelf() {
     expect(steam.size() == 3 && gameAt(steam, 0)->id == "steam:hades" &&
                gameAt(steam, 1)->id == "steam:solo" && gameAt(steam, 2)->id == "steam:celeste",
            "a store holds its whole library, installed or not, in catalog order");
-    expect(gameAt(steam, 0)->ownedIn == stores({Source::Gog, Source::Epic}),
-           "a game owned elsewhere lists the other stores");
-    expect(gameAt(steam, 1)->ownedIn.empty(), "a game owned here alone lists none");
-    expect(gameAt(steam, 2)->ownedIn == stores({Source::Epic}) && !gameAt(steam, 2)->installed,
+    expect(gameAt(steam, 0)->ownedIn.empty(), "a launcher's tile carries no store icons");
+    expect(!gameAt(steam, 2)->installed,
            "the store's own copy is shown even where another store has it installed");
 
     const std::vector<ShelfItem> gog =
         opensu::library::launcherShelf(library(), Launcher{Source::Gog});
-    expect(gog.size() == 2 && gameAt(gog, 0)->ownedIn == stores({Source::Steam, Source::Epic}),
-           "GOG's Hades lists Steam and Epic");
+    expect(gog.size() == 2 && gameAt(gog, 0)->id == "gog:hades", "GOG holds its own Hades");
     expect(opensu::library::launcherShelf({}, Launcher{Source::Epic}).empty(),
            "no games, empty shelf");
 }
@@ -329,15 +326,14 @@ void testBrowser() {
            "a console whose ROMs are gone returns to Library");
 
     browser.open(Launcher{Source::Epic, 2, true}, 1);
-    expect(browser.inLauncher() && keyOf(browser.folder()) == "launcher:epic",
+    expect(browser.launcher() == Source::Epic && keyOf(browser.folder()) == "launcher:epic",
            "a launcher is open");
     expect(browser.shelf(library(), allReady(), oneAdd(), {}).size() == 2,
            "its shelf is its store's games");
     expect(browser.back() == 1, "back restores the launcher's slot");
 
     browser.open(AllGames{4}, 3);
-    expect(!browser.inLauncher() && keyOf(browser.folder()) == "all",
-           "the combined library is open");
+    expect(!browser.launcher() && keyOf(browser.folder()) == "all", "the combined library is open");
     expect(browser.shelf(library(), allReady(), oneAdd(), {}).size() == 4,
            "its shelf is every title");
 }

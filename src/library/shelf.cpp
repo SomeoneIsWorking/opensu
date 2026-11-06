@@ -52,24 +52,24 @@ std::vector<Launcher> hostLaunchers(const std::vector<Game>& games, bool ready) 
     return hosts;
 }
 
-/// The stores of `title`, in icon order, without `leaving`.
-std::vector<Source> storesOf(const Title& title, std::optional<Source> leaving) {
+/// The stores of `title`, in icon order.
+std::vector<Source> storesOf(const Title& title) {
     std::vector<Source> stores;
     for (const Source source : iconOrder) {
         const bool owned = std::ranges::any_of(title.copies, [source](const Game* copy) {
             return copy->source == source;
         });
-        if (owned && source != leaving) {
+        if (owned) {
             stores.push_back(source);
         }
     }
     return stores;
 }
 
-/// The title's preferred copy, as a shelf entry that lists the stores it is owned in.
-Game entry(const Title& title, const Game& copy, std::optional<Source> leaving) {
+/// `copy` as an entry standing for `title` across stores, listing the stores it is owned in.
+Game entry(const Title& title, const Game& copy) {
     Game out = copy;
-    out.ownedIn = storesOf(title, leaving);
+    out.ownedIn = storesOf(title);
     return out;
 }
 
@@ -172,7 +172,7 @@ std::vector<ShelfItem> homeShelf(const std::vector<Game>& games,
         if (game.source == Source::Rom) {
             shelf.emplace_back(game);
         } else if (const auto title = preferredOf.find(&game); title != preferredOf.end()) {
-            shelf.emplace_back(entry(*title->second, game, std::nullopt));
+            shelf.emplace_back(entry(*title->second, game));
         }
     }
     const bool loading = std::ranges::any_of(sources, [](const SourceStatus& status) {
@@ -246,17 +246,10 @@ std::vector<ShelfItem> consoleShelf(const std::vector<Game>& games, std::string_
 }
 
 std::vector<ShelfItem> launcherShelf(const std::vector<Game>& games, const Launcher& launcher) {
-    const std::vector<Title> titles = storeTitles(games);
-    std::unordered_map<std::string, const Title*> byGame;
-    for (const Title& title : titles) {
-        for (const Game* copy : title.copies) {
-            byGame[copy->id] = &title;
-        }
-    }
     std::vector<ShelfItem> shelf;
     for (const Game& game : games) {
         if (holds(launcher, game)) {
-            shelf.emplace_back(entry(*byGame.at(game.id), game, launcher.source));
+            shelf.emplace_back(game);
         }
     }
     return shelf;
@@ -265,7 +258,7 @@ std::vector<ShelfItem> launcherShelf(const std::vector<Game>& games, const Launc
 std::vector<ShelfItem> allGamesShelf(const std::vector<Game>& games) {
     std::vector<ShelfItem> shelf;
     for (const Title& title : storeTitles(games)) {
-        shelf.emplace_back(entry(title, *title.copies.front(), std::nullopt));
+        shelf.emplace_back(entry(title, *title.copies.front()));
     }
     return shelf;
 }

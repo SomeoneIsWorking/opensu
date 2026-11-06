@@ -79,6 +79,29 @@ SettingsRow emulatorChoice(const library::Game& game, const std::string& source)
     return makeChoice(std::string{detailsEmulatorId}, "Emulator", source, std::move(options));
 }
 
+/// The Store choice: the stores owning the game, the one its copy is from chosen, the others named
+/// under it. Led by the copy's own source when that is no store.
+SettingsRow storeChoice(const library::Game& game, const std::vector<library::Source>& stores) {
+    Options options;
+    std::string others;
+    for (const library::Source store : stores) {
+        const std::string name{library::label(store)};
+        options.labels.push_back(name);
+        if (store != game.source) {
+            others += (others.empty() ? "" : ", ") + name;
+        }
+    }
+    const std::string own{library::label(game.source)};
+    const auto chosen = std::ranges::find(options.labels, own);
+    if (chosen == options.labels.end()) {
+        options.labels.insert(options.labels.begin(), own);
+    } else {
+        options.chosen = static_cast<std::size_t>(chosen - options.labels.begin());
+    }
+    return makeChoice(std::string{detailsStoreId}, "Store", "Also on " + others,
+                      std::move(options));
+}
+
 SettingsRow action(std::string_view id, std::string label, std::string value = {}) {
     return makeRow(std::string{id}, RowKind::Action, std::move(label), {}, std::move(value));
 }
@@ -154,13 +177,6 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
     facts.push_back(detailsFact(
         "Status", std::string{game.installed ? "Installed" : "Not installed"} +
                       (updatable ? ", update available" : "") + (marks.hidden ? ", hidden" : "")));
-    if (game.ownedIn.size() > 1) {
-        std::string owned;
-        for (const library::Source source : game.ownedIn) {
-            owned += (owned.empty() ? "" : ", ") + std::string{library::label(source)};
-        }
-        facts.push_back(detailsFact("Owned in", owned));
-    }
     facts.push_back(detailsFact("Last played", lastPlayedText(game.lastPlayed, now)));
     if (game.playtimeMinutes > 0) {
         facts.push_back(detailsFact("Play time", playtimeText(game.playtimeMinutes)));
@@ -193,6 +209,9 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
 
     details.launch = !game.installed ? "Install" : settings.continues ? "Continue here" : "Play";
     std::vector<SettingsRow>& actions = details.actions;
+    if (!settings.stores.empty()) {
+        actions.push_back(storeChoice(game, settings.stores));
+    }
     if (!settings.resume.empty() && game.installed) {
         SettingsRow fresh = action(detailsStartFreshId, "Start fresh");
         fresh.confirm = "The game starts from the beginning; where Save and close left it is lost.";

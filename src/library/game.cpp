@@ -62,6 +62,16 @@ std::string key(Source source) {
     return out;
 }
 
+std::optional<Source> sourceOf(std::string_view spelling) {
+    for (const Source source :
+         {Source::Steam, Source::Epic, Source::Gog, Source::Rom, Source::Own, Source::Remote}) {
+        if (key(source) == spelling) {
+            return source;
+        }
+    }
+    return std::nullopt;
+}
+
 void Catalog::add(std::unique_ptr<Provider> provider) {
     if (provider != nullptr) {
         providers_.push_back(std::move(provider));

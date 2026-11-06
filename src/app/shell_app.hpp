@@ -321,6 +321,10 @@ class ShellApp final {
     [[nodiscard]] const library::Game* gameInFront() const;
     /// Runs ROM `game` on emulator `name` from now on, and keeps the pick.
     void chooseEmulator(const library::Game& game, const std::string& name);
+    /// The store copies `game`'s entry can switch between here.
+    [[nodiscard]] std::vector<library::Game> switchableCopies(const library::Game& game) const;
+    /// Makes `copy` the one its title uses, kept, and shows the shelf again.
+    void chooseCopy(const library::Game& copy);
     /// Keeps `key`, titled `title`, as what `game` is for its artwork (Match a different game).
     void keepMatch(const library::Game& game, const std::string& key, const std::string& title);
     /// The game with `id` as the grid shows it now.
@@ -725,6 +729,12 @@ class ShellApp final {
             },
             [this](const library::Game& game) {
                 onlinePlay_.host(game);
+            },
+            [this](const library::Game& game) {
+                return switchableCopies(game);
+            },
+            [this](const library::Game& copy) {
+                chooseCopy(copy);
             }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),

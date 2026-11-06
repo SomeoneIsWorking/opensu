@@ -365,7 +365,7 @@ void ShellApp::showShelf(std::size_t focus) {
     const settings::Settings& chosen = preferences_.values();
     std::vector<library::ShelfItem> shelf =
         library::visibleShelf(browser_, games_, sources_, libraryAdditions_.tiles(), chosen.view,
-                              chosen.hidden, chosen.home);
+                              chosen.hidden, chosen.home, chosen.copies);
     artworkStore_.apply(shelf);
     covers_.apply(shelf);
     shell_.grid().setShelf(std::move(shelf), browser_.takeReturn().value_or(focus));
@@ -376,7 +376,7 @@ void ShellApp::refreshShelf() {
     const settings::Settings& chosen = preferences_.values();
     std::vector<library::ShelfItem> shelf =
         library::visibleShelf(browser_, games_, sources_, libraryAdditions_.tiles(), chosen.view,
-                              chosen.hidden, chosen.home);
+                              chosen.hidden, chosen.home, chosen.copies);
     artworkStore_.apply(shelf);
     covers_.apply(shelf);
     if (const std::optional<std::size_t> slot = browser_.takeReturn()) {
@@ -831,10 +831,23 @@ bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> e
 }
 
 void ShellApp::offerInstall(const library::Game& game) {
-    // A store's own page installs that store's copy; elsewhere any store that owns the title will
-    // do.
-    panels_.offerInstall(game, browser_.inLauncher() ? std::vector<library::Game>{game}
-                                                     : library::copiesOf(games_, game));
+    const settings::Settings& chosen = preferences_.values();
+    panels_.offerInstall(game, library::TitleCopies{games_, chosen.copies}.installable(
+                                   game, library::pageOf(browser_, chosen.view)));
+}
+
+std::vector<library::Game> ShellApp::switchableCopies(const library::Game& game) const {
+    const settings::Settings& chosen = preferences_.values();
+    return library::TitleCopies{games_, chosen.copies}.switchable(
+        game, library::pageOf(browser_, chosen.view));
+}
+
+void ShellApp::chooseCopy(const library::Game& copy) {
+    preferences_.values().copies.choose(copy);
+    preferences_.save();
+    lucent::info("library", "{} uses its {} copy, {}", copy.title, library::label(copy.source),
+                 copy.id);
+    refreshShelf();
 }
 
 void ShellApp::cancelLaunch() {

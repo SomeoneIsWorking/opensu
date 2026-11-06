@@ -108,6 +108,7 @@ void libraryTools(const fs::path& root) {
     saved.hidden.set(hades(), true);
     saved.home.set("console:gc", true, false);
     saved.home.set("title:hades", true, false);
+    saved.copies.choose(hades());
     saved.lastPlayed.record("epic:celeste", std::chrono::system_clock::from_time_t(1700000000));
     std::string error;
     expect(store.save(saved, error), "the tools save");
@@ -121,10 +122,12 @@ void libraryTools(const fs::path& root) {
            "hidden games and play history round trip");
     expect(loaded.home == saved.home && loaded.home.entries().size() == 2,
            "what the player added to Home and took off it round trips");
+    expect(loaded.copies == saved.copies && loaded.copies.chosen(hades()) == hades().source,
+           "the copy a title uses round trips");
 
     write(
         file,
-        R"({"iconSize": 99, "sort": "bogus", "hidden": [1, "id:a"], "lastPlayed": {"x": "y", "z": 5}, "home": {"id:a": "pinned"}})");
+        R"({"iconSize": 99, "sort": "bogus", "hidden": [1, "id:a"], "lastPlayed": {"x": "y", "z": 5}, "home": {"id:a": "pinned"}, "copies": {"title:a": "bogus"}})");
     const Settings damagedTools = store.load();
     expect(damagedTools.iconSize == opensu::settings::defaultIconSize,
            "an icon size out of range keeps the default");
@@ -133,6 +136,7 @@ void libraryTools(const fs::path& root) {
     expect(damagedTools.lastPlayed.entries().empty(),
            "a play time that is not a number is dropped");
     expect(damagedTools.home.entries().empty(), "a Home choice that is not one keeps the default");
+    expect(damagedTools.copies.entries().empty(), "a store that is not one keeps the default");
 }
 
 void unwritable(const fs::path& root) {

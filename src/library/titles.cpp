@@ -33,6 +33,16 @@ bool holds(const std::vector<const Game*>& copies, Source source) {
     });
 }
 
+bool isStore(Source source) noexcept {
+    return source == Source::Steam || source == Source::Gog || source == Source::Epic;
+}
+
+/// The copy of `title` from `source`, or null.
+const Game* copyFrom(const Title& title, Source source) {
+    const auto found = std::ranges::find(title.copies, source, &Game::source);
+    return found == title.copies.end() ? nullptr : *found;
+}
+
 } // namespace
 
 std::string titleKey(std::string_view title) {
@@ -106,6 +116,85 @@ std::vector<Game> copiesOf(const std::vector<Game>& games, const Game& game) {
         }
     }
     return {game};
+}
+
+std::optional<Source> CopyChoices::chosen(const Game& game) const {
+    const auto found = entries_.find(choiceKey(game));
+    return found == entries_.end() ? std::nullopt : std::optional{found->second};
+}
+
+void CopyChoices::choose(const Game& copy) {
+    entries_[choiceKey(copy)] = copy.source;
+}
+
+TitleCopies::TitleCopies(const std::vector<Game>& games, const CopyChoices& choices)
+    : choices_{choices}, titles_{storeTitles(games)} {
+    for (std::size_t at = 0; at < titles_.size(); ++at) {
+        for (const Game* copy : titles_[at].copies) {
+            byGame_.emplace(copy->id, at);
+        }
+    }
+}
+
+const Title* TitleCopies::titleOf(const Game& game) const {
+    const auto found = byGame_.find(game.id);
+    return found == byGame_.end() ? nullptr : &titles_[found->second];
+}
+
+const Game* TitleCopies::use(const Game& game, std::optional<Source> page) const {
+    const Title* title = titleOf(game);
+    if (title == nullptr) {
+        return nullptr;
+    }
+    const std::optional<Source> chosen = choices_.chosen(game);
+    if (chosen && (!page || isStore(*page))) {
+        if (const Game* copy = copyFrom(*title, *chosen)) {
+            return copy;
+        }
+    }
+    if (page) {
+        if (const Game* copy = copyFrom(*title, *page)) {
+            return copy;
+        }
+    }
+    return title->copies.front();
+}
+
+std::vector<Game> TitleCopies::installable(const Game& game, std::optional<Source> page) const {
+    const Title* title = titleOf(game);
+    if (title == nullptr) {
+        return {game};
+    }
+    const std::optional<Source> chosen = choices_.chosen(game);
+    if (page || (chosen && copyFrom(*title, *chosen) != nullptr)) {
+        return {*use(game, page)};
+    }
+    std::vector<Game> out;
+    out.reserve(title->copies.size());
+    for (const Game* copy : title->copies) {
+        out.push_back(*copy);
+    }
+    return out;
+}
+
+std::vector<Game> TitleCopies::switchable(const Game& game, std::optional<Source> page) const {
+    const Title* title = titleOf(game);
+    if (title == nullptr || (page && !isStore(*page))) {
+        return {};
+    }
+    std::vector<Game> out;
+    for (const Game* copy : title->copies) {
+        if (isStore(copy->source)) {
+            out.push_back(*copy);
+        }
+    }
+    if (out.size() < 2) {
+        return {};
+    }
+    std::ranges::sort(out, {}, [](const Game& copy) {
+        return rank(copy.source);
+    });
+    return out;
 }
 
 } // namespace opensu::library

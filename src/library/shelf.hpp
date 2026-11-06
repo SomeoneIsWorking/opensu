@@ -123,7 +123,7 @@ void setOnHome(const std::vector<Game>& games, const ShelfItem& item, bool on,
                                                   std::string_view system);
 
 /// One launcher's whole library, installed or not, in catalog order: a store's, or one openSU's on
-/// the LAN. A game owned in other stores lists them in `ownedIn`.
+/// the LAN. A tile here stands for that launcher's game, so `ownedIn` stays empty.
 [[nodiscard]] std::vector<ShelfItem> launcherShelf(const std::vector<Game>& games,
                                                    const Launcher& launcher);
 
@@ -178,9 +178,10 @@ class ShelfBrowser {
         return folder_;
     }
 
-    /// Whether the open folder is a launcher's own library.
-    [[nodiscard]] bool inLauncher() const noexcept {
-        return folder_ && std::holds_alternative<Launcher>(*folder_);
+    /// The launcher whose library is open, or nothing.
+    [[nodiscard]] std::optional<Source> launcher() const noexcept {
+        const Launcher* open = folder_ ? std::get_if<Launcher>(&*folder_) : nullptr;
+        return open == nullptr ? std::nullopt : std::optional{open->source};
     }
 
   private:

@@ -73,6 +73,27 @@ void lastPlayed() {
     expect(lastPlayedText(now - hours{24 * 90}, now).size() == 10, "months back is a date");
 }
 
+void ownedInTwoStores() {
+    GameSettingsView stores;
+    stores.stores = {Source::Steam, Source::Gog, Source::Epic};
+    const GameDetails details =
+        detailsOf(hades(), GameMarks{.hidden = false}, now, {}, false, stores);
+    const SettingsRow* store = actionOf(details, detailsStoreId);
+    expect(store != nullptr && store->kind == RowKind::Choice && store->value == "Steam" &&
+               store->note == "Also on GOG, Epic",
+           "the Store row names the copy in use and the other stores");
+    expect(details.actions.front().id == detailsStoreId, "it comes first, under Play");
+
+    Game own = hades();
+    own.source = Source::Own;
+    const SettingsRow* led = actionOf(
+        detailsOf(own, GameMarks{.hidden = false}, now, {}, false, stores), detailsStoreId);
+    expect(led != nullptr && led->choices.size() == 4 && led->value == "Your games",
+           "a copy from no store leads the row");
+    expect(actionOf(detailsOf(hades(), GameMarks{.hidden = false}, now), detailsStoreId) == nullptr,
+           "a game owned in one store shows nothing");
+}
+
 void storeGame() {
     const GameDetails details = detailsOf(hades(), GameMarks{.hidden = false, .onHome = true}, now);
     expect(details.title == "Hades" && details.badge == "Steam", "title and store badge");
@@ -156,10 +177,19 @@ void romEmulator() {
     expect(none != nullptr && none->choices.front() == noEmulator && none->chosen == 0 &&
                none->choices.size() == 3,
            "with none picked the choice says so before the emulators");
-    const GameDetails sourced = detailsOf(
-        kirby(true), GameMarks{.hidden = false}, now, {}, false,
-        GameSettingsView{
-            "Set for this game", {}, "Inherited", "Eden, Ryujinx", {}, {}, {}, false, false, {}});
+    const GameDetails sourced = detailsOf(kirby(true), GameMarks{.hidden = false}, now, {}, false,
+                                          GameSettingsView{"Set for this game",
+                                                           {},
+                                                           "Inherited",
+                                                           "Eden, Ryujinx",
+                                                           {},
+                                                           {},
+                                                           {},
+                                                           false,
+                                                           false,
+                                                           {},
+                                                           false,
+                                                           {}});
     expect(valueOf(sourced, "Emulator") == "Eden · installed · Set for this game" &&
                actionOf(sourced, detailsEmulatorId)->note == "Set for this game" &&
                actionOf(sourced, detailsSettingsId)->value == "Inherited",
@@ -276,6 +306,7 @@ int main() try {
     ownGame();
     lastPlayed();
     storeGame();
+    ownedInTwoStores();
     states();
     romEmulator();
     arcadeRomset();

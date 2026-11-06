@@ -62,6 +62,8 @@ struct Rig {
     /// What the Copy saves row reads; empty for no row.
     std::string savesOffer;
     app::SharedSaves::View sharedSaves;
+    /// The store copies the game can switch between.
+    std::vector<library::Game> copies;
     /// Why `Installs` would refuse the uninstall; empty when it would not.
     std::string refusal;
     app::EmulatorDownloads downloads;
@@ -191,6 +193,14 @@ struct Rig {
                          [](const library::Game&, const std::string&) {
                          },
                          [](const library::Game&) {
+                         },
+                         [this](const library::Game&) {
+                             return copies;
+                         },
+                         [this](const library::Game& copy) {
+                             calls.push_back("copy " + copy.id);
+                             game = copy;
+                             controller.refresh();
                          }}} {
     }
 
@@ -253,6 +263,41 @@ void buttonsDoWhatTheyName(const fs::path& dir) {
     rig.press({Action::Down, Action::Accept});
     expect(rig.calls == std::vector<std::string>{"hide"} && !rig.controller.isOpen(),
            "Hide hides the game and closes the page");
+}
+
+library::Game storeCopy(library::Source source, const std::string& id, bool installed) {
+    library::Game copy;
+    copy.id = id;
+    copy.title = "Hades";
+    copy.source = source;
+    copy.installed = installed;
+    return copy;
+}
+
+void storeRowSwitchesTheCopy(const fs::path& dir) {
+    Rig rig{dir};
+    rig.copies = {storeCopy(library::Source::Steam, "steam:1", true),
+                  storeCopy(library::Source::Epic, "epic:h", false)};
+    rig.game = rig.copies.front();
+    rig.open();
+    const ui::GameDetails* shown = rig.controller.details();
+    expect(shown->badge == "Steam" && shown->launch == "Play" &&
+               rig.row(ui::detailsStoreId).note == "Also on Epic",
+           "the page names the copy in use and the other store");
+    rig.press({Action::Down});
+    expect(rig.focused() == ui::detailsStoreId, "the Store row follows Play");
+    rig.press({Action::Accept, Action::Down, Action::Accept});
+    expect(rig.calls == std::vector<std::string>{"read epic:h", "copy epic:h"},
+           "picking Epic switches the title and reads that copy's saves");
+    shown = rig.controller.details();
+    expect(shown != nullptr && shown->gameId == "epic:h" && shown->badge == "Epic" &&
+               shown->launch == "Install" && rig.row(ui::detailsStoreId).note == "Also on Steam",
+           "the page follows: Epic's badge, Install, and Steam as the other store");
+    expect(actionOf(*shown, ui::detailsUninstallId) == nullptr, "the Epic copy has none to remove");
+    rig.calls.clear();
+    rig.controller.launch();
+    expect(rig.calls == std::vector<std::string>{"launch epic:h"},
+           "the launch button acts on the chosen copy, never the installed other");
 }
 
 void backClosesWithoutActing(const fs::path& dir) {
@@ -469,6 +514,7 @@ int main() try {
     fs::remove_all(dir);
     fs::create_directories(dir);
     buttonsDoWhatTheyName(dir);
+    storeRowSwitchesTheCopy(dir / "store");
     backClosesWithoutActing(dir);
     refreshFollowsTheGame(dir);
     coverSpinnerFollowsTheGame(dir);

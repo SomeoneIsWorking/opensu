@@ -13,6 +13,7 @@ using opensu::library::copiesOf;
 using opensu::library::Game;
 using opensu::library::Source;
 using opensu::library::storeTitles;
+using opensu::library::TitleCopies;
 using opensu::library::titleKey;
 
 void expect(bool condition, const char* what) {
@@ -95,6 +96,93 @@ void testCopiesOf() {
            "a game outside the catalog's stores is its own copy");
 }
 
+/// Alpha: Steam not installed, GOG not installed, Epic installed. Beta is GOG's alone.
+std::vector<Game> owned() {
+    std::vector<Game> games{
+        game(Source::Steam, "steam:a", "Alpha"),
+        game(Source::Gog, "gog:a", "Alpha"),
+        game(Source::Epic, "epic:a", "Alpha"),
+        game(Source::Gog, "gog:b", "Beta"),
+    };
+    games[0].installed = false;
+    games[1].installed = false;
+    games[2].installed = true;
+    return games;
+}
+
+void testUseFollowsTheRule() {
+    const std::vector<Game> games = owned();
+    const opensu::library::CopyChoices none;
+    const TitleCopies plain{games, none};
+    expect(plain.use(games[0], std::nullopt)->id == "epic:a", "Home takes the preferred copy");
+    expect(plain.use(games[2], Source::Steam)->id == "steam:a", "a store's page takes its own");
+    expect(plain.use(games[3], Source::Steam)->id == "gog:b",
+           "a page of a store without the title takes the preferred copy");
+
+    opensu::library::CopyChoices chosen;
+    chosen.choose(games[1]);
+    const TitleCopies picked{games, chosen};
+    expect(picked.use(games[0], std::nullopt)->id == "gog:a" &&
+               picked.use(games[0], Source::Steam)->id == "gog:a",
+           "the player's choice wins everywhere, not installed or not");
+    expect(picked.use(games[3], std::nullopt)->id == "gog:b", "other titles are not touched");
+
+    const std::vector<Game> gone{games[0], games[2]};
+    const TitleCopies lost{gone, chosen};
+    expect(lost.use(gone[0], std::nullopt)->id == "epic:a" &&
+               lost.use(gone[1], Source::Steam)->id == "steam:a",
+           "a store that stopped owning the title falls back to the rule");
+    expect(chosen.chosen(games[0]) == Source::Gog, "and the choice stays for its return");
+
+    const Game stranger = game(Source::Rom, "rom:x", "Alpha");
+    expect(picked.use(stranger, std::nullopt) == nullptr, "a game of no title has no copy");
+}
+
+void testPagesThatKeepTheirCopy() {
+    std::vector<Game> games = owned();
+    games.push_back(game(Source::Own, "own:a", "Alpha"));
+    opensu::library::CopyChoices chosen;
+    chosen.choose(games[1]);
+    const TitleCopies copies{games, chosen};
+    expect(copies.use(games[4], Source::Own)->id == "own:a",
+           "the player's own page keeps its copy past a store's choice");
+    expect(copies.switchable(games[4], Source::Own).empty(), "and offers no switch");
+    expect(copies.switchable(games[4], std::nullopt).size() == 3,
+           "only the stores are switched between");
+}
+
+void testInstallable() {
+    const std::vector<Game> games = owned();
+    const opensu::library::CopyChoices none;
+    const TitleCopies plain{games, none};
+    expect(plain.installable(games[0], std::nullopt).size() == 3, "Home offers every copy");
+    expect(plain.installable(games[0], Source::Steam).size() == 1 &&
+               plain.installable(games[0], Source::Steam)[0].id == "steam:a",
+           "a store's page installs its own copy");
+
+    opensu::library::CopyChoices chosen;
+    chosen.choose(games[1]);
+    const TitleCopies picked{games, chosen};
+    expect(picked.installable(games[1], std::nullopt).size() == 1 &&
+               picked.installable(games[1], std::nullopt)[0].id == "gog:a",
+           "a chosen copy installs alone on Home");
+    expect(picked.installable(games[1], Source::Steam)[0].id == "gog:a",
+           "and on a page of another store");
+    const Game stranger = game(Source::Rom, "rom:x", "Alpha");
+    expect(picked.installable(stranger, std::nullopt).size() == 1, "a stranger offers itself");
+}
+
+void testSwitchable() {
+    const std::vector<Game> games = owned();
+    const opensu::library::CopyChoices none;
+    const TitleCopies copies{games, none};
+    const std::vector<Game> stores = copies.switchable(games[2], std::nullopt);
+    expect(stores.size() == 3 && stores[0].source == Source::Steam &&
+               stores[1].source == Source::Gog && stores[2].source == Source::Epic,
+           "the stores owning the title, Steam, GOG, Epic");
+    expect(copies.switchable(games[3], std::nullopt).empty(), "one store has nothing to switch");
+}
+
 } // namespace
 
 int main() try {
@@ -102,6 +190,10 @@ int main() try {
     testMerge();
     testSameStore();
     testCopiesOf();
+    testUseFollowsTheRule();
+    testPagesThatKeepTheirCopy();
+    testInstallable();
+    testSwitchable();
     std::printf("titles: all checks passed\n");
     return 0;
 } catch (...) {

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <iterator>
 #include <memory>
 #include <string>
 #include <vector>
@@ -57,6 +58,8 @@ const ui::GameDetails* DetailsController::details() const {
 
 ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) const {
     ui::GameSettingsView view;
+    std::ranges::transform(hooks_.copies(game), std::back_inserter(view.stores),
+                           &library::Game::source);
     view.continues = hooks_.continues(game);
     const settings::SettingLayers& layers = gameSettings_.layers();
     if (!game.emulatorOptions.empty()) {
@@ -196,7 +199,9 @@ void DetailsController::run(const std::string& id, int step) {
     if (!game) {
         return;
     }
-    if (id == ui::detailsUpdateId) {
+    if (id == ui::detailsStoreId) {
+        chooseCopy(*game, step);
+    } else if (id == ui::detailsUpdateId) {
         update_.request(*game);
     } else if (id == ui::detailsDownloadId) {
         downloadEmulator(*game);
@@ -272,6 +277,28 @@ void DetailsController::chooseEmulator(const library::Game& game, int step) {
     if (name != ui::noEmulator) {
         hooks_.chooseEmulator(game, name);
     }
+}
+
+void DetailsController::chooseCopy(const library::Game& game, int step) {
+    if (!details_) {
+        return;
+    }
+    const ui::SettingsRow* row = ui::actionOf(*details_, ui::detailsStoreId);
+    if (row == nullptr) {
+        return;
+    }
+    const std::string store = ui::stepped(row->choices, row->choices[row->chosen], step);
+    const std::vector<library::Game> copies = hooks_.copies(game);
+    const auto copy = std::ranges::find_if(copies, [&store](const library::Game& one) {
+        return library::label(one.source) == store;
+    });
+    if (copy == copies.end()) {
+        return;
+    }
+    // The shelf's refresh finds the page's game by this id.
+    details_->gameId = copy->id;
+    hooks_.readSaves(*copy);
+    hooks_.chooseCopy(*copy);
 }
 
 void DetailsController::downloadEmulator(const library::Game& game) {

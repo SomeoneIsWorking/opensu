@@ -229,6 +229,11 @@ struct Rig {
                                       [](const library::Game&, const std::string&) {
                                       },
                                       [](const library::Game&) {
+                                      },
+                                      [](const library::Game&) {
+                                          return std::vector<library::Game>{};
+                                      },
+                                      [](const library::Game&) {
                                       }}};
 
     /// Each action as a press, the stack settled after it.
