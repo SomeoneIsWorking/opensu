@@ -92,7 +92,8 @@ final class Launches {
                 runnerSeen = true;
                 return true;
             }
-            return !runnerSeen && starting;
+            // Its task stands while it forks and goes when it dies; the shell may not have looked.
+            return !runnerSeen && starting && runnerTask() != null;
         }
         if (foreign && !foreignShown && !starting) {
             // The app never took the screen from the shell.
@@ -101,13 +102,15 @@ final class Launches {
         return foreign && !foreignOver;
     }
 
-    /** Brings the runner's task back to the front; false when there is none. */
+    /** Brings the runner back to the front, right over the shell; false when there is none. */
     synchronized boolean resume() {
-        ActivityManager.AppTask task = runnerStarted ? runnerTask() : null;
-        if (task == null) {
+        if (!runnerStarted || runnerTask() == null || runnerPid() == 0) {
             return false;
         }
-        task.moveToFront();
+        // AppTask.moveToFront would put the home screen under it, where a dying game leaves it.
+        shell.startActivity(new Intent(shell, RetroActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                        | Intent.FLAG_ACTIVITY_NO_ANIMATION));
         return true;
     }
 

@@ -61,8 +61,10 @@ what lies behind. The shell is over the game only when the game opened it; left 
 and brought back, it sends the game forward (`Launches.resume`) rather than show the home screen
 behind the menu, and the player opens the Guide from there. Only the game brings the shell forward
 and only the shell's resume sends the game, so the two cannot bounce. `AppTask.moveToFront` puts the
-home screen right under the task it moves, so moving the shell over the game that way would hide
-the game; only the runner's `startActivity` puts the shell over it. A game being closed stays
+home screen right under the task it moves, so the shell and the runner bring each other forward
+with `startActivity`: the shell stays right under a game in front, and is what a dying game leaves
+on screen. A runner gone for any reason ends its game: `Launches.running` answers from the process
+and, while it forks, its task, because a shell stopped under the game may never have seen the pid. A game being closed stays
 behind the menu until it has gone (`GameScreen::closing`): sent forward, it would stop the shell,
 whose SDL thread then blocks and never sees the game end. A standalone
 emulator on Android gets no Guide at all: nothing of openSU's hears its input, and the shell coming
