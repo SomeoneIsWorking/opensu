@@ -10,6 +10,9 @@
 #include <string_view>
 #include <vector>
 
+#include "gpu2d/ui/layout.hpp"
+#include "gpu2d/ui/screen.hpp"
+
 #include "guide_menu_controller.hpp"
 #include "host_fakes.hpp"
 #include "profiles/profile_book.hpp"
@@ -51,8 +54,8 @@ struct Rig {
                      sounds,
                      app::GuideMenuController::Hooks{
                          .context =
-                             [context = context] {
-                                 return context;
+                             [this] {
+                                 return current;
                              },
                          .showSection =
                              [this](library::Section section) {
@@ -101,7 +104,8 @@ struct Rig {
                          .kick =
                              [this](const std::string& peerId) {
                                  calls.push_back("kick " + peerId);
-                             }}} {
+                             }}},
+          current{context} {
     }
 
     app::GuideMenuController::Page page(const std::string& name) {
@@ -173,9 +177,42 @@ struct Rig {
     app::GuideMenuController controller;
     std::vector<std::string> calls;
     std::vector<std::string> said;
+    /// What the hooks say the menu is over now.
+    app::GuideContext current;
     /// The page open, over or under the menu.
     std::string shown;
 };
+
+/// A page covering the menu.
+class CoverPage final : public gpu2d::ui::Screen {
+  public:
+    CoverPage() : Screen{"cover", "Cover"} {
+    }
+    [[nodiscard]] std::unique_ptr<gpu2d::ui::Widget>
+    build(const gpu2d::ui::Theme& /*theme*/) override {
+        return std::make_unique<gpu2d::ui::Column>();
+    }
+};
+
+void rowsAreReadAgainWhenAPageLeaves() {
+    Rig rig{app::GuideContext{.inGame = true, .title = "Roboquest"}};
+    const auto hasPlayers = [&rig] {
+        const std::vector<std::string> ids = rig.places();
+        return std::ranges::find(ids, "guide.players") != ids.end();
+    };
+    rig.open();
+    rig.ui.navigator.push(std::make_unique<CoverPage>());
+    rig.ui.frame(1.0);
+    rig.controller.service();
+    expect(!rig.controller.inFront(), "a page covers the menu");
+    rig.current.guests.push_back(lan::Peer{.id = "ada", .name = "Ada"});
+    rig.controller.service();
+    expect(!hasPlayers(), "under a page the rows are not read");
+    rig.ui.navigator.pop();
+    rig.ui.frame(1.0);
+    rig.controller.service();
+    expect(hasPlayers(), "the page gone, they show the guest who joined");
+}
 
 void homePlacesReachTheirHooks() {
     Rig rig;
@@ -462,6 +499,7 @@ void withoutPowerOrSessionOnlyQuitIsLeft() {
 
 int main() try {
     homePlacesReachTheirHooks();
+    rowsAreReadAgainWhenAPageLeaves();
     gameStepsAskFirst();
     togetherPagesInviteAndKick();
     quickChangesSitBesideThePlaces();

@@ -140,6 +140,9 @@ class GuideMenuController final : public ui::RowActions {
     [[nodiscard]] bool isOpen() const;
     /// Open with no page over it, so it has the buttons.
     [[nodiscard]] bool inFront() const;
+    /// Once a loop pass: a page over the menu having gone, its rows show what is true now. A game
+    /// ending needs none of this: the shell closes the menu then (`closePages`).
+    void service();
 
     // What the screens ask.
     /// The menu's heading: the game's title, or openSU's name.
@@ -194,6 +197,8 @@ class GuideMenuController final : public ui::RowActions {
     GuideContext context_;
     /// Closes the page opened over the menu, which the menu's close takes with it.
     std::function<void()> closeShown_;
+    /// A page covered the menu at the last `service`.
+    bool covered_{false};
     /// The running game's opensu-retro state, read as the menu opens and after each command.
     std::optional<RetroSession::Status> retroStatus_;
     std::optional<int> brightnessLevel_;

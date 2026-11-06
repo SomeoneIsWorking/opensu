@@ -643,9 +643,25 @@ void ShellApp::clickSection(library::Section section) {
     if (shell_.inGame() || !shell_.screens().navigator().atRoot()) {
         return;
     }
+    moveToSection(section);
+}
+
+void ShellApp::moveToSection(library::Section section) {
     const int steps = library::Sections::stepsBetween(browser_.section(), section);
     if (steps != 0) {
         cycleSection(steps);
+    }
+}
+
+void ShellApp::goToSection(library::Section section) {
+    closePages();
+    if (section != browser_.section()) {
+        moveToSection(section);
+        return;
+    }
+    search_.clear();
+    if (const std::optional<std::size_t> focus = browser_.back()) {
+        showShelf(*focus);
     }
 }
 
@@ -1499,6 +1515,7 @@ int ShellApp::run() {
         ownGames_.service();
         gameMatch_.service();
         saveCopy_.service();
+        guideMenu_.service();
         if (window_->screenKeyboardHidden()) {
             keyboardPad_.close();
         }

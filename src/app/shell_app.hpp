@@ -206,6 +206,11 @@ class ShellApp final {
     void activateCrumb(std::size_t index);
     /// A dock section chosen, by a click or L1 and R1: moves along the dock to it.
     void clickSection(library::Section section);
+    /// Moves along the dock to `section` from wherever the dock stands.
+    void moveToSection(library::Section section);
+    /// A Guide place: `section`'s shelf, with the pages closed and out of any search or folder. The
+    /// menu is still on the stack, so `clickSection`'s check would refuse.
+    void goToSection(library::Section section);
     void actOn(gamepad::Button button);
     /// B on Home: out of the search or the folder, else ESC opens the Guide menu.
     void backOnHome();
@@ -1322,8 +1327,7 @@ class ShellApp final {
                 },
             .showSection =
                 [this](library::Section section) {
-                    closePages();
-                    clickSection(section);
+                    goToSection(section);
                 },
             .devices = {.isOpen =
                             [this] {

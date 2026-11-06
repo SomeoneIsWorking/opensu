@@ -86,6 +86,15 @@ bool GuideMenuController::inFront() const {
            });
 }
 
+void GuideMenuController::service() {
+    const bool front = inFront();
+    if (covered_ && front) {
+        context_ = hooks_.context();
+        read();
+    }
+    covered_ = isOpen() && !front;
+}
+
 void GuideMenuController::toggle(Landing landing) {
     if (isOpen()) {
         close();
