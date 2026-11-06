@@ -59,7 +59,7 @@ void GameMatchController::open(const library::Game& game) {
     current_ =
         game.boxArt.empty() ? game.artworkKey : std::string{library::boxArtPick} + game.boxArt;
     kind_ = library::matchKindOf(game);
-    title_ = "Match a different game: " + library::copyName(game);
+    title_ = "Match a different game: " + game.title;
     sounds_.play(audio::Effect::OpenContextMenu);
     search(game.title);
     navigator_.push(std::make_unique<GameMatchScreen>(*this, chrome_, images_));

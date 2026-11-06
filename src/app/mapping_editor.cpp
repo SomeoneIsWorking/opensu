@@ -94,8 +94,18 @@ MappingEditor::MappingEditor(ui::MappingPage& page, settings::MappingStore store
       hooks_{std::move(hooks)}, scopes_{store_.load()} {
 }
 
+library::KeptData MappingEditor::keptData() {
+    return library::KeptData{[this](const std::string& id) {
+                                 return scopes_.holdsGame(id);
+                             },
+                             [this](const std::string& from, const std::string& to) {
+                                 scopes_.copyGame(from, to);
+                                 save();
+                             }};
+}
+
 void MappingEditor::openGame(const library::Game& game) {
-    open(Target{settings::Layer{Kind::Game, game.id}, "Controls · " + library::copyName(game),
+    open(Target{settings::Layer{Kind::Game, library::dataId(game)}, "Controls · " + game.title,
                 library::layerKeysOf(game), game.source == library::Source::Steam});
 }
 

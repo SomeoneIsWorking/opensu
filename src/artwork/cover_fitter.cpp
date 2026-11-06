@@ -32,7 +32,7 @@ bool CoverFitter::wanted(const library::Game& game) const {
     overrides_.forgetOtherFit(game.id, lookupKey(steamGridDbGameOf(game)));
     const ArtworkStore::Clock::time_point now = ArtworkStore::Clock::now();
     return game.boxArt.empty() && (!game.artwork.empty() || store_.coverless(game, now)) &&
-           steamGridDb_.connected() && overrides_.wantsFit(game.id, now);
+           steamGridDb_.connected() && overrides_.wantsFit(game.id, now, library::dataId(game));
 }
 
 void CoverFitter::request(const std::vector<library::Game>& games, CoverShape shape) {
@@ -118,7 +118,8 @@ CoverFitter::Outcome CoverFitter::fit(const Work& work, const std::stop_token& s
     const library::Game& game = work.game;
     const std::string seen = game.id + "\n" + game.artwork.string();
     // A later request can queue a game again while its fit is under way.
-    if (fits_.contains(seen) || !overrides_.wantsFit(game.id, ArtworkStore::Clock::now())) {
+    if (fits_.contains(seen) ||
+        !overrides_.wantsFit(game.id, ArtworkStore::Clock::now(), library::dataId(game))) {
         return Outcome::Next;
     }
     std::string error;
@@ -169,7 +170,7 @@ CoverFitter::Outcome CoverFitter::fit(const Work& work, const std::stop_token& s
         lucent::info("artwork", "{}: fitted SteamGridDB cover {} ({}x{})", game.id, candidate.id,
                      candidate.width, candidate.height);
         const std::lock_guard lock{mutex_};
-        done_.push_back({game.id, overrides_.shown(game.id)});
+        done_.push_back({game.id, overrides_.shown(game.id, library::dataId(game))});
         return Outcome::Next;
     }
     overrides_.recordFitMiss(game.id, lookupKey(lookup));

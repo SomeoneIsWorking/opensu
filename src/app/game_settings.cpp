@@ -78,6 +78,21 @@ std::size_t GameSettings::clear(const settings::Layer& layer) {
     return cleared;
 }
 
+library::KeptData GameSettings::keptData() {
+    return library::KeptData{
+        [this](const std::string& id) {
+            return layers_.layers().contains(settings::Layer{settings::Layer::Kind::Game, id});
+        },
+        [this](const std::string& from, const std::string& to) {
+            const settings::Layer own{settings::Layer::Kind::Game, to};
+            for (const auto& [key, value] :
+                 layers_.layers().at(settings::Layer{settings::Layer::Kind::Game, from})) {
+                layers_.set(own, key, value);
+            }
+            save();
+        }};
+}
+
 void GameSettings::save() {
     std::string error;
     if (!store_.save(layers_, error)) {

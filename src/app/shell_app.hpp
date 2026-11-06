@@ -717,6 +717,9 @@ class ShellApp final {
             },
             [this](const library::Game& game) {
                 return copiesOffered(game);
+            },
+            [this](const library::Game& game) {
+                return downloadsScreen_.board().installing(game.id);
             }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),

@@ -56,14 +56,6 @@ struct LaunchButton {
     bool operator==(const LaunchButton&) const = default;
 };
 
-/// What a copy's Game settings page holds besides its settings.
-struct SettingsPage {
-    std::string gameId;
-    std::vector<SettingsRow> rows;
-
-    bool operator==(const SettingsPage&) const = default;
-};
-
 /// Everything the page shows for one game.
 struct GameDetails {
     std::string gameId;
@@ -81,11 +73,11 @@ struct GameDetails {
     /// The rows after it, of the top copy where a row is a copy's: the other ways to play, Update,
     /// Download, Add to Home and Hide, Game settings, More.
     std::vector<SettingsRow> actions;
-    /// The rows on More: the other copies' Play, Update, Game settings and Install, then Uninstall
-    /// for each installed copy or Remove from library; empty, and no More row, for none.
+    /// The rows on More: the other copies' Play, Update and Install, then Uninstall for each
+    /// installed copy or Remove from library; empty, and no More row, for none.
     std::vector<SettingsRow> more;
-    /// One per copy, or one for the page's game.
-    std::vector<SettingsPage> settingsPages;
+    /// What the Game settings page holds besides its settings.
+    std::vector<SettingsRow> settingsRows;
 
     bool operator==(const GameDetails&) const = default;
 };
@@ -132,6 +124,8 @@ struct GameSettingsView {
     std::vector<Partner> partners;
     /// Whether it can be offered to a friend over the internet: the Play online row.
     bool online{false};
+    /// It is being installed or downloaded, so its store's section shows.
+    bool installing{false};
 };
 
 /// One store copy of a title two stores own, with what its rows show.
@@ -174,10 +168,7 @@ struct GameMarks {
 
 /// The fact labelled `label`, or null.
 [[nodiscard]] const SettingsRow* factOf(const GameDetails& details, std::string_view label);
-/// What `gameId`'s Game settings page holds besides its settings.
-[[nodiscard]] std::vector<SettingsRow> settingsPageOf(const GameDetails& details,
-                                                      std::string_view gameId);
-/// The row `id` on `gameId`'s Game settings page, or null.
+/// The row `id` of `gameId` on the Game settings page, or null.
 [[nodiscard]] const SettingsRow* settingsRowOf(const GameDetails& details, std::string_view gameId,
                                                std::string_view id);
 /// The action row `id`, or null.

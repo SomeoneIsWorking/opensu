@@ -145,12 +145,14 @@ std::unique_ptr<tk::Widget> LayeredEditor::build(const tk::Theme& theme) {
             tabs.push_back(
                 tk::Tabs::Tab{layer.id.empty() ? "global" : layer.id, settings_.scopeName(layer)});
         }
-        frame.body->add<tk::Tabs>(
-            std::string{scopesId}, std::move(tabs), scope_,
-            [this](std::size_t index) {
-                scope_ = index;
-            },
-            tk::Orientation::Horizontal);
+        frame.body
+            ->add<tk::Tabs>(
+                std::string{scopesId}, std::move(tabs), scope_,
+                [this](std::size_t index) {
+                    scope_ = index;
+                },
+                tk::Orientation::Horizontal)
+            .space(theme.spacing.gap);
     }
     tk::List& list = frame.body->add<tk::List>("rows", theme.spacing.gap);
     list.grow();

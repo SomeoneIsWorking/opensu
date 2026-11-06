@@ -24,7 +24,7 @@ const EmulatorOption* listed(const settings::SettingLayers& layers, const Layer&
 EmulatorPick pickFor(const settings::SettingLayers& layers, const Game& game) {
     const EmulatorSource automatic =
         game.romset.empty() ? EmulatorSource::Search : EmulatorSource::Romset;
-    const Layer own{Layer::Kind::Game, game.id};
+    const Layer own{Layer::Kind::Game, dataId(game)};
     if (layers.at(own, emulatorKey) != nullptr) {
         // A pick of an emulator no longer listed keeps what the search found.
         const EmulatorOption* option = listed(layers, own, game);
@@ -63,7 +63,7 @@ void applyEmulatorPicks(const settings::SettingLayers& layers, std::vector<Game>
 }
 
 settings::LayerKeys layerKeysOf(const Game& game) {
-    settings::LayerKeys keys{game.id, {}, {}};
+    settings::LayerKeys keys{dataId(game), {}, {}};
     if (game.source == Source::Rom) {
         keys.system = game.sourceId;
     }

@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iterator>
 #include <system_error>
+#include <utility>
 #include <variant>
 
 #include "fileio/atomic_write.hpp"
@@ -42,11 +43,12 @@ fs::path CoverOverrides::fittedPath(std::string_view id) const {
     return fittedDir_ / encodeSegment(id);
 }
 
-fs::path CoverOverrides::shown(std::string_view id) const {
-    if (const fs::path chosen = chosenPath(id); isFile(chosen)) {
+fs::path CoverOverrides::shown(std::string_view id, std::string_view kept) const {
+    const std::string_view choice = kept.empty() ? id : kept;
+    if (const fs::path chosen = chosenPath(choice); isFile(chosen)) {
         return chosen;
     }
-    if (const fs::path fitted = fittedPath(id); !keptOwn(id) && isFile(fitted)) {
+    if (const fs::path fitted = fittedPath(id); !keptOwn(choice) && isFile(fitted)) {
         return fitted;
     }
     return {};
@@ -56,8 +58,26 @@ bool CoverOverrides::keptOwn(std::string_view id) const {
     return isFile(ownMarker(id));
 }
 
-bool CoverOverrides::wantsFit(std::string_view id, ArtworkStore::Clock::time_point now) const {
-    if (isFile(chosenPath(id)) || keptOwn(id) || isFile(fittedPath(id))) {
+bool CoverOverrides::holdsChoice(std::string_view id) const {
+    return isFile(chosenPath(id)) || keptOwn(id);
+}
+
+void CoverOverrides::copyChoice(std::string_view from, std::string_view to) const {
+    std::error_code ec;
+    for (const auto& [source, target] :
+         {std::pair{chosenPath(from), chosenPath(to)}, std::pair{ownMarker(from), ownMarker(to)}}) {
+        if (isFile(source)) {
+            fs::copy_file(source, target, fs::copy_options::overwrite_existing, ec);
+        }
+        if (ec) {
+            lucent::warn("artwork", "{}: copying a chosen cover: {}", to, ec.message());
+        }
+    }
+}
+
+bool CoverOverrides::wantsFit(std::string_view id, ArtworkStore::Clock::time_point now,
+                              std::string_view kept) const {
+    if (holdsChoice(kept.empty() ? id : kept) || isFile(fittedPath(id))) {
         return false;
     }
     std::error_code ec;
@@ -68,7 +88,7 @@ bool CoverOverrides::wantsFit(std::string_view id, ArtworkStore::Clock::time_poi
 void CoverOverrides::apply(std::vector<library::ShelfItem>& shelf) const {
     for (library::ShelfItem& item : shelf) {
         if (auto* game = std::get_if<library::Game>(&item)) {
-            if (fs::path cover = shown(game->id); !cover.empty()) {
+            if (fs::path cover = shown(game->id, library::dataId(*game)); !cover.empty()) {
                 game->artwork = std::move(cover);
             }
         }

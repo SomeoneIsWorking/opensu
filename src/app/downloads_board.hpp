@@ -171,6 +171,8 @@ class DownloadsBoard {
         return rows_;
     }
     [[nodiscard]] const DownloadRow* find(std::string_view key) const;
+    /// Whether game `id` is on its way: its first install is queued, downloading or installing.
+    [[nodiscard]] bool installing(std::string_view id) const;
 
     /// The player took the Steam download `key` off the queue: it leaves the list now and is not
     /// listed again while Steam still reports it.

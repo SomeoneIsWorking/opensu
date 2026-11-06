@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -111,14 +112,63 @@ std::vector<Game> owned() {
     return games;
 }
 
-void testCopyName() {
+/// Data in a map, as a store of it keeps it.
+struct Kept {
+    std::map<std::string, std::string> entries;
+
+    [[nodiscard]] opensu::library::KeptData data() {
+        return {[this](const std::string& id) {
+                    return entries.contains(id);
+                },
+                [this](const std::string& from, const std::string& to) {
+                    entries[to] = entries.at(from);
+                }};
+    }
+};
+
+void testSharedData() {
+    using opensu::library::dataId;
+    using opensu::library::shareTitleData;
+    const auto at = [](int seconds) {
+        return std::chrono::system_clock::time_point{std::chrono::seconds{seconds}};
+    };
     std::vector<Game> games = owned();
-    games.push_back(game(Source::Own, "own:a", "Alpha"));
-    opensu::library::markCopies(games);
-    expect(opensu::library::copyName(games[2]) == "Alpha (Epic)",
-           "a copy of a title two stores own names its store");
-    expect(opensu::library::copyName(games[3]) == "Beta", "a one-store game is its title");
-    expect(opensu::library::copyName(games[4]) == "Alpha", "and so is the player's own copy");
+    Kept kept;
+    kept.entries = {{"epic:a", "epic"}};
+    shareTitleData(games, {kept.data()});
+    expect(dataId(games[1]) == "title:alpha" && dataId(games[2]) == "title:alpha",
+           "a title of two stores keeps its data under its key");
+    expect(kept.entries.at("title:alpha") == "epic" && kept.entries.at("epic:a") == "epic",
+           "starting from the copy that has some, which stays");
+    expect(dataId(games[3]) == games[3].id, "a one-store game keeps its id");
+
+    games = owned();
+    games[1].lastPlayed = at(100);
+    games[2].lastPlayed = at(200);
+    kept.entries = {{games[1].id, "first"}, {games[2].id, "second"}};
+    shareTitleData(games, {kept.data()});
+    expect(kept.entries.at("title:alpha") == "second" && kept.entries.at(games[1].id) == "first",
+           "of several the most recently played wins, the others untouched");
+
+    kept.entries.at("title:alpha") = "changed";
+    shareTitleData(games, {kept.data()});
+    expect(kept.entries.at("title:alpha") == "changed", "what the key holds is not read over");
+
+    games.erase(games.begin() + 2);
+    shareTitleData(games, {kept.data()});
+    expect(dataId(games[1]) == "title:alpha", "a title that lost a copy finds what it kept");
+
+    games.back().title = "Alpha Renamed";
+    games[1].title = "Alpha Renamed";
+    shareTitleData(games, {kept.data()});
+    expect(dataId(games[1]) == games[1].id, "a new title falls back to the copy's own");
+
+    std::vector<Game> twins = owned();
+    twins.push_back(game(Source::Steam, "steam:twin", "Alpha"));
+    kept.entries = {{"title:alpha", "theirs"}};
+    shareTitleData(twins, {kept.data()});
+    expect(dataId(twins.back()) == "steam:twin",
+           "a same-titled game of one store is not the title of two");
 }
 
 void testTopFollowsPlayHistory() {
@@ -193,7 +243,7 @@ int main() try {
     testMerge();
     testSameStore();
     testCopiesOf();
-    testCopyName();
+    testSharedData();
     testTopFollowsPlayHistory();
     testNeverPlayedOrder();
     testOffered();

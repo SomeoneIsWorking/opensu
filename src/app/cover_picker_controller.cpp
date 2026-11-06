@@ -27,7 +27,8 @@ void CoverPickerController::open(const library::Game& game) {
         return;
     }
     gameId_ = game.id;
-    title_ = "Choose artwork: " + library::copyName(game);
+    keptId_ = library::dataId(game);
+    title_ = "Choose artwork: " + game.title;
     own_ = game.artwork;
     matchable_ = library::matchKindOf(game) != library::MatchKind::None;
     listing_.reset();
@@ -73,13 +74,13 @@ void CoverPickerController::choose(std::size_t index) {
         close();
         return;
     case Entry::Kind::Own:
-        offers_.chooseOwn(gameId_);
+        offers_.chooseOwn(keptId_);
         break;
     case Entry::Kind::Offer:
         if (!listing_ || entry.offer >= listing_->offers.size()) {
             return;
         }
-        offers_.choose(gameId_, listing_->offers[entry.offer].cover);
+        offers_.choose(keptId_, listing_->offers[entry.offer].cover);
         break;
     }
     saving_ = true;
@@ -96,9 +97,9 @@ void CoverPickerController::service() {
         if (!choice.kept) {
             hooks_.say("cannot keep the cover: " + choice.error, true);
         } else {
-            hooks_.changed(choice.gameId);
+            hooks_.changed(choice.gameId == keptId_ ? gameId_ : choice.gameId);
         }
-        if (choice.gameId == gameId_ && isOpen()) {
+        if (choice.gameId == keptId_ && isOpen()) {
             saving_ = false;
             if (choice.kept) {
                 close();
@@ -112,7 +113,7 @@ void CoverPickerController::service() {
 void CoverPickerController::show() {
     picks_.clear();
     entries_.clear();
-    const std::filesystem::path replaced = overrides_.shown(gameId_);
+    const std::filesystem::path replaced = overrides_.shown(gameId_, keptId_);
     picks_.push_back(Pick{"Now", replaced.empty() ? own_ : replaced});
     entries_.push_back(Entry{Entry::Kind::Now});
     if (!replaced.empty() && !own_.empty()) {

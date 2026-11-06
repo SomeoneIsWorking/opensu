@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstddef>
 #include <functional>
+#include <iterator>
 #include <optional>
 #include <unordered_map>
 #include <unordered_set>
@@ -67,11 +68,6 @@ std::string choiceKey(const Game& game) {
         }
     }
     return "id:" + game.id;
-}
-
-std::string copyName(const Game& game) {
-    return game.severalStores ? game.title + " (" + std::string{label(game.source)} + ")"
-                              : game.title;
 }
 
 std::vector<Title> storeTitles(const std::vector<Game>& games) {
@@ -139,6 +135,52 @@ void markCopies(std::vector<Game>& games) {
     }
     for (Game& game : games) {
         game.severalStores = several.contains(game.id);
+    }
+}
+
+void shareTitleData(std::vector<Game>& games, const std::vector<KeptData>& kept) {
+    std::vector<Title> titles = storeTitles(games);
+    const auto storeCopies = [](const Title& title) {
+        std::vector<const Game*> copies;
+        std::ranges::copy_if(title.copies, std::back_inserter(copies), isStore, &Game::source);
+        return copies;
+    };
+    // Same-titled games of one store are titles of their own: one with several stores goes first.
+    std::ranges::stable_partition(titles, [&storeCopies](const Title& title) {
+        return storeCopies(title).size() > 1;
+    });
+    std::unordered_map<std::string, std::string> shared;
+    std::unordered_set<std::string> taken;
+    for (const Title& title : titles) {
+        std::vector<const Game*> copies = storeCopies(title);
+        if (copies.empty()) {
+            continue;
+        }
+        const std::string key = choiceKey(*copies.front());
+        const bool held = std::ranges::any_of(kept, [&key](const KeptData& data) {
+            return data.holds(key);
+        });
+        if (key.starts_with("id:") || (copies.size() < 2 && !held) || !taken.insert(key).second) {
+            continue;
+        }
+        std::ranges::stable_sort(copies, [](const Game* a, const Game* b) {
+            return a->lastPlayed > b->lastPlayed;
+        });
+        for (const KeptData& data : kept) {
+            const auto from = std::ranges::find_if(copies, [&data](const Game* copy) {
+                return data.holds(copy->id);
+            });
+            if (!data.holds(key) && from != copies.end()) {
+                data.copy((*from)->id, key);
+            }
+        }
+        for (const Game* copy : copies) {
+            shared.emplace(copy->id, key);
+        }
+    }
+    for (Game& game : games) {
+        const auto found = shared.find(game.id);
+        game.sharedId = found == shared.end() ? std::string{} : found->second;
     }
 }
 

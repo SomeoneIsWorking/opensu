@@ -93,6 +93,8 @@ class DetailsController final : public ui::RowActions {
         /// The store copies with rows of their own on `game`'s page, top first; empty for a page
         /// of `game` alone.
         std::function<std::vector<library::Game>(const library::Game& game)> copies;
+        /// Whether `game` is being installed or downloaded.
+        std::function<bool(const library::Game& game)> installing;
     };
 
     /// What the rows act on.

@@ -58,6 +58,7 @@ const ui::GameDetails* DetailsController::details() const {
 ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) const {
     ui::GameSettingsView view;
     view.continues = hooks_.continues(game);
+    view.installing = hooks_.installing(game);
     const settings::SettingLayers& layers = gameSettings_.layers();
     if (!game.emulatorOptions.empty()) {
         view.emulatorSource = emulatorSourceText(library::pickFor(layers, game).source, game);
@@ -288,8 +289,8 @@ void DetailsController::openPage(const std::string& rowId) {
         sounds_.play(audio::Effect::Open);
         navigator_.push(std::make_unique<DetailsMoreScreen>(*this, chrome_));
     } else if (id == ui::detailsSettingsId) {
-        hooks_.openGameSettings(*game, [this, copy = game->id] {
-            return details_ ? ui::settingsPageOf(*details_, copy) : std::vector<ui::SettingsRow>{};
+        hooks_.openGameSettings(*game, [this] {
+            return details_ ? details_->settingsRows : std::vector<ui::SettingsRow>{};
         });
     } else if (id == ui::detailsArtworkId) {
         hooks_.chooseArtwork(*game);

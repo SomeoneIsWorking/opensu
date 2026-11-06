@@ -22,17 +22,24 @@ class CoverOverrides {
     /// `chosenDir` survives a cleared cache; `fittedDir` is cache.
     CoverOverrides(std::filesystem::path chosenDir, std::filesystem::path fittedDir);
 
-    /// The cover shown for game `id` instead of its own: its chosen one, else its fitted one
-    /// unless its own was chosen. Empty when it shows its own.
-    [[nodiscard]] std::filesystem::path shown(std::string_view id) const;
+    /// The cover shown for game `id` instead of its own: the one chosen under `kept`, `id` when
+    /// empty, else its fitted one unless its own was chosen. Empty when it shows its own.
+    [[nodiscard]] std::filesystem::path shown(std::string_view id,
+                                              std::string_view kept = {}) const;
     /// Whether the player chose the game's own cover.
     [[nodiscard]] bool keptOwn(std::string_view id) const;
     /// Whether a fitted cover should be looked for: nothing was chosen, none is kept, and none was
     /// missed within `ArtworkStore::missLifetime` of `now`.
-    [[nodiscard]] bool wantsFit(std::string_view id, ArtworkStore::Clock::time_point now) const;
+    [[nodiscard]] bool wantsFit(std::string_view id, ArtworkStore::Clock::time_point now,
+                                std::string_view kept = {}) const;
 
     /// Puts each game's shown cover in place of its own.
     void apply(std::vector<library::ShelfItem>& shelf) const;
+
+    /// Whether a choice is kept under `id`.
+    [[nodiscard]] bool holdsChoice(std::string_view id) const;
+    /// Keeps the choice under `from` under `to` as well.
+    void copyChoice(std::string_view from, std::string_view to) const;
 
     /// Keeps `bytes` as the player's choice for `id`.
     [[nodiscard]] bool choose(std::string_view id, std::string_view bytes,

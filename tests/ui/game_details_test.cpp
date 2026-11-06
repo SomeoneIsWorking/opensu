@@ -45,8 +45,12 @@ std::vector<std::string> idsOf(const GameDetails& details) {
 
 /// What `game`'s Game settings page holds besides its settings.
 std::vector<SettingsRow> settingsPageRows(const Game& game, bool ownWinePrefix) {
-    return settingsPageOf(detailsOf(game, GameMarks{.hidden = false}, now, {}, ownWinePrefix),
-                          game.id);
+    return detailsOf(game, GameMarks{.hidden = false}, now, {}, ownWinePrefix).settingsRows;
+}
+
+const SettingsRow* winePrefixOf(const std::vector<SettingsRow>& rows) {
+    const auto found = std::ranges::find(rows, "Wine prefix", &SettingsRow::label);
+    return found == rows.end() ? nullptr : &*found;
 }
 
 std::vector<std::string> ids(std::initializer_list<std::string_view> names) {
@@ -100,15 +104,14 @@ void ownedInTwoStores() {
     const GameDetails details =
         detailsOf(steam, GameMarks{.hidden = false}, now, {}, false, {}, copies);
     expect(details.launch.label == "Play (Steam)", "the top copy's Play leads");
-    expect(labelsOf(details.actions) ==
-               std::vector<std::string>{"Update (Steam)", "Add to Home", "Hide game",
-                                        "Game settings (Steam)", "More", "Back"},
+    expect(labelsOf(details.actions) == std::vector<std::string>{"Update (Steam)", "Add to Home",
+                                                                 "Hide game", "Game settings",
+                                                                 "More", "Back"},
            "the page's rows are the top copy's");
-    expect(labelsOf(details.more) == std::vector<std::string>{"Game settings (Epic)",
-                                                              "Install (Epic)",
-                                                              "Uninstall (Steam)"},
+    expect(labelsOf(details.more) ==
+               std::vector<std::string>{"Install (Epic)", "Uninstall (Steam)"},
            "More has the other copy's rows, then what removes each");
-    const CopyRow install = copyRowOf(details.more[1].id);
+    const CopyRow install = copyRowOf(details.more[0].id);
     expect(install.gameId == "epic:hades" && install.id == detailsInstallId,
            "a row names its copy");
     expect(copyRowOf(std::string{detailsBackId}).gameId.empty(), "a row of the page names none");
@@ -119,8 +122,7 @@ void ownedInTwoStores() {
     const GameDetails nothing =
         detailsOf(away, GameMarks{.hidden = false}, now, {}, false, {}, uninstalled);
     expect(nothing.launch.label == "Install (Steam)" &&
-               labelsOf(nothing.more) ==
-                   std::vector<std::string>{"Game settings (Epic)", "Install (Epic)"},
+               labelsOf(nothing.more) == std::vector<std::string>{"Install (Epic)"},
            "with nothing installed the top Install leads and is not on More again");
     expect(valueOf(details, "Last played (Epic)") == "Never played" &&
                valueOf(details, "Last played (Steam)") == "3 hours ago" &&
@@ -287,14 +289,38 @@ void winePrefix() {
     windows.id = "gog:2";
     windows.source = Source::Gog;
     windows.windowsInstall = true;
-    const SettingsRow shared = settingsPageRows(windows, false).front();
-    expect(shared.label == "Wine prefix" && shared.value == sharedPrefix &&
-               copyRowOf(shared.id).gameId == "gog:2",
-           "a Windows install shows its prefix on Game settings, shared by default");
-    expect(settingsPageRows(windows, true).front().value == ownPrefix,
-           "a game with its own prefix says so");
-    expect(settingsPageRows(hades(), false).front().label != "Wine prefix",
-           "a game that does not run under Wine has no prefix row");
+    const std::vector<SettingsRow> rows = settingsPageRows(windows, false);
+    const SettingsRow* shared = winePrefixOf(rows);
+    expect(shared != nullptr && shared->value == sharedPrefix &&
+               copyRowOf(shared->id).gameId == "gog:2" &&
+               std::ranges::none_of(rows,
+                                    [](const SettingsRow& row) {
+                                        return row.kind == RowKind::Heading;
+                                    }),
+           "a one-store Windows install shows its prefix on Game settings, with no store section");
+    const std::vector<SettingsRow> own = settingsPageRows(windows, true);
+    expect(winePrefixOf(own)->value == ownPrefix, "a game with its own prefix says so");
+    const std::vector<SettingsRow> plain = settingsPageRows(hades(), false);
+    expect(winePrefixOf(plain) == nullptr, "a game that does not run under Wine has no prefix row");
+
+    Game epic = windows;
+    epic.id = "epic:2";
+    epic.source = Source::Epic;
+    const std::vector<CopyPart> copies{{windows, false, {}}, {epic, true, {}}};
+    const std::vector<SettingsRow> sections =
+        detailsOf(windows, GameMarks{.hidden = false}, now, {}, false, {}, copies).settingsRows;
+    const auto gog = std::ranges::find(sections, "GOG", &SettingsRow::label);
+    const auto epics = std::ranges::find(sections, "Epic", &SettingsRow::label);
+    expect(gog != sections.end() && gog->kind == RowKind::Heading && epics != sections.end() &&
+               (gog + 1)->label == "Wine prefix" && (gog + 1)->value == sharedPrefix &&
+               (epics + 1)->label == "Wine prefix" && (epics + 1)->value == ownPrefix,
+           "what differs by copy stands under a heading per store");
+    Game plainCopy = hades();
+    const std::vector<CopyPart> nothing{{windows, false, {}}, {plainCopy, false, {}}};
+    const std::vector<SettingsRow> oneOwn =
+        detailsOf(windows, GameMarks{.hidden = false}, now, {}, false, {}, nothing).settingsRows;
+    expect(std::ranges::find(oneOwn, "Steam", &SettingsRow::label) == oneOwn.end(),
+           "a store with nothing of its own has no section");
 }
 
 void ownGame() {
@@ -317,8 +343,8 @@ void ownGame() {
     expect(settingsRowOf(details, game.id, detailsRenameId) != nullptr &&
                settingsRowOf(details, game.id, detailsChangeFileId) != nullptr,
            "rename and change file on Game settings");
-    expect(settingsPageRows(game, false).front().label != "Wine prefix",
-           "and no Wine prefix: it has its own");
+    const std::vector<SettingsRow> kept = settingsPageRows(game, false);
+    expect(winePrefixOf(kept) == nullptr, "and no Wine prefix: it has its own");
     expect(valueOf(details, "Steam app") == "None matched", "no Steam app is said");
 
     game.file.clear();

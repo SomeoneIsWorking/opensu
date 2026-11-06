@@ -18,6 +18,7 @@
 #include "cover_picker_controller.hpp"
 #include "library/game.hpp"
 #include "library/shelf.hpp"
+#include "library/titles.hpp"
 #include "ui/shell.hpp"
 
 namespace opensu::app {
@@ -58,6 +59,8 @@ class SteamGridDbCovers {
     void coverArrived(const std::string& id, const std::filesystem::path& file);
     /// Game `id`'s source came back without a cover: one without any is fitted by title.
     void coverMissing(const std::string& id);
+    /// Chosen covers as data a title's copies share.
+    [[nodiscard]] library::KeptData keptData() const;
     /// Opens "Choose artwork" for game `id`.
     void choose(const std::string& id);
     [[nodiscard]] CoverPickerController& picker() noexcept {
@@ -77,6 +80,8 @@ class SteamGridDbCovers {
   private:
     /// Shows game `id`'s cover as it stands.
     void show(const std::string& id);
+    /// The cover shown for game `id` instead of its own; empty for none.
+    [[nodiscard]] std::filesystem::path replaced(const std::string& id) const;
 
     ui::Shell& shell_;
     Hooks hooks_;

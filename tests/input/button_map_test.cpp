@@ -141,6 +141,14 @@ void steamInputTakesTheGame() {
     scopes.setSteamInput(game.game, std::nullopt);
     expect(!scopes.steamInputOf(game.game) && !scopes.steamInput(game.game),
            "and back to the global choice");
+    scopes.setSteamInput(game.game, true);
+    expect(scopes.holdsGame(game.game) && !scopes.holdsGame("title:cove"),
+           "a game holds what it keeps");
+    scopes.copyGame(game.game, "title:cove");
+    expect(scopes.steamInput("title:cove") &&
+               scopes.maps().contains(Layer{Kind::Game, "title:cove"}) &&
+               scopes.holdsGame(game.game),
+           "and gives a copy of it, keeping its own");
 }
 
 } // namespace

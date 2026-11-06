@@ -41,6 +41,11 @@ class MappingScopes {
     /// Whether Steam Input has the game: its own choice, else the global one.
     [[nodiscard]] bool steamInput(const std::string& game) const;
 
+    /// Whether game `id` keeps a mapping or a Steam Input choice.
+    [[nodiscard]] bool holdsGame(const std::string& id) const;
+    /// Gives game `to` what game `from` keeps.
+    void copyGame(const std::string& from, const std::string& to);
+
     /// Every layer that keeps a mapping.
     [[nodiscard]] const std::map<settings::Layer, ButtonMap>& maps() const noexcept {
         return maps_;

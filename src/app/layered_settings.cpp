@@ -37,7 +37,7 @@ EditorContext LayeredSettings::forGame(const library::Game& game) const {
     if (!context.keys.emulator.empty() && builtIn(found_().catalog(), context.keys.emulator)) {
         context.scopes.push_back(Layer{Layer::Kind::Emulator, context.keys.emulator});
     }
-    context.scopes.push_back(Layer{Layer::Kind::Game, game.id});
+    context.scopes.push_back(Layer{Layer::Kind::Game, library::dataId(game)});
     return context;
 }
 

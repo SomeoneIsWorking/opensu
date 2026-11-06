@@ -200,6 +200,13 @@ const DownloadRow* DownloadsBoard::find(std::string_view key) const {
     return found == rows_.end() ? nullptr : &*found;
 }
 
+bool DownloadsBoard::installing(std::string_view id) const {
+    const DownloadRow* row = find(id);
+    return row != nullptr && !row->update &&
+           (row->state == DownloadState::Queued || row->state == DownloadState::Downloading ||
+            row->state == DownloadState::Paused || row->state == DownloadState::Installing);
+}
+
 void DownloadsBoard::removed(const std::string& key) {
     entries_.erase(key);
     removed_.insert(key);

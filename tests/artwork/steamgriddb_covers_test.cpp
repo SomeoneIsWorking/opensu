@@ -310,6 +310,15 @@ void testChooseArtwork() {
     expect(choices[0].kept && rig.overrides.shown("steam:620").empty() &&
                rig.overrides.keptOwn("steam:620"),
            "choosing the own cover back shows it again");
+    expect(rig.overrides.holdsChoice("steam:620") && !rig.overrides.holdsChoice("title:cove"),
+           "a choice is held where it was kept");
+    rig.overrides.copyChoice("steam:620", "title:cove");
+    expect(rig.overrides.holdsChoice("title:cove") && rig.overrides.keptOwn("steam:620"),
+           "copying keeps it under both");
+    std::string error;
+    expect(rig.overrides.choose("title:cove", "chosen", error) &&
+               readFile(rig.overrides.shown("epic:cove", "title:cove")) == "chosen",
+           "a copy shows what its title keeps");
 }
 
 } // namespace

@@ -110,6 +110,8 @@ class CoverPickerController {
     const artwork::CoverOverrides& overrides_;
     Hooks hooks_;
     std::string gameId_;
+    /// What the game's choice is kept under.
+    std::string keptId_;
     std::string title_;
     std::filesystem::path own_;
     std::optional<artwork::CoverListing> listing_;

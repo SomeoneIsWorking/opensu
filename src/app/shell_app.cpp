@@ -308,6 +308,8 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     library::markCopies(games_);
     sources_ = std::move(snapshot.sources);
     preferences_.values().lastPlayed.apply(games_);
+    library::shareTitleData(games_,
+                            {gameSettings_.keptData(), mappings_.keptData(), covers_.keptData()});
     library::applyEmulatorPicks(gameSettings_.layers(), games_);
     library::applyMatchPicks(gameSettings_.layers(), games_);
     plugins_.apply(games_);
@@ -890,8 +892,8 @@ void ShellApp::openGameSettings(const library::Game& game, EditorLook look, Edit
     sounds_.play(audio::Effect::Open);
     gpu2d::ui::Navigator& navigator = shell_.screens().navigator();
     navigator.push(std::make_unique<LayeredEditor>(layered_, navigator, shell_.screens().chrome(),
-                                                   layered_.forGame(game), look,
-                                                   library::copyName(game), std::move(more)));
+                                                   layered_.forGame(game), look, game.title,
+                                                   std::move(more)));
 }
 
 const library::Game* ShellApp::gameInFront() const {
@@ -1000,7 +1002,7 @@ void ShellApp::recordLaunch(const library::Game& game) {
 
 void ShellApp::keepMatch(const library::Game& game, const std::string& key,
                          const std::string& title) {
-    gameSettings_.layers().set(settings::Layer{settings::Layer::Kind::Game, game.id},
+    gameSettings_.layers().set(settings::Layer{settings::Layer::Kind::Game, library::dataId(game)},
                                library::matchKey, key);
     gameSettings_.save();
     shell_.setToast(game.title + " is now matched to " + title, false);

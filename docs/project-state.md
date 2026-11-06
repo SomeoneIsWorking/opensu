@@ -1334,15 +1334,17 @@ alone; there is no current copy, a row carries its own (`ui::copyRowId`). The co
 they had when the page opened, so no row moves under a pointer; a new order shows when it opens
 again. Add to Home and Hide game are the title's. The cover and title are the top copy's.
 A fact the copies read alike shows once, one they differ on once per copy ("Last played (Epic)").
-Each copy's Game settings page holds, on its own tab after the settings, Wine prefix, Match
-a different game, Choose artwork, Controls, Copy saves, Sync saves, Rename and Change file
-(`GameDetails::settingsPages`), so the row exists wherever those do, also with no setting to change.
+One Game settings row serves the title, with no store in its label. Its page holds, on its own tab
+after the settings, Match a different game, Choose artwork and Controls, then Rename and Change file
+of the player's own game, so the row exists wherever those do, also with no setting to change. What
+differs by copy (Wine prefix, Copy saves, Sync saves) stands in a section headed by the store while
+that copy is installed or on its way (`DownloadsBoard::installing`); a store with nothing of its own
+has none, and hiding a section deletes nothing. A one-store game has those rows without a heading.
 A game one store owns has the same order with plain
 labels, and so does any game on a page of the player's own games or of another openSU. When a copy
 from no store is what tops a title (the only one installed), it has rows too.
 
-What goes or lasts names the copy of a title two stores own: "Uninstall the Epic copy of Hades?",
-and Game settings, Controls, Choose artwork and Match a different game headed "Hades (Epic)". A tile
+What goes names the copy of a title two stores own: "Uninstall the Epic copy of Hades?". A tile
 carries the update arrow when any copy has an update.
 
 Nothing is chosen or saved. A launch records last played against the copy that ran
@@ -1353,8 +1355,13 @@ last played time counts, so a Steam copy played outside openSU leads from the ne
 played and since uninstalled drops under the installed ones. An older `settings.json`'s `copies` key is
 ignored and goes with the next save.
 
-Each copy keeps what is kept by game id: its last played time, chosen cover, settings, mapping and
-Wine prefix. The Guide's Game settings are the running copy's. A guest of remote play starts the
+A title of several stores keeps its settings, mapping, match and chosen cover under its title key
+(`library::shareTitleData`, `library::dataId`), so they are the same whichever copy runs; each copy
+keeps its last played time and Wine prefix. A kind of data the key has none of starts from the most
+recently played copy that has some, and that copy's own entry stays in the file. A game one store
+owns keeps its data under its id, unless its title holds data from when it had a second copy; a
+title the stores rename falls back to its copy's own entry. A same-titled game of one store
+is a title of its own and does not take the key. The Guide's Game settings are the title's too. A guest of remote play starts the
 exact copy it picked from the host's list, which holds each installed copy; a LAN or remote entry
 here is its own copy. A store's cloud saves stay that store's.
 

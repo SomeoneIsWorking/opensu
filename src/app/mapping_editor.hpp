@@ -21,6 +21,7 @@
 #include "input/mapping_scopes.hpp"
 #include "library/emulator_choice.hpp"
 #include "library/game.hpp"
+#include "library/titles.hpp"
 #include "settings/mapping_store.hpp"
 #include "settings/setting_layers.hpp"
 #include "ui/mapping_page.hpp"
@@ -57,6 +58,8 @@ class MappingEditor {
         return scopes_.resolve(library::layerKeysOf(game));
     }
 
+    /// Mappings as data a title's copies share.
+    [[nodiscard]] library::KeptData keptData();
     /// Opens the page on `game`'s own mapping.
     void openGame(const library::Game& game);
     /// Opens the page on emulator `id`'s mapping.

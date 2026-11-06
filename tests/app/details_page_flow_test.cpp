@@ -4,6 +4,7 @@
 #include "breadcrumb_trail.hpp"
 #include "details_controller.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <functional>
@@ -66,6 +67,8 @@ struct Rig {
     app::SharedSaves::View sharedSaves;
     /// What the last Game settings page opened holds besides its settings.
     std::function<std::vector<ui::SettingsRow>()> settingsRows;
+    /// The copy on its way.
+    std::string installingId;
     /// The store copies with rows of their own.
     std::vector<library::Game> copies;
     /// Why `Installs` would refuse the uninstall; empty when it would not.
@@ -200,6 +203,9 @@ struct Rig {
                          },
                          [this](const library::Game&) {
                              return copies;
+                         },
+                         [this](const library::Game& asked) {
+                             return asked.id == installingId;
                          }}} {
     }
 
@@ -280,10 +286,12 @@ void aRowPerStoreCopy(const fs::path& dir) {
     rig.calls.clear();
 
     rig.press({Action::Down, Action::Down, Action::Down});
-    expect(rig.focused() == ui::copyRowId("steam:1", ui::detailsSettingsId),
-           "Game settings on the page is the top copy's");
+    expect(rig.focused() == ui::detailsSettingsId &&
+               ui::actionOf(*rig.controller.details(), ui::detailsSettingsId)->label ==
+                   "Game settings",
+           "one Game settings for the title");
     rig.press({Action::Accept});
-    expect(rig.calls == std::vector<std::string>{"settings steam:1"}, "and opens its page");
+    expect(rig.calls == std::vector<std::string>{"settings steam:1"}, "opened on the top copy");
     rig.calls.clear();
     rig.press({Action::Down});
     expect(rig.focused() == ui::detailsMoreId, "More follows it");
@@ -294,18 +302,6 @@ void aRowPerStoreCopy(const fs::path& dir) {
     rig.press({Action::Accept});
     expect(rig.calls == std::vector<std::string>{"launch epic:h"}, "which plays that copy");
     rig.calls.clear();
-    rig.press({Action::Down});
-    expect(rig.focused() == ui::copyRowId("epic:h", ui::detailsSettingsId),
-           "its Game settings follows");
-    rig.press({Action::Accept});
-    expect(rig.calls == std::vector<std::string>{"settings epic:h"}, "for that copy");
-    const std::vector<ui::SettingsRow> kept = rig.settingsRows();
-    expect(ui::copyRowOf(kept.back().id).gameId == "epic:h", "and what its page holds");
-    rig.calls.clear();
-    rig.controller.openPage(ui::copyRowId("epic:h", ui::detailsControlsId));
-    expect(rig.calls == std::vector<std::string>{"controls epic:h"}, "Controls is that copy's");
-    rig.calls.clear();
-
     rig.press({Action::Down, Action::Down});
     expect(rig.focused() == ui::copyRowId("epic:h", ui::detailsUninstallId),
            "Uninstall of each copy ends More");
@@ -343,9 +339,32 @@ void nothingInstalledLeadsWithInstall(const fs::path& dir) {
     expect(rig.calls.back() == "launch steam:1", "and behaves as Play does");
     rig.controller.openPage(std::string{ui::detailsMoreId});
     rig.ui.frame(1.0);
-    expect(rig.focused() != ui::copyRowId("steam:1", ui::detailsInstallId) &&
-               rig.controller.details()->more.size() == 2,
-           "More has the other copy's Game settings and Install, not the top one again");
+    expect(rig.focused() == ui::copyRowId("epic:h", ui::detailsInstallId) &&
+               rig.controller.details()->more.size() == 1,
+           "More has the other copy's Install, not the top one again");
+}
+
+void aStoreSectionFollowsItsInstall(const fs::path& dir) {
+    Rig rig{dir};
+    rig.copies = {storeCopy(library::Source::Steam, "steam:1", true),
+                  storeCopy(library::Source::Epic, "epic:h", false)};
+    rig.copies[0].windowsInstall = true;
+    rig.copies[1].windowsInstall = true;
+    rig.game = rig.copies.front();
+    rig.open();
+    const auto heading = [&rig](const char* store) {
+        const std::vector<ui::SettingsRow>& rows = rig.controller.details()->settingsRows;
+        return std::ranges::any_of(rows, [store](const ui::SettingsRow& row) {
+            return row.kind == ui::RowKind::Heading && row.label == store;
+        });
+    };
+    expect(heading("Steam") && !heading("Epic"), "only what is installed has a section");
+    rig.installingId = "epic:h";
+    rig.controller.refresh();
+    expect(heading("Epic"), "a copy on its way has one too");
+    rig.installingId.clear();
+    rig.controller.refresh();
+    expect(!heading("Epic"), "and it goes when the install does");
 }
 
 void backClosesWithoutActing(const fs::path& dir) {
@@ -446,18 +465,18 @@ void winePrefixIsChosenPerGame(const fs::path& dir) {
     rig.open();
     const std::string row = ui::copyRowId(rig.game.id, ui::detailsWinePrefixId);
     rig.controller.openPage(ui::actionOf(*rig.controller.details(), ui::detailsSettingsId)->id);
-    expect(rig.settingsRows().front().value == ui::sharedPrefix,
+    expect(rig.row(ui::detailsWinePrefixId).value == ui::sharedPrefix,
            "Game settings holds a Windows install's prefix, shared");
     rig.calls.clear();
     rig.controller.run(row, 1);
     expect(
-        rig.settingsRows().front().value == ui::ownPrefix &&
+        rig.row(ui::detailsWinePrefixId).value == ui::ownPrefix &&
             settings::Store{dir / "settings.json"}.load().ownWinePrefixes.contains("epic:Fortnite"),
         "stepping gives the game its own prefix and keeps that");
     expect(rig.calls == std::vector<std::string>{"say Fortnite gets a Wine prefix of its own"},
            "the player is told");
     rig.controller.run(row, 1);
-    expect(rig.settingsRows().front().value == ui::sharedPrefix &&
+    expect(rig.row(ui::detailsWinePrefixId).value == ui::sharedPrefix &&
                settings::Store{dir / "settings.json"}.load().ownWinePrefixes.ids().empty(),
            "again shares the prefix again");
 }
@@ -569,6 +588,7 @@ int main() try {
     buttonsDoWhatTheyName(dir);
     aRowPerStoreCopy(dir / "store");
     nothingInstalledLeadsWithInstall(dir / "nothing-installed");
+    aStoreSectionFollowsItsInstall(dir / "store-section");
     backClosesWithoutActing(dir);
     refreshFollowsTheGame(dir);
     coverSpinnerFollowsTheGame(dir);

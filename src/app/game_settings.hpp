@@ -11,6 +11,7 @@
 #include <string>
 
 #include "library/emulator_catalog.hpp"
+#include "library/titles.hpp"
 #include "settings/game_settings_store.hpp"
 #include "settings/setting_layers.hpp"
 #include "settings/setting_schema.hpp"
@@ -41,6 +42,8 @@ class GameSettings {
 
     /// Writes the layers; on failure logs it and reports it, and keeps the old file.
     void save();
+    /// A game's setting layer as data a title's copies share.
+    [[nodiscard]] library::KeptData keptData();
     /// Deletes every setting `layer` keeps and saves; how many went.
     std::size_t clear(const settings::Layer& layer);
 

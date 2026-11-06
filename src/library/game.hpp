@@ -168,6 +168,10 @@ struct Game {
     /// A tile of the title with an update on any copy. Set by `visibleShelf`.
     bool updateOnCopy{false};
 
+    /// What the copies of its title keep their settings, controls and chosen cover under; empty
+    /// for a game that keeps them under its id (`shareTitleData`).
+    std::string sharedId;
+
     /// A substring of the running game's command line, used to notice that it
     /// has exited. Empty when the source cannot identify its own process.
     std::string processHint;
@@ -278,5 +282,10 @@ void order(std::vector<Game>& games);
 
 /// Whether `text` can be a Steam app id: digits only, so a Steam script takes it as a number.
 [[nodiscard]] bool isSteamAppId(std::string_view text) noexcept;
+
+/// What `game` keeps its settings, controls and chosen cover under.
+[[nodiscard]] inline const std::string& dataId(const Game& game) {
+    return game.sharedId.empty() ? game.id : game.sharedId;
+}
 
 } // namespace opensu::library

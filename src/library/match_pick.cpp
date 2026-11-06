@@ -25,7 +25,7 @@ MatchKind matchKindOf(const Game& game) {
 void applyMatchPicks(const settings::SettingLayers& layers, std::vector<Game>& games) {
     for (Game& game : games) {
         const std::string* pick =
-            layers.at(settings::Layer{settings::Layer::Kind::Game, game.id}, matchKey);
+            layers.at(settings::Layer{settings::Layer::Kind::Game, dataId(game)}, matchKey);
         if (pick == nullptr || pick->empty()) {
             continue;
         }

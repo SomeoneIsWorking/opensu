@@ -32,6 +32,21 @@ ButtonMap MappingScopes::resolve(const settings::LayerKeys& keys) const {
     return from ? *at(*from) : ButtonMap{};
 }
 
+bool MappingScopes::holdsGame(const std::string& id) const {
+    return maps_.contains(settings::Layer{settings::Layer::Kind::Game, id}) ||
+           steamInputGames_.contains(id);
+}
+
+void MappingScopes::copyGame(const std::string& from, const std::string& to) {
+    const settings::Layer source{settings::Layer::Kind::Game, from};
+    if (const auto map = maps_.find(source); map != maps_.end()) {
+        maps_[settings::Layer{settings::Layer::Kind::Game, to}] = map->second;
+    }
+    if (const auto steam = steamInputGames_.find(from); steam != steamInputGames_.end()) {
+        steamInputGames_[to] = steam->second;
+    }
+}
+
 std::optional<bool> MappingScopes::steamInputOf(const std::string& game) const {
     const auto found = steamInputGames_.find(game);
     return found == steamInputGames_.end() ? std::nullopt : std::optional<bool>{found->second};

@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -22,10 +23,6 @@ namespace opensu::library {
 /// stores ("title:<key>"), or its id for a ROM or a title with an empty key ("id:<id>").
 [[nodiscard]] std::string choiceKey(const Game& game);
 
-/// `game` as a heading names it: "Hades (Epic)" for a copy of a title two stores own, else its
-/// title.
-[[nodiscard]] std::string copyName(const Game& game);
-
 /// One title and every store copy of it.
 struct Title {
     /// Preferred first: installed before not, then Steam, GOG, Epic.
@@ -42,6 +39,18 @@ struct Title {
 
 /// Marks each store copy of a title two stores own (`Game::severalStores`).
 void markCopies(std::vector<Game>& games);
+
+/// A kind of data kept per game, under ids.
+struct KeptData {
+    std::function<bool(const std::string& id)> holds;
+    std::function<void(const std::string& from, const std::string& to)> copy;
+};
+
+/// Sets `Game::sharedId`: a title of several stores keeps its data under the title's key, and a
+/// title that lost a copy goes on using what it kept there. A kind of data the key has none of yet
+/// starts from the most recently played copy that has some, whose own stays where it is. Other
+/// games keep their data under their ids. Needs last played applied.
+void shareTitleData(std::vector<Game>& games, const std::vector<KeptData>& kept);
 
 /// Which copy of a title an entry uses, over one catalog. There is no saved choice: the order
 /// comes from play history.
