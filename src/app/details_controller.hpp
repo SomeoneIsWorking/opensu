@@ -87,6 +87,10 @@ class DetailsController final : public ui::RowActions {
         std::function<std::vector<ui::GameSettingsView::Partner>()> partners;
         /// Asks the paired openSU `peerId` to play `game` linked.
         std::function<void(const library::Game& game, const std::string& peerId)> playWith;
+        /// Whether this system can play over the internet.
+        std::function<bool()> onlineAvailable;
+        /// Offers `game` to a friend over the internet.
+        std::function<void(const library::Game& game)> playOnline;
     };
 
     /// What the rows act on.

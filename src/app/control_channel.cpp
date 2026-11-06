@@ -251,6 +251,8 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     number("lanSeen", snapshot.lanSeen);
     number("lanPaired", snapshot.lanPaired);
     text("lanCode", snapshot.lanCode);
+    text("onlineStep", snapshot.onlineStep);
+    text("onlineCode", snapshot.onlineCode);
     text("lanImport", snapshot.lanImport);
     text("lanSaves", snapshot.lanSaves);
     text("profile", snapshot.profile);

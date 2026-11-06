@@ -38,6 +38,7 @@ inline constexpr std::string_view detailsStartFreshId = "details.startFresh";
 inline constexpr std::string_view detailsLinkedId = "details.linked";
 /// A Play with row's id: this and the paired openSU's id.
 inline constexpr std::string_view detailsPlayWithPrefix = "details.playWith:";
+inline constexpr std::string_view detailsPlayOnlineId = "details.playOnline";
 inline constexpr std::string_view detailsBackId = "details.back";
 /// The Emulator choice's option while the game has no emulator picked.
 inline constexpr std::string_view noEmulator = "None";
@@ -105,6 +106,8 @@ struct GameSettingsView {
         std::string name;
     };
     std::vector<Partner> partners;
+    /// Whether it can be offered to a friend over the internet: the Play online row.
+    bool online{false};
 };
 
 /// What the page says about the facts' setting `label` reading `value`.

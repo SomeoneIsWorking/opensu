@@ -208,6 +208,11 @@ struct Rig {
                                           return std::vector<ui::GameSettingsView::Partner>{};
                                       },
                                       [](const library::Game&, const std::string&) {
+                                      },
+                                      [] {
+                                          return false;
+                                      },
+                                      [](const library::Game&) {
                                       }}};
 
     /// Each action as a press, the stack settled after it.

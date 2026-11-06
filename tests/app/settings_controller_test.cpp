@@ -158,6 +158,7 @@ struct Rig {
                                                        lanSettings,
                                                        lanRoms,
                                                        lanProfiles,
+                                                       online,
                                                        saveSettings,
                                                        profileSettings,
                                                        inForce},
@@ -477,6 +478,8 @@ struct Rig {
                             .biosFolder = {},
                             .reloadCatalog = {},
                             .refresh = {}}};
+    app::NetplayRun netplayRun{{}, {}};
+    app::OnlinePlay online{screens.navigator, sounds, netplayRun, pad, preferences, {}};
     app::LanProfiles lanProfiles{
         lan,
         profiles,
@@ -596,7 +599,8 @@ void pagesFollowTheIntegrations(const fs::path& root) {
     }
     expect(names == std::vector<std::string>{"Appearance", "Library", "Integrations", "Emulators",
                                              "Audio", "Controls", "Guide chords", "Install folders",
-                                             "Artwork", "Profiles", "Saves", "About"},
+                                             "Artwork", "Play online", "Profiles", "Saves",
+                                             "About"},
            "no Steam libraries, Wine or Plugins with their integrations off");
     rig.enter("Library");
     expect(std::ranges::none_of(rig.rows(),
@@ -697,8 +701,8 @@ void categoriesFollowTheSavedSettings(const fs::path& root) {
     expect(names == std::vector<std::string>{"Appearance", "Library", "Integrations", "Emulators",
                                              "Steam libraries", "Audio", "Controls", "Guide chords",
                                              "Install folders", "Artwork", "Wine", "Plugins",
-                                             "Profiles", "Saves", "About"},
-           "the fifteen categories");
+                                             "Play online", "Profiles", "Saves", "About"},
+           "the sixteen categories");
     expect(rig.controller.isOpen() && rig.top() == "settings" &&
                rig.controller.category() == "Appearance" &&
                rig.focused() == "categories/appearance",

@@ -2,23 +2,14 @@
 
 #include <algorithm>
 #include <chrono>
-#include <fstream>
-#include <iterator>
 #include <stop_token>
-#include <system_error>
 #include <thread>
 #include <utility>
 
-#include <nlohmann/json.hpp>
-
-#include "fileio/atomic_write.hpp"
-#include "fileio/owner_only_write.hpp"
 #include "gpu2d/ui/screen.hpp"
 #include "library/linked_play.hpp"
 #include "lucent/log.h"
-#include "retro/save_paths.hpp"
 #include "secrets/crypto.hpp"
-#include "secrets/secret.hpp"
 
 namespace opensu::app {
 namespace {
@@ -26,54 +17,16 @@ namespace {
 constexpr auto pollEvery = std::chrono::seconds{1};
 constexpr auto waitAtMost = std::chrono::seconds{125};
 
-std::string contentsOf(const std::filesystem::path& file) {
-    std::ifstream in{file, std::ios::binary};
-    return {std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
-}
-
-std::string sha256Of(const std::filesystem::path& rom) {
-    return secrets::hexText(secrets::crypto::sha256(contentsOf(rom)));
-}
-
-/// Player 1's save is the frontend's; the core keeps the others' by player.
-std::filesystem::path sessionSaveOf(const std::filesystem::path& folder,
-                                    const std::filesystem::path& rom, unsigned slot) {
-    const std::string stem = rom.stem().string();
-    return folder / (slot == 0 ? stem + ".srm" : stem + ".p" + std::to_string(slot + 1) + ".srm");
-}
-
-const library::Game* romOf(const std::vector<library::Game>& games,
-                           const lan::wire::NetplayAsk& rom) {
-    const auto found = std::ranges::find_if(games, [&rom](const library::Game& game) {
-        std::error_code failed;
-        return game.source == library::Source::Rom && game.sourceId == rom.console &&
-               game.file.filename() == rom.file &&
-               std::filesystem::file_size(game.file, failed) == rom.size && !failed &&
-               sha256Of(game.file) == rom.sha256;
-    });
-    return found == games.end() ? nullptr : &*found;
-}
-
 } // namespace
 
 LanNetplay::LanNetplay(LanService& lan, gpu2d::ui::Navigator& navigator,
-                       audio::SdlSoundPlayer& sounds, Places places, Hooks hooks)
-    : lan_{lan}, navigator_{navigator}, sounds_{sounds}, places_{std::move(places)},
-      hooks_{std::move(hooks)} {
-}
-
-lan::wire::NetplayFacts LanNetplay::factsOf(const library::Game& game) const {
-    const std::filesystem::path bios = hooks_.biosFolder() / library::linkCoreBios;
-    std::error_code failed;
-    return lan::wire::NetplayFacts{
-        .coreRevision = std::string{library::linkCoreRevision()},
-        .options = hooks_.linkOptions(game),
-        .bios = std::filesystem::is_regular_file(bios, failed) ? sha256Of(bios) : std::string{}};
+                       audio::SdlSoundPlayer& sounds, NetplayRun& run, Hooks hooks)
+    : lan_{lan}, navigator_{navigator}, sounds_{sounds}, run_{run}, hooks_{std::move(hooks)} {
 }
 
 bool LanNetplay::refused(lan::LanNode& node, const lan::NetplayAsks::Question& asked,
                          const library::Game& game) {
-    const lan::wire::NetplayFacts here = factsOf(game);
+    const lan::wire::NetplayFacts here = run_.factsOf(game);
     const lan::wire::NetplayFacts& theirs = asked.rom.facts;
     const std::string toAsker = lan::netplayDifference(here, theirs);
     if (toAsker.empty()) {
@@ -103,11 +56,10 @@ std::vector<ui::GameSettingsView::Partner> LanNetplay::partners() const {
 
 void LanNetplay::play(const library::Game& game, const std::string& peerId) {
     const std::string name = lan_.peerName(peerId);
-    const std::filesystem::path own =
-        sessionSaveOf(retro::systemSaveFolder(hooks_.profileSaves(), game.sourceId), game.file, 0);
+    const std::filesystem::path own = run_.profileSave(game);
     const bool asking = lan_.askPeers(
         [arrived = arrived_, game = game, peerId = peerId, name = name, own = own,
-         facts = factsOf(game)](const lan::LanNode& node, const std::stop_token& stop) {
+         facts = run_.factsOf(game)](const lan::LanNode& node, const std::stop_token& stop) {
             std::string refusal;
             std::error_code failed;
             const secrets::crypto::Bytes salt =
@@ -116,11 +68,11 @@ void LanNetplay::play(const library::Game& game, const std::string& peerId) {
                                             .file = game.file.filename().string(),
                                             .title = game.title,
                                             .size = std::filesystem::file_size(game.file, failed),
-                                            .sha256 = sha256Of(game.file),
+                                            .sha256 = NetplayRun::sha256Of(game.file),
                                             .salt = salt,
                                             .facts = facts,
                                             .clock = lan::netplayClockNow()};
-            std::string ownSave = contentsOf(own);
+            std::string ownSave = NetplayRun::contentsOf(own);
             node.netplay().handOver(peerId, ask.sha256, ownSave);
             std::optional<Agreed> agreed;
             if (node.askNetplay(stop, peerId, ask, refusal)) {
@@ -225,7 +177,7 @@ void LanNetplay::serviceQuestion() {
         return;
     }
     const lan::NetplayAsks::Question& asked = *asked_;
-    const library::Game* game = romOf(hooks_.games(), asked.rom);
+    const library::Game* game = NetplayRun::romOf(hooks_.games(), asked.rom);
     if (game == nullptr) {
         node->netplay().decline(asked.peer.id, "it does not have this ROM",
                                 lan::NetplayAsks::Clock::now());
@@ -269,15 +221,14 @@ void LanNetplay::answer(bool allow) {
         node->netplay().decline(asked.peer.id, {}, now);
         return;
     }
-    const library::Game* found = romOf(hooks_.games(), asked.rom);
+    const library::Game* found = NetplayRun::romOf(hooks_.games(), asked.rom);
     if (found == nullptr || !library::linkable(*found)) {
         node->netplay().decline(asked.peer.id, "it cannot link this game", now);
         return;
     }
     const library::Game game = *found;
     const secrets::crypto::Bytes salt = secrets::crypto::randomBytes(secrets::crypto::nonceBytes);
-    std::string ownSave = contentsOf(
-        sessionSaveOf(retro::systemSaveFolder(hooks_.profileSaves(), game.sourceId), game.file, 0));
+    std::string ownSave = NetplayRun::contentsOf(run_.profileSave(game));
     node->netplay().handOver(asked.peer.id, asked.rom.sha256, ownSave);
     node->netplay().accept(asked.peer.id, now);
     const bool pulling = lan_.askPeers(
@@ -334,88 +285,33 @@ void LanNetplay::tellAsker(const std::string& askerId, const std::string& why) {
 }
 
 void LanNetplay::begin(Agreed agreed) {
-    const auto refuse = [this, &agreed](const std::string& why) {
+    const bool host = agreed.slot == 0;
+    const std::string why =
+        run_.begin({.game = agreed.game,
+                    .slot = agreed.slot,
+                    .peer = agreed.peer,
+                    .port = 0,
+                    .sendKey = host ? agreed.keys.host : agreed.keys.guest,
+                    .receiveKey = host ? agreed.keys.guest : agreed.keys.host,
+                    .saves = {std::move(agreed.saves[0]), std::move(agreed.saves[1])},
+                    .clock = agreed.clock,
+                    .delay = 0});
+    if (!why.empty()) {
         hooks_.say("No game with " + agreed.peerName + ": " + why, true);
         tellAsker(agreed.askerId, why);
-    };
-    std::error_code failed;
-    std::filesystem::remove_all(places_.sessionSaves, failed);
-    const std::filesystem::path folder =
-        retro::systemSaveFolder(places_.sessionSaves, agreed.game.sourceId);
-    std::filesystem::create_directories(folder, failed);
-    std::string error;
-    for (unsigned slot = 0; slot < 2; ++slot) {
-        if (!agreed.saves[slot].empty() &&
-            !fileio::writeWhole(sessionSaveOf(folder, agreed.game.file, slot), agreed.saves[slot],
-                                error)) {
-            refuse(error);
-            return;
-        }
-    }
-    const bool host = agreed.slot == 0;
-    nlohmann::json session{
-        {"slot", agreed.slot},
-        {"players", 2},
-        {"clockMs", agreed.clock.epochMs},
-        {"utcOffset", agreed.clock.utcOffset},
-        {"sendKey", secrets::hexText(host ? agreed.keys.host : agreed.keys.guest)},
-        {"receiveKey", secrets::hexText(host ? agreed.keys.guest : agreed.keys.host)}};
-    if (!agreed.peer.empty()) {
-        session["peer"] = agreed.peer;
-    }
-    const std::optional<library::Game> game =
-        library::netplayGame(agreed.game, places_.sessionFile);
-    if (!game) {
-        refuse("the link core is gone");
-        return;
-    }
-    if (!fileio::writeOwnerOnly(places_.sessionFile, session.dump(), error)) {
-        refuse(error);
-        return;
-    }
-    lucent::info("lan", "playing {} with {} as player {}", agreed.game.title, agreed.peerName,
-                 agreed.slot + 1);
-    if (!hooks_.launch(*game, places_.sessionSaves)) {
-        std::filesystem::remove(places_.sessionFile, failed);
-        tellAsker(agreed.askerId, "its game did not start");
         return;
     }
     if (host) {
         starting_ = Starting{
             .askerId = agreed.askerId, .salt = agreed.salt, .clockMs = agreed.clock.epochMs};
     }
-    running_ = Running{
-        .gameId = agreed.game.id,
-        .own = sessionSaveOf(folder, agreed.game.file, agreed.slot),
-        .profile =
-            sessionSaveOf(retro::systemSaveFolder(hooks_.profileSaves(), agreed.game.sourceId),
-                          agreed.game.file, 0),
-    };
 }
 
-void LanNetplay::ended(const library::Game& game) {
-    if (!running_ || running_->gameId != game.id) {
-        return;
-    }
-    const Running session = *running_;
-    running_.reset();
+void LanNetplay::ended(const library::Game& /*game*/) {
     if (starting_) {
         tellAsker(starting_->askerId, "its game did not start");
         starting_.reset();
     }
-    std::error_code failed;
-    std::filesystem::remove(places_.sessionFile, failed);
-    if (!std::filesystem::exists(session.own, failed)) {
-        lucent::info("lan", "the session left no save of this player");
-        return;
-    }
-    std::string error;
-    if (!fileio::writeWhole(session.profile, contentsOf(session.own), error)) {
-        lucent::error("lan", "the session's save stays at {}: {}", session.own.string(), error);
-        hooks_.say("The session's save could not be kept: " + error, true);
-        return;
-    }
-    lucent::info("lan", "the session's save went back to {}", session.profile.string());
 }
 
 } // namespace opensu::app

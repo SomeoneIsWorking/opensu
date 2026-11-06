@@ -35,6 +35,7 @@ constexpr const char* keyboardStyleKey = "keyboard";
 constexpr const char* nightLightKey = "nightLight";
 constexpr const char* consoleThemeKey = "consoleTheme";
 constexpr const char* lanNameKey = "lanName";
+constexpr const char* onlineStunServersKey = "onlineStunServers";
 constexpr const char* saveShareKey = "saveShare";
 constexpr const char* saveShareFolderKey = "saveShareFolder";
 constexpr const char* saveShareUrlKey = "saveShareUrl";
@@ -441,6 +442,7 @@ Settings Store::load() const {
     }
     read.text(consoleThemeKey, settings.consoleTheme, "showing the default console art theme");
     read.text(lanNameKey, settings.lanName, "going by the machine's name on the LAN");
+    read.text(onlineStunServersKey, settings.onlineStunServers, "asking the default STUN servers");
     std::string shareSpelling;
     read.text(saveShareKey, shareSpelling, "sharing saves only over the LAN");
     if (!shareSpelling.empty()) {
@@ -538,6 +540,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {nightLightKey, std::string{key(settings.nightLight)}},
         {consoleThemeKey, settings.consoleTheme},
         {lanNameKey, settings.lanName},
+        {onlineStunServersKey, settings.onlineStunServers},
         {saveShareKey, std::string{key(settings.saveShare)}},
         {saveShareFolderKey, settings.saveShareFolder.string()},
         {saveShareUrlKey, settings.saveShareUrl},

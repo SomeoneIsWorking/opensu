@@ -77,8 +77,10 @@
 #include "library/shelf.hpp"
 #include "library_additions.hpp"
 #include "mapping_editor.hpp"
+#include "netplay_run.hpp"
 #include "night_light.hpp"
 #include "offer_claim.hpp"
+#include "online_play.hpp"
 #include "own_games_controller.hpp"
 #include "pad_owner.hpp"
 #include "panel_flow.hpp"
@@ -712,6 +714,12 @@ class ShellApp final {
             },
             [this](const library::Game& game, const std::string& peerId) {
                 lanNetplay_.play(game, peerId);
+            },
+            [this] {
+                return OnlinePlay::available();
+            },
+            [this](const library::Game& game) {
+                onlinePlay_.host(game);
             }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),
@@ -1020,19 +1028,15 @@ class ShellApp final {
                                                     [this] {
                                                         settingsScreen_.refresh();
                                                     }}};
-    /// Playing a ROM linked with a paired openSU.
-    LanNetplay lanNetplay_{
-        lan_, shell_.screens().navigator(), sounds_,
-        LanNetplay::Places{.sessionSaves = files_.stateDir() / "netplay" / "saves",
+    /// A netplay session on this machine, however it was agreed.
+    NetplayRun netplayRun_{
+        NetplayRun::Places{.sessionSaves = files_.stateDir() / "netplay" / "saves",
                            .sessionFile = files_.stateDir() / "netplay" / "session.json"},
-        LanNetplay::Hooks{
+        NetplayRun::Hooks{
             .say =
                 [this](const std::string& text, bool isError) {
                     shell_.setToast(text, isError);
                 },
-            .games = [this]() -> const std::vector<library::Game>& {
-                return games_;
-            },
             .profileSaves =
                 [this] {
                     return profileRunnerSaves(profiles_.book().active().id);
@@ -1048,11 +1052,39 @@ class ShellApp final {
             .biosFolder =
                 [this] {
                     return emulatorSettings_.biosFolder();
-                },
-            .sessionPort =
-                [this] {
-                    return retro_.netplayPort();
                 }}};
+    /// Playing a ROM linked with a paired openSU.
+    LanNetplay lanNetplay_{
+        lan_, shell_.screens().navigator(), sounds_, netplayRun_,
+        LanNetplay::Hooks{.say =
+                              [this](const std::string& text, bool isError) {
+                                  shell_.setToast(text, isError);
+                              },
+                          .games = [this]() -> const std::vector<library::Game>& {
+                              return games_;
+                          },
+                          .sessionPort =
+                              [this] {
+                                  return retro_.netplayPort();
+                              }}};
+    /// Playing a ROM with a friend over the internet, by code.
+    OnlinePlay onlinePlay_{
+        shell_.screens().navigator(),
+        sounds_,
+        netplayRun_,
+        keyboardPad_,
+        preferences_,
+        OnlinePlay::Hooks{.say =
+                              [this](const std::string& text, bool isError) {
+                                  shell_.setToast(text, isError);
+                              },
+                          .games = [this]() -> const std::vector<library::Game>& {
+                              return games_;
+                          },
+                          .copy =
+                              [this](const std::string& text) {
+                                  window_->setClipboard(text);
+                              }}};
     /// The plugins, their play time and the Settings screen's Plugins category.
     PluginService plugins_{environment_, preferences_, integrations_.current().plugins,
                            PluginService::Hooks{[this](const std::string& text, bool isError) {
@@ -1164,6 +1196,7 @@ class ShellApp final {
                                      lanSettings_,
                                      lanRoms_,
                                      lanProfiles_,
+                                     onlinePlay_,
                                      saveSettings_,
                                      profileSettings_,
                                      integrations_},

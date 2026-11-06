@@ -128,6 +128,8 @@ struct Settings {
     std::string consoleTheme;
     /// The name other openSUs on the LAN list this one by; empty for the machine's host name.
     std::string lanName;
+    /// The STUN servers Play online asks, `host:port` and comma-separated; empty for the default.
+    std::string onlineStunServers;
     std::filesystem::path saveShareFolder;
     /// The WebDAV folder's address and user.
     std::string saveShareUrl;

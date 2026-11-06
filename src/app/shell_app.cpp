@@ -1170,6 +1170,9 @@ void ShellApp::publishSnapshot() {
     next.lanPaired = lan.paired;
     next.lanCode = lan.code;
     next.lanImport = lanRoms_.glance();
+    next.onlineStep = onlinePlay_.glance();
+    // A code is a bearer secret: only a hidden run's tools read it off the channel.
+    next.onlineCode = settings_.hidden ? onlinePlay_.code() : std::string{};
     if (const ui::GameDetails* shown = details_.details()) {
         if (const ui::SettingsRow* saves = ui::factOf(*shown, "Saves")) {
             next.lanSaves = saves->value;
@@ -1328,6 +1331,8 @@ void ShellApp::serviceRequests() {
     saveSharing_.playing(launching ? &launches_.game() : nullptr);
     if (const std::optional<library::Game> ended = launches_.takeEnded()) {
         lanNetplay_.ended(*ended);
+        netplayRun_.ended(*ended);
+        onlinePlay_.ended();
         saveSharing_.ended(*ended, playingAs_);
     }
     if (padOwner_.held() && !launching) {
@@ -1438,6 +1443,7 @@ int ShellApp::run() {
         lanRoms_.service();
         lanProfiles_.service();
         lanNetplay_.service();
+        onlinePlay_.service();
         saveSharing_.service();
         remotePlay_.service(launches_.running() || saveSharing_.holding(),
                             launches_.running() ? &launches_.game() : nullptr, playingAs_);

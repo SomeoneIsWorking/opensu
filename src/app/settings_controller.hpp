@@ -36,6 +36,7 @@
 #include "library/library_query.hpp"
 #include "library/rom_tree.hpp"
 #include "mapping_editor.hpp"
+#include "online_play.hpp"
 #include "path_editor.hpp"
 #include "plugin_settings.hpp"
 #include "preferences.hpp"
@@ -91,6 +92,7 @@ class SettingsController final : public ui::RowActions {
         LanSettings& lan;
         LanRoms& lanRoms;
         LanProfiles& lanProfiles;
+        OnlinePlay& online;
         SaveSettings& saves;
         ProfileSettings& profiles;
         /// Which pages and rows show: those of the integrations in force.
@@ -108,7 +110,7 @@ class SettingsController final : public ui::RowActions {
           steamLibraries_{services.steamLibraries}, plugins_{services.plugins},
           chords_{services.chords}, mappings_{services.mappings}, wine_{services.wine},
           integrations_{services.integrations}, artwork_{services.artwork},
-          interfaceSounds_{services.interfaceSounds}, lan_{services.lan},
+          interfaceSounds_{services.interfaceSounds}, lan_{services.lan}, online_{services.online},
           lanRoms_{services.lanRoms}, lanProfiles_{services.lanProfiles}, saves_{services.saves},
           profiles_{services.profiles}, inForce_{services.inForce}, sounds_{sounds},
           preferences_{preferences}, defaults_{defaults}, hooks_{std::move(hooks)} {
@@ -200,6 +202,7 @@ class SettingsController final : public ui::RowActions {
     ArtworkSettings& artwork_;
     InterfaceSoundSettings& interfaceSounds_;
     LanSettings& lan_;
+    OnlinePlay& online_;
     LanRoms& lanRoms_;
     LanProfiles& lanProfiles_;
     SaveSettings& saves_;

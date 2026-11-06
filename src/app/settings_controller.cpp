@@ -189,6 +189,9 @@ std::vector<ui::SettingsCategory> SettingsController::build() const {
     if (in.lan) {
         pages.push_back(lan_.page());
     }
+    if (OnlinePlay::available()) {
+        pages.push_back(online_.page());
+    }
     pages.push_back(profiles_.page());
     pages.push_back(saves_.page());
     pages.push_back(aboutPage());
@@ -611,6 +614,12 @@ void SettingsController::run(const std::string& id, int step) {
     if (LanSettings::owns(id)) {
         lan_.run(id, step);
         refresh();
+        return;
+    }
+    if (OnlinePlay::owns(id)) {
+        if (step == 0) {
+            online_.join();
+        }
         return;
     }
     if (LanRoms::owns(id)) {

@@ -131,6 +131,9 @@ struct ShellSnapshot {
     std::size_t lanSeen{0};
     std::size_t lanPaired{0};
     std::string lanCode;
+    /// Where Play online stands, and in a hidden run the code on its screen.
+    std::string onlineStep;
+    std::string onlineCode;
     /// ROMs being imported from paired openSUs (`LanRoms::glance`); empty for none.
     std::string lanImport;
     /// The open details page's Saves fact, how its game's shared saves stand; empty for none.

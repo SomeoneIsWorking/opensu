@@ -381,7 +381,7 @@ that profile's; the host's own active profile does not change.
 
 Play with <name> on a linkable game's details page (`app::LanNetplay::play`) hashes the ROM, hands
 its active profile's save to the peer (`lan::NetplayAsks::handOver`) and asks `/lan/netplay`, then
-polls the status. The asked side looks for the same ROM by console, file name, size and SHA-256; with
+polls the status. The asked side looks for the same ROM by console, size and SHA-256; with
 none it declines by itself. The ask carries what the asker would run with, and the asked side
 compares it (`lan::netplayDifference`, the first difference named for the asker): the link core's
 revision (the pin, `library::linkCoreRevision`, so builds of one pin on any OS agree), the SHA-256 of

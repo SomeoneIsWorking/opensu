@@ -98,6 +98,7 @@ ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) co
     if (library::linkable(game)) {
         view.linked = true;
         view.partners = hooks_.partners();
+        view.online = hooks_.onlineAvailable();
     }
     view.copySaves = hooks_.copySavesOffer(game);
     const SharedSaves::View shared = hooks_.sharedSaves(game);
@@ -226,6 +227,8 @@ void DetailsController::run(const std::string& id, int step) {
         }
     } else if (id.starts_with(ui::detailsPlayWithPrefix)) {
         hooks_.playWith(*game, id.substr(ui::detailsPlayWithPrefix.size()));
+    } else if (id == ui::detailsPlayOnlineId) {
+        hooks_.playOnline(*game);
     } else if (id == ui::detailsStartFreshId) {
         if (const std::string refused = hooks_.startFresh(*game); !refused.empty()) {
             hooks_.say(refused, true);

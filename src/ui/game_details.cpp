@@ -206,6 +206,9 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
         actions.push_back(
             action(std::string{detailsPlayWithPrefix} + partner.id, "Play with " + partner.name));
     }
+    if (settings.online) {
+        actions.push_back(action(detailsPlayOnlineId, "Play online"));
+    }
     if (updatable) {
         actions.push_back(action(detailsUpdateId, "Update"));
     }
