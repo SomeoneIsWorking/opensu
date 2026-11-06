@@ -164,7 +164,7 @@
       "config": "~/.config/azahar-emu",
       "launchers": [
         {"programs": ["azahar"], "appImage": "azahar", "flatpak": "org.azahar_emu.Azahar",
-         "args": ["{rom}"]}
+         "args": ["-f", "{rom}"]}
       ],
       "release": {
         "api": "https://api.github.com/repos/azahar-emu/azahar/releases/latest",
