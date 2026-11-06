@@ -144,6 +144,11 @@ match asks for one of them. The listing cannot tell a fixed ROM from a choice, s
 without `sfix.sfix` still matches and the core refuses it at load. Listings with `biosset` (every
 MAME) keep their exact rule, and a BIOS there without choices needs every ROM.
 
+`neogeo.zip` was listed as a game, and Play reached FinalBurn Neo's "known but marked as not working"
+screen. A zip any listing marks `isbios` is now left out of the scan; it stays in the folder the
+matcher and Android's staging read. MAME 2003-Plus's listing predates the attribute, so one listing
+is enough.
+
 On a picked Android folder the scan never reached the matcher: `roms.cpp` skipped nodes that do not
 open as a path, so the search's first installed core kept the game. Zips are now read through
 `RomTree::open` and a parent's or BIOS's zip is staged beside the game (`--beside`). Not yet shown
@@ -160,9 +165,7 @@ cache; frames `02`, `10`-`15`, `armwar-runner-status.txt`, `shell-run1.log`, `sh
 Not done: samples are never required; 7z sets are not matched (the arcade system lists `.zip`
 only). A romset list row has no Cancel or Retry button; a failed list is asked for again by the
 first scan an hour later. CHD disks are not staged on a picked folder. A vertical game's rotation
-has not been run: there is no vertical set here. `neogeo.zip` is listed as a game: it matches, and
-Play shows FinalBurn Neo's "known but marked as not working" screen. Listings mark it `isbios`, so
-the scan could hide such zips.
+has not been run: there is no vertical set here.
 
 ## Steam modes in session mode
 

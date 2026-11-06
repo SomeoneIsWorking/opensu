@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <optional>
 #include <string>
@@ -19,20 +20,33 @@
 
 #include "library/appimage_runtime.hpp"
 #include "library/downloaded_emulators.hpp"
+#include "library/romset_dat.hpp"
+#include "library/romset_dats.hpp"
+#include "library/romset_lists.hpp"
 #include "support/test_main.hpp"
+#include "support/zip_fixture.hpp"
 
 namespace {
 
 namespace fs = std::filesystem;
 using opensu::library::Game;
+using opensu::library::roms::checkingRomset;
 using opensu::library::roms::EmulatorCatalog;
+using opensu::library::roms::EmulatorEntry;
 using opensu::library::roms::Emulators;
 using opensu::library::roms::EmulatorSearch;
 using opensu::library::roms::EmulatorSetup;
 using opensu::library::roms::gameFile;
 using opensu::library::roms::NameDb;
 using opensu::library::roms::NameMap;
+using opensu::library::roms::noRomsetMatch;
 using opensu::library::roms::Provider;
+using opensu::library::roms::RomsetDat;
+using opensu::library::roms::RomsetDats;
+using opensu::library::roms::RomsetLists;
+using opensu::test::zipfixture::buildZip;
+using opensu::test::zipfixture::crcOf;
+using opensu::test::zipfixture::FixtureEntry;
 using opensu::library::roms::systemForFolder;
 
 EmulatorCatalog shipped() {
@@ -341,6 +355,53 @@ void writeAppImage(const fs::path& path, bool classic) {
     fs::permissions(path, fs::perms::owner_all);
 }
 
+void biosIsNoGame(const Fixture& f) {
+    const std::string program = "program rom";
+    const std::string bios = "bios rom";
+    const fs::path root = f.base / "bios-roms";
+    const fs::path cache = f.base / "bios-cache";
+    const auto zipped = [&root](const std::string& zip, const std::string& rom,
+                                const std::string& data) {
+        fs::create_directories(root / "Arcade");
+        std::ofstream{root / "Arcade" / zip, std::ios::binary}
+            << buildZip({FixtureEntry{rom, data, false, std::nullopt}});
+    };
+    zipped("game.zip", "p.1", program);
+    zipped("system.zip", "b.1", bios);
+
+    RomsetDat dat;
+    dat.addXml(std::format(R"(<datafile>
+	<game name="system" isbios="yes"><rom name="b.1" size="{0}" crc="{1:08x}"/></game>
+	<game name="game" romof="system">
+		<rom name="p.1" size="{2}" crc="{3:08x}"/>
+		<rom name="b.1" merge="b.1" size="{0}" crc="{1:08x}"/>
+	</game>
+</datafile>)",
+                           bios.size(), crcOf(bios), program.size(), crcOf(program)));
+    RomsetLists lists{cache};
+    const EmulatorCatalog catalog = shipped();
+    std::string error;
+    for (const EmulatorEntry& entry : catalog.entries()) {
+        if (entry.serves("arcade") && !entry.romsets.empty()) {
+            expect(lists.dats().save(entry, dat, 1, RomsetDats::Clock::now(), error),
+                   "the listing is kept");
+        }
+    }
+    for (int scan = 0; scan < 2; ++scan) {
+        Provider provider{{root},
+                          EmulatorSetup{shipped(), EmulatorSearch{}, {}},
+                          NameDb::under(cache),
+                          &lists,
+                          {}};
+        const std::vector<Game> games = provider.list(std::stop_token{});
+        expect(find(games, "system") == nullptr, "a BIOS's zip is not listed");
+        const Game* game = find(games, "game");
+        expect(game != nullptr && !game->romset.empty() && game->romset != checkingRomset &&
+                   game->romset != noRomsetMatch,
+               "a game beside it still matches through it");
+    }
+}
+
 void downloadsMergeWithDetected(const Fixture& f) {
     using opensu::library::roms::DownloadedEmulator;
     using opensu::library::roms::DownloadedEmulators;
@@ -417,6 +478,7 @@ int main() try {
     rootsAreDiscovered(fixture);
     emulatorsAreFound(fixture);
     providerLists(fixture);
+    biosIsNoGame(fixture);
     downloadsMergeWithDetected(fixture);
     std::printf("roms: all checks passed\n");
     return 0;

@@ -24,7 +24,7 @@ constexpr std::size_t maxTail = 22 + 65535;
 /// A central directory past this is no romset's.
 constexpr std::uint32_t maxDirectory = 16U * 1024 * 1024;
 constexpr std::size_t namedMissing = 4;
-constexpr int keptVersion = 2;
+constexpr int keptVersion = 3;
 constexpr std::string_view zipExtension = ".zip";
 
 std::string_view fitName(RomsetFit fit) {
@@ -232,6 +232,7 @@ RomsetVerdict matchSet(std::string_view name, const RomsetDat& dat, FolderZips& 
         return verdict;
     }
     verdict.listed = true;
+    verdict.bios = set->bios;
     const std::vector<std::string> chain = dat.chainOf(set->name);
     std::vector<const DatRom*> needs;
     std::set<std::string, std::less<>> devices;
@@ -441,7 +442,8 @@ void RomsetMatcher::loadKept() {
                     fitOf(verdict.at("fit").get<std::string>()), verdict.at("listed").get<bool>(),
                     verdict.at("required").get<std::size_t>(),
                     verdict.at("missing").get<std::vector<std::string>>(),
-                    verdict.at("zips").get<std::vector<std::string>>()});
+                    verdict.at("zips").get<std::vector<std::string>>(),
+                    verdict.at("bios").get<bool>()});
             }
             kept_.emplace(path, std::move(kept));
         }
@@ -548,7 +550,8 @@ void RomsetMatcher::save() {
                                 {"listed", verdict.listed},
                                 {"required", verdict.required},
                                 {"missing", verdict.missing},
-                                {"zips", verdict.zips}});
+                                {"zips", verdict.zips},
+                                {"bios", verdict.bios}});
         }
         zips[path] = {{"zip", stampJson(kept.zip)},
                       {"stamps", kept.stamps},

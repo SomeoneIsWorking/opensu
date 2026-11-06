@@ -137,12 +137,12 @@ settings::Schema LayeredSettings::schemaOf(const EditorContext& context) const {
         settings::declareFrameGen(schema);
         settings::declareScaling(schema, presentation_.screen());
     }
-    if (video && !context.keys.emulator.empty()) {
-        settings::declareCoreOptions(schema, coreOptionsOf(context.keys.emulator));
-    }
-    // Last: it is changed least, and only from the next launch.
+    // Above the core options: the core picked here decides which of them show.
     if (std::optional<settings::Setting> pick = emulatorPickOf(context)) {
         schema.add(std::move(*pick));
+    }
+    if (video && !context.keys.emulator.empty()) {
+        settings::declareCoreOptions(schema, coreOptionsOf(context.keys.emulator));
     }
     return schema;
 }

@@ -523,7 +523,8 @@ its stem, lower case. A set matches a core when every ROM it needs (a `nodump`, 
 CRC-less ROM is not needed; of BIOS-choice ROMs only the default choice's; in a listing with no
 `biosset`, as FinalBurn's are, any one of the `isbios` set's ROMs stands for them all, which
 `RomsetDat::markChoices` marks) is found by CRC-32 and size in the zip, its `romof` chain's zips or its devices' zips (a device's own devices included)
-in the same folder, and each disk is at `<set>/<disk>.chd`. `applyRomsets` keeps the search's
+in the same folder, and each disk is at `<set>/<disk>.chd`. A zip any listing marks `isbios` is
+not listed as a game (`Provider::list`), but stays a parent to the games beside it. `applyRomsets` keeps the search's
 emulator when it matches, else takes the first matching one installed, else names the first
 matching one as not installed (the details page offers its download); with every core checked and
 none matching the game's `launch` is empty and `unavailable` is "No arcade core matches this

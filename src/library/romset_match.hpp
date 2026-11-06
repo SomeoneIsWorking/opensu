@@ -114,6 +114,8 @@ struct RomsetVerdict {
     std::vector<std::string> missing;
     /// The sets beside it whose zips the match held: parent, BIOS, devices.
     std::vector<std::string> zips;
+    /// Whether the listing marks the set a BIOS: a parent to games, never a game.
+    bool bios{false};
 
     bool operator==(const RomsetVerdict&) const = default;
 };

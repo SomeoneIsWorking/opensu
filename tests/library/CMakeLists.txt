@@ -4,7 +4,7 @@ target_compile_definitions(steam_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINAR
 add_test(NAME steam COMMAND steam_test)
 
 add_executable(roms_test roms_test.cpp)
-target_link_libraries(roms_test PRIVATE opensu::library)
+target_link_libraries(roms_test PRIVATE opensu::library lucent::lucent ZLIB::ZLIB)
 target_compile_definitions(roms_test PRIVATE OPENSU_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets")
 add_test(NAME roms COMMAND roms_test)
 

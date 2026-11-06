@@ -301,8 +301,9 @@ void needsOneBiosChoice(const fs::path& base) {
         const Listed listed{folder};
         FolderZips zips{listed.folder};
         const RomsetVerdict verdict = matchSet("parent", dat, zips);
-        expect(verdict.fit == RomsetFit::Matches && verdict.required == 2,
+        expect(verdict.fit == RomsetFit::Matches && verdict.required == 2 && !verdict.bios,
                "one of the BIOS's ROMs is enough when the listing names no choices");
+        expect(matchSet("bios", dat, zips).bios, "the verdict on a BIOS says so");
         expect(matchSet("clone", dat, zips).fit == RomsetFit::Matches,
                "a clone reaches the BIOS through its parent");
     }
@@ -730,7 +731,7 @@ Game arcadeGame() {
 }
 
 RomsetVerdict verdict(std::string id, RomsetFit fit, std::vector<std::string> missing = {}) {
-    return RomsetVerdict{std::move(id), fit, true, 4, std::move(missing), {}};
+    return RomsetVerdict{std::move(id), fit, true, 4, std::move(missing), {}, false};
 }
 
 void picksTheEmulator() {
@@ -776,7 +777,7 @@ void picksTheEmulator() {
     applyRomsets(none, "clone",
                  {verdict("fbneo", RomsetFit::Mismatch, {"a", "b", "c", "d", "e"}),
                   verdict("mame2010", RomsetFit::Mismatch, {"g.1"}),
-                  RomsetVerdict{"mame", RomsetFit::Mismatch, false, 0, {}, {}}});
+                  RomsetVerdict{"mame", RomsetFit::Mismatch, false, 0, {}, {}, false}});
     expect(none.launch.empty() && none.emulator.empty() && none.unavailable == noRomsetMatch &&
                none.romset == noRomsetMatch &&
                none.romsetNearest == "MAME 2010 lacks 1 of 4 files: g.1",

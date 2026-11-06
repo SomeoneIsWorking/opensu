@@ -1899,7 +1899,8 @@ play (`m5`), logged `core FinalBurn Neo v1.0.0.03`. sfiii3n on MAME 2010 ran its
 coin and Start to Player Select (`s7`), logged `core MAME 2010 0.139`. With the Arcade pick on FB
 Alpha 2012, mslug3 (`m6`) loaded through `neogeo.zip` and mslug5 (`m7`) through its own zip, to
 attract. armwar stayed on FB Alpha 2012 with FinalBurn Neo and MAME 2010 installed (`w3-7`).
-`neogeo.zip` shows as a game and Play reaches FinalBurn Neo's not-working screen (`n4`). Unverified:
+`neogeo.zip` then showed as a game and Play reached FinalBurn Neo's not-working screen (`n4`), since
+left out of the scan. Unverified:
 a picked Android folder, a set leaning on a parent or BIOS zip on the tablet, a vertical game.
 
 The listings download off the library scan (`library/romset_lists`): arcade games are listed at

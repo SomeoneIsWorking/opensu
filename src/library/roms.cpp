@@ -132,12 +132,20 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
             arcadeCores.push_back(&entry);
         }
     }
+    // False for a BIOS: no game, though the folder still lends it to the games beside it.
     const auto byRomset = [&](Game& game, const RomFolder& folder, const RomNode& zip) {
-        if (const std::string set = romsetOf(zip.name); !set.empty()) {
-            const std::vector<RomsetVerdict> verdicts = romsets_.check(folder, zip, arcadeCores);
-            addBesideZips(game, folder, verdicts);
-            applyRomsets(game, set, verdicts);
+        const std::string set = romsetOf(zip.name);
+        if (set.empty()) {
+            return true;
         }
+        const std::vector<RomsetVerdict> verdicts = romsets_.check(folder, zip, arcadeCores);
+        // MAME 2003-Plus's listing predates `isbios`, so one listing saying so is enough.
+        if (std::ranges::any_of(verdicts, &RomsetVerdict::bios)) {
+            return false;
+        }
+        addBesideZips(game, folder, verdicts);
+        applyRomsets(game, set, verdicts);
+        return true;
     };
     romsets_.begin(RomsetMatcher::Clock::now());
     switch_.begin();
@@ -193,17 +201,20 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
                 } else {
                     game.unavailable = missingEmulator(*system, emulators);
                 }
+                bool isGame = true;
                 if (system->key == "arcade" && !entry.folder) {
-                    byRomset(game, here, entry);
+                    isGame = byRomset(game, here, entry);
                 } else if (system->key == "arcade") {
                     const std::vector<RomNode> own =
                         tree_->children(entry.location).value_or(std::vector<RomNode>{});
                     const auto zip = std::ranges::find(own, *file, &RomNode::location);
                     if (zip != own.end()) {
-                        byRomset(game, RomFolder{*tree_, entry.location, own}, *zip);
+                        isGame = byRomset(game, RomFolder{*tree_, entry.location, own}, *zip);
                     }
                 }
-                games.push_back(std::move(game));
+                if (isGame) {
+                    games.push_back(std::move(game));
+                }
             }
         }
     }
