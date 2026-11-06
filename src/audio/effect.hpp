@@ -59,6 +59,10 @@ inline constexpr std::string_view shippedDirectory = "sounds";
 /// none.
 [[nodiscard]] std::optional<Effect> dominoFor(std::size_t tiles) noexcept;
 
+/// Which of two effects asked for by the same input is the one heard: what the input led to over
+/// the press itself, and an opening over a closing.
+[[nodiscard]] Effect prevailing(Effect first, Effect second) noexcept;
+
 /// How soon after itself the effect is dropped (`xp8.java:1559-1586`); zero for none.
 [[nodiscard]] std::chrono::milliseconds debounceOf(Effect effect) noexcept;
 

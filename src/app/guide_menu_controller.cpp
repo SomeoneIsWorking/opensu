@@ -77,6 +77,15 @@ bool GuideMenuController::isOpen() const {
     return menu() != nullptr;
 }
 
+bool GuideMenuController::inFront() const {
+    const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
+    const auto found = std::ranges::find(open, menu());
+    return found != open.end() &&
+           std::all_of(found, open.end(), [](const gpu2d::ui::Screen* screen) {
+               return screen->overlay();
+           });
+}
+
 void GuideMenuController::toggle(Landing landing) {
     if (isOpen()) {
         close();
@@ -84,6 +93,7 @@ void GuideMenuController::toggle(Landing landing) {
     }
     // input-sound.md 3.4 OpenContextMenu: a menu becomes visible (r90.java).
     sounds_.play(audio::Effect::OpenContextMenu);
+    closeShown_ = {};
     context_ = hooks_.context();
     read();
     navigator_.push(std::make_unique<GuideMenuScreen>(*this, landing));
@@ -96,6 +106,9 @@ void GuideMenuController::close() {
     }
     // input-sound.md 3.4 Close: a menu becomes hidden.
     sounds_.play(audio::Effect::Close);
+    if (closeShown_) {
+        closeShown_();
+    }
     navigator_.closeFrom(*open);
 }
 
@@ -287,6 +300,15 @@ void GuideMenuController::leave(const std::function<void()>& then) {
     then();
 }
 
+void GuideMenuController::show(const Page& page) {
+    if (page.isOpen()) {
+        close();
+        return;
+    }
+    closeShown_ = page.close;
+    page.open();
+}
+
 void GuideMenuController::refuse(const std::string& reason, const std::string& what) {
     if (!reason.empty()) {
         hooks_.say(what.empty() ? reason : what + ": " + reason, true);
@@ -322,11 +344,11 @@ void GuideMenuController::run(const std::string& id, int step) {
     } else if (id == searchId) {
         leave(hooks_.openSearch);
     } else if (id == devicesId) {
-        leave(hooks_.openDevices);
+        show(hooks_.devices);
     } else if (id == downloadsId) {
-        leave(hooks_.openDownloads);
+        show(hooks_.downloads);
     } else if (id == settingsId) {
-        leave(hooks_.openSettings);
+        show(hooks_.settings);
     } else if (id.starts_with(invitePrefix) || id.starts_with(kickPrefix)) {
         runTogether(id);
     } else {

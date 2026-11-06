@@ -473,7 +473,7 @@ void ShellApp::handleEvents(const std::vector<gamepad::Event>& incoming) {
             break;
         case gamepad::Event::Kind::Button:
             // The wheel's petals take the left stick, unless the Guide menu took the buttons.
-            if (event.stick && keyboardPad_.takesStick() && !guideMenu_.isOpen()) {
+            if (event.stick && keyboardPad_.takesStick() && !guideMenu_.inFront()) {
                 keyboardPad_.stick(directionOf(event.button), event.pressed);
             } else if (gamepad::DirectionRepeat::repeats(event.button)) {
                 if (event.pressed) {
@@ -900,7 +900,7 @@ void ShellApp::closeRunningGame() {
 }
 
 void ShellApp::toggleGuide(GuideMenuController::Landing landing) {
-    if (guideMenu_.isOpen() || !menusBlocked()) {
+    if (guideMenu_.inFront() || !menusBlocked()) {
         guideMenu_.toggle(landing);
     }
 }
@@ -1116,7 +1116,7 @@ void ShellApp::syncChrome() {
     const bool touch = shell_.inputDevice().pointing() && free;
     shell_.setTouchButtons(ui::Hud::TouchButtons{
         .back = touch && (!navigator.atRoot() || corner.back || corner.clearSearch),
-        .menu = touch && (guideMenu_.isOpen() || !menusBlocked()),
+        .menu = touch && (guideMenu_.inFront() || !menusBlocked()),
         .prompts = touch});
     shell_.topBar().setLive(ui::TopBarChrome::Live{
         .crumbs = !shell_.inGame() && free, .launchers = home && free, .buttons = touch});
@@ -1514,6 +1514,7 @@ int ShellApp::run() {
         window_->showScreenKeyboard(keyboardPad_.systemTyping());
         syncOverlay();
         syncChrome();
+        sounds_.playAsked();
         shell_.tick(std::chrono::steady_clock::now());
         publishSnapshot();
         // An unmapped window draws nothing, and its artwork still streams in.

@@ -8,7 +8,8 @@
 // the session switch through `host::SessionMode`. Every step that throws something away (Close
 // game, Load state, Reset game, Restart, Shut down, the session switch) asks first, one rule. Save
 // and close keeps the game where it is for its next start, and the menu says when a game resumed.
-// Over a game here, Invite to play and Players hold who may join and who has, with Kick.
+// Over a game here, Invite to play and Players hold who may join and who has, with Kick. Devices,
+// Downloads and Settings open over the menu, so Back from them returns to it as it was left.
 #pragma once
 
 #include <cstdint>
@@ -65,14 +66,21 @@ struct GuideContext {
 
 class GuideMenuController final : public ui::RowActions {
   public:
+    /// A page a place opens over the menu.
+    struct Page {
+        std::function<bool()> isOpen;
+        std::function<void()> open;
+        std::function<void()> close;
+    };
+
     /// What an entry asks of the shell app.
     struct Hooks {
         /// What the menu opens over: a running game, or the home screen.
         std::function<GuideContext()> context;
         std::function<void(library::Section)> showSection;
-        std::function<void()> openDevices;
-        std::function<void()> openDownloads;
-        std::function<void()> openSettings;
+        Page devices;
+        Page downloads;
+        Page settings;
         /// Opens the search panel.
         std::function<void()> openSearch;
         /// Ends the running game, or remote play.
@@ -130,6 +138,8 @@ class GuideMenuController final : public ui::RowActions {
     /// Closes the menu and what it opened over itself, with iiSU's Close sound.
     void close();
     [[nodiscard]] bool isOpen() const;
+    /// Open with no page over it, so it has the buttons.
+    [[nodiscard]] bool inFront() const;
 
     // What the screens ask.
     /// The menu's heading: the game's title, or openSU's name.
@@ -160,6 +170,8 @@ class GuideMenuController final : public ui::RowActions {
     void closePage(std::string_view id);
     /// Closes the menu, then does `then`.
     void leave(const std::function<void()>& then);
+    /// Opens `page` over the menu; a page already open under it is shown by closing the menu.
+    void show(const Page& page);
     void runGame(const std::string& id);
     void runPower(const std::string& id);
     void runTogether(const std::string& id);
@@ -180,6 +192,8 @@ class GuideMenuController final : public ui::RowActions {
     audio::SdlSoundPlayer& sounds_;
     Hooks hooks_;
     GuideContext context_;
+    /// Closes the page opened over the menu, which the menu's close takes with it.
+    std::function<void()> closeShown_;
     /// The running game's opensu-retro state, read as the menu opens and after each command.
     std::optional<RetroSession::Status> retroStatus_;
     std::optional<int> brightnessLevel_;

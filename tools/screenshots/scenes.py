@@ -82,6 +82,8 @@ def _settings(shell: HiddenShell) -> None:
 def _close_settings(shell: HiddenShell) -> None:
     shell.press("b")
     shell.wait_for("settingsOpen", False)
+    # Settings was opened from the Guide menu, which Back returns to.
+    _close_guide(shell)
 
 
 def _settings_page(label: str) -> Callable[[HiddenShell], None]:
@@ -314,6 +316,8 @@ def _downloads(shell: HiddenShell) -> None:
 def _close_downloads_page(shell: HiddenShell) -> None:
     shell.press("b")
     shell.wait_for("downloadsOpen", False)
+    # Downloads was opened from the Guide menu, which Back returns to.
+    _close_guide(shell)
 
 
 def _close_downloads(shell: HiddenShell) -> None:

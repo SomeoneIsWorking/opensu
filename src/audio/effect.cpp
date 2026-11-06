@@ -32,6 +32,40 @@ std::string_view shippedFile(Effect effect) noexcept {
     return {};
 }
 
+namespace {
+
+int rank(Effect effect) noexcept {
+    switch (effect) {
+    case Effect::Navigation:
+        return 0;
+    case Effect::Close:
+        return 1;
+    case Effect::ExitConsolesApps:
+        return 2;
+    case Effect::DominoOne:
+    case Effect::DominoTwo:
+    case Effect::DominoThreeToFive:
+    case Effect::DominoSixToEleven:
+    case Effect::DominoTwelvePlus:
+        return 3;
+    case Effect::EnterConsolesApps:
+        return 4;
+    case Effect::OpenContextMenu:
+        return 5;
+    case Effect::Open:
+        return 6;
+    case Effect::OpenAppRom:
+        return 7;
+    }
+    return 0;
+}
+
+} // namespace
+
+Effect prevailing(Effect first, Effect second) noexcept {
+    return rank(second) > rank(first) ? second : first;
+}
+
 std::string_view iisuFile(Effect effect) noexcept {
     switch (effect) {
     case Effect::Open:

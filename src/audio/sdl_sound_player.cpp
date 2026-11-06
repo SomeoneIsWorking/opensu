@@ -105,7 +105,19 @@ void SdlSoundPlayer::bindStreams() {
     }
 }
 
-bool SdlSoundPlayer::play(Effect effect) {
+void SdlSoundPlayer::play(Effect effect) noexcept {
+    asked_ = asked_ ? prevailing(*asked_, effect) : effect;
+    ++askedCount_;
+}
+
+bool SdlSoundPlayer::playAsked() {
+    if (!asked_) {
+        return false;
+    }
+    const Effect effect = *asked_;
+    lucent::debug("audio", "interface sound {} of {} asked", shippedFile(effect), askedCount_);
+    asked_.reset();
+    askedCount_ = 0;
     SDL_AudioStream* stream = streams_[slot(effect)];
     if (muted_ || stream == nullptr || !debounce_.admit(effect, Debounce::Clock::now())) {
         return false;

@@ -49,6 +49,14 @@ void dominoCueSizes() {
     }
 }
 
+void oneEffectPrevails() {
+    using opensu::audio::prevailing;
+    expect(prevailing(Effect::Close, Effect::Open) == Effect::Open, "the opening over the closing");
+    expect(prevailing(Effect::Open, Effect::Navigation) == Effect::Open, "over the press itself");
+    expect(prevailing(Effect::Navigation, Effect::Close) == Effect::Close, "a close over a press");
+    expect(prevailing(Effect::Close, Effect::Close) == Effect::Close, "the same stays");
+}
+
 void consoleEffectsDebounce() {
     const Debounce::Clock::time_point start{};
     Debounce debounce;
@@ -84,6 +92,7 @@ void otherEffectsDoNot() {
 int main() try {
     filesAreDistinct();
     dominoCueSizes();
+    oneEffectPrevails();
     consoleEffectsDebounce();
     otherEffectsDoNot();
     std::printf("effect: all checks passed\n");

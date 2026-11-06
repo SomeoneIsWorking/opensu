@@ -198,6 +198,10 @@ struct Rig {
                       .libraryFoldersChanged =
                           [this] {
                               ++romFolderChanges;
+                          },
+                      .overGuide =
+                          [] {
+                              return false;
                           }}} {
         screens.navigator.setKeyboard([this] {
             pad.open();

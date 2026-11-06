@@ -1,7 +1,8 @@
 // The Guide menu on the interface toolkit, driven as the shell drives it: its places follow where
-// the shell is, each reaches its hook and closes the menu, Right from a place reaches Volume, the
-// changes made in place go to their owners, every step that throws something away asks first, and
-// over Home or Library the rows that shape that page show, kept at once.
+// the shell is, each reaches its hook, a page staying over the menu and the rest closing it, Right
+// from a place reaches Volume, the changes made in place go to their owners, every step that throws
+// something away asks first, and over Home or Library the rows that shape that page show, kept at
+// once.
 #include <algorithm>
 #include <cstdio>
 #include <memory>
@@ -58,18 +59,9 @@ struct Rig {
                                  calls.emplace_back(section == library::Section::Home ? "home"
                                                                                       : "library");
                              },
-                         .openDevices =
-                             [this] {
-                                 calls.emplace_back("devices");
-                             },
-                         .openDownloads =
-                             [this] {
-                                 calls.emplace_back("downloads");
-                             },
-                         .openSettings =
-                             [this] {
-                                 calls.emplace_back("settings");
-                             },
+                         .devices = page("devices"),
+                         .downloads = page("downloads"),
+                         .settings = page("settings"),
                          .openSearch =
                              [this] {
                                  calls.emplace_back("search");
@@ -112,6 +104,22 @@ struct Rig {
                              }}} {
     }
 
+    app::GuideMenuController::Page page(const std::string& name) {
+        return {.isOpen =
+                    [this, name] {
+                        return shown == name;
+                    },
+                .open =
+                    [this, name] {
+                        calls.push_back(name);
+                        shown = name;
+                    },
+                .close =
+                    [this, name] {
+                        calls.push_back("close " + name);
+                        shown.clear();
+                    }};
+    }
     void open(Landing landing = Landing::Places) {
         controller.toggle(landing);
         ui.frame(1.0);
@@ -165,6 +173,8 @@ struct Rig {
     app::GuideMenuController controller;
     std::vector<std::string> calls;
     std::vector<std::string> said;
+    /// The page open, over or under the menu.
+    std::string shown;
 };
 
 void homePlacesReachTheirHooks() {
@@ -177,8 +187,19 @@ void homePlacesReachTheirHooks() {
                                                     "guide.power"},
            "over the home screen: the sections, the pages, then Power");
     rig.choose("guide.downloads");
-    expect(rig.calls == std::vector<std::string>{"downloads"} && !rig.controller.isOpen(),
-           "a place closes the menu and opens");
+    expect(rig.calls == std::vector<std::string>{"downloads"} && rig.controller.isOpen(),
+           "a page opens over the menu");
+    rig.controller.close();
+    rig.ui.frame(1.0);
+    expect(rig.calls.back() == "close downloads" && !rig.controller.isOpen(),
+           "closing the menu takes the page it opened with it");
+    rig.shown = "settings";
+    rig.calls.clear();
+    rig.open();
+    rig.choose("guide.settings");
+    expect(rig.calls.empty() && !rig.controller.isOpen() && rig.shown == "settings",
+           "a page open under the menu shows when the menu closes");
+    rig.shown.clear();
     rig.open();
     rig.press(Action::Back);
     expect(!rig.controller.isOpen(), "Back closes the menu");

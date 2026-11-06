@@ -154,9 +154,12 @@ void playerWithoutDevice(const fs::path& wav, const fs::path& ogg) {
     expect(player.loaded(Effect::Open) && player.loaded(Effect::DominoOne), "both are kept");
     expect(!player.load(Effect::Close, wav.parent_path() / "missing.wav"), "a missing file fails");
     expect(!player.loaded(Effect::Close), "a failed load leaves the effect empty");
-    expect(!player.play(Effect::Open), "nothing plays without a device");
+    expect(!player.playAsked(), "nothing asked, nothing plays");
+    player.play(Effect::Open);
+    expect(!player.playAsked(), "nothing plays without a device");
     player.setMuted(true);
-    expect(player.muted() && !player.play(Effect::Open), "nothing plays muted");
+    player.play(Effect::Open);
+    expect(player.muted() && !player.playAsked(), "nothing plays muted");
 }
 
 } // namespace

@@ -70,6 +70,8 @@ class SettingsController final : public ui::RowActions {
         std::function<void(const std::string& text, bool error)> say;
         /// The ROM folders were changed: the catalog reads them from now on.
         std::function<void()> libraryFoldersChanged;
+        /// The Guide menu is under Settings, which closing must leave open.
+        std::function<bool()> overGuide;
     };
 
     /// What the rows act on besides the preferences.
@@ -175,6 +177,8 @@ class SettingsController final : public ui::RowActions {
     void show(const std::string& category, const std::string& row = {});
     /// Closes Settings with iiSU's Close sound.
     void closeAll();
+    /// Takes Settings' screens off the stack, and all above the Guide or the root under them.
+    void dropScreens();
     /// Keeps the preferences and shows the change.
     void changed();
     /// Puts Integrations' staged changes in effect and says so.

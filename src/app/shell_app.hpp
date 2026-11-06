@@ -1231,6 +1231,9 @@ class ShellApp final {
                                   },
                                   [this] {
                                       libraryFoldersChanged();
+                                  },
+                                  [this] {
+                                      return guideMenu_.isOpen();
                                   }}};
     /// Library's add tiles: Add a game, Add a game folder, Add a ROM folder, the integrations not
     /// set up.
@@ -1334,20 +1337,42 @@ class ShellApp final {
                     closePages();
                     clickSection(section);
                 },
-            .openDevices =
-                [this] {
-                    closePages();
-                    devicesScreen_.open();
-                },
-            .openDownloads =
-                [this] {
-                    openDownloads();
-                },
-            .openSettings =
-                [this] {
-                    closePages();
-                    settingsScreen_.open();
-                },
+            .devices = {.isOpen =
+                            [this] {
+                                return devicesScreen_.isOpen();
+                            },
+                        .open =
+                            [this] {
+                                devicesScreen_.open();
+                            },
+                        .close =
+                            [this] {
+                                devicesScreen_.close();
+                            }},
+            .downloads = {.isOpen =
+                              [this] {
+                                  return downloadsScreen_.isOpen();
+                              },
+                          .open =
+                              [this] {
+                                  downloadsScreen_.open();
+                              },
+                          .close =
+                              [this] {
+                                  downloadsScreen_.close();
+                              }},
+            .settings = {.isOpen =
+                             [this] {
+                                 return settingsScreen_.isOpen();
+                             },
+                         .open =
+                             [this] {
+                                 settingsScreen_.open();
+                             },
+                         .close =
+                             [this] {
+                                 settingsScreen_.close();
+                             }},
             .openSearch =
                 [this] {
                     search_.open();

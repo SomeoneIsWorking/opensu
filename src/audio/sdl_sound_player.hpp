@@ -1,6 +1,8 @@
 // sdl_sound_player — plays the UI sounds on the default SDL audio device, one audio stream per
 // effect so they overlap, and opens live sound (`LiveSound`) on the same device. The files are
 // openSU's own set; an effect without a file, or a machine without an audio device, plays nothing.
+// One input makes one sound: what a loop pass asks for is held, and `playAsked` plays the one that
+// prevails (`prevailing`).
 #pragma once
 
 #include <array>
@@ -58,9 +60,12 @@ class SdlSoundPlayer {
         return muted_;
     }
 
-    /// Plays the effect from its start, unless muted, silent, without a file or dropped by its
-    /// debounce. Whether it started.
-    bool play(Effect effect);
+    /// Asks for the effect in this loop pass.
+    void play(Effect effect) noexcept;
+
+    /// Plays the effect that prevails among those asked for since the last call, from its start,
+    /// unless muted, silent, without a file or dropped by its debounce. Whether one started.
+    bool playAsked();
 
     /// A stream of live sound at `rate` with `channels` on the device, which must outlive it;
     /// none without a device. Muting the UI sounds leaves it playing.
@@ -79,6 +84,8 @@ class SdlSoundPlayer {
     std::array<SoundClip, allEffects.size()> clips_{};
     std::array<SDL_AudioStream*, allEffects.size()> streams_{};
     Debounce debounce_;
+    std::optional<Effect> asked_;
+    int askedCount_{0};
 };
 
 } // namespace opensu::audio

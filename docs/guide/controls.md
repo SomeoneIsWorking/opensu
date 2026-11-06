@@ -69,6 +69,9 @@ until openSU closes. Over a game or another screen these rows are not there.
 
 ## Over a game
 
+Devices, Downloads and Settings open from the Guide menu over it: Back on their top level returns to
+the menu on the same row, over the game if one is running.
+
 Guide over a running game opens the menu over it: Resume or Close game (B or Guide resumes), Game
 settings, for a built-in core's game Save state, Load state and Reset game
 ([libretro.md](libretro.md)), then Devices, Downloads, Settings and Power. The game gets no

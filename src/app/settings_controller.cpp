@@ -375,7 +375,7 @@ void SettingsController::show(const std::string& category, const std::string& ro
     }
     refresh();
     if (isOpen()) {
-        navigator_.clear();
+        dropScreens();
     }
     const std::vector<ui::SettingsCategory>& all = categories();
     const bool known = std::ranges::any_of(all, [&category](const ui::SettingsCategory& page) {
@@ -397,7 +397,21 @@ void SettingsController::close() {
 void SettingsController::closeAll() {
     // input-sound.md 3.4 Close: the player dismisses a panel.
     sounds_.play(audio::Effect::Close);
-    navigator_.clear();
+    dropScreens();
+}
+
+void SettingsController::dropScreens() {
+    if (!hooks_.overGuide()) {
+        navigator_.clear();
+        return;
+    }
+    const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
+    const auto found = std::ranges::find_if(open, [](const gpu2d::ui::Screen* screen) {
+        return dynamic_cast<const SettingsScreen*>(screen) != nullptr;
+    });
+    if (found != open.end()) {
+        navigator_.closeFrom(**found);
+    }
 }
 
 Screen::BackReply SettingsController::leave() {
