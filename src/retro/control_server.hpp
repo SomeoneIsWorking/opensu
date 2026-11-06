@@ -93,6 +93,15 @@ struct HostInput {
     std::optional<Key> key;
 };
 
+/// The frames a core draws as `/status` reports them.
+struct ShownPicture {
+    unsigned width{0};
+    unsigned height{0};
+    float aspect{0.0F};
+    /// The player's sampling is nearest neighbour.
+    bool nearest{false};
+};
+
 class ControlServer {
   public:
     /// How long a request waits for the frame loop to take it before it is answered 503.
@@ -125,7 +134,7 @@ class ControlServer {
     void reportShown();
     /// The core's picture, 0 by 0 when it is turned, and whether it is sampled nearest, which
     /// /status reports from now on.
-    void reportPicture(unsigned width, unsigned height, float aspect, bool nearest);
+    void reportPicture(const ShownPicture& picture);
     /// Whether /native asked the window to take the picture's size since the last call.
     [[nodiscard]] bool takeNative();
     /// The machine's panel (`touch::panelText`), which /status reports from now on.
@@ -183,10 +192,7 @@ class ControlServer {
     bool announced_{false};
     bool shown_{false};
     std::string panel_;
-    unsigned pictureWidth_{0};
-    unsigned pictureHeight_{0};
-    float pictureAspect_{0.0F};
-    bool pictureNearest_{false};
+    ShownPicture picture_;
     bool nativeAsked_{false};
     /// Last, so its handler threads stop before the members they use go.
     lucent::http::Server server_;

@@ -59,9 +59,10 @@ void reportPicture(ControlServer& control, const FrameImage& frame, unsigned tur
                    const settings::VideoSettings& video) {
     const float height = static_cast<float>(frame.height);
     const float own = height > 0.0F ? static_cast<float>(frame.width) / height : 0.0F;
-    control.reportPicture(turns == 0 ? frame.width : 0U, turns == 0 ? frame.height : 0U,
-                          frame.aspect > 0.0F ? frame.aspect : own,
-                          video.sampling == settings::Sampling::Nearest);
+    control.reportPicture(ShownPicture{.width = turns == 0 ? frame.width : 0U,
+                                       .height = turns == 0 ? frame.height : 0U,
+                                       .aspect = frame.aspect > 0.0F ? frame.aspect : own,
+                                       .nearest = video.sampling == settings::Sampling::Nearest});
 }
 
 float aspectOf(const retro_game_geometry& geometry) {

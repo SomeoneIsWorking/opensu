@@ -177,9 +177,9 @@ void Shell::drawPicture(Canvas& canvas, const gpu2d::TextureView& picture,
                            pictureShape_ > 0.0F ? pictureShape_ : own);
     const gpu2d::Rect where{static_cast<float>(placed.x), static_cast<float>(placed.y),
                             static_cast<float>(placed.width), static_cast<float>(placed.height)};
-    if (pictureShape_ > 0.0F || placed.width <= picture.width) {
+    if (pictureFilter_ || placed.width <= picture.width) {
         gpu2d::TextureView sampled = picture;
-        sampled.filter = pictureNearest_ ? gpu2d::Filter::Nearest : gpu2d::Filter::Linear;
+        sampled.filter = pictureFilter_.value_or(gpu2d::Filter::Linear);
         canvas.image(sampled,
                      gpu2d::Rect{0.0F, 0.0F, static_cast<float>(picture.width),
                                  static_cast<float>(picture.height)},

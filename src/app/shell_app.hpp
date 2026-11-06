@@ -884,6 +884,7 @@ class ShellApp final {
                         .picture = {.width = static_cast<int>(status->pictureWidth),
                                     .height = static_cast<int>(status->pictureHeight)},
                         .aspect = status->pictureAspect,
+                        .runner = true,
                         .nearest = status->pictureNearest};
                 },
             .nativeWindow =

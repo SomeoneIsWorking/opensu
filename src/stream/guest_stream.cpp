@@ -173,7 +173,7 @@ void GuestStream::sendInput() {
     }
 }
 
-bool GuestStream::nearest() const {
+std::optional<bool> GuestStream::nearest() const {
     const std::lock_guard lock{mutex_};
     return nearest_;
 }
@@ -358,7 +358,7 @@ void GuestStream::handle(const Opened& opened, std::uint64_t receivedUs) {
         unsigned shape = 0;
         const std::string_view text = opened.payload;
         const auto parsed = std::from_chars(text.data(), text.data() + text.size(), shape);
-        if (parsed.ec == std::errc{} && shape > 0) {
+        if (parsed.ec == std::errc{}) {
             const std::lock_guard lock{mutex_};
             shape_ = static_cast<float>(shape) / 10000.0F;
             nearest_ = text.ends_with(" 1");

@@ -1425,7 +1425,11 @@ void ShellApp::showGamePicture() {
     }
     remotePicture_->shapeAs(remotePlay_.shape());
     shell_.setPicture(remotePicture_->view());
-    shell_.setPictureShape(remotePlay_.shape(), remotePlay_.nearest());
+    const std::optional<bool> nearest = remotePlay_.nearest();
+    shell_.setPictureShape(
+        remotePlay_.shape(),
+        nearest ? std::optional{*nearest ? gpu2d::Filter::Nearest : gpu2d::Filter::Linear}
+                : std::nullopt);
     shell_.setPictureBand(remoteTouch_->band());
     shell_.setPictureControls(remoteTouch_->view());
 }

@@ -197,11 +197,11 @@ class Shell {
         picture_ = picture;
     }
 
-    /// A picture of a game's own pixels at `shape`, width over height, scaled by `nearest` or
-    /// smoothly; 0 for a picture of the screen, at its own shape through FSR.
-    void setPictureShape(float shape, bool nearest) noexcept {
+    /// The picture's shape, width over height, 0 for its own, and the filter that scales it;
+    /// without one, FSR.
+    void setPictureShape(float shape, std::optional<gpu2d::Filter> filter) noexcept {
         pictureShape_ = shape;
-        pictureNearest_ = nearest;
+        pictureFilter_ = filter;
     }
     /// How much of the target's bottom the picture stays out of, for controls under it.
     void setPictureBand(int band) noexcept {
@@ -309,7 +309,7 @@ class Shell {
     std::optional<gpu2d::TextureView> picture_;
     int pictureBand_{0};
     float pictureShape_{0.0F};
-    bool pictureNearest_{false};
+    std::optional<gpu2d::Filter> pictureFilter_;
     std::optional<gpu2d::TextureView> pictureControls_;
 };
 

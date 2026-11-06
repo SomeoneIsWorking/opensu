@@ -854,16 +854,17 @@ void RemotePlay::tellGuests(Hosted& hosted, const GameFacts& facts) {
         if (!facts.panel.empty()) {
             guest->stream->send(stream::PacketKind::Panel, facts.panel);
         }
-        if (hosted.native.width > 0) {
+        if (facts.runner) {
+            const float shape = hosted.native.width > 0 ? facts.aspect : 0.0F;
             guest->stream->send(
                 stream::PacketKind::Shape,
-                std::format("{} {}", std::lround(facts.aspect * 10000.0F), facts.nearest ? 1 : 0));
+                std::format("{} {}", std::lround(shape * 10000.0F), facts.nearest ? 1 : 0));
         }
     }
 }
 
-bool RemotePlay::nearest() const {
-    return guest_ && guest_->nearest();
+std::optional<bool> RemotePlay::nearest() const {
+    return guest_ ? guest_->nearest() : std::nullopt;
 }
 
 float RemotePlay::shape() const {

@@ -47,8 +47,8 @@ enum class PacketKind : std::uint8_t {
     Stage = 14,
     /// The arcade panel of the game (`touch::panelText`).
     Panel = 15,
-    /// A picture of the game's own pixels: `<width over height in ten-thousandths> <1 for nearest
-    /// neighbour, else 0>`.
+    /// A built-in runner's picture: `<width over height in ten-thousandths, 0 for the frames' own>
+    /// <1 for nearest neighbour, else 0>`.
     Shape = 16,
 };
 
