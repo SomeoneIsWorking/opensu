@@ -99,6 +99,21 @@ bool UdpSocket::send(const UdpAddress& to, std::string_view bytes) const noexcep
                     sizeof raw) == static_cast<int>(bytes.size());
 }
 
+bool UdpSocket::sendWithin(const UdpAddress& to, std::string_view bytes, int hops) const noexcept {
+    const SOCKET socket = descriptor_->socket;
+    int usual = 0;
+    int size = sizeof usual;
+    if (::getsockopt(socket, IPPROTO_IP, IP_TTL, reinterpret_cast<char*>(&usual), &size) != 0 ||
+        ::setsockopt(socket, IPPROTO_IP, IP_TTL, reinterpret_cast<const char*>(&hops),
+                     sizeof hops) != 0) {
+        return false;
+    }
+    const bool sent = send(to, bytes);
+    return ::setsockopt(socket, IPPROTO_IP, IP_TTL, reinterpret_cast<const char*>(&usual),
+                        sizeof usual) == 0 &&
+           sent;
+}
+
 std::optional<std::size_t> UdpSocket::receive(std::span<char> buffer, UdpAddress& from,
                                               std::chrono::milliseconds wait) const {
     const SOCKET socket = descriptor_->socket;

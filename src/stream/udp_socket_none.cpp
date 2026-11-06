@@ -25,6 +25,11 @@ bool UdpSocket::send(const UdpAddress& /*to*/, std::string_view /*bytes*/) const
     return false;
 }
 
+bool UdpSocket::sendWithin(const UdpAddress& /*to*/, std::string_view /*bytes*/,
+                           int /*hops*/) const noexcept {
+    return false;
+}
+
 std::optional<std::size_t> UdpSocket::receive(std::span<char> /*buffer*/, UdpAddress& /*from*/,
                                               std::chrono::milliseconds /*wait*/) const {
     return std::nullopt;

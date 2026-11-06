@@ -47,6 +47,9 @@ class UdpSocket {
     }
     /// Sends `bytes` to `to`; false when the system refused it (a full buffer drops it).
     bool send(const UdpAddress& to, std::string_view bytes) const noexcept;
+    /// `send` that dies after `hops` routers, so it opens this side's NAT and never reaches the far
+    /// one.
+    bool sendWithin(const UdpAddress& to, std::string_view bytes, int hops) const noexcept;
     /// The next datagram into `buffer` (`largestDatagram` bytes), waiting at most `wait`: its
     /// length, and its sender in `from`; nothing when none came.
     [[nodiscard]] std::optional<std::size_t> receive(std::span<char> buffer, UdpAddress& from,
