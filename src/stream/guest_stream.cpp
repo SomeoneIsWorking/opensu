@@ -172,6 +172,11 @@ void GuestStream::sendInput() {
     }
 }
 
+std::string GuestStream::panel() const {
+    const std::lock_guard lock{mutex_};
+    return panel_;
+}
+
 std::string GuestStream::stage() const {
     const std::lock_guard lock{mutex_};
     return stage_;
@@ -338,6 +343,11 @@ void GuestStream::handle(const Opened& opened, std::uint64_t receivedUs) {
             finish(end->reason);
         }
         break;
+    case PacketKind::Panel: {
+        const std::lock_guard lock{mutex_};
+        panel_ = opened.payload;
+        break;
+    }
     case PacketKind::Stage: {
         const std::lock_guard lock{mutex_};
         stage_ = wire::readText(opened.payload);

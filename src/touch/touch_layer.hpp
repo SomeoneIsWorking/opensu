@@ -39,6 +39,8 @@ class TouchLayer {
 
     /// Shows `panel` instead of the pad from the next `layout`.
     void setPanel(ArcadePanel panel);
+    /// Goes back to the pad.
+    void clearPanel();
     /// Shows Rotate screen on the pad from the next `layout`, as a panel always does.
     void offerRotate();
     /// Draws the controls at `size` times their size from the next `layout`, as far as they fit.

@@ -25,7 +25,7 @@ std::array<std::uint8_t, secrets::crypto::sealNonceBytes> nonceOf(std::uint64_t 
 
 bool knownKind(std::uint8_t kind) {
     return kind >= static_cast<std::uint8_t>(PacketKind::Ping) &&
-           kind <= static_cast<std::uint8_t>(PacketKind::Stage);
+           kind <= static_cast<std::uint8_t>(PacketKind::Panel);
 }
 
 } // namespace

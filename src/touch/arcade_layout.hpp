@@ -1,8 +1,9 @@
 // arcade_layout — an arcade game's own control panel: an arcade stick on the left, round buttons in
 // the cabinet's rows on the right, each named for what it does, Coin and Start as small controls of
-// their own, a pause button and Rotate screen beside it. Controls sit on the black beside the
-// picture wherever they fit and keep to the screen's edges where they do not; on an upright screen
-// they stand in a band under the picture, which `ControlPlan::band` keeps clear.
+// their own, a pause button and, where the screen can turn, Rotate screen beside it. Controls sit
+// on the black beside the picture wherever they fit and keep to the screen's edges where they do
+// not; on an upright screen they stand in a band under the picture, which `ControlPlan::band` keeps
+// clear.
 #pragma once
 
 #include <cstdint>
@@ -42,9 +43,10 @@ struct ArcadePanel {
     bool operator==(const ArcadePanel&) const = default;
 };
 
-/// `panel` on `surface` around the frame drawn at `picture`.
+/// `panel` on `surface` around the frame drawn at `picture`, with a button to turn the screen when
+/// `rotate` says the target can.
 [[nodiscard]] ControlPlan arcadeLayout(const WindowSurface& surface, const Box& picture,
                                        const ArcadePanel& panel, const ArtSource& art,
-                                       LabelFace& labels);
+                                       LabelFace& labels, bool rotate);
 
 } // namespace opensu::touch

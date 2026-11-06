@@ -123,6 +123,8 @@ class ControlServer {
     void publish(std::uint64_t frame, bool hasState);
     /// A frame reached the target, which /status reports from now on.
     void reportShown();
+    /// The machine's panel (`touch::panelText`), which /status reports from now on.
+    void reportPanel(std::string panel);
     /// How the game's start went with its resume state, which /status reports from now on.
     void reportResume(const ResumeReport& report);
 
@@ -175,6 +177,7 @@ class ControlServer {
     bool hasState_{false};
     bool announced_{false};
     bool shown_{false};
+    std::string panel_;
     /// Last, so its handler threads stop before the members they use go.
     lucent::http::Server server_;
 };

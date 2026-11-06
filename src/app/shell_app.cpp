@@ -578,7 +578,14 @@ void ShellApp::handlePointer() {
     }
     const bool controls =
         remoteHasControls() && window_->hasTouchscreen() && pads_->connected().empty();
-    handleEvents(remoteTouch_->follow(controls, window_->touchSurface(), window_->fingers()));
+    remoteTouch_->panel(remotePlay_.panel());
+    const display::Placed placed = remotePlacement();
+    const touch::Box picture{.x = static_cast<float>(placed.x),
+                             .y = static_cast<float>(placed.y),
+                             .width = static_cast<float>(placed.width),
+                             .height = static_cast<float>(placed.height)};
+    handleEvents(
+        remoteTouch_->follow(controls, window_->touchSurface(), picture, window_->fingers()));
 }
 
 void ShellApp::pointer(const PointerFrame& frame) {
@@ -1393,7 +1400,8 @@ void ShellApp::sendRemoteInput() {
 
 display::Placed ShellApp::remotePlacement() const {
     const gpu2d::PixelSize window = window_->size();
-    return remotePicture_->placement({.width = window.width, .height = window.height});
+    return remotePicture_->placement(
+        {.width = window.width, .height = window.height - remoteTouch_->band()});
 }
 
 void ShellApp::showGamePicture() {
@@ -1404,6 +1412,7 @@ void ShellApp::showGamePicture() {
                                   gameScreen_.mode() == display::OverlayMode::Interactive,
                               retro_);
         shell_.setPicture(gameBackdrop_->view());
+        shell_.setPictureBand(0);
         shell_.setPictureControls(std::nullopt);
         return;
     }
@@ -1415,6 +1424,7 @@ void ShellApp::showGamePicture() {
         }
     }
     shell_.setPicture(remotePicture_->view());
+    shell_.setPictureBand(remoteTouch_->band());
     shell_.setPictureControls(remoteTouch_->view());
 }
 

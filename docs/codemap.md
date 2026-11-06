@@ -402,6 +402,7 @@ Design: `docs/design/libretro.md`. `opensu_retro` and the `opensu-retro` executa
 | `src/touch/touch_art.*` | `assets/touch/` rasterised at the drawn size, its paints swapped (`ArtSource`), one image over another (`composeOver`) |
 | `src/touch/label_face.*` | Words on the controls, set from `assets/CalSans-Regular.ttf` through SDL_ttf at the drawn size, a word to a line (`LabelFace`) |
 | `src/touch/arcade_layout.*` | An arcade machine's panel (`ArcadePanel`) as a plan: stick, round buttons in the cabinet's rows by count (`rowsByCount`), Coin, Start and pause, on the black beside the picture where they fit and against the edges where not |
+| `src/touch/panel_text.*` | An `ArcadePanel` as text, which the runner's `/status` and the stream's `Panel` datagram carry. |
 | `src/touch/pad_layout.*` | The on-screen pad (d-pad, A B X Y, L R, Select, Start, pause holding Guide) in dp inside the safe area, hit regions past the drawn art |
 | `src/touch/touch_surface.hpp`, `sdl_touch.*` | What the controls work over: a finger, the surface they cover, a box on it and the overlay image; read from an SDL window (`fingerOf`, `surfaceOf`), a finger as the event a window gets (`eventOf`) |
 | `src/retro/shell_handoff.hpp`, `shell_handoff_android.cpp`, `shell_handoff_none.cpp` | Whether the runner hands its menu to the shell (Android, where the shell does not hear its input) and asks for it: the runner's `openShellMenu` brings the shell's translucent Activity over the game; `turnScreen` asks the Activity for portrait or landscape |

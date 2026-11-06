@@ -21,6 +21,8 @@ using Clock = std::chrono::steady_clock;
 constexpr std::chrono::seconds answerKept{30};
 /// How often a guest waiting on the game's start hears its step again: a datagram can be lost.
 constexpr std::chrono::milliseconds stageEvery{500};
+/// How often guests hear the game's arcade panel, which a core may name late.
+constexpr std::chrono::seconds panelEvery{1};
 
 void wipe(lan::StreamKeys& keys) {
     secrets::wipeBytes(keys.host.data(), keys.host.size());
@@ -651,6 +653,16 @@ void RemotePlay::serviceHost(const library::Game* running, const std::string& pr
             }
         }
     }
+    if (hooks_.panel && Clock::now() - hosted.panelSent >= panelEvery) {
+        hosted.panelSent = Clock::now();
+        if (const std::string panel = hooks_.panel(); !panel.empty()) {
+            for (const std::unique_ptr<Guest>& guest : hosted.guests) {
+                if (guest->stream) {
+                    guest->stream->send(stream::PacketKind::Panel, panel);
+                }
+            }
+        }
+    }
     const bool held = hosted.forGuest && !shown_;
     if (held && !hosted.stage.empty() && Clock::now() - hosted.stageSent >= stageEvery) {
         hosted.stageSent = Clock::now();
@@ -825,6 +837,10 @@ void RemotePlay::drop() {
     link_.reset();
     joined_ = false;
     pictured_ = false;
+}
+
+std::string RemotePlay::panel() const {
+    return guest_ ? guest_->panel() : std::string{};
 }
 
 void RemotePlay::showsIn(int width, int height) {

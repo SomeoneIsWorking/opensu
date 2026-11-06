@@ -3,13 +3,32 @@
 #include <algorithm>
 #include <utility>
 
+#include "lucent/log.h"
+#include "touch/panel_text.hpp"
+
 namespace opensu::app {
 
 RemoteTouch::RemoteTouch(SDL_GPUDevice& device, std::filesystem::path art)
     : device_{&device}, layer_{std::move(art)} {
 }
 
+void RemoteTouch::panel(const std::string& text) {
+    if (text == panel_) {
+        return;
+    }
+    panel_ = text;
+    panelChanged_ = true;
+    if (text.empty()) {
+        layer_.clearPanel();
+    } else if (std::optional<touch::ArcadePanel> panel = touch::panelFromText(text)) {
+        layer_.setPanel(std::move(*panel));
+    } else {
+        lucent::warn("remote", "the host's arcade panel cannot be read");
+    }
+}
+
 std::vector<gamepad::Event> RemoteTouch::follow(bool shown, const touch::WindowSurface& surface,
+                                                const touch::Box& picture,
                                                 std::span<const touch::Finger> fingers) {
     std::vector<gamepad::Event> events;
     shown_ = shown;
@@ -19,10 +38,14 @@ std::vector<gamepad::Event> RemoteTouch::follow(bool shown, const touch::WindowS
         texture_.reset();
         return events;
     }
+    const bool moved = picture.x != laidAround_.x || picture.y != laidAround_.y ||
+                       picture.width != laidAround_.width || picture.height != laidAround_.height;
     if (surface.width != laidOut_.width || surface.height != laidOut_.height ||
-        surface.dp != laidOut_.dp) {
-        layer_.layout(surface);
+        surface.dp != laidOut_.dp || moved || panelChanged_) {
+        layer_.layout(surface, picture);
         laidOut_ = surface;
+        laidAround_ = picture;
+        panelChanged_ = false;
         noteHeld(events);
     }
     for (const touch::Finger& finger : fingers) {

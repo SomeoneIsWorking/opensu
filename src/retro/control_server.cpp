@@ -256,6 +256,11 @@ void ControlServer::publish(std::uint64_t frame, bool hasState) {
     hasState_ = hasState;
 }
 
+void ControlServer::reportPanel(std::string panel) {
+    const std::lock_guard lock{mutex_};
+    panel_ = std::move(panel);
+}
+
 void ControlServer::reportShown() {
     const std::lock_guard lock{mutex_};
     shown_ = true;
@@ -357,11 +362,8 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
             return text(405, "Method Not Allowed", "GET only");
         }
         const std::lock_guard lock{mutex_};
-        nlohmann::json status{{"core", core_},
-                              {"rom", rom_},
-                              {"frame", frame_},
-                              {"shown", shown_},
-                              {"hasState", hasState_}};
+        nlohmann::json status{{"core", core_},   {"rom", rom_},     {"frame", frame_},
+                              {"shown", shown_}, {"panel", panel_}, {"hasState", hasState_}};
         if (resume_.from) {
             status["resumedFrom"] =
                 std::chrono::duration_cast<std::chrono::seconds>(resume_.from->time_since_epoch())

@@ -287,7 +287,7 @@ void addButtons(ControlPlan& plan, const ButtonRows& rows, float left, float top
 } // namespace
 
 ControlPlan arcadeLayout(const WindowSurface& surface, const Box& picture, const ArcadePanel& panel,
-                         const ArtSource& art, LabelFace& labels) {
+                         const ArtSource& art, LabelFace& labels, bool rotate) {
     const ButtonRows largest{.rows = rowsOf(panel), .size = buttonLargest, .gap = buttonGap};
     const ButtonRows smallest{.rows = largest.rows, .size = buttonSmallest, .gap = buttonGap};
     const float pills = pillDrop + (2.0F * pillHeight) + pillGap;
@@ -344,7 +344,9 @@ ControlPlan arcadeLayout(const WindowSurface& surface, const Box& picture, const
     ControlPlan plan;
     plan.band = upright ? static_cast<float>(surface.height) - roundsY + gap : 0.0F;
     addRound(plan, pause, "pause.svg", Button::Guide, picture, art);
-    addRound(plan, turn, "rotate.svg", Button::Rotate, picture, art);
+    if (rotate) {
+        addRound(plan, turn, "rotate.svg", Button::Rotate, picture, art);
+    }
     addPill(plan, coin, "COIN", Button::Select, coinColour, picture, dp, art, labels);
     addPill(plan, start, "START", Button::Start, startColour, picture, dp, art, labels);
 

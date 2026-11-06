@@ -29,6 +29,8 @@ class RetroSession {
         std::string rom;
         std::uint64_t frame{0};
         bool hasState{false};
+        /// The machine's panel (`touch::panelText`); empty for no arcade game.
+        std::string panel;
         /// A frame has reached the screen.
         bool shown{false};
         /// When the state the game resumed from was taken; nothing when it did not resume.

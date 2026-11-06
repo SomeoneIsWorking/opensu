@@ -127,6 +127,7 @@ std::optional<RetroSession::Status> RetroSession::status() {
                   .rom = body.value("rom", std::string{}),
                   .frame = body.value("frame", std::uint64_t{0}),
                   .hasState = body.value("hasState", false),
+                  .panel = body.value("panel", std::string{}),
                   .shown = body.value("shown", false),
                   .resumedFrom = std::nullopt,
                   .resumeRefused = body.value("resumeRefused", std::string{})};

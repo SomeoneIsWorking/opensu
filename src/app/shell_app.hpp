@@ -872,6 +872,11 @@ class ShellApp final {
                     });
                     return found != games_.end() && launch(*found, {}, {});
                 },
+            .panel =
+                [this] {
+                    const std::optional<RetroSession::Status> status = retro_.status();
+                    return status ? status->panel : std::string{};
+                },
             .name =
                 [this] {
                     return lan_.name();

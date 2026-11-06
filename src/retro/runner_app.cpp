@@ -13,6 +13,7 @@
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_scancode.h>
 
+#include "arcade_cabinet.hpp"
 #include "audio_output.hpp"
 #include "audio_sink.hpp"
 #include "control_commands.hpp"
@@ -33,6 +34,7 @@
 #include "save_state.hpp"
 #include "screen_turn.hpp"
 #include "shell_handoff.hpp"
+#include "touch/panel_text.hpp"
 #include "video_frame.hpp"
 
 namespace opensu::retro {
@@ -278,6 +280,9 @@ RunnerExit RunnerApp::run() {
     if (touch && options_.arcade) {
         touch->cabinet(*options_.arcade);
     }
+    if (control && options_.arcade) {
+        control->reportPanel(touch::panelText(panelOf({}, *options_.arcade)));
+    }
     bool padConnected = pads && !pads->connected().empty();
     /// Another Activity has the screen's input, usually the shell over the game, or the shell
     /// says a menu of its own is up.
@@ -444,10 +449,15 @@ RunnerExit RunnerApp::run() {
             coreImage.value_or(FrameImage{video.rgba(), video.width(), video.height(), aspect, {}});
         shown.interval = std::chrono::duration_cast<std::chrono::nanoseconds>(interval);
         std::optional<touch::OverlayImage> overlay;
-        if (touch) {
-            if (const auto named = environment.takeInputDescriptors()) {
+        if (const auto named = environment.takeInputDescriptors()) {
+            if (touch) {
                 touch->named(*named);
             }
+            if (control && options_.arcade) {
+                control->reportPanel(touch::panelText(panelOf(*named, *options_.arcade)));
+            }
+        }
+        if (touch) {
             if (shown.width != 0) {
                 touch->showing(presenter->picture(shown));
             }

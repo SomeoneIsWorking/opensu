@@ -89,6 +89,8 @@ class RemotePlay {
             invite;
         /// Plays host `hostId`'s game `gameId` from here; false when the catalog does not list it.
         std::function<bool(const std::string& hostId, const std::string& gameId)> join;
+        /// The running game's arcade panel (`touch::panelText`); empty for none.
+        std::function<std::string()> panel;
         /// The name this openSU goes by.
         std::function<std::string()> name;
         /// The first pad's virtual pad for a player who continues from another openSU, and given
@@ -217,6 +219,8 @@ class RemotePlay {
     /// loop only.
     void input(const stream::wire::PadState& pad, const stream::wire::KeyState& keys,
                const stream::wire::MouseState& mouse);
+    /// The arcade panel of the host's game (`touch::panelText`); empty for none. Main loop only.
+    [[nodiscard]] std::string panel() const;
     /// The pixels the host's picture is shown in here. Main loop only.
     void showsIn(int width, int height);
     /// A test run's slow link: takes at most `bitsPerSecond` from the host from now on, 0 for
@@ -294,6 +298,8 @@ class RemotePlay {
         /// The step its start is at, and when the guests last heard it.
         std::string stage;
         std::chrono::steady_clock::time_point stageSent;
+        /// When the guests last heard the game's arcade panel.
+        std::chrono::steady_clock::time_point panelSent;
     };
     /// A guest's ask to join, until it hears the answer.
     struct Ask {

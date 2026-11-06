@@ -13,6 +13,7 @@
 #include "joypad.hpp"
 #include "runner_touch.hpp"
 #include "support/test_main.hpp"
+#include "touch/panel_text.hpp"
 #include "touch/touch_layer.hpp"
 
 namespace {
@@ -415,6 +416,7 @@ void uprightUnderThePicture() {
     };
 
     TouchLayer panel{"no-art"};
+    panel.offerRotate();
     panel.setPanel(panelOf({}, CabinetListing{6, 8, false}));
     panel.layout(tablet);
     underBand(panel);
@@ -463,6 +465,25 @@ void rotatePressedOnce() {
     for (const ControlPlace& shown : remote.places()) {
         expect(shown.button != Button::Rotate, "a remote game's pad has none");
     }
+    remote.setPanel(panelOf({}, CabinetListing{6, 8, false}));
+    remote.layout(surface(1920, 1080, 2.0F));
+    for (const ControlPlace& shown : remote.places()) {
+        expect(shown.button != Button::Rotate, "nor has a remote game's panel");
+    }
+}
+
+void panelCrossesTheWireAsText() {
+    const ArcadePanel panel{
+        .ways = 8,
+        .vertical = true,
+        .buttons = {{.button = Button::A, .label = "Light Punch", .limb = Limb::Punch},
+                    {.button = Button::B, .label = "", .limb = Limb::None}}};
+    const std::string text = opensu::touch::panelText(panel);
+    expect(opensu::touch::panelFromText(text) == panel, "a panel reads back as it was written");
+    expect(!opensu::touch::panelFromText("").has_value(), "no text is no panel");
+    expect(!opensu::touch::panelFromText("9 0\n").has_value(), "a stick has at most eight ways");
+    expect(!opensu::touch::panelFromText("8 0\nnothing 0 A\n").has_value(),
+           "a button the pad does not have is refused");
 }
 
 int main() try {
@@ -479,6 +500,7 @@ int main() try {
     shortTaps();
     uprightUnderThePicture();
     rotatePressedOnce();
+    panelCrossesTheWireAsText();
     std::printf("arcade_panel: all checks passed\n");
     return 0;
 } catch (...) {

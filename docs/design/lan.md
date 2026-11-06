@@ -325,6 +325,10 @@ that profile's; the host's own active profile does not change.
 - A game started for a guest: `HostVideo` sends nothing until it shows a window, so the first
   picture is the game's; until then the host sends each launch step as a `Stage` datagram, every
   500 ms, and the guest's launch card shows it. Touch controls wait for the first picture.
+- An arcade game's controls: the runner reports the machine's panel in `/status`
+  (`touch::panelText`), the host repeats it to its guests as a `Panel` datagram every second, and
+  `RemoteTouch` shows it in place of the pad, without Rotate screen, which is the host runner's.
+  On an upright screen the guest's picture stands above the controls' band, as the runner's does.
 - Codec and link (`stream::LinkRate`, owned by `HostStream`): the host offers what it codes
   (`encodableHere`: PyroWave where built, and each of AV1, HEVC and H.264 its VA-API driver
   encodes) and each guest Report says what it decodes. Once the guest joins, the pacer sends

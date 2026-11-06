@@ -61,6 +61,9 @@ class GuestStream {
     void mouse(const wire::MouseState& state);
     /// The mapping the pad is played with.
     void mapping(const wire::PadMapping& mapping);
+    /// The game's arcade panel as the host sent it (`touch::panelText`); empty for none. Any
+    /// thread.
+    [[nodiscard]] std::string panel() const;
     /// The step of the game's start the host last named; empty before any. Any thread.
     [[nodiscard]] std::string stage() const;
     /// The pixels the picture is shown in, which the host fits what it sends to. Any thread.
@@ -118,6 +121,7 @@ class GuestStream {
     /// What came from the host, for the report; on the receiving thread, read under `mutex_`.
     wire::Report received_;
     std::string stage_;
+    std::string panel_;
     Timing timing_;
     LinkCap cap_;
     /// The quickest probe datagram of the burst and since the last report, how long each took on

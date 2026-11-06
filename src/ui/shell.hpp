@@ -197,6 +197,11 @@ class Shell {
         picture_ = picture;
     }
 
+    /// How much of the target's bottom the picture stays out of, for controls under it.
+    void setPictureBand(int band) noexcept {
+        pictureBand_ = band;
+    }
+
     /// An on-screen pad the size of the target, over the picture; nothing for none. Its owner keeps
     /// it alive until the frame is submitted.
     void setPictureControls(std::optional<gpu2d::TextureView> controls) noexcept {
@@ -253,8 +258,8 @@ class Shell {
     /// The held modifier's chords, while shown or fading out.
     void drawChordHint(Canvas& canvas, Point size);
     /// A remote game's picture over black, whole and centred.
-    static void drawPicture(Canvas& canvas, const gpu2d::TextureView& picture,
-                            const gpu2d::Surface& target);
+    void drawPicture(Canvas& canvas, const gpu2d::TextureView& picture,
+                     const gpu2d::Surface& target);
     /// The scene's target, as big as the window.
     [[nodiscard]] gpu2d::RenderTarget& sceneTarget();
     [[nodiscard]] SDL_GPUDevice& device() const;
@@ -296,6 +301,7 @@ class Shell {
     bool inGame_{false};
     bool standsIn_{false};
     std::optional<gpu2d::TextureView> picture_;
+    int pictureBand_{0};
     std::optional<gpu2d::TextureView> pictureControls_;
 };
 
