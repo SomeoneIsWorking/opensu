@@ -25,7 +25,6 @@ struct HudStatusAlignment {
 
 /// The status pill's sizes (iiSU a32.o), in dp.
 struct StatusPillMetrics {
-    float height{};
     /// iiSU's whole pill, the bell's column included.
     float width{};
     /// The room at each end of the text row; opensu's own, as iiSU's pill is a fixed width.
@@ -68,9 +67,6 @@ struct HintPanelMetrics {
 
 /// The centre title pill's sizes (iiSU jj2.c), in dp.
 struct TitlePillMetrics {
-    /// Below the row's own top padding (hs7.c).
-    float topPadding{};
-    float height{};
     float paddingHorizontal{};
     float minWidth{};
     /// The widest the text may run.
@@ -94,6 +90,14 @@ class TopBarMetrics {
     }
     [[nodiscard]] const HudStatusAlignment& alignment() const noexcept {
         return alignment_;
+    }
+    /// Where the row's items start: the row padding, then iiSU's title pill padding (hs7.c).
+    [[nodiscard]] float rowTop() const noexcept {
+        return rowPaddingTop + alignment_.statusTopPadding;
+    }
+    /// The height of every item in the row: pills and touch buttons (hs7.d).
+    [[nodiscard]] float rowHeight() const noexcept {
+        return alignment_.statusPillHeight;
     }
     /// iiSU mw5.l: the default device class's status box x offset for a window aspect ratio.
     [[nodiscard]] float statusOffsetX(float aspect) const noexcept;

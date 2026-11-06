@@ -225,6 +225,31 @@ void aClickOnACrumbReachesTheTopBar() {
     expect(rig.last() == "crumb 0", "a click on it goes back to it");
 }
 
+void theTouchButtonsFillTheRowAndKeepAFingersRoom() {
+    Rig rig;
+    rig.hud.setTouchButtons(ui::Hud::TouchButtons{.back = true, .menu = true, .prompts = true});
+    rig.topBar.setLive(ui::TopBarChrome::Live{.crumbs = true, .launchers = false, .buttons = true});
+    const ui::Rect crumb = rig.hud.crumbCells().front();
+    for (const ui::TouchButton button : {ui::TouchButton::Back, ui::TouchButton::Menu}) {
+        const ui::Hud::TouchButtonCell cell =
+            rig.hud.touchButtonCell(button).value_or(ui::Hud::TouchButtonCell{});
+        expect(cell.body.height == crumb.height && cell.body.y == crumb.y,
+               "the circle is the trail's height, on its row");
+        expect(cell.body.width == cell.body.height, "and round");
+        expect(cell.hit.width == ui::touchButtonDp * dp && cell.hit.height == cell.hit.width,
+               "the hit stays a finger's size");
+        expect(cell.hit.centreX() == cell.body.centreX() &&
+                   cell.hit.centreY() == cell.body.centreY(),
+               "around what is drawn");
+    }
+    const ui::Rect hit =
+        rig.hud.touchButtonCell(ui::TouchButton::Back).value_or(ui::Hud::TouchButtonCell{}).hit;
+    expect(hit.right() < crumb.x, "the trail stands clear of the button's hit");
+    rig.frame();
+    rig.point(PointerKind::Move, gpu2d::Point{hit.x + 1.0f, hit.y + 1.0f});
+    expect(rig.topBar.view().hovered == "topbar/back", "a finger off the circle still takes it");
+}
+
 } // namespace
 
 int main() try {
@@ -234,6 +259,7 @@ int main() try {
     aAndYReachTheHooks();
     thePointerFocusesAndOpensTiles();
     aClickOnACrumbReachesTheTopBar();
+    theTouchButtonsFillTheRowAndKeepAFingersRoom();
     std::printf("home screen flow: all checks passed\n");
     return 0;
 } catch (...) {

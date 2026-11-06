@@ -107,6 +107,11 @@ class Hud {
     };
     /// The badges the top bar shows, in order.
     [[nodiscard]] std::vector<BadgeCell> badgeCells() const;
+    /// A touch button's circle, the row's height, and the finger-sized room around it.
+    struct TouchButtonCell {
+        Rect body;
+        Rect hit;
+    };
     /// Which touch buttons the top bar shows: Back before the trail, the menu before the status;
     /// `prompts` puts the corner prompts side by side, each a finger's height.
     struct TouchButtons {
@@ -118,7 +123,7 @@ class Hud {
         touchButtons_ = buttons;
     }
     /// Where the top bar draws `button`, or nothing while it is not shown.
-    [[nodiscard]] std::optional<Rect> touchButtonCell(TouchButton button) const;
+    [[nodiscard]] std::optional<TouchButtonCell> touchButtonCell(TouchButton button) const;
     /// A corner prompt where it is drawn, and the room a pointer takes it in: its row, at least
     /// 48 dp wide.
     struct PromptCell {
@@ -158,9 +163,9 @@ class Hud {
     /// One hundredth of the window's shorter side, the unit of opensu's own chrome.
     [[nodiscard]] float unit() const noexcept;
     [[nodiscard]] TopBarMetrics metrics() const noexcept;
-    void drawTitlePill(Canvas& canvas, float top) const;
-    /// The title pill's body in a row whose top is `top`.
-    [[nodiscard]] Rect titlePillBody(float top) const;
+    void drawTitlePill(Canvas& canvas, const TopBarLayout& bar) const;
+    /// The title pill's body in the row.
+    [[nodiscard]] Rect titlePillBody(const TopBarLayout& bar) const;
     /// Where the trail may stand: from the row's start to the title pill or the status pill.
     [[nodiscard]] BreadcrumbFrame crumbFrame() const;
     /// One corner prompt panel of (glyph, label) entries (iiSU jj2.b): its glass body, the glyph

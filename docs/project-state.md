@@ -49,6 +49,11 @@ Visible deltas from the baseline:
 - Delta from iiSU: the status pill is sized to what it shows (launcher column, the measured
   `clock | NN% battery` row, padding at each end), not iiSU's fixed width, so a PC without a
   battery gets a pill that fits its clock. It stays right-aligned.
+- Delta from iiSU, deliberate: the top row is one band, `TopBarMetrics::rowTop`/`rowHeight`
+  (8 + `hs7.c`, `hs7.d`), and `TopBarLayout` places it. The status pill, the title pill, the trail
+  and the touch buttons all fill it, so they share one height and centre line; iiSU pins the status
+  pill to the row's top, `hs7.c` above its title pill. A touch button's circle is the row's height
+  and its hit stays the 52 dp finger's room around it, which the trail keeps clear of.
 - Delta from iiSU: the battery icon is filled to the exact percentage, not iiSU's five drawables,
   and charging keeps the level under the bolt.
 - A details page replaces the direct launch: A (Enter, left click) on a game opens it, as do Y and

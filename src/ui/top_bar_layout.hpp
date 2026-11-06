@@ -1,5 +1,5 @@
-// top_bar_layout — where the top bar's status pill and the launcher badges inside it stand, in
-// pixels. The Hud paints from it and hit-tests against it, so both read one geometry.
+// top_bar_layout — the top bar's row and where the status pill and the launcher badges inside it
+// stand, in pixels. The Hud paints from it and hit-tests against it, so both read one geometry.
 #pragma once
 
 #include <cstddef>
@@ -34,10 +34,16 @@ struct TopBarLayout {
     std::vector<Rect> launchers;
     /// The x of the line between the launchers and the clock, or 0 with no launcher.
     float divider{};
-    /// The row's top, below the row padding.
+    /// The band every item in the row fills.
     float top{};
+    float height{};
     /// How far a launcher's hit extends past its circle.
     float hitSlop{};
+
+    /// The line every item in the row is centred on.
+    [[nodiscard]] float centreY() const noexcept {
+        return top + height * 0.5f;
+    }
 };
 
 [[nodiscard]] TopBarLayout layoutTopBar(const TopBarMetrics& metrics, const TopBarFrame& frame);

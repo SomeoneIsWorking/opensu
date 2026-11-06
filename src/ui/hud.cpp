@@ -108,8 +108,8 @@ std::vector<Hud::BadgeCell> Hud::badgeCells() const {
 }
 
 void Hud::drawTopBar(Canvas& canvas, const TopBarHover& hover) {
-    // iiSU mw5.l single-screen Row: friends | title (weight 1) | status, all Top. opensu has no
-    // friends; its launchers' badges stand in the status pill where iiSU has the bell.
+    // iiSU mw5.l single-screen Row: friends | title (weight 1) | status. opensu has no friends;
+    // its launchers' badges stand in the status pill where iiSU has the bell.
     const TopBarLayout layout = topBarLayout();
     const double seconds = std::chrono::duration<double>(now_.time_since_epoch()).count();
     statusPill_.paint(canvas, StatusPillView{layout.status, layout.pill, dp_, clock_, battery_,
@@ -118,69 +118,64 @@ void Hud::drawTopBar(Canvas& canvas, const TopBarHover& hover) {
     // STOPGAP: jj2.w's glass strip behind the status pill is not drawn because its geometry is
     // not in the spec.
 
-    drawTitlePill(canvas, layout.top);
+    drawTitlePill(canvas, layout);
     const BreadcrumbLayout trail = crumbs_.layout(trail_, crumbFrame(), metrics().titlePill());
     crumbs_.paint(canvas, trail_, trail, metrics().titlePill(), dp_, hover.crumb);
     for (const TouchButton button : {TouchButton::Back, TouchButton::Menu}) {
-        if (const std::optional<Rect> cell = touchButtonCell(button)) {
-            touchButtonPainter_.paint(canvas, button, *cell, dp_, hover.button == button);
+        if (const std::optional<TouchButtonCell> cell = touchButtonCell(button)) {
+            touchButtonPainter_.paint(canvas, button, cell->body, dp_, hover.button == button);
         }
     }
 }
 
-std::optional<Rect> Hud::touchButtonCell(TouchButton button) const {
+std::optional<Hud::TouchButtonCell> Hud::touchButtonCell(TouchButton button) const {
     if (!(button == TouchButton::Back ? touchButtons_.back : touchButtons_.menu)) {
         return std::nullopt;
     }
     const TopBarLayout bar = topBarLayout();
-    const TitlePillMetrics pill = metrics().titlePill();
     const float size = touchButtonDp * fingerDp(Density{.dp = dp_, .display = displayDp_});
-    // Centred on the trail's row, at its start or just before the status pill.
-    const float y = bar.top + (pill.topPadding + pill.height * 0.5f) * dp_ - size * 0.5f;
     const float gap = TopBarMetrics::rowPaddingEnd * dp_;
+    // At the trail's start or just before the status pill.
     const float x = button == TouchButton::Back ? gap : bar.status.x - gap - size;
-    return Rect{x, y, size, size};
+    const Rect hit{x, bar.centreY() - size * 0.5f, size, size};
+    return TouchButtonCell{Rect{hit.centreX() - bar.height * 0.5f, bar.top, bar.height, bar.height},
+                           hit};
 }
 
-Rect Hud::titlePillBody(float top) const {
+Rect Hud::titlePillBody(const TopBarLayout& bar) const {
     const TitlePillMetrics pill = metrics().titlePill();
     const float dp = dp_;
     const float size = pill.fontSize * dp;
     const float textWidth = std::min(text_.measure(title_, size), pill.maxTextWidth * dp);
     const float bodyWidth =
         std::max(textWidth + 2.0f * pill.paddingHorizontal * dp, pill.minWidth * dp);
-    return Rect{(static_cast<float>(width_) - bodyWidth) * 0.5f, top + pill.topPadding * dp,
-                bodyWidth, pill.height * dp};
+    return Rect{(static_cast<float>(width_) - bodyWidth) * 0.5f, bar.top, bodyWidth, bar.height};
 }
 
 BreadcrumbFrame Hud::crumbFrame() const {
     const TopBarLayout bar = topBarLayout();
-    const TitlePillMetrics pill = metrics().titlePill();
     const float gap = TopBarMetrics::rowPaddingEnd * dp_;
     float left = gap;
     float right = bar.status.x - gap;
     if (!title_.empty()) {
-        right = std::min(right, titlePillBody(bar.top).x - gap);
+        right = std::min(right, titlePillBody(bar).x - gap);
     }
     // The touch buttons keep their room; the trail stands between them.
-    if (const std::optional<Rect> back = touchButtonCell(TouchButton::Back)) {
-        left = back->right() + gap;
+    if (const std::optional<TouchButtonCell> back = touchButtonCell(TouchButton::Back)) {
+        left = back->hit.right() + gap;
     }
-    if (const std::optional<Rect> menu = touchButtonCell(TouchButton::Menu)) {
-        right = std::min(right, menu->x - gap);
+    if (const std::optional<TouchButtonCell> menu = touchButtonCell(TouchButton::Menu)) {
+        right = std::min(right, menu->hit.x - gap);
     }
-    return BreadcrumbFrame{.left = left,
-                           .top = bar.top + pill.topPadding * dp_,
-                           .height = pill.height * dp_,
-                           .maxRight = right,
-                           .dp = dp_};
+    return BreadcrumbFrame{
+        .left = left, .top = bar.top, .height = bar.height, .maxRight = right, .dp = dp_};
 }
 
 std::vector<Rect> Hud::crumbCells() const {
     return crumbs_.layout(trail_, crumbFrame(), metrics().titlePill()).cells;
 }
 
-void Hud::drawTitlePill(Canvas& canvas, float top) const {
+void Hud::drawTitlePill(Canvas& canvas, const TopBarLayout& bar) const {
     if (title_.empty()) {
         return;
     }
@@ -188,7 +183,7 @@ void Hud::drawTitlePill(Canvas& canvas, float top) const {
     const TitlePillMetrics pill = metrics().titlePill();
     const float size = pill.fontSize * dp_;
     const float textWidth = std::min(text_.measure(title_, size), pill.maxTextWidth * dp_);
-    const Rect body = titlePillBody(top);
+    const Rect body = titlePillBody(bar);
     glass_.paint(canvas, body);
     text_.drawCentred(canvas, title_, Point{body.centreX() - textWidth * 0.5f, body.centreY()},
                       size, hintInk);

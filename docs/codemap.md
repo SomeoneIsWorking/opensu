@@ -576,7 +576,7 @@ Pure model, unit-tested without a GPU (`opensu_grid`, `opensu_hud_model`):
 | `src/ui/panel_fade.*` | The fade and scale a panel shows and hides with |
 | `src/ui/tile_geometry.*` | One tile's rectangles and radii (and `outerForContent`, the inverse of the frame inset); where a game tile's store icons and update badge sit |
 | `src/ui/top_bar_metrics.*` | Top bar sizes in dp (`is7`, `hs7`, `dl3`) |
-| `src/ui/top_bar_layout.*` | The status pill and the launcher badge cells in it, in pixels, and how far a badge's hit reaches past it. The Hud paints from it |
+| `src/ui/top_bar_layout.*` | The top row's band, the status pill and the launcher badge cells in it, in pixels, and how far a badge's hit reaches past it. The Hud paints from it |
 | `src/ui/corner_hints.*` | Which prompts the bottom corners name and the button each sends, from what each button does now (`HintContext`) |
 | `src/ui/clock_text.*`, `battery_icon.*` | Clock string; the battery level's fill width and charging bolt colour |
 | `src/ui/panel_frame.hpp` | The frame and chrome heights the side menus are laid out in |

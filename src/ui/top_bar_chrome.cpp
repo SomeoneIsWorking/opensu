@@ -50,7 +50,7 @@ std::unique_ptr<gpu2d::ui::Widget> TopBarChrome::build(const gpu2d::ui::Theme& /
     }
     if (live_.buttons) {
         for (const TouchButton button : {TouchButton::Back, TouchButton::Menu}) {
-            const std::optional<Rect> cell = hud_.touchButtonCell(button);
+            const std::optional<Hud::TouchButtonCell> cell = hud_.touchButtonCell(button);
             if (!cell) {
                 continue;
             }
@@ -61,7 +61,7 @@ std::unique_ptr<gpu2d::ui::Widget> TopBarChrome::build(const gpu2d::ui::Theme& /
                                                      hooks_.button(button);
                                                  }
                                              }),
-                onCanvas(*cell));
+                onCanvas(cell->hit));
         }
     }
     return root;

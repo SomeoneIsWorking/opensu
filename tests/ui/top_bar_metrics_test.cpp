@@ -25,7 +25,8 @@ void phone640() {
     near(m.profileSize(), 43.18393, "640: profile button");
     near(m.gridTopInset(), 61.6646, "640: grid top inset");
     const StatusPillMetrics pill = m.statusPill(false);
-    near(pill.height, 35.39666, "640: pill height");
+    near(m.rowHeight(), 35.39666, "640: row height, hs7.d");
+    near(m.rowTop(), 15.37431, "640: row top, 8 + hs7.c");
     near(pill.width, 192.86644, "640: 24 h pill width");
     near(m.statusPill(true).width, 215.55661, "640: 12 h pill width");
     near(pill.contentScale, 0.67939, "640: content scale");
@@ -46,7 +47,8 @@ void reference853() {
     near(m.gridTopInset(), 69.29424, "853: grid top inset, 156 px in the capture");
     near(m.gridBottomInset(), 71.6176, "853 x 480: grid bottom inset");
     const StatusPillMetrics pill = m.statusPill(false);
-    near(pill.height, 41.184, "853: pill height");
+    near(m.rowHeight(), 41.184, "853: row height, hs7.d");
+    near(m.rowTop(), 16.58, "853: row top, 8 + hs7.c");
     near(pill.width, 224.4, "853: 24 h pill width");
     near(pill.contentScale, 0.935, "853: content scale");
     near(pill.paddingHorizontal, 9.35, "853: the text row's end padding");
@@ -99,14 +101,11 @@ void wide1280() {
 void titlePill() {
     // f = 0.9 + 0.1 clamp((w - 538) / 294): 0.93469 at 640, 1 from 832 up.
     const opensu::ui::TitlePillMetrics phone = TopBarMetrics{640.0f, 360.0f}.titlePill();
-    near(phone.height, 44.86531, "640: title pill height");
     near(phone.paddingHorizontal, 20.56327, "640: title pill padding");
     near(phone.minWidth, 130.85714, "640: title pill min width");
     near(phone.maxTextWidth, 478.87347, "640: title text max width");
     near(phone.fontSize, 14.95510, "640: title font");
-    near(phone.topPadding, 7.37431, "640: title pill sits at hs7.c");
     const opensu::ui::TitlePillMetrics wide = TopBarMetrics{853.0f, 480.0f}.titlePill();
-    near(wide.height, 48.0, "853: title pill height");
     near(wide.minWidth, 140.0, "853: title pill min width");
     near(wide.fontSize, 16.0, "853: title font");
     near(TopBarMetrics::avatarSize(), 31.570, "a32.e avatar");

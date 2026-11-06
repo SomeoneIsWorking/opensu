@@ -33,6 +33,20 @@ void pillFollowsItsContent() {
            "the launcher column comes first");
 }
 
+void theRowIsOneBand() {
+    const float dp = 1.5f;
+    const TopBarMetrics metrics{1280.0f / dp, 800.0f / dp};
+    const TopBarLayout layout = layoutOf(2);
+    expect(layout.top == metrics.rowTop() * dp && layout.height == metrics.rowHeight() * dp,
+           "the band comes from the metrics");
+    expect(layout.status.y == layout.top && layout.status.height == layout.height,
+           "the pill fills it");
+    expect(layout.status.centreY() == layout.centreY(), "and stands on its centre line");
+    for (const opensu::ui::Rect& cell : layout.launchers) {
+        expect(cell.centreY() == layout.centreY(), "as do the badges");
+    }
+}
+
 void launchersInThePill() {
     const TopBarLayout none = layoutOf(0);
     expect(none.launchers.empty() && none.launcherColumn == 0.0f, "no launcher, no column");
@@ -52,6 +66,7 @@ void launchersInThePill() {
 } // namespace
 
 int main() try {
+    theRowIsOneBand();
     launchersInThePill();
     pillFollowsItsContent();
     std::printf("top_bar_layout: all checks passed\n");

@@ -22,9 +22,10 @@ TopBarLayout layoutTopBar(const TopBarMetrics& metrics, const TopBarFrame& frame
     TopBarLayout layout;
     const float dp = frame.dp;
     layout.pill = metrics.statusPill(frame.clockHasLetters);
-    layout.top = TopBarMetrics::rowPaddingTop * dp;
+    layout.top = metrics.rowTop() * dp;
+    layout.height = metrics.rowHeight() * dp;
     layout.hitSlop = hitSlopDp * dp;
-    const float diameter = layout.pill.height * badgeOfPill * dp;
+    const float diameter = layout.height * badgeOfPill;
     const float gap = diameter * badgeGap;
     const auto count = static_cast<float>(frame.launchers);
     layout.launcherColumn = frame.launchers == 0 ? 0.0f
@@ -38,16 +39,15 @@ TopBarLayout layoutTopBar(const TopBarMetrics& metrics, const TopBarFrame& frame
         frame.width - TopBarMetrics::rowPaddingEnd * dp + metrics.statusOffsetX(aspect) * dp;
     const float width =
         layout.launcherColumn + frame.contentWidth + 2.0f * layout.pill.paddingHorizontal * dp;
-    layout.status = Rect{boxRight - metrics.sizing().endPadding * dp - width, layout.top, width,
-                         layout.pill.height * dp};
+    layout.status =
+        Rect{boxRight - metrics.sizing().endPadding * dp - width, layout.top, width, layout.height};
 
     if (frame.launchers != 0) {
         layout.divider = layout.status.x + layout.launcherColumn - dividerGapDp * dp;
     }
     float x = layout.status.x + columnPaddingDp * dp;
     for (std::size_t i = 0; i < frame.launchers; ++i) {
-        layout.launchers.push_back(
-            Rect{x, layout.status.centreY() - diameter * 0.5f, diameter, diameter});
+        layout.launchers.push_back(Rect{x, layout.centreY() - diameter * 0.5f, diameter, diameter});
         x += diameter + gap;
     }
     return layout;

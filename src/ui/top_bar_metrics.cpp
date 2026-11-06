@@ -74,8 +74,6 @@ TitlePillMetrics TopBarMetrics::titlePill() const noexcept {
     const float f =
         0.9f + 0.1f * clampTo((std::max(widthDp_, 538.0f) - 538.0f) / 294.0f, 0.0f, 1.0f);
     TitlePillMetrics pill;
-    pill.topPadding = alignment_.statusTopPadding;
-    pill.height = clampTo(48.0f * f, 36.0f, 56.0f);
     pill.paddingHorizontal = clampTo(22.0f * f, 12.0f, 22.0f);
     pill.minWidth = clampTo(140.0f * f, 110.0f, 160.0f);
     pill.maxTextWidth = 520.0f - 2.0f * pill.paddingHorizontal;
@@ -114,12 +112,10 @@ float TopBarMetrics::gridBottomInset() const noexcept {
 
 StatusPillMetrics TopBarMetrics::statusPill(bool clockHasLetters) const noexcept {
     StatusPillMetrics pill;
-    // iiSU a32.o: s from is7.a, k = clamp(0.78 s, 0.5, 1.6), c from is7.b.
+    // iiSU a32.o: s from is7.a, c from is7.b.
     const float s = clampTo(sizing_.scale, 0.7f, 1.6f);
-    const float k = clampTo(clampTo(0.78f, 0.6f, 1.2f) * s, 0.5f, 1.6f);
     const float c = clampTo(std::min(clampTo(sizing_.stretch, 0.55f, 1.2f), 1.0f) * s, 0.42f, 1.6f);
     pill.contentScale = c;
-    pill.height = clampTo(48.0f * k, 30.0f, 86.0f);
     pill.width =
         clockHasLetters ? clampTo(228.0f * s, 188.0f, 320.0f) : clampTo(204.0f * s, 168.0f, 292.0f);
     pill.paddingHorizontal = clampTo(10.0f * c, 6.0f, 16.0f);
