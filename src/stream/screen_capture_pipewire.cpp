@@ -26,6 +26,9 @@
 namespace opensu::stream {
 namespace {
 
+/// Gamescope's format key for the size a consumer wants (`SPA_FORMAT_VIDEO_requested_size`).
+constexpr std::uint32_t requestedSizeKey = 0x70000;
+
 /// The process at the other end of the Unix socket `path`.
 pid_t peerOf(const std::filesystem::path& path) {
     sockaddr_un address{};
@@ -93,6 +96,18 @@ class ScreenCapture::Stream {
         const PipeWireSession::Lock lock{session_};
         drop();
     }
+
+    void fit(PictureSize size) {
+        const PipeWireSession::Lock lock{session_};
+        if (size == requested_) {
+            return;
+        }
+        requested_ = size;
+        lucent::info("capture", "asking Gamescope for {}x{}", size.width, size.height);
+        pw_stream_destroy(stream_);
+        stream_ = nullptr;
+        openStream();
+    }
     Stream(const Stream&) = delete;
     Stream& operator=(const Stream&) = delete;
     Stream(Stream&&) = delete;
@@ -109,7 +124,8 @@ class ScreenCapture::Stream {
         registry_ = pw_core_get_registry(session_.core(), PW_VERSION_REGISTRY, 0);
         pw_registry_add_listener(registry_, &registryListener_, &registryEvents, this);
         session_.settle(lock);
-        openStream(gamescopeNode(gamescope_));
+        serial_ = gamescopeNode(gamescope_);
+        openStream();
     }
 
     /// The serial of the video source Gamescope's process `gamescope` publishes.
@@ -125,10 +141,10 @@ class ScreenCapture::Stream {
                                  ") offers no screen on PipeWire"};
     }
 
-    void openStream(const std::string& serial) {
+    void openStream() {
         pw_properties* props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Video", PW_KEY_MEDIA_CATEGORY,
                                                  "Capture", PW_KEY_MEDIA_ROLE, "Screen",
-                                                 PW_KEY_TARGET_OBJECT, serial.c_str(), nullptr);
+                                                 PW_KEY_TARGET_OBJECT, serial_.c_str(), nullptr);
         stream_ = pw_stream_new(session_.core(), "openSU remote play", props);
         if (stream_ == nullptr) {
             throw std::runtime_error{"cannot make a PipeWire stream"};
@@ -162,6 +178,11 @@ class ScreenCapture::Stream {
         spa_pod_builder_fraction(&builder, 0, 1);
         spa_pod_builder_fraction(&builder, 1000, 1);
         spa_pod_builder_pop(&builder, &choice);
+        if (requested_.width > 0 && requested_.height > 0) {
+            spa_pod_builder_prop(&builder, requestedSizeKey, 0);
+            spa_pod_builder_rectangle(&builder, static_cast<std::uint32_t>(requested_.width),
+                                      static_cast<std::uint32_t>(requested_.height));
+        }
         id(SPA_FORMAT_VIDEO_colorMatrix, SPA_VIDEO_COLOR_MATRIX_BT709);
         id(SPA_FORMAT_VIDEO_colorRange, SPA_VIDEO_COLOR_RANGE_0_255);
         std::array<const spa_pod*, 1> params{
@@ -310,6 +331,9 @@ class ScreenCapture::Stream {
     std::map<std::uint32_t, pid_t> clients_;
     std::map<std::uint32_t, Node> nodes_;
     spa_video_info_raw format_{};
+    /// Gamescope's node, and the size asked of it.
+    std::string serial_;
+    PictureSize requested_;
 };
 
 std::string ScreenCapture::missing() {
@@ -320,5 +344,9 @@ ScreenCapture::ScreenCapture(Setup setup) : stream_{std::make_unique<Stream>(std
 }
 
 ScreenCapture::~ScreenCapture() = default;
+
+void ScreenCapture::fit(PictureSize size) {
+    stream_->fit(size);
+}
 
 } // namespace opensu::stream

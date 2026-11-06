@@ -37,7 +37,9 @@ GuestStream::GuestStream(Setup setup)
                 .newest = 0,
                 .probeBurst = 0,
                 .probeDatagrams = 0,
-                .probeQueueUs = 0} {
+                .probeQueueUs = 0,
+                .pictureWidth = 0,
+                .pictureHeight = 0} {
     secrets::wipeBytes(setup_.keys.host.data(), setup_.keys.host.size());
     secrets::wipeBytes(setup_.keys.guest.data(), setup_.keys.guest.size());
     receiver_ = std::jthread{[this](const std::stop_token& stop) {
@@ -168,6 +170,17 @@ void GuestStream::sendInput() {
     if (mouse) {
         send(PacketKind::Mouse, wire::write(*mouse));
     }
+}
+
+std::string GuestStream::stage() const {
+    const std::lock_guard lock{mutex_};
+    return stage_;
+}
+
+void GuestStream::showsIn(int width, int height) {
+    const std::lock_guard lock{mutex_};
+    received_.pictureWidth = static_cast<std::uint16_t>(width);
+    received_.pictureHeight = static_cast<std::uint16_t>(height);
 }
 
 void GuestStream::sendReport() {
@@ -325,6 +338,11 @@ void GuestStream::handle(const Opened& opened, std::uint64_t receivedUs) {
             finish(end->reason);
         }
         break;
+    case PacketKind::Stage: {
+        const std::lock_guard lock{mutex_};
+        stage_ = wire::readText(opened.payload);
+        break;
+    }
     case PacketKind::Ping:
     case PacketKind::Pong:
     case PacketKind::Pad:

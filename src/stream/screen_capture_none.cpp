@@ -17,4 +17,7 @@ ScreenCapture::ScreenCapture(Setup /*setup*/) {
 
 ScreenCapture::~ScreenCapture() = default;
 
+void ScreenCapture::fit(PictureSize /*size*/) {
+}
+
 } // namespace opensu::stream

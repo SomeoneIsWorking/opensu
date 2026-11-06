@@ -10,6 +10,21 @@
 #include "stream_wire.hpp"
 
 namespace opensu::stream {
+namespace {
+
+/// The longest side a hardware codec is sent; the guest scales up from there.
+constexpr int hardwareSide = 1920;
+
+PictureSize within(PictureSize size, int side) {
+    const int longest = std::max(size.width, size.height);
+    if (longest <= side) {
+        return size;
+    }
+    return PictureSize{.width = size.width * side / longest,
+                       .height = size.height * side / longest};
+}
+
+} // namespace
 
 HostVideo::HostVideo(Audience& audience, const std::filesystem::path& gamescopeSocket)
     : audience_{audience},
@@ -19,7 +34,30 @@ HostVideo::HostVideo(Audience& audience, const std::filesystem::path& gamescopeS
                                     }}} {
 }
 
+void HostVideo::fit() {
+    PictureSize largest;
+    audience_.visit([&largest](std::span<HostStream* const> streams) {
+        for (const HostStream* stream : streams) {
+            const std::optional<LinkPlan> plan = stream->plan();
+            if (!plan) {
+                continue;
+            }
+            const PictureSize shown = stream->shownIn();
+            const PictureSize wanted =
+                plan->codec == VideoCodec::PyroWave ? shown : within(shown, hardwareSide);
+            largest.width = std::max(largest.width, wanted.width);
+            largest.height = std::max(largest.height, wanted.height);
+        }
+    });
+    if (largest.width > 0 && largest.height > 0) {
+        capture_.fit(largest);
+    }
+}
+
 void HostVideo::send(const CapturedFrame& frame) {
+    if (held_) {
+        return;
+    }
     audience_.visit([this, &frame](std::span<HostStream* const> streams) {
         std::map<VideoCodec, Group> groups;
         for (HostStream* stream : streams) {

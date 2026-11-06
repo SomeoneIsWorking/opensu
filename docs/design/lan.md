@@ -318,6 +318,13 @@ that profile's; the host's own active profile does not change.
   the active profile is in `library::Game::playingAs`.
 - A game the player started here is streamed from the first guest on: the same capture, and the
   sound from the default output's monitor, so the guests hear what this computer plays.
+- Picture size: each report carries the pixels the guest shows the picture in. `HostVideo::fit`
+  asks Gamescope, through its `requested_size` format key, for the largest of those among its
+  planned guests, a hardware codec's held to 1920 on the longest side; Gamescope scales on the GPU
+  and the capture reconnects when the size changes.
+- A game started for a guest: `HostVideo` sends nothing until it shows a window, so the first
+  picture is the game's; until then the host sends each launch step as a `Stage` datagram, every
+  500 ms, and the guest's launch card shows it. Touch controls wait for the first picture.
 - Codec and link (`stream::LinkRate`, owned by `HostStream`): the host offers what it codes
   (`encodableHere`: PyroWave where built, and each of AV1, HEVC and H.264 its VA-API driver
   encodes) and each guest Report says what it decodes. Once the guest joins, the pacer sends
@@ -328,8 +335,9 @@ that profile's; the host's own active profile does not change.
   while 80 % of what the link delivered is at least 100 Mbit/s (its budget that share, at most
   200 Mbit/s); below that the best hardware codec both ends have codes at 60 % of it, 2 to
   40 Mbit/s. While running, each second of reports is judged: over 5 % lost (1 % on a
-  hardware codec, which decodes nothing from a loss to the next key frame) replans at what was
-  delivered; under 1 % (0.1 % on hardware) raises the rate (×1.25 PyroWave, ×1.15 hardware). On a
+  hardware codec, which decodes nothing from a loss to the next key frame) replans PyroWave at what
+  was delivered, and takes a hardware codec's rate down by a quarter, since a calm picture delivers
+  far less than the link carries; under 1 % (0.1 % on hardware) raises the rate (×1.25 PyroWave, ×1.15 hardware). On a
   hardware codec a probe every 10 s (doubling to 20 s each time one fails) ramps what the host
   sends, video and probe datagrams together, from the plan's rate up to 131 Mbit/s over two seconds
   (geometrically, as BBR's bandwidth probe grows) and holds it 200 ms; it stops at the first report

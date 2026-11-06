@@ -9,6 +9,7 @@
 // so the control channel can show what went out.
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <filesystem>
 #include <map>
@@ -36,6 +37,17 @@ class HostVideo {
     HostVideo(HostVideo&&) = delete;
     HostVideo& operator=(HostVideo&&) = delete;
 
+    /// While `held`, nothing is sent: the Gamescope still shows the shell, not the game. Any
+    /// thread.
+    void hold(bool held) noexcept {
+        held_ = held;
+    }
+
+    /// Fits the capture to the largest picture its guests show, and a hardware codec's guest to
+    /// what it codes smoothly at their rates. Throws `std::runtime_error` when the capture cannot
+    /// follow. The loop's thread.
+    void fit();
+
     /// The newest frame sent and its number; nothing before the first.
     [[nodiscard]] std::optional<std::pair<std::uint32_t, Picture>> lastSent() const;
 
@@ -59,6 +71,7 @@ class HostVideo {
               std::uint32_t number);
 
     Audience& audience_;
+    std::atomic<bool> held_{false};
     /// Capture thread only.
     std::map<VideoCodec, Encoding> encodings_;
     std::uint32_t frames_{0};

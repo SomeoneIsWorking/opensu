@@ -81,6 +81,8 @@ class HostStream {
 
     /// What to code at now; nothing until the link was probed. Any thread.
     [[nodiscard]] std::optional<LinkPlan> plan() const;
+    /// The pixels the guest shows the picture in; empty until it says. Any thread.
+    [[nodiscard]] PictureSize shownIn() const;
     /// `codec` cannot code here; the link plans another. Any thread.
     void refuse(VideoCodec codec);
     /// Whether the guest asked for a key frame since the last call. Any thread.
@@ -118,6 +120,7 @@ class HostStream {
     std::optional<std::string> over_;
     mutable std::mutex linkMutex_;
     LinkRate link_;
+    PictureSize shownIn_;
     std::atomic<bool> keyFrame_{false};
     /// The pacer, the rate it fills at, the plan's rate, the frame's worth it keeps for video, the
     /// probe under way, the frames' payloads waiting on it, and the video datagrams sent and how

@@ -70,8 +70,8 @@ struct Probe {
 /// What the guest received from the host since the session began: the datagrams that opened,
 /// their sealed bytes and the newest counter among them; of the newest probe burst heard, its
 /// number, the datagrams of it that came and how much longer the quickest of those since the last
-/// report took than the quickest of the burst (the queue they met, `probeQueueUs`); and the codecs
-/// it decodes (bit `VideoCodec` value).
+/// report took than the quickest of the burst (the queue they met, `probeQueueUs`); the codecs it
+/// decodes (bit `VideoCodec` value); and the pixels it shows the picture in, 0 until it knows.
 struct Report {
     std::uint8_t decoders{0};
     std::uint64_t datagrams{0};
@@ -80,6 +80,8 @@ struct Report {
     std::uint32_t probeBurst{0};
     std::uint32_t probeDatagrams{0};
     std::uint32_t probeQueueUs{0};
+    std::uint16_t pictureWidth{0};
+    std::uint16_t pictureHeight{0};
 
     bool operator==(const Report&) const = default;
 };
@@ -151,5 +153,8 @@ struct End {
 };
 [[nodiscard]] std::string write(const End& end);
 [[nodiscard]] std::optional<End> readEnd(std::string_view payload);
+
+/// A line of text for the player: at most an End's reason long, control characters as spaces.
+[[nodiscard]] std::string readText(std::string_view payload);
 
 } // namespace opensu::stream::wire

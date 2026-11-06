@@ -43,6 +43,8 @@ enum class PacketKind : std::uint8_t {
     Mapping = 12,
     /// A netplay session's message (`netplay::Session`).
     Netplay = 13,
+    /// The step the game's start is at, in the host's words.
+    Stage = 14,
 };
 
 /// Bytes a sealed datagram adds to its payload: the header and the tag.

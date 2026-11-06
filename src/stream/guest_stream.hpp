@@ -61,6 +61,10 @@ class GuestStream {
     void mouse(const wire::MouseState& state);
     /// The mapping the pad is played with.
     void mapping(const wire::PadMapping& mapping);
+    /// The step of the game's start the host last named; empty before any. Any thread.
+    [[nodiscard]] std::string stage() const;
+    /// The pixels the picture is shown in, which the host fits what it sends to. Any thread.
+    void showsIn(int width, int height);
     /// Takes at most `bitsPerSecond` from the host from now on, 0 for all: a test run's slow link.
     void capLink(std::uint64_t bitsPerSecond) {
         cap_.set(bitsPerSecond);
@@ -113,6 +117,7 @@ class GuestStream {
     std::optional<wire::PadMapping> mapping_;
     /// What came from the host, for the report; on the receiving thread, read under `mutex_`.
     wire::Report received_;
+    std::string stage_;
     Timing timing_;
     LinkCap cap_;
     /// The quickest probe datagram of the burst and since the last report, how long each took on

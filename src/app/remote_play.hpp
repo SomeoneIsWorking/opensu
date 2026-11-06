@@ -208,13 +208,17 @@ class RemotePlay {
 
     /// Starts a queued game, ends what is over, lets go of guests who left and passes news on;
     /// `busy` says whether a game here runs or is on its way, `running` is the one that runs,
-    /// played as `profile`. Every frame, main loop only.
-    void service(bool busy, const library::Game* running, const std::string& profile);
+    /// played as `profile`, `shown` whether it shows a window yet. Every frame, main loop only.
+    void service(bool busy, const library::Game* running, const std::string& profile, bool shown);
+    /// The step the game started here is at, for its guests. Main loop only.
+    void hostStage(std::string text);
 
     /// The player's controls as they stand, for the host's game; sent when they changed. Main
     /// loop only.
     void input(const stream::wire::PadState& pad, const stream::wire::KeyState& keys,
                const stream::wire::MouseState& mouse);
+    /// The pixels the host's picture is shown in here. Main loop only.
+    void showsIn(int width, int height);
     /// A test run's slow link: takes at most `bitsPerSecond` from the host from now on, 0 for
     /// all. Main loop only.
     void capLink(std::uint64_t bitsPerSecond);
@@ -287,6 +291,9 @@ class RemotePlay {
         bool forGuest{false};
         /// Whether the game was started.
         bool launched{false};
+        /// The step its start is at, and when the guests last heard it.
+        std::string stage;
+        std::chrono::steady_clock::time_point stageSent;
     };
     /// A guest's ask to join, until it hears the answer.
     struct Ask {
@@ -378,6 +385,8 @@ class RemotePlay {
     std::atomic<bool> busy_{false};
     /// Whether a game plays here or from another, as the loop last saw; read by `invited`.
     std::atomic<bool> occupied_{false};
+    /// Whether the game here shows a window yet.
+    bool shown_{false};
     bool asking_{false};
     bool joined_{false};
     /// Whether `waiting_` was said.

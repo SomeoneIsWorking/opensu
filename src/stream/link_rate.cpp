@@ -46,6 +46,9 @@ constexpr double hardwareOverLoss = 0.01;
 constexpr double hardwareQuiet = 0.001;
 constexpr double pyroWaveRaise = 1.25;
 constexpr double hardwareRaise = 1.15;
+/// A hardware codec's rate after a lossy window. What it delivered says nothing of the link: a calm
+/// picture sends far less than the plan allows.
+constexpr double hardwareBackOff = 0.75;
 
 double megabits(double bitsPerSecond) {
     return bitsPerSecond / 1e6;
@@ -247,7 +250,15 @@ void LinkRate::judge(std::uint64_t nowUs) {
     heard_.erase(heard_.begin(), heard_.end() - 1);
     const bool pyroWave = plan_->codec == VideoCodec::PyroWave;
     if (loss_ > (pyroWave ? overLoss : hardwareOverLoss)) {
-        choose(deliveredBps_, nowUs, "the link lost frames");
+        if (pyroWave) {
+            choose(deliveredBps_, nowUs, "the link lost frames");
+        } else {
+            LinkPlan lowered = *plan_;
+            lowered.bitsPerSecond = std::max(
+                hardwareFloor, static_cast<std::uint64_t>(
+                                   static_cast<double>(lowered.bitsPerSecond) * hardwareBackOff));
+            adopt(lowered, nowUs, "the link lost frames");
+        }
         return;
     }
     if (loss_ >= (pyroWave ? quiet : hardwareQuiet)) {

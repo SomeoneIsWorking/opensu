@@ -100,8 +100,9 @@ Fedora, RPM Fusion's `mesa-va-drivers-freeworld`).
   `opensu` started inside `gamescope`); otherwise it says it cannot stream. The one you play on can
   run Linux, Windows or macOS. Windows and macOS share no games to play remotely, and Android
   neither shares them nor lists them.
-- Use a wired gigabit network: the picture takes around 50 Mbit/s for simple games and up to
-  200 Mbit/s for busy ones. Wi-Fi is not supported yet.
+- A wired network gives the best picture: up to 200 Mbit/s for busy games. Over Wi-Fi the two
+  ends settle on a hardware codec at up to 40 Mbit/s and a picture no longer than 1920 pixels,
+  which the device playing scales to its screen.
 - Allow UDP in your firewall between the two computers: each session uses a free UDP port on the
   openSU that has the game.
 - The game plays over there as your profile when it is linked with that openSU

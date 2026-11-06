@@ -1,6 +1,7 @@
 // screen_capture — what the Gamescope this openSU runs in shows, frame by frame, from that
 // Gamescope's PipeWire stream (the node its process owns, found through the peer of its Wayland
-// socket): NV12 in shared memory, BT.709 full range, at the size Gamescope composes.
+// socket): NV12 in shared memory, BT.709 full range, at the size Gamescope composes or, once asked
+// for less, scaled down by Gamescope on the GPU to fit that size.
 #pragma once
 
 #include <cstddef>
@@ -12,6 +13,14 @@
 #include <string>
 
 namespace opensu::stream {
+
+/// A picture's width and height in pixels; zero for none.
+struct PictureSize {
+    int width{0};
+    int height{0};
+
+    bool operator==(const PictureSize&) const = default;
+};
 
 /// One frame as Gamescope composed it: the luma plane, then the interleaved chroma plane at half
 /// the size each way, both rows `stride` bytes apart.
@@ -44,6 +53,10 @@ class ScreenCapture {
     ScreenCapture& operator=(const ScreenCapture&) = delete;
     ScreenCapture(ScreenCapture&&) = delete;
     ScreenCapture& operator=(ScreenCapture&&) = delete;
+
+    /// Asks Gamescope for frames that fit `size`, its aspect kept; it never scales up. Reconnects
+    /// when the size is new; throws `std::runtime_error` when that fails.
+    void fit(PictureSize size);
 
   private:
     class Stream;

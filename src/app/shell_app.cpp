@@ -1368,7 +1368,7 @@ void ShellApp::capRemoteLink(std::uint64_t bitsPerSecond) {
 }
 
 bool ShellApp::remoteHasControls() {
-    return remotePlay_.streaming() && !guideMenu_.isOpen() && !menusBlocked() &&
+    return remotePlay_.showing() && !guideMenu_.isOpen() && !menusBlocked() &&
            !shell_.screens().navigator().active();
 }
 
@@ -1407,6 +1407,8 @@ void ShellApp::showGamePicture() {
         shell_.setPictureControls(std::nullopt);
         return;
     }
+    const gpu2d::PixelSize window = window_->size();
+    remotePlay_.showsIn(window.width, window.height);
     if (std::optional<stream::GuestVideo::Frame> frame = remotePlay_.takePicture()) {
         if (!remotePicture_->show(*frame)) {
             remotePlay_.readPicturesBack();
@@ -1435,6 +1437,7 @@ void ShellApp::serviceRequests() {
         const bool measured = progress->stage == launch::LaunchProgress::Stage::Updating;
         panels_.update(launch::describe(*progress),
                        measured ? std::optional{progress->fraction} : std::nullopt);
+        remotePlay_.hostStage(launch::describe(*progress));
     }
     playWait_.service();
     const std::string remoteStage = remotePlay_.stage();
@@ -1550,7 +1553,8 @@ int ShellApp::run() {
         onlinePlay_.service();
         saveSharing_.service();
         remotePlay_.service(launches_.running() || saveSharing_.holding(),
-                            launches_.running() ? &launches_.game() : nullptr, playingAs_);
+                            launches_.running() ? &launches_.game() : nullptr, playingAs_,
+                            mailbox_.gameRunning());
         togetherQuestions_.service();
         delivery_.service();
         covers_.service();

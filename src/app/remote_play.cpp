@@ -19,6 +19,8 @@ using Clock = std::chrono::steady_clock;
 
 /// How long an answer waits for the guest to ask how its ask stands.
 constexpr std::chrono::seconds answerKept{30};
+/// How often a guest waiting on the game's start hears its step again: a datagram can be lost.
+constexpr std::chrono::milliseconds stageEvery{500};
 
 void wipe(lan::StreamKeys& keys) {
     secrets::wipeBytes(keys.host.data(), keys.host.size());
@@ -513,7 +515,6 @@ void RemotePlay::start(const library::Game& game, stream::wire::PadMapping mappi
         return;
     }
     lucent::info("remote", "asking {} to stream {}", game.hostName, game.title);
-    hooks_.say("Starting " + game.title + " on " + game.hostName, false);
 }
 
 std::string RemotePlay::stage() const {
@@ -527,7 +528,8 @@ std::string RemotePlay::stage() const {
         return "Asking " + game_.hostName + " to start the game";
     }
     if (guest_ && !pictured_) {
-        return "Waiting for " + game_.hostName + "'s picture";
+        const std::string step = guest_->stage();
+        return step.empty() ? "Waiting for " + game_.hostName + "'s picture" : step;
     }
     return {};
 }
@@ -550,8 +552,18 @@ void RemotePlay::end() {
     }
 }
 
-void RemotePlay::service(bool busy, const library::Game* running, const std::string& profile) {
+void RemotePlay::hostStage(std::string text) {
+    const std::lock_guard lock{hostMutex_};
+    if (hosted_) {
+        hosted_->stage = std::move(text);
+        hosted_->stageSent = {};
+    }
+}
+
+void RemotePlay::service(bool busy, const library::Game* running, const std::string& profile,
+                         bool shown) {
     busy_ = busy;
+    shown_ = shown;
     occupied_ = busy || playing();
     {
         const std::lock_guard lock{*answerMutex_};
@@ -636,6 +648,27 @@ void RemotePlay::serviceHost(const library::Game* running, const std::string& pr
                 hosted.launched = true;
                 hooks_.say(first.peer.name + " plays " + game->title + " from here", false);
                 return;
+            }
+        }
+    }
+    const bool held = hosted.forGuest && !shown_;
+    if (held && !hosted.stage.empty() && Clock::now() - hosted.stageSent >= stageEvery) {
+        hosted.stageSent = Clock::now();
+        for (const std::unique_ptr<Guest>& guest : hosted.guests) {
+            if (guest->stream) {
+                guest->stream->send(stream::PacketKind::Stage, hosted.stage);
+            }
+        }
+    }
+    if (hosted.video) {
+        hosted.video->hold(held);
+        try {
+            hosted.video->fit();
+        } catch (const std::runtime_error& failure) {
+            for (const std::unique_ptr<Guest>& guest : hosted.guests) {
+                if (guest->stream) {
+                    guest->stream->end(failure.what());
+                }
             }
         }
     }
@@ -792,6 +825,12 @@ void RemotePlay::drop() {
     link_.reset();
     joined_ = false;
     pictured_ = false;
+}
+
+void RemotePlay::showsIn(int width, int height) {
+    if (guest_) {
+        guest_->showsIn(width, height);
+    }
 }
 
 void RemotePlay::input(const stream::wire::PadState& pad, const stream::wire::KeyState& keys,

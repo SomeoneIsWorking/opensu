@@ -187,6 +187,8 @@ std::string write(const Report& report) {
     appendLittleEndian(out, report.probeBurst, 4);
     appendLittleEndian(out, report.probeDatagrams, 4);
     appendLittleEndian(out, report.probeQueueUs, 4);
+    appendLittleEndian(out, report.pictureWidth, 2);
+    appendLittleEndian(out, report.pictureHeight, 2);
     return out;
 }
 
@@ -200,6 +202,8 @@ std::optional<Report> readReport(std::string_view payload) {
     report.probeBurst = static_cast<std::uint32_t>(in.take(4));
     report.probeDatagrams = static_cast<std::uint32_t>(in.take(4));
     report.probeQueueUs = static_cast<std::uint32_t>(in.take(4));
+    report.pictureWidth = static_cast<std::uint16_t>(in.take(2));
+    report.pictureHeight = static_cast<std::uint16_t>(in.take(2));
     return in.whole() ? std::optional{report} : std::nullopt;
 }
 
@@ -338,14 +342,18 @@ std::optional<End> readEnd(std::string_view payload) {
     if (payload.size() > longestReason) {
         return std::nullopt;
     }
-    std::string reason{payload};
+    return End{readText(payload)};
+}
+
+std::string readText(std::string_view payload) {
+    std::string text{payload.substr(0, longestReason)};
     std::ranges::replace_if(
-        reason,
+        text,
         [](char c) {
             return static_cast<unsigned char>(c) < ' ';
         },
         ' ');
-    return End{std::move(reason)};
+    return text;
 }
 
 } // namespace opensu::stream::wire

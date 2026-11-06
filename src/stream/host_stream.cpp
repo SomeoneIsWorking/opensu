@@ -73,6 +73,11 @@ std::optional<LinkPlan> HostStream::plan() const {
     return link_.plan();
 }
 
+PictureSize HostStream::shownIn() const {
+    const std::lock_guard lock{linkMutex_};
+    return shownIn_;
+}
+
 void HostStream::refuse(VideoCodec codec) {
     const std::lock_guard lock{linkMutex_};
     link_.refuse(codec);
@@ -276,6 +281,8 @@ void HostStream::handle(const Opened& opened) {
             {
                 const std::lock_guard lock{linkMutex_};
                 link_.report(*report, wire::nowMicros());
+                shownIn_ =
+                    PictureSize{.width = report->pictureWidth, .height = report->pictureHeight};
                 noCodec = link_.noCodec();
             }
             if (noCodec) {
@@ -298,6 +305,7 @@ void HostStream::handle(const Opened& opened) {
     case PacketKind::Audio:
     case PacketKind::Probe:
     case PacketKind::Netplay:
+    case PacketKind::Stage:
         break;
     }
 }

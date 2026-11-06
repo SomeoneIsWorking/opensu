@@ -145,7 +145,9 @@ void payloadsReadAsWritten() {
                               .newest = 77,
                               .probeBurst = 2,
                               .probeDatagrams = 900,
-                              .probeQueueUs = 4100};
+                              .probeQueueUs = 4100,
+                              .pictureWidth = 1920,
+                              .pictureHeight = 1262};
     expect(wire::readReport(wire::write(report)) == report, "a report reads as written");
 
     using gamepad::Button;
@@ -626,6 +628,33 @@ std::vector<std::uint64_t> drive(stream::LinkRate& link, std::uint64_t fromUs, s
     return rates;
 }
 
+void aCalmPictureKeepsItsRateAfterALoss() {
+    using stream::VideoCodec;
+    const stream::VideoCodecs hevc = stream::codecBit(VideoCodec::Hevc);
+    stream::LinkRate link{hevc};
+    const std::vector<std::uint64_t> probed = drive(link, 0, 1'000'000, [&](const Probed& burst) {
+        stream::wire::Report back = reported(burst.sent, burst.sent, 0, hevc);
+        back.probeBurst = burst.burst;
+        back.probeDatagrams = burst.sent;
+        return back;
+    });
+    expect(!probed.empty() && link.plan() && link.plan()->bitsPerSecond == stream::hardwareTop,
+           "a clean opening probe plans the hardware codec's top rate");
+    std::uint64_t now = 3'000'000;
+    std::uint64_t sent = 0;
+    std::uint64_t received = 0;
+    for (int tick = 0; tick < 40; ++tick) {
+        now += 100'000;
+        sent += 10;
+        received += 9;
+        link.report(reported(sent, received, received * 100, hevc), now);
+    }
+    const std::optional<stream::LinkPlan> plan = link.plan();
+    expect(
+        plan && plan->bitsPerSecond >= stream::hardwareTop / 3,
+        "a loss on a calm picture backs off from the plan, not down to what it happened to send");
+}
+
 void theLinkPicksTheCodec() {
     using stream::VideoCodec;
     const stream::VideoCodecs all = stream::codecBit(VideoCodec::PyroWave) |
@@ -644,7 +673,9 @@ void theLinkPicksTheCodec() {
                                         .newest = probed.sent,
                                         .probeBurst = probed.burst,
                                         .probeDatagrams = heard,
-                                        .probeQueueUs = 0};
+                                        .probeQueueUs = 0,
+                                        .pictureWidth = 0,
+                                        .pictureHeight = 0};
         });
         expect(heard > 0, "the opening probe is sent");
         return end;
@@ -854,6 +885,7 @@ int main(int argc, char** argv) try {
     payloadsReadAsWritten();
     aSessionCarriesInputAndEnds();
     noCommonCodecEndsTheSession();
+    aCalmPictureKeepsItsRateAfterALoss();
     theHostsEndReachesTheGuest();
     aPictureCodedElsewhereDecodes();
 #ifndef __APPLE__
