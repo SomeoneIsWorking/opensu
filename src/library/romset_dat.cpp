@@ -10,6 +10,8 @@ namespace opensu::library::roms {
 namespace {
 
 constexpr char field = '\t';
+/// Parent and BIOS links followed from a set, past any a listing could hold.
+constexpr std::size_t maxChain = 8;
 
 constexpr std::array<std::pair<std::string_view, char>, 5> entities{
     {{"&amp;", '&'}, {"&lt;", '<'}, {"&gt;", '>'}, {"&quot;", '"'}, {"&apos;", '\''}}};
@@ -152,7 +154,7 @@ std::optional<DatRom> romOf(std::string_view attributes) {
         return std::nullopt;
     }
     return DatRom{attributeOr(attributes, "name"), *sizeValue, *crcValue,
-                  attributeOr(attributes, "bios")};
+                  attributeOr(attributes, "bios"), false};
 }
 
 bool isSetElement(std::string_view element) {
@@ -188,6 +190,28 @@ void RomsetDat::add(DatSet set, const Wanted& wanted) {
     }
 }
 
+void RomsetDat::markChoices() {
+    // FinalBurn's datafiles write no `biosset`: they list every BIOS a player could pick as a ROM.
+    if (std::ranges::any_of(links_, [](const auto& link) {
+            return !link.second.defaultBios.empty();
+        })) {
+        return;
+    }
+    for (DatSet& set : sets_) {
+        for (const std::string& name : chainOf(set.name)) {
+            const DatSet* owner = find(name);
+            if (owner == nullptr || !owner->bios) {
+                continue;
+            }
+            for (DatRom& rom : set.roms) {
+                rom.choice = std::ranges::any_of(owner->roms, [&rom](const DatRom& offered) {
+                    return offered.crc32 == rom.crc32 && offered.size == rom.size;
+                });
+            }
+        }
+    }
+}
+
 void RomsetDat::addXml(std::string_view xml, const Wanted& wanted) {
     std::size_t at = 0;
     std::optional<DatSet> set;
@@ -213,6 +237,7 @@ void RomsetDat::addXml(std::string_view xml, const Wanted& wanted) {
             set->name = lower(attributeOr(tag->attributes, "name"));
             set->romof = lower(attributeOr(tag->attributes, "romof"));
             set->device = flagged(tag->attributes, "isdevice");
+            set->bios = flagged(tag->attributes, "isbios");
             if (tag->empty) {
                 finish();
             }
@@ -244,6 +269,7 @@ void RomsetDat::addXml(std::string_view xml, const Wanted& wanted) {
         }
     }
     finish();
+    markChoices();
 }
 
 std::string RomsetDat::serialize() const {
@@ -257,9 +283,10 @@ std::string RomsetDat::serialize() const {
     }
     for (const DatSet& set : sets_) {
         out += std::format("S\t{}\t{}\t{}\t{}\n", set.name, set.romof, set.defaultBios,
-                           set.device ? "d" : "-");
+                           set.device ? "d" : (set.bios ? "b" : "-"));
         for (const DatRom& rom : set.roms) {
-            out += std::format("R\t{:08x}\t{}\t{}\t{}\n", rom.crc32, rom.size, rom.bios, rom.name);
+            out += std::format("R\t{:08x}\t{}\t{}\t{}\t{}\n", rom.crc32, rom.size, rom.bios,
+                               rom.choice ? "c" : "-", rom.name);
         }
         for (const std::string& device : set.devices) {
             out += std::format("V\t{}\n", device);
@@ -307,17 +334,18 @@ std::optional<RomsetDat> RomsetDat::parse(std::string_view text, const Wanted& w
                          std::string{fields[2]},
                          std::string{fields[3]},
                          fields[4] == "d",
+                         fields[4] == "b",
                          {},
                          {},
                          {}};
-        } else if (kind == "R" && fields.size() == 5 && set) {
+        } else if (kind == "R" && fields.size() == 6 && set) {
             const std::optional<std::uint32_t> crc = numberOf<std::uint32_t>(fields[1], 16);
             const std::optional<std::uint64_t> size = numberOf<std::uint64_t>(fields[2], 10);
             if (!crc || !size) {
                 return malformed();
             }
-            set->roms.push_back(
-                DatRom{std::string{fields[4]}, *size, *crc, std::string{fields[3]}});
+            set->roms.push_back(DatRom{std::string{fields[5]}, *size, *crc, std::string{fields[3]},
+                                       fields[4] == "c"});
         } else if (kind == "V" && fields.size() == 2 && set) {
             set->devices.emplace_back(fields[1]);
         } else if (kind == "K" && fields.size() == 2 && set) {
@@ -338,6 +366,17 @@ const DatSet* RomsetDat::find(std::string_view name) const {
 const DatLink* RomsetDat::link(std::string_view name) const {
     const auto found = links_.find(name);
     return found == links_.end() ? nullptr : &found->second;
+}
+
+std::vector<std::string> RomsetDat::chainOf(std::string_view name) const {
+    std::vector<std::string> chain{std::string{name}};
+    for (const DatLink* next = link(name);
+         next != nullptr && !next->romof.empty() && chain.size() < maxChain &&
+         std::ranges::find(chain, next->romof) == chain.end();
+         next = link(chain.back())) {
+        chain.push_back(next->romof);
+    }
+    return chain;
 }
 
 } // namespace opensu::library::roms

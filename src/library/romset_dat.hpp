@@ -22,6 +22,8 @@ struct DatRom {
     std::uint32_t crc32{0};
     /// The BIOS choice the ROM belongs to; empty when every choice needs it.
     std::string bios;
+    /// A ROM of a BIOS in a listing that names no choices: a set needs one of these, not each.
+    bool choice{false};
 
     bool operator==(const DatRom&) const = default;
 };
@@ -34,6 +36,7 @@ struct DatSet {
     /// The BIOS choice used unless the player picks another; empty when the set has none.
     std::string defaultBios;
     bool device{false};
+    bool bios{false};
     std::vector<DatRom> roms;
     /// The devices whose ROMs the set also needs.
     std::vector<std::string> devices;
@@ -68,6 +71,8 @@ class RomsetDat {
 
     [[nodiscard]] const DatSet* find(std::string_view name) const;
     [[nodiscard]] const DatLink* link(std::string_view name) const;
+    /// `name`, its parent, and on up to the BIOS.
+    [[nodiscard]] std::vector<std::string> chainOf(std::string_view name) const;
     [[nodiscard]] std::size_t size() const noexcept {
         return links_.size();
     }
@@ -76,6 +81,7 @@ class RomsetDat {
 
   private:
     void add(DatSet set, const Wanted& wanted);
+    void markChoices();
 
     /// In listing order.
     std::vector<DatSet> sets_;

@@ -23,8 +23,6 @@ using json = nlohmann::json;
 constexpr std::size_t maxTail = 22 + 65535;
 /// A central directory past this is no romset's.
 constexpr std::uint32_t maxDirectory = 16U * 1024 * 1024;
-/// Parent, BIOS and their parents: no listing chains further.
-constexpr std::size_t maxChain = 8;
 constexpr std::size_t namedMissing = 4;
 constexpr int keptVersion = 2;
 constexpr std::string_view zipExtension = ".zip";
@@ -234,13 +232,7 @@ RomsetVerdict matchSet(std::string_view name, const RomsetDat& dat, FolderZips& 
         return verdict;
     }
     verdict.listed = true;
-    std::vector<std::string> chain{set->name};
-    for (const DatLink* link = dat.link(set->name);
-         link != nullptr && !link->romof.empty() && chain.size() < maxChain &&
-         std::ranges::find(chain, link->romof) == chain.end();
-         link = dat.link(chain.back())) {
-        chain.push_back(link->romof);
-    }
+    const std::vector<std::string> chain = dat.chainOf(set->name);
     std::vector<const DatRom*> needs;
     std::set<std::string, std::less<>> devices;
     addNeeds(*set, dat, defaultBiosOf(chain, dat), needs, devices);
@@ -260,14 +252,27 @@ RomsetVerdict matchSet(std::string_view name, const RomsetDat& dat, FolderZips& 
     std::ranges::for_each(devices, hold);
 
     std::set<std::pair<std::uint32_t, std::uint64_t>> counted;
+    bool offersChoice = false;
+    bool holdsChoice = false;
     for (const DatRom* rom : needs) {
         const std::pair key{rom->crc32, rom->size};
+        if (rom->choice) {
+            offersChoice = true;
+            holdsChoice = holdsChoice || held.contains(key);
+            continue;
+        }
         if (!counted.insert(key).second) {
             continue;
         }
         ++verdict.required;
         if (!held.contains(key)) {
             verdict.missing.push_back(rom->name);
+        }
+    }
+    if (offersChoice) {
+        ++verdict.required;
+        if (!holdsChoice) {
+            verdict.missing.push_back(chain.back() + std::string{zipExtension});
         }
     }
     for (const std::string& disk : set->disks) {

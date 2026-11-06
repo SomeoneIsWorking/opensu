@@ -255,6 +255,81 @@ class PickedTree final : public RomTree {
     std::map<std::string, std::string> files_;
 };
 
+/// A datafile as FinalBurn writes one: a BIOS with no `biosset`, a game and a clone of it.
+std::string biosDatafile() {
+    return std::format(R"(<datafile>
+	<game name="bios" isbios="yes">
+		<rom name="europe.bin" size="{0}" crc="{1}"/>
+		<rom name="japan.bin" size="{2}" crc="{3}"/>
+	</game>
+	<game name="parent" romof="bios">
+		<rom name="p.1" size="{4}" crc="{5}"/>
+		<rom name="europe.bin" merge="europe.bin" size="{0}" crc="{1}"/>
+		<rom name="japan.bin" merge="japan.bin" size="{2}" crc="{3}"/>
+	</game>
+	<game name="clone" cloneof="parent" romof="parent">
+		<rom name="c.1" size="{6}" crc="{7}"/>
+		<rom name="p.1" merge="p.1" size="{4}" crc="{5}"/>
+		<rom name="europe.bin" merge="europe.bin" size="{0}" crc="{1}"/>
+		<rom name="japan.bin" merge="japan.bin" size="{2}" crc="{3}"/>
+	</game>
+</datafile>
+)",
+                       biosEurope.size(), hex(biosEurope), biosJapan.size(), hex(biosJapan),
+                       program.size(), hex(program), cloneProgram.size(), hex(cloneProgram));
+}
+
+void needsOneBiosChoice(const fs::path& base) {
+    RomsetDat dat;
+    dat.addXml(biosDatafile());
+    std::string error;
+    const std::optional<RomsetDat> kept = RomsetDat::parse(dat.serialize(), {}, error);
+    expect(kept && *kept == dat, "a listing keeps its BIOS and its choices");
+
+    const fs::path folder = base / "bios-choice";
+    writeZip(folder / "parent.zip", {member("p.1", program)});
+    writeZip(folder / "clone.zip", {member("c.1", cloneProgram)});
+    {
+        const Listed listed{folder};
+        FolderZips zips{listed.folder};
+        expect(matchSet("parent", dat, zips).missing == std::vector<std::string>{"bios.zip"},
+               "a game with no BIOS at all lacks the BIOS");
+    }
+    writeZip(folder / "bios.zip", {member("japan.bin", biosJapan)});
+    {
+        const Listed listed{folder};
+        FolderZips zips{listed.folder};
+        const RomsetVerdict verdict = matchSet("parent", dat, zips);
+        expect(verdict.fit == RomsetFit::Matches && verdict.required == 2,
+               "one of the BIOS's ROMs is enough when the listing names no choices");
+        expect(matchSet("clone", dat, zips).fit == RomsetFit::Matches,
+               "a clone reaches the BIOS through its parent");
+    }
+    fs::remove(folder / "parent.zip");
+    const Listed listed{folder};
+    FolderZips zips{listed.folder};
+    expect(matchSet("clone", dat, zips).missing == std::vector<std::string>{"p.1"},
+           "a ROM merged from the parent stays required");
+
+    RomsetDat named;
+    named.addXml(std::format(R"(<mame>
+	<machine name="bios" isbios="yes">
+		<rom name="europe.bin" size="{0}" crc="{1}"/>
+		<rom name="japan.bin" size="{2}" crc="{3}"/>
+	</machine>
+	<machine name="clone" romof="bios">
+		<rom name="europe.bin" merge="europe.bin" size="{0}" crc="{1}"/>
+		<rom name="japan.bin" merge="japan.bin" size="{2}" crc="{3}"/>
+	</machine>
+	<machine name="other" isbios="yes"><biosset name="euro" default="yes"/></machine>
+</mame>
+)",
+                             biosEurope.size(), hex(biosEurope), biosJapan.size(), hex(biosJapan)));
+    FolderZips strict{listed.folder};
+    expect(matchSet("clone", named, strict).missing == std::vector<std::string>{"europe.bin"},
+           "a listing that names BIOS choices needs every ROM of a BIOS without any");
+}
+
 void matchesPickedFolders() {
     RomsetDat dat;
     dat.addXml(datafile());
@@ -736,6 +811,7 @@ int main() try {
         const ScratchDir scratch{OPENSU_TEST_SCRATCH, "romset_match"};
         parsesListings();
         matchesZips(scratch.path());
+        needsOneBiosChoice(scratch.path());
         matchesPickedFolders();
         keepsVerdicts(scratch.path());
         fetchesOffTheScan(scratch.path());
