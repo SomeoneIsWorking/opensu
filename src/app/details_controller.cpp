@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <iterator>
 #include <memory>
 #include <string>
 #include <vector>
@@ -58,8 +57,6 @@ const ui::GameDetails* DetailsController::details() const {
 
 ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) const {
     ui::GameSettingsView view;
-    std::ranges::transform(hooks_.copies(game), std::back_inserter(view.stores),
-                           &library::Game::source);
     view.continues = hooks_.continues(game);
     const settings::SettingLayers& layers = gameSettings_.layers();
     if (!game.emulatorOptions.empty()) {
@@ -118,11 +115,18 @@ ui::GameDetails DetailsController::detailsOf(const library::Game& game) const {
         const std::optional<int> percent = progress->percent();
         download = percent ? std::to_string(*percent) + "% · A cancels" : "Starting · A cancels";
     }
+    const library::wine::OwnPrefixes& own = preferences_.values().ownWinePrefixes;
+    std::vector<ui::CopyPart> copies;
+    for (library::Game& copy : copiesOf(game)) {
+        const bool prefix = own.contains(copy.id);
+        ui::GameSettingsView settings = settingsOf(copy);
+        copies.push_back(ui::CopyPart{std::move(copy), prefix, std::move(settings)});
+    }
     return ui::detailsOf(game,
                          ui::GameMarks{.hidden = preferences_.values().hidden.contains(game),
                                        .onHome = hooks_.onHome(game)},
-                         std::chrono::system_clock::now(), download,
-                         preferences_.values().ownWinePrefixes.contains(game.id), settingsOf(game));
+                         std::chrono::system_clock::now(), download, own.contains(game.id),
+                         settingsOf(game), copies);
 }
 
 void DetailsController::open() {
@@ -135,7 +139,14 @@ void DetailsController::open() {
     }
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
-    hooks_.readSaves(*game);
+    openOrder_.clear();
+    for (const library::Game& copy : hooks_.copies(*game)) {
+        hooks_.readSaves(copy);
+        openOrder_.push_back(copy.id);
+    }
+    if (openOrder_.empty()) {
+        hooks_.readSaves(*game);
+    }
     details_ = detailsOf(*game);
     navigator_.push(std::make_unique<DetailsScreen>(*this, chrome_, images_));
 }
@@ -184,29 +195,50 @@ std::optional<library::Game> DetailsController::current() {
     return game;
 }
 
-void DetailsController::launch() {
-    if (const std::optional<library::Game> game = current()) {
+std::vector<library::Game> DetailsController::copiesOf(const library::Game& game) const {
+    std::vector<library::Game> copies = hooks_.copies(game);
+    std::ranges::stable_sort(copies, {}, [this](const library::Game& copy) {
+        return std::ranges::find(openOrder_, copy.id) - openOrder_.begin();
+    });
+    return copies;
+}
+
+std::optional<library::Game> DetailsController::rowGame(const std::string& gameId) const {
+    if (!details_) {
+        return std::nullopt;
+    }
+    std::optional<library::Game> game = hooks_.find(details_->gameId);
+    if (!game || gameId.empty() || gameId == game->id) {
+        return game;
+    }
+    const std::vector<library::Game> copies = hooks_.copies(*game);
+    const auto copy = std::ranges::find(copies, gameId, &library::Game::id);
+    return copy == copies.end() ? std::nullopt : std::optional{*copy};
+}
+
+void DetailsController::launch(const std::string& id) {
+    if (const std::optional<library::Game> game = rowGame(id)) {
         hooks_.launch(*game);
     }
 }
 
-void DetailsController::run(const std::string& id, int step) {
+void DetailsController::run(const std::string& rowId, int /*step*/) {
+    const auto [id, gameId] = ui::copyRowOf(rowId);
     if (id == ui::detailsBackId) {
         close();
         return;
     }
-    const std::optional<library::Game> game = current();
+    const std::optional<library::Game> game = rowGame(gameId);
     if (!game) {
+        refresh();
         return;
     }
-    if (id == ui::detailsStoreId) {
-        chooseCopy(*game, step);
+    if (id == ui::detailsLaunchId || id == ui::detailsInstallId) {
+        hooks_.launch(*game);
     } else if (id == ui::detailsUpdateId) {
         update_.request(*game);
     } else if (id == ui::detailsDownloadId) {
         downloadEmulator(*game);
-    } else if (id == ui::detailsEmulatorId) {
-        chooseEmulator(*game, step);
     } else if (id == ui::detailsWinePrefixId) {
         toggleOwnPrefix(*game);
     } else if (id == ui::detailsHomeId) {
@@ -244,13 +276,21 @@ void DetailsController::run(const std::string& id, int step) {
     }
 }
 
-void DetailsController::openPage(const std::string& id) {
-    const std::optional<library::Game> game = current();
+void DetailsController::openPage(const std::string& rowId) {
+    const auto [id, gameId] = ui::copyRowOf(rowId);
+    const std::optional<library::Game> game = rowGame(gameId);
     if (!game) {
+        refresh();
         return;
     }
-    if (id == ui::detailsSettingsId) {
-        hooks_.openGameSettings(*game);
+    if (id == ui::detailsMoreId) {
+        // input-sound.md 3.4 Open: a panel appears.
+        sounds_.play(audio::Effect::Open);
+        navigator_.push(std::make_unique<DetailsMoreScreen>(*this, chrome_));
+    } else if (id == ui::detailsSettingsId) {
+        hooks_.openGameSettings(*game, [this, copy = game->id] {
+            return details_ ? ui::settingsPageOf(*details_, copy) : std::vector<ui::SettingsRow>{};
+        });
     } else if (id == ui::detailsArtworkId) {
         hooks_.chooseArtwork(*game);
     } else if (id == ui::detailsControlsId) {
@@ -260,45 +300,6 @@ void DetailsController::openPage(const std::string& id) {
     } else if (id == ui::detailsSavesId) {
         hooks_.copySaves(*game);
     }
-}
-
-void DetailsController::chooseEmulator(const library::Game& game, int step) {
-    if (!details_) {
-        return;
-    }
-    const ui::SettingsRow* row = ui::actionOf(*details_, ui::detailsEmulatorId);
-    if (row == nullptr || row->choices.empty()) {
-        return;
-    }
-    const auto count = static_cast<int>(row->choices.size());
-    const auto next =
-        static_cast<std::size_t>(((static_cast<int>(row->chosen) + step) % count + count) % count);
-    const std::string& name = row->choices[next];
-    if (name != ui::noEmulator) {
-        hooks_.chooseEmulator(game, name);
-    }
-}
-
-void DetailsController::chooseCopy(const library::Game& game, int step) {
-    if (!details_) {
-        return;
-    }
-    const ui::SettingsRow* row = ui::actionOf(*details_, ui::detailsStoreId);
-    if (row == nullptr) {
-        return;
-    }
-    const std::string store = ui::stepped(row->choices, row->choices[row->chosen], step);
-    const std::vector<library::Game> copies = hooks_.copies(game);
-    const auto copy = std::ranges::find_if(copies, [&store](const library::Game& one) {
-        return library::label(one.source) == store;
-    });
-    if (copy == copies.end()) {
-        return;
-    }
-    // The shelf's refresh finds the page's game by this id.
-    details_->gameId = copy->id;
-    hooks_.readSaves(*copy);
-    hooks_.chooseCopy(*copy);
 }
 
 void DetailsController::downloadEmulator(const library::Game& game) {
@@ -332,8 +333,8 @@ void DetailsController::uninstall(const library::Game& game) {
         return;
     }
     navigator_.push(gpu2d::ui::confirm(
-        "Uninstall " + game.title + "?", *what, "Uninstall", [this, id = game.id] {
-            if (const std::optional<library::Game> gone = hooks_.find(id)) {
+        UninstallPrompt::question(game), *what, "Uninstall", [this, id = game.id] {
+            if (const std::optional<library::Game> gone = rowGame(id)) {
                 uninstall_.start(*gone);
             }
         }));

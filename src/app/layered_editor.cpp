@@ -95,10 +95,11 @@ int levelOf(const std::string& value, const Setting::Range& range) {
 
 LayeredEditor::LayeredEditor(LayeredSettings& settings, tk::Navigator& navigator,
                              const ui::Chrome& chrome, EditorContext context, EditorLook look,
-                             std::string title)
+                             std::string title, EditorRows more)
     : Screen{"layered", std::move(title)}, settings_{settings}, navigator_{navigator},
       chrome_{chrome}, context_{std::move(context)}, look_{look},
-      schema_{settings_.schemaOf(context_)}, scope_{context_.scopes.size() - 1} {
+      schema_{settings_.schemaOf(context_)}, scope_{context_.scopes.size() - 1},
+      more_{std::move(more)} {
 }
 
 std::string LayeredEditor::scopeName() const {
@@ -172,10 +173,22 @@ void LayeredEditor::addRows(tk::Column& rows, const tk::Theme& /*theme*/) {
         }
         addRow(rows, value);
     }
-    if (values.empty()) {
+    const bool ownTab = scope_ + 1 == context_.scopes.size();
+    const std::vector<ui::SettingsRow> more =
+        ownTab && more_.rows ? more_.rows() : std::vector<ui::SettingsRow>{};
+    if (values.empty() && more.empty()) {
         rows.add<tk::Item>(
             "empty", tk::Item::Text{"Nothing to set here", "None of these settings are kept for " +
                                                                phrased(settings_, scope())});
+    }
+    if (!more.empty()) {
+        rows.add<tk::SectionHeading>("This game");
+        if (firstRow_.empty()) {
+            firstRow_ = more.front().id;
+        }
+    }
+    for (const ui::SettingsRow& row : more) {
+        ui::addRow(rows, row, *more_.actions);
     }
     addClear(rows);
 }

@@ -241,9 +241,6 @@ class ShellApp final {
     [[nodiscard]] std::optional<retro::ResumeHeader> resumeOf(const library::Game& game) const;
     /// Throws that state away for Start fresh: empty when it is gone, else why not.
     [[nodiscard]] std::string startFresh(const library::Game& game) const;
-    /// Asks whether to install the focused game, which is not installed, from the stores that
-    /// can: all the stores that own it when more than one can.
-    void offerInstall(const library::Game& game);
     /// Shows the shelf the browser is on, focusing `focus`.
     void showShelf(std::size_t focus);
     /// Updates the shelf in place as the catalogue fills in, without replaying the entrance.
@@ -314,16 +311,13 @@ class ShellApp final {
     /// The trail the top bar shows for where the shell is now.
     [[nodiscard]] ui::Trail currentTrail() const;
     /// Opens `game`'s settings in the layered editor, as a page or a panel over the running game.
-    void openGameSettings(const library::Game& game, EditorLook look);
+    void openGameSettings(const library::Game& game, EditorLook look, EditorRows more = {});
     /// The game whose window is in front: the running game, unless Gamescope's focus is on
     /// another window; null when none.
     [[nodiscard]] const library::Game* gameInFront() const;
     /// Runs ROM `game` on emulator `name` from now on, and keeps the pick.
-    void chooseEmulator(const library::Game& game, const std::string& name);
-    /// The store copies `game`'s entry can switch between here.
-    [[nodiscard]] std::vector<library::Game> switchableCopies(const library::Game& game) const;
-    /// Makes `copy` the one its title uses, kept, and shows the shelf again.
-    void chooseCopy(const library::Game& copy);
+    /// The store copies with a launch button each on `game`'s page here.
+    [[nodiscard]] std::vector<library::Game> copiesOffered(const library::Game& game) const;
     /// Keeps `key`, titled `title`, as what `game` is for its artwork (Match a different game).
     void keepMatch(const library::Game& game, const std::string& key, const std::string& title);
     /// The game with `id` as the grid shows it now.
@@ -652,17 +646,14 @@ class ShellApp final {
             [this](const library::Game& game, bool on) {
                 setOnHome(game, on);
             },
-            [this](const library::Game& game, const std::string& name) {
-                chooseEmulator(game, name);
-            },
             [this](const std::string& text, bool isError) {
                 shell_.setToast(text, isError);
             },
             [this](const library::Game& game) {
                 mappings_.openGame(game);
             },
-            [this](const library::Game& game) {
-                openGameSettings(game, EditorLook::Page);
+            [this](const library::Game& game, std::function<std::vector<ui::SettingsRow>()> rows) {
+                openGameSettings(game, EditorLook::Page, EditorRows{std::move(rows), &details_});
             },
             [this](const library::Game& game) -> std::optional<std::size_t> {
                 if (!layered_.offers(game)) {
@@ -720,10 +711,7 @@ class ShellApp final {
                 onlinePlay_.host(game);
             },
             [this](const library::Game& game) {
-                return switchableCopies(game);
-            },
-            [this](const library::Game& copy) {
-                chooseCopy(copy);
+                return copiesOffered(game);
             }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),

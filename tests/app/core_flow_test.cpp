@@ -8,6 +8,7 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <initializer_list>
 #include <optional>
 #include <string>
@@ -141,81 +142,78 @@ struct Rig {
     app::DetailsController details{
         app::DetailsController::Place{face.navigator, chrome, images}, sounds,
         app::DetailsController::Services{preferences, gameSettings, downloads, uninstall, update},
-        app::DetailsController::Hooks{[this] {
-                                          return &shown;
-                                      },
-                                      [this](const std::string&) {
-                                          shown = game();
-                                          return std::optional{shown};
-                                      },
-                                      [this](const library::Game& game) {
-                                          launched.push_back(game.launch);
-                                      },
-                                      [](const library::Game&, bool) {
-                                      },
-                                      [](const library::Game&) {
-                                          return false;
-                                      },
-                                      [](const library::Game&) {
-                                          return false;
-                                      },
-                                      [](const library::Game&, bool) {
-                                      },
-                                      [](const library::Game&, const std::string&) {
-                                      },
-                                      [this](const std::string& text, bool error) {
-                                          said.emplace_back(text, error);
-                                      },
-                                      [](const library::Game&) {
-                                      },
-                                      [](const library::Game&) {
-                                      },
-                                      [](const library::Game&) {
-                                          return std::optional<std::size_t>{};
-                                      },
-                                      [](const library::Game&) {
-                                      },
-                                      [](const library::Game&) {
-                                      },
-                                      [](const library::Game&) {
-                                      },
-                                      [](const library::Game&) {
-                                      },
-                                      [](const std::string&) {
-                                          return false;
-                                      },
-                                      [](const library::Game&) {
-                                      },
-                                      [](const library::Game&) {
-                                      },
-                                      [](const library::Game&) {
-                                          return std::string{};
-                                      },
-                                      [](const library::Game&) {
-                                      },
-                                      [](const library::Game&) {
-                                          return app::SharedSaves::View{};
-                                      },
-                                      [](const library::Game&) {
-                                      },
-                                      [](const library::Game&) {
-                                          return std::optional<retro::ResumeHeader>{};
-                                      },
-                                      [](const library::Game&) {
-                                          return std::string{};
-                                      },
-                                      [] {
-                                          return std::vector<ui::GameSettingsView::Partner>{};
-                                      },
-                                      [](const library::Game&, const std::string&) {
-                                      },
-                                      [](const library::Game&) {
-                                      },
-                                      [](const library::Game&) {
-                                          return std::vector<library::Game>{};
-                                      },
-                                      [](const library::Game&) {
-                                      }}};
+        app::DetailsController::Hooks{
+            [this] {
+                return &shown;
+            },
+            [this](const std::string&) {
+                shown = game();
+                return std::optional{shown};
+            },
+            [this](const library::Game& game) {
+                launched.push_back(game.launch);
+            },
+            [](const library::Game&, bool) {
+            },
+            [](const library::Game&) {
+                return false;
+            },
+            [](const library::Game&) {
+                return false;
+            },
+            [](const library::Game&, bool) {
+            },
+            [this](const std::string& text, bool error) {
+                said.emplace_back(text, error);
+            },
+            [](const library::Game&) {
+            },
+            [](const library::Game&, const std::function<std::vector<ui::SettingsRow>()>&) {
+            },
+            [](const library::Game&) {
+                return std::optional<std::size_t>{};
+            },
+            [](const library::Game&) {
+            },
+            [](const library::Game&) {
+            },
+            [](const library::Game&) {
+            },
+            [](const library::Game&) {
+            },
+            [](const std::string&) {
+                return false;
+            },
+            [](const library::Game&) {
+            },
+            [](const library::Game&) {
+            },
+            [](const library::Game&) {
+                return std::string{};
+            },
+            [](const library::Game&) {
+            },
+            [](const library::Game&) {
+                return app::SharedSaves::View{};
+            },
+            [](const library::Game&) {
+            },
+            [](const library::Game&) {
+                return std::optional<retro::ResumeHeader>{};
+            },
+            [](const library::Game&) {
+                return std::string{};
+            },
+            [] {
+                return std::vector<ui::GameSettingsView::Partner>{};
+            },
+            [](const library::Game&, const std::string&) {
+            },
+            [](const library::Game&) {
+            },
+            [](const library::Game&) {
+                return std::vector<library::Game>{};
+            }}};
 
     /// Each action as a press, the stack settled after it.
     void press(std::initializer_list<Action> actions) {

@@ -60,7 +60,7 @@ Visible deltas from the baseline:
   the context menu's Details. It is a toolkit screen (`app/details_screen`): the cover, title,
   store or system badge, installed state, last played and play time beside Play or Install and
   rows for Hide or Show, Update (an installed store game its store has a newer build of, S036),
-  Uninstall (an installed store game, asked first in a dialog), Choose artwork, Controls and Back,
+  Game settings, More (Uninstall of an installed store game, asked first in a dialog) and Back,
   each a pointer target (the Install flow is the launch panel's). A game with a cover and a wide
   picture (Steam's library hero) shows the wide one cropped across the whole page at 14% over the
   ground (`ui::PictureBackdrop`, `GameDetails::hero`), as the old page did. A ROM's page names its emulator and
@@ -349,12 +349,13 @@ Library with that tile focused. A launcher page holds the store's whole library,
 not, in catalog order; All games holds every store game once. Titles are merged across
 stores by normalised title (`library::titles`: ASCII letters and digits lower-cased, "&" as
 "and", so "Hades" and "HADES™" are one; a title with no ASCII letters is never merged; a
-store never merges two of its own games). One rule says which copy an entry uses
-(`library::TitleCopies::use`): the store the player chose for the title, else the launcher
-page's own store (or the source filter's), else the preferred copy: installed first, then Steam,
-GOG, Epic. A page of the player's own games or of another openSU keeps its own copy. The grid's
-games come through it (`visibleShelf`, over the whole catalog so a filter cannot swap a chosen copy
-for another), so tile, details, Play and Install all act on one copy. A store game tile on Home
+store never merges two of its own games). One rule orders a title's copies
+(`library::TitleCopies`, nothing saved): installed before not, within that the store copy last
+played first, latest first, then Steam, GOG, Epic. The page a title is opened from changes
+nothing, so a never played title installed on Steam shows Steam's tile, art and facts on Epic's
+page too. A page of the player's own games or of another openSU keeps its own copy (`keepsOwnCopy`).
+The grid's games come through the rule (`visibleShelf`, over the whole catalog so a filter cannot
+change the top copy), so tile, details and a launch from the tile act on one copy. A store game tile on Home
 and All games stands for the title across stores and carries small store icons in its
 bottom-right corner for every store that owns it (`Game::ownedIn`, `ui::storeIconRow`). A
 launcher page's tile carries none, nor do ROM, console and launcher tiles. Inside any of the
@@ -1316,31 +1317,46 @@ the 3 min bound.
 ### Installing Steam games
 
 A on a game that is not installed offers to install it (A installs, B cancels). Steam and
-Epic and GOG install. A title owned in
-several stores is installed from the stores that can: with one candidate A installs it, with
-two stores (say Steam and GOG) the panel reads "Install from" with A for the first store and X for the
-second. A launcher page installs its own store's copy; Home and All games choose among
-the copies, unless the player chose one, which then installs alone wherever it is asked for
-(`library::TitleCopies::installable`). Launching uses the copy the entry uses
-(`library::TitleCopies::use`), so with no choice on Home and All games the installed one, Steam
-first, then GOG, then Epic.
+Epic and GOG install. An install is of the copy asked for: the details page's Install (Epic), or
+the tile's copy from its menu, which is the top copy.
 
 ### A title owned in several stores
 
-The details page of a game two stores own has a Store row under Play, the copy in use chosen
-and "Also on Epic" under it. Switching makes that copy the title's everywhere: Home, All games and
-every store's launcher page, so on the Steam page a title switched to Epic shows and plays Epic's
-copy. The page follows at once: badge, status, Play or Install, Update, Uninstall. The choice is
-kept in `settings.json` (`copies`, `library::CopyChoices`, by `choiceKey`). A chosen copy that is
-not installed offers its own install and never runs the other: with Installed only on, such a title
-leaves the view as one that cannot be launched now. A chosen store that no longer lists the title
-falls back to the rule and the choice stays, since a store loading or signed out comes back. A
-game one store owns shows no row, and the row is not offered on a page of the player's own games
-or of another openSU.
+The details page is one list in a fixed order: Play, or Install with nothing installed, then the
+other ways to play (Start fresh, Play linked, Play with, Play online), Update, Download, Add to Home
+and Hide game, Game settings, More. The rows there are the top copy's (`library::TitleCopies`). More
+is a card over the page, left out when it would be empty: Play for each other installed copy, Update
+and Game settings for the other copies, Install for each copy not installed that the page does not
+already lead with, then Uninstall for each installed copy, or Remove from library. A game one store
+owns has the same page, with its Uninstall on More too.
+For a title two stores own a row names its copy, "Play (Epic)", "Uninstall (Steam)", and acts on it
+alone; there is no current copy, a row carries its own (`ui::copyRowId`). The copies keep the order
+they had when the page opened, so no row moves under a pointer; a new order shows when it opens
+again. Add to Home and Hide game are the title's. The cover and title are the top copy's.
+A fact the copies read alike shows once, one they differ on once per copy ("Last played (Epic)").
+Each copy's Game settings page holds, on its own tab after the settings, Wine prefix, Match
+a different game, Choose artwork, Controls, Copy saves, Sync saves, Rename and Change file
+(`GameDetails::settingsPages`), so the row exists wherever those do, also with no setting to change.
+A game one store owns has the same order with plain
+labels, and so does any game on a page of the player's own games or of another openSU. When a copy
+from no store is what tops a title (the only one installed), it has rows too.
+
+What goes or lasts names the copy of a title two stores own: "Uninstall the Epic copy of Hades?",
+and Game settings, Controls, Choose artwork and Match a different game headed "Hades (Epic)". A tile
+carries the update arrow when any copy has an update.
+
+Nothing is chosen or saved. A launch records last played against the copy that ran
+(`ShellApp::recordLaunch`), from any button, the tile, or a guest of remote play, and the shelf is
+built again, so the tile follows at once and the page's order when it next opens, on every store's
+launcher page too: played from Epic, a title on Steam's page shows and plays Epic's copy. Steam's own
+last played time counts, so a Steam copy played outside openSU leads from the next listing. A copy
+played and since uninstalled drops under the installed ones. An older `settings.json`'s `copies` key is
+ignored and goes with the next save.
 
 Each copy keeps what is kept by game id: its last played time, chosen cover, settings, mapping and
-Wine prefix, so these change with the switch and nothing is copied or lost. A store's cloud saves
-stay that store's.
+Wine prefix. The Guide's Game settings are the running copy's. A guest of remote play starts the
+exact copy it picked from the host's list, which holds each installed copy; a LAN or remote entry
+here is its own copy. A store's cloud saves stay that store's.
 
 `app::InstallJob` is the store-neutral job (thread, latest report, licence answer);
 `app::SteamInstallJob` implements it; `app::CliInstallJob` is the base of the two jobs that
@@ -1689,7 +1705,7 @@ Select all, Deselect all, Undo of each change and Import selected, which adds on
 card: platform, the Steam app it matched and where the title came from, the title editable; Done
 adds it to `<data dir>/own-games.json` (`library::own::Records`). Entries are `own:<n>` games of
 the Your games launcher, with the details page, Play, layered settings, last played, search and
-Choose artwork of any game; their details add Rename, Change file and Remove from library (only
+Choose artwork of any game; their More adds Remove from library and Game settings Rename and Change file (only
 the entry goes). A Windows `.exe` runs through `wine::prepare` in its own prefix
 `<data dir>/wine-prefixes/own-<n>`. Covers need no key (`ArtworkFetcher::fetchOwn`): the matched or
 exactly titled Steam app, from the CDN's plain paths else the hashed art `GetItems` names, then

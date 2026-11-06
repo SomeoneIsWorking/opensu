@@ -29,6 +29,8 @@ class UninstallPrompt {
     /// What uninstalling `game` would remove, for the question; nothing once the player was told
     /// why it cannot be uninstalled.
     [[nodiscard]] std::optional<std::string> removal(const library::Game& game);
+    /// What the confirmation asks, naming the copy that goes of a title two stores own.
+    [[nodiscard]] static std::string question(const library::Game& game);
     /// Starts the uninstall the player confirmed and tells the player.
     void start(const library::Game& game);
 

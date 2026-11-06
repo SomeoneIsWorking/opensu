@@ -52,8 +52,8 @@ class PanelFlow {
     /// Takes the card down if it was up for a launch.
     void endLaunch();
 
-    /// Asks whether to install `game`, from the stores that own it among `copies`.
-    void offerInstall(const library::Game& game, std::vector<library::Game> copies);
+    /// Asks whether to install `game`.
+    void offerInstall(const library::Game& game);
 
     /// Shows the install job's news on the card and reloads the catalog when it, an update or an
     /// uninstall finishes.

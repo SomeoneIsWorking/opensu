@@ -37,7 +37,7 @@ Canary. On Windows and macOS openSU finds and launches the installed ones (macOS
 `/Applications`); on Android it starts an installed emulator app by intent with the game.
 
 A game whose system has no emulator still appears, and pressing play names the emulator to
-install. The details page's Emulator row picks one per game, Settings › Emulators per console (both
+install. The Emulator row on a game's Game settings page picks one per game, Settings › Emulators per console (both
 are setting layers, so a console's pick shows on its games as inherited), and Settings › Library ›
 Reset emulator choices forgets every game's own pick. `OPENSU_EMULATORS` overrides the command per
 system.
@@ -46,7 +46,7 @@ system.
 
 When an installed emulator keeps a save of a game and another installed one could take it (Switch
 emulators; mGBA and the built-in runner for Game Boy, Game Boy Color and Game Boy Advance;
-DuckStation and the built-in runner for PlayStation), the game's details page shows Copy saves,
+DuckStation and the built-in runner for PlayStation), the game's Game settings page shows Copy saves,
 naming them. It opens a card: Copy from lists the
 emulators that hold a save of the game, Copy to every other one, each with its newest change and
 size, or "No save yet" (A lists them when there is more than one). Copy saves asks, then replaces

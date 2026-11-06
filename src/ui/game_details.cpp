@@ -1,7 +1,10 @@
 #include "game_details.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <ctime>
+#include <span>
+#include <utility>
 
 #include "clock/local_time.hpp"
 #include "library/match_pick.hpp"
@@ -63,45 +66,6 @@ std::string emulatorText(const library::Game& game) {
     return text;
 }
 
-/// The Emulator choice: every emulator of the system, the game's pick chosen, led by
-/// `noEmulator` while it has none.
-SettingsRow emulatorChoice(const library::Game& game, const std::string& source) {
-    Options options;
-    for (const library::EmulatorOption& option : game.emulatorOptions) {
-        options.labels.push_back(option.name);
-    }
-    const auto chosen = std::ranges::find(options.labels, game.emulator);
-    if (chosen == options.labels.end()) {
-        options.labels.insert(options.labels.begin(), std::string{noEmulator});
-    } else {
-        options.chosen = static_cast<std::size_t>(chosen - options.labels.begin());
-    }
-    return makeChoice(std::string{detailsEmulatorId}, "Emulator", source, std::move(options));
-}
-
-/// The Store choice: the stores owning the game, the one its copy is from chosen, the others named
-/// under it. Led by the copy's own source when that is no store.
-SettingsRow storeChoice(const library::Game& game, const std::vector<library::Source>& stores) {
-    Options options;
-    std::string others;
-    for (const library::Source store : stores) {
-        const std::string name{library::label(store)};
-        options.labels.push_back(name);
-        if (store != game.source) {
-            others += (others.empty() ? "" : ", ") + name;
-        }
-    }
-    const std::string own{library::label(game.source)};
-    const auto chosen = std::ranges::find(options.labels, own);
-    if (chosen == options.labels.end()) {
-        options.labels.insert(options.labels.begin(), own);
-    } else {
-        options.chosen = static_cast<std::size_t>(chosen - options.labels.begin());
-    }
-    return makeChoice(std::string{detailsStoreId}, "Store", "Also on " + others,
-                      std::move(options));
-}
-
 SettingsRow action(std::string_view id, std::string label, std::string value = {}) {
     return makeRow(std::string{id}, RowKind::Action, std::move(label), {}, std::move(value));
 }
@@ -159,21 +123,47 @@ SettingsRow detailsFact(std::string label, std::string value) {
     return makeRow(std::move(id), RowKind::Info, std::move(label), {}, std::move(value));
 }
 
-GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
-                      std::chrono::system_clock::time_point now, const std::string& download,
-                      bool ownWinePrefix, const GameSettingsView& settings) {
-    GameDetails details;
-    details.gameId = game.id;
-    details.title = game.title;
-    details.badge = badgeOf(game);
-    details.art = game.artwork.empty() ? game.artworkWide : game.artwork;
-    details.hero = game.artwork.empty() ? std::filesystem::path{} : game.artworkWide;
+namespace {
+
+/// A game on the page, whose rows say which copy they act on when the page has several.
+struct PageCopy {
+    const library::Game& game;
+    const GameSettingsView& settings;
+    bool ownWinePrefix;
+    bool named;
+
+    [[nodiscard]] std::string store() const {
+        return std::string{library::label(game.source)};
+    }
+    /// `row` as this copy's row on the page.
+    [[nodiscard]] SettingsRow asNamed(SettingsRow row) const {
+        if (named) {
+            row.id = copyRowId(game.id, row.id);
+            row.label += " (" + store() + ")";
+        }
+        return row;
+    }
+};
+
+/// A game the player added themselves, which they can rename and remove.
+bool ownedOutright(const library::Game& game) {
+    return game.source == library::Source::Own && !game.fromGameFolder;
+}
+
+LaunchButton launchOf(const PageCopy& copy) {
+    const std::string verb = !copy.game.installed      ? "Install"
+                             : copy.settings.continues ? "Continue here"
+                                                       : "Play";
+    return LaunchButton{copy.named ? verb + " (" + copy.store() + ")" : verb, copy.game.id};
+}
+
+std::vector<SettingsRow> factsOf(const library::Game& game, const GameMarks& marks,
+                                 std::chrono::system_clock::time_point now,
+                                 const GameSettingsView& settings) {
     const bool rom = game.source == library::Source::Rom;
     const bool own = game.source == library::Source::Own;
-    // Installed, uninstalled, drawn and mapped on its host.
-    const bool remote = game.source == library::Source::Remote;
     const bool updatable = game.installed && game.updateAvailable && !rom;
-    std::vector<SettingsRow>& facts = details.facts;
+    std::vector<SettingsRow> facts;
     facts.push_back(detailsFact(
         "Status", std::string{game.installed ? "Installed" : "Not installed"} +
                       (updatable ? ", update available" : "") + (marks.hidden ? ", hidden" : "")));
@@ -206,71 +196,209 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
     if (!settings.resume.empty()) {
         facts.push_back(detailsFact("Resume", settings.resume));
     }
+    return facts;
+}
 
-    details.launch = !game.installed ? "Install" : settings.continues ? "Continue here" : "Play";
-    std::vector<SettingsRow>& actions = details.actions;
-    if (!settings.stores.empty()) {
-        actions.push_back(storeChoice(game, settings.stores));
+/// The facts: one each where the copies read alike, else one per copy, "Last played (Epic)".
+std::vector<SettingsRow> factsOf(const std::vector<PageCopy>& copies, const GameMarks& marks,
+                                 std::chrono::system_clock::time_point now) {
+    std::vector<std::vector<SettingsRow>> each;
+    each.reserve(copies.size());
+    for (const PageCopy& copy : copies) {
+        each.push_back(factsOf(copy.game, marks, now, copy.settings));
     }
-    if (!settings.resume.empty() && game.installed) {
+    std::vector<std::string> labels;
+    for (const std::vector<SettingsRow>& own : each) {
+        for (const SettingsRow& fact : own) {
+            if (std::ranges::find(labels, fact.label) == labels.end()) {
+                labels.push_back(fact.label);
+            }
+        }
+    }
+    std::vector<SettingsRow> facts;
+    for (const std::string& label : labels) {
+        const auto of = [&label](const std::vector<SettingsRow>& own) {
+            return std::ranges::find(own, label, &SettingsRow::label);
+        };
+        const auto first = of(each.front());
+        const bool alike = first != each.front().end() &&
+                           std::ranges::all_of(each, [&](const std::vector<SettingsRow>& own) {
+                               const auto fact = of(own);
+                               return fact != own.end() && fact->value == first->value;
+                           });
+        if (alike) {
+            facts.push_back(*first);
+            continue;
+        }
+        for (std::size_t at = 0; at < each.size(); ++at) {
+            if (const auto fact = of(each[at]); fact != each[at].end()) {
+                facts.push_back(detailsFact(label + " (" + copies[at].store() + ")", fact->value));
+            }
+        }
+    }
+    return facts;
+}
+
+std::vector<SettingsRow> updateRows(const library::Game& game) {
+    if (game.installed && game.updateAvailable && game.source != library::Source::Rom) {
+        return {action(detailsUpdateId, "Update")};
+    }
+    return {};
+}
+
+/// The other ways to play it.
+std::vector<SettingsRow> playRows(const PageCopy& copy) {
+    const GameSettingsView& settings = copy.settings;
+    std::vector<SettingsRow> rows;
+    if (!settings.resume.empty() && copy.game.installed) {
         SettingsRow fresh = action(detailsStartFreshId, "Start fresh");
         fresh.confirm = "The game starts from the beginning; where Save and close left it is lost.";
         fresh.confirmVerb = "Start";
-        actions.push_back(std::move(fresh));
+        rows.push_back(std::move(fresh));
     }
     if (settings.linked) {
-        actions.push_back(action(detailsLinkedId, "Play linked (2 players)"));
+        rows.push_back(action(detailsLinkedId, "Play linked (2 players)"));
     }
     for (const GameSettingsView::Partner& partner : settings.partners) {
-        actions.push_back(
+        rows.push_back(
             action(std::string{detailsPlayWithPrefix} + partner.id, "Play with " + partner.name));
     }
     if (settings.online) {
-        actions.push_back(action(detailsPlayOnlineId, "Play online"));
+        rows.push_back(action(detailsPlayOnlineId, "Play online"));
     }
-    if (updatable) {
-        actions.push_back(action(detailsUpdateId, "Update"));
+    return rows;
+}
+
+/// What the Game settings page of `game` holds besides its settings, each row naming `game`.
+std::vector<SettingsRow> settingsPageRows(const PageCopy& copy) {
+    const library::Game& game = copy.game;
+    std::vector<SettingsRow> rows;
+    if (game.windowsInstall && game.source != library::Source::Own) {
+        rows.push_back(makeChoice(std::string{detailsWinePrefixId}, "Wine prefix", {},
+                                  Options{{std::string{sharedPrefix}, std::string{ownPrefix}},
+                                          copy.ownWinePrefix ? 1U : 0U}));
     }
-    if (const library::EmulatorOption* missing = emulatorToDownload(game)) {
+    if (library::matchKindOf(game) != library::MatchKind::None) {
+        rows.push_back(makePage(std::string{detailsMatchId}, "Match a different game", {}, {}));
+    }
+    if (game.source != library::Source::Remote) {
+        rows.push_back(makePage(std::string{detailsArtworkId}, "Choose artwork", {}, {}));
+        rows.push_back(makePage(std::string{detailsControlsId}, "Controls", {}, {}));
+    }
+    if (!copy.settings.copySaves.empty()) {
+        rows.push_back(
+            makePage(std::string{detailsSavesId}, "Copy saves", {}, copy.settings.copySaves));
+    }
+    if (!copy.settings.syncSaves.empty()) {
+        rows.push_back(action(detailsSyncSavesId, copy.settings.syncSaves));
+    }
+    if (ownedOutright(game)) {
+        rows.push_back(action(detailsRenameId, "Rename"));
+        if (!game.file.empty()) {
+            rows.push_back(action(detailsChangeFileId, "Change file"));
+        }
+    }
+    for (SettingsRow& row : rows) {
+        row.id = copyRowId(game.id, row.id);
+    }
+    return rows;
+}
+
+std::vector<SettingsRow> settingsRows(const PageCopy& copy) {
+    if (!copy.settings.gameSettings && settingsPageRows(copy).empty()) {
+        return {};
+    }
+    return {makePage(std::string{detailsSettingsId}, "Game settings", {},
+                     copy.settings.gameSettings.value_or(std::string{}))};
+}
+
+/// What takes the game off this machine or out of the library.
+std::vector<SettingsRow> uninstallRows(const library::Game& game) {
+    if (ownedOutright(game)) {
+        return {action(detailsRemoveId, "Remove from library")};
+    }
+    const library::Source source = game.source;
+    if (game.installed && source != library::Source::Rom && source != library::Source::Own &&
+        source != library::Source::Remote) {
+        return {action(detailsUninstallId, "Uninstall")};
+    }
+    return {};
+}
+
+} // namespace
+
+std::string copyRowId(std::string_view gameId, std::string_view id) {
+    return std::string{copyRowPrefix} + std::string{gameId} + "#" + std::string{id};
+}
+
+CopyRow copyRowOf(const std::string& id) {
+    const std::size_t mark = id.rfind('#');
+    if (!id.starts_with(copyRowPrefix) || mark == std::string::npos) {
+        return {id, {}};
+    }
+    return {id.substr(mark + 1), id.substr(copyRowPrefix.size(), mark - copyRowPrefix.size())};
+}
+
+GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
+                      std::chrono::system_clock::time_point now, const std::string& download,
+                      bool ownWinePrefix, const GameSettingsView& settings,
+                      const std::vector<CopyPart>& copies) {
+    std::vector<PageCopy> page;
+    page.reserve(std::max<std::size_t>(copies.size(), 1));
+    for (const CopyPart& copy : copies) {
+        page.push_back(PageCopy{copy.game, copy.settings, copy.ownWinePrefix, true});
+    }
+    if (page.empty()) {
+        page.push_back(PageCopy{game, settings, ownWinePrefix, false});
+    }
+    GameDetails details;
+    details.gameId = game.id;
+    details.title = game.title;
+    details.badge = badgeOf(game);
+    details.art = game.artwork.empty() ? game.artworkWide : game.artwork;
+    details.hero = game.artwork.empty() ? std::filesystem::path{} : game.artworkWide;
+    const PageCopy& top = page.front();
+    const std::span<const PageCopy> others = std::span{page}.subspan(1);
+    details.launch = launchOf(top);
+    details.facts = factsOf(page, marks, now);
+    const auto add = [](std::vector<SettingsRow>& to, const PageCopy& copy,
+                        std::vector<SettingsRow> rows) {
+        for (SettingsRow& row : rows) {
+            to.push_back(copy.asNamed(std::move(row)));
+        }
+    };
+    std::vector<SettingsRow>& actions = details.actions;
+    add(actions, top, playRows(top));
+    add(actions, top, updateRows(top.game));
+    if (const library::EmulatorOption* missing = emulatorToDownload(top.game)) {
         actions.push_back(action(detailsDownloadId, "Download " + missing->name, download));
-    }
-    if (rom && game.emulatorOptions.size() > 1) {
-        actions.push_back(emulatorChoice(game, settings.emulatorSource));
-    }
-    if (settings.gameSettings) {
-        actions.push_back(
-            makePage(std::string{detailsSettingsId}, "Game settings", {}, *settings.gameSettings));
-    }
-    if (game.windowsInstall && !own) {
-        actions.push_back(makeChoice(
-            std::string{detailsWinePrefixId}, "Wine prefix", {},
-            Options{{std::string{sharedPrefix}, std::string{ownPrefix}}, ownWinePrefix ? 1U : 0U}));
     }
     actions.push_back(action(detailsHomeId, marks.onHome ? "Remove from Home" : "Add to Home"));
     actions.push_back(action(detailsHiddenId, marks.hidden ? "Show game" : "Hide game"));
-    if (game.installed && !rom && !own && !remote) {
-        actions.push_back(action(detailsUninstallId, "Uninstall"));
-    }
-    if (library::matchKindOf(game) != library::MatchKind::None) {
-        actions.push_back(makePage(std::string{detailsMatchId}, "Match a different game", {}, {}));
-    }
-    if (own && !game.fromGameFolder) {
-        actions.push_back(action(detailsRenameId, "Rename"));
-        if (!game.file.empty()) {
-            actions.push_back(action(detailsChangeFileId, "Change file"));
+    add(actions, top, settingsRows(top));
+    std::vector<SettingsRow>& more = details.more;
+    for (const PageCopy& copy : others) {
+        if (copy.game.installed) {
+            add(more, copy, {action(detailsLaunchId, "Play")});
         }
-        actions.push_back(action(detailsRemoveId, "Remove from library"));
     }
-    if (!settings.copySaves.empty()) {
-        actions.push_back(
-            makePage(std::string{detailsSavesId}, "Copy saves", {}, settings.copySaves));
+    for (const PageCopy& copy : others) {
+        add(more, copy, updateRows(copy.game));
     }
-    if (!settings.syncSaves.empty()) {
-        actions.push_back(action(detailsSyncSavesId, settings.syncSaves));
+    for (const PageCopy& copy : others) {
+        add(more, copy, settingsRows(copy));
     }
-    if (!remote) {
-        actions.push_back(makePage(std::string{detailsArtworkId}, "Choose artwork", {}, {}));
-        actions.push_back(makePage(std::string{detailsControlsId}, "Controls", {}, {}));
+    for (const PageCopy& copy : others) {
+        if (!copy.game.installed) {
+            add(more, copy, {action(detailsInstallId, "Install")});
+        }
+    }
+    for (const PageCopy& copy : page) {
+        add(more, copy, uninstallRows(copy.game));
+        details.settingsPages.push_back(SettingsPage{copy.game.id, settingsPageRows(copy)});
+    }
+    if (!more.empty()) {
+        actions.push_back(makePage(std::string{detailsMoreId}, "More", {}, {}));
     }
     actions.push_back(action(detailsBackId, "Back"));
     return details;
@@ -279,6 +407,23 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
 const SettingsRow* factOf(const GameDetails& details, std::string_view label) {
     const auto found = std::ranges::find(details.facts, label, &SettingsRow::label);
     return found == details.facts.end() ? nullptr : &*found;
+}
+
+std::vector<SettingsRow> settingsPageOf(const GameDetails& details, std::string_view gameId) {
+    const auto page = std::ranges::find(details.settingsPages, gameId, &SettingsPage::gameId);
+    return page == details.settingsPages.end() ? std::vector<SettingsRow>{} : page->rows;
+}
+
+const SettingsRow* settingsRowOf(const GameDetails& details, std::string_view gameId,
+                                 std::string_view id) {
+    const std::string wanted = copyRowId(gameId, id);
+    for (const SettingsPage& page : details.settingsPages) {
+        const auto found = std::ranges::find(page.rows, wanted, &SettingsRow::id);
+        if (found != page.rows.end()) {
+            return &*found;
+        }
+    }
+    return nullptr;
 }
 
 const SettingsRow* actionOf(const GameDetails& details, std::string_view id) {

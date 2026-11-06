@@ -1,7 +1,9 @@
 #include "library_query.hpp"
 
 #include <algorithm>
+#include <array>
 #include <numeric>
+#include <optional>
 #include <utility>
 
 #include "rom_systems.hpp"
@@ -153,13 +155,10 @@ bool narrowing(const ViewOptions& options) noexcept {
 }
 
 LibraryView applyOptions(const std::vector<Game>& games, const std::vector<SourceStatus>& sources,
-                         const ViewOptions& options, const HiddenGames& hidden,
-                         const CopyChoices& copies) {
+                         const ViewOptions& options, const HiddenGames& hidden) {
     LibraryView view;
-    const TitleCopies titles{games, copies};
     for (const Game& game : games) {
-        const Game* copy = titles.use(game, game.source);
-        if (options.installedOnly && !(copy != nullptr ? *copy : game).installed) {
+        if (options.installedOnly && !game.installed) {
             continue;
         }
         if (!options.source.empty() && sourceKeyOf(game) != options.source) {
@@ -239,38 +238,38 @@ std::string describeResult(const ShelfItem& item) {
     return std::holds_alternative<Launcher>(item) ? "Store" : "Library";
 }
 
-std::optional<Source> pageOf(const ShelfBrowser& browser, const ViewOptions& options) {
+bool keepsOwnCopy(const ShelfBrowser& browser, const ViewOptions& options) {
     if (const std::optional<Source> open = browser.launcher(); open && options.search.empty()) {
-        return open;
+        return *open == Source::Own || *open == Source::Remote;
     }
-    for (const Source source :
-         {Source::Steam, Source::Gog, Source::Epic, Source::Own, Source::Remote}) {
-        if (key(Folder{Launcher{source, 0, true, false}}) == options.source) {
-            return source;
-        }
-    }
-    return std::nullopt;
+    return std::ranges::any_of(std::array{Source::Own, Source::Remote}, [&options](Source source) {
+        return key(Folder{Launcher{source, 0, true, false}}) == options.source;
+    });
 }
 
 std::vector<ShelfItem> visibleShelf(ShelfBrowser& browser, const std::vector<Game>& games,
                                     const std::vector<SourceStatus>& sources,
                                     const std::vector<AddTile>& adds, const ViewOptions& options,
-                                    const HiddenGames& hidden, const HomeChoices& home,
-                                    const CopyChoices& copies) {
-    LibraryView view = applyOptions(games, sources, options, hidden, copies);
+                                    const HiddenGames& hidden, const HomeChoices& home) {
+    LibraryView view = applyOptions(games, sources, options, hidden);
     view.adds = adds;
     std::vector<ShelfItem> shelf = options.search.empty()
                                        ? browser.shelf(view.games, view.sources, view.adds, home)
                                        : searchShelf(view, options.search);
-    const TitleCopies titles{games, copies};
-    const std::optional<Source> page = pageOf(browser, options);
+    if (keepsOwnCopy(browser, options)) {
+        return shelf;
+    }
+    const TitleCopies titles{games};
     for (ShelfItem& item : shelf) {
         auto* game = std::get_if<Game>(&item);
-        const Game* copy = game != nullptr ? titles.use(*game, page) : nullptr;
+        const Game* copy = game != nullptr ? titles.top(*game) : nullptr;
         if (copy != nullptr && copy->id != game->id) {
             std::vector<Source> stores = std::move(game->ownedIn);
             *game = *copy;
             game->ownedIn = std::move(stores);
+        }
+        if (copy != nullptr) {
+            game->updateOnCopy = titles.updatePending(*game);
         }
     }
     return shelf;

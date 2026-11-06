@@ -243,53 +243,84 @@ std::string gameIdAt(const std::vector<ShelfItem>& shelf, std::size_t index) {
     return std::get<Game>(shelf.at(index)).id;
 }
 
-void shelvesShowTheCopyInUse() {
-    const std::vector<Game> games = twins();
-    CopyChoices chosen;
-    chosen.choose(games[1]);
+void shelvesShowTheTopCopy() {
+    std::vector<Game> games = twins();
     const HiddenGames none;
     const HomeChoices home;
     const ViewOptions options;
-
     ShelfBrowser browser;
-    const auto onHome = visibleShelf(browser, games, sources(), {}, options, none, home, chosen);
+    browser.open(Launcher{Source::Epic, 1, true, false}, 0);
+    expect(gameIdAt(visibleShelf(browser, games, sources(), {}, options, none, home), 0) ==
+               "steam:twin",
+           "a never played title shows its top copy on Epic's page too");
+    expect(!keepsOwnCopy(browser, options), "a store's page keeps no copy of its own");
+
+    games[1].installed = true;
+    games[1].lastPlayed = std::chrono::system_clock::now();
+    ShelfBrowser onHomeBrowser;
+    const auto onHome = visibleShelf(onHomeBrowser, games, sources(), {}, options, none, home);
     expect(onHome.size() == 1 && gameIdAt(onHome, 0) == "epic:twin",
-           "Home keeps the title and shows the chosen copy");
+           "Home keeps the title and shows the copy last played");
     expect(std::get<Game>(onHome.at(0)).ownedIn == std::vector{Source::Steam, Source::Epic},
            "with every store's icon");
 
-    browser.open(Launcher{Source::Steam, 1, true, false}, 0);
-    const auto steam = visibleShelf(browser, games, sources(), {}, options, none, home, chosen);
+    ShelfBrowser steamPage;
+    steamPage.open(Launcher{Source::Steam, 1, true, false}, 0);
+    const auto steam = visibleShelf(steamPage, games, sources(), {}, options, none, home);
     expect(steam.size() == 1 && gameIdAt(steam, 0) == "epic:twin" &&
                std::get<Game>(steam.at(0)).ownedIn.empty(),
-           "Steam's page shows the chosen copy, without icons");
-    expect(gameIdAt(visibleShelf(browser, games, sources(), {}, options, none, home), 0) ==
-               "steam:twin",
-           "and its own copy with no choice");
-    expect(pageOf(browser, options) == Source::Steam, "the open launcher is the page");
+           "the title still lists on Steam's page, as the copy last played, without icons");
+
+    games[0].updateAvailable = true;
+    const auto badged = visibleShelf(steamPage, games, sources(), {}, options, none, home);
+    expect(std::get<Game>(badged.at(0)).updateOnCopy &&
+               !std::get<Game>(badged.at(0)).updateAvailable,
+           "the tile carries an update of a copy under it, and the top copy has none of its own");
 }
 
-void aFilterNeverSwapsTheChosenCopy() {
-    const std::vector<Game> games = twins();
-    CopyChoices chosen;
-    chosen.choose(games[1]);
+void pagesOfTheirOwnCopyKeepIt() {
+    std::vector<Game> games = twins();
+    Game own = games.front();
+    own.id = "own:twin";
+    own.source = Source::Own;
+    games.push_back(own);
+    games[1].lastPlayed = std::chrono::system_clock::now();
+    const HiddenGames none;
+    const HomeChoices home;
+    const ViewOptions options;
+    ShelfBrowser browser;
+    browser.open(Launcher{Source::Own, 1, true, false}, 0);
+    expect(keepsOwnCopy(browser, options), "Your games keeps its own copy");
+    expect(gameIdAt(visibleShelf(browser, games, sources(), {}, options, none, home), 0) ==
+               "own:twin",
+           "and shows it past the copy last played");
+    ViewOptions ownOnly;
+    ownOnly.source = "launcher:own";
+    expect(keepsOwnCopy(ShelfBrowser{}, ownOnly), "so does a filter to it");
+}
+
+void filtersLeaveTheTopCopy() {
+    std::vector<Game> games = twins();
+    games[1].installed = true;
+    games[1].lastPlayed = std::chrono::system_clock::now();
     const HiddenGames none;
     const HomeChoices home;
     ShelfBrowser browser;
 
     ViewOptions steamOnly;
     steamOnly.source = "launcher:steam";
-    expect(pageOf(browser, steamOnly) == Source::Steam, "the source filter is the page");
-    expect(gameIdAt(visibleShelf(browser, games, sources(), {}, steamOnly, none, home, chosen),
-                    0) == "epic:twin",
-           "a source filter leaving the chosen copy out does not run the other");
+    expect(gameIdAt(visibleShelf(browser, games, sources(), {}, steamOnly, none, home), 0) ==
+               "epic:twin",
+           "a source filter leaving the top copy out does not change it");
 
+    games[1].installed = false;
     ViewOptions installed;
     installed.installedOnly = true;
-    expect(applyOptions(games, sources(), installed, none, chosen).games.empty(),
-           "a title whose chosen copy is not installed cannot be launched now");
     expect(applyOptions(games, sources(), installed, none).games.size() == 1,
-           "with no choice its installed copy can");
+           "a title with an installed copy can be launched now");
+    expect(gameIdAt(visibleShelf(browser, games, sources(), {}, installed, none, home), 0) ==
+               "steam:twin",
+           "and shows it, past a copy played and since uninstalled");
 }
 
 void playHistoryKeepsTheLaterTime() {
@@ -324,8 +355,9 @@ int main() try {
     sourceChoicesListWhatIsPresent();
     resultsDescribeTheirOwner();
     visibleShelfSearchesOrBrowses();
-    shelvesShowTheCopyInUse();
-    aFilterNeverSwapsTheChosenCopy();
+    shelvesShowTheTopCopy();
+    pagesOfTheirOwnCopyKeepIt();
+    filtersLeaveTheTopCopy();
     playHistoryKeepsTheLaterTime();
     std::printf("library_query: all checks passed\n");
     return 0;

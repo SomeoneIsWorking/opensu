@@ -25,6 +25,15 @@ std::string valueOf(const GameDetails& details, const char* label) {
     return fact == nullptr ? std::string{} : fact->value;
 }
 
+std::vector<std::string> labelsOf(const std::vector<SettingsRow>& rows) {
+    std::vector<std::string> labels;
+    labels.reserve(rows.size());
+    for (const SettingsRow& row : rows) {
+        labels.push_back(row.label);
+    }
+    return labels;
+}
+
 std::vector<std::string> idsOf(const GameDetails& details) {
     std::vector<std::string> ids;
     ids.reserve(details.actions.size());
@@ -32,6 +41,12 @@ std::vector<std::string> idsOf(const GameDetails& details) {
         ids.push_back(row.id);
     }
     return ids;
+}
+
+/// What `game`'s Game settings page holds besides its settings.
+std::vector<SettingsRow> settingsPageRows(const Game& game, bool ownWinePrefix) {
+    return settingsPageOf(detailsOf(game, GameMarks{.hidden = false}, now, {}, ownWinePrefix),
+                          game.id);
 }
 
 std::vector<std::string> ids(std::initializer_list<std::string_view> names) {
@@ -74,24 +89,51 @@ void lastPlayed() {
 }
 
 void ownedInTwoStores() {
-    GameSettingsView stores;
-    stores.stores = {Source::Steam, Source::Gog, Source::Epic};
+    Game steam = hades();
+    steam.updateAvailable = true;
+    Game epic = hades();
+    epic.id = "epic:hades";
+    epic.source = Source::Epic;
+    epic.installed = false;
+    epic.lastPlayed.reset();
+    const std::vector<CopyPart> copies{{steam, false, {}}, {epic, false, {}}};
     const GameDetails details =
-        detailsOf(hades(), GameMarks{.hidden = false}, now, {}, false, stores);
-    const SettingsRow* store = actionOf(details, detailsStoreId);
-    expect(store != nullptr && store->kind == RowKind::Choice && store->value == "Steam" &&
-               store->note == "Also on GOG, Epic",
-           "the Store row names the copy in use and the other stores");
-    expect(details.actions.front().id == detailsStoreId, "it comes first, under Play");
-
-    Game own = hades();
-    own.source = Source::Own;
-    const SettingsRow* led = actionOf(
-        detailsOf(own, GameMarks{.hidden = false}, now, {}, false, stores), detailsStoreId);
-    expect(led != nullptr && led->choices.size() == 4 && led->value == "Your games",
-           "a copy from no store leads the row");
-    expect(actionOf(detailsOf(hades(), GameMarks{.hidden = false}, now), detailsStoreId) == nullptr,
-           "a game owned in one store shows nothing");
+        detailsOf(steam, GameMarks{.hidden = false}, now, {}, false, {}, copies);
+    expect(details.launch.label == "Play (Steam)", "the top copy's Play leads");
+    expect(labelsOf(details.actions) ==
+               std::vector<std::string>{"Update (Steam)", "Add to Home", "Hide game",
+                                        "Game settings (Steam)", "More", "Back"},
+           "the page's rows are the top copy's");
+    expect(labelsOf(details.more) == std::vector<std::string>{"Game settings (Epic)",
+                                                              "Install (Epic)",
+                                                              "Uninstall (Steam)"},
+           "More has the other copy's rows, then what removes each");
+    const CopyRow install = copyRowOf(details.more[1].id);
+    expect(install.gameId == "epic:hades" && install.id == detailsInstallId,
+           "a row names its copy");
+    expect(copyRowOf(std::string{detailsBackId}).gameId.empty(), "a row of the page names none");
+    Game away = epic;
+    away.source = Source::Steam;
+    away.id = "steam:other";
+    const std::vector<CopyPart> uninstalled{{away, false, {}}, {epic, false, {}}};
+    const GameDetails nothing =
+        detailsOf(away, GameMarks{.hidden = false}, now, {}, false, {}, uninstalled);
+    expect(nothing.launch.label == "Install (Steam)" &&
+               labelsOf(nothing.more) ==
+                   std::vector<std::string>{"Game settings (Epic)", "Install (Epic)"},
+           "with nothing installed the top Install leads and is not on More again");
+    expect(valueOf(details, "Last played (Epic)") == "Never played" &&
+               valueOf(details, "Last played (Steam)") == "3 hours ago" &&
+               factOf(details, "Last played") == nullptr,
+           "a fact the copies differ on says whose it is");
+    Game both = epic;
+    both.installed = true;
+    both.lastPlayed = hades().lastPlayed;
+    both.playtimeMinutes = hades().playtimeMinutes;
+    const std::vector<CopyPart> alike{{hades(), false, {}}, {both, false, {}}};
+    expect(valueOf(detailsOf(hades(), GameMarks{.hidden = false}, now, {}, false, {}, alike),
+                   "Last played") == "3 hours ago",
+           "one they read alike shows once");
 }
 
 void storeGame() {
@@ -102,23 +144,25 @@ void storeGame() {
     expect(valueOf(details, "Last played") == "3 hours ago", "last played");
     expect(valueOf(details, "Play time") == "2 h 5 min", "play time");
     expect(factOf(details, "Emulator") == nullptr, "a store game has no emulator fact");
-    expect(details.launch == "Play", "an installed game plays");
+    expect(details.launch.label == "Play", "an installed game plays");
     GameSettingsView seated;
     seated.continues = true;
-    expect(detailsOf(hades(), GameMarks{.hidden = false}, now, {}, false, seated).launch ==
+    expect(detailsOf(hades(), GameMarks{.hidden = false}, now, {}, false, seated).launch.label ==
                "Continue here",
            "a game the player's profile is in continues");
-    expect(idsOf(details) ==
-               ids({detailsHomeId, detailsHiddenId, detailsUninstallId, detailsMatchId,
-                    detailsArtworkId, detailsControlsId, detailsBackId}),
-           "Remove from Home, Hide, Uninstall, Match a different game, Choose artwork, Controls, "
-           "Back");
+    expect(idsOf(details) == ids({detailsHomeId, detailsHiddenId, detailsSettingsId, detailsMoreId,
+                                  detailsBackId}),
+           "Remove from Home, Hide, Game settings, More, Back");
+    expect(labelsOf(details.more) == std::vector<std::string>{"Uninstall"},
+           "a one-store game's Uninstall is on More");
     expect(actionOf(details, detailsHomeId)->label == "Remove from Home",
            "a game on Home offers to be taken off it");
-    expect(actionOf(details, detailsHiddenId)->label == "Hide game" &&
-               actionOf(details, detailsArtworkId)->kind == RowKind::Page &&
-               actionOf(details, detailsControlsId)->kind == RowKind::Page,
-           "Hide acts; Choose artwork and Controls open what is over the page");
+    const std::vector<SettingsRow> more = settingsPageRows(hades(), false);
+    expect(actionOf(details, detailsHiddenId)->label == "Hide game" && more.size() == 3 &&
+               copyRowOf(more[0].id).id == detailsMatchId &&
+               copyRowOf(more[1].id).id == detailsArtworkId &&
+               copyRowOf(more[2].id).id == detailsControlsId,
+           "Hide acts; Match, Choose artwork and Controls are on the Game settings page");
     Game wide = hades();
     wide.artworkWide = "/covers/hades-wide.jpg";
     expect(detailsOf(wide, GameMarks{.hidden = false}, now).hero == "/covers/hades-wide.jpg",
@@ -134,7 +178,7 @@ void states() {
     Game missing = hades();
     missing.installed = false;
     const GameDetails details = detailsOf(missing, GameMarks{.hidden = true}, now);
-    expect(details.launch == "Install", "a game that is not installed offers Install");
+    expect(details.launch.label == "Install", "a game that is not installed offers Install");
     expect(valueOf(details, "Status") == "Not installed, hidden", "hidden shows");
     expect(actionOf(details, detailsHiddenId)->label == "Show game",
            "a hidden game offers to be shown");
@@ -156,27 +200,14 @@ void romEmulator() {
            "a ROM's badge is its system");
     expect(valueOf(details, "Emulator") == "Eden · installed",
            "the emulator fact names it and says it is installed");
-    const SettingsRow* emulator = actionOf(details, detailsEmulatorId);
-    expect(emulator != nullptr && emulator->kind == RowKind::Choice &&
-               emulator->choices == std::vector<std::string>{"Eden", "Ryujinx"} &&
-               emulator->chosen == 0 && details.actions.front().id == detailsEmulatorId,
-           "a ROM with two emulators chooses between them right after Play");
-    expect(actionOf(details, detailsUninstallId) == nullptr, "a ROM is never uninstalled");
+    expect(details.more.empty() && actionOf(details, detailsMoreId) == nullptr,
+           "a ROM is never uninstalled, which leaves More out");
     const GameDetails missing = detailsOf(kirby(false), GameMarks{.hidden = false}, now);
     expect(valueOf(missing, "Emulator") == "Eden · not installed",
            "an emulator that is not installed says so");
-    Game single = kirby(true);
-    single.emulatorOptions.pop_back();
-    expect(actionOf(detailsOf(single, GameMarks{.hidden = false}, now), detailsEmulatorId) ==
-               nullptr,
-           "one emulator leaves nothing to choose");
     Game unpicked = kirby(true);
     unpicked.emulator.clear();
     const GameDetails unpickedDetails = detailsOf(unpicked, GameMarks{.hidden = false}, now);
-    const SettingsRow* none = actionOf(unpickedDetails, detailsEmulatorId);
-    expect(none != nullptr && none->choices.front() == noEmulator && none->chosen == 0 &&
-               none->choices.size() == 3,
-           "with none picked the choice says so before the emulators");
     const GameDetails sourced = detailsOf(kirby(true), GameMarks{.hidden = false}, now, {}, false,
                                           GameSettingsView{"Set for this game",
                                                            {},
@@ -188,15 +219,13 @@ void romEmulator() {
                                                            false,
                                                            false,
                                                            {},
-                                                           false,
-                                                           {}});
+                                                           false});
     expect(valueOf(sourced, "Emulator") == "Eden · installed · Set for this game" &&
-               actionOf(sourced, detailsEmulatorId)->note == "Set for this game" &&
                actionOf(sourced, detailsSettingsId)->value == "Inherited",
            "where the pick comes from shows, and the Game settings row reads its count");
-    const SettingsRow* saves = actionOf(sourced, detailsSavesId);
+    const SettingsRow* saves = settingsRowOf(sourced, kirby(true).id, detailsSavesId);
     expect(saves != nullptr && saves->kind == RowKind::Page && saves->value == "Eden, Ryujinx" &&
-               actionOf(unpickedDetails, detailsSavesId) == nullptr,
+               settingsRowOf(unpickedDetails, unpicked.id, detailsSavesId) == nullptr,
            "Copy saves names the emulators keeping a save, and is left out while none is named");
 }
 
@@ -258,16 +287,13 @@ void winePrefix() {
     windows.id = "gog:2";
     windows.source = Source::Gog;
     windows.windowsInstall = true;
-    const GameDetails windowsDetails = detailsOf(windows, GameMarks{.hidden = false}, now);
-    const SettingsRow* shared = actionOf(windowsDetails, detailsWinePrefixId);
-    expect(shared != nullptr && shared->label == "Wine prefix" && shared->value == sharedPrefix,
-           "a Windows install shows its prefix, shared by default");
-    expect(
-        actionOf(detailsOf(windows, GameMarks{.hidden = false}, now, {}, true), detailsWinePrefixId)
-                ->value == ownPrefix,
-        "a game with its own prefix says so");
-    expect(actionOf(detailsOf(hades(), GameMarks{.hidden = false}, now), detailsWinePrefixId) ==
-               nullptr,
+    const SettingsRow shared = settingsPageRows(windows, false).front();
+    expect(shared.label == "Wine prefix" && shared.value == sharedPrefix &&
+               copyRowOf(shared.id).gameId == "gog:2",
+           "a Windows install shows its prefix on Game settings, shared by default");
+    expect(settingsPageRows(windows, true).front().value == ownPrefix,
+           "a game with its own prefix says so");
+    expect(settingsPageRows(hades(), false).front().label != "Wine prefix",
            "a game that does not run under Wine has no prefix row");
 }
 
@@ -283,11 +309,16 @@ void ownGame() {
     const GameDetails details = detailsOf(game, GameMarks{.hidden = false}, now);
     expect(details.badge == "Your games" && valueOf(details, "File") == game.file.string(),
            "an added game says it is the player's and which file it starts");
-    expect(idsOf(details) == ids({detailsHomeId, detailsHiddenId, detailsMatchId, detailsRenameId,
-                                  detailsChangeFileId, detailsRemoveId, detailsArtworkId,
-                                  detailsControlsId, detailsBackId}),
-           "match, rename, change file and remove; no Uninstall, and no Wine prefix: it has its "
-           "own");
+    expect(idsOf(details) == ids({detailsHomeId, detailsHiddenId, detailsSettingsId, detailsMoreId,
+                                  detailsBackId}),
+           "the same page as a store game's");
+    expect(labelsOf(details.more) == std::vector<std::string>{"Remove from library"},
+           "with Remove from library where Uninstall stands");
+    expect(settingsRowOf(details, game.id, detailsRenameId) != nullptr &&
+               settingsRowOf(details, game.id, detailsChangeFileId) != nullptr,
+           "rename and change file on Game settings");
+    expect(settingsPageRows(game, false).front().label != "Wine prefix",
+           "and no Wine prefix: it has its own");
     expect(valueOf(details, "Steam app") == "None matched", "no Steam app is said");
 
     game.file.clear();
@@ -296,7 +327,7 @@ void ownGame() {
     expect(valueOf(detailsOf(game, GameMarks{.hidden = false}, now), "Steam app") == "2050650",
            "the Steam app it is matched to is said");
     expect(valueOf(lutris, "Runs through") == "Lutris" &&
-               actionOf(lutris, detailsChangeFileId) == nullptr,
+               settingsRowOf(lutris, game.id, detailsChangeFileId) == nullptr,
            "a Lutris game has no file to change");
 }
 

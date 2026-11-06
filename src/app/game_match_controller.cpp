@@ -12,6 +12,7 @@
 #include "library/game_identify.hpp"
 #include "library/game_matches.hpp"
 #include "library/rom_systems.hpp"
+#include "library/titles.hpp"
 #include "lucent/log.h"
 #include "lucent/text.h"
 #include "net/web_client.hpp"
@@ -58,7 +59,7 @@ void GameMatchController::open(const library::Game& game) {
     current_ =
         game.boxArt.empty() ? game.artworkKey : std::string{library::boxArtPick} + game.boxArt;
     kind_ = library::matchKindOf(game);
-    title_ = "Match a different game: " + game.title;
+    title_ = "Match a different game: " + library::copyName(game);
     sounds_.play(audio::Effect::OpenContextMenu);
     search(game.title);
     navigator_.push(std::make_unique<GameMatchScreen>(*this, chrome_, images_));

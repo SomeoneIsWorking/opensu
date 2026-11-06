@@ -21,6 +21,8 @@ constexpr float coverAspect = 2.0f / 3.0f;
 constexpr float coverShare = 0.6f;
 /// The action pane's width, in dp.
 constexpr float actionsDp = 380.0f;
+/// The More card's widest, in dp.
+constexpr float moreDp = 760.0f;
 
 void addFact(tk::Column& facts, const tk::Theme& theme, const ui::SettingsRow& fact) {
     tk::Column& pair = facts.add<tk::Column>();
@@ -74,9 +76,9 @@ std::unique_ptr<tk::Widget> DetailsScreen::build(const tk::Theme& theme) {
     tk::List& list = pane.add<tk::List>("details/actions", theme.spacing.gap);
     list.grow();
     list.rows().add<tk::Button>(
-        std::string{ui::detailsLaunchId}, details->launch,
-        [this] {
-            controller_.launch();
+        std::string{ui::detailsLaunchId}, details->launch.label,
+        [this, game = details->launch.gameId] {
+            controller_.launch(game);
         },
         tk::ButtonKind::Primary);
     for (const ui::SettingsRow& row : details->actions) {
@@ -96,6 +98,33 @@ std::vector<tk::Hint> DetailsScreen::hints() const {
 
 std::string DetailsScreen::initialFocus() const {
     return std::string{ui::detailsLaunchId};
+}
+
+std::unique_ptr<tk::Widget> DetailsMoreScreen::build(const tk::Theme& theme) {
+    ui::CardFrame frame = ui::tallCard(theme, chrome_, moreDp);
+    const ui::GameDetails* details = controller_.details();
+    if (details == nullptr || details->more.empty()) {
+        close();
+        return std::move(frame.root);
+    }
+    tk::Card& card = *frame.card;
+    card.add<tk::Label>(title(), tk::TextRole::Title);
+    card.add<tk::Label>(details->title, tk::TextRole::Caption).colour(theme.colours.inkMuted);
+    tk::List& list = card.add<tk::List>("details/more", theme.spacing.gap);
+    list.grow();
+    for (const ui::SettingsRow& row : details->more) {
+        ui::addRow(list.rows(), row, controller_);
+    }
+    card.add<tk::HintBar>();
+    return std::move(frame.root);
+}
+
+void DetailsMoreScreen::paintBackdrop(tk::Painter& painter, const gpu2d::Rect& viewport) const {
+    painter.canvas.fillRect(viewport, painter.fade(painter.theme.colours.scrim));
+}
+
+std::vector<tk::Hint> DetailsMoreScreen::hints() const {
+    return {tk::Hint{{tk::Action::Back}, "Back"}};
 }
 
 } // namespace opensu::app

@@ -5,6 +5,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "library/titles.hpp"
 #include "lucent/log.h"
 
 namespace opensu::app {
@@ -94,7 +95,7 @@ MappingEditor::MappingEditor(ui::MappingPage& page, settings::MappingStore store
 }
 
 void MappingEditor::openGame(const library::Game& game) {
-    open(Target{settings::Layer{Kind::Game, game.id}, "Controls · " + game.title,
+    open(Target{settings::Layer{Kind::Game, game.id}, "Controls · " + library::copyName(game),
                 library::layerKeysOf(game), game.source == library::Source::Steam});
 }
 

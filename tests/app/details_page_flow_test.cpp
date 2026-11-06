@@ -6,9 +6,11 @@
 
 #include <cstdio>
 #include <filesystem>
+#include <functional>
 #include <initializer_list>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "support/fake_interface_text.hpp"
@@ -62,7 +64,9 @@ struct Rig {
     /// What the Copy saves row reads; empty for no row.
     std::string savesOffer;
     app::SharedSaves::View sharedSaves;
-    /// The store copies the game can switch between.
+    /// What the last Game settings page opened holds besides its settings.
+    std::function<std::vector<ui::SettingsRow>()> settingsRows;
+    /// The store copies with rows of their own.
     std::vector<library::Game> copies;
     /// Why `Installs` would refuse the uninstall; empty when it would not.
     std::string refusal;
@@ -116,7 +120,8 @@ struct Rig {
                              return &game;
                          },
                          [this](const std::string& id) {
-                             return id == game.id ? std::optional{game} : std::nullopt;
+                             return id == game.id || !copies.empty() ? std::optional{game}
+                                                                     : std::nullopt;
                          },
                          [this](const library::Game& launched) {
                              calls.push_back("launch " + launched.id);
@@ -133,17 +138,16 @@ struct Rig {
                          [this](const library::Game&, bool on) {
                              calls.push_back(on ? "add home" : "remove home");
                          },
-                         [this](const library::Game&, const std::string& name) {
-                             calls.push_back("emulator " + name);
-                         },
                          [this](const std::string& text, bool) {
                              calls.push_back("say " + text);
                          },
                          [this](const library::Game& opened) {
                              calls.push_back("controls " + opened.id);
                          },
-                         [this](const library::Game& opened) {
+                         [this](const library::Game& opened,
+                                std::function<std::vector<ui::SettingsRow>()> rows) {
                              calls.push_back("settings " + opened.id);
+                             settingsRows = std::move(rows);
                          },
                          [](const library::Game&) {
                              return std::optional<std::size_t>{};
@@ -196,11 +200,6 @@ struct Rig {
                          },
                          [this](const library::Game&) {
                              return copies;
-                         },
-                         [this](const library::Game& copy) {
-                             calls.push_back("copy " + copy.id);
-                             game = copy;
-                             controller.refresh();
                          }}} {
     }
 
@@ -227,8 +226,8 @@ struct Rig {
         return ui.navigator.focused();
     }
     [[nodiscard]] const ui::SettingsRow& row(std::string_view id) const {
-        const ui::SettingsRow* found = ui::actionOf(*controller.details(), id);
-        expect(found != nullptr, "the row is on the page");
+        const ui::SettingsRow* found = ui::settingsRowOf(*controller.details(), game.id, id);
+        expect(found != nullptr, "the row is on Game settings");
         return *found;
     }
 };
@@ -245,17 +244,7 @@ void buttonsDoWhatTheyName(const fs::path& dir) {
            "Play launches the page's game and the page stays");
     rig.calls.clear();
     rig.press({Action::Down});
-    expect(rig.focused() == ui::detailsEmulatorId, "the emulator follows Play");
-    rig.press({Action::Accept, Action::Down, Action::Accept});
-    expect(rig.calls == std::vector<std::string>{"emulator Ryujinx"},
-           "A on Emulator lists them, and the one picked is the game's");
-    rig.calls.clear();
-    rig.press({Action::Left});
-    expect(rig.calls == std::vector<std::string>{"emulator Ryujinx"},
-           "Left on Emulator steps back, wrapping");
-    rig.calls.clear();
-    rig.press({Action::Down});
-    expect(rig.focused() == ui::detailsHomeId, "Add to Home follows the emulator");
+    expect(rig.focused() == ui::detailsHomeId, "Add to Home follows Play");
     rig.press({Action::Accept});
     expect(rig.calls == std::vector<std::string>{"add home"} && rig.controller.isOpen(),
            "Add to Home puts the game on Home and the page stays");
@@ -271,33 +260,92 @@ library::Game storeCopy(library::Source source, const std::string& id, bool inst
     copy.title = "Hades";
     copy.source = source;
     copy.installed = installed;
+    copy.severalStores = true;
     return copy;
 }
 
-void storeRowSwitchesTheCopy(const fs::path& dir) {
+void aRowPerStoreCopy(const fs::path& dir) {
     Rig rig{dir};
     rig.copies = {storeCopy(library::Source::Steam, "steam:1", true),
+                  storeCopy(library::Source::Epic, "epic:h", true)};
+    rig.game = rig.copies.front();
+    rig.controller.open();
+    rig.ui.frame(1.0);
+    expect((rig.calls == std::vector<std::string>{"read steam:1", "read epic:h"}),
+           "the page reads each copy's saves");
+    rig.calls.clear();
+    expect(rig.focused() == ui::detailsLaunchId, "Play is focused");
+    rig.press({Action::Accept});
+    expect(rig.calls == std::vector<std::string>{"launch steam:1"}, "Play is the top copy's");
+    rig.calls.clear();
+
+    rig.press({Action::Down, Action::Down, Action::Down});
+    expect(rig.focused() == ui::copyRowId("steam:1", ui::detailsSettingsId),
+           "Game settings on the page is the top copy's");
+    rig.press({Action::Accept});
+    expect(rig.calls == std::vector<std::string>{"settings steam:1"}, "and opens its page");
+    rig.calls.clear();
+    rig.press({Action::Down});
+    expect(rig.focused() == ui::detailsMoreId, "More follows it");
+    rig.press({Action::Accept});
+    expect(rig.top() == "details.more" &&
+               rig.focused() == ui::copyRowId("epic:h", ui::detailsLaunchId),
+           "More leads with the other copy's Play");
+    rig.press({Action::Accept});
+    expect(rig.calls == std::vector<std::string>{"launch epic:h"}, "which plays that copy");
+    rig.calls.clear();
+    rig.press({Action::Down});
+    expect(rig.focused() == ui::copyRowId("epic:h", ui::detailsSettingsId),
+           "its Game settings follows");
+    rig.press({Action::Accept});
+    expect(rig.calls == std::vector<std::string>{"settings epic:h"}, "for that copy");
+    const std::vector<ui::SettingsRow> kept = rig.settingsRows();
+    expect(ui::copyRowOf(kept.back().id).gameId == "epic:h", "and what its page holds");
+    rig.calls.clear();
+    rig.controller.openPage(ui::copyRowId("epic:h", ui::detailsControlsId));
+    expect(rig.calls == std::vector<std::string>{"controls epic:h"}, "Controls is that copy's");
+    rig.calls.clear();
+
+    rig.press({Action::Down, Action::Down});
+    expect(rig.focused() == ui::copyRowId("epic:h", ui::detailsUninstallId),
+           "Uninstall of each copy ends More");
+    rig.press({Action::Accept});
+    expect(rig.ui.navigator.top()->title() == "Uninstall the Epic copy of Hades?",
+           "the confirmation names the copy");
+    rig.press({Action::Accept});
+    expect(rig.calls.front() == "uninstall epic:h", "the row acts on its copy, not the top one");
+    rig.calls.clear();
+    rig.press({Action::Back});
+    expect(rig.top() == "details" && rig.focused() == ui::detailsMoreId,
+           "Back returns to the More row");
+
+    rig.game = rig.copies.back();
+    rig.copies = {rig.copies.back(), rig.copies.front()};
+    rig.controller.refresh();
+    expect(rig.controller.details()->launch.gameId == "steam:1",
+           "a new top copy moves no row while the page is open");
+    rig.press({Action::Back});
+    rig.open();
+    expect(rig.controller.details()->launch.gameId == "epic:h",
+           "it leads when the page opens again");
+}
+
+void nothingInstalledLeadsWithInstall(const fs::path& dir) {
+    Rig rig{dir};
+    rig.copies = {storeCopy(library::Source::Steam, "steam:1", false),
                   storeCopy(library::Source::Epic, "epic:h", false)};
     rig.game = rig.copies.front();
     rig.open();
-    const ui::GameDetails* shown = rig.controller.details();
-    expect(shown->badge == "Steam" && shown->launch == "Play" &&
-               rig.row(ui::detailsStoreId).note == "Also on Epic",
-           "the page names the copy in use and the other store");
-    rig.press({Action::Down});
-    expect(rig.focused() == ui::detailsStoreId, "the Store row follows Play");
-    rig.press({Action::Accept, Action::Down, Action::Accept});
-    expect(rig.calls == std::vector<std::string>{"read epic:h", "copy epic:h"},
-           "picking Epic switches the title and reads that copy's saves");
-    shown = rig.controller.details();
-    expect(shown != nullptr && shown->gameId == "epic:h" && shown->badge == "Epic" &&
-               shown->launch == "Install" && rig.row(ui::detailsStoreId).note == "Also on Steam",
-           "the page follows: Epic's badge, Install, and Steam as the other store");
-    expect(actionOf(*shown, ui::detailsUninstallId) == nullptr, "the Epic copy has none to remove");
-    rig.calls.clear();
-    rig.controller.launch();
-    expect(rig.calls == std::vector<std::string>{"launch epic:h"},
-           "the launch button acts on the chosen copy, never the installed other");
+    expect(rig.focused() == ui::detailsLaunchId &&
+               rig.controller.details()->launch.label == "Install (Steam)",
+           "the top copy's Install is the primary row");
+    rig.press({Action::Accept});
+    expect(rig.calls.back() == "launch steam:1", "and behaves as Play does");
+    rig.controller.openPage(std::string{ui::detailsMoreId});
+    rig.ui.frame(1.0);
+    expect(rig.focused() != ui::copyRowId("steam:1", ui::detailsInstallId) &&
+               rig.controller.details()->more.size() == 2,
+           "More has the other copy's Game settings and Install, not the top one again");
 }
 
 void backClosesWithoutActing(const fs::path& dir) {
@@ -307,17 +355,17 @@ void backClosesWithoutActing(const fs::path& dir) {
     expect(!rig.controller.isOpen() && rig.calls.empty(),
            "B closes the page and does nothing else");
     rig.open();
-    rig.press({Action::Down, Action::Down, Action::Down, Action::Down, Action::Accept});
+    rig.controller.openPage(ui::copyRowId(rig.game.id, ui::detailsArtworkId));
     expect(rig.calls == std::vector<std::string>{"artwork rom:/r/Kirby.nsp"} &&
                rig.controller.isOpen(),
            "Choose artwork opens the cover picker over the page");
     rig.calls.clear();
-    rig.press({Action::Down, Action::Accept});
+    rig.controller.openPage(ui::copyRowId(rig.game.id, ui::detailsControlsId));
     expect(rig.calls == std::vector<std::string>{"controls rom:/r/Kirby.nsp"} &&
                rig.controller.isOpen(),
            "Controls opens the game's mapping over the page");
     rig.calls.clear();
-    rig.press({Action::Down, Action::Accept});
+    rig.press({Action::Down, Action::Down, Action::Down, Action::Down, Action::Accept});
     expect(!rig.controller.isOpen() && rig.calls.empty(), "the Back row closes it too");
 }
 
@@ -335,20 +383,22 @@ void uninstallAsksFirst(const fs::path& dir) {
     Rig rig{dir};
     rig.game = fortnite();
     rig.open();
-    rig.press({Action::Down, Action::Down, Action::Down});
-    expect(rig.focused() == ui::detailsUninstallId, "Uninstall follows Add to Home and Hide");
+    rig.press({Action::Down, Action::Down, Action::Down, Action::Down, Action::Accept});
+    expect(rig.top() == "details.more" && rig.focused() == ui::detailsUninstallId,
+           "a one-store game's Uninstall is on More too");
     rig.press({Action::Accept});
     expect(rig.calls.empty() && rig.top() == "dialog" &&
                rig.ui.navigator.top()->title() == "Uninstall Fortnite?" &&
                rig.focused() == "dialog/1",
            "A asks first, its Uninstall focused, and removes nothing");
     rig.press({Action::Back});
-    expect(rig.calls.empty() && rig.top() == "details" && rig.focused() == ui::detailsUninstallId,
+    expect(rig.calls.empty() && rig.top() == "details.more" &&
+               rig.focused() == ui::detailsUninstallId,
            "Back keeps the game and the page");
     rig.press({Action::Accept, Action::Accept});
     expect((rig.calls ==
             std::vector<std::string>{"uninstall epic:Fortnite", "say uninstalling Fortnite"}) &&
-               rig.top() == "details",
+               rig.top() == "details.more",
            "A, A starts the uninstall and the page stays");
     rig.calls.clear();
     rig.refusal = "Fortnite is still installing";
@@ -356,7 +406,7 @@ void uninstallAsksFirst(const fs::path& dir) {
     expect(
         (rig.calls ==
          std::vector<std::string>{"say cannot uninstall Fortnite: Fortnite is still installing"}) &&
-            rig.top() == "details",
+            rig.top() == "details.more",
         "a refused Uninstall says why and asks nothing");
 }
 
@@ -394,19 +444,20 @@ void winePrefixIsChosenPerGame(const fs::path& dir) {
     rig.game = fortnite();
     rig.game.windowsInstall = true;
     rig.open();
-    rig.press({Action::Down});
-    expect(rig.focused() == ui::detailsWinePrefixId &&
-               rig.row(ui::detailsWinePrefixId).value == ui::sharedPrefix,
-           "a Windows install follows Play with its prefix, shared");
-    rig.press({Action::Right});
+    const std::string row = ui::copyRowId(rig.game.id, ui::detailsWinePrefixId);
+    rig.controller.openPage(ui::actionOf(*rig.controller.details(), ui::detailsSettingsId)->id);
+    expect(rig.settingsRows().front().value == ui::sharedPrefix,
+           "Game settings holds a Windows install's prefix, shared");
+    rig.calls.clear();
+    rig.controller.run(row, 1);
     expect(
-        rig.row(ui::detailsWinePrefixId).value == ui::ownPrefix &&
+        rig.settingsRows().front().value == ui::ownPrefix &&
             settings::Store{dir / "settings.json"}.load().ownWinePrefixes.contains("epic:Fortnite"),
-        "Right gives the game its own prefix and keeps that");
+        "stepping gives the game its own prefix and keeps that");
     expect(rig.calls == std::vector<std::string>{"say Fortnite gets a Wine prefix of its own"},
            "the player is told");
-    rig.press({Action::Right});
-    expect(rig.row(ui::detailsWinePrefixId).value == ui::sharedPrefix &&
+    rig.controller.run(row, 1);
+    expect(rig.settingsRows().front().value == ui::sharedPrefix &&
                settings::Store{dir / "settings.json"}.load().ownWinePrefixes.ids().empty(),
            "again shares the prefix again");
 }
@@ -416,7 +467,8 @@ void refreshFollowsTheGame(const fs::path& dir) {
     rig.open();
     rig.game.emulator = "Ryujinx";
     rig.controller.refresh();
-    expect(rig.row(ui::detailsEmulatorId).value == "Ryujinx", "a refresh shows the new emulator");
+    expect(ui::factOf(*rig.controller.details(), "Emulator")->value.starts_with("Ryujinx"),
+           "a refresh shows the new emulator");
     expect(rig.controller.details()->title == "Kirby", "the trail reads the page's game");
     rig.game.id = "rom:/gone";
     rig.controller.refresh();
@@ -443,14 +495,14 @@ void copySavesOpens(const fs::path& dir) {
     expect(rig.calls == std::vector<std::string>{"read rom:/r/Kirby.nsp"},
            "opening the page reads the game's saves again");
     rig.calls.clear();
-    expect(ui::actionOf(*rig.controller.details(), ui::detailsSavesId) == nullptr,
+    expect(ui::settingsRowOf(*rig.controller.details(), rig.game.id, ui::detailsSavesId) == nullptr,
            "no Copy saves row while the read offers no copy");
     rig.savesOffer = "Eden, Ryujinx";
     rig.controller.refresh();
     const ui::SettingsRow& row = rig.row(ui::detailsSavesId);
     expect(row.label == "Copy saves" && row.value == "Eden, Ryujinx",
            "the row names the emulators keeping a save");
-    rig.controller.openPage(std::string{ui::detailsSavesId});
+    rig.controller.openPage(row.id);
     expect(rig.calls == std::vector<std::string>{"saves rom:/r/Kirby.nsp"},
            "it opens Copy saves for the page's game");
 }
@@ -459,7 +511,8 @@ void sharedSavesShow(const fs::path& dir) {
     Rig rig{dir};
     rig.open();
     expect(ui::factOf(*rig.controller.details(), "Saves") == nullptr &&
-               ui::actionOf(*rig.controller.details(), ui::detailsSyncSavesId) == nullptr,
+               ui::settingsRowOf(*rig.controller.details(), rig.game.id, ui::detailsSyncSavesId) ==
+                   nullptr,
            "no Saves fact or row while no openSU shares the game's saves");
     rig.sharedSaves = app::SharedSaves::View{"Conflict with Desk", "Pick which save to keep"};
     rig.controller.refresh();
@@ -468,7 +521,7 @@ void sharedSavesShow(const fs::path& dir) {
            "the Saves fact says how they stand");
     expect(rig.row(ui::detailsSyncSavesId).label == "Pick which save to keep",
            "and the row what it does");
-    rig.controller.run(std::string{ui::detailsSyncSavesId}, 0);
+    rig.controller.run(rig.row(ui::detailsSyncSavesId).id, 0);
     expect(rig.calls == std::vector<std::string>{"sync saves rom:/r/Kirby.nsp"},
            "the row acts on the page's game");
 }
@@ -514,7 +567,8 @@ int main() try {
     fs::remove_all(dir);
     fs::create_directories(dir);
     buttonsDoWhatTheyName(dir);
-    storeRowSwitchesTheCopy(dir / "store");
+    aRowPerStoreCopy(dir / "store");
+    nothingInstalledLeadsWithInstall(dir / "nothing-installed");
     backClosesWithoutActing(dir);
     refreshFollowsTheGame(dir);
     coverSpinnerFollowsTheGame(dir);

@@ -18,10 +18,11 @@ namespace opensu::ui {
 
 /// The ids of the page's launch button and action rows.
 inline constexpr std::string_view detailsLaunchId = "details.launch";
-inline constexpr std::string_view detailsStoreId = "details.store";
+/// A row of one copy: this, the copy's game id, "#" and the row's own id.
+inline constexpr std::string_view copyRowPrefix = "details.of:";
 inline constexpr std::string_view detailsUpdateId = "details.update";
+inline constexpr std::string_view detailsInstallId = "details.install";
 inline constexpr std::string_view detailsDownloadId = "details.download";
-inline constexpr std::string_view detailsEmulatorId = "details.emulator";
 inline constexpr std::string_view detailsSettingsId = "details.settings";
 inline constexpr std::string_view detailsWinePrefixId = "details.winePrefix";
 inline constexpr std::string_view detailsHomeId = "details.home";
@@ -40,12 +41,28 @@ inline constexpr std::string_view detailsLinkedId = "details.linked";
 /// A Play with row's id: this and the paired openSU's id.
 inline constexpr std::string_view detailsPlayWithPrefix = "details.playWith:";
 inline constexpr std::string_view detailsPlayOnlineId = "details.playOnline";
+inline constexpr std::string_view detailsMoreId = "details.more";
 inline constexpr std::string_view detailsBackId = "details.back";
-/// The Emulator choice's option while the game has no emulator picked.
-inline constexpr std::string_view noEmulator = "None";
 /// The Wine prefix choice's options, the shared one first.
 inline constexpr std::string_view sharedPrefix = "Shared";
 inline constexpr std::string_view ownPrefix = "Own";
+
+/// The launch button: "Play", or the top copy's "Play (Steam)" or "Install (Epic)".
+struct LaunchButton {
+    std::string label;
+    /// The game it plays or installs.
+    std::string gameId;
+
+    bool operator==(const LaunchButton&) const = default;
+};
+
+/// What a copy's Game settings page holds besides its settings.
+struct SettingsPage {
+    std::string gameId;
+    std::vector<SettingsRow> rows;
+
+    bool operator==(const SettingsPage&) const = default;
+};
 
 /// Everything the page shows for one game.
 struct GameDetails {
@@ -57,12 +74,18 @@ struct GameDetails {
     std::filesystem::path art;
     /// The wide picture faded behind the page when the cover is a portrait; empty for none.
     std::filesystem::path hero;
-    /// The first button: Play, or Install for a game that is not installed.
-    std::string launch;
+    /// The first row, focused: Play of the top copy, or Install with nothing installed.
+    LaunchButton launch;
     /// What is known about the game, as facts.
     std::vector<SettingsRow> facts;
-    /// The rows that act on it, after the launch button.
+    /// The rows after it, of the top copy where a row is a copy's: the other ways to play, Update,
+    /// Download, Add to Home and Hide, Game settings, More.
     std::vector<SettingsRow> actions;
+    /// The rows on More: the other copies' Play, Update, Game settings and Install, then Uninstall
+    /// for each installed copy or Remove from library; empty, and no More row, for none.
+    std::vector<SettingsRow> more;
+    /// One per copy, or one for the page's game.
+    std::vector<SettingsPage> settingsPages;
 
     bool operator==(const GameDetails&) const = default;
 };
@@ -79,7 +102,7 @@ lastPlayedText(const std::optional<std::chrono::system_clock::time_point>& at,
 /// The game's settings as the page shows them.
 struct GameSettingsView {
     /// Where the game's emulator comes from ("Automatic (romset)", "From Super Nintendo"), added
-    /// to the Emulator fact and under the Emulator choice; empty for none.
+    /// to the Emulator fact; empty for none.
     std::string emulatorSource;
     /// After the Emulator fact: the value of each setting a layer keeps and where it comes from.
     std::vector<SettingsRow> facts;
@@ -109,9 +132,24 @@ struct GameSettingsView {
     std::vector<Partner> partners;
     /// Whether it can be offered to a friend over the internet: the Play online row.
     bool online{false};
-    /// The stores the player can switch the game's copy between, the Store row; empty for no row.
-    std::vector<library::Source> stores;
 };
+
+/// One store copy of a title two stores own, with what its rows show.
+struct CopyPart {
+    library::Game game;
+    bool ownWinePrefix{false};
+    GameSettingsView settings;
+};
+
+/// The id of row `id` acting on copy `gameId`.
+[[nodiscard]] std::string copyRowId(std::string_view gameId, std::string_view id);
+
+/// A row's own id and the copy it acts on, empty for the page's game.
+struct CopyRow {
+    std::string id;
+    std::string gameId;
+};
+[[nodiscard]] CopyRow copyRowOf(const std::string& id);
 
 /// What the page says about the facts' setting `label` reading `value`.
 [[nodiscard]] SettingsRow detailsFact(std::string label, std::string value);
@@ -126,14 +164,22 @@ struct GameMarks {
 
 /// What the page shows for `game`, as `marks` place it. `download` is what the Download row reads:
 /// the running download's progress, or empty. `ownWinePrefix` is whether a Windows install runs in
-/// a Wine prefix of its own.
+/// a Wine prefix of its own. `copies`, top copy first, gives a title two stores own rows named for
+/// each copy; empty, the page is `game`'s alone.
 [[nodiscard]] GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
                                     std::chrono::system_clock::time_point now,
                                     const std::string& download = {}, bool ownWinePrefix = false,
-                                    const GameSettingsView& settings = {});
+                                    const GameSettingsView& settings = {},
+                                    const std::vector<CopyPart>& copies = {});
 
 /// The fact labelled `label`, or null.
 [[nodiscard]] const SettingsRow* factOf(const GameDetails& details, std::string_view label);
+/// What `gameId`'s Game settings page holds besides its settings.
+[[nodiscard]] std::vector<SettingsRow> settingsPageOf(const GameDetails& details,
+                                                      std::string_view gameId);
+/// The row `id` on `gameId`'s Game settings page, or null.
+[[nodiscard]] const SettingsRow* settingsRowOf(const GameDetails& details, std::string_view gameId,
+                                               std::string_view id);
 /// The action row `id`, or null.
 [[nodiscard]] const SettingsRow* actionOf(const GameDetails& details, std::string_view id);
 

@@ -139,7 +139,7 @@ void ContextMenuController::uninstall(const library::Game& game) {
     if (!what) {
         return;
     }
-    navigator_.push(gpu2d::ui::confirm("Uninstall " + game.title + "?", *what, "Uninstall",
+    navigator_.push(gpu2d::ui::confirm(UninstallPrompt::question(game), *what, "Uninstall",
                                        [this, game = game] {
                                            uninstall_.start(game);
                                        }));

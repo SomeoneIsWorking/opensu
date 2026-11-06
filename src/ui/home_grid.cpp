@@ -712,7 +712,7 @@ void HomeGrid::fillContent(TileVisual& visual, const Tile& tile) const {
     if (const auto* game = std::get_if<library::Game>(&tile.item)) {
         visual.title = game->title;
         visual.stores = tile.stores;
-        visual.update = game->updateAvailable;
+        visual.update = game->updateAvailable || game->updateOnCopy;
         if (game->source == library::Source::Rom) {
             visual.console = game->sourceId;
         }

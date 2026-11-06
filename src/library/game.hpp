@@ -32,8 +32,6 @@ enum class Source : std::uint8_t {
 
 /// The store's name as keys spell it: "steam", "epic", "gog", "emulator", "own", "lan".
 [[nodiscard]] std::string key(Source source);
-/// The source `key` spells; nothing for none.
-[[nodiscard]] std::optional<Source> sourceOf(std::string_view key);
 
 /// The command that starts a game. Every source fills this in, so launching
 /// needs no knowledge of which store owns a title.
@@ -165,6 +163,10 @@ struct Game {
     int playtimeMinutes{0};
     std::optional<std::chrono::system_clock::time_point> lastPlayed;
     bool favourite{false};
+    /// A store copy of a title two stores own, so what names it says which (`markCopies`).
+    bool severalStores{false};
+    /// A tile of the title with an update on any copy. Set by `visibleShelf`.
+    bool updateOnCopy{false};
 
     /// A substring of the running game's command line, used to notice that it
     /// has exited. Empty when the source cannot identify its own process.

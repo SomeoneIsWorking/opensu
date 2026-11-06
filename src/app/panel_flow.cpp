@@ -115,36 +115,27 @@ void PanelFlow::startInstall(const library::Game& game) {
     shown_.leave = "Hide";
 }
 
-void PanelFlow::offerInstall(const library::Game& game, std::vector<library::Game> copies) {
-    const std::string unsupported =
-        std::string{library::label(copies.front().source)} + " installs are not supported yet";
-    std::erase_if(copies, [](const library::Game& copy) {
-        return copy.installed || !Installs::supports(copy.source);
-    });
-    if (copies.empty()) {
-        hooks_.say(unsupported, true);
+void PanelFlow::offerInstall(const library::Game& game) {
+    if (!Installs::supports(game.source)) {
+        hooks_.say(std::string{library::label(game.source)} + " installs are not supported yet",
+                   true);
         return;
     }
     if (const std::string busy = install_.busy(); !busy.empty()) {
         hooks_.say(busy, true);
         return;
     }
-    std::vector<gpu2d::ui::Dialog::Choice> choices;
-    for (const library::Game& copy : copies) {
-        const std::string label =
-            copies.size() == 1 ? "Install" : "From " + std::string{library::label(copy.source)};
-        choices.push_back(gpu2d::ui::Dialog::Choice{label,
-                                                    [this, copy = copy] {
-                                                        startInstall(copy);
-                                                    },
-                                                    gpu2d::ui::ButtonKind::Primary});
-    }
-    choices.push_back(gpu2d::ui::Dialog::Choice{"Cancel", {}, gpu2d::ui::ButtonKind::Normal, true});
+    std::vector<gpu2d::ui::Dialog::Choice> choices{
+        gpu2d::ui::Dialog::Choice{"Install",
+                                  [this, game = game] {
+                                      startInstall(game);
+                                  },
+                                  gpu2d::ui::ButtonKind::Primary},
+        gpu2d::ui::Dialog::Choice{"Cancel", {}, gpu2d::ui::ButtonKind::Normal, true}};
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
-    navigator_.push(std::make_unique<gpu2d::ui::Dialog>(
-        game.title, copies.size() == 1 ? "Not installed." : "Not installed. Install it from:",
-        std::move(choices)));
+    navigator_.push(
+        std::make_unique<gpu2d::ui::Dialog>(game.title, "Not installed.", std::move(choices)));
 }
 
 void PanelFlow::presentEula() {

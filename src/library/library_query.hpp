@@ -13,7 +13,6 @@
 
 #include "game.hpp"
 #include "shelf.hpp"
-#include "titles.hpp"
 
 namespace opensu::library {
 
@@ -95,12 +94,9 @@ struct LibraryView {
     std::vector<AddTile> adds;
 };
 
-/// `copies` decides what Only games that can be launched now asks of a title the player chose a
-/// copy of: whether that copy is installed.
 [[nodiscard]] LibraryView applyOptions(const std::vector<Game>& games,
                                        const std::vector<SourceStatus>& sources,
-                                       const ViewOptions& options, const HiddenGames& hidden,
-                                       const CopyChoices& copies = {});
+                                       const ViewOptions& options, const HiddenGames& hidden);
 
 /// What a search for `text` finds in `view`: the folders and the games whose names hold it, those
 /// that begin with it first, then those with a word that does, then the rest; each group in the
@@ -111,17 +107,16 @@ struct LibraryView {
 /// system, or "Console", "Store" or "Library" for a folder.
 [[nodiscard]] std::string describeResult(const ShelfItem& item);
 
-/// The store whose `TitleCopies` page the shelf is: the open launcher's, or the source filter's
-/// while a search or Home is shown.
-[[nodiscard]] std::optional<Source> pageOf(const ShelfBrowser& browser, const ViewOptions& options);
+/// Whether the shelf is of the player's own games or another openSU's, whose tiles stand for that
+/// copy and not its title: the open launcher, or the source filter while a search or Home is shown.
+[[nodiscard]] bool keepsOwnCopy(const ShelfBrowser& browser, const ViewOptions& options);
 
 /// The shelf the grid shows: the search's results when there is a search, else the browser's
-/// shelf of the narrowed library, Home's as `home` makes it, each game as the copy its entry uses
-/// (`TitleCopies` over all of `games`, so a filter never swaps a chosen copy for another).
+/// shelf of the narrowed library, Home's as `home` makes it, each game as its title's top copy
+/// (`TitleCopies` over all of `games`, so a filter never changes which copy that is).
 [[nodiscard]] std::vector<ShelfItem>
 visibleShelf(ShelfBrowser& browser, const std::vector<Game>& games,
              const std::vector<SourceStatus>& sources, const std::vector<AddTile>& adds,
-             const ViewOptions& options, const HiddenGames& hidden, const HomeChoices& home,
-             const CopyChoices& copies = {});
+             const ViewOptions& options, const HiddenGames& hidden, const HomeChoices& home);
 
 } // namespace opensu::library

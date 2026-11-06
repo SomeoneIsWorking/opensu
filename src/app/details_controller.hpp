@@ -1,5 +1,5 @@
 // details_controller — a game's details page and what its rows do: play or install the game,
-// switch which store's copy it uses, update it, pick its emulator, open its settings
+// each store copy from its own button, update it, pick its emulator, open its settings
 // (`LayeredEditor`), download the emulator it is missing, give a Windows install its own Wine
 // prefix or the shared one, add it to Home or remove it, hide it, uninstall it (asking first),
 // rename, change the file of or remove a game the player added
@@ -36,7 +36,8 @@ class DetailsController final : public ui::RowActions {
     struct Hooks {
         /// The game the grid has focused, or null when none.
         std::function<const library::Game*()> focused;
-        /// The game with this id as the grid shows it now, or nothing when it is gone.
+        /// The game with this id, or the tile of its title, as the grid shows it now, or nothing
+        /// when it is gone.
         std::function<std::optional<library::Game>(const std::string& id)> find;
         /// Launches `game`, or offers to install it.
         std::function<void(const library::Game& game)> launch;
@@ -48,14 +49,14 @@ class DetailsController final : public ui::RowActions {
         std::function<bool(const library::Game& game)> continues;
         /// Puts `game` on Home or takes it off, and shows the shelf again.
         std::function<void(const library::Game& game, bool on)> setOnHome;
-        /// Runs ROM `game` on emulator `name` from now on.
-        std::function<void(const library::Game& game, const std::string& name)> chooseEmulator;
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
         /// Opens `game`'s button mapping over the page.
         std::function<void(const library::Game& game)> controls;
-        /// Opens `game`'s settings over the page.
-        std::function<void(const library::Game& game)> openGameSettings;
+        /// Opens `game`'s settings over the page, with `rows` on the game's own tab.
+        std::function<void(const library::Game& game,
+                           std::function<std::vector<ui::SettingsRow>()> rows)>
+            openGameSettings;
         /// How many settings `game` keeps of its own; nothing when it has nothing to set.
         std::function<std::optional<std::size_t>(const library::Game& game)> gameSettings;
         /// Opens "Choose artwork" for `game` over the page.
@@ -89,10 +90,9 @@ class DetailsController final : public ui::RowActions {
         std::function<void(const library::Game& game, const std::string& peerId)> playWith;
         /// Offers `game` to a friend over the internet.
         std::function<void(const library::Game& game)> playOnline;
-        /// The store copies `game`'s entry can switch between; empty when it cannot.
+        /// The store copies with rows of their own on `game`'s page, top first; empty for a page
+        /// of `game` alone.
         std::function<std::vector<library::Game>(const library::Game& game)> copies;
-        /// Makes `copy` the one its title uses, and shows the shelf again.
-        std::function<void(const library::Game& copy)> chooseCopy;
     };
 
     /// What the rows act on.
@@ -131,8 +131,8 @@ class DetailsController final : public ui::RowActions {
     [[nodiscard]] bool artDownloading() const;
 
     // What the page asks.
-    /// The launch button: Play, or offer to install.
-    void launch();
+    /// The launch button of game `id`, the page's or a copy of it: Play, or offer to install.
+    void launch(const std::string& id);
     void run(const std::string& id, int step) override;
     void openPage(const std::string& id) override;
 
@@ -145,10 +145,12 @@ class DetailsController final : public ui::RowActions {
     [[nodiscard]] ui::GameSettingsView settingsOf(const library::Game& game) const;
     /// The page's game as the grid shows it now; the page closes when it is gone.
     [[nodiscard]] std::optional<library::Game> current();
+    /// The game a row or button names: the page's when `gameId` is empty, else that copy of it;
+    /// nothing when it is gone.
+    [[nodiscard]] std::optional<library::Game> rowGame(const std::string& gameId) const;
+    /// The copies with a button, in the order the page opened with.
+    [[nodiscard]] std::vector<library::Game> copiesOf(const library::Game& game) const;
     /// Picks the Emulator choice's option `step` places on, wrapping.
-    void chooseEmulator(const library::Game& game, int step);
-    /// Switches the page to the store copy the Store choice's option `step` places on, wrapping.
-    void chooseCopy(const library::Game& game, int step);
     /// Starts downloading the emulator `game` is missing, or cancels its download.
     void downloadEmulator(const library::Game& game);
     /// Moves a Windows install between its own Wine prefix and the shared one.
@@ -168,6 +170,8 @@ class DetailsController final : public ui::RowActions {
     Hooks hooks_;
     /// What the page shows, as last read.
     std::optional<ui::GameDetails> details_;
+    /// The copies' ids as the page opened: buttons never swap under a pointer while it is up.
+    std::vector<std::string> openOrder_;
 };
 
 } // namespace opensu::app

@@ -2,9 +2,12 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cstddef>
 #include <functional>
+#include <optional>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace opensu::library {
 namespace {
@@ -37,10 +40,9 @@ bool isStore(Source source) noexcept {
     return source == Source::Steam || source == Source::Gog || source == Source::Epic;
 }
 
-/// The copy of `title` from `source`, or null.
-const Game* copyFrom(const Title& title, Source source) {
-    const auto found = std::ranges::find(title.copies, source, &Game::source);
-    return found == title.copies.end() ? nullptr : *found;
+/// When `copy` was last played, as `TitleCopies` orders it; a copy of no store never leads by it.
+std::optional<std::chrono::system_clock::time_point> playedAt(const Game& copy) {
+    return isStore(copy.source) ? copy.lastPlayed : std::nullopt;
 }
 
 } // namespace
@@ -65,6 +67,11 @@ std::string choiceKey(const Game& game) {
         }
     }
     return "id:" + game.id;
+}
+
+std::string copyName(const Game& game) {
+    return game.severalStores ? game.title + " (" + std::string{label(game.source)} + ")"
+                              : game.title;
 }
 
 std::vector<Title> storeTitles(const std::vector<Game>& games) {
@@ -118,17 +125,24 @@ std::vector<Game> copiesOf(const std::vector<Game>& games, const Game& game) {
     return {game};
 }
 
-std::optional<Source> CopyChoices::chosen(const Game& game) const {
-    const auto found = entries_.find(choiceKey(game));
-    return found == entries_.end() ? std::nullopt : std::optional{found->second};
+void markCopies(std::vector<Game>& games) {
+    std::unordered_set<std::string> several;
+    for (const Title& title : storeTitles(games)) {
+        if (std::ranges::count_if(title.copies, isStore, &Game::source) < 2) {
+            continue;
+        }
+        for (const Game* copy : title.copies) {
+            if (isStore(copy->source)) {
+                several.insert(copy->id);
+            }
+        }
+    }
+    for (Game& game : games) {
+        game.severalStores = several.contains(game.id);
+    }
 }
 
-void CopyChoices::choose(const Game& copy) {
-    entries_[choiceKey(copy)] = copy.source;
-}
-
-TitleCopies::TitleCopies(const std::vector<Game>& games, const CopyChoices& choices)
-    : choices_{choices}, titles_{storeTitles(games)} {
+TitleCopies::TitleCopies(const std::vector<Game>& games) : titles_{storeTitles(games)} {
     for (std::size_t at = 0; at < titles_.size(); ++at) {
         for (const Game* copy : titles_[at].copies) {
             byGame_.emplace(copy->id, at);
@@ -141,59 +155,41 @@ const Title* TitleCopies::titleOf(const Game& game) const {
     return found == byGame_.end() ? nullptr : &titles_[found->second];
 }
 
-const Game* TitleCopies::use(const Game& game, std::optional<Source> page) const {
+std::vector<const Game*> TitleCopies::ordered(const Game& game) const {
     const Title* title = titleOf(game);
     if (title == nullptr) {
-        return nullptr;
+        return {};
     }
-    const std::optional<Source> chosen = choices_.chosen(game);
-    if (chosen && (!page || isStore(*page))) {
-        if (const Game* copy = copyFrom(*title, *chosen)) {
-            return copy;
+    std::vector<const Game*> copies = title->copies;
+    std::ranges::stable_sort(copies, [](const Game* a, const Game* b) {
+        if (a->installed != b->installed) {
+            return a->installed;
         }
-    }
-    if (page) {
-        if (const Game* copy = copyFrom(*title, *page)) {
-            return copy;
-        }
-    }
-    return title->copies.front();
+        return playedAt(*a) > playedAt(*b);
+    });
+    return copies;
 }
 
-std::vector<Game> TitleCopies::installable(const Game& game, std::optional<Source> page) const {
-    const Title* title = titleOf(game);
-    if (title == nullptr) {
-        return {game};
-    }
-    const std::optional<Source> chosen = choices_.chosen(game);
-    if (page || (chosen && copyFrom(*title, *chosen) != nullptr)) {
-        return {*use(game, page)};
-    }
-    std::vector<Game> out;
-    out.reserve(title->copies.size());
-    for (const Game* copy : title->copies) {
-        out.push_back(*copy);
-    }
-    return out;
+const Game* TitleCopies::top(const Game& game) const {
+    const std::vector<const Game*> copies = ordered(game);
+    return copies.empty() ? nullptr : copies.front();
 }
 
-std::vector<Game> TitleCopies::switchable(const Game& game, std::optional<Source> page) const {
-    const Title* title = titleOf(game);
-    if (title == nullptr || (page && !isStore(*page))) {
+bool TitleCopies::updatePending(const Game& game) const {
+    return std::ranges::any_of(ordered(game), &Game::updateAvailable);
+}
+
+std::vector<Game> TitleCopies::offered(const Game& game) const {
+    const std::vector<const Game*> copies = ordered(game);
+    if (std::ranges::count_if(copies, isStore, &Game::source) < 2) {
         return {};
     }
     std::vector<Game> out;
-    for (const Game* copy : title->copies) {
-        if (isStore(copy->source)) {
+    for (const Game* copy : copies) {
+        if (isStore(copy->source) || copy == copies.front()) {
             out.push_back(*copy);
         }
     }
-    if (out.size() < 2) {
-        return {};
-    }
-    std::ranges::sort(out, {}, [](const Game& copy) {
-        return rank(copy.source);
-    });
     return out;
 }
 

@@ -24,7 +24,6 @@ constexpr const char* sourceKey = "source";
 constexpr const char* hiddenKey = "hidden";
 constexpr const char* lastPlayedKey = "lastPlayed";
 constexpr const char* homeKey = "home";
-constexpr const char* copiesKey = "copies";
 constexpr const char* homeModeKey = "homeMode";
 constexpr const char* uiSoundsKey = "uiSounds";
 constexpr const char* romFoldersKey = "romFolders";
@@ -227,29 +226,6 @@ class Reader {
         out = table.overrides();
     }
 
-    void copyChoices(const char* name, library::CopyChoices& out, const char* fallback) const {
-        const auto found = document_.find(name);
-        if (found == document_.end()) {
-            return;
-        }
-        library::CopyChoices::Entries entries;
-        bool valid = found->is_object();
-        for (const auto& item : found->items()) {
-            const std::optional<library::Source> store =
-                item.value().is_string() ? library::sourceOf(item.value().get<std::string>())
-                                         : std::nullopt;
-            valid = valid && store.has_value();
-            if (store) {
-                entries.emplace(item.key(), *store);
-            }
-        }
-        if (valid) {
-            out = library::CopyChoices{std::move(entries)};
-        } else {
-            reject(name, *found, fallback);
-        }
-    }
-
     void homeChoices(const char* name, library::HomeChoices& out, const char* fallback) const {
         const auto found = document_.find(name);
         if (found == document_.end()) {
@@ -431,7 +407,6 @@ Settings Store::load() const {
     read.texts(hiddenKey, hidden, "no game is hidden");
     settings.hidden = library::HiddenGames{std::move(hidden)};
     read.homeChoices(homeKey, settings.home, "Home holds the installed games and consoles");
-    read.copyChoices(copiesKey, settings.copies, "each title uses its preferred copy");
     library::PlayHistory::Entries played;
     read.times(lastPlayedKey, played, "no launch is remembered");
     settings.lastPlayed = library::PlayHistory{std::move(played)};
@@ -542,10 +517,6 @@ bool Store::save(const Settings& settings, std::string& error) const {
     for (const auto& [item, choice] : settings.home.entries()) {
         home[item] = std::string{library::key(choice)};
     }
-    json copies = json::object();
-    for (const auto& [title, store] : settings.copies.entries()) {
-        copies[title] = library::key(store);
-    }
     json pins = json::object();
     for (const auto& [game, runner] : settings.wineRunnerPins) {
         pins[game] = runner.string();
@@ -559,7 +530,6 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {sourceKey, settings.view.source},
         {hiddenKey, settings.hidden.keys()},
         {homeKey, home},
-        {copiesKey, copies},
         {lastPlayedKey, settings.lastPlayed.entries()},
         {uiSoundsKey, settings.uiSounds},
         {romFoldersKey, listOf(settings.romFolders)},

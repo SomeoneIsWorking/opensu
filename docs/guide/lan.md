@@ -77,7 +77,7 @@ openSUs, the saves of the emulator it starts with follow the profile you play as
 - After the game ends, the other openSU takes yours.
 - The game's details page says how its saves stand under **Saves**: In sync with Desk, Newer on
   Desk, Conflict with Desk, Desk cannot be reached, or This profile is not linked with Desk.
-  **Sync saves now** syncs at once.
+  **Sync saves now**, on its Game settings page, syncs at once.
 - If you played on both since they last synced, nothing is replaced. The row says **Pick which
   save to keep** and shows each side's date and size. B cancels.
 - The saves replaced are always backed up first, as Copy saves does, under

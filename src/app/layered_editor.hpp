@@ -10,6 +10,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -18,6 +19,7 @@
 #include "gpu2d/ui/screen.hpp"
 
 #include "layered_settings.hpp"
+#include "ui/row_widgets.hpp"
 #include "ui/screen_stack.hpp"
 
 namespace opensu::app {
@@ -29,12 +31,19 @@ enum class EditorLook : std::uint8_t {
     Panel,
 };
 
+/// Rows of a game beyond its settings, which the game's own tab shows after them.
+struct EditorRows {
+    std::function<std::vector<ui::SettingsRow>()> rows;
+    /// What they do; outlives the editor.
+    ui::RowActions* actions{nullptr};
+};
+
 class LayeredEditor final : public gpu2d::ui::Screen {
   public:
     /// `title` names what it edits.
     LayeredEditor(LayeredSettings& settings, gpu2d::ui::Navigator& navigator,
                   const ui::Chrome& chrome, EditorContext context, EditorLook look,
-                  std::string title);
+                  std::string title, EditorRows more = {});
 
     [[nodiscard]] std::unique_ptr<gpu2d::ui::Widget> build(const gpu2d::ui::Theme& theme) override;
     [[nodiscard]] gpu2d::Rect area(const gpu2d::Rect& viewport,
@@ -78,6 +87,7 @@ class LayeredEditor final : public gpu2d::ui::Screen {
     std::size_t scope_;
     /// The first row as last built.
     std::string firstRow_;
+    EditorRows more_;
 };
 
 /// The shader pack's folders for one scope's Shader preset: "Use … from …" and None at its top,

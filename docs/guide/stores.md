@@ -109,7 +109,7 @@ Legendary has not set yet gets the one Legendary works out. GOG cloud saves are 
 
 ## Uninstalling games
 
-An installed Steam, Epic or GOG game's details page and tile menu (Select) have Uninstall. The
+An installed Steam, Epic or GOG game's details page (under More) and tile menu (Select) have Uninstall. The
 first press says what will go, and a second press removes it; moving to another button cancels.
 Steam removes its own games through its own uninstaller; Epic games go through
 `legendary uninstall`. A GOG game's folder is deleted only when it is inside the folder openSU gave
@@ -121,8 +121,8 @@ or another install or uninstall is under way, and shows on the Downloads page wh
 
 Library's Add a game tile picks a Linux program, script or AppImage, a Windows `.exe`, or a shortcut
 (`.lnk`, `.url`, `.desktop`), and identifies it (title, platform, Steam app and cover) for you to
-confirm. Steam's non-Steam shortcuts and Lutris's games are imported read-only. An added game's menu
-has Rename, Change file and Remove from library. Android has no Add a game.
+confirm. Steam's non-Steam shortcuts and Lutris's games are imported read-only. An added game's details
+page has Remove from library under More, and its Game settings page Rename and Change file. Android has no Add a game.
 
 Add a game folder, the tile beside it and in Settings › Library, keeps a folder in step with the
 library: it is read each time the library loads, so a new file adds a game and a deleted one removes
@@ -150,7 +150,7 @@ the exact title, and never a demo, beta, prototype, hack, pirate, unlicensed, af
 release. Match a different game offers Steam apps and those systems' box art for anything else.
 
 With a SteamGridDB key, a cover Home's square tiles would crop or letterbox is replaced by SteamGridDB's square one
-(the original stays on disk), a game with nothing else gets one by its title, and a game's details
+(the original stays on disk), a game with nothing else gets one by its title, and a game's Game settings
 page offers Choose artwork, a picker of
 SteamGridDB's covers kept per game.
 

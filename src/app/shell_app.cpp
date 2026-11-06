@@ -305,6 +305,7 @@ void ShellApp::loadCatalogNow() {
 
 void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     games_ = std::move(snapshot.games);
+    library::markCopies(games_);
     sources_ = std::move(snapshot.sources);
     preferences_.values().lastPlayed.apply(games_);
     library::applyEmulatorPicks(gameSettings_.layers(), games_);
@@ -365,7 +366,7 @@ void ShellApp::showShelf(std::size_t focus) {
     const settings::Settings& chosen = preferences_.values();
     std::vector<library::ShelfItem> shelf =
         library::visibleShelf(browser_, games_, sources_, libraryAdditions_.tiles(), chosen.view,
-                              chosen.hidden, chosen.home, chosen.copies);
+                              chosen.hidden, chosen.home);
     artworkStore_.apply(shelf);
     covers_.apply(shelf);
     shell_.grid().setShelf(std::move(shelf), browser_.takeReturn().value_or(focus));
@@ -376,7 +377,7 @@ void ShellApp::refreshShelf() {
     const settings::Settings& chosen = preferences_.values();
     std::vector<library::ShelfItem> shelf =
         library::visibleShelf(browser_, games_, sources_, libraryAdditions_.tiles(), chosen.view,
-                              chosen.hidden, chosen.home, chosen.copies);
+                              chosen.hidden, chosen.home);
     artworkStore_.apply(shelf);
     covers_.apply(shelf);
     if (const std::optional<std::size_t> slot = browser_.takeReturn()) {
@@ -719,7 +720,7 @@ void ShellApp::cycleSection(int delta) {
 bool ShellApp::launch(const library::Game& game, std::vector<std::string> environment,
                       const std::string& profile) {
     if (!game.installed) {
-        offerInstall(game);
+        panels_.offerInstall(game);
         return false;
     }
     if (remotePlay_.waiting()) {
@@ -823,31 +824,30 @@ bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> e
                        std::make_move_iterator(extra.end()));
     // Before the game starts, so it reads the smaller screen as its own.
     presentation_.follow(gameInFront(), &started);
-    if (!launches_.start(std::move(started), std::move(environment))) {
-        return false;
+    const bool running = launches_.start(std::move(started), std::move(environment));
+    if (running) {
+        playingAs_ = profile;
     }
-    playingAs_ = profile;
-    return true;
-}
-
-void ShellApp::offerInstall(const library::Game& game) {
-    const settings::Settings& chosen = preferences_.values();
-    panels_.offerInstall(game, library::TitleCopies{games_, chosen.copies}.installable(
-                                   game, library::pageOf(browser_, chosen.view)));
-}
-
-std::vector<library::Game> ShellApp::switchableCopies(const library::Game& game) const {
-    const settings::Settings& chosen = preferences_.values();
-    return library::TitleCopies{games_, chosen.copies}.switchable(
-        game, library::pageOf(browser_, chosen.view));
-}
-
-void ShellApp::chooseCopy(const library::Game& copy) {
-    preferences_.values().copies.choose(copy);
-    preferences_.save();
-    lucent::info("library", "{} uses its {} copy, {}", copy.title, library::label(copy.source),
-                 copy.id);
+    // Last, since it replaces the tile `game` may be: this copy may now top its title.
     refreshShelf();
+    return running;
+}
+
+std::vector<library::Game> ShellApp::copiesOffered(const library::Game& game) const {
+    if (library::keepsOwnCopy(browser_, preferences_.values().view)) {
+        return {};
+    }
+    std::vector<library::ShelfItem> shelf;
+    for (library::Game& copy : library::TitleCopies{games_}.offered(game)) {
+        shelf.emplace_back(std::move(copy));
+    }
+    covers_.apply(shelf);
+    std::vector<library::Game> copies;
+    copies.reserve(shelf.size());
+    for (library::ShelfItem& item : shelf) {
+        copies.push_back(std::move(std::get<library::Game>(item)));
+    }
+    return copies;
 }
 
 void ShellApp::cancelLaunch() {
@@ -869,12 +869,13 @@ std::string ShellApp::startFresh(const library::Game& game) const {
     return error;
 }
 
-void ShellApp::openGameSettings(const library::Game& game, EditorLook look) {
+void ShellApp::openGameSettings(const library::Game& game, EditorLook look, EditorRows more) {
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
     gpu2d::ui::Navigator& navigator = shell_.screens().navigator();
     navigator.push(std::make_unique<LayeredEditor>(layered_, navigator, shell_.screens().chrome(),
-                                                   layered_.forGame(game), look, game.title));
+                                                   layered_.forGame(game), look,
+                                                   library::copyName(game), std::move(more)));
 }
 
 const library::Game* ShellApp::gameInFront() const {
@@ -981,21 +982,6 @@ void ShellApp::recordLaunch(const library::Game& game) {
     preferences_.save();
 }
 
-void ShellApp::chooseEmulator(const library::Game& game, const std::string& name) {
-    const settings::Layer own{settings::Layer::Kind::Game, game.id};
-    if (name.empty()) {
-        gameSettings_.layers().clear(own, library::emulatorKey);
-        gameSettings_.save();
-        // The search's choice is found again by a fresh read.
-        reloadCatalog();
-        return;
-    }
-    gameSettings_.layers().set(own, library::emulatorKey, name);
-    gameSettings_.save();
-    library::applyEmulatorPicks(gameSettings_.layers(), games_);
-    refreshShelf();
-}
-
 void ShellApp::keepMatch(const library::Game& game, const std::string& key,
                          const std::string& title) {
     gameSettings_.layers().set(settings::Layer{settings::Layer::Kind::Game, game.id},
@@ -1007,9 +993,15 @@ void ShellApp::keepMatch(const library::Game& game, const std::string& key,
 }
 
 std::optional<library::Game> ShellApp::shownGame(const std::string& id) const {
+    const library::Game* own = ownGame(id);
+    // A title's tile moves to whichever copy tops it.
+    const std::vector<library::Game> copies =
+        own == nullptr ? std::vector<library::Game>{} : library::copiesOf(games_, *own);
     for (const ui::Tile& tile : shell_.grid().tiles()) {
         const auto* game = std::get_if<library::Game>(&tile.item);
-        if (game == nullptr || game->id != id) {
+        if (game == nullptr ||
+            (game->id != id &&
+             std::ranges::find(copies, game->id, &library::Game::id) == copies.end())) {
             continue;
         }
         std::vector<library::Game> shown{*game};

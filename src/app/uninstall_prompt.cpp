@@ -11,6 +11,12 @@ std::optional<std::string> UninstallPrompt::removal(const library::Game& game) {
     return std::move(plan.what);
 }
 
+std::string UninstallPrompt::question(const library::Game& game) {
+    return game.severalStores ? "Uninstall the " + std::string{library::label(game.source)} +
+                                    " copy of " + game.title + "?"
+                              : "Uninstall " + game.title + "?";
+}
+
 void UninstallPrompt::start(const library::Game& game) {
     if (const std::string refused = hooks_.start(game); !refused.empty()) {
         hooks_.say("cannot uninstall " + game.title + ": " + refused, true);
