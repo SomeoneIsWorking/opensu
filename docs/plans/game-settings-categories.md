@@ -1,7 +1,8 @@
 # Game settings by category
 
 Requested 2026-11-07: "we can categorize options (game settings) better, I leave that up to you,
-I think currently there is not categorizing".
+I think currently there is not categorizing". Then: "we need submenus in game settings because for
+example FB Neo has too many core options".
 
 ## Now
 
@@ -21,6 +22,12 @@ this order:
 - Controls: touch controls, mappings, turbo.
 - Performance: run ahead, frame skip, rewind.
 - Saves: save states, resume state, sync.
+- Core options: one row per category the core declares (`retro_core_options_v2_category`: FinalBurn
+  Neo's Dipswitches, Neo Geo, Audio, Frameskip and so on), each opening its own page of that
+  category's options; options in no category stay on the Core options page itself. A core with
+  only v0 or v1 options (no categories) keeps one page.
+- A category is a submenu, not a heading: Game settings shows the categories as rows that open a
+  page, so a core with a hundred options still opens on a short list.
 
 ## Order
 
@@ -29,5 +36,10 @@ this order:
 2. The editor groups rows by category in the list's order instead of following schema order
    (`app/layered_editor`).
 3. Rows a caller adds (`EditorRows`) name their category too.
-4. Proof: the editor on a game, a console and Global shows the same categories in the same order,
-   empty ones left out.
+4. `retro/core_options` keeps each v2 option's `category_key` and the categories' descriptions, and
+   `GET /options` reports them; the shell's core option rows carry the category.
+5. The editor opens a category as a page over itself (Back returns to the list), the same page
+   stack Settings uses.
+6. Proof: the editor on a game, a console and Global shows the same categories in the same order,
+   empty ones left out; FinalBurn Neo's Game settings opens on its categories, and Dipswitches
+   lists only the game's dip switches.
