@@ -142,6 +142,9 @@ Visible deltas from the baseline:
 - The grid is ours, so layout, tile sizes and page count are ours.
 - With a SteamGridDB key, a cover Home's square tiles would crop is replaced by SteamGridDB's
   square one, and a game's details offer "Choose artwork" (SteamGridDB's covers); iiSU has neither.
+  A guest takes both for a host's game: Choose artwork and Match a different game work there, the
+  host lists with its own key and keeps the pick, and the cover changes on every openSU. Shown
+  with two hidden openSUs and a stand-in SteamGridDB; not yet on the tablet against the real one.
 - A Library tile, Giveaways, lists the stores' free-to-keep games; iiSU has none.
 - Steam's Big Picture does not open inside openSU's session: Guide in the shell never reaches
   Steam, and Big Picture opened any other way is closed and the shell put back in front.
