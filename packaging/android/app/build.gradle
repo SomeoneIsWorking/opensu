@@ -1,6 +1,7 @@
 plugins { id 'com.android.application' }
 
-// tools.package.android stages this project and passes the version and the signing key.
+// tools.package.android stages this project and passes the version, the signing key and whether
+// the release key's APK is debuggable (a maintainer's build that installs over a player's).
 def env = { String name -> System.getenv(name) }
 def signing = ['OPENSU_ANDROID_KEYSTORE_FILE', 'OPENSU_ANDROID_KEYSTORE_PASSWORD',
                'OPENSU_ANDROID_KEY_ALIAS', 'OPENSU_ANDROID_KEY_PASSWORD'].collect { env(it) }
@@ -40,7 +41,11 @@ android {
     }
     buildTypes {
         debug { debuggable = true }
-        release { minifyEnabled = false; signingConfig = signingConfigs.release }
+        release {
+            minifyEnabled = false
+            signingConfig = signingConfigs.release
+            debuggable = env('OPENSU_ANDROID_DEBUGGABLE') == '1'
+        }
     }
     // Native libraries extracted to nativeLibraryDir, where the runner's library is looked up.
     packaging { jniLibs { useLegacyPackaging = true } }
