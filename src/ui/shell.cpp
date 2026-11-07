@@ -186,8 +186,8 @@ void Shell::drawPicture(Canvas& canvas, const gpu2d::TextureView& picture,
                     black);
     const float own = static_cast<float>(picture.width) / static_cast<float>(picture.height);
     const display::Placed placed =
-        display::letterbox({.width = width, .height = height - pictureBand_},
-                           pictureShape_ > 0.0F ? pictureShape_ : own);
+        display::letterboxBetween({.width = width, .height = height}, static_cast<int>(safe_.top),
+                                  pictureBand_, pictureShape_ > 0.0F ? pictureShape_ : own);
     const gpu2d::Rect where{static_cast<float>(placed.x), static_cast<float>(placed.y),
                             static_cast<float>(placed.width), static_cast<float>(placed.height)};
     if (pictureFilter_ || placed.width <= picture.width) {

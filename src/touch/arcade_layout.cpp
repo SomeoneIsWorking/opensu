@@ -18,6 +18,8 @@ constexpr float inset = 8.0F;
 /// A thumb's size comes before staying on the black.
 constexpr float stickSmallest = 168.0F;
 constexpr float stickLargest = 180.0F;
+/// Between the stick's base and the nearest button, so a thumb on the stick does not reach one.
+constexpr float stickClearance = 24.0F;
 constexpr float stickDeadZone = 0.12F;
 constexpr float ballShare = 0.5F;
 constexpr float leanShare = 0.2F;
@@ -294,7 +296,7 @@ ControlPlan arcadeLayout(const WindowSurface& surface, const Box& picture, const
     const bool upright = surface.upright();
     const float tall = std::max(stickLargest, largest.height() + pills) + bottomMargin + pauseSize +
                        (2.0F * inset);
-    const float dp = surface.dpWithin((panel.ways != 0 ? stickSmallest + inset : 0.0F) +
+    const float dp = surface.dpWithin((panel.ways != 0 ? stickSmallest + stickClearance : 0.0F) +
                                           (2.0F * inset) + smallest.width(),
                                       upright ? tall / uprightShare : tall);
     const float gap = inset * dp;
@@ -309,7 +311,7 @@ ControlPlan arcadeLayout(const WindowSurface& surface, const Box& picture, const
 
     const float stickSide =
         std::clamp(leftBar - (2.0F * gap), stickSmallest * dp, stickLargest * dp);
-    const float stickTaken = panel.ways != 0 ? stickSide + gap : 0.0F;
+    const float stickTaken = panel.ways != 0 ? stickSide + (stickClearance * dp) : 0.0F;
     const float buttonRoom = surface.safeWidth - stickTaken - (2.0F * gap);
     const ButtonRows rows = rowsFor(panel, rightBar, buttonRoom, dp);
     const float panelHeight = std::max(panel.ways != 0 ? stickSide : 0.0F, rows.height());

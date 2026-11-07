@@ -391,7 +391,9 @@ RunnerExit RunnerApp::run() {
         if (touch && touch->takeRotate()) {
             screen.toggle();
         }
-        presenter->reserve(touchShown ? static_cast<std::uint32_t>(touch->band()) : 0U);
+        // The cutout's edge on top, so a picture standing at the top of a tall screen clears it.
+        presenter->reserve(static_cast<std::uint32_t>(presenter->surface().safeY),
+                           touchShown ? static_cast<std::uint32_t>(touch->band()) : 0U);
 
         if (control) {
             for (const ControlInput& held : control->takeInput()) {

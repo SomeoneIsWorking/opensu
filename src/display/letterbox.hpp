@@ -47,4 +47,16 @@ struct Placed {
                    std::max(1, static_cast<int>(std::lround(drawnHeight))));
 }
 
+/// `letterbox` in `area` less its top `top` rows (a screen's cutout) and bottom `bottom` (the touch
+/// controls' band).
+[[nodiscard]] inline Placed letterboxBetween(Size area, int top, int bottom,
+                                             float aspect) noexcept {
+    const int clearTop = std::clamp(top, 0, area.height);
+    const int clearBottom = std::clamp(bottom, 0, area.height - clearTop);
+    Placed placed =
+        letterbox({.width = area.width, .height = area.height - clearTop - clearBottom}, aspect);
+    placed.y += clearTop;
+    return placed;
+}
+
 } // namespace opensu::display

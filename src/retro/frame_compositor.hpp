@@ -95,15 +95,21 @@ class FrameCompositor {
     /// Draws the picture a quarter turn clockwise from the next frame, or upright again. Waits for
     /// the GPU. Throws VulkanError.
     void turn(bool turned);
-    /// Keeps the picture off the target's bottom `height` pixels.
-    void reserve(std::uint32_t height) noexcept {
-        reserved_ = height;
+    /// Keeps the picture off the target's top `top` pixels (a screen's cutout) and bottom `bottom`
+    /// (the touch controls' band).
+    void reserve(std::uint32_t top, std::uint32_t bottom) noexcept {
+        clearTop_ = top;
+        clearBottom_ = bottom;
     }
 
     /// Where `frame` is drawn in `extent` under the settings in force.
     [[nodiscard]] VkRect2D placed(VkExtent2D extent, const FrameImage& frame) const {
-        const std::uint32_t height = extent.height - std::min(reserved_, extent.height);
-        return placeFrame({extent.width, height}, frame, video_, turned_);
+        const std::uint32_t top = std::min(clearTop_, extent.height);
+        const std::uint32_t height =
+            extent.height - top - std::min(clearBottom_, extent.height - top);
+        VkRect2D rect = placeFrame({extent.width, height}, frame, video_, turned_);
+        rect.offset.y += static_cast<std::int32_t>(top);
+        return rect;
     }
 
     /// The render pass a target's framebuffer is made for.
@@ -176,7 +182,8 @@ class FrameCompositor {
     VkPipeline pipeline_{VK_NULL_HANDLE};
     StreamedTexture texture_;
     bool turned_{false};
-    std::uint32_t reserved_{0};
+    std::uint32_t clearTop_{0};
+    std::uint32_t clearBottom_{0};
 };
 
 } // namespace opensu::retro

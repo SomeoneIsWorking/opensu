@@ -33,7 +33,7 @@ class RemotePicture {
     /// The picture for the shell to draw; nothing before the first or after `clear`.
     [[nodiscard]] std::optional<gpu2d::TextureView> view() const;
     /// Where it is drawn in `window`: letterboxed, or all of it while there is none.
-    [[nodiscard]] display::Placed placement(display::Size window) const;
+    [[nodiscard]] display::Placed placement(display::Size window, int top, int bottom) const;
     /// Shows the picture at `shape`, width over height; 0 keeps the frames' own.
     void shapeAs(float shape) noexcept {
         shape_ = shape;

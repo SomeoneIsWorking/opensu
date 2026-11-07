@@ -8,6 +8,7 @@
 
 #include "clock_text.hpp"
 #include "corner_hints.hpp"
+#include "gpu2d/ui/text_fit.hpp"
 #include "interface_theme.hpp"
 #include "round_shape.hpp"
 
@@ -147,28 +148,40 @@ std::optional<Hud::TouchButtonCell> Hud::touchButtonCell(TouchButton button) con
                            hit};
 }
 
-Rect Hud::titlePillBody(const TopBarLayout& bar) const {
+std::optional<Hud::TitleCell> Hud::titleCell(const TopBarLayout& bar) const {
+    if (title_.empty()) {
+        return std::nullopt;
+    }
     const TitlePillMetrics pill = metrics().titlePill();
     const float dp = dp_;
-    const float size = pill.fontSize * dp;
-    const float textWidth = std::min(text_.measure(title_, size), pill.maxTextWidth * dp);
-    const float bodyWidth =
-        std::max(textWidth + 2.0f * pill.paddingHorizontal * dp, pill.minWidth * dp);
-    // Centred, unless the trail reaches past that on a narrow screen: then just after it.
+    const float padding = 2.0f * pill.paddingHorizontal * dp;
+    const float wanted =
+        std::min(text_.measure(title_, pill.fontSize * dp), pill.maxTextWidth * dp);
     const BreadcrumbFrame room = trailRoom(bar);
-    const float trailEnd = crumbs_.layout(trail_, room, pill).bar.right();
+    BreadcrumbFrame shortest = room;
+    shortest.maxRight = room.left;
     const float gap = TopBarMetrics::rowPaddingEnd * dp;
+    // The trail gives way to its shortest labels before the title does.
+    const float trailEnd = crumbs_.layout(trail_, room, pill).bar.right();
+    const float trailFloor = crumbs_.layout(trail_, shortest, pill).bar.right();
+    const float bodyWidth =
+        std::min(std::max(wanted + padding, pill.minWidth * dp), room.maxRight - trailFloor - gap);
+    if (bodyWidth < pill.minWidth * dp) {
+        return std::nullopt;
+    }
+    // Centred, unless the trail reaches past that on a narrow screen: then just after it.
     const float centred = (static_cast<float>(width_) - bodyWidth) * 0.5f;
     const float x = std::min(std::max(centred, trailEnd + gap), room.maxRight - bodyWidth);
-    return Rect{x, bar.top, bodyWidth, bar.height};
+    return TitleCell{.body = Rect{x, bar.top, bodyWidth, bar.height},
+                     .textWidth = std::min(wanted, bodyWidth - padding)};
 }
 
 BreadcrumbFrame Hud::crumbFrame() const {
     const TopBarLayout bar = topBarLayout();
     BreadcrumbFrame frame = trailRoom(bar);
-    if (!title_.empty()) {
+    if (const std::optional<TitleCell> title = titleCell(bar)) {
         frame.maxRight =
-            std::min(frame.maxRight, titlePillBody(bar).x - TopBarMetrics::rowPaddingEnd * dp_);
+            std::min(frame.maxRight, title->body.x - TopBarMetrics::rowPaddingEnd * dp_);
     }
     return frame;
 }
@@ -193,17 +206,18 @@ std::vector<Rect> Hud::crumbCells() const {
 }
 
 void Hud::drawTitlePill(Canvas& canvas, const TopBarLayout& bar) const {
-    if (title_.empty()) {
+    const std::optional<TitleCell> title = titleCell(bar);
+    if (!title) {
         return;
     }
     // iiSU jj2.c: a glass pill centred in the row, its text titleMedium.
-    const TitlePillMetrics pill = metrics().titlePill();
-    const float size = pill.fontSize * dp_;
-    const float textWidth = std::min(text_.measure(title_, size), pill.maxTextWidth * dp_);
-    const Rect body = titlePillBody(bar);
-    glass_.paint(canvas, body);
-    text_.drawCentred(canvas, title_, Point{body.centreX() - textWidth * 0.5f, body.centreY()},
-                      size, hintInk);
+    const float size = metrics().titlePill().fontSize * dp_;
+    const std::string text = gpu2d::ui::fitted(text_, title_, title->textWidth, size);
+    const float textWidth = std::min(text_.measure(text, size), title->textWidth);
+    glass_.paint(canvas, title->body);
+    text_.drawCentred(canvas, text,
+                      Point{title->body.centreX() - textWidth * 0.5f, title->body.centreY()}, size,
+                      hintInk);
 }
 
 void Hud::drawHints(Canvas& canvas) const {

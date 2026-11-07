@@ -32,11 +32,19 @@ void tallScreen() {
     expect(tall.y == 300, "a vertical game stays centred");
 }
 
+void clearsCutout() {
+    const display::Placed placed =
+        display::letterboxBetween({.width = 720, .height = 1560}, 90, 600, 4.0F / 3.0F);
+    expect(placed.y == 90 && placed.height == 540, "a wide picture stands under the cutout");
+    expect(placed.x == 0 && placed.width == 720, "it keeps the width");
+}
+
 } // namespace
 
 int main() try {
     wideScreen();
     tallScreen();
+    clearsCutout();
     std::printf("letterbox: all checks passed\n");
     return 0;
 } catch (...) {

@@ -75,12 +75,12 @@ std::optional<gpu2d::TextureView> RemotePicture::view() const {
     return std::nullopt;
 }
 
-display::Placed RemotePicture::placement(display::Size window) const {
+display::Placed RemotePicture::placement(display::Size window, int top, int bottom) const {
     if (!texture_ && !showsImported_) {
         return display::Placed{.x = 0, .y = 0, .width = window.width, .height = window.height};
     }
     const float own = static_cast<float>(width_) / static_cast<float>(height_);
-    return display::letterbox(window, shape_ > 0.0F ? shape_ : own);
+    return display::letterboxBetween(window, top, bottom, shape_ > 0.0F ? shape_ : own);
 }
 
 std::optional<std::uint32_t> RemotePicture::takeFresh() {

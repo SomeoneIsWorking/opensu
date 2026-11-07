@@ -168,8 +168,13 @@ class Hud {
     [[nodiscard]] float unit() const noexcept;
     [[nodiscard]] TopBarMetrics metrics() const noexcept;
     void drawTitlePill(Canvas& canvas, const TopBarLayout& bar) const;
-    /// The title pill's body in the row.
-    [[nodiscard]] Rect titlePillBody(const TopBarLayout& bar) const;
+    /// The title pill's body in the row and the width its text is fitted to.
+    struct TitleCell {
+        Rect body;
+        float textWidth{};
+    };
+    /// None without a title, or when the row leaves it less than the pill's least width.
+    [[nodiscard]] std::optional<TitleCell> titleCell(const TopBarLayout& bar) const;
     /// Where the trail may stand: from the row's start to the title pill or the status pill.
     [[nodiscard]] BreadcrumbFrame crumbFrame() const;
     /// Where the trail may stand before the title pill takes its share.

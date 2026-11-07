@@ -347,8 +347,8 @@ void Presenter::fitWindow(unsigned width, unsigned height) {
     window_->resize(width, height);
 }
 
-void Presenter::reserve(std::uint32_t height) noexcept {
-    compositor_->reserve(height);
+void Presenter::reserve(std::uint32_t top, std::uint32_t bottom) noexcept {
+    compositor_->reserve(top, bottom);
 }
 
 VkResult Presenter::waitForFrame() {

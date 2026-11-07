@@ -1439,8 +1439,9 @@ void ShellApp::sendRemoteInput() {
 
 display::Placed ShellApp::remotePlacement() const {
     const gpu2d::PixelSize window = window_->size();
-    return remotePicture_->placement(
-        {.width = window.width, .height = window.height - remoteTouch_->band()});
+    return remotePicture_->placement({.width = window.width, .height = window.height},
+                                     static_cast<int>(window_->contentInsets().top),
+                                     remoteTouch_->band());
 }
 
 void ShellApp::showGamePicture() {
