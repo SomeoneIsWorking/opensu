@@ -168,7 +168,9 @@ the `(this)` test in `device_config::subtag` and `machine_config::detokenize` re
 On Android openSU downloads it from openSU's own build instead: the fork
 `SomeoneIsWorking/mame2010-libretro` (branch `opensu`) adds the flag, and its CI publishes each
 tag's arm64-v8a and x86_64 cores as a release, named in the catalog entry's `"release"` by build.
-The flag is also offered upstream (libretro/mame2010-libretro#174). sfiii3n reaches Android through a rebuild for FinalBurn Neo
+The flag is also offered upstream (libretro/mame2010-libretro#174). Shown on an Honor phone (arm64-v8a, Android 16): MAME 2010 downloaded from release
+`2026-11-07` ("openSU build 2026-11-07") and Alien vs. Predator (`avspu`) reached its attract mode;
+the screen stayed black for about 35 s after Play, not yet explained. sfiii3n reaches Android through a rebuild for FinalBurn Neo
 ("Older romsets rebuilt for a stock core"), not yet shown on the tablet.
 
 Not done: samples are never required; 7z sets are not matched (the arcade system lists `.zip`
