@@ -15,6 +15,7 @@
 #include "gpu2d/gpu_error.hpp"
 #include "gpu2d/render_target.hpp"
 
+#include "content_insets.hpp"
 #include "display/output.hpp"
 #include "lucent/log.h"
 #include "sdl_keys.hpp"
@@ -76,6 +77,20 @@ ShellWindow::ShellWindow(const Options& options)
     lucent::info("shell", "window {}x{}, safe area {}x{} at {},{}, {} screen keyboard", width,
                  height, safe.w, safe.h, safe.x, safe.y,
                  SDL_HasScreenKeyboardSupport() ? "a" : "no");
+    if (!SDL_AddEventWatch(&ShellWindow::watchLifecycle, this)) {
+        lucent::warn("shell", "returns to the foreground cannot be watched: {}", SDL_GetError());
+    }
+}
+
+ShellWindow::~ShellWindow() {
+    SDL_RemoveEventWatch(&ShellWindow::watchLifecycle, this);
+}
+
+bool ShellWindow::watchLifecycle(void* self, SDL_Event* event) {
+    if (event->type == SDL_EVENT_DID_ENTER_FOREGROUND) {
+        static_cast<ShellWindow*>(self)->foreground_.store(true);
+    }
+    return true;
 }
 
 std::optional<display::Output> ShellWindow::output() const {
@@ -114,6 +129,10 @@ touch::WindowSurface ShellWindow::touchSurface() const {
     const gpu2d::PixelSize window = size();
     return touch::surfaceOf(window_.window(), static_cast<unsigned>(window.width),
                             static_cast<unsigned>(window.height));
+}
+
+gpu2d::ui::Insets ShellWindow::contentInsets() const {
+    return app::contentInsets(window_.window());
 }
 
 bool ShellWindow::hasScreenKeyboard() const noexcept {
@@ -374,6 +393,10 @@ void ShellWindow::post(SDL_Event& event) {
 float ShellWindow::displayDp() const noexcept {
     const float scale = SDL_GetWindowDisplayScale(window_.window());
     return scale > 0.0f ? scale : 1.0f;
+}
+
+bool ShellWindow::takeForeground() noexcept {
+    return foreground_.exchange(false);
 }
 
 std::optional<gpu2d::PixelSize> ShellWindow::takeResize() noexcept {

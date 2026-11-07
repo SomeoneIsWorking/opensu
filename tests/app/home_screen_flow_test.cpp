@@ -69,7 +69,8 @@ struct Rig {
         hud.setSize({.width = static_cast<int>(width),
                      .height = static_cast<int>(height),
                      .dp = dp,
-                     .displayDp = 1.0f});
+                     .displayDp = 1.0f,
+                     .safe = {}});
         hud.setTrail(ui::Trail{ui::Crumb{"Home", ui::CrumbKind::Section, library::Section::Home},
                                ui::Crumb{"Game Boy", ui::CrumbKind::Folder}});
         grid.setFrame(ui::HomeGrid::Frame{.width = static_cast<int>(width),

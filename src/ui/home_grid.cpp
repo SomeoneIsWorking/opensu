@@ -99,6 +99,8 @@ HomeLayout HomeGrid::computeLayout() const {
         .rows = gridViewport.rows,
         .topInset = frame_.topInset,
         .bottomInset = frame_.bottomInset,
+        .leftInset = frame_.leftInset,
+        .rightInset = frame_.rightInset,
         .iconLevel = iconSize_,
     }};
 }

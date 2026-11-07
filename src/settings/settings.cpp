@@ -630,6 +630,10 @@ float uiScaleFactor(int percent) noexcept {
     return static_cast<float>(percent) / 100.0f * uiScaleBase;
 }
 
+float uiDisplayFactor(int percent) noexcept {
+    return static_cast<float>(percent) / 100.0f;
+}
+
 int steppedUiScale(int current, int step) noexcept {
     const int choices = (maxUiScale - minUiScale) / uiScaleStep + 1;
     const int from = std::clamp((current - minUiScale) / uiScaleStep, 0, choices - 1);

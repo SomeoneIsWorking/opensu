@@ -66,11 +66,15 @@ class Hud {
         float dp{1.0f};
         /// Pixels per dp of the display, for what a finger touches.
         float displayDp{1.0f};
+        /// Pixels in from each edge the chrome keeps clear of (a cutout, rounded corners).
+        gpu2d::ui::Insets safe;
     };
     void setSize(const Size& size) noexcept;
 
-    /// Height the top bar takes from the grid, in pixels (iiSU dl3.i).
+    /// Height the top bar takes from the grid, in pixels (iiSU dl3.i), the safe area's included.
     [[nodiscard]] float topInset() const noexcept;
+    /// Height the top bar takes below the safe area's top, in pixels.
+    [[nodiscard]] float barHeight() const noexcept;
     /// Height the bottom chrome takes from the grid, in pixels (iiSU dl3.j).
     [[nodiscard]] float bottomInset() const noexcept;
 
@@ -195,6 +199,7 @@ class Hud {
     int width_{};
     int height_{};
     float dp_{1.0f};
+    gpu2d::ui::Insets safe_;
     float displayDp_{1.0f};
     std::optional<device::BatteryStatus> battery_;
     bool toastError_{false};

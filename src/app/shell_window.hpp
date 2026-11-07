@@ -5,6 +5,7 @@
 // keyboard's and mouse's do.
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <deque>
@@ -20,6 +21,7 @@
 #include "gpu2d/gpu_window.hpp"
 #include "gpu2d/image/bitmap.hpp"
 #include "gpu2d/surface.hpp"
+#include "gpu2d/ui/widget.hpp"
 
 #include "display/output.hpp"
 #include "input/key_names.hpp"
@@ -64,6 +66,11 @@ class ShellWindow {
 
     /// Opens the window, its GPU device and the canvas; throws gpu2d::GpuError when it cannot.
     explicit ShellWindow(const Options& options);
+    ~ShellWindow();
+    ShellWindow(const ShellWindow&) = delete;
+    ShellWindow& operator=(const ShellWindow&) = delete;
+    ShellWindow(ShellWindow&&) = delete;
+    ShellWindow& operator=(ShellWindow&&) = delete;
 
     [[nodiscard]] SDL_GPUDevice& device() const noexcept {
         return window_.device();
@@ -121,6 +128,8 @@ class ShellWindow {
     [[nodiscard]] bool hasTouchscreen() const noexcept;
     /// The window as an on-screen pad covers it.
     [[nodiscard]] touch::WindowSurface touchSurface() const;
+    /// Pixels in from each edge the interface keeps clear of (`contentInsets`).
+    [[nodiscard]] gpu2d::ui::Insets contentInsets() const;
     /// Whether the system has an on-screen keyboard (Android's) a text field can ask for.
     [[nodiscard]] bool hasScreenKeyboard() const noexcept;
     /// Shows or hides the system's on-screen keyboard; it types through the same text events.
@@ -152,6 +161,8 @@ class ShellWindow {
 
     /// The window's new size, once per resize.
     [[nodiscard]] std::optional<gpu2d::PixelSize> takeResize() noexcept;
+    /// Whether the app came back to the foreground (Android's resume), once per return.
+    [[nodiscard]] bool takeForeground() noexcept;
 
     /// A frame `present` submitted: when, and whether the window had a surface to draw it into
     /// (a hidden window has none).
@@ -192,6 +203,9 @@ class ShellWindow {
     /// The mouse's buttons held, as `PointerFrame::held`; kept across frames.
     std::uint8_t pointerHeld_{0};
     std::optional<gpu2d::PixelSize> resized_;
+    /// SDL hands app lifecycle events only to watchers, on whichever thread sends them.
+    static bool watchLifecycle(void* self, SDL_Event* event);
+    std::atomic<bool> foreground_{false};
     /// Strokes to post; the front one's keys are down while `strokeDown_`. Its text stays here
     /// until the event naming it was taken.
     std::deque<Stroke> strokes_;

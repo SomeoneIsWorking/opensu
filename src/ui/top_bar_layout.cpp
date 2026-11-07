@@ -22,7 +22,7 @@ TopBarLayout layoutTopBar(const TopBarMetrics& metrics, const TopBarFrame& frame
     TopBarLayout layout;
     const float dp = frame.dp;
     layout.pill = metrics.statusPill(frame.clockHasLetters);
-    layout.top = metrics.rowTop() * dp;
+    layout.top = metrics.rowTop() * dp + frame.safe.top;
     layout.height = metrics.rowHeight() * dp;
     layout.hitSlop = hitSlopDp * dp;
     const float diameter = layout.height * badgeOfPill;
@@ -35,8 +35,8 @@ TopBarLayout layoutTopBar(const TopBarMetrics& metrics, const TopBarFrame& frame
     const float aspect =
         std::max(frame.width, frame.height) / std::max(std::min(frame.width, frame.height), 1.0f);
     // The pill ends at the row's end padding and is offset by the device class rule.
-    const float boxRight =
-        frame.width - TopBarMetrics::rowPaddingEnd * dp + metrics.statusOffsetX(aspect) * dp;
+    const float boxRight = frame.width - frame.safe.right - TopBarMetrics::rowPaddingEnd * dp +
+                           metrics.statusOffsetX(aspect) * dp;
     const float width =
         layout.launcherColumn + frame.contentWidth + 2.0f * layout.pill.paddingHorizontal * dp;
     layout.status =

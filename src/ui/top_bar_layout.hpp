@@ -6,6 +6,7 @@
 #include <optional>
 #include <vector>
 
+#include "gpu2d/ui/widget.hpp"
 #include "home_layout.hpp"
 #include "top_bar_metrics.hpp"
 
@@ -22,6 +23,8 @@ struct TopBarFrame {
     float contentWidth{};
     /// Launchers shown, which take the column iiSU's bell had.
     std::size_t launchers{0};
+    /// Pixels in from each window edge the row keeps clear of (a cutout, rounded corners).
+    gpu2d::ui::Insets safe;
 };
 
 struct TopBarLayout {

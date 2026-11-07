@@ -56,6 +56,8 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
         float dp{1.0f};
         float topInset{};
         float bottomInset{};
+        float leftInset{};
+        float rightInset{};
         /// The toolkit's touch slop in pixels and fling time in seconds, and pixels per dp of a
         /// finger's speed.
         float slop{};

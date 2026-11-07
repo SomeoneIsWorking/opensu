@@ -229,7 +229,8 @@ void ShellApp::applyLayout() {
         grid.setIconSize(chosen.iconSize);
     }
     grid.setHomeMode(chosen.homeMode.value_or(settings_.homeMode));
-    shell_.setUiScale(settings::uiScaleFactor(chosen.uiScale));
+    shell_.setUiScale(settings::uiScaleFactor(chosen.uiScale),
+                      settings::uiDisplayFactor(chosen.uiScale));
     shell_.setKeyboardStyle(chosen.keyboardStyle);
     sounds_.setMuted(!chosen.uiSounds);
     interfaceSounds_.apply(chosen);
@@ -1572,6 +1573,12 @@ int ShellApp::run() {
             shell_.setSize(size->width, size->height);
         }
         shell_.setDisplayDp(window_->displayDp());
+        shell_.setSafeArea(window_->contentInsets());
+        // Files added to a ROM folder while openSU was away show when it comes back.
+        if (window_->takeForeground()) {
+            lucent::info("catalog", "back in the foreground; listing the library again");
+            reloadCatalog();
+        }
 
         integrationSwitch_.service();
         padOwner_.lendToSteam(steamGridDbAccount_.signingIn() || offerClaim_.inSteam());

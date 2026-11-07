@@ -13,15 +13,15 @@ class GitPin:
 LUCENT = GitPin(
     "lucent",
     "https://github.com/SomeoneIsWorking/lucent.git",
-    "314c235cc9cdd7606fb06e71e99137324c6002d4",
+    "37ff8c0bc15175c77311c82f73de5887abb0fa09",
 )
 GPU2D = GitPin(
     "gpu2d",
     "https://github.com/SomeoneIsWorking/gpu2d.git",
-    "4948f6aaf5b4dbd8d72b86fd8bf794cca834edc2",
+    "842bb6f2b49ea374b1da310c32b6765618122026",
 )
 ANDROID_PORT = GitPin(
     "android-port",
     "https://github.com/SomeoneIsWorking/android-port.git",
-    "d85a6fa8bc350d8a40670d8ce8db5bb7c39c641e",
+    "1dd7be0fc946b32e07b5283a6760d3a9733a3711",
 )

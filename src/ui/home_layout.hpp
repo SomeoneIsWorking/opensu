@@ -104,6 +104,9 @@ struct HomeLayoutInput {
     /// Space the shell's own chrome takes at the top and bottom, in pixels.
     float topInset{};
     float bottomInset{};
+    /// Pixels at the left and right edges the grid rests clear of (a cutout, rounded corners).
+    float leftInset{};
+    float rightInset{};
     /// iiSU's icon size level. Away from the default the cells are that much larger or smaller
     /// and as many rows are laid out as fit, up to 6.
     int iconLevel{defaultIconLevel};
@@ -171,7 +174,7 @@ class HomeLayout {
     [[nodiscard]] float paddingTop() const noexcept {
         return paddingTop_;
     }
-    /// Flow's edge inset: the viewport starts this far into the canvas.
+    /// Where the viewport starts in the canvas: Flow's edge inset past the left safe inset.
     [[nodiscard]] float viewportX() const noexcept {
         return viewportX_;
     }

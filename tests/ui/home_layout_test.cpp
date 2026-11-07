@@ -26,6 +26,18 @@ HomeLayoutInput window(std::size_t items, ScrollMode mode) {
                            .bottomInset = 40.0f};
 }
 
+void safeInsets() {
+    const HomeLayout plain{window(12, ScrollMode::Flow)};
+    HomeLayoutInput inset = window(12, ScrollMode::Flow);
+    inset.leftInset = 135.0f;
+    inset.rightInset = 49.0f;
+    const HomeLayout safe{inset};
+    near(safe.canvasRect(0, 0.0f).x, plain.canvasRect(0, 0.0f).x + 135.0f,
+         "the first column rests past the left safe inset");
+    near(safe.viewportWidth(), plain.viewportWidth() - 135.0f - 49.0f,
+         "the viewport gives up both side insets");
+}
+
 void defaultViewport() {
     const HomeLayout layout{window(12, ScrollMode::Flow)};
     expect(layout.rows() == 3, "the default viewport has 3 rows");
@@ -387,6 +399,7 @@ int main() try {
     slotsUnderThePointer();
     pagesUnderThePointer();
     slotOnPage();
+    safeInsets();
     std::printf("home_layout: all checks passed\n");
     return 0;
 } catch (...) {

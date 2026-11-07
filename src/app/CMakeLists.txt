@@ -19,13 +19,16 @@ elseif(WIN32 OR APPLE)
         game_presentation_none.cpp night_light_none.cpp host_services_none.cpp)
 endif()
 # The system volume: AudioManager through the Activity on Android, the desktop's mixer program
+# elsewhere. The interface's content insets come from the Activity there, SDL's safe area
 # elsewhere. Folders are picked with Android's document tree picker there, on openSU's own card
 # elsewhere.
 if(ANDROID)
-    target_sources(opensu_app PRIVATE volume_detect_android.cpp system_folder_picker_android.cpp)
+    target_sources(opensu_app PRIVATE volume_detect_android.cpp system_folder_picker_android.cpp
+        content_insets_android.cpp)
     target_link_libraries(opensu_app PRIVATE opensu::android)
 else()
-    target_sources(opensu_app PRIVATE volume_detect_mixer.cpp system_folder_picker_none.cpp)
+    target_sources(opensu_app PRIVATE volume_detect_mixer.cpp system_folder_picker_none.cpp
+        content_insets_sdl.cpp)
 endif()
 # How a game's exit status says it crashed: a signal on POSIX, an exception code on Windows.
 if(WIN32)

@@ -364,6 +364,8 @@ void anOldInterfaceSizeKeepsItsSize(const fs::path& root) {
     const Store store{file};
     expect(uiScaleFactor(100) == uiScaleBase && uiScaleFactor(0) == 0.0f,
            "the drawn scale is the percent over the base");
+    expect(opensu::settings::uiDisplayFactor(100) == 1.0f,
+           "at 100% the interface is never smaller than the display's dp");
     write(file, R"({"uiScale": 80})");
     expect(store.load().uiScale == 100,
            "a size saved before the base changed is moved up to keep it");

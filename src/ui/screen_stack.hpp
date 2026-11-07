@@ -18,7 +18,7 @@ namespace opensu::ui {
 
 /// What the shell's chrome takes from the window, which a full screen leaves room for.
 struct Chrome {
-    /// The top bar's height, in pixels.
+    /// The top bar's height below the safe area's top, in pixels.
     float top{};
 };
 
@@ -45,11 +45,11 @@ class ScreenStack {
     [[nodiscard]] ScreenImages& images() noexcept {
         return images_;
     }
-    /// Sets the clock and theme and lays the screens out over `window`, under `chrome`, the
-    /// overlays above the `covered` strip a docked keyboard takes; drops the pictures once nothing
-    /// is drawn; with `touch` the screens show their touch controls.
+    /// Sets the clock and theme and lays the screens out over `window` inside `safe`, under
+    /// `chrome`, the overlays above the `covered` strip a docked keyboard takes; drops the pictures
+    /// once nothing is drawn; with `touch` the screens show their touch controls.
     void layout(Clock::time_point now, const gpu2d::Rect& window, float covered, Density density,
-                Chrome chrome, bool touch);
+                Chrome chrome, bool touch, const gpu2d::ui::Insets& safe);
     /// The screens that fill the window, drawn under the shell's chrome.
     void paintPages(Canvas& canvas);
     /// The overlays over them (the Guide menu, dialogs, lists), drawn over the chrome.

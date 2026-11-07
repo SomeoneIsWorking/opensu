@@ -16,8 +16,8 @@ using opensu::ui::TopBarMetrics;
 TopBarLayout layoutOf(std::size_t launchers, float content = 120.0f) {
     const float dp = 1.5f;
     const TopBarMetrics metrics{1280.0f / dp, 800.0f / dp};
-    return opensu::ui::layoutTopBar(metrics,
-                                    TopBarFrame{1280.0f, 800.0f, dp, false, content, launchers});
+    return opensu::ui::layoutTopBar(
+        metrics, TopBarFrame{1280.0f, 800.0f, dp, false, content, launchers, {}});
 }
 
 void pillFollowsItsContent() {

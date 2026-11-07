@@ -86,10 +86,14 @@ class Shell {
     /// the caller's to replace after. `revealDock` slides the dock in for a moment (iiSU
     /// `jk2.java:937`), as an L1 or R1 press does.
     void setSection(library::Section section, bool revealDock);
-    /// Draws everything at `factor` of its size; the layouts are drawn at 1.
-    void setUiScale(float factor);
+    /// Draws everything at `factor` of the window's fit to the layouts' canvas, and never smaller
+    /// than `display` of the display's own dp, so a small dense screen's text stays legible.
+    void setUiScale(float factor, float display);
     /// Pixels per dp of the display the window is on (SDL's display scale).
     void setDisplayDp(float displayDp);
+    /// Pixels in from each window edge the interface keeps clear of: a display cutout, rounded
+    /// corners. The ground and backdrops still fill the window.
+    void setSafeArea(const gpu2d::ui::Insets& safe);
     /// The on-screen keyboard style every field opens with from now on.
     void setKeyboardStyle(input::KeyboardStyle style) noexcept {
         keyboard_.setStyle(style);
@@ -279,7 +283,9 @@ class Shell {
     input::Prompts prompts_;
     input::ChordSet chords_{prompts_.shortcuts};
     float uiScale_{1.0f};
+    float uiDisplayScale_{1.0f};
     float displayDp_{1.0f};
+    gpu2d::ui::Insets safe_;
     VolumeOsd volumeOsd_;
     ChordHint chordHint_;
     /// Before the screens, whose prompts give way to it.

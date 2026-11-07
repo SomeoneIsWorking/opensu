@@ -106,8 +106,10 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
     const float bottomInsetIn = input.bottomInset;
 
     // iiSU hx2.g: Flow insets the viewport, clamped to 12% of the width; Paged does not.
-    viewportX_ = paged ? 0.0f : clampTo(horizontalFlowInsetDp * dp_, 0.0f, width_ * 0.12f);
-    viewportWidth_ = std::max(width_ - viewportX_ * 2.0f, 1.0f);
+    const float flowInset =
+        paged ? 0.0f : clampTo(horizontalFlowInsetDp * dp_, 0.0f, width_ * 0.12f);
+    viewportX_ = input.leftInset + flowInset;
+    viewportWidth_ = std::max(width_ - input.leftInset - input.rightInset - flowInset * 2.0f, 1.0f);
     const float shortSide = std::min(viewportWidth_, height_);
     const float p = basePadding(shortSide);
     const float top = clampTo(topInsetIn, 0.0f, height_ * 0.45f);
@@ -308,7 +310,7 @@ SlotRange HomeLayout::visibleSlots(float scroll, float canvasWidth, float margin
 }
 
 std::optional<std::size_t> HomeLayout::slotAt(float scroll, float x, float y) const noexcept {
-    const SlotRange near = visibleSlots(scroll, viewportX_ * 2.0f + viewportWidth_);
+    const SlotRange near = visibleSlots(scroll, width_);
     for (std::size_t slot = near.first; slot < near.last; ++slot) {
         if (canvasRect(slot, scroll).contains(x, y)) {
             return slot;

@@ -45,18 +45,28 @@ SDL_GPUDevice& Shell::device() const {
 }
 
 float Shell::dp() const noexcept {
-    return std::min(static_cast<float>(width_) / referenceWidthDp,
-                    static_cast<float>(height_) / referenceHeightDp) *
-           uiScale_;
+    const float fit = std::min(static_cast<float>(width_) / referenceWidthDp,
+                               static_cast<float>(height_) / referenceHeightDp);
+    return std::max(fit * uiScale_, displayDp_ * uiDisplayScale_);
 }
 
 Hud::Size Shell::hudSize() const noexcept {
-    return Hud::Size{.width = width_, .height = height_, .dp = dp(), .displayDp = displayDp_};
+    return Hud::Size{
+        .width = width_, .height = height_, .dp = dp(), .displayDp = displayDp_, .safe = safe_};
 }
 
 void Shell::setDisplayDp(float displayDp) {
     if (displayDp != displayDp_) {
         displayDp_ = displayDp;
+        hud_.setSize(hudSize());
+        frameGrid();
+    }
+}
+
+void Shell::setSafeArea(const gpu2d::ui::Insets& safe) {
+    if (safe.left != safe_.left || safe.top != safe_.top || safe.right != safe_.right ||
+        safe.bottom != safe_.bottom) {
+        safe_ = safe;
         hud_.setSize(hudSize());
         frameGrid();
     }
@@ -70,6 +80,8 @@ void Shell::frameGrid() {
                                    .dp = density.dp,
                                    .topInset = hud_.topInset(),
                                    .bottomInset = hud_.bottomInset(),
+                                   .leftInset = safe_.left,
+                                   .rightInset = safe_.right,
                                    .slop = theme.px(theme.spacing.touchSlop),
                                    .flingSeconds = theme.motion.fling / 1000.0f,
                                    .fingerDp = fingerDp(density)});
@@ -82,9 +94,10 @@ void Shell::setSize(int width, int height) {
     frameGrid();
 }
 
-void Shell::setUiScale(float factor) {
-    if (factor != uiScale_) {
+void Shell::setUiScale(float factor, float display) {
+    if (factor != uiScale_ || display != uiDisplayScale_) {
         uiScale_ = factor;
+        uiDisplayScale_ = display;
         hud_.setSize(hudSize());
         frameGrid();
     }
@@ -143,8 +156,8 @@ void Shell::tick(Clock::time_point now) {
                                            !mapping_.isOpen()});
     // Overlays stand above the docked keyboard, so the field it types into shows.
     screens_.layout(now_, gpu2d::Rect{0.0f, 0.0f, width, height}, height - keyboardChrome_.top(),
-                    Density{.dp = dp(), .display = displayDp_}, Chrome{hud_.topInset()},
-                    prompts_.device.pointing());
+                    Density{.dp = dp(), .display = displayDp_}, Chrome{hud_.barHeight()},
+                    prompts_.device.pointing(), safe_);
 }
 
 void Shell::settle() {

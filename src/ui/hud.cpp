@@ -29,6 +29,7 @@ void Hud::setSize(const Size& size) noexcept {
     height_ = size.height;
     dp_ = size.dp;
     displayDp_ = size.displayDp;
+    safe_ = size.safe;
 }
 
 float Hud::unit() const noexcept {
@@ -40,11 +41,15 @@ TopBarMetrics Hud::metrics() const noexcept {
 }
 
 float Hud::topInset() const noexcept {
+    return barHeight() + safe_.top;
+}
+
+float Hud::barHeight() const noexcept {
     return metrics().gridTopInset() * dp_;
 }
 
 float Hud::bottomInset() const noexcept {
-    return metrics().gridBottomInset() * dp_;
+    return metrics().gridBottomInset() * dp_ + safe_.bottom;
 }
 
 void Hud::setToast(std::string text, bool isError, Clock::time_point now) {
@@ -88,7 +93,7 @@ TopBarLayout Hud::topBarLayout() const {
         statusPill_.rowWidth(metrics().statusPill(letters), dp_, clock_, battery_);
     return layoutTopBar(metrics(),
                         TopBarFrame{static_cast<float>(width_), static_cast<float>(height_), dp_,
-                                    letters, content, visible});
+                                    letters, content, visible, safe_});
 }
 
 std::vector<Hud::BadgeCell> Hud::badgeCells() const {
@@ -136,7 +141,7 @@ std::optional<Hud::TouchButtonCell> Hud::touchButtonCell(TouchButton button) con
     const float size = touchButtonDp * fingerDp(Density{.dp = dp_, .display = displayDp_});
     const float gap = TopBarMetrics::rowPaddingEnd * dp_;
     // At the trail's start or just before the status pill.
-    const float x = button == TouchButton::Back ? gap : bar.status.x - gap - size;
+    const float x = button == TouchButton::Back ? safe_.left + gap : bar.status.x - gap - size;
     const Rect hit{x, bar.centreY() - size * 0.5f, size, size};
     return TouchButtonCell{Rect{hit.centreX() - bar.height * 0.5f, bar.top, bar.height, bar.height},
                            hit};
@@ -155,7 +160,7 @@ Rect Hud::titlePillBody(const TopBarLayout& bar) const {
 BreadcrumbFrame Hud::crumbFrame() const {
     const TopBarLayout bar = topBarLayout();
     const float gap = TopBarMetrics::rowPaddingEnd * dp_;
-    float left = gap;
+    float left = safe_.left + gap;
     float right = bar.status.x - gap;
     if (!title_.empty()) {
         right = std::min(right, titlePillBody(bar).x - gap);
@@ -214,7 +219,7 @@ std::optional<Hud::PromptPanel> Hud::promptPanel(const std::vector<Prompt>& prom
     }
     const float padding = panel.paddingHorizontal * dp;
     const float bottom = (atEnd ? panel.rightBottom : panel.leftBottom) * dp;
-    const float floor = static_cast<float>(height_) - bottom;
+    const float floor = static_cast<float>(height_) - safe_.bottom - bottom;
     if (touchButtons_.prompts) {
         // Side by side, each a finger's height, so the panel grows across rather than up the
         // screen; iiSU stacks them for a pad.
@@ -228,7 +233,8 @@ std::optional<Hud::PromptPanel> Hud::promptPanel(const std::vector<Prompt>& prom
             x += wide;
         }
         const float start =
-            atEnd ? static_cast<float>(width_) - panel.rightInset * dp - x : panel.leftInset * dp;
+            atEnd ? static_cast<float>(width_) - safe_.right - panel.rightInset * dp - x
+                  : safe_.left + panel.leftInset * dp;
         for (auto& [prompt, row] : placed.rows) {
             row.x += start;
         }
@@ -237,8 +243,8 @@ std::optional<Hud::PromptPanel> Hud::promptPanel(const std::vector<Prompt>& prom
     }
     const float width = 2.0f * padding + placed.column + gap + labels;
     const float height = panel.height(dp) * dp;
-    const float x =
-        atEnd ? static_cast<float>(width_) - panel.rightInset * dp - width : panel.leftInset * dp;
+    const float x = atEnd ? static_cast<float>(width_) - safe_.right - panel.rightInset * dp - width
+                          : safe_.left + panel.leftInset * dp;
     placed.body = Rect{x, floor - height, width, height};
 
     // jj2.b: a Column of a32.b rows, centred vertically, rows centred on their tallest child.

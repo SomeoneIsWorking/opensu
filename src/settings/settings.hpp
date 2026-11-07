@@ -46,6 +46,8 @@ inline constexpr int uiScaleBaseVersion = 2;
 
 /// The scale the interface is drawn at for `percent`: `uiScaleBase` at 100%.
 [[nodiscard]] float uiScaleFactor(int percent) noexcept;
+/// The share of the display's own dp the interface is never drawn smaller than: 1 at 100%.
+[[nodiscard]] float uiDisplayFactor(int percent) noexcept;
 
 /// The scale `step` choices from `current`, which A moves one forward, wrapping at either end.
 [[nodiscard]] int steppedUiScale(int current, int step) noexcept;
