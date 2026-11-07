@@ -66,34 +66,39 @@ void shippedCatalogParses() {
     expect(catalog.find("mgba-core")->romsets.empty(), "a console core has no romset listing");
 }
 
-void leftOutPerSystem() {
+void coreReleasePerBuild() {
     constexpr std::string_view catalog =
         R"({"emulators":[{"id":"a","name":"A","systems":["arcade"],"core":"fbneo_libretro",
-            "notOn":{"android":"why"}}]})";
+            "release":{"api":"https://h/api","downloads":"https://h/dl/",
+                       "assets":{"android-arm64-v8a":"^a-arm64\\.zip$"}}}]})";
     std::string error;
-    const std::optional<EmulatorCatalog> without =
-        EmulatorCatalog::parse(catalog, "/h", error, "android");
-    expect(without && without->entries().empty(),
-           "an entry is left out on a system its notOn names");
-    const std::optional<EmulatorCatalog> with =
-        EmulatorCatalog::parse(catalog, "/h", error, "linux");
-    expect(with && with->find("a") != nullptr, "and stays everywhere else");
+    const std::optional<EmulatorCatalog> named =
+        EmulatorCatalog::parse(catalog, "/h", error, "android-arm64-v8a");
+    expect(named && named->find("a")->release.value_or(ReleaseSource{}).asset == "^a-arm64\\.zip$",
+           "a build the core's release names takes its asset");
+    const std::optional<EmulatorCatalog> other =
+        EmulatorCatalog::parse(catalog, "/h", error, "linux-x86_64");
+    expect(other && other->find("a") != nullptr && !other->find("a")->release,
+           "every other build takes the buildbot's core");
     expect(!EmulatorCatalog::parse(
                R"({"emulators":[{"id":"a","name":"A","systems":["arcade"],
-                   "core":"fbneo_libretro","notOn":"android"}]})",
+                   "core":"fbneo_libretro","release":{"api":"https://h/api",
+                   "downloads":"https://h/dl/","asset":"x"}}]})",
                "/h", error) &&
-               error.find("notOn") != std::string::npos,
-           "a notOn that is not an object is refused");
+               error.find("by build") != std::string::npos,
+           "a core's release without assets by build is refused");
 
     std::ifstream shipped{std::filesystem::path{OPENSU_ASSETS_DIR} / "emulators.json",
                           std::ios::binary};
     const std::string body{std::istreambuf_iterator<char>{shipped},
                            std::istreambuf_iterator<char>{}};
-    const std::optional<EmulatorCatalog> android =
-        EmulatorCatalog::parse(body, "/h", error, "android");
-    expect(android && android->find("mame2010-core") == nullptr &&
-               android->find("fbalpha2012-core") != nullptr,
-           "MAME 2010 is not offered on Android");
+    for (const std::string_view build : {"android-arm64-v8a", "android-x86_64"}) {
+        const std::optional<EmulatorCatalog> android =
+            EmulatorCatalog::parse(body, "/h", error, build);
+        expect(android && android->find("mame2010-core") != nullptr &&
+                   android->find("mame2010-core")->release.has_value(),
+               "MAME 2010 comes from openSU's own build on Android");
+    }
 }
 
 void romsetSources() {
@@ -171,7 +176,7 @@ void malformedIsRefused() {
 
 int main() try {
     shippedCatalogParses();
-    leftOutPerSystem();
+    coreReleasePerBuild();
     malformedIsRefused();
     coreEntries();
     romsetSources();

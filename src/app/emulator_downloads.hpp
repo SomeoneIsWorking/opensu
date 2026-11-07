@@ -49,7 +49,8 @@ class EmulatorDownloads {
     struct Build {
         /// As the player reads it: a release's tag, a core's build date.
         std::string version;
-        /// What tells two versions apart: a release asset's id, a core zip's CRC-32.
+        /// What tells two versions apart: a release asset's id, a buildbot core's CRC-32, a
+        /// released core's URL (`keyOf`).
         std::string key;
 
         bool operator==(const Build&) const = default;
@@ -146,7 +147,7 @@ class EmulatorDownloads {
     [[nodiscard]] net::Result<Build> installRelease(const std::stop_token& stop,
                                                     const library::roms::EmulatorEntry& entry,
                                                     const net::WebClient::Progress& progress);
-    /// Installs the latest build of `entry`'s core.
+    /// Installs the latest build of `entry`'s core, from its release when the catalog names one.
     [[nodiscard]] net::Result<Build> installCore(const std::stop_token& stop,
                                                  const library::roms::EmulatorEntry& entry,
                                                  const net::WebClient::Progress& progress);
@@ -155,7 +156,7 @@ class EmulatorDownloads {
                                                  const net::WebClient::Progress& progress);
     /// Reads the latest builds; releases of standalone emulators only when `standalone`.
     void runCheck(const std::stop_token& stop, bool standalone);
-    /// Reads the buildbot's listing once for every built-in emulator.
+    /// Reads the buildbot's listing once for every built-in emulator without a release.
     void checkCores(const std::stop_token& stop, std::vector<std::string>& failures);
     /// Fetches the info of each core openSU downloaded without one, the archive once.
     void fetchMissingInfo(const std::stop_token& stop, std::vector<std::string>& failures);

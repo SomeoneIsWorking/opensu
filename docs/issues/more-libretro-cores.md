@@ -165,8 +165,10 @@ cache; frames `02`, `10`-`15`, `armwar-runner-status.txt`, `shell-run1.log`, `sh
 MAME 2010 crashes on load on Android, on any game by the code: the buildbot's arm64 core is built
 from `jni/Android.mk`, which lacks the Makefile's `-fno-delete-null-pointer-checks`, so clang drops
 the `(this)` test in `device_config::subtag` and `machine_config::detokenize` reads a null owner.
-Its catalog entry has `"notOn": {"android": ...}` as a stopgap until the buildbot's core carries the
-flag; the flag has been sent upstream. sfiii3n reaches Android through a rebuild for FinalBurn Neo
+On Android openSU downloads it from openSU's own build instead: the fork
+`SomeoneIsWorking/mame2010-libretro` (branch `opensu`) adds the flag, and its CI publishes each
+tag's arm64-v8a and x86_64 cores as a release, named in the catalog entry's `"release"` by build.
+The flag is also offered upstream (libretro/mame2010-libretro#174). sfiii3n reaches Android through a rebuild for FinalBurn Neo
 ("Older romsets rebuilt for a stock core"), not yet shown on the tablet.
 
 Not done: samples are never required; 7z sets are not matched (the arcade system lists `.zip`

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <format>
 #include <fstream>
 #include <iterator>
 #include <regex>
@@ -73,18 +74,54 @@ fs::path configPath(const std::string& raw, const fs::path& home) {
     return fs::path{raw};
 }
 
-ReleaseSource releaseOf(const json& object, const std::string& where) {
-    ReleaseSource release{text(object, "api", where, true), text(object, "asset", where, true),
-                          text(object, "downloads", where, true)};
+void checkPattern(const std::string& pattern, const std::string& where) {
     try {
-        std::ignore = std::regex{release.asset};
+        std::ignore = std::regex{pattern};
     } catch (const std::regex_error&) {
         throw Malformed{where + ": \"asset\" is not a regular expression"};
     }
+}
+
+ReleaseSource releaseOf(const json& object, const std::string& where, std::string asset) {
+    ReleaseSource release{text(object, "api", where, true), std::move(asset),
+                          text(object, "downloads", where, true)};
     if (release.downloads.find("://") == std::string::npos || !release.downloads.ends_with("/")) {
         throw Malformed{where + ": \"downloads\" must be an origin and path ending in /"};
     }
     return release;
+}
+
+ReleaseSource releaseOf(const json& object, const std::string& where) {
+    std::string asset = text(object, "asset", where, true);
+    checkPattern(asset, where);
+    return releaseOf(object, where, std::move(asset));
+}
+
+/// A core's `"release"`: its asset for each build, as `{"android-arm64-v8a": pattern}`. Nothing on
+/// a build it names no asset for, which takes the buildbot's core.
+std::optional<ReleaseSource> coreReleaseOf(const json& object, std::string_view build,
+                                           const std::string& where) {
+    const auto found = object.find("release");
+    if (found == object.end()) {
+        return std::nullopt;
+    }
+    const auto assets = found->is_object() ? found->find("assets") : found->end();
+    if (assets == found->end() || !assets->is_object() || assets->empty() ||
+        found->contains("asset")) {
+        throw Malformed{where + ": a core's \"release\" names its \"assets\" by build"};
+    }
+    std::optional<ReleaseSource> chosen;
+    for (const auto& [name, pattern] : assets->items()) {
+        if (!pattern.is_string()) {
+            throw Malformed{std::format("{}: the asset of {} is not a string", where, name)};
+        }
+        checkPattern(pattern.get<std::string>(), where);
+        ReleaseSource release = releaseOf(*found, where, pattern.get<std::string>());
+        if (name == build) {
+            chosen = std::move(release);
+        }
+    }
+    return chosen;
 }
 
 /// A standalone emulator's `"saves"`: its layout and folder.
@@ -171,25 +208,14 @@ void checkCore(const json& object, const std::string& core, const std::string& w
     if (!named) {
         throw Malformed{where + ": \"core\" must be a core's name, as \"mgba_libretro\""};
     }
-    if (object.contains("launchers") || object.contains("release") || object.contains("saves")) {
-        throw Malformed{where + ": a core runs built in, without \"launchers\", \"release\" or "
+    if (object.contains("launchers") || object.contains("saves")) {
+        throw Malformed{where + ": a core runs built in, without \"launchers\" or "
                                 "\"saves\""};
     }
 }
 
-/// Whether the entry's `"notOn"`, the systems it must not run on with why, names `system`.
-bool leftOut(const json& object, std::string_view system, const std::string& where) {
-    const auto notOn = object.find("notOn");
-    if (notOn == object.end()) {
-        return false;
-    }
-    if (!notOn->is_object()) {
-        throw Malformed{where + ": \"notOn\" is not an object"};
-    }
-    return notOn->contains(std::string{system});
-}
-
-EmulatorEntry entryOf(const json& object, const fs::path& home, std::size_t index) {
+EmulatorEntry entryOf(const json& object, const fs::path& home, std::string_view build,
+                      std::size_t index) {
     std::string where = "emulator " + std::to_string(index);
     if (!object.is_object()) {
         throw Malformed{where + " is not an object"};
@@ -206,6 +232,7 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::size_t inde
     entry.core = text(object, "core", where, false);
     if (entry.builtIn()) {
         checkCore(object, entry.core, where);
+        entry.release = coreReleaseOf(object, build, where);
         entry.romsets = romsetsOf(object, where);
         entry.coreOptions = coreOptionsOf(object, where);
         entry.shipped = flag(object, "shipped", where);
@@ -289,7 +316,7 @@ bool EmulatorEntry::serves(std::string_view system) const {
 }
 
 std::optional<EmulatorCatalog> EmulatorCatalog::parse(std::string_view text, const fs::path& home,
-                                                      std::string& error, std::string_view system) {
+                                                      std::string& error, std::string_view build) {
     const json root = json::parse(text, nullptr, false);
     if (root.is_discarded() || !root.is_object()) {
         error = "not a JSON object";
@@ -303,13 +330,11 @@ std::optional<EmulatorCatalog> EmulatorCatalog::parse(std::string_view text, con
     std::vector<EmulatorEntry> entries;
     try {
         for (const json& object : *list) {
-            EmulatorEntry entry = entryOf(object, home, entries.size());
+            EmulatorEntry entry = entryOf(object, home, build, entries.size());
             if (std::ranges::find(entries, entry.id, &EmulatorEntry::id) != entries.end()) {
                 throw Malformed{entry.id + ": listed twice"};
             }
-            if (!leftOut(object, system, entry.id)) {
-                entries.push_back(std::move(entry));
-            }
+            entries.push_back(std::move(entry));
         }
     } catch (const Malformed& malformed) {
         error = malformed.what();

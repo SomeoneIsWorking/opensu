@@ -124,6 +124,39 @@ net::Result<ReleaseAsset> EmulatorRelease::latest(const std::stop_token& stop,
     return std::move(*asset);
 }
 
+net::Result<std::string> EmulatorRelease::fetch(const std::stop_token& stop,
+                                                const ReleaseAsset& asset, const fs::path& file,
+                                                const net::WebClient::Progress& progress) const {
+    lucent::info("emulators", "downloading {} {} from {}", asset.name, asset.version, asset.url);
+    if (const net::Result<net::WebClient::BodyFacts> fetched =
+            web_.download(stop, asset.url, file, progress);
+        !fetched) {
+        removeQuietly(file);
+        return fetched.as<std::string>("the download failed: ");
+    }
+    std::error_code ec;
+    const std::uint64_t size = fs::file_size(file, ec);
+    if (ec || (asset.size != 0 && size != asset.size)) {
+        removeQuietly(file);
+        return net::Failure{"the download is " + std::to_string(size) +
+                            " bytes, the release says " + std::to_string(asset.size)};
+    }
+    std::string error;
+    const std::optional<lucent::content::Sha256> digest = lucent::content::sha256_file(file, error);
+    if (!digest) {
+        removeQuietly(file);
+        return net::Failure{std::move(error)};
+    }
+    std::string seen = lucent::content::sha256_hex(*digest);
+    if (!asset.sha256.empty() && seen != asset.sha256) {
+        removeQuietly(file);
+        error = "the download's SHA-256 " + seen + " is not the release's " + asset.sha256;
+        lucent::warn("emulators", "{} {}: {}", asset.name, asset.version, error);
+        return net::Failure{std::move(error)};
+    }
+    return seen;
+}
+
 net::Result<DownloadedEmulator>
 EmulatorRelease::install(const std::stop_token& stop, const EmulatorEntry& entry,
                          const ReleaseAsset& asset, const DownloadedEmulators& store,
@@ -136,31 +169,11 @@ EmulatorRelease::install(const std::stop_token& stop, const EmulatorEntry& entry
         return net::Failure{"cannot make " + dir.string() + ": " + ec.message()};
     }
     const fs::path part = dir / (asset.name + ".part");
-    lucent::info("emulators", "downloading {} {} from {}", entry.name, asset.version, asset.url);
-    if (const net::Result<net::WebClient::BodyFacts> fetched =
-            web_.download(stop, asset.url, part, progress);
-        !fetched) {
-        removeQuietly(part);
-        return fetched.as<DownloadedEmulator>("the download failed: ");
+    const net::Result<std::string> seen = fetch(stop, asset, part, progress);
+    if (!seen) {
+        return seen.as<DownloadedEmulator>();
     }
     const std::uint64_t size = fs::file_size(part, ec);
-    if (ec || (asset.size != 0 && size != asset.size)) {
-        removeQuietly(part);
-        return net::Failure{"the download is " + std::to_string(size) +
-                            " bytes, the release says " + std::to_string(asset.size)};
-    }
-    const std::optional<lucent::content::Sha256> digest = lucent::content::sha256_file(part, error);
-    if (!digest) {
-        removeQuietly(part);
-        return net::Failure{std::move(error)};
-    }
-    const std::string seen = lucent::content::sha256_hex(*digest);
-    if (!asset.sha256.empty() && seen != asset.sha256) {
-        removeQuietly(part);
-        error = "the download's SHA-256 " + seen + " is not the release's " + asset.sha256;
-        lucent::warn("emulators", "{} {}: {}", entry.name, asset.version, error);
-        return net::Failure{std::move(error)};
-    }
     const fs::path file = dir / asset.name;
     fs::permissions(part,
                     fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec |
@@ -177,7 +190,7 @@ EmulatorRelease::install(const std::stop_token& stop, const EmulatorEntry& entry
                               asset.version,
                               asset.assetId,
                               file,
-                              seen,
+                              *seen,
                               size,
                               asset.sha256.empty() ? Verification::Observed : Verification::Digest,
                               asset.url};

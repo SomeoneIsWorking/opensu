@@ -106,26 +106,29 @@ target_link_libraries(opensu_library
         PkgConfig::SQLITE3
 )
 target_compile_features(opensu_library PUBLIC cxx_std_20)
-# The libretro buildbot's nightly folder and core suffix for the OS and CPU built for.
+# The libretro buildbot's nightly folder, core suffix and build name for the OS and CPU built for.
 set(opensu_buildbot "https://buildbot.libretro.com/nightly")
 string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" opensu_cpu)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND opensu_cpu MATCHES "^(x86_64|amd64)$")
     set(opensu_core_folder "${opensu_buildbot}/linux/x86_64/latest/")
+    set(opensu_core_build "linux-x86_64")
     set(opensu_core_suffix ".so")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND opensu_cpu MATCHES "^(x86_64|amd64)$")
     set(opensu_core_folder "${opensu_buildbot}/windows/x86_64/latest/")
+    set(opensu_core_build "windows-x86_64")
     set(opensu_core_suffix ".dll")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND opensu_cpu MATCHES "^(arm64|aarch64)$")
     set(opensu_core_folder "${opensu_buildbot}/apple/osx/arm64/latest/")
+    set(opensu_core_build "macos-arm64")
     set(opensu_core_suffix ".dylib")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Android" AND CMAKE_ANDROID_ARCH_ABI MATCHES "^(arm64-v8a|x86_64)$")
     set(opensu_core_folder "${opensu_buildbot}/android/latest/${CMAKE_ANDROID_ARCH_ABI}/")
+    set(opensu_core_build "android-${CMAKE_ANDROID_ARCH_ABI}")
     set(opensu_core_suffix "_android.so")
 else()
     message(FATAL_ERROR "The libretro buildbot folder for ${CMAKE_SYSTEM_NAME} on "
         "${CMAKE_SYSTEM_PROCESSOR} is not known; add it to src/library/CMakeLists.txt")
 endif()
-string(TOLOWER "${CMAKE_SYSTEM_NAME}" opensu_core_system)
 # Which store builds run here (`store_builds.hpp`): Windows runs its own, Linux its own and Windows
 # ones under Wine, macOS only its own.
 if(WIN32)
@@ -149,7 +152,7 @@ set_source_files_properties(linked_play.cpp PROPERTIES
 target_compile_definitions(opensu_library PUBLIC
     OPENSU_CORE_BUILDBOT_FOLDER="${opensu_core_folder}"
     OPENSU_CORE_LIBRARY_SUFFIX="${opensu_core_suffix}"
-    OPENSU_CORE_SYSTEM="${opensu_core_system}"
+    OPENSU_CORE_BUILD="${opensu_core_build}"
     OPENSU_WINDOWS_BUILDS_NATIVE=${opensu_windows_builds_native}
     OPENSU_WINDOWS_BUILDS_RUN=${opensu_windows_builds_run}
     OPENSU_GOG_OWN_PLATFORM="${opensu_gog_own_platform}"

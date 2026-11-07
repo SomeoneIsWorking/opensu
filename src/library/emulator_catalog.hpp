@@ -101,7 +101,8 @@ struct EmulatorEntry {
     /// In the order they are looked for. A downloaded AppImage runs with the first one's words.
     /// None for a built-in emulator.
     std::vector<EmulatorLauncher> launchers;
-    /// Absent for an emulator without an official AppImage.
+    /// Absent for an emulator without an official AppImage. For a built-in emulator, the release
+    /// its core comes from on this build instead of the buildbot (`"release"`'s `"assets"`).
     std::optional<ReleaseSource> release;
     /// Absent for an emulator whose saves openSU cannot read; a built-in one's are the runner's.
     std::optional<SaveStore> saves;
@@ -126,7 +127,8 @@ struct EmulatorEntry {
     /// Its name without the catalog's " (built-in)" mark, where the context says it is the core:
     /// "mGBA" for "mGBA (built-in)".
     [[nodiscard]] std::string_view shortName() const noexcept;
-    /// Whether openSU can download it: an official AppImage or a buildbot core.
+    /// Whether openSU can download it: an official AppImage, or a core from the buildbot or its
+    /// release.
     [[nodiscard]] bool downloadable() const noexcept {
         return release.has_value() || (builtIn() && !shipped);
     }
@@ -138,12 +140,12 @@ class EmulatorCatalog {
     explicit EmulatorCatalog(std::vector<EmulatorEntry> entries) : entries_{std::move(entries)} {
     }
 
-    /// The catalog in `json` for `system` (an entry's `"notOn"` leaves it out there), with `~` in
-    /// a config path meaning `home`. Nothing, with `error` naming the entry and field, when it is
-    /// malformed.
+    /// The catalog in `json` for the core build `build` (which of a core release's assets it
+    /// takes), with `~` in a config path meaning `home`. Nothing, with `error` naming the entry
+    /// and field, when it is malformed.
     [[nodiscard]] static std::optional<EmulatorCatalog>
     parse(std::string_view json, const std::filesystem::path& home, std::string& error,
-          std::string_view system = coreTarget.system);
+          std::string_view build = coreTarget.build);
 
     /// The catalog shipped in `assetsDir`; empty, with the reason logged, when it cannot be read.
     [[nodiscard]] static EmulatorCatalog shipped(const std::filesystem::path& assetsDir,

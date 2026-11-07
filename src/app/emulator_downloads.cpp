@@ -14,6 +14,16 @@ using library::roms::EmulatorEntry;
 
 constexpr std::uint64_t percentScale = 100;
 
+/// A downloaded core's key: a released core's record keeps no asset id, but its URL names its tag.
+std::string keyOf(const EmulatorEntry& entry, const library::roms::DownloadedCore& core) {
+    return entry.release ? core.url : std::to_string(core.crc32);
+}
+
+/// The key of a release's `asset` for `entry`, as `keyOf` reads it once it is installed.
+std::string keyOf(const EmulatorEntry& entry, const library::roms::ReleaseAsset& asset) {
+    return entry.builtIn() ? asset.url : asset.assetId;
+}
+
 } // namespace
 
 std::optional<int> EmulatorDownloads::Progress::percent() const noexcept {
@@ -98,7 +108,7 @@ EmulatorDownloads::installRelease(const std::stop_token& stop, const EmulatorEnt
     if (!asset) {
         return asset.as<Build>();
     }
-    remember(entry.id, Build{asset->version, asset->assetId});
+    remember(entry.id, Build{asset->version, keyOf(entry, *asset)});
     const net::Result<library::roms::DownloadedEmulator> installed =
         release_.install(stop, entry, *asset, store_, progress);
     if (!installed) {
@@ -110,6 +120,20 @@ EmulatorDownloads::installRelease(const std::stop_token& stop, const EmulatorEnt
 net::Result<EmulatorDownloads::Build>
 EmulatorDownloads::installCore(const std::stop_token& stop, const EmulatorEntry& entry,
                                const net::WebClient::Progress& progress) {
+    if (entry.release) {
+        const net::Result<library::roms::ReleaseAsset> asset =
+            release_.latest(stop, *entry.release);
+        if (!asset) {
+            return asset.as<Build>();
+        }
+        remember(entry.id, Build{asset->version, keyOf(entry, *asset)});
+        const net::Result<library::roms::DownloadedCore> installed =
+            coreDownload_.installRelease(stop, entry.core, *asset, release_, cores_, progress);
+        if (!installed) {
+            return installed.as<Build>();
+        }
+        return Build{installed->date, keyOf(entry, *installed)};
+    }
     const net::Result<library::roms::CoreBuild> build = coreDownload_.latest(stop, entry.core);
     if (!build) {
         return build.as<Build>();
@@ -120,7 +144,7 @@ EmulatorDownloads::installCore(const std::stop_token& stop, const EmulatorEntry&
     if (!installed) {
         return installed.as<Build>();
     }
-    return Build{installed->date, std::to_string(installed->crc32)};
+    return Build{installed->date, keyOf(entry, *installed)};
 }
 
 net::Result<EmulatorDownloads::Build>
@@ -219,7 +243,7 @@ void EmulatorDownloads::runCheck(const std::stop_token& stop, bool standalone) {
         }
         if (const net::Result<library::roms::ReleaseAsset> asset =
                 release_.latest(stop, *entry.release)) {
-            remember(entry.id, Build{asset->version, asset->assetId});
+            remember(entry.id, Build{asset->version, keyOf(entry, *asset)});
         } else if (asset.stopped()) {
             return;
         } else {
@@ -234,7 +258,10 @@ void EmulatorDownloads::runCheck(const std::stop_token& stop, bool standalone) {
 
 void EmulatorDownloads::checkCores(const std::stop_token& stop,
                                    std::vector<std::string>& failures) {
-    if (std::ranges::none_of(setup_.catalog.entries(), &EmulatorEntry::builtIn)) {
+    const auto fromBuildbot = [](const EmulatorEntry& entry) {
+        return entry.builtIn() && !entry.release;
+    };
+    if (std::ranges::none_of(setup_.catalog.entries(), fromBuildbot)) {
         return;
     }
     const net::Result<std::string> listing = coreDownload_.index(stop);
@@ -248,7 +275,7 @@ void EmulatorDownloads::checkCores(const std::stop_token& stop,
     }
     std::string error;
     for (const EmulatorEntry& entry : setup_.catalog.entries()) {
-        if (!entry.builtIn()) {
+        if (!fromBuildbot(entry)) {
             continue;
         }
         if (const std::optional<library::roms::CoreBuild> build =
@@ -315,7 +342,7 @@ std::optional<EmulatorDownloads::Build> EmulatorDownloads::downloaded(std::strin
     }
     if (entry->builtIn()) {
         const std::optional<library::roms::DownloadedCore> core = cores_.find(entry->core);
-        return core ? std::optional{Build{core->date, std::to_string(core->crc32)}} : std::nullopt;
+        return core ? std::optional{Build{core->date, keyOf(*entry, *core)}} : std::nullopt;
     }
     const std::optional<library::roms::DownloadedEmulator> have = store_.find(id);
     return have ? std::optional{Build{have->version, have->assetId}} : std::nullopt;

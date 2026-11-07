@@ -568,6 +568,14 @@ buildbot's `assets/frontend/info.zip` (same origin) and written beside it; the u
 it for a core downloaded without one. A core installed another way has its info in
 `~/.config/retroarch/info` or `/usr/share/libretro/info`.
 
+A core the buildbot's build cannot run comes from openSU's own build: its catalog entry's
+`"release"` names a GitHub release and, by build (`coreTarget.build`: `android-arm64-v8a`, ...), the
+asset to take; a build it names none for takes the buildbot's. The asset is a zip holding the one
+library, downloaded through `EmulatorRelease::fetch` and refused unless the release publishes its
+SHA-256 and it matches; its info still comes from the buildbot, its record keeps the release's tag
+as its date and the asset's URL, which the update check compares. Settings › Emulators names its
+source "openSU build". MAME 2010 on Android is the one so far (`docs/issues/more-libretro-cores.md`).
+
 **BIOS.** A core's BIOS files are its info's `firmware*` entries, looked for in the runner's
 system folder (`<data>/opensu/system/`). The catalog's `"withoutBios"` says what the core does
 when none is there: `hle` (mGBA, PCSX ReARMed), `open` (melonDS DS's FreeBIOS), `skipped` (boot

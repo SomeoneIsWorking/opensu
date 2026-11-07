@@ -4,7 +4,9 @@
 // is checked against the CRC-32 the folder's `.index-extended` lists, and is recorded beside the
 // core (`<core>.json`: build date, CRC-32, URL) so a newer build can be told apart. Its libretro
 // core info (`<core>.info`, which lists its BIOS files) comes from the buildbot's info archive with
-// it and is kept beside it; a core installed another way has its info in RetroArch's folders.
+// it and is kept beside it; a core installed another way has its info in RetroArch's folders. A
+// core the catalog builds itself comes from its release instead (`installRelease`), checked against
+// the SHA-256 the release publishes, with its info still from the buildbot.
 #pragma once
 
 #include <cstdint>
@@ -15,6 +17,7 @@
 #include <string_view>
 #include <vector>
 
+#include "emulator_release.hpp"
 #include "net/web_client.hpp"
 
 namespace opensu::library::roms {
@@ -144,6 +147,15 @@ class CoreDownload {
     install(const std::stop_token& stop, const CoreBuild& build, const DownloadedCores& store,
             const net::WebClient::Progress& progress) const;
 
+    /// Downloads `core` as the release's `asset`, checks it against the SHA-256 the release
+    /// publishes (refused when it publishes none), takes the one core out of its zip and switches
+    /// to it, recording the release's version as its date. As `install`, nothing stays unless it
+    /// succeeds.
+    [[nodiscard]] net::Result<DownloadedCore>
+    installRelease(const std::stop_token& stop, const std::string& core, const ReleaseAsset& asset,
+                   const EmulatorRelease& release, const DownloadedCores& store,
+                   const net::WebClient::Progress& progress) const;
+
     [[nodiscard]] const std::string& base() const noexcept {
         return base_;
     }
@@ -151,6 +163,14 @@ class CoreDownload {
   private:
     /// Why `url` may not be fetched: every hop stays on the folder's own origin.
     [[nodiscard]] std::string refusal(const std::string& url) const;
+    /// `core`'s info file from the buildbot's archive.
+    [[nodiscard]] net::Result<std::string> infoOf(const std::stop_token& stop,
+                                                  const std::string& core) const;
+    /// Puts `library`, taken from the zip `bytes`, and `info` in `store` as `build`; `build.crc32`
+    /// is checked when `checkCrc`, else set from the library.
+    [[nodiscard]] static net::Result<DownloadedCore> place(CoreBuild build, std::string bytes,
+                                                           const std::string& info, bool checkCrc,
+                                                           const DownloadedCores& store);
 
     const net::WebClient& web_;
     std::string base_;

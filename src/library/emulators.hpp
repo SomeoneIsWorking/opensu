@@ -77,6 +77,8 @@ enum class InstallSource : std::uint8_t {
     AndroidApp,
     /// A core openSU downloaded from the libretro buildbot.
     DownloadedCore,
+    /// A core openSU downloaded from its own build's release (`EmulatorEntry::release`).
+    ReleasedCore,
     /// A core openSU ships (`config::Config::shippedCores`).
     ShippedCore,
     /// A core in RetroArch's or the system's core folder.

@@ -16,6 +16,7 @@
 #include "library/emulators.hpp"
 #include "library/libretro_cores.hpp"
 #include "support/buildbot_server.hpp"
+#include "support/release_server.hpp"
 #include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
@@ -189,6 +190,48 @@ void downloadChecksAndSwitches(const fs::path& root) {
            "remove deletes the core, its info and its record");
 }
 
+void releasedCoreIsChecked(const fs::path& root) {
+    opensu::test::BuildbotServer buildbot;
+    opensu::test::ReleaseServer server;
+    const opensu::net::WebClient web;
+    const CoreDownload download{web, buildbot.base()};
+    const EmulatorRelease release{web};
+    const DownloadedCores store{root / "cores"};
+    const std::string core = "mame2010_libretro";
+    const std::string info = "firmware_count = \"0\"\n";
+    buildbot.publish(core, "2026-10-01", "the buildbot's", std::nullopt, info);
+    const ReleaseSource source{server.base() + "/api/mame2010", "^mame2010_libretro-.+\\.zip$",
+                               server.base() + "/dl/"};
+    const auto zipped = [&core](const std::string& library) {
+        return opensu::test::zipfixture::buildZip({{lib(core), library, true, {}}});
+    };
+
+    server.publish("mame2010", "2026-11-07", 1, "mame2010_libretro-x.zip", zipped("ours"));
+    const ReleaseAsset asset = need(release.latest(std::stop_token{}, source), "read");
+    const DownloadedCore installed =
+        need(download.installRelease(std::stop_token{}, core, asset, release, store, anyProgress),
+             "a released core whose digest matches installs");
+    expect(read(installed.file) == "ours" && installed.date == "2026-11-07" &&
+               installed.url == asset.url && read(store.info(core)) == info,
+           "it is the release's core, dated by its tag, with the buildbot's info");
+
+    server.publish("mame2010", "2026-11-08", 2, "mame2010_libretro-x.zip", zipped("tampered"),
+                   std::string(64, '0'));
+    const ReleaseAsset bad = need(release.latest(std::stop_token{}, source), "read");
+    expect(download.installRelease(std::stop_token{}, core, bad, release, store, anyProgress)
+                   .error()
+                   .find("SHA-256") != std::string::npos,
+           "a digest mismatch is refused");
+    server.publish("mame2010", "2026-11-09", 3, "mame2010_libretro-x.zip", zipped("unsigned"), "");
+    const ReleaseAsset plain = need(release.latest(std::stop_token{}, source), "read");
+    expect(download.installRelease(std::stop_token{}, core, plain, release, store, anyProgress)
+                   .error()
+                   .find("no SHA-256") != std::string::npos,
+           "a release without a digest is refused");
+    expect(store.find(core) == installed && namesIn(store.root()).size() == 3,
+           "the core before stays and nothing of either download is kept");
+}
+
 void cancelKeepsNothing(const fs::path& root) {
     opensu::test::BuildbotServer buildbot;
     const opensu::net::WebClient web;
@@ -311,6 +354,7 @@ int main(int argc, char** argv) try {
         listingIsRead();
         lookupOrder(scratch.path() / "lookup");
         downloadChecksAndSwitches(scratch.path() / "download");
+        releasedCoreIsChecked(scratch.path() / "released");
         cancelKeepsNothing(scratch.path() / "cancel");
         foundCoreIsAnEmulator(scratch.path() / "emulator");
         shippedCoreServesWhenPicked(scratch.path() / "shipped");

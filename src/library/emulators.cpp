@@ -140,7 +140,9 @@ std::optional<EmulatorInstall> locateCore(const EmulatorEntry& entry,
     }
     const std::string file = core->file.string();
     const bool ours = core->downloaded.has_value();
-    const InstallSource source = ours            ? InstallSource::DownloadedCore
+    const InstallSource downloaded =
+        entry.release ? InstallSource::ReleasedCore : InstallSource::DownloadedCore;
+    const InstallSource source = ours            ? downloaded
                                  : core->shipped ? InstallSource::ShippedCore
                                                  : InstallSource::Core;
     std::vector<std::string> command{search.runner.string(), "--core", file};
@@ -232,6 +234,8 @@ std::string_view label(InstallSource source) {
         return "Android app";
     case InstallSource::DownloadedCore:
         return "libretro buildbot";
+    case InstallSource::ReleasedCore:
+        return "openSU build";
     case InstallSource::ShippedCore:
         return "openSU";
     case InstallSource::Core:
@@ -241,7 +245,8 @@ std::string_view label(InstallSource source) {
 }
 
 bool downloadedByOpensu(InstallSource source) noexcept {
-    return source == InstallSource::Downloaded || source == InstallSource::DownloadedCore;
+    return source == InstallSource::Downloaded || source == InstallSource::DownloadedCore ||
+           source == InstallSource::ReleasedCore;
 }
 
 EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& dataDir,

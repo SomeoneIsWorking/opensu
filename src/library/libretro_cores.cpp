@@ -293,6 +293,80 @@ net::Result<std::string> CoreDownload::infoArchive(const std::stop_token& stop) 
     return std::move(answer->body);
 }
 
+net::Result<std::string> CoreDownload::infoOf(const std::stop_token& stop,
+                                              const std::string& core) const {
+    net::Result<std::string> infoBytes = infoArchive(stop);
+    if (!infoBytes) {
+        return infoBytes;
+    }
+    std::string error;
+    const std::optional<CoreInfoArchive> archive =
+        CoreInfoArchive::open(*std::move(infoBytes), error);
+    std::optional<std::string> info = archive ? archive->info(core, error) : std::nullopt;
+    if (!info) {
+        return net::Failure{std::move(error)};
+    }
+    return std::move(*info);
+}
+
+net::Result<DownloadedCore> CoreDownload::place(CoreBuild build, std::string bytes,
+                                                const std::string& info, bool checkCrc,
+                                                const DownloadedCores& store) {
+    std::string error;
+    const std::optional<std::string> library = coreIn(std::move(bytes), build.core, error);
+    if (!library) {
+        return net::Failure{std::move(error)};
+    }
+    const std::uint32_t seen = zip::crc32Of(*library);
+    // The buildbot lists the CRC-32 of the library inside the zip, not of the zip.
+    if (checkCrc && seen != build.crc32) {
+        error = "the core's CRC-32 " + hexOf(seen) + " is not the buildbot's " + hexOf(build.crc32);
+        lucent::warn("emulators", "{} {}: {}", build.core, build.date, error);
+        return net::Failure{std::move(error)};
+    }
+    build.crc32 = seen;
+    if (!store.install(build, *library, info, error)) {
+        return net::Failure{std::move(error)};
+    }
+    std::optional<DownloadedCore> installed = store.find(build.core);
+    if (!installed) {
+        return net::Failure{build.core + " is not found where it was installed"};
+    }
+    return std::move(*installed);
+}
+
+net::Result<DownloadedCore>
+CoreDownload::installRelease(const std::stop_token& stop, const std::string& core,
+                             const ReleaseAsset& asset, const EmulatorRelease& release,
+                             const DownloadedCores& store,
+                             const net::WebClient::Progress& progress) const {
+    if (asset.sha256.empty()) {
+        return net::Failure{"the release publishes no SHA-256 for " + asset.name};
+    }
+    std::error_code ec;
+    fs::create_directories(store.root(), ec);
+    if (ec) {
+        return net::Failure{"cannot make " + store.root().string() + ": " + ec.message()};
+    }
+    const net::Result<std::string> info = infoOf(stop, core);
+    if (!info) {
+        return info.as<DownloadedCore>();
+    }
+    const fs::path part = store.root() / (core + std::string{libraryExtension} + ".zip.part");
+    if (const net::Result<std::string> fetched = release.fetch(stop, asset, part, progress);
+        !fetched) {
+        return fetched.as<DownloadedCore>();
+    }
+    std::string error;
+    std::optional<std::string> bytes = readWhole(part, error);
+    removeQuietly(part);
+    if (!bytes) {
+        return net::Failure{std::move(error)};
+    }
+    return place(CoreBuild{core, asset.version, 0, asset.url}, std::move(*bytes), *info, false,
+                 store);
+}
+
 net::Result<DownloadedCore> CoreDownload::install(const std::stop_token& stop,
                                                   const CoreBuild& build,
                                                   const DownloadedCores& store,
@@ -303,16 +377,9 @@ net::Result<DownloadedCore> CoreDownload::install(const std::stop_token& stop,
     if (ec) {
         return net::Failure{"cannot make " + store.root().string() + ": " + ec.message()};
     }
-    net::Result<std::string> infoBytes = infoArchive(stop);
-    if (!infoBytes) {
-        return infoBytes.as<DownloadedCore>();
-    }
-    const std::optional<CoreInfoArchive> archive =
-        CoreInfoArchive::open(*std::move(infoBytes), error);
-    const std::optional<std::string> info =
-        archive ? archive->info(build.core, error) : std::nullopt;
+    const net::Result<std::string> info = infoOf(stop, build.core);
     if (!info) {
-        return net::Failure{std::move(error)};
+        return info.as<DownloadedCore>();
     }
     const fs::path part = store.root() / (build.core + std::string{libraryExtension} + ".zip.part");
     lucent::info("emulators", "downloading {} {} from {}", build.core, build.date, build.url);
@@ -328,24 +395,7 @@ net::Result<DownloadedCore> CoreDownload::install(const std::stop_token& stop,
     if (!bytes) {
         return net::Failure{std::move(error)};
     }
-    const std::optional<std::string> library = coreIn(std::move(*bytes), build.core, error);
-    if (!library) {
-        return net::Failure{std::move(error)};
-    }
-    // The buildbot lists the CRC-32 of the library inside the zip, not of the zip.
-    if (const std::uint32_t seen = zip::crc32Of(*library); seen != build.crc32) {
-        error = "the core's CRC-32 " + hexOf(seen) + " is not the buildbot's " + hexOf(build.crc32);
-        lucent::warn("emulators", "{} {}: {}", build.core, build.date, error);
-        return net::Failure{std::move(error)};
-    }
-    if (!store.install(build, *library, *info, error)) {
-        return net::Failure{std::move(error)};
-    }
-    std::optional<DownloadedCore> installed = store.find(build.core);
-    if (!installed) {
-        return net::Failure{build.core + " is not found where it was installed"};
-    }
-    return std::move(*installed);
+    return place(build, std::move(*bytes), *info, true, store);
 }
 
 } // namespace opensu::library::roms

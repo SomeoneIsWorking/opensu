@@ -1,9 +1,11 @@
 // emulator_release — an emulator's latest official AppImage: read from its release API (GitHub's
 // or Forgejo's release JSON), downloaded from the project's own host, checked against the
-// release's SHA-256 when it publishes one, and handed to `DownloadedEmulators` to switch to.
+// release's SHA-256 when it publishes one, and handed to `DownloadedEmulators` to switch to. A core
+// published as a release (`EmulatorEntry::release` of a built-in one) is fetched the same way.
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <optional>
 #include <stop_token>
 #include <string>
@@ -43,6 +45,13 @@ class EmulatorRelease {
     /// The latest release's asset for `source`.
     [[nodiscard]] net::Result<ReleaseAsset> latest(const std::stop_token& stop,
                                                    const ReleaseSource& source) const;
+
+    /// Downloads `asset` to `file` and checks its size and SHA-256 against the release's, returning
+    /// the SHA-256 it has. Unless it succeeds, a stop or cancel included, `file` is removed.
+    [[nodiscard]] net::Result<std::string> fetch(const std::stop_token& stop,
+                                                 const ReleaseAsset& asset,
+                                                 const std::filesystem::path& file,
+                                                 const net::WebClient::Progress& progress) const;
 
     /// Downloads `asset` of `entry` beside the version in use, verifies it, makes it executable
     /// and switches to it. Unless it succeeds, a stop or cancel included, the partial file is
