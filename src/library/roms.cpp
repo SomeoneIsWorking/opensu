@@ -148,6 +148,7 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
         if (set.empty()) {
             return true;
         }
+        game.romsetName = set;
         const std::vector<RomsetVerdict> verdicts = romsets_.check(folder, zip, arcadeCores);
         // MAME 2003-Plus's listing predates `isbios`, so one listing saying so is enough.
         if (std::ranges::any_of(verdicts, &RomsetVerdict::bios)) {

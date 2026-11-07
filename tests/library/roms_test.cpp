@@ -426,6 +426,8 @@ void biosIsNoGame(const Fixture& f) {
         expect(game != nullptr && !game->romset.empty() && game->romset != checkingRomset &&
                    game->romset != noRomsetMatch,
                "a game beside it still matches through it");
+        expect(game != nullptr && game->romsetName == "game",
+               "the game carries its set's name for the launch's listing lookup");
     }
 }
 

@@ -1,7 +1,6 @@
 #include "retro_launch.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <format>
 #include <vector>
 
@@ -44,11 +43,8 @@ namespace {
 /// `--arcade`'s value for `game` on `entry`: `0:0` when its listing says nothing of the set.
 std::string arcadeControls(const library::Game& game, const library::roms::EmulatorEntry& entry,
                            const library::roms::RomsetDats& romsets) {
-    std::string set =
-        game.launch.conversion ? game.launch.conversion->target : game.file.stem().string();
-    std::ranges::transform(set, set.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
+    const std::string& set =
+        game.launch.conversion ? game.launch.conversion->target : game.romsetName;
     std::string error;
     const std::optional<library::roms::RomsetDat> listing =
         romsets.load(entry, library::roms::RomsetDat::Wanted{set}, error);

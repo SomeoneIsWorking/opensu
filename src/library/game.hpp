@@ -217,6 +217,9 @@ struct Game {
     /// An arcade zip's romset: the cores it matches, that none does, or that it is being checked;
     /// empty when it was not checked.
     std::string romset;
+    /// An arcade zip's set as its file is named ("avspu"); empty for every other game. A picked
+    /// folder's `file` is a document URI, which names no set.
+    std::string romsetName;
     /// With no core matching, the nearest one and what the set lacks for it.
     std::string romsetNearest;
 };
