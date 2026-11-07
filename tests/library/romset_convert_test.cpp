@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "library/romset_match.hpp"
+#include "support/test_main.hpp"
 #include "zip/zip_archive.hpp"
 #include "zip/zip_writer.hpp"
 
@@ -109,7 +110,7 @@ RomsetConversions conversionsWith(std::uint32_t laneBStart) {
 
 } // namespace
 
-int main() {
+int main() try {
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "romset-convert";
     std::error_code ec;
     fs::remove_all(root, ec);
@@ -197,4 +198,6 @@ int main() {
           "the launch carries the conversion");
     check(game.romset == "Matches FinalBurn Neo through conversion", "the verdict says so");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

@@ -174,8 +174,10 @@ void replaceDropsAStore() {
            "the dropped store is gone from the snapshot");
     gate.open();
     loader.waitIdle();
-    const auto later = loader.take();
-    expect(later && later->games.size() == 1 && later->games[0].id == "rom:b",
+    // The new provider's listing may already have been in the snapshot the replace handed over.
+    const std::optional<opensu::library::CatalogSnapshot> later = loader.take();
+    const opensu::library::CatalogSnapshot& shown = later ? *later : at;
+    expect(shown.games.size() == 1 && shown.games[0].id == "rom:b",
            "only the new provider's listing is shown");
 }
 

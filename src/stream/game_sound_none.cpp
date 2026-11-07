@@ -13,6 +13,7 @@ GameSound::GameSound(Setup /*setup*/) {
 
 GameSound::~GameSound() = default;
 
+// NOLINTNEXTLINE(performance-unnecessary-value-param): the PipeWire backend moves it
 void GameSound::adopt(std::vector<std::int32_t> /*processes*/) {
 }
 
