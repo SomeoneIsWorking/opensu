@@ -405,6 +405,9 @@ RunnerExit RunnerApp::run() {
             control->serve([&commands](const ControlRequest& request) {
                 return commands.perform(request);
             });
+            if (commands.quitting()) {
+                break;
+            }
         }
         if (waiting || commands.suspended()) {
             next = Clock::now() + interval;

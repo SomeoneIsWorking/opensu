@@ -88,6 +88,7 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
     shell_.screens().navigator().setClipboard([this] {
         return window_->clipboard();
     });
+    retro_.closeLeftovers();
     buildHome();
     padOwner_.syncChords();
     clock_.service(std::chrono::steady_clock::now());

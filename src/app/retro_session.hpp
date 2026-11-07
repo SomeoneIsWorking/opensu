@@ -50,6 +50,10 @@ class RetroSession {
     /// A new launch's control file, as the `NAME=value` entry for the game's environment. Any
     /// thread.
     [[nodiscard]] std::string begin();
+    /// Runners another openSU left running when it died (Android kills the shell and not
+    /// `:retro`): each saved and closed (`/suspend`, then `/quit`) and its files removed, so the
+    /// next launch resumes the game instead of meeting a runner no one can reach.
+    void closeLeftovers();
     /// The launch begun last's settings file for `opensu-retro --settings`, beside its control
     /// file. Any thread.
     [[nodiscard]] std::filesystem::path settingsFile();

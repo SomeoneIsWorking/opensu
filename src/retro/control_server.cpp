@@ -479,6 +479,8 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
         command.command = ControlCommand::Release;
     } else if (path == "/turn") {
         command.command = ControlCommand::Turn;
+    } else if (path == "/quit") {
+        command.command = ControlCommand::Quit;
     } else {
         return text(404, "Not Found", "no such route");
     }

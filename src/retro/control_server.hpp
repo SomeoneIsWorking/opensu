@@ -44,6 +44,8 @@ enum class ControlCommand : std::uint8_t {
     Hold,
     /// The Guide left.
     Release,
+    /// The game ends as if its window closed: the save RAM written, then the runner exits.
+    Quit,
 };
 
 /// A command for the frame loop and what it carries.

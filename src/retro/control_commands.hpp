@@ -47,6 +47,10 @@ class ControlCommands {
     }
 
     /// Whether the shell's Guide asks the game to wait for it.
+    /// `/quit` came: the frame loop ends.
+    [[nodiscard]] bool quitting() const noexcept {
+        return quitting_;
+    }
     [[nodiscard]] bool held() const noexcept {
         return held_;
     }
@@ -57,6 +61,7 @@ class ControlCommands {
     Parts parts_;
     bool suspended_{false};
     bool held_{false};
+    bool quitting_{false};
 };
 
 } // namespace opensu::retro

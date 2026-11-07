@@ -4,6 +4,7 @@
 #include <iterator>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 
@@ -53,6 +54,38 @@ std::string RetroSession::begin() {
     std::filesystem::remove(file_, error);
     std::filesystem::remove(settingsBeside(file_), error);
     return std::string{variable} + "=" + file_.string();
+}
+
+void RetroSession::closeLeftovers() {
+    const std::lock_guard lock{mutex_};
+    const std::string own = "retro-" + std::to_string(launch::ownProcessId()) + "-";
+    std::error_code error;
+    std::vector<std::filesystem::path> leftovers;
+    for (const auto& entry : std::filesystem::directory_iterator{directory_, error}) {
+        const std::string name = entry.path().filename().string();
+        if (name.starts_with("retro-") && !name.starts_with(own) && name.ends_with(".json") &&
+            !name.ends_with(".settings.json")) {
+            leftovers.push_back(entry.path());
+        }
+    }
+    for (const std::filesystem::path& file : leftovers) {
+        const nlohmann::json control = readControl(file);
+        if (control.is_object() && control.contains("port") &&
+            control["port"].is_number_unsigned()) {
+            const auto at = control["port"].get<std::uint16_t>();
+            lucent::http::FetchResult result;
+            std::string failure;
+            const bool saved = lucent::http::post_loopback(at, "/suspend", {}, result, failure) &&
+                               result.status == 200;
+            const bool quit = lucent::http::post_loopback(at, "/quit", {}, result, failure) &&
+                              result.status == 200;
+            lucent::info("retro", "a game left running by an earlier openSU ({}): {}, {}",
+                         file.filename().string(), saved ? "saved" : "not saved",
+                         quit ? "closed" : "not answering");
+        }
+        std::filesystem::remove(file, error);
+        std::filesystem::remove(settingsBeside(file), error);
+    }
 }
 
 std::filesystem::path RetroSession::settingsFile() {

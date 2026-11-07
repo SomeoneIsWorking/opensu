@@ -127,6 +127,10 @@ ControlAnswer ControlCommands::perform(const ControlRequest& request) {
     case ControlCommand::Release:
         held_ = false;
         break;
+    case ControlCommand::Quit:
+        quitting_ = true;
+        lucent::info("retro", "the game quits on the control channel's word");
+        break;
     case ControlCommand::Frame: {
         std::string error;
         answer.png = framePng(parts_.presenter, error);

@@ -1,6 +1,6 @@
 # A game keeps running after Android kills the shell, and the Guide cannot hold it
 
-Status: open. Cause known; fix not written.
+Status: fixed, not yet seen on the phone.
 
 Observed 2026-11-07 on the phone (VKJ-NX9, build `0.6.0-88-gdf4f651e`): the Guide's menu over Alien
 vs. Predator left the game running behind it.
@@ -28,8 +28,9 @@ by no one and swallows the next launch.
 
 ## Fix
 
-A shell starting finds control files of other shells whose runner still answers, has each Save and
-close (`/suspend`: save RAM written, resume state taken) and ends it (the runner task finished on
-Android, the process stopped elsewhere), before any launch. The next Play resumes from the resume
-state. Proof: on the phone, start a game, kill the shell (`am kill` with the game in front does
-not reach `:retro`), open openSU, Play again: the game resumes where it was and the Guide holds it.
+A shell starting finds control files other shells left (`RetroSession::closeLeftovers`), has each
+runner Save and close (`/suspend`: save RAM written, resume state taken) and quit (`/quit`: the
+frame loop ends as a closed window ends it, and the runner's Activity with it), before any launch.
+The next Play resumes from the resume state. Proof: on the phone, start a game, kill the shell's
+process alone (`run-as <package> kill <shell pid>`), open openSU, Play again: the game resumes
+where it was and the Guide holds it.

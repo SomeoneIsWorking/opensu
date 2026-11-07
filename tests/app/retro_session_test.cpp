@@ -7,6 +7,7 @@
 #include <fstream>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <unistd.h>
 
@@ -98,6 +99,28 @@ void rotateIsLeftForTheShell() {
     expect(!session.screenTurned(), "which is handed over once");
 }
 
+void leftoversAreClosed() {
+    const test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "retro_session_leftovers"};
+    test::FakeRunner left;
+    const std::filesystem::path theirs = scratch.path() / "retro-1-0.json";
+    left.announce("OPENSU_RETRO_CONTROL=" + theirs.string());
+    std::ofstream{scratch.path() / "retro-1-0.settings.json"} << "{}";
+    app::RetroSession session{scratch.path()};
+    test::FakeRunner mine;
+    const std::string entry = session.begin();
+    mine.announce(entry);
+    session.closeLeftovers();
+    const std::vector<std::string> calls = left.calls();
+    expect(calls.size() == 2 && calls[0] == "/suspend" && calls[1] == "/quit",
+           "a runner an earlier openSU left is saved and closed");
+    expect(!std::filesystem::exists(theirs) &&
+               !std::filesystem::exists(scratch.path() / "retro-1-0.settings.json"),
+           "its files are removed");
+    expect(mine.calls().empty() && std::filesystem::exists(fileOf(entry)),
+           "this openSU's own game is left alone");
+    static_cast<void>(session.end());
+}
+
 } // namespace
 
 int main() try {
@@ -106,6 +129,7 @@ int main() try {
         requestsReachTheRunner();
         loadFailureIsHandedOver();
         rotateIsLeftForTheShell();
+        leftoversAreClosed();
     } catch (const std::exception& error) {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;
