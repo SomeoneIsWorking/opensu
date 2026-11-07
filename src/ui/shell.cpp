@@ -156,7 +156,8 @@ void Shell::tick(Clock::time_point now) {
                                            !mapping_.isOpen()});
     // Overlays stand above the docked keyboard, so the field it types into shows.
     screens_.layout(now_, gpu2d::Rect{0.0f, 0.0f, width, height}, height - keyboardChrome_.top(),
-                    Density{.dp = dp(), .display = displayDp_}, Chrome{hud_.barHeight()},
+                    Density{.dp = dp(), .display = displayDp_},
+                    Chrome{.top = hud_.barHeight(), .width = width - safe_.left - safe_.right},
                     prompts_.device.pointing(), safe_);
 }
 

@@ -276,7 +276,7 @@ void hidingPersistsAndMenuRoutes(const fs::path& root) {
 void searchTypesAndCloses(const fs::path& root) {
     Rig rig{root / "search" / "settings.json"};
     test::InterfaceRig ui;
-    ui::Chrome chrome;
+    const ui::Chrome chrome{.width = 1280.0f};
     ui::OnScreenKeyboard keyboard;
     keyboard.setStyle(input::KeyboardStyle::Regular);
     app::KeyboardPad pad{keyboard, ui.navigator, rig.sounds};

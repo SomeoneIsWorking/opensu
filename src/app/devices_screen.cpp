@@ -33,17 +33,16 @@ std::unique_ptr<tk::Widget> DevicesScreen::build(const tk::Theme& theme) {
         labels.push_back(tk::Tabs::Tab{tab.id, tab.label});
         keys.push_back(tab.id);
     }
-    ui::PageFrame<tk::Row> frame = ui::pageFrame<tk::Row>(theme, chrome_);
-    ui::sideTabs(*frame.body, theme, tabsId, std::move(labels), chosen,
-                 [this, keys = std::move(keys)](std::size_t index) {
-                     controller_.choose(keys[index]);
-                 });
+    ui::TabbedPage page = ui::tabbedPage(theme, chrome_, tabsId, std::move(labels), chosen,
+                                         [this, keys = std::move(keys)](std::size_t index) {
+                                             controller_.choose(keys[index]);
+                                         });
     const ui::SettingsCategory& shown = tabs[chosen];
-    tk::List& list = ui::rowsPane(*frame.body, theme, "rows/" + shown.id);
+    tk::List& list = ui::rowsPane(*page.body, theme, "rows/" + shown.id);
     for (const ui::SettingsRow& row : shown.rows) {
         ui::addRow(list.rows(), row, controller_);
     }
-    return std::move(frame.root);
+    return std::move(page.root);
 }
 
 tk::Screen::BackReply DevicesScreen::back(tk::ActContext& context) {

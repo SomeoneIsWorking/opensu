@@ -53,7 +53,7 @@ struct Rig {
     test::InterfaceRig ui;
     gpu2d::ImageLoader loader;
     ui::ScreenImages images{loader};
-    ui::Chrome chrome;
+    const ui::Chrome chrome{.width = 1280.0f};
     audio::SdlSoundPlayer sounds;
     app::Preferences preferences;
     app::GameSettings gameSettings;

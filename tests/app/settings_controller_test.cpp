@@ -337,7 +337,7 @@ struct Rig {
                                                      controller.refresh();
                                                  }};
     test::InterfaceRig screens;
-    ui::Chrome chrome;
+    const ui::Chrome chrome{.width = 1280.0f};
     ui::OnScreenKeyboard keyboard;
     app::KeyboardPad pad{keyboard, screens.navigator, sounds};
     steam::Libraries steamLibraries{devTools};

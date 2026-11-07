@@ -16,8 +16,8 @@ namespace tk = gpu2d::ui;
 
 constexpr const char* tabsId = "categories";
 
-/// The pane `category`'s rows are listed on, beside the side column.
-void addRows(tk::Row& body, const tk::Theme& theme, const ui::SettingsCategory& category,
+/// The pane `category`'s rows are listed on, beside the side column or under the tabs.
+void addRows(tk::Container& body, const tk::Theme& theme, const ui::SettingsCategory& category,
              SettingsController& controller) {
     tk::List& list = ui::rowsPane(body, theme, "rows/" + category.id);
     for (const ui::SettingsRow& row : category.rows) {
@@ -52,13 +52,12 @@ std::unique_ptr<tk::Widget> SettingsScreen::build(const tk::Theme& theme) {
     category_ = categories[chosen].id;
     label_ = categories[chosen].label;
 
-    ui::PageFrame<tk::Row> frame = ui::pageFrame<tk::Row>(theme, chrome_);
-    ui::sideTabs(*frame.body, theme, tabsId, std::move(tabs), chosen,
-                 [this, keys = std::move(keys)](std::size_t index) {
-                     category_ = keys[index];
-                 });
-    addRows(*frame.body, theme, categories[chosen], controller_);
-    return std::move(frame.root);
+    ui::TabbedPage page = ui::tabbedPage(theme, chrome_, tabsId, std::move(tabs), chosen,
+                                         [this, keys = std::move(keys)](std::size_t index) {
+                                             category_ = keys[index];
+                                         });
+    addRows(*page.body, theme, categories[chosen], controller_);
+    return std::move(page.root);
 }
 
 tk::Screen::BackReply SettingsScreen::back(tk::ActContext& context) {
@@ -87,6 +86,12 @@ std::vector<tk::Hint> SettingsScreen::hints() const {
 std::unique_ptr<tk::Widget> SettingsSubPage::build(const tk::Theme& theme) {
     const ui::SettingsCategory& page = controller_.page(id());
     title_ = controller_.pageTitle(id());
+    if (ui::narrow(theme, chrome_)) {
+        ui::PageFrame<tk::Column> frame = ui::pageFrame<tk::Column>(theme, chrome_);
+        frame.body->add<tk::Label>(title_, tk::TextRole::Title, true);
+        addRows(*frame.body, theme, page, controller_);
+        return std::move(frame.root);
+    }
     ui::PageFrame<tk::Row> frame = ui::pageFrame<tk::Row>(theme, chrome_);
     tk::Column& side = frame.body->add<tk::Column>();
     side.fixWidth(theme.spacing.sidebarWidth);

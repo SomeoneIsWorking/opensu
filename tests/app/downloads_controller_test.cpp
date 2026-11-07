@@ -171,7 +171,7 @@ sleep 60
                                                          }}};
     library::roms::RomsetLists romsetLists{root / "cache"};
     test::InterfaceRig ui;
-    ui::Chrome chrome;
+    const ui::Chrome chrome{.width = 1280.0f};
     audio::SdlSoundPlayer sounds;
     app::DownloadsController controller{
         ui.navigator, chrome,

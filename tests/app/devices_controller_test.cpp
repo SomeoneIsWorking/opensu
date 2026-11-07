@@ -96,7 +96,7 @@ struct Rig {
     }
 
     test::InterfaceRig ui;
-    ui::Chrome chrome;
+    const ui::Chrome chrome{.width = 1280.0f};
     audio::SystemVolume volume;
     app::AudioOutputs outputs;
     test::FakeBluetooth radio;

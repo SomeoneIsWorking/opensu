@@ -3,6 +3,12 @@
 #include <utility>
 
 namespace opensu::ui {
+namespace {
+
+/// The least width rows beside a side column read well at, in dp.
+constexpr float rowsLeastDp = 420.0f;
+
+} // namespace
 
 CardFrame tallCard(const gpu2d::ui::Theme& theme, const Chrome& chrome, float widthDp) {
     namespace tk = gpu2d::ui;
@@ -25,14 +31,28 @@ gpu2d::ui::List& rowsPane(gpu2d::ui::Container& parent, const gpu2d::ui::Theme& 
     return list;
 }
 
-void sideTabs(gpu2d::ui::Container& parent, const gpu2d::ui::Theme& theme, const std::string& id,
-              std::vector<gpu2d::ui::Tabs::Tab> tabs, std::size_t chosen,
-              std::function<void(std::size_t)> chose) {
+bool narrow(const gpu2d::ui::Theme& theme, const Chrome& chrome) noexcept {
+    return chrome.width < theme.px(theme.spacing.sidebarWidth + rowsLeastDp);
+}
+
+TabbedPage tabbedPage(const gpu2d::ui::Theme& theme, const Chrome& chrome, const std::string& id,
+                      std::vector<gpu2d::ui::Tabs::Tab> tabs, std::size_t chosen,
+                      std::function<void(std::size_t)> chose) {
     namespace tk = gpu2d::ui;
-    tk::ScrollView& side = parent.add<tk::ScrollView>(id + "/scroll");
+    if (narrow(theme, chrome)) {
+        PageFrame<tk::Column> frame = pageFrame<tk::Column>(theme, chrome);
+        frame.body
+            ->add<tk::Tabs>(id, std::move(tabs), chosen, std::move(chose),
+                            tk::Orientation::Horizontal)
+            .space(theme.spacing.gap);
+        return TabbedPage{std::move(frame.root), frame.body};
+    }
+    PageFrame<tk::Row> frame = pageFrame<tk::Row>(theme, chrome);
+    tk::ScrollView& side = frame.body->add<tk::ScrollView>(id + "/scroll");
     side.fixWidth(theme.spacing.sidebarWidth);
     side.content<tk::Tabs>(id, std::move(tabs), chosen, std::move(chose), tk::Orientation::Vertical)
         .space(theme.spacing.gap);
+    return TabbedPage{std::move(frame.root), frame.body};
 }
 
 } // namespace opensu::ui

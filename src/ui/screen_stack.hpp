@@ -20,6 +20,8 @@ namespace opensu::ui {
 struct Chrome {
     /// The top bar's height below the safe area's top, in pixels.
     float top{};
+    /// The safe area's width, in pixels.
+    float width{};
 };
 
 class ScreenStack {

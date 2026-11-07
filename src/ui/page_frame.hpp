@@ -58,9 +58,18 @@ struct CardFrame {
 [[nodiscard]] gpu2d::ui::List& rowsPane(gpu2d::ui::Container& parent, const gpu2d::ui::Theme& theme,
                                         std::string id);
 
-/// The scrolling column of vertical tabs `id` on the left of `parent`, a row's gap apart.
-void sideTabs(gpu2d::ui::Container& parent, const gpu2d::ui::Theme& theme, const std::string& id,
-              std::vector<gpu2d::ui::Tabs::Tab> tabs, std::size_t chosen,
-              std::function<void(std::size_t)> chose);
+/// Whether a page under `chrome` is too narrow for a side column beside its rows (a portrait
+/// screen): it then stands one part above the next.
+[[nodiscard]] bool narrow(const gpu2d::ui::Theme& theme, const Chrome& chrome) noexcept;
+
+/// A page of tabs `id` and what the chosen one shows: the tabs a scrolling column on the left,
+/// or on a narrow page a strip across the top; `body` is where the caller adds what they show.
+struct TabbedPage {
+    std::unique_ptr<gpu2d::ui::Backdrop> root;
+    gpu2d::ui::Container* body{};
+};
+[[nodiscard]] TabbedPage tabbedPage(const gpu2d::ui::Theme& theme, const Chrome& chrome,
+                                    const std::string& id, std::vector<gpu2d::ui::Tabs::Tab> tabs,
+                                    std::size_t chosen, std::function<void(std::size_t)> chose);
 
 } // namespace opensu::ui

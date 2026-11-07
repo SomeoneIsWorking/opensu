@@ -99,7 +99,7 @@ struct Rig {
     test::InterfaceRig face;
     gpu2d::ImageLoader loader;
     ui::ScreenImages images{loader};
-    ui::Chrome chrome;
+    const ui::Chrome chrome{.width = 1280.0f};
     int changes{0};
     audio::SdlSoundPlayer sounds;
     app::EmulatorDownloads downloads{
