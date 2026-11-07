@@ -53,7 +53,8 @@ std::unique_ptr<tk::Widget> DetailsScreen::build(const tk::Theme& theme) {
     frame.body->stackBelow(besideDp);
     tk::Row& top = frame.body->add<tk::Row>();
     top.align(tk::Align::Stretch).space(theme.spacing.pad);
-    top.grow();
+    // Stacked, the cover and facts take two parts of the height and the actions three.
+    top.grow(2.0f);
     tk::Column& art = top.add<tk::Column>();
     art.grow(coverShare);
     art.add<ui::ImageView>(images_, details->art, coverAspect)
@@ -78,6 +79,7 @@ std::unique_ptr<tk::Widget> DetailsScreen::build(const tk::Theme& theme) {
 
     tk::Card& pane = frame.body->add<tk::Card>();
     pane.fixWidth(actionsDp);
+    pane.grow(3.0f);
     pane.pad(tk::Insets::all(theme.spacing.gap * 2.0f));
     tk::List& list = pane.add<tk::List>("details/actions", theme.spacing.gap);
     list.grow();

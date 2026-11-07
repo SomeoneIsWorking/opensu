@@ -10,6 +10,7 @@
 #include "settings/framegen_settings.hpp"
 #include "settings/scaling_settings.hpp"
 #include "shader_preset_tree.hpp"
+#include "ui/page_frame.hpp"
 
 namespace opensu::app {
 namespace {
@@ -65,6 +66,19 @@ Frame frameFor(EditorLook look, const tk::Theme& theme, const ui::Chrome& chrome
     auto root = std::make_unique<tk::Backdrop>();
     root->space(theme.spacing.gap);
     root->add<tk::Spacer>(0.0f).fixHeight(chrome.top / theme.scale);
+    if (ui::narrow(theme, chrome)) {
+        // The head above the pane: a narrow screen has no room for a side column.
+        tk::Column& column = root->add<tk::Column>();
+        column.pad(tk::Insets{pad, 0.0f, pad, 0.0f}).space(theme.spacing.gap);
+        column.grow();
+        tk::Column& head = column.add<tk::Column>();
+        head.pad(tk::Insets{pad, 0.0f, 0.0f, 0.0f}).space(theme.spacing.gap);
+        tk::Card& pane = column.add<tk::Card>();
+        pane.grow();
+        pane.pad(tk::Insets::all(theme.spacing.gap * 2.0f)).space(theme.spacing.gap * 2.0f);
+        root->add<tk::HintBar>();
+        return Frame{std::move(root), &head, &pane};
+    }
     tk::Row& row = root->add<tk::Row>();
     row.align(tk::Align::Stretch);
     row.pad(tk::Insets{pad * 2.0f, 0.0f, pad * 2.0f, 0.0f}).space(pad);
@@ -79,8 +93,10 @@ Frame frameFor(EditorLook look, const tk::Theme& theme, const ui::Chrome& chrome
     return Frame{std::move(root), &head, &pane};
 }
 
-gpu2d::Rect areaFor(EditorLook look, const gpu2d::Rect& viewport, const tk::Theme& theme) {
-    if (look == EditorLook::Page) {
+gpu2d::Rect areaFor(EditorLook look, const gpu2d::Rect& viewport, const tk::Theme& theme,
+                    const ui::Chrome& chrome) {
+    // A panel on a narrow screen takes it all; half of it holds no row.
+    if (look == EditorLook::Page || ui::narrow(theme, chrome)) {
         return viewport;
     }
     const float width = std::min(viewport.width * panelShare, theme.px(panelMaxDp));
@@ -378,7 +394,7 @@ void LayeredEditor::addClear(tk::Column& rows) {
 }
 
 gpu2d::Rect LayeredEditor::area(const gpu2d::Rect& viewport, const tk::Theme& theme) const {
-    return areaFor(look_, viewport, theme);
+    return areaFor(look_, viewport, theme, chrome_);
 }
 
 std::vector<tk::Hint> LayeredEditor::hints() const {
@@ -484,7 +500,7 @@ std::unique_ptr<tk::Widget> ShaderPresetScreen::build(const tk::Theme& theme) {
 }
 
 gpu2d::Rect ShaderPresetScreen::area(const gpu2d::Rect& viewport, const tk::Theme& theme) const {
-    return areaFor(look_, viewport, theme);
+    return areaFor(look_, viewport, theme, chrome_);
 }
 
 tk::Screen::BackReply ShaderPresetScreen::back(tk::ActContext& context) {
