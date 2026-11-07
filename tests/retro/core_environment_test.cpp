@@ -195,6 +195,7 @@ void definitions() {
     expect(listed.key == "core_v2" && listed.label == "V2" && listed.current == "off" &&
                listed.values.size() == 2,
            "the option's label, values and current value are listed");
+    expect(listed.category == "Video", "a v2 option names its category's label");
     expect(environment.options().set("core_v2", "on") &&
                !environment.options().set("core_v2", "on"),
            "setting an option changes it once");

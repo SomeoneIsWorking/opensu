@@ -37,7 +37,8 @@ std::string optionsJson(const CoreOptions& options) {
                                       {"values", option.values},
                                       {"labels", option.valueLabels},
                                       {"default", option.fallback},
-                                      {"value", option.current}});
+                                      {"value", option.current},
+                                      {"category", option.category}});
     }
     return list.dump();
 }

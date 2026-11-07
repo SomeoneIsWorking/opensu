@@ -29,6 +29,8 @@ class CoreOptions {
         /// What the core starts it at.
         std::string fallback;
         std::string current;
+        /// The label of the v2 category it is in; empty when it is in none.
+        std::string category;
     };
 
     /// `chosen` replaces a default when the core offers that value for the key.
@@ -68,6 +70,7 @@ class CoreOptions {
         std::string fallback;
         std::vector<std::string> offered;
         std::vector<std::string> labels;
+        std::string category;
     };
     void define(const std::string& key, Defined defined);
 

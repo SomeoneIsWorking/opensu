@@ -40,10 +40,10 @@ struct EditorRows {
 
 class LayeredEditor final : public gpu2d::ui::Screen {
   public:
-    /// `title` names what it edits.
+    /// `title` names what it edits; with `group`, only that group's settings (`Setting::group`).
     LayeredEditor(LayeredSettings& settings, gpu2d::ui::Navigator& navigator,
                   const ui::Chrome& chrome, EditorContext context, EditorLook look,
-                  std::string title, EditorRows more = {});
+                  std::string title, EditorRows more = {}, std::string group = {});
 
     [[nodiscard]] std::unique_ptr<gpu2d::ui::Widget> build(const gpu2d::ui::Theme& theme) override;
     [[nodiscard]] gpu2d::Rect area(const gpu2d::Rect& viewport,
@@ -66,6 +66,9 @@ class LayeredEditor final : public gpu2d::ui::Screen {
     /// The rows of the scope on show, under their headings, into `rows`.
     void addRows(gpu2d::ui::Column& rows, const gpu2d::ui::Theme& theme);
     void addRow(gpu2d::ui::Column& rows, const settings::ScopedValue& value);
+    /// The row opening `group`'s page, with how many of its settings the scope keeps.
+    void addGroup(gpu2d::ui::Column& rows, const std::vector<settings::ScopedValue>& values,
+                  const std::string& group);
     /// The summary over `section`'s rows, for a section that has one.
     void addSummary(gpu2d::ui::Column& rows, const std::string& section);
     void addClear(gpu2d::ui::Column& rows);
@@ -88,6 +91,8 @@ class LayeredEditor final : public gpu2d::ui::Screen {
     /// The first row as last built.
     std::string firstRow_;
     EditorRows more_;
+    /// The group this page sets; empty for the editor itself.
+    std::string group_;
 };
 
 /// The shader pack's folders for one scope's Shader preset: "Use … from …" and None at its top,

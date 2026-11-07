@@ -76,7 +76,8 @@ void CoreOptions::define(const std::string& key, Defined defined) {
                               .values = std::move(defined.offered),
                               .valueLabels = std::move(defined.labels),
                               .fallback = std::move(defined.fallback),
-                              .current = std::move(current)});
+                              .current = std::move(current),
+                              .category = std::move(defined.category)});
 }
 
 void CoreOptions::defineVariables(const retro_variable* variables) {
@@ -100,7 +101,8 @@ void CoreOptions::defineVariables(const retro_variable* variables) {
                                       .info = {},
                                       .fallback = std::move(fallback),
                                       .offered = std::move(offered),
-                                      .labels = {}});
+                                      .labels = {},
+                                      .category = {}});
     }
 }
 
@@ -113,21 +115,42 @@ void CoreOptions::defineDefinitions(const retro_core_option_definition* definiti
                        .info = textOf(definition->info),
                        .fallback = defaultOf(definition->default_value, definition->values),
                        .offered = offeredBy(definition->values),
-                       .labels = labelsOf(definition->values)});
+                       .labels = labelsOf(definition->values),
+                       .category = {}});
     }
 }
 
 void CoreOptions::defineV2(const retro_core_options_v2& options) {
     options_.clear();
+    std::map<std::string, std::string, std::less<>> categories;
+    for (const retro_core_option_v2_category* category = options.categories;
+         category != nullptr && category->key != nullptr; ++category) {
+        categories.emplace(category->key, textOf(category->desc));
+    }
     for (const retro_core_option_v2_definition* definition = options.definitions;
          definition != nullptr && definition->key != nullptr; ++definition) {
+        std::string category;
+        if (definition->category_key != nullptr) {
+            const auto named = categories.find(definition->category_key);
+            category = named != categories.end() && !named->second.empty()
+                           ? named->second
+                           : std::string{definition->category_key};
+        }
+        // Within a category the core gives the short label; the long one names the category.
+        const std::string label = !category.empty() && definition->desc_categorized != nullptr &&
+                                          definition->desc_categorized[0] != '\0'
+                                      ? std::string{definition->desc_categorized}
+                                      : labelOf(*definition);
+        const char* info = !category.empty() && definition->info_categorized != nullptr
+                               ? definition->info_categorized
+                               : definition->info;
         define(definition->key,
-               Defined{.label = labelOf(*definition),
-                       .info = textOf(definition->info != nullptr ? definition->info
-                                                                  : definition->info_categorized),
+               Defined{.label = label,
+                       .info = textOf(info != nullptr ? info : definition->info_categorized),
                        .fallback = defaultOf(definition->default_value, definition->values),
                        .offered = offeredBy(definition->values),
-                       .labels = labelsOf(definition->values)});
+                       .labels = labelsOf(definition->values),
+                       .category = std::move(category)});
     }
 }
 

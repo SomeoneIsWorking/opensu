@@ -28,6 +28,8 @@ struct CoreOptionDefinition {
     /// Its values in the core's order, each with the core's label for it.
     std::vector<SettingChoice> values;
     std::string fallback;
+    /// The core's category for it, the page it is set on; empty for the main one.
+    std::string category;
 
     bool operator==(const CoreOptionDefinition&) const = default;
 };

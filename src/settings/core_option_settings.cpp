@@ -11,6 +11,7 @@ void declareCoreOptions(Schema& schema, const std::vector<CoreOptionDefinition>&
         setting.label = option.label;
         setting.help = option.help;
         setting.section = std::string{coreOptionSection};
+        setting.group = option.category;
         setting.choices = option.values;
         setting.fallback = option.fallback;
         setting.layers = LayerKinds{Layer::Kind::Emulator, Layer::Kind::Game};

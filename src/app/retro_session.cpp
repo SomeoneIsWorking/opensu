@@ -233,7 +233,8 @@ std::vector<RetroSession::CoreOption> RetroSession::options() {
         CoreOption option{.definition = {.key = entry.value("key", std::string{}),
                                          .label = entry.value("label", std::string{}),
                                          .help = entry.value("info", std::string{}),
-                                         .fallback = entry.value("default", std::string{})},
+                                         .fallback = entry.value("default", std::string{}),
+                                         .category = entry.value("category", std::string{})},
                           .value = entry.value("value", std::string{})};
         const nlohmann::json values = entry.value("values", nlohmann::json::array());
         const nlohmann::json labels = entry.value("labels", nlohmann::json::array());

@@ -36,7 +36,8 @@ std::vector<settings::CoreOptionDefinition> CoreOptionStore::known(std::string_v
         settings::CoreOptionDefinition option{.key = entry.value("key", std::string{}),
                                               .label = entry.value("label", std::string{}),
                                               .help = entry.value("help", std::string{}),
-                                              .fallback = entry.value("default", std::string{})};
+                                              .fallback = entry.value("default", std::string{}),
+                                              .category = entry.value("category", std::string{})};
         for (const nlohmann::json& value : entry.value("values", nlohmann::json::array())) {
             if (value.is_object() && value.value("value", nlohmann::json{}).is_string()) {
                 option.values.push_back(settings::SettingChoice{
@@ -62,6 +63,7 @@ void CoreOptionStore::remember(std::string_view core,
                                       {"label", option.label},
                                       {"help", option.help},
                                       {"default", option.fallback},
+                                      {"category", option.category},
                                       {"values", std::move(values)}});
     }
     std::string error;

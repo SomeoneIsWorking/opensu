@@ -80,6 +80,9 @@ struct Setting {
     std::string help;
     /// The heading it stands under.
     std::string section;
+    /// The page of its section it is set on (a core's option category), opened from a row of the
+    /// editor's; empty to stand on the editor itself.
+    std::string group;
     SettingType type{SettingType::Choice};
     /// A choice's, a preset's or a toggle's values in order.
     std::vector<SettingChoice> choices;
