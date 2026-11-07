@@ -104,3 +104,5 @@ default), is under the SIL Open Font License (`assets/CalSans-OFL.txt`). openSU 
 project, not affiliated with iiSU, and ships none of iiSU's code or assets; iiSU's art and sounds
 are read only from a copy of iiSU's release you place yourself
 ([console-art.md](docs/guide/console-art.md#iisus-art-and-sounds)).
+
+Built with AI assistance (Claude and other LLMs).
