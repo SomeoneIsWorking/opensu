@@ -476,7 +476,7 @@ Build-order step 1, run on 2026-10-22. Evidence and scripts are in gitignored
 `scratch/lsfg-step1/`.
 
 **Setup**
-- Layer: the fork's `develop` at `8efd7ede48edc86966d9d3d2c9a1130977f13a80`, unmodified. It was
+- Layer: the fork's `develop` at `16c668b44affb6492ba840dc20a5723ade32f47d`, unmodified. It was
   cloned to `build/lsfg-vk-src` and built Release with Clang (`CMAKE_CXX_COMPILER_ID=Clang`) into
   `build/lsfg-vk/install`. Each run loads it through `VK_ADD_IMPLICIT_LAYER_PATH`.
 - Config: `LSFGVK_CONFIG` points at `scratch/lsfg-step1/conf.toml`, with one profile

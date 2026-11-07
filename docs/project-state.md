@@ -1081,7 +1081,7 @@ session ends. KWin can block all global shortcuts for a window (`gamescope
 --grab`) but not one, which loses Alt+Tab.
 
 openSU therefore runs a fork, `SomeoneIsWorking/gamescope` branch `opensu`, pinned
-to commit `7bc32a74efb9525e07f215e7326d418247c74021` (3.16.29 plus twenty commits).
+to commit `f187ad0b8c3530e2da06b3f8d8d735dbea6696c0` (3.16.29 plus twenty commits).
 It adds `--close-focused-window`: a host close request sends `WM_DELETE_WINDOW`
 (or the xdg close) to Gamescope's focused app window and the session keeps
 running. `gamescopeArgs` always passes it. The other three are upstream's
