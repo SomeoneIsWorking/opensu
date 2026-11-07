@@ -1,6 +1,6 @@
 # A game keeps running after Android kills the shell, and the Guide cannot hold it
 
-Status: fixed, not yet seen on the phone.
+Status: fixed; seen on the phone (the leftover runner saved and closed, the next Play resumed it).
 
 Observed 2026-11-07 on the phone (VKJ-NX9, build `0.6.0-88-gdf4f651e`): the Guide's menu over Alien
 vs. Predator left the game running behind it.

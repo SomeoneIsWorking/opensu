@@ -11,6 +11,10 @@ generation, Core options) and the editor starts a heading wherever the section c
 order (`LayeredEditor`); settings that name none sit under no heading, and the order of the
 schema, not a fixed list, decides how the sections fall.
 
+Steps 4 and 5 are built: a core's v2 categories reach Game settings, each as a row ("Video, 6
+settings") that opens a page of its options; options in no category stay on the main page. Seen
+with mGBA's options at phone size; FinalBurn Neo not yet seen.
+
 ## What it does
 
 Every setting names one category, and the editor shows each category once, under its heading, in
