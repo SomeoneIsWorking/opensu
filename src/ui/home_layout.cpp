@@ -119,6 +119,8 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
     const float content = std::max(height_ - top - bottom - p - tail, 1.0f);
 
     rows_ = clampRows(input.rows);
+    // A tall screen sizes its cells as a wide one of its width would, then fills its height.
+    const float band = std::min(content, viewportWidth_);
     const float pageGap = paged ? wiiSuPageGapDp * dp_ : 0.0f;
     const float peek = paged ? wiiSuPeekDp * dp_ : 0.0f;
 
@@ -126,12 +128,12 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
     float gap = clampTo(shortSide * 0.018f, 10.0f, 28.0f);
     for (int pass = 0; pass < 2; ++pass) {
         const float cell = std::max(
-            (content - static_cast<float>(rows_ - 1) * gap) / static_cast<float>(rows_), 1.0f);
+            (band - static_cast<float>(rows_ - 1) * gap) / static_cast<float>(rows_), 1.0f);
         gap = gapForCell(cell);
     }
     gap_ = gap;
-    const float fitted = std::max(
-        (content - static_cast<float>(rows_ - 1) * gap_) / static_cast<float>(rows_), 1.0f);
+    const float fitted =
+        std::max((band - static_cast<float>(rows_ - 1) * gap_) / static_cast<float>(rows_), 1.0f);
     // iiSU hx2.g: a cell is at least min(150, 8.5% of the short side) and at most max(196, H).
     const float floorSize = 0.085f * shortSide;
     cellHeight_ =
@@ -147,6 +149,9 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
         rows_ = clampRows(static_cast<int>(fits + rowFitSlack));
         cellHeight_ = scaled;
         cellWidth_ = scaled;
+    } else if (band < content) {
+        const float fits = (content + gap_) / (cellHeight_ + gap_);
+        rows_ = clampRows(static_cast<int>(fits + rowFitSlack));
     }
 
     if (paged) {

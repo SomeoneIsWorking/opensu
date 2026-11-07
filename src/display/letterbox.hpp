@@ -1,5 +1,5 @@
-// letterbox — the largest rectangle of an aspect ratio centred in an area, for a picture shown
-// whole on a screen of another shape (the runner's frame, a remote game's picture).
+// letterbox — the largest rectangle of an aspect ratio in an area, for a picture shown whole on a
+// screen of another shape (the runner's frame, a remote game's picture).
 #pragma once
 
 #include <algorithm>
@@ -21,8 +21,18 @@ struct Placed {
     int height{0};
 };
 
-/// The largest rectangle of `aspect` (width over height) centred in `area`; all of it when `aspect`
-/// is not positive.
+/// A picture of `width` by `height` stood in `area`: centred, except that a wide picture on a tall
+/// screen stands at its top, leaving the rest to the touch controls.
+[[nodiscard]] inline Placed standIn(Size area, int width, int height) noexcept {
+    const bool wideOnTall = width > height && area.height > area.width;
+    return Placed{.x = (area.width - width) / 2,
+                  .y = wideOnTall ? 0 : (area.height - height) / 2,
+                  .width = width,
+                  .height = height};
+}
+
+/// The largest rectangle of `aspect` (width over height) in `area`, stood there by `standIn`; all
+/// of it when `aspect` is not positive.
 [[nodiscard]] inline Placed letterbox(Size area, float aspect) noexcept {
     auto drawnWidth = static_cast<float>(area.width);
     auto drawnHeight = static_cast<float>(area.height);
@@ -33,12 +43,8 @@ struct Placed {
             drawnHeight = drawnWidth / aspect;
         }
     }
-    Placed placed;
-    placed.width = std::max(1, static_cast<int>(std::lround(drawnWidth)));
-    placed.height = std::max(1, static_cast<int>(std::lround(drawnHeight)));
-    placed.x = (area.width - placed.width) / 2;
-    placed.y = (area.height - placed.height) / 2;
-    return placed;
+    return standIn(area, std::max(1, static_cast<int>(std::lround(drawnWidth))),
+                   std::max(1, static_cast<int>(std::lround(drawnHeight))));
 }
 
 } // namespace opensu::display

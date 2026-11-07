@@ -154,17 +154,29 @@ Rect Hud::titlePillBody(const TopBarLayout& bar) const {
     const float textWidth = std::min(text_.measure(title_, size), pill.maxTextWidth * dp);
     const float bodyWidth =
         std::max(textWidth + 2.0f * pill.paddingHorizontal * dp, pill.minWidth * dp);
-    return Rect{(static_cast<float>(width_) - bodyWidth) * 0.5f, bar.top, bodyWidth, bar.height};
+    // Centred, unless the trail reaches past that on a narrow screen: then just after it.
+    const BreadcrumbFrame room = trailRoom(bar);
+    const float trailEnd = crumbs_.layout(trail_, room, pill).bar.right();
+    const float gap = TopBarMetrics::rowPaddingEnd * dp;
+    const float centred = (static_cast<float>(width_) - bodyWidth) * 0.5f;
+    const float x = std::min(std::max(centred, trailEnd + gap), room.maxRight - bodyWidth);
+    return Rect{x, bar.top, bodyWidth, bar.height};
 }
 
 BreadcrumbFrame Hud::crumbFrame() const {
     const TopBarLayout bar = topBarLayout();
+    BreadcrumbFrame frame = trailRoom(bar);
+    if (!title_.empty()) {
+        frame.maxRight =
+            std::min(frame.maxRight, titlePillBody(bar).x - TopBarMetrics::rowPaddingEnd * dp_);
+    }
+    return frame;
+}
+
+BreadcrumbFrame Hud::trailRoom(const TopBarLayout& bar) const {
     const float gap = TopBarMetrics::rowPaddingEnd * dp_;
     float left = safe_.left + gap;
     float right = bar.status.x - gap;
-    if (!title_.empty()) {
-        right = std::min(right, titlePillBody(bar).x - gap);
-    }
     // The touch buttons keep their room; the trail stands between them.
     if (const std::optional<TouchButtonCell> back = touchButtonCell(TouchButton::Back)) {
         left = back->hit.right() + gap;

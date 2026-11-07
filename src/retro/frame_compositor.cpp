@@ -118,13 +118,15 @@ VkRect2D placeFrame(VkExtent2D extent, const FrameImage& frame,
         drawnHeight = height * scale;
         drawnWidth = video.aspect == Aspect::Square ? width * scale : drawnHeight * aspect;
     }
+    const display::Placed placed = display::standIn(
+        {.width = static_cast<int>(extent.width), .height = static_cast<int>(extent.height)},
+        std::max(1, static_cast<int>(std::lround(drawnWidth))),
+        std::max(1, static_cast<int>(std::lround(drawnHeight))));
     VkRect2D rect{};
-    rect.extent.width = std::max(1U, static_cast<std::uint32_t>(std::lround(drawnWidth)));
-    rect.extent.height = std::max(1U, static_cast<std::uint32_t>(std::lround(drawnHeight)));
-    rect.offset.x = static_cast<std::int32_t>(
-        (static_cast<std::int64_t>(extent.width) - rect.extent.width) / 2);
-    rect.offset.y = static_cast<std::int32_t>(
-        (static_cast<std::int64_t>(extent.height) - rect.extent.height) / 2);
+    rect.extent.width = static_cast<std::uint32_t>(placed.width);
+    rect.extent.height = static_cast<std::uint32_t>(placed.height);
+    rect.offset.x = placed.x;
+    rect.offset.y = placed.y;
     return rect;
 }
 

@@ -139,6 +139,9 @@ Visible deltas from the baseline:
 - No volume overlay in iiSU (its main activity hands the volume keys to Android); openSU draws its
   own pill on every volume change. No display-scale setting in iiSU (it follows the Android
   density); openSU has "Interface size", 70 to 150 percent, clamped so every screen fits.
+- iiSU stands in landscape only; on Android openSU can rest in portrait (Guide › Screen), its pages
+  laying out for a tall screen, and a wide game stands at the top with the touch controls under it.
+  Seen in 720x1560 hidden renders; not yet on a phone.
 - The grid is ours, so layout, tile sizes and page count are ours.
 - With a SteamGridDB key, a cover Home's square tiles would crop is replaced by SteamGridDB's
   square one, and a game's details offer "Choose artwork" (SteamGridDB's covers); iiSU has neither.

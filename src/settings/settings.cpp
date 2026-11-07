@@ -33,6 +33,7 @@ constexpr const char* gameFoldersKey = "gameFolders";
 constexpr const char* steamRootsKey = "steamRoots";
 constexpr const char* uiScaleKey = "uiScale";
 constexpr const char* uiScaleBaseKey = "uiScaleBase";
+constexpr const char* portraitKey = "portrait";
 constexpr const char* keyboardStyleKey = "keyboard";
 constexpr const char* nightLightKey = "nightLight";
 constexpr const char* consoleThemeKey = "consoleTheme";
@@ -392,6 +393,7 @@ Settings Store::load() const {
                            minUiScale, maxUiScale);
         }
     }
+    read.boolean(portraitKey, settings.portrait, "standing in landscape");
     std::string runner;
     read.text(wineRunnerKey, runner, "using the newest GE-Proton");
     settings.wineRunner = runner;
@@ -542,6 +544,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {installFoldersKey, folders},
         {uiScaleKey, settings.uiScale},
         {uiScaleBaseKey, uiScaleBaseVersion},
+        {portraitKey, settings.portrait},
         {keyboardStyleKey, std::string{input::key(settings.keyboardStyle)}},
         {nightLightKey, std::string{key(settings.nightLight)}},
         {consoleThemeKey, settings.consoleTheme},

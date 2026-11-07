@@ -194,10 +194,12 @@ void scaleAndShortcuts(const fs::path& root) {
     const fs::path file = root / "shortcuts" / "settings.json";
     const Store store{file};
     expect(store.load().uiScale == opensu::settings::defaultUiScale &&
-               store.load().shortcuts.keys.empty(),
-           "the scale is 100% and the shortcuts are the shipped ones by default");
+               store.load().shortcuts.keys.empty() && !store.load().portrait,
+           "the scale is 100%, the shell is landscape and the shortcuts are the shipped ones by "
+           "default");
     Settings saved;
     saved.uiScale = 125;
+    saved.portrait = true;
     Shortcuts table;
     expect(table.rebind(Action::Quit, Combo{keys::F9}).empty(), "a remap");
     expect(table
@@ -210,7 +212,7 @@ void scaleAndShortcuts(const fs::path& root) {
     expect(store.save(saved, error), "saved");
     const Settings loaded = store.load();
     expect(loaded == saved && loaded.shortcuts == table.overrides(),
-           "scale and shortcuts round trip");
+           "scale, orientation and shortcuts round trip");
 
     write(
         file,

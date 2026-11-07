@@ -32,6 +32,7 @@
 #include "lucent/log.h"
 #include "retro/save_paths.hpp"
 #include "retro_launch.hpp"
+#include "screen_orientation.hpp"
 #include "stream/remote_reach.hpp"
 #include "ui/interface_input.hpp"
 #include "ui/section_view.hpp"
@@ -232,6 +233,10 @@ void ShellApp::applyLayout() {
     shell_.setUiScale(settings::uiScaleFactor(chosen.uiScale),
                       settings::uiDisplayFactor(chosen.uiScale));
     shell_.setKeyboardStyle(chosen.keyboardStyle);
+    if (standing_ != chosen.portrait) {
+        standing_ = chosen.portrait;
+        screen_orientation::stand(chosen.portrait);
+    }
     sounds_.setMuted(!chosen.uiSounds);
     interfaceSounds_.apply(chosen);
 }

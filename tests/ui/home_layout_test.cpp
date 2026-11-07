@@ -38,6 +38,18 @@ void safeInsets() {
          "the viewport gives up both side insets");
 }
 
+void tallScreen() {
+    HomeLayoutInput tall = window(24, ScrollMode::Flow);
+    tall.width = 800.0f;
+    tall.height = 1280.0f;
+    const HomeLayout layout{tall};
+    expect(layout.cellWidth() * 2.0f < layout.viewportWidth(),
+           "a tall screen's cells are sized from its width, more than one across");
+    expect(layout.rows() > 3, "a tall screen fills its height with more rows");
+    const HomeLayout wide{window(24, ScrollMode::Flow)};
+    expect(wide.rows() == 3, "a wide screen keeps its rows");
+}
+
 void defaultViewport() {
     const HomeLayout layout{window(12, ScrollMode::Flow)};
     expect(layout.rows() == 3, "the default viewport has 3 rows");
@@ -400,6 +412,7 @@ int main() try {
     pagesUnderThePointer();
     slotOnPage();
     safeInsets();
+    tallScreen();
     std::printf("home_layout: all checks passed\n");
     return 0;
 } catch (...) {

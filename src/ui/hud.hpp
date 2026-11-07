@@ -172,6 +172,8 @@ class Hud {
     [[nodiscard]] Rect titlePillBody(const TopBarLayout& bar) const;
     /// Where the trail may stand: from the row's start to the title pill or the status pill.
     [[nodiscard]] BreadcrumbFrame crumbFrame() const;
+    /// Where the trail may stand before the title pill takes its share.
+    [[nodiscard]] BreadcrumbFrame trailRoom(const TopBarLayout& bar) const;
     /// One corner prompt panel of (glyph, label) entries (iiSU jj2.b): its glass body, the glyph
     /// column's width and each entry's row.
     struct PromptPanel {

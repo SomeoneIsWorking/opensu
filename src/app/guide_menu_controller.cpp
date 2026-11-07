@@ -7,6 +7,7 @@
 
 #include "guide_menu_screen.hpp"
 #include "lucent/log.h"
+#include "screen_orientation.hpp"
 #include "settings/settings.hpp"
 #include "ui/moment_text.hpp"
 
@@ -40,6 +41,7 @@ constexpr const char* volumeId = "guide.volume";
 constexpr const char* muteId = "guide.mute";
 constexpr const char* brightnessId = "guide.brightness";
 constexpr const char* scaleId = "guide.scale";
+constexpr const char* screenId = "guide.screen";
 constexpr const char* profileId = "guide.profile";
 constexpr const char* sleepId = "power.sleep";
 constexpr const char* restartId = "power.restart";
@@ -234,6 +236,11 @@ std::vector<SettingsRow> GuideMenuController::quick() const {
         scales.labels.push_back(percentOf(percent));
     }
     rows.push_back(ui::makeChoice(scaleId, "Interface size", {}, std::move(scales)));
+    if (screen_orientation::turnable() && !context_.inGame) {
+        rows.push_back(ui::makeChoice(
+            screenId, "Screen", {},
+            ui::Options{{"Landscape", "Portrait"}, preferences_.values().portrait ? 1U : 0U}));
+    }
     const std::string active = profiles_.active().id;
     ui::Options players;
     for (const profiles::Profile& profile : profiles_.all()) {
@@ -345,6 +352,11 @@ void GuideMenuController::run(const std::string& id, int step) {
     } else if (id == scaleId) {
         settings::Settings& values = preferences_.values();
         values.uiScale = settings::steppedUiScale(values.uiScale, step);
+        preferences_.save();
+        hooks_.applyLayout();
+    } else if (id == screenId) {
+        settings::Settings& values = preferences_.values();
+        values.portrait = !values.portrait;
         preferences_.save();
         hooks_.applyLayout();
     } else if (id == profileId) {

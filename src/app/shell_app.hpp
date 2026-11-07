@@ -1481,6 +1481,8 @@ class ShellApp final {
     std::vector<library::Game> games_;
     /// How many of `games_` are installed, counted when the catalog arrives.
     std::size_t installedCount_{0};
+    /// The orientation last asked of the screen, so a layout pass asks only on a change.
+    std::optional<bool> standing_;
     /// Each store's state from the last catalog read.
     std::vector<library::SourceStatus> sources_;
     /// Home or the open folder. Main loop only.

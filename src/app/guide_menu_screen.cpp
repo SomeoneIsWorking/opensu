@@ -29,7 +29,7 @@ std::unique_ptr<tk::Widget> GuideMenuScreen::build(const tk::Theme& theme) {
         .space(spacing.pad);
     root->add<tk::Label>(controller_.title(), tk::TextRole::Title);
     tk::Row& body = root->add<tk::Row>();
-    body.align(tk::Align::Stretch).space(spacing.pad);
+    body.align(tk::Align::Stretch).stackBelow(placesDp + quickDp + spacing.pad).space(spacing.pad);
     body.grow();
     tk::List& places = body.add<tk::List>("guide/places", spacing.gap);
     places.fixWidth(placesDp);
@@ -37,7 +37,7 @@ std::unique_ptr<tk::Widget> GuideMenuScreen::build(const tk::Theme& theme) {
         ui::addRow(places.rows(), row, controller_);
     }
     tk::ScrollView& quick = body.add<tk::ScrollView>("guide/quick");
-    quick.fixWidth(quickDp);
+    quick.fixWidth(quickDp).grow();
     tk::Column& side = quick.content<tk::Column>();
     tk::Card& card = side.add<tk::Card>();
     card.pad(tk::Insets::all(spacing.gap * 2.0f)).space(spacing.gap);

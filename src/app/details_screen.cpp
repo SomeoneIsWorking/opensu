@@ -21,6 +21,8 @@ constexpr float coverAspect = 2.0f / 3.0f;
 constexpr float coverShare = 0.6f;
 /// The action pane's width, in dp.
 constexpr float actionsDp = 380.0f;
+/// The narrowest the cover and facts take beside the action pane, in dp; under it they stand above.
+constexpr float besideDp = actionsDp + 420.0f;
 /// The More card's widest, in dp.
 constexpr float moreDp = 760.0f;
 
@@ -48,7 +50,11 @@ std::unique_ptr<tk::Widget> DetailsScreen::build(const tk::Theme& theme) {
         close();
         return std::move(frame.root);
     }
-    tk::Column& art = frame.body->add<tk::Column>();
+    frame.body->stackBelow(besideDp);
+    tk::Row& top = frame.body->add<tk::Row>();
+    top.align(tk::Align::Stretch).space(theme.spacing.pad);
+    top.grow();
+    tk::Column& art = top.add<tk::Column>();
     art.grow(coverShare);
     art.add<ui::ImageView>(images_, details->art, coverAspect)
         .whole(tk::Align::Start)
@@ -57,7 +63,7 @@ std::unique_ptr<tk::Widget> DetailsScreen::build(const tk::Theme& theme) {
         })
         .grow();
 
-    tk::Column& about = frame.body->add<tk::Column>();
+    tk::Column& about = top.add<tk::Column>();
     about.grow();
     about.space(theme.spacing.gap);
     about.add<tk::Label>(details->title, tk::TextRole::Title, true);

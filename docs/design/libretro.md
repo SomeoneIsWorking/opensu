@@ -369,7 +369,9 @@ in a band along the bottom, pause and Rotate screen above the stick and Coin and
 buttons on a panel, a row of L, pause, Rotate screen and R and a row of Select and Start above the
 d-pad and faces on the pad. `ControlPlan::band` is its height, at most `uprightShare` of the screen
 since `dp` shrinks to keep it there, and while the controls show the runner keeps the picture off it
-(`FrameCompositor::reserve`). A landscape target has no band, so nothing changes there.
+(`FrameCompositor::reserve`). A wide picture stands at the top of an upright target, the controls
+under it, and a vertical one centred (`display::standIn`). A landscape target has no band, so
+nothing changes there.
 
 **Rotate screen.** `ScreenTurn` owns whether it is on. The touch button beside pause (`Button::Rotate`,
 which is no pad's and reaches no game; `TouchLayer::offerRotate`, so a remote game's pad has none),
@@ -379,12 +381,13 @@ like any other (`SET_ROTATION` turns its frame in `VideoFrame`), and only a pres
 
 With `shell_handoff` it asks for the fixed `SCREEN_ORIENTATION_PORTRAIT` or `_LANDSCAPE`
 (`LandscapeActivity.turnScreen`), kept for SDL's `setOrientationBis`; a game that never pressed it
-stays on the manifest's `sensorLandscape`. The native call lands on whatever is the runner's context.
+stays where the shell rests: `sensorLandscape`, or `sensorPortrait` when the player chose Portrait
+in the Guide's Screen row (`screen_orientation::stand`, `LandscapeActivity.standShell`). The native call lands on whatever is the runner's context.
 `RetroActivity` turns itself and tells the shell; the embedded `RunnerContext` has no window and only
 tells the shell. Both use the Messenger `ShellActivity.runnerInbox`, `RetroService.TURN`, which
 `RetroActivity` gets as a launch extra and `RetroService` as `START`'s `replyTo`. So the shell always
 stands as the game does, and the Guide over a portrait game stays portrait in both modes, the shell's
-pages laying out for that window. A host's `ended` puts the shell back on `sensorLandscape`
+pages laying out for that window. A host's `ended` puts the shell back where it rests
 (`endTurn`). `/host` only carries shell to runner, so it has no part in this; F9 from the shell's
 keyboard reaches a hosted game as a `/host` key like any other. Elsewhere it turns the picture a quarter
 clockwise for a rotated monitor or cabinet (`FrameCompositor::turn`): `placeFrame` places the frame in

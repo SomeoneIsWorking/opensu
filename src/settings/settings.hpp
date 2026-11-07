@@ -127,6 +127,9 @@ struct Settings {
     /// How large the interface is drawn, in percent (`minUiScale` to `maxUiScale`).
     int uiScale{defaultUiScale};
 
+    /// The shell stands in portrait where the screen can be turned (`app::screen_orientation`).
+    bool portrait{false};
+
     /// Which on-screen keyboard openSU's fields open.
     input::KeyboardStyle keyboardStyle{input::KeyboardStyle::DaisyWheel};
 
