@@ -29,11 +29,14 @@ void CoverPickerController::open(const library::Game& game) {
     gameId_ = game.id;
     keptId_ = library::dataId(game);
     title_ = "Choose artwork: " + game.title;
-    own_ = game.artwork;
+    ownCover_ = game.artwork;
+    const bool hosted = game.source == library::Source::Remote;
+    host_ = hosted ? game.hostName : std::string{};
+    offers_ = hosted ? &hosted_ : &own_;
     matchable_ = library::matchKindOf(game) != library::MatchKind::None;
     listing_.reset();
     saving_ = false;
-    offers_.list(game);
+    offers_->list(game);
     sounds_.play(audio::Effect::OpenContextMenu);
     show();
     navigator_.push(std::make_unique<CoverPickerScreen>(*this, chrome_, images_));
@@ -74,13 +77,13 @@ void CoverPickerController::choose(std::size_t index) {
         close();
         return;
     case Entry::Kind::Own:
-        offers_.chooseOwn(keptId_);
+        offers_->chooseOwn(keptId_);
         break;
     case Entry::Kind::Offer:
         if (!listing_ || entry.offer >= listing_->offers.size()) {
             return;
         }
-        offers_.choose(keptId_, listing_->offers[entry.offer].cover);
+        offers_->choose(keptId_, listing_->offers[entry.offer].cover);
         break;
     }
     saving_ = true;
@@ -88,23 +91,25 @@ void CoverPickerController::choose(std::size_t index) {
 }
 
 void CoverPickerController::service() {
-    if (std::optional<artwork::CoverListing> listing = offers_.takeListing();
+    if (std::optional<artwork::CoverListing> listing = offers_->takeListing();
         listing && listing->gameId == gameId_ && isOpen()) {
         listing_ = std::move(listing);
         show();
     }
-    for (const artwork::CoverChoice& choice : offers_.takeChoices()) {
-        if (!choice.kept) {
-            hooks_.say("cannot keep the cover: " + choice.error, true);
-        } else {
-            hooks_.changed(choice.gameId == keptId_ ? gameId_ : choice.gameId);
-        }
-        if (choice.gameId == keptId_ && isOpen()) {
-            saving_ = false;
-            if (choice.kept) {
-                close();
+    for (artwork::CoverSource* source : {&own_, &hosted_}) {
+        for (const artwork::CoverChoice& choice : source->takeChoices()) {
+            if (!choice.kept) {
+                hooks_.say("cannot keep the cover: " + choice.error, true);
             } else {
-                show();
+                hooks_.changed(choice.gameId == keptId_ ? gameId_ : choice.gameId);
+            }
+            if (choice.gameId == keptId_ && isOpen()) {
+                saving_ = false;
+                if (choice.kept) {
+                    close();
+                } else {
+                    show();
+                }
             }
         }
     }
@@ -114,10 +119,13 @@ void CoverPickerController::show() {
     picks_.clear();
     entries_.clear();
     const std::filesystem::path replaced = overrides_.shown(gameId_, keptId_);
-    picks_.push_back(Pick{"Now", replaced.empty() ? own_ : replaced});
+    picks_.push_back(Pick{"Now", replaced.empty() ? ownCover_ : replaced});
     entries_.push_back(Entry{Entry::Kind::Now});
-    if (!replaced.empty() && !own_.empty()) {
-        picks_.push_back(Pick{"Own", own_});
+    const std::filesystem::path own = listing_ && !listing_->own.empty() ? listing_->own
+                                      : replaced.empty()                 ? std::filesystem::path{}
+                                                                         : ownCover_;
+    if (!own.empty()) {
+        picks_.push_back(Pick{"Own", own});
         entries_.push_back(Entry{Entry::Kind::Own});
     }
     if (listing_) {
@@ -133,7 +141,7 @@ void CoverPickerController::show() {
 
 bool CoverPickerController::disconnected() const {
     using Status = artwork::SteamGridDb::Covers::Status;
-    return listing_ &&
+    return host_.empty() && listing_ &&
            (listing_->status == Status::Disconnected || listing_->status == Status::Refused);
 }
 
@@ -147,11 +155,13 @@ std::string CoverPickerController::status() const {
     }
     switch (listing_->status) {
     case Status::Disconnected:
-        return "Connect SteamGridDB for more covers";
+        return host_.empty() ? "Connect SteamGridDB for more covers"
+                             : "Connect SteamGridDB on " + host_ + " for more covers";
     case Status::Refused:
         return "SteamGridDB refused the key";
     case Status::Unreachable:
-        return "SteamGridDB cannot be reached";
+        return listing_->error.empty() || host_.empty() ? "SteamGridDB cannot be reached"
+                                                        : host_ + ": " + listing_->error;
     case Status::Listed:
         break;
     }

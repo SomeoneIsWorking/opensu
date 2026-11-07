@@ -117,7 +117,7 @@ void GameMatchController::find(const std::stop_token& stop, const std::string& t
         findBoxArt(stop, term, found);
     } else {
         findSteamApps(stop, term, found);
-        if (game_.source == library::Source::Own) {
+        if (library::matchedAsAdded(game_)) {
             findOwnBoxArt(stop, term, found);
         }
     }
@@ -161,7 +161,8 @@ void GameMatchController::findSteamApps(const std::stop_token& stop, const std::
 
 void GameMatchController::findBoxArt(const std::stop_token& stop, const std::string& term,
                                      Found& found) {
-    const library::roms::RomSystem* system = library::roms::systemByKey(game_.sourceId);
+    const library::roms::RomSystem* system =
+        library::roms::systemByKey(library::matchSystemOf(game_));
     const auto unlisted = [this, &found](std::string_view why) {
         lucent::warn("match", "libretro-thumbnails listing: {}", why);
         found.searched = true;
@@ -300,7 +301,7 @@ std::string GameMatchController::searched() const {
     if (kind_ == library::MatchKind::LibretroTitle) {
         return "libretro-thumbnails";
     }
-    return game_.source == library::Source::Own ? "Steam and libretro-thumbnails" : "Steam";
+    return library::matchedAsAdded(game_) ? "Steam and libretro-thumbnails" : "Steam";
 }
 
 std::string GameMatchController::status() const {

@@ -39,7 +39,7 @@ LanService::~LanService() {
 }
 
 void LanService::stopAskers() {
-    for (std::jthread* asker : {&asker_, &romAsker_, &peerAsker_}) {
+    for (std::jthread* asker : {&asker_, &romAsker_, &peerAsker_, &coverAsker_}) {
         if (asker->joinable()) {
             asker->request_stop();
             asker->join();
@@ -211,6 +211,20 @@ bool LanService::askPeers(std::function<void(const lan::LanNode&, const std::sto
         work(*node, stop);
         asking->store(false);
     }};
+    return true;
+}
+
+bool LanService::askCovers(std::function<void(const lan::LanNode&, const std::stop_token&)> work) {
+    if (node_ == nullptr) {
+        return false;
+    }
+    if (coverAsker_.joinable()) {
+        coverAsker_.join();
+    }
+    coverAsker_ =
+        std::jthread{[node = node_.get(), work = std::move(work)](const std::stop_token& stop) {
+            work(*node, stop);
+        }};
     return true;
 }
 

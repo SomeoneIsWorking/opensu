@@ -16,7 +16,8 @@ namespace {
 
 bool sameListing(const library::Game& a, const library::Game& b) {
     return a.id == b.id && a.title == b.title && a.hostName == b.hostName &&
-           a.artwork == b.artwork && a.playingAs == b.playingAs && a.hostOnline == b.hostOnline;
+           a.artwork == b.artwork && a.playingAs == b.playingAs && a.hostOnline == b.hostOnline &&
+           a.matchAs == b.matchAs;
 }
 
 library::Game savedGame(const nlohmann::json& entry) {
@@ -63,6 +64,7 @@ library::Game remoteGame(const Peer& host, const wire::ListedGame& listed,
     game.hostId = host.id;
     game.hostName = host.name;
     game.playingAs = listed.playingAs;
+    game.matchAs = listed.match;
     game.installed = true;
     game.artwork = cover;
     return game;

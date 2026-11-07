@@ -604,6 +604,54 @@ bool holdsCopy(const fs::path& folder, const std::string& bytes) {
     return false;
 }
 
+// A guest's "Choose artwork": the host's loop sees what is wanted and picked and answers through
+// the desk; a thumbnail reaches the guest only by its token.
+void aGuestChoosesAHostsCover(const lan::LanNode& guest, lan::LanNode& host, const fs::path& dir) {
+    const std::stop_token never;
+    std::string error;
+    lan::CoverDesk& desk = host.covers();
+    const std::optional<lan::wire::CoverOffersAnswer> first =
+        guest.coverOffers(never, host.id(), lan::wire::CoverAsk{"game-1", true}, error);
+    expect(first && first->status == lan::wire::coversAsking && !first->complete,
+           "the guest's first ask finds the listing under way");
+    expect(desk.takeWanted() == "game-1", "and the host's loop hears which game is wanted");
+    const fs::path thumb = dir / "offered-thumb.jpg";
+    writeFile(thumb, "a thumbnail");
+    const std::string token = lan::CoverDesk::tokenOf(thumb);
+    desk.publish(
+        lan::wire::CoverOffersAnswer{
+            .game = "game-1",
+            .status = std::string{lan::wire::coversListed},
+            .complete = true,
+            .offers = {{.id = 7, .width = 600, .height = 900, .thumb = token}}},
+        {{token, thumb}});
+    const std::optional<lan::wire::CoverOffersAnswer> listed =
+        guest.coverOffers(never, host.id(), lan::wire::CoverAsk{"game-1", false}, error);
+    expect(listed && listed->complete && listed->offers.size() == 1 && listed->offers[0].id == 7,
+           "the next ask reads what the host offers");
+    expect(!desk.takeWanted(), "without starting the listing again");
+    expect(readFile(guest.offeredCover(never, host.id(), token)) == "a thumbnail",
+           "a thumbnail comes over by its token");
+    expect(guest.offeredCover(never, host.id(), std::string(token.size(), 'a')).empty(),
+           "a token not offered gets nothing");
+    expect(guest.pickCover(never, host.id(), lan::wire::CoverPick{"game-1", 7}, error),
+           "the host takes a pick");
+    const std::vector<lan::wire::CoverPick> picks = desk.takePicks();
+    expect(picks.size() == 1 && picks[0].cover == 7, "and its loop reads it");
+    const auto choice = [&guest, &host, &never, &error] {
+        return guest.coverOffers(never, host.id(), lan::wire::CoverAsk{"game-1", false}, error)
+            ->choice;
+    };
+    expect(choice() == lan::wire::coversAsking, "the pick is under way until the host keeps it");
+    desk.picked("game-1", std::string{lan::wire::coverKept});
+    expect(choice() == lan::wire::coverKept, "the guest reads that it was kept");
+    expect(guest.matchGame(never, host.id(), lan::wire::GameMatch{"game-1", "1245620", "A Ring"},
+                           error),
+           "the host takes a match");
+    const std::vector<lan::wire::GameMatch> matches = desk.takeMatches();
+    expect(matches.size() == 1 && matches[0].key == "1245620", "and its loop reads it");
+}
+
 void askedToPlayTogether(const lan::LanNode& guest, lan::LanNode& host) {
     using Clock = lan::NetplayAsks::Clock;
     const std::stop_token never;
@@ -754,6 +802,7 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
            "and keeps the copy, linked with the den");
     expect(guest.sync.sharing(game), "so the game's saves are shared");
     askedToPlayTogether(guest.node, host.node);
+    aGuestChoosesAHostsCover(guest.node, host.node, host.state);
     expect(looksLike(guest, game, player, Standing::NewerThere), "the den's save is newer");
     const std::uint64_t ticket = guest.sync.prepare(game, player);
     expect(waitFor([&guest, ticket] {
@@ -992,6 +1041,7 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
                 return profiles.seatOf(profile);
             }}};
     lan::NetplayAsks netplay;
+    lan::CoverDesk covers;
     lan::LanListener listener{lan::LanListener::Sources{.book = book,
                                                         .pairing = pairing,
                                                         .library = library,
@@ -1000,6 +1050,7 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
                                                         .copies = copies,
                                                         .netplay = netplay,
                                                         .roms = shelf,
+                                                        .covers = covers,
                                                         .name =
                                                             [] {
                                                                 return std::string{"Host"};

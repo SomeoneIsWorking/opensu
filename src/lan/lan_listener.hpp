@@ -18,6 +18,7 @@
 #include <optional>
 #include <string>
 
+#include "cover_desk.hpp"
 #include "host_pairing.hpp"
 #include "lucent/http.h"
 #include "netplay_asks.hpp"
@@ -61,6 +62,8 @@ class LanListener {
         /// The asks to play a ROM together, and the saves handed over for one.
         NetplayAsks& netplay;
         RomShelf& roms;
+        /// The asks about a listed game's cover and match.
+        CoverDesk& covers;
         /// The name this openSU goes by now.
         std::function<std::string()> name;
         /// A peer unpaired itself; called on the listener's thread.
@@ -136,6 +139,7 @@ class LanListener {
                                                          const Signed& verified);
     /// `/lan/invite`, `body` opened.
     [[nodiscard]] lucent::http::Response inviteRoute(std::string_view body, const Signed& verified);
+    [[nodiscard]] lucent::http::Response coversRoute(std::string_view path, std::string_view body);
     [[nodiscard]] std::optional<Signed> verify(const lucent::http::Request& request);
 
     Sources sources_;

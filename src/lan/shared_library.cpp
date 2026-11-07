@@ -4,6 +4,7 @@
 #include <span>
 #include <system_error>
 
+#include "library/match_pick.hpp"
 #include "lucent/log.h"
 #include "secrets/crypto.hpp"
 #include "secrets/secret.hpp"
@@ -42,7 +43,10 @@ void SharedLibrary::share(const std::vector<library::Game>& games) {
         if (!game.installed || game.source == library::Source::Remote) {
             continue;
         }
-        wire::ListedGame entry{game.id, game.title, coverToken(game), {}};
+        wire::ListedGame entry{.id = game.id,
+                               .title = game.title,
+                               .cover = coverToken(game),
+                               .match = library::matchTargetOf(game)};
         if (!entry.cover.empty()) {
             covers.emplace(entry.cover, game.artwork);
         }

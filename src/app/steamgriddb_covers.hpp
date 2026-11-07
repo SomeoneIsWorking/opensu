@@ -1,11 +1,14 @@
 // steamgriddb_covers — SteamGridDB's covers on the shelf: the covers the player chose or that were
 // fitted in place of a game's own (`artwork::CoverOverrides`), the fitting of covers whose shape
 // the Home grid's square tiles would crop (`artwork::CoverFitter`), and "Choose artwork"
-// (`CoverPickerController`). The game's own cover stays on disk throughout.
+// (`CoverPickerController`), for games here and, through `lan::CoverDesk`, for the games a paired
+// guest picks on this host. The game's own cover stays on disk throughout.
 #pragma once
 
 #include <filesystem>
 #include <functional>
+#include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -16,9 +19,11 @@
 #include "artwork/steamgriddb.hpp"
 #include "audio/sdl_sound_player.hpp"
 #include "cover_picker_controller.hpp"
+#include "lan/cover_desk.hpp"
 #include "library/game.hpp"
 #include "library/shelf.hpp"
 #include "library/titles.hpp"
+#include "remote_cover_offers.hpp"
 #include "ui/shell.hpp"
 
 namespace opensu::app {
@@ -44,6 +49,10 @@ class SteamGridDbCovers {
         std::function<void(const std::string& id)> shown;
         /// Opens Match a different game for game `id`.
         std::function<void(const std::string& id)> match;
+        /// What a host's guests are shown changed: a cover was kept or fitted.
+        std::function<void()> shared;
+        /// Runs work on the LAN node off the loop, for a game on a paired openSU.
+        RemoteCoverOffers::Ask askHost;
     };
 
     /// `store` says which games have no art and none coming.
@@ -61,6 +70,10 @@ class SteamGridDbCovers {
     void coverMissing(const std::string& id);
     /// Chosen covers as data a title's copies share.
     [[nodiscard]] library::KeptData keptData() const;
+    /// `games` with the covers they show here, for the guests.
+    [[nodiscard]] std::vector<library::Game> shown(std::vector<library::Game> games) const;
+    /// Answers the guests' asks at `desk`. Main loop only.
+    void serve(lan::CoverDesk& desk);
     /// Opens "Choose artwork" for game `id`.
     void choose(const std::string& id);
     [[nodiscard]] CoverPickerController& picker() noexcept {
@@ -88,6 +101,14 @@ class SteamGridDbCovers {
     artwork::CoverOverrides overrides_;
     artwork::CoverFitter fitter_;
     artwork::CoverOffers offers_;
+    RemoteCoverOffers hosted_;
+    /// What the guests are offered, apart from the player's own picker here.
+    artwork::CoverOffers guestOffers_;
+    /// The game the guests' listing is for, and that listing.
+    std::string guestGame_;
+    std::optional<artwork::CoverListing> guestListing_;
+    /// The games the guests' picks under way are for, by what each is kept under.
+    std::map<std::string, std::string> guestPicks_;
     CoverPickerController picker_;
     /// The games whose tiles wait for a fitted cover, as last shown.
     std::vector<std::string> pending_;

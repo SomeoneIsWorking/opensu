@@ -63,6 +63,7 @@ LanNode::LanNode(Setup setup)
                                      .copies = copies_,
                                      .netplay = netplay_,
                                      .roms = shelf_,
+                                     .covers = covers_,
                                      .name =
                                          [this] {
                                              return name_;
@@ -333,6 +334,72 @@ void LanNode::playing(std::string id, std::vector<std::string> profiles) {
     wake();
 }
 
+void LanNode::share(const std::vector<library::Game>& games) {
+    const std::vector<wire::ListedGame> before = library_.listing();
+    library_.share(games);
+    if (library_.listing() == before) {
+        return;
+    }
+    {
+        const std::lock_guard lock{mutex_};
+        newsDue_ = true;
+    }
+    wake();
+}
+
+std::optional<wire::CoverOffersAnswer> LanNode::coverOffers(const std::stop_token& stop,
+                                                            const std::string& hostId,
+                                                            const wire::CoverAsk& ask,
+                                                            std::string& error) const {
+    if (ask.fresh) {
+        std::error_code ec;
+        fs::remove_all(offeredFolder(hostId), ec);
+    }
+    const std::optional<std::string> body = askHost(stop, hostId, "POST", wire::coverOffersRoute,
+                                                    wire::write(ask), largestNotice, error);
+    if (!body) {
+        return std::nullopt;
+    }
+    std::optional<wire::CoverOffersAnswer> answer = wire::readCoverOffers(*body);
+    if (!answer) {
+        error = "the host's answer cannot be read";
+    }
+    return answer;
+}
+
+fs::path LanNode::offeredFolder(const std::string& hostId) const {
+    return coverCache_ / hostId / "offered";
+}
+
+bool LanNode::pickCover(const std::stop_token& stop, const std::string& hostId,
+                        const wire::CoverPick& pick, std::string& error) const {
+    return askHost(stop, hostId, "POST", wire::coverPickRoute, wire::write(pick), largestNotice,
+                   error)
+        .has_value();
+}
+
+bool LanNode::matchGame(const std::stop_token& stop, const std::string& hostId,
+                        const wire::GameMatch& match, std::string& error) const {
+    return askHost(stop, hostId, "POST", wire::gameMatchRoute, wire::write(match), largestNotice,
+                   error)
+        .has_value();
+}
+
+fs::path LanNode::offeredCover(const std::stop_token& stop, const std::string& hostId,
+                               const std::string& token) const {
+    std::string why;
+    std::optional<RomImport::Link> link = linkTo(hostId, why);
+    const std::optional<Peer> host = book_.find(hostId);
+    if (!link || !host) {
+        lucent::warn("lan", "a cover cannot be asked for: {}", why);
+        return {};
+    }
+    const PeerClient client{web_, link->endpoint, stop};
+    fs::path file = coverOf(*host, client, link->secret, token, offeredFolder(hostId));
+    secrets::wipeBytes(link->secret.data(), link->secret.size());
+    return file;
+}
+
 bool LanNode::invite(const std::stop_token& stop, const std::string& peerId,
                      const wire::Invitation& game, std::string& error) const {
     return askHost(stop, peerId, "POST", wire::inviteRoute, wire::write(game), largestNotice, error)
@@ -575,7 +642,7 @@ std::vector<library::Game> LanNode::fetch(const std::stop_token& stop,
         for (const wire::ListedGame& listed : *listing) {
             fs::path cover;
             if (!listed.cover.empty()) {
-                cover = coverOf(host, client, *secret, listed.cover);
+                cover = coverOf(host, client, *secret, listed.cover, coverCache_ / host.id);
                 covers.insert(cover);
             }
             games.push_back(remoteGame(host, listed, cover));
@@ -583,7 +650,7 @@ std::vector<library::Game> LanNode::fetch(const std::stop_token& stop,
         secrets::wipeBytes(secret->data(), secret->size());
         lucent::info("lan", "{} lists {} games", host.name, listing->size());
         for (const fs::directory_entry& kept : fs::directory_iterator{coverCache_ / host.id, ec}) {
-            if (!covers.contains(kept.path())) {
+            if (kept.is_regular_file(ec) && !covers.contains(kept.path())) {
                 fs::remove(kept.path(), ec);
             }
         }
@@ -592,8 +659,8 @@ std::vector<library::Game> LanNode::fetch(const std::stop_token& stop,
 }
 
 fs::path LanNode::coverOf(const Peer& host, const PeerClient& client,
-                          const secrets::crypto::Bytes& secret, const std::string& token) const {
-    const fs::path folder = coverCache_ / host.id;
+                          const secrets::crypto::Bytes& secret, const std::string& token,
+                          const fs::path& folder) const {
     for (const std::string_view extension : coverExtensions) {
         fs::path cached = folder / (token + std::string{extension});
         std::error_code ec;

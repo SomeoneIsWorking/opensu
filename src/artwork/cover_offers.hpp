@@ -29,12 +29,14 @@ struct CoverOffer {
 
 /// What is offered for one game so far.
 struct CoverListing {
-    std::string gameId;
+    std::string gameId{};
     SteamGridDb::Covers::Status status{SteamGridDb::Covers::Status::Listed};
-    std::vector<CoverOffer> offers;
-    std::string error;
+    std::vector<CoverOffer> offers{};
+    std::string error{};
     /// Every thumbnail has been asked for.
     bool complete{false};
+    /// A host's game: its own cover while another replaces it there.
+    std::filesystem::path own{};
 };
 
 /// How a choice ended.
@@ -44,28 +46,38 @@ struct CoverChoice {
     std::string error;
 };
 
-class CoverOffers {
+/// Where "Choose artwork" gets its covers and keeps the pick.
+class CoverSource {
+  public:
+    virtual ~CoverSource() = default;
+    /// Lists `game`'s covers, dropping a listing still under way.
+    virtual void list(const library::Game& game) = 0;
+    /// Keeps `cover` as game `gameId`'s chosen cover.
+    virtual void choose(const std::string& gameId, const SteamGridDbCover& cover) = 0;
+    /// Keeps game `gameId`'s own cover as its choice.
+    virtual void chooseOwn(const std::string& gameId) = 0;
+    /// The listing as it stands, when it changed since the last call.
+    [[nodiscard]] virtual std::optional<CoverListing> takeListing() = 0;
+    /// The choices that ended since the last call.
+    [[nodiscard]] virtual std::vector<CoverChoice> takeChoices() = 0;
+};
+
+class CoverOffers final : public CoverSource {
   public:
     /// The most covers offered for a game.
     static constexpr std::size_t mostOffers = 24;
 
     CoverOffers(const CoverOverrides& overrides, const SteamGridDb& steamGridDb,
                 std::filesystem::path thumbDir);
-    ~CoverOffers();
+    ~CoverOffers() override;
     CoverOffers(const CoverOffers&) = delete;
     CoverOffers& operator=(const CoverOffers&) = delete;
 
-    /// Lists `game`'s covers, dropping a listing still under way.
-    void list(const library::Game& game);
-    /// Keeps `cover` as game `gameId`'s chosen cover.
-    void choose(const std::string& gameId, const SteamGridDbCover& cover);
-    /// Keeps game `gameId`'s own cover as its choice.
-    void chooseOwn(const std::string& gameId);
-
-    /// The listing as it stands, when it changed since the last call.
-    [[nodiscard]] std::optional<CoverListing> takeListing();
-    /// The choices that ended since the last call.
-    [[nodiscard]] std::vector<CoverChoice> takeChoices();
+    void list(const library::Game& game) override;
+    void choose(const std::string& gameId, const SteamGridDbCover& cover) override;
+    void chooseOwn(const std::string& gameId) override;
+    [[nodiscard]] std::optional<CoverListing> takeListing() override;
+    [[nodiscard]] std::vector<CoverChoice> takeChoices() override;
 
   private:
     struct List {

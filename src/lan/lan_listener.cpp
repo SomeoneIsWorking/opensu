@@ -111,7 +111,8 @@ Response LanListener::handle(const Request& request) {
           path == wire::romChunkRoute || path == wire::profileCopyRoute ||
           path == wire::profileCopyStatusRoute || path == wire::profileUnlinkRoute ||
           path == wire::netplayRoute || path == wire::netplayStatusRoute ||
-          path == wire::netplaySaveRoute));
+          path == wire::netplaySaveRoute || path == wire::coverOffersRoute ||
+          path == wire::coverPickRoute || path == wire::gameMatchRoute));
     if (!peerPath) {
         return refused(notFound, "Not Found", "no such route");
     }
@@ -137,6 +138,9 @@ Response LanListener::handle(const Request& request) {
             answer = netplayRoute(path, *body, *verified);
         } else if (path == wire::inviteRoute) {
             answer = inviteRoute(*body, *verified);
+        } else if (path == wire::coverOffersRoute || path == wire::coverPickRoute ||
+                   path == wire::gameMatchRoute) {
+            answer = coversRoute(path, *body);
         } else if (path == wire::libraryNewsRoute) {
             if (sources_.libraryNews) {
                 sources_.libraryNews();
@@ -222,7 +226,11 @@ Response LanListener::peerRoute(const Request& request, const Signed& verified) 
         sources_.unpaired(verified.peer);
         return Response::json(ok, "OK", "{}");
     }
-    const std::optional<fs::path> cover = sources_.library.cover(path.substr(coverPrefix.size()));
+    const std::string_view token = path.substr(coverPrefix.size());
+    std::optional<fs::path> cover = sources_.library.cover(token);
+    if (!cover) {
+        cover = sources_.covers.thumb(token);
+    }
     if (!cover) {
         return refused(notFound, "Not Found", "no such cover");
     }
@@ -441,6 +449,30 @@ Response LanListener::netplayRoute(std::string_view path, std::string_view body,
         return refused(notFound, "Not Found", "no save is handed over for that ROM");
     }
     return Response::binary(ok, "OK", "application/octet-stream", std::move(*save));
+}
+
+Response LanListener::coversRoute(std::string_view path, std::string_view body) {
+    if (path == wire::coverOffersRoute) {
+        const std::optional<wire::CoverAsk> ask = wire::readCoverAsk(body);
+        if (!ask) {
+            return refused(badRequest, "Bad Request", "not a game");
+        }
+        return Response::json(ok, "OK", wire::write(sources_.covers.offers(*ask)));
+    }
+    if (path == wire::coverPickRoute) {
+        std::optional<wire::CoverPick> pick = wire::readCoverPick(body);
+        if (!pick) {
+            return refused(badRequest, "Bad Request", "not a cover");
+        }
+        sources_.covers.pick(std::move(*pick));
+        return Response::json(ok, "OK", "{}");
+    }
+    std::optional<wire::GameMatch> match = wire::readGameMatch(body);
+    if (!match) {
+        return refused(badRequest, "Bad Request", "not a match");
+    }
+    sources_.covers.match(std::move(*match));
+    return Response::json(ok, "OK", "{}");
 }
 
 Response LanListener::inviteRoute(std::string_view body, const Signed& verified) {

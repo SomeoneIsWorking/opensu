@@ -74,7 +74,9 @@ struct ListedGame {
     /// Its cover's token (`isCoverToken`); empty when it has none.
     std::string cover;
     /// While it runs there, the profiles (linked copies keep the id) playing a seat in it.
-    std::vector<std::string> playingAs;
+    std::vector<std::string> playingAs{};
+    /// What it can be matched to (`library::matchTargetOf`); empty for nothing.
+    std::string match{};
 
     bool operator==(const ListedGame&) const = default;
 };
@@ -192,6 +194,74 @@ struct GameRef {
 };
 [[nodiscard]] std::string write(const GameRef& ref);
 [[nodiscard]] std::optional<GameRef> readGameRef(std::string_view body);
+/// `POST /lan/covers`: what the host offers as a cover of a game it lists, and how the last pick
+/// ended. The guest asks again until the answer is complete.
+inline constexpr std::string_view coverOffersRoute = "/lan/covers";
+/// `POST /lan/covers/pick`: keeps one of those covers, or the game's own, on the host.
+inline constexpr std::string_view coverPickRoute = "/lan/covers/pick";
+/// `POST /lan/match`: keeps what the guest's player says a game listed here is.
+inline constexpr std::string_view gameMatchRoute = "/lan/match";
+/// `CoverOffersAnswer::status`, and `choice` while a pick is under way.
+inline constexpr std::string_view coversAsking = "asking";
+inline constexpr std::string_view coversListed = "listed";
+inline constexpr std::string_view coversDisconnected = "disconnected";
+inline constexpr std::string_view coversRefused = "refused";
+inline constexpr std::string_view coversUnreachable = "unreachable";
+/// `CoverOffersAnswer::choice` for a pick kept.
+inline constexpr std::string_view coverKept = "kept";
+
+struct CoverAsk {
+    std::string game;
+    /// Lists it again, even when it is the game listed last.
+    bool fresh{false};
+};
+[[nodiscard]] std::string write(const CoverAsk& ask);
+[[nodiscard]] std::optional<CoverAsk> readCoverAsk(std::string_view body);
+
+struct OfferedCover {
+    /// SteamGridDB's id for it, which a pick names.
+    std::int64_t id{0};
+    int width{0};
+    int height{0};
+    /// Its thumbnail's token (`isCoverToken`); empty until it is on the host.
+    std::string thumb;
+
+    bool operator==(const OfferedCover&) const = default;
+};
+
+struct CoverOffersAnswer {
+    std::string game{};
+    std::string status{};
+    /// Every thumbnail has been asked for.
+    bool complete{false};
+    std::vector<OfferedCover> offers{};
+    /// The token of the game's own cover while another replaces it; empty otherwise.
+    std::string own{};
+    /// How the last pick stands: empty for none, `coversAsking`, `coverKept` or why it failed.
+    std::string choice{};
+
+    bool operator==(const CoverOffersAnswer&) const = default;
+};
+[[nodiscard]] std::string write(const CoverOffersAnswer& answer);
+[[nodiscard]] std::optional<CoverOffersAnswer> readCoverOffers(std::string_view body);
+
+struct CoverPick {
+    std::string game;
+    /// The offer's id; nothing keeps the game's own cover.
+    std::optional<std::int64_t> cover;
+};
+[[nodiscard]] std::string write(const CoverPick& pick);
+[[nodiscard]] std::optional<CoverPick> readCoverPick(std::string_view body);
+
+struct GameMatch {
+    std::string game;
+    /// What is kept as the match (`library::matchKey`), and its title.
+    std::string key;
+    std::string title;
+};
+[[nodiscard]] std::string write(const GameMatch& match);
+[[nodiscard]] std::optional<GameMatch> readGameMatch(std::string_view body);
+
 /// `POST /lan/library/news`: what the caller lists changed, so it is read again.
 inline constexpr std::string_view libraryNewsRoute = "/lan/library/news";
 /// `POST /lan/invite`: the host's player invites this openSU to its game running now.

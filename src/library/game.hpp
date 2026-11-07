@@ -133,6 +133,8 @@ struct Game {
     /// A remote game running there: the profiles playing a seat in it, which one of them here can
     /// continue.
     std::vector<std::string> playingAs;
+    /// A remote game: what its host says it can be matched to (`matchTargetOf`).
+    std::string matchAs;
 
     /// Whether that openSU answers now; a game listed earlier stays, offline, until it is back.
     bool hostOnline{true};

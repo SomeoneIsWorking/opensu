@@ -329,7 +329,12 @@ class ShellApp final {
     /// Runs ROM `game` on emulator `name` from now on, and keeps the pick.
     /// The store copies with a launch button each on `game`'s page here.
     [[nodiscard]] std::vector<library::Game> copiesOffered(const library::Game& game) const;
-    /// Keeps `key`, titled `title`, as what `game` is for its artwork (Match a different game).
+    /// Lists the games to the paired openSUs with the covers they show here.
+    void shareLibrary();
+    /// Answers what the paired openSUs ask about the covers and matches of games here.
+    void serveGuests();
+    /// Keeps `key`, titled `title`, as what `game` is for its artwork (Match a different game), on
+    /// its host for a remote game.
     void keepMatch(const library::Game& game, const std::string& key, const std::string& title);
     /// The game with `id` as the grid shows it now.
     [[nodiscard]] std::optional<library::Game> shownGame(const std::string& id) const;
@@ -456,6 +461,12 @@ class ShellApp final {
                                      if (const library::Game* game = ownGame(id)) {
                                          gameMatch_.open(*game);
                                      }
+                                 },
+                                 [this] {
+                                     shareLibrary();
+                                 },
+                                 [this](RemoteCoverOffers::Work work) {
+                                     return lan_.askCovers(std::move(work));
                                  }}};
     ArtworkDelivery delivery_{
         shell_, artworkFetcher_,

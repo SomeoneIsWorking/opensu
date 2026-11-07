@@ -23,6 +23,7 @@
 #include <thread>
 #include <vector>
 
+#include "cover_desk.hpp"
 #include "dns_sd.hpp"
 #include "guest_pairing.hpp"
 #include "host_pairing.hpp"
@@ -103,9 +104,28 @@ class LanNode {
         return book_.find(peerId);
     }
     /// Shares the installed games among `games` with paired peers from now on.
-    void share(const std::vector<library::Game>& games) {
-        library_.share(games);
+    /// The paired, announced openSUs are told to read the listing again when it changed.
+    void share(const std::vector<library::Game>& games);
+    /// The guests' asks about a listed game's cover and match.
+    [[nodiscard]] CoverDesk& covers() noexcept {
+        return covers_;
     }
+    /// What `hostId` offers as a cover of its game `ask.game`. Blocks for the call, so never on
+    /// the loop. Nothing with `error` when it is gone, unpaired or refuses.
+    [[nodiscard]] std::optional<wire::CoverOffersAnswer> coverOffers(const std::stop_token& stop,
+                                                                     const std::string& hostId,
+                                                                     const wire::CoverAsk& ask,
+                                                                     std::string& error) const;
+    /// Hands `hostId` a pick among those covers. Blocks for the call.
+    [[nodiscard]] bool pickCover(const std::stop_token& stop, const std::string& hostId,
+                                 const wire::CoverPick& pick, std::string& error) const;
+    /// Tells `hostId` what its game is. Blocks for the call.
+    [[nodiscard]] bool matchGame(const std::stop_token& stop, const std::string& hostId,
+                                 const wire::GameMatch& match, std::string& error) const;
+    /// The thumbnail `hostId` offers as `token`, fetched as needed; empty when it cannot be had.
+    [[nodiscard]] std::filesystem::path offeredCover(const std::stop_token& stop,
+                                                     const std::string& hostId,
+                                                     const std::string& token) const;
     /// The copy of a profile here a paired peer asks for that waits for the player.
     [[nodiscard]] std::optional<ProfileCopies::Question> copyQuestion() const {
         return copies_.question(ProfileCopies::Clock::now());
@@ -241,9 +261,13 @@ class LanNode {
     /// its call.
     [[nodiscard]] std::vector<library::Game>
     fetch(const std::stop_token& stop, const std::vector<Sighting>& online, bool& complete);
+    /// The cover `token` of `host`, kept in `folder`.
     [[nodiscard]] std::filesystem::path coverOf(const Peer& host, const PeerClient& client,
                                                 const secrets::crypto::Bytes& secret,
-                                                const std::string& token) const;
+                                                const std::string& token,
+                                                const std::filesystem::path& folder) const;
+    /// Where the thumbnails `hostId` offers are kept, apart from its listed covers.
+    [[nodiscard]] std::filesystem::path offeredFolder(const std::string& hostId) const;
     void tell(const std::stop_token& stop, const Notice& notice) const;
     /// Where the paired, announced `hostId` listens and the pairing's secret; nothing with why.
     [[nodiscard]] std::optional<RomImport::Link> linkTo(const std::string& hostId,
@@ -271,6 +295,7 @@ class LanNode {
     /// Mutable: a worker holding a const node hands saves over through it; it locks itself.
     mutable NetplayAsks netplay_;
     RomShelf shelf_;
+    CoverDesk covers_;
     LanListener listener_;
     std::string problem_;
     std::unique_ptr<ServiceDiscovery> discovery_;

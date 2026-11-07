@@ -1,7 +1,8 @@
 // cover_picker_controller — "Choose artwork" from the details page: lists the cover the game shows
 // now, its own when another replaces it, and SteamGridDB's covers as `artwork::CoverOffers` finds
-// them; A keeps the chosen one as the game's choice, Y opens Settings › Artwork while SteamGridDB
-// is not connected, X opens Match a different game for a game the player added, B closes.
+// them, or its host finds them for a game on a paired openSU; A keeps the chosen one as the game's
+// choice, Y opens Settings › Artwork while SteamGridDB is not connected here, X opens Match a
+// different game for a game that can be matched, B closes.
 #pragma once
 
 #include <cstddef>
@@ -38,7 +39,9 @@ class CoverPickerController {
 
     /// What the picker offers and keeps.
     struct Sources {
-        artwork::CoverOffers& offers;
+        artwork::CoverSource& offers;
+        /// For a game on a paired openSU, whose host lists and keeps its covers.
+        artwork::CoverSource& hosted;
         const artwork::CoverOverrides& overrides;
     };
 
@@ -57,7 +60,8 @@ class CoverPickerController {
                           ui::ScreenImages& images, audio::SdlSoundPlayer& sounds, Sources sources,
                           Hooks hooks)
         : navigator_{navigator}, chrome_{chrome}, images_{images}, sounds_{sounds},
-          offers_{sources.offers}, overrides_{sources.overrides}, hooks_{std::move(hooks)} {
+          own_{sources.offers}, hosted_{sources.hosted}, offers_{&own_},
+          overrides_{sources.overrides}, hooks_{std::move(hooks)} {
     }
 
     /// Opens for `game` as its source has it, its own cover in `artwork`.
@@ -77,7 +81,7 @@ class CoverPickerController {
     [[nodiscard]] const std::vector<Pick>& picks() const noexcept {
         return picks_;
     }
-    /// Whether SteamGridDB needs connecting before it lists covers, which Y starts.
+    /// Whether SteamGridDB needs connecting here before it lists covers, which Y starts.
     [[nodiscard]] bool disconnected() const;
     /// Keeps pick `index` as the game's cover; the one shown now just closes the picker.
     void choose(std::size_t index);
@@ -106,14 +110,19 @@ class CoverPickerController {
     const ui::Chrome& chrome_;
     ui::ScreenImages& images_;
     audio::SdlSoundPlayer& sounds_;
-    artwork::CoverOffers& offers_;
+    artwork::CoverSource& own_;
+    artwork::CoverSource& hosted_;
+    /// Which of the two serves the game open now.
+    artwork::CoverSource* offers_;
     const artwork::CoverOverrides& overrides_;
     Hooks hooks_;
     std::string gameId_;
     /// What the game's choice is kept under.
     std::string keptId_;
     std::string title_;
-    std::filesystem::path own_;
+    std::filesystem::path ownCover_;
+    /// The host of the game open now; empty for one here.
+    std::string host_;
     std::optional<artwork::CoverListing> listing_;
     std::vector<Pick> picks_;
     std::vector<Entry> entries_;

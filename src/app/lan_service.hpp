@@ -108,6 +108,15 @@ class LanService {
     [[nodiscard]] bool
     askPeers(std::function<void(const lan::LanNode&, const std::stop_token&)> work);
 
+    /// Runs `work` on the node off the loop for a cover of a host's game, as `askPeers` does, once
+    /// the last such work ended. False while LAN is off.
+    [[nodiscard]] bool
+    askCovers(std::function<void(const lan::LanNode&, const std::stop_token&)> work);
+    /// The guests' asks about a listed game's cover and match; null while LAN is off.
+    [[nodiscard]] lan::CoverDesk* coverDesk() noexcept {
+        return node_ == nullptr ? nullptr : &node_->covers();
+    }
+
     /// Starts pairing with the openSU announced as `peerId` and shows its card.
     void pair(const std::string& peerId);
     /// Forgets `peerId` and says so.
@@ -191,6 +200,8 @@ class LanService {
     /// A call of `askPeers` under way; stopped and joined before the node goes.
     std::jthread peerAsker_;
     std::shared_ptr<std::atomic<bool>> askingPeers_{std::make_shared<std::atomic<bool>>(false)};
+    /// A call of `askCovers` under way; stopped and joined before the node goes.
+    std::jthread coverAsker_;
 };
 
 } // namespace opensu::app

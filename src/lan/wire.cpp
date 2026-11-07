@@ -193,6 +193,9 @@ std::string write(const std::vector<ListedGame>& games) {
         if (!game.playingAs.empty()) {
             entry["playingAs"] = game.playingAs;
         }
+        if (!game.match.empty()) {
+            entry["match"] = game.match;
+        }
         list.push_back(std::move(entry));
     }
     return json{{"games", list}}.dump();
@@ -208,8 +211,10 @@ std::optional<std::vector<ListedGame>> readListing(std::string_view body) {
         if (!entry.is_object()) {
             continue;
         }
-        ListedGame game{
-            textField(entry, "id"), textField(entry, "title"), textField(entry, "cover"), {}};
+        ListedGame game{.id = textField(entry, "id"),
+                        .title = textField(entry, "title"),
+                        .cover = textField(entry, "cover"),
+                        .match = textField(entry, "match")};
         if (const auto playing = entry.find("playingAs");
             playing != entry.end() && playing->is_array()) {
             for (const json& profile : *playing) {
@@ -404,6 +409,107 @@ std::optional<GameRef> readGameRef(std::string_view body) {
         return std::nullopt;
     }
     return GameRef{std::move(game)};
+}
+
+std::string write(const CoverAsk& ask) {
+    return json{{"game", ask.game}, {"fresh", ask.fresh}}.dump();
+}
+
+std::optional<CoverAsk> readCoverAsk(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    std::string game = textField(*document, "game");
+    if (game.empty()) {
+        return std::nullopt;
+    }
+    return CoverAsk{std::move(game), document->value("fresh", false)};
+}
+
+std::string write(const CoverOffersAnswer& answer) {
+    json offers = json::array();
+    for (const OfferedCover& offer : answer.offers) {
+        offers.push_back(json{{"id", offer.id},
+                              {"width", offer.width},
+                              {"height", offer.height},
+                              {"thumb", offer.thumb}});
+    }
+    return json{{"game", answer.game}, {"status", answer.status}, {"complete", answer.complete},
+                {"offers", offers},    {"own", answer.own},       {"choice", answer.choice}}
+        .dump();
+}
+
+std::optional<CoverOffersAnswer> readCoverOffers(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document || !document->contains("offers") || !(*document)["offers"].is_array()) {
+        return std::nullopt;
+    }
+    CoverOffersAnswer answer{.game = textField(*document, "game"),
+                             .status = textField(*document, "status"),
+                             .complete = document->value("complete", false),
+                             .own = textField(*document, "own"),
+                             .choice = textField(*document, "choice")};
+    if (!isCoverToken(answer.own)) {
+        answer.own.clear();
+    }
+    for (const json& entry : (*document)["offers"]) {
+        if (!entry.is_object() || !entry.contains("id") || !entry["id"].is_number_integer()) {
+            continue;
+        }
+        OfferedCover offer{.id = entry["id"].get<std::int64_t>(),
+                           .width = entry.value("width", 0),
+                           .height = entry.value("height", 0),
+                           .thumb = textField(entry, "thumb")};
+        if (!isCoverToken(offer.thumb)) {
+            offer.thumb.clear();
+        }
+        answer.offers.push_back(std::move(offer));
+    }
+    return answer;
+}
+
+std::string write(const CoverPick& pick) {
+    json document{{"game", pick.game}};
+    if (pick.cover) {
+        document["cover"] = *pick.cover;
+    }
+    return document.dump();
+}
+
+std::optional<CoverPick> readCoverPick(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    CoverPick pick{textField(*document, "game"), std::nullopt};
+    if (pick.game.empty()) {
+        return std::nullopt;
+    }
+    if (const auto cover = document->find("cover"); cover != document->end()) {
+        if (!cover->is_number_integer()) {
+            return std::nullopt;
+        }
+        pick.cover = cover->get<std::int64_t>();
+    }
+    return pick;
+}
+
+std::string write(const GameMatch& match) {
+    return json{{"game", match.game}, {"key", match.key}, {"title", match.title}}.dump();
+}
+
+std::optional<GameMatch> readGameMatch(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    GameMatch match{textField(*document, "game"), textField(*document, "key"),
+                    textField(*document, "title")};
+    if (match.game.empty() || match.key.empty()) {
+        return std::nullopt;
+    }
+    return match;
 }
 
 std::string write(const Invitation& invitation) {

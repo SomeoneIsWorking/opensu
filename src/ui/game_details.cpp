@@ -308,8 +308,8 @@ std::vector<SettingsRow> settingsPageRows(const std::vector<PageCopy>& page) {
         rows.push_back(makePage(copyRowId(matchable->game.id, detailsMatchId),
                                 "Match a different game", {}, {}));
     }
+    rows.push_back(makePage(copyRowId(game.id, detailsArtworkId), "Choose artwork", {}, {}));
     if (game.source != library::Source::Remote) {
-        rows.push_back(makePage(copyRowId(game.id, detailsArtworkId), "Choose artwork", {}, {}));
         rows.push_back(makePage(copyRowId(game.id, detailsControlsId), "Controls", {}, {}));
     }
     if (!top.named) {

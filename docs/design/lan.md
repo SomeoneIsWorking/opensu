@@ -104,7 +104,7 @@ It never shares the loopback control channel's port.
 | `POST /lan/pair` | anyone | `{"id","name","commitment"}` → `{"key","nonce"}` (host's X25519 key, 16-byte nonce); 409 while another guest pairs |
 | `POST /lan/pair/reveal` | anyone | `{"id","key","nonce"}`; 409 unless it matches the commitment |
 | `POST /lan/pair/status` | anyone | `{"id"}` → `{"verdict","signature"}`: `waiting`, `accepted` or `declined` |
-| `GET /lan/library` | paired, signed | `[{"id","title","cover"}]`, installed local games only |
+| `GET /lan/library` | paired, signed | `[{"id","title","cover"}]`, installed local games only; each game's `match` says what it can be matched to: `steam`, `added` or `rom:<system>` |
 | `GET /lan/cover/<token>` | paired, signed | one listed cover, at most 16 MiB |
 | `POST /lan/unpair` | paired, signed | the caller forgets this openSU; this one forgets it |
 | `GET /lan/profiles` | paired, signed | `{"profiles":[{"id","name","picture","linked"}]}`: this openSU's profiles, `linked` with the caller |
@@ -120,6 +120,9 @@ It never shares the loopback control channel's port.
 | `POST /lan/roms/chunk` | paired, signed | `{"kind","root","path","offset","length"}` → at most 2 MiB of the file from `offset`, as raw bytes |
 | `POST /lan/play` | paired, signed | `{"game","profile","salt"}` → `{"port","salt","waiting","joined","continued"}`: the host streams that listed game to the caller, played as `profile` (the caller's active one) when it is linked with the caller, else as the host's first profile; `joined` when the game already ran there, `waiting` (no port yet) while its player is asked; 404 for a game it does not list, 409 with why when it will not (another game running, four guests, outside Gamescope, no capture) |
 | `POST /lan/invite` | paired, signed | `{"game","title"}` → `{}`: the caller invites this openSU to its game running now; 409 with why when this one is in a game |
+| `POST /lan/covers` | paired, signed | `{"game","fresh"}` → `{"game","status","complete","offers":[{"id","width","height","thumb"}],"own","choice"}`: what this openSU offers as covers of a game it lists, with `/lan/cover/<token>` thumbnails, and how the last pick stands. `fresh` starts the listing; the guest asks about once a second until `complete`. One listing at a time: the last game asked for |
+| `POST /lan/covers/pick` | paired, signed | `{"game","cover"}` → `{}`: keeps offer `cover` (its SteamGridDB id, checked against the listing), or the game's own without `cover`; `choice` on `/lan/covers` tells how it ended |
+| `POST /lan/match` | paired, signed | `{"game","key","title"}` → `{}`: keeps `key` as what a listed game is (`library::matchKey`) |
 | `POST /lan/library/news` | paired, signed | `{}` → `{}`: the caller's listing changed (who plays what there); this openSU reads it again |
 | `POST /lan/play/status` | paired, signed | `{"game"}` → `{"verdict","port","why"}`: `waiting`, `accepted` with the stream's port, or `declined` with why, for this caller's ask |
 | `POST /lan/netplay` | paired, signed | `{"console","file","title","size","sha256","salt","coreRevision","options","bios","clockMs","utcOffset"}` → `{}`: asks to play that ROM together; the player here is asked |

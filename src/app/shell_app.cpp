@@ -318,7 +318,7 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     artworkStore_.apply(games_);
     covers_.catalogChanged(games_);
     // With the covers already on disk; one fetched later is shared from the next listing.
-    lan_.share(games_);
+    shareLibrary();
     lanRoms_.share(games_);
     saveSharing_.know(games_, emulatorSettings_.catalog());
     requestArtwork();
@@ -1049,8 +1049,39 @@ void ShellApp::recordLaunch(const library::Game& game) {
     preferences_.save();
 }
 
+void ShellApp::shareLibrary() {
+    lan_.share(covers_.shown(games_));
+}
+
+void ShellApp::serveGuests() {
+    lan::CoverDesk* desk = lan_.coverDesk();
+    if (desk == nullptr) {
+        return;
+    }
+    covers_.serve(*desk);
+    for (const lan::wire::GameMatch& match : desk->takeMatches()) {
+        if (const library::Game* game = ownGame(match.game)) {
+            keepMatch(*game, match.key, match.title);
+        }
+    }
+}
+
 void ShellApp::keepMatch(const library::Game& game, const std::string& key,
                          const std::string& title) {
+    if (game.source == library::Source::Remote) {
+        const bool asked = lan_.askPeers(
+            [host = game.hostId, match = lan::wire::GameMatch{game.sourceId, key, title}](
+                const lan::LanNode& node, const std::stop_token& stop) {
+                std::string error;
+                if (!node.matchGame(stop, host, match, error)) {
+                    lucent::warn("match", "{}: telling its host: {}", match.game, error);
+                }
+            });
+        shell_.setToast(asked ? game.title + " is now matched to " + title
+                              : "Cannot reach " + game.hostName,
+                        !asked);
+        return;
+    }
     gameSettings_.layers().set(settings::Layer{settings::Layer::Kind::Game, library::dataId(game)},
                                library::matchKey, key);
     gameSettings_.save();
@@ -1580,6 +1611,7 @@ int ShellApp::run() {
         togetherQuestions_.service();
         delivery_.service();
         covers_.service();
+        serveGuests();
         serviceDevices(std::chrono::steady_clock::now());
         if (sessionInstall_) {
             sessionInstall_->service();

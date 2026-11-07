@@ -4,6 +4,14 @@
 
 namespace opensu::library {
 
+namespace {
+
+constexpr std::string_view romTarget = "rom:";
+constexpr std::string_view addedTarget = "added";
+constexpr std::string_view steamTarget = "steam";
+
+} // namespace
+
 MatchKind matchKindOf(const Game& game) {
     switch (game.source) {
     case Source::Steam:
@@ -12,7 +20,10 @@ MatchKind matchKindOf(const Game& game) {
     case Source::Own:
         return MatchKind::SteamApp;
     case Source::Remote:
-        return MatchKind::None;
+        if (game.matchAs.empty()) {
+            return MatchKind::None;
+        }
+        return game.matchAs.starts_with(romTarget) ? MatchKind::LibretroTitle : MatchKind::SteamApp;
     case Source::Rom: {
         const roms::RomSystem* system = roms::systemByKey(game.sourceId);
         return system != nullptr && !system->libretroName.empty() ? MatchKind::LibretroTitle
@@ -20,6 +31,26 @@ MatchKind matchKindOf(const Game& game) {
     }
     }
     return MatchKind::None;
+}
+
+std::string matchTargetOf(const Game& game) {
+    switch (matchKindOf(game)) {
+    case MatchKind::None:
+        return {};
+    case MatchKind::LibretroTitle:
+        return std::string{romTarget} + game.sourceId;
+    case MatchKind::SteamApp:
+        break;
+    }
+    return std::string{game.source == Source::Own ? addedTarget : steamTarget};
+}
+
+bool matchedAsAdded(const Game& game) {
+    return game.source == Source::Own || game.matchAs == addedTarget;
+}
+
+std::string matchSystemOf(const Game& game) {
+    return game.source == Source::Remote ? game.matchAs.substr(romTarget.size()) : game.sourceId;
 }
 
 void applyMatchPicks(const settings::SettingLayers& layers, std::vector<Game>& games) {

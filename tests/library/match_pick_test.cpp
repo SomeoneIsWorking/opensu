@@ -57,6 +57,22 @@ void anAddedGameTakesBoxArt() {
     expect(games[1].boxArt.empty(), "a store game has no box art to pick");
 }
 
+void aHostSaysWhatItsGameCanBeMatchedTo() {
+    Game rom = gameOf(Source::Rom, "rom:/r/Mario.sfc", "snes");
+    Game added = gameOf(Source::Own, "own:1", "");
+    Game remote = gameOf(Source::Remote, "lan:host:rom", "rom:/r/Mario.sfc");
+    expect(matchKindOf(remote) == MatchKind::None, "a host that says nothing: no match");
+    remote.matchAs = matchTargetOf(rom);
+    expect(matchKindOf(remote) == MatchKind::LibretroTitle && matchSystemOf(remote) == "snes",
+           "a host's ROM takes a box art title of its system");
+    remote.matchAs = matchTargetOf(added);
+    expect(matchKindOf(remote) == MatchKind::SteamApp && matchedAsAdded(remote),
+           "a host's added game takes what an added game takes");
+    remote.matchAs = matchTargetOf(gameOf(Source::Steam, "steam:1", "1"));
+    expect(matchKindOf(remote) == MatchKind::SteamApp && !matchedAsAdded(remote),
+           "a host's store game takes a Steam app");
+}
+
 void aRomTakesABoxArtTitle() {
     std::vector<Game> games{gameOf(Source::Rom, "rom:/r/Mario.sfc", "snes"),
                             gameOf(Source::Rom, "rom:/r/Kirby.nsp", "switch")};
@@ -88,6 +104,7 @@ int main() try {
     storeGamesTakeASteamApp();
     anAddedGameTakesBoxArt();
     aRomTakesABoxArtTitle();
+    aHostSaysWhatItsGameCanBeMatchedTo();
     aPickThatIsNoAppIdIsNone();
     std::printf("match_pick: all checks passed\n");
     return 0;

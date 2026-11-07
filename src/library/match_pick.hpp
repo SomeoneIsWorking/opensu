@@ -6,6 +6,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -29,6 +30,14 @@ enum class MatchKind : std::uint8_t {
 };
 
 [[nodiscard]] MatchKind matchKindOf(const Game& game);
+
+/// What `game` can be matched to as its host tells a guest: "steam", "added", "rom:<system>", or
+/// empty for nothing.
+[[nodiscard]] std::string matchTargetOf(const Game& game);
+/// Whether `game`, here or on its host, was added by the player, so it may take any system's art.
+[[nodiscard]] bool matchedAsAdded(const Game& game);
+/// The key of the system whose box art a `MatchKind::LibretroTitle` game is matched in.
+[[nodiscard]] std::string matchSystemOf(const Game& game);
 
 /// Gives each game with a pick that applies its match as `artworkKey`, in place of what its
 /// source found, and drops the artwork its source supplied so the match's is shown.
