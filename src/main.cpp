@@ -77,7 +77,7 @@ int main(int argc, char** argv) try {
     const opensu::config::Config config = opensu::config::read();
     std::error_code stateError;
     std::filesystem::create_directories(config.logFile.parent_path(), stateError);
-    lucent::set_default_log_file(config.logFile.string());
+    lucent::set_log_outputs({.file = config.logFile.string()});
     if (stateError) {
         lucent::warn("openSU", "cannot create {}: {}", config.stateDir.string(),
                      stateError.message());
