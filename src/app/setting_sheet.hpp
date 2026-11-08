@@ -1,7 +1,7 @@
 // setting_sheet — one layered setting over the dimmed screen: a row for each level of the editor's
-// context that may keep it, the most specific first ("Override for Alien vs Predator", "Override
-// for FinalBurn Neo", "Override for Arcade", "Default for all games"), each with the value it keeps
-// or inherits, and a "Remove override" row for each level that keeps one.
+// context that may keep it under "Override for", the most specific first (Alien vs Predator,
+// FinalBurn Neo, Arcade, All games), each with the value it keeps or inherits, and a "Remove
+// override" row for each level that keeps one.
 #pragma once
 
 #include <memory>
@@ -44,7 +44,7 @@ class SettingSheet final : public gpu2d::ui::Screen {
     find(const std::vector<settings::ScopedValue>& values) const;
     /// "Alien vs Predator" for the game's level, else the level's name.
     [[nodiscard]] std::string levelName(const settings::Layer& level) const;
-    /// "Override for FinalBurn Neo", or "Default for all games".
+    /// The level's row under "Override for": "FinalBurn Neo", or "All games".
     [[nodiscard]] std::string levelTitle(const settings::Layer& level) const;
     /// "Use 4:3 from Arcade", or "Use the default: Off".
     [[nodiscard]] std::string useText(const settings::ScopedValue& value) const;

@@ -63,8 +63,7 @@ std::string SettingSheet::levelName(const Layer& level) const {
 }
 
 std::string SettingSheet::levelTitle(const Layer& level) const {
-    return level.kind == Layer::Kind::Global ? std::string{"Default for all games"}
-                                             : "Override for " + levelName(level);
+    return level.kind == Layer::Kind::Global ? std::string{"All games"} : levelName(level);
 }
 
 std::string SettingSheet::useText(const settings::ScopedValue& value) const {
@@ -106,6 +105,7 @@ std::unique_ptr<tk::Widget> SettingSheet::build(const tk::Theme& theme) {
     tk::List& list = card.add<tk::List>("levels", spacing.gap);
     list.grow();
     tk::Column& rows = list.rows();
+    rows.add<tk::SectionHeading>("Override for");
     std::vector<std::pair<Layer, settings::ScopedValue>> kept;
     for (const auto& [level, value] : levels) {
         addLevel(rows, value, level);
