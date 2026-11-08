@@ -23,7 +23,7 @@ target_include_directories(opensu_retro
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(opensu_retro
     PUBLIC opensu::retro_saves opensu::libretro_header opensu::librashader_header opensu::pad opensu::command opensu::fileio opensu::setting_layers opensu::netplay lucent::lucent
-           PkgConfig::SDL3 opensu::vulkan opensu::touch
+           PkgConfig::SDL3 opensu::vulkan opensu::touch opensu::input
     PRIVATE gpu2d::image opensu::zip opensu::secrets)
 # Where the shell cannot draw over the runner (Android), Guide and Back bring the shell's Activity
 # forward and the runner draws its own touch controls.

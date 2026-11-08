@@ -11,6 +11,9 @@ dynamically, this also should be an option and dynamic by default".
 
 ## Order
 
+Steps 1 to 3 are built (`retro/runner_app` keeps an `input::LastDevice`, `runner_touch::touchWanted`,
+`touch.show` in `settings/video_settings`); step 4 is open.
+
 1. The runner knows which device gave the latest real input: `src/input/last_device` already
    answers that for the shell; the runner's own input (`retro/presenter` `WindowInput`) reports
    pad and finger events to the same rule.

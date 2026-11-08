@@ -153,7 +153,7 @@ Visible deltas from the baseline:
   Steam, and Big Picture opened any other way is closed and the shell put back in front.
 - Shipped as a Linux x86_64 AppImage with the Gamescope fork inside, a Windows x64 per-user
   installer (S046), or built from source; an Android APK (arm64-v8a, x86_64) runs the shell and
-  plays ROMs from folders picked through Android's folder picker on the built-in cores, with touch controls in the runner and the shell's Guide menu over the running game (S042), and plays a paired PC's games by remote play (S052). A macOS (Apple silicon) app is built, signed ad hoc, as a launcher (S047). On each of them openSU has no: Gamescope (nested session, login session, FSR,
+  plays ROMs from folders picked through Android's folder picker on the built-in cores, with touch controls in the runner (hidden at a controller's press, back at a touch; Touch controls: Dynamic, Always, Never) and the shell's Guide menu over the running game (S042), and plays a paired PC's games by remote play (S052). A macOS (Apple silicon) app is built, signed ad hoc, as a launcher (S047). On each of them openSU has no: Gamescope (nested session, login session, FSR,
   frame generation, Alt+F4 handling); Managed or Isolated Steam (Steam is the player's own, Normal);
   virtual pads remapping another program's input; the Power, Bluetooth and brightness tabs. Windows
   runs a store's Windows builds itself, Linux under Wine, macOS not at all (it installs a store's

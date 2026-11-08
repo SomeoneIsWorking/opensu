@@ -18,6 +18,11 @@ enum class Device : std::uint8_t {
 
 class LastDevice {
   public:
+    /// `start` is taken as the latest input until any comes.
+    explicit LastDevice(Device start = Device::Pad) noexcept
+        : current_{start}, pointing_{start == Device::Touch} {
+    }
+
     [[nodiscard]] Device current() const noexcept {
         return current_;
     }

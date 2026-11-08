@@ -297,7 +297,11 @@ RunnerExit RunnerApp::run() {
     if (control && options_.arcade) {
         control->reportPanel(touch::panelText(panelOf({}, *options_.arcade)));
     }
-    bool padConnected = pads && !pads->connected().empty();
+    const bool padAtLaunch = pads && !pads->connected().empty();
+    // Until any input comes, a pad at launch counts as the latest; a hosted game waits for the
+    // shell's count.
+    input::LastDevice lastInput{padAtLaunch ? input::Device::Pad : input::Device::Touch};
+    bool heardInput = false;
     /// Another Activity has the screen's input, usually the shell over the game, or the shell
     /// says a menu of its own is up.
     // A hosted game is covered until the shell has told it what it needs to show its panel.
@@ -337,8 +341,9 @@ RunnerExit RunnerApp::run() {
                     covered = *host.covered;
                     lucent::info("retro", "the game is {}", covered ? "covered" : "in front");
                 }
-                if (host.pads) {
-                    padConnected = *host.pads > 0;
+                if (host.pads && (!heardInput || *host.pads == 0)) {
+                    lastInput = input::LastDevice{*host.pads > 0 ? input::Device::Pad
+                                                                 : input::Device::Touch};
                 }
                 if (host.screen) {
                     presenter->place(*host.screen);
@@ -367,9 +372,12 @@ RunnerExit RunnerApp::run() {
         }
         if (pads) {
             for (const gamepad::Event& event : pads->takeEvents()) {
-                if (event.kind == gamepad::Event::Kind::Connected ||
-                    event.kind == gamepad::Event::Kind::Disconnected) {
-                    padConnected = !pads->connected().empty();
+                if (event.kind == gamepad::Event::Kind::Disconnected && pads->connected().empty()) {
+                    lastInput = input::LastDevice{input::Device::Touch};
+                }
+                if (event.kind == gamepad::Event::Kind::Button) {
+                    lastInput.notePad(event);
+                    heardInput = true;
                 }
                 if (handoff && event.kind == gamepad::Event::Kind::Button &&
                     event.button == gamepad::Button::Guide && event.pressed) {
@@ -381,12 +389,20 @@ RunnerExit RunnerApp::run() {
                 joypad.sticks(source, axes.sticks);
             }
         }
-        const bool touchShown = touch && !padConnected && !covered && !waiting;
+        const bool touchShown = touch && !covered && !waiting &&
+                                touchWanted(presenter->video().touchShow, lastInput.current());
         if (touch) {
             touch->sized(presenter->video().touchSize);
         }
         if (touch && touch->follow(presenter->surface(), touchShown, input.fingers)) {
             openShellMenu("the pause button");
+        }
+        // Noted after the layer took the frame, so the touch that brings it back presses nothing.
+        for (const touch::Finger& finger : input.fingers) {
+            if (finger.phase == touch::Finger::Phase::Down) {
+                lastInput.notePointer(0.0f, 0.0f, true, true);
+                heardInput = true;
+            }
         }
         if (touch && touch->takeRotate()) {
             screen.toggle();
@@ -397,6 +413,13 @@ RunnerExit RunnerApp::run() {
 
         if (control) {
             for (const ControlInput& held : control->takeInput()) {
+                // A press on the control channel is a pad's, the shell's for a hosted game.
+                if (!held.buttons.empty()) {
+                    gamepad::Event press;
+                    press.button = held.buttons.front();
+                    lastInput.notePad(press);
+                    heardInput = true;
+                }
                 holdControlPad(joypad, held);
             }
             for (const touch::Finger& finger : control->takeFingers()) {

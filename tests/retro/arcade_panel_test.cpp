@@ -486,6 +486,24 @@ void panelCrossesTheWireAsText() {
            "a button the pad does not have is refused");
 }
 
+void shownByTheLatestInput() {
+    using opensu::input::Device;
+    using opensu::retro::touchWanted;
+    using opensu::settings::TouchShow;
+    expect(!touchWanted(TouchShow::Dynamic, Device::Pad), "a controller's press hides them");
+    expect(touchWanted(TouchShow::Dynamic, Device::Touch), "a finger shows them again");
+    expect(touchWanted(TouchShow::Always, Device::Pad), "Always keeps them over a controller");
+    expect(!touchWanted(TouchShow::Never, Device::Touch), "Never keeps them hidden");
+    opensu::input::LastDevice last{Device::Touch};
+    opensu::gamepad::Event press;
+    press.button = Button::A;
+    press.pressed = true;
+    last.notePad(press);
+    expect(last.current() == Device::Pad, "a pad button leads after a finger");
+    last.notePointer(0.0f, 0.0f, true, true);
+    expect(last.current() == Device::Touch, "a finger leads after a pad button");
+}
+
 int main() try {
     namedByTheCore();
     countedByTheListing();
@@ -501,6 +519,7 @@ int main() try {
     uprightUnderThePicture();
     rotatePressedOnce();
     panelCrossesTheWireAsText();
+    shownByTheLatestInput();
     std::printf("arcade_panel: all checks passed\n");
     return 0;
 } catch (...) {

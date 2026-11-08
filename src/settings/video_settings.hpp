@@ -64,6 +64,15 @@ enum class ShaderResolution : std::uint8_t {
     Full,
 };
 
+/// When the touch controls show.
+enum class TouchShow : std::uint8_t {
+    /// While the latest input was not a controller's: a pad press hides them, a touch brings them
+    /// back.
+    Dynamic,
+    Always,
+    Never,
+};
+
 inline constexpr std::string_view touchSizeKey = "touch.size";
 inline constexpr int touchSizeSmallest = 75;
 inline constexpr int touchSizeLargest = 175;
@@ -77,6 +86,7 @@ struct VideoSettings {
     /// A slang preset (`.slangp`) run in place of the sampling and filter; empty for none.
     std::filesystem::path shaderPreset;
     ShaderResolution shaderResolution{ShaderResolution::Auto};
+    TouchShow touchShow{TouchShow::Dynamic};
     /// The touch controls' size, a percentage of their own.
     int touchSize{touchSizeDefault};
     /// Rotate screen is on; the runner's `ScreenTurn` carries it out.
@@ -114,19 +124,26 @@ inline constexpr std::array<ChoiceText, 2> shaderResolutionChoices{{
     {"full", "Full"},
 }};
 
+inline constexpr std::array<ChoiceText, 3> touchShowChoices{{
+    {"dynamic", "Dynamic"},
+    {"always", "Always"},
+    {"never", "Never"},
+}};
+
 inline constexpr std::array<ChoiceText, 2> turnedChoices{{
     {"off", "Off"},
     {"on", "On"},
 }};
 
 /// The video settings, each with its choices in the order of its enum.
-inline constexpr std::array<ChoiceKey, 6> videoKeys{{
+inline constexpr std::array<ChoiceKey, 7> videoKeys{{
     {"video.aspect", "Aspect", aspectChoices},
     {"video.integer", "Integer scale", integerChoices},
     {"video.sampling", "Sampling", samplingChoices},
     {"video.filter", "Filter", filterChoices},
     {"video.shader-resolution", "Shader resolution", shaderResolutionChoices},
     {"video.rotate", "Rotate screen", turnedChoices},
+    {"touch.show", "Touch controls", touchShowChoices},
 }};
 
 /// The shader preset: a `.slangp` path relative to the shader pack, or "" for none at this layer.
@@ -138,7 +155,7 @@ inline constexpr std::string_view videoSection = "Video";
 
 /// Declares the video settings in `schema`: Aspect, Integer scale, Sampling and Filter (both
 /// hidden while a shader preset applies, which replaces them), the shader preset, Shader
-/// resolution (shown only while a preset applies), Touch controls size and Rotate screen.
+/// resolution (shown only while a preset applies), Touch controls, their size and Rotate screen.
 void declareVideo(Schema& schema);
 
 /// `keys`' video settings, each from its winning layer; a kept value that is no choice is

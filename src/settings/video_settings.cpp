@@ -28,6 +28,9 @@ const ChoiceKey& filterKey() {
 const ChoiceKey& shaderResolutionKey() {
     return videoKeys[4];
 }
+const ChoiceKey& touchShowKey() {
+    return videoKeys[6];
+}
 
 } // namespace
 
@@ -72,6 +75,10 @@ void declareVideo(Schema& schema) {
         return !applies(shaderKey).empty();
     };
     schema.add(std::move(resolution));
+    schema.add(choiceSetting(touchShowKey(),
+                             "Dynamic hides them while a controller plays and shows them again at "
+                             "a touch",
+                             section));
     Setting touchSize;
     touchSize.key = std::string{touchSizeKey};
     touchSize.label = "Touch controls size";
@@ -116,6 +123,7 @@ VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
         .filter = static_cast<Filter>(index(filterKey())),
         .shaderPreset = shader.empty() ? std::filesystem::path{} : presets / shader,
         .shaderResolution = static_cast<ShaderResolution>(index(shaderResolutionKey())),
+        .touchShow = static_cast<TouchShow>(index(touchShowKey())),
         .touchSize = resolveTouchSize(layers, keys),
         .turned = index(turnedKey()) == 1,
     };
@@ -133,6 +141,7 @@ std::string videoJson(const VideoSettings& video) {
         {std::string{shaderKey}, video.shaderPreset.string()},
         {std::string{shaderResolutionKey().key},
          spelling(shaderResolutionKey(), video.shaderResolution)},
+        {std::string{touchShowKey().key}, spelling(touchShowKey(), video.touchShow)},
         {std::string{touchSizeKey}, video.touchSize},
         {std::string{turnedKey().key}, turnedValue(video.turned)},
     };
@@ -183,6 +192,7 @@ std::optional<VideoSettings> parseVideoJson(std::string_view text, std::string& 
         .filter = static_cast<Filter>(chosen[3]),
         .shaderPreset = std::move(shader),
         .shaderResolution = static_cast<ShaderResolution>(chosen[4]),
+        .touchShow = static_cast<TouchShow>(chosen[6]),
         .touchSize = touchSize,
         .turned = chosen[5] == 1,
     };

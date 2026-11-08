@@ -155,7 +155,7 @@ Tooling: `tools/check` gains `--platform`; packaging moves into one modular `too
   one pointer path (`ShellApp::pointer` to gpu2d's `Navigator`), so a finger and a mouse share
   every rule: tap, drag, fling, long press. The
   runner gets the authored touch layer the android skill requires (multi-touch pad, pause,
-  safe areas, hidden while a controller is connected), through the same action policy as pads.
+  safe areas, hidden at a controller's press and back at a touch), through the same action policy as pads.
 - ROMs: Storage Access Framework tree URIs picked by the player (one per ROM root), persisted
   permissions. The library scan reads through a `RomTree` seam (filesystem on desktop, SAF
   `DocumentsContract` children on Android); the runner gets a file descriptor or a staged copy
@@ -589,7 +589,7 @@ Vulkan surface is lost with the window and made again on return. Resume sends th
 back to the front (`Launches.resume`); Close game removes its task and process (`Launches.stop`) and
 brings the shell forward (`Launches.showShell`), as the Windows overlay raises the shell when a game
 ends.
-The runner draws its own touch controls while no pad is connected (`TouchLayer`, art in
+The runner draws its own touch controls, hidden at a controller's press and back at a touch (`TouchLayer`, art in
 `assets/touch/`, through `OverlayPass` over the frame): sized in dp inside the safe area,
 multi-touch, its buttons held on the joypad as one more pad. The swapchain is drawn upright on a
 turned display and the system turns it (frames came out turned a quarter before). Shown on the

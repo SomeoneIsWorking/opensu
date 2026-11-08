@@ -89,7 +89,7 @@ picker opens; pick the folder that holds one folder per console (`gb`, `snes`, `
 allow access, and each console's tile appears in Library with its games. Settings › Library › Add
 a ROM folder does the same. Games run on the built-in
 cores, downloaded from the buildbot's `android/latest/<abi>` folder; the runner draws touch
-controls while no pad is connected, and Back or the pause button opens the Guide menu. Standalone
+controls that hide when a controller is used and come back at a touch (Touch controls in a game's settings: Dynamic, Always, Never), and Back or the pause button opens the Guide menu. Standalone
 emulators that are installed are started by intent with the game. Steam, Epic, GOG and the sign-in
 extension are not on Android.
 

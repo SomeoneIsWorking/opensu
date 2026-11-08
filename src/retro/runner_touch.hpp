@@ -14,11 +14,16 @@
 #include <vector>
 
 #include "arcade_cabinet.hpp"
+#include "input/last_device.hpp"
 #include "joypad.hpp"
 #include "settings/video_settings.hpp"
 #include "touch/touch_layer.hpp"
 
 namespace opensu::retro {
+
+/// Whether the controls show for `show` while `last` gave the latest input: Dynamic shows them
+/// unless a controller did.
+[[nodiscard]] bool touchWanted(settings::TouchShow show, input::Device last) noexcept;
 
 class RunnerTouch {
   public:

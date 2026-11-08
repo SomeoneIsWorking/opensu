@@ -111,6 +111,18 @@ std::string RunnerTouch::places() const {
     return list.dump();
 }
 
+bool touchWanted(settings::TouchShow show, input::Device last) noexcept {
+    switch (show) {
+    case settings::TouchShow::Always:
+        return true;
+    case settings::TouchShow::Never:
+        return false;
+    case settings::TouchShow::Dynamic:
+        return last != input::Device::Pad;
+    }
+    return true;
+}
+
 bool RunnerTouch::follow(const touch::WindowSurface& surface, bool shown,
                          std::span<const touch::Finger> fingers) {
     if (surface.width != laidOut_.width || surface.height != laidOut_.height ||
