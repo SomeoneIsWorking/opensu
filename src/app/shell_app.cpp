@@ -1282,11 +1282,6 @@ void ShellApp::publishSnapshot() {
     // loop cannot read as in game.
     next.inGame = shell_.inGame();
     next.guideMenuOpen = guideMenu_.isOpen();
-    for (const gpu2d::ui::Screen* screen : shell_.screens().navigator().screens()) {
-        if (const auto* editor = dynamic_cast<const LayeredEditor*>(screen)) {
-            next.settingsScope = editor->scopeName();
-        }
-    }
     next.devicesOpen = devicesScreen_.isOpen();
     next.devicesTab = devicesScreen_.tab();
     next.downloadsOpen = downloadsScreen_.isOpen();

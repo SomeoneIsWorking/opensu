@@ -20,7 +20,7 @@ And libretro layer is for all libretro games."
    `games`; the resolve order Global, Libretro (runner games only), console, core, game.
 2. `app/game_settings`: the layer's name ("Libretro") and source text ("From Libretro") from the
    same `layerName`/`sourceText` owner.
-3. `app/layer_settings`: the Libretro row and its editor context; the layered editor's scope tabs
-   gain the tab for a runner game.
+3. `app/layer_settings`: the Libretro row and its editor context; a setting's sheet gains
+   the Libretro level for a runner game.
 4. Proof: a shader preset set on Libretro shows on an arcade game and a SNES game, and the arcade
    game's own value overrides it.

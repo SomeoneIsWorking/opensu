@@ -105,8 +105,6 @@ struct ShellSnapshot {
     bool inGame{false};
     /// Whether the Guide menu is open, over the home screen or a running game.
     bool guideMenuOpen{false};
-    /// The layered editor's scope on show ("Global", "This game"); empty while it is closed.
-    std::string settingsScope;
     /// The interface toolkit's top screen (`settings`, a page's id, `dialog`, `choice`) and its
     /// focused widget; empty while none is open.
     std::string screen;

@@ -30,7 +30,7 @@ LayeredSettings::LayeredSettings(Sources sources, Hooks hooks)
 }
 
 EditorContext LayeredSettings::forGame(const library::Game& game) const {
-    EditorContext context{library::layerKeysOf(game), {Layer{}}, game.id};
+    EditorContext context{library::layerKeysOf(game), {Layer{}}, game.id, game.title};
     if (!context.keys.system.empty()) {
         context.scopes.push_back(Layer{Layer::Kind::System, context.keys.system});
     }
@@ -42,17 +42,21 @@ EditorContext LayeredSettings::forGame(const library::Game& game) const {
 }
 
 EditorContext LayeredSettings::forGlobal() const {
-    return EditorContext{{}, {Layer{}}, {}};
+    return EditorContext{{}, {Layer{}}, {}, {}};
 }
 
 EditorContext LayeredSettings::forSystem(const std::string& system) const {
-    return EditorContext{
-        settings::LayerKeys{.system = system}, {Layer{}, Layer{Layer::Kind::System, system}}, {}};
+    return EditorContext{settings::LayerKeys{.system = system},
+                         {Layer{}, Layer{Layer::Kind::System, system}},
+                         {},
+                         {}};
 }
 
 EditorContext LayeredSettings::forCore(const std::string& core) const {
-    return EditorContext{
-        settings::LayerKeys{.emulator = core}, {Layer{}, Layer{Layer::Kind::Emulator, core}}, {}};
+    return EditorContext{settings::LayerKeys{.emulator = core},
+                         {Layer{}, Layer{Layer::Kind::Emulator, core}},
+                         {},
+                         {}};
 }
 
 std::optional<library::Game> LayeredSettings::gameOf(const EditorContext& context) const {

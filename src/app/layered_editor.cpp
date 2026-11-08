@@ -1,12 +1,12 @@
 #include "layered_editor.hpp"
 
 #include <algorithm>
-#include <charconv>
 
 #include "gpu2d/ui/layout.hpp"
 #include "gpu2d/ui/widgets.hpp"
 
 #include "lucent/text.h"
+#include "setting_sheet.hpp"
 #include "settings/framegen_settings.hpp"
 #include "settings/scaling_settings.hpp"
 #include "shader_preset_tree.hpp"
@@ -21,7 +21,6 @@ using settings::Setting;
 using settings::SettingType;
 
 constexpr std::string_view rowPrefix = "row/";
-constexpr std::string_view scopesId = "scopes";
 constexpr std::string_view clearId = "clear";
 /// The panel's share of the window's width, and the most it takes.
 constexpr float panelShare = 0.5f;
@@ -103,15 +102,6 @@ gpu2d::Rect areaFor(EditorLook look, const gpu2d::Rect& viewport, const tk::Them
     return gpu2d::Rect{viewport.x + viewport.width - width, viewport.y, width, viewport.height};
 }
 
-int levelOf(const std::string& value, const Setting::Range& range) {
-    int level = range.low;
-    const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), level);
-    if (error != std::errc{} || end != value.data() + value.size()) {
-        return range.low;
-    }
-    return std::clamp(level, range.low, range.high);
-}
-
 } // namespace
 
 LayeredEditor::LayeredEditor(LayeredSettings& settings, tk::Navigator& navigator,
@@ -119,62 +109,21 @@ LayeredEditor::LayeredEditor(LayeredSettings& settings, tk::Navigator& navigator
                              std::string title, EditorRows more, std::string group)
     : Screen{group.empty() ? std::string{"layered"} : "layered/" + group, std::move(title)},
       settings_{settings}, navigator_{navigator}, chrome_{chrome}, context_{std::move(context)},
-      look_{look}, schema_{settings_.schemaOf(context_)}, scope_{context_.scopes.size() - 1},
-      more_{std::move(more)}, group_{std::move(group)} {
-}
-
-std::string LayeredEditor::scopeName() const {
-    return settings_.scopeName(scope());
-}
-
-void LayeredEditor::showScope(std::size_t index) {
-    if (index < context_.scopes.size()) {
-        scope_ = index;
-    }
-}
-
-std::string LayeredEditor::labelOf(const Setting& setting, const std::string& value) const {
-    return setting.type == SettingType::Path ? presetLabel(value) : setting.labelOf(value);
-}
-
-std::string LayeredEditor::useText(const settings::ScopedValue& value) const {
-    const std::string label = labelOf(*value.setting, value.inherited.value);
-    if (!value.inherited.from) {
-        return "Use the default: " + label;
-    }
-    return "Use " + label + " from " + settings_.scopeName(*value.inherited.from);
-}
-
-void LayeredEditor::goTo(const Layer& layer) {
-    const auto at = std::ranges::find(context_.scopes, layer);
-    if (at != context_.scopes.end()) {
-        scope_ = static_cast<std::size_t>(at - context_.scopes.begin());
-    }
+      look_{look}, schema_{settings_.schemaOf(context_)}, more_{std::move(more)},
+      group_{std::move(group)} {
 }
 
 std::unique_ptr<tk::Widget> LayeredEditor::build(const tk::Theme& theme) {
     Frame frame = frameFor(look_, theme, chrome_);
     frame.head->add<tk::Label>(title(), tk::TextRole::Title, look_ == EditorLook::Page);
-    const std::size_t kept = settings::keptCount(settings_.rows(schema_, context_, scope()));
-    frame.head->add<tk::Label>(kept == 0 ? "Nothing set for " + phrased(settings_, scope())
-                                         : lucent::text::counted(kept, "custom setting"),
+    const std::vector<settings::ScopedValue> values = settings_.rows(schema_, context_, scope());
+    const auto changed = static_cast<std::size_t>(
+        std::ranges::count_if(values, [](const settings::ScopedValue& value) {
+            return value.from.has_value();
+        }));
+    frame.head->add<tk::Label>(changed == 0 ? std::string{"Every setting at its default"}
+                                            : lucent::text::counted(changed, "changed setting"),
                                tk::TextRole::Caption);
-    if (context_.scopes.size() > 1) {
-        std::vector<tk::Tabs::Tab> tabs;
-        tabs.reserve(context_.scopes.size());
-        for (const Layer& layer : context_.scopes) {
-            tabs.push_back(
-                tk::Tabs::Tab{layer.id.empty() ? "global" : layer.id, settings_.scopeName(layer)});
-        }
-        frame.body
-            ->add<tk::Tabs>(
-                std::string{scopesId}, std::move(tabs), scope_,
-                [this](std::size_t index) {
-                    scope_ = index;
-                },
-                tk::Orientation::Horizontal)
-            .space(theme.spacing.gap);
-    }
     tk::List& list = frame.body->add<tk::List>("rows", theme.spacing.gap);
     list.grow();
     addRows(list.rows(), theme);
@@ -214,9 +163,8 @@ void LayeredEditor::addRows(tk::Column& rows, const tk::Theme& /*theme*/) {
     if (!group_.empty()) {
         return;
     }
-    const bool ownTab = scope_ + 1 == context_.scopes.size();
     const std::vector<ui::SettingsRow> more =
-        ownTab && more_.rows ? more_.rows() : std::vector<ui::SettingsRow>{};
+        more_.rows ? more_.rows() : std::vector<ui::SettingsRow>{};
     if (values.empty() && more.empty()) {
         rows.add<tk::Item>(
             "empty", tk::Item::Text{"Nothing to set here", "None of these settings are kept for " +
@@ -241,19 +189,17 @@ void LayeredEditor::addGroup(tk::Column& rows, const std::vector<settings::Scope
     for (const settings::ScopedValue& value : values) {
         if (value.setting->group == group) {
             ++settings;
-            kept += value.own ? 1U : 0U;
+            kept += value.from ? 1U : 0U;
         }
     }
     rows.add<tk::Item>(groupId(group),
                        tk::Item::Text{group, kept == 0
                                                  ? lucent::text::counted(settings, "setting")
-                                                 : lucent::text::counted(kept, "custom setting")})
+                                                 : lucent::text::counted(kept, "changed setting")})
         .onPress(
             [this, group] {
-                auto page = std::make_unique<LayeredEditor>(
-                    settings_, navigator_, chrome_, context_, look_, group, EditorRows{}, group);
-                page->showScope(scope_);
-                navigator_.push(std::move(page));
+                navigator_.push(std::make_unique<LayeredEditor>(
+                    settings_, navigator_, chrome_, context_, look_, group, EditorRows{}, group));
             },
             "Open", true);
 }
@@ -261,7 +207,7 @@ void LayeredEditor::addGroup(tk::Column& rows, const std::vector<settings::Scope
 void LayeredEditor::addSummary(tk::Column& rows, const std::string& section) {
     std::optional<PresentationSummary> summary = settings_.summaryOf(
         section, settings::scopeLookup(schema_, settings_.layersOf(), context_.keys, scope()),
-        scopeName());
+        settings_.scopeName(scope()));
     if (summary) {
         rows.add<tk::Item>(summary->id,
                            tk::Item::Text{std::move(summary->line), std::move(summary->note)});
@@ -270,103 +216,16 @@ void LayeredEditor::addSummary(tk::Column& rows, const std::string& section) {
 
 void LayeredEditor::addRow(tk::Column& rows, const settings::ScopedValue& value) {
     const Setting& setting = *value.setting;
-    const std::string id = rowId(setting.key);
-    const Layer here = scope();
-    std::string subtitle = setting.help;
-    if (value.overriddenBy) {
-        subtitle = settings_.scopeName(*value.overriddenBy) + " uses " +
-                   labelOf(setting, value.overridingValue) + " over this";
-    }
-    const tk::Item::Text text{setting.label, std::move(subtitle)};
-    tk::Item* row = nullptr;
-    switch (setting.type) {
-    case SettingType::Choice:
-    case SettingType::Toggle:
-    case SettingType::Preset: {
-        // Place 0 uses what the scope inherits; the inherited value is not offered again unless
-        // the scope keeps it.
-        std::vector<std::string> options{labelOf(setting, value.inherited.value)};
-        std::vector<std::string> listed{useText(value)};
-        std::vector<std::string> keys{std::string{}};
-        std::size_t chosen = 0;
-        for (const settings::SettingChoice& offered : setting.choices) {
-            if (!value.own && offered.key == value.inherited.value) {
-                continue;
-            }
-            if (value.own && offered.key == value.value) {
-                chosen = keys.size();
-            }
-            options.push_back(offered.label);
-            listed.push_back(offered.label);
-            keys.push_back(offered.key);
-        }
-        auto& choice =
-            rows.add<tk::Choice>(id, text, std::move(options), chosen,
-                                 [this, here = here, key = setting.key, keys = std::move(keys),
-                                  own = value.own, chosen](std::size_t picked) {
-                                     if (picked == chosen) {
-                                         return;
-                                     }
-                                     if (picked == 0) {
-                                         if (own) {
-                                             settings_.remove(here, key);
-                                         }
-                                         return;
-                                     }
-                                     settings_.set(context_, here, key, keys[picked]);
-                                 });
-        choice.listAs(std::move(listed));
-        row = &choice;
-        break;
-    }
-    case SettingType::Slider: {
-        auto& slider = rows.add<tk::Slider>(
-            id, text, tk::Slider::Range{setting.range.low, setting.range.high, setting.range.step},
-            levelOf(value.value, setting.range), [this, here = here, key = setting.key](int level) {
-                settings_.set(context_, here, key, std::to_string(level));
-            });
-        slider.unit(setting.unit);
-        row = &slider;
-        break;
-    }
-    case SettingType::Path: {
-        auto& item = rows.add<tk::Item>(id, text);
-        item.value(labelOf(setting, value.value))
-            .onPress(
-                [this, here = here] {
-                    navigator_.push(std::make_unique<ShaderPresetScreen>(
-                        settings_, navigator_, chrome_, context_, here, look_));
-                },
-                "Choose", true);
-        row = &item;
-        break;
-    }
-    }
-    row->chip(value.from ? settings_.scopeName(*value.from) : std::string{"Default"}, value.own);
-    if (value.from && *value.from != here &&
-        std::ranges::find(context_.scopes, *value.from) != context_.scopes.end()) {
-        row->onAction(
-            tk::Action::Secondary,
-            [this, from = *value.from] {
-                goTo(from);
+    rows.add<tk::Item>(rowId(setting.key), tk::Item::Text{setting.label, setting.help})
+        .value(valueLabel(setting, value.value))
+        .chip(value.from ? settings_.scopeName(*value.from) : std::string{"Default"},
+              value.from.has_value())
+        .onPress(
+            [this, key = setting.key, label = setting.label] {
+                navigator_.push(std::make_unique<SettingSheet>(settings_, navigator_, chrome_,
+                                                               context_, look_, key, label));
             },
-            "Go to " + settings_.scopeName(*value.from));
-    }
-    if (value.own) {
-        row->onAction(
-            tk::Action::Tertiary,
-            [this, here = here, key = setting.key] {
-                settings_.remove(here, key);
-            },
-            useText(value));
-    } else if (const std::string* removed = settings_.removed(here, setting.key)) {
-        row->onAction(
-            tk::Action::Tertiary,
-            [this, here = here, key = setting.key] {
-                settings_.restore(here, key);
-            },
-            "Restore " + labelOf(setting, *removed));
-    }
+            "Change", true);
 }
 
 void LayeredEditor::addClear(tk::Column& rows) {
@@ -376,7 +235,7 @@ void LayeredEditor::addClear(tk::Column& rows) {
         return;
     }
     const bool game = here.kind == Layer::Kind::Game;
-    const std::string whose = game ? std::string{"this game's"} : scopeName();
+    const std::string whose = game ? std::string{"this game's"} : settings_.scopeName(here);
     const std::string under = here.kind == Layer::Kind::Global ? std::string{"its default"}
                                                                : std::string{"what it inherits"};
     rows.add<tk::SectionHeading>("Reset");
@@ -399,9 +258,6 @@ gpu2d::Rect LayeredEditor::area(const gpu2d::Rect& viewport, const tk::Theme& th
 
 std::vector<tk::Hint> LayeredEditor::hints() const {
     std::vector<tk::Hint> hints{tk::Hint{{tk::Action::Back}, "Back"}};
-    if (context_.scopes.size() > 1) {
-        hints.push_back(tk::Hint{{tk::Action::PreviousTab, tk::Action::NextTab}, "Scope"});
-    }
     return hints;
 }
 

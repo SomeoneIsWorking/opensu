@@ -16,10 +16,6 @@ namespace tk = gpu2d::ui;
 constexpr float placesDp = 220.0f;
 constexpr float quickDp = 340.0f;
 
-void paintScrim(tk::Painter& painter, const gpu2d::Rect& viewport) {
-    painter.canvas.fillRect(viewport, painter.fade(painter.theme.colours.scrim));
-}
-
 } // namespace
 
 std::unique_ptr<tk::Widget> GuideMenuScreen::build(const tk::Theme& theme) {
@@ -56,7 +52,7 @@ gpu2d::Rect GuideMenuScreen::area(const gpu2d::Rect& viewport, const tk::Theme& 
 }
 
 void GuideMenuScreen::paintBackdrop(tk::Painter& painter, const gpu2d::Rect& viewport) const {
-    paintScrim(painter, viewport);
+    tk::paintScrim(painter, viewport);
 }
 
 bool GuideMenuScreen::act(tk::Action action, tk::ActContext& /*context*/) {
@@ -92,7 +88,7 @@ std::unique_ptr<tk::Widget> GuideListScreen::build(const tk::Theme& theme) {
 }
 
 void GuideListScreen::paintBackdrop(tk::Painter& painter, const gpu2d::Rect& viewport) const {
-    paintScrim(painter, viewport);
+    tk::paintScrim(painter, viewport);
 }
 
 } // namespace opensu::app

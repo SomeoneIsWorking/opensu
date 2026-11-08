@@ -31,10 +31,12 @@ namespace opensu::app {
 /// Where the editor was opened: the layers its rows resolve through and the scopes it shows.
 struct EditorContext {
     settings::LayerKeys keys;
-    /// The scopes in the order the tabs show them; the last is the one opened on.
+    /// The levels, least specific first; the last is the one opened on.
     std::vector<settings::Layer> scopes;
     /// The game it was opened for; empty for Global, a console or a core.
     std::string gameId;
+    /// That game's title.
+    std::string gameTitle;
 };
 
 class LayeredSettings {
