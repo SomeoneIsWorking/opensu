@@ -7,6 +7,7 @@
 
 #include "app/play_wait.hpp"
 #include "library/romset_match.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -190,7 +191,7 @@ void nothingToWaitFor() {
 
 } // namespace
 
-int main() {
+int main() try {
     downloadsThenPlays();
     failedDownloadEnds();
     refusedDownloadSays();
@@ -198,4 +199,6 @@ int main() {
     romsetCheckResolves();
     nothingToWaitFor();
     return failures == 0 ? 0 : 1;
+} catch (...) {
+    return opensu::test::escaped();
 }

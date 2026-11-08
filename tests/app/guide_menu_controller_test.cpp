@@ -111,19 +111,20 @@ struct Rig {
           current{context} {
     }
 
-    app::GuideMenuController::Page page(const std::string& name) {
+    /// `name` is a literal: a closure copied from it cannot throw.
+    app::GuideMenuController::Page page(std::string_view name) {
         return {.isOpen =
                     [this, name] {
                         return shown == name;
                     },
                 .open =
                     [this, name] {
-                        calls.push_back(name);
+                        calls.emplace_back(name);
                         shown = name;
                     },
                 .close =
                     [this, name] {
-                        calls.push_back("close " + name);
+                        calls.push_back("close " + std::string{name});
                         shown.clear();
                     }};
     }
