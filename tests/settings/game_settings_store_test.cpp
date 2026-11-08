@@ -1,6 +1,6 @@
-// The setting layers: the winning layer per key and its source, clearing back to the layer under
-// it, the game-settings file round trip and damage, the one-time move of settings.json's emulator
-// picks, and the per-launch video file.
+// The setting layers: the winning layer per key and its source (Libretro's for a runner game),
+// clearing back to the layer under it, the game-settings file round trip and damage, the one-time
+// move of settings.json's emulator picks, and the per-launch video file.
 #include "settings/game_settings_store.hpp"
 
 #include <cstdio>
@@ -39,9 +39,10 @@ std::string read(const fs::path& file) {
 
 void theNearestLayerWins() {
     SettingLayers layers;
-    const LayerKeys chrono{"rom:/r/Chrono.smc", "snes", "snes9x-core"};
-    const LayerKeys metroid{"rom:/r/Metroid.sfc", "snes", "snes9x-core"};
-    const LayerKeys kirby{"rom:/r/Kirby.gba", "gba", "mgba-core"};
+    const LayerKeys chrono{"rom:/r/Chrono.smc", "snes", "snes9x-core", true};
+    const LayerKeys metroid{"rom:/r/Metroid.sfc", "snes", "snes9x-core", true};
+    const LayerKeys kirby{"rom:/r/Kirby.gba", "gba", "mgba-core", true};
+    const LayerKeys zelda{"rom:/r/Zelda.nsp", "switch", "ryujinx", false};
     expect(layers.resolve(chrono, "video.aspect", "core") == Resolved{"core", std::nullopt},
            "with nothing kept, the built-in default applies");
     layers.set(Layer{}, "video.aspect", "stretch");
@@ -50,6 +51,15 @@ void theNearestLayerWins() {
                layers.resolve(chrono, "video.aspect", "core") ==
                    Resolved{"4:3", Layer{Kind::System, "snes"}},
            "a console's value comes before the one set everywhere");
+    layers.set(Layer{Kind::Libretro, {}}, "video.aspect", "pixel");
+    layers.set(Layer{Kind::Libretro, {}}, "video.sampling", "bilinear");
+    expect(layers.resolve(kirby, "video.aspect", "core").from == Layer{Kind::Libretro, {}} &&
+               layers.resolve(chrono, "video.aspect", "core").from == Layer{Kind::System, "snes"} &&
+               layers.resolve(zelda, "video.sampling", "nearest").value == "nearest",
+           "Libretro's value comes before the global one for a runner game, after its console's, "
+           "and never for a game of another emulator");
+    layers.clear(Layer{Kind::Libretro, {}}, "video.aspect");
+    layers.clear(Layer{Kind::Libretro, {}}, "video.sampling");
     layers.set(Layer{Kind::Emulator, "snes9x-core"}, "video.aspect", "pixel");
     layers.set(Layer{Kind::Game, chrono.game}, "video.aspect", "stretch");
     expect(layers.resolve(chrono, "video.aspect", "core").from == Layer{Kind::Game, chrono.game} &&
@@ -71,6 +81,7 @@ void roundTripAndDamage(const fs::path& root) {
     SettingLayers saved;
     saved.set(Layer{}, "video.sampling", "bilinear");
     saved.set(Layer{Kind::System, "snes"}, "video.aspect", "4:3");
+    saved.set(Layer{Kind::Libretro, {}}, "video.aspect", "pixel");
     saved.set(Layer{Kind::Emulator, "mgba-core"}, "video.integer", "on");
     saved.set(Layer{Kind::Game, "rom:/r/Chrono.smc"}, emulatorKey, "Snes9x (built-in)");
     std::string error;

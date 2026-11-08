@@ -121,7 +121,8 @@ settings::LayerKeys MappingEditor::under() const {
     if (target_.scope.kind != Kind::Game) {
         return {};
     }
-    return settings::LayerKeys{{}, target_.keys.system, target_.keys.emulator};
+    return settings::LayerKeys{
+        {}, target_.keys.system, target_.keys.emulator, target_.keys.libretro};
 }
 
 void MappingEditor::open(Target target) {

@@ -67,6 +67,8 @@ class LayeredSettings {
 
     [[nodiscard]] EditorContext forGame(const library::Game& game) const;
     [[nodiscard]] EditorContext forGlobal() const;
+    /// Every game the built-in runner plays.
+    [[nodiscard]] EditorContext forLibretro() const;
     [[nodiscard]] EditorContext forSystem(const std::string& system) const;
     [[nodiscard]] EditorContext forCore(const std::string& core) const;
 

@@ -13,6 +13,7 @@ using settings::Layer;
 
 constexpr std::string_view prefix = "layers.";
 constexpr std::string_view openGlobalId = "layers.open.global";
+constexpr std::string_view openLibretroId = "layers.open.libretro";
 constexpr std::string_view openSystemId = "layers.open.system.";
 constexpr std::string_view openEmulatorId = "layers.open.emulator.";
 constexpr std::string_view consolesId = "layers.list.consoles";
@@ -39,6 +40,9 @@ std::vector<ui::SettingsRow> LayerSettings::pageRows() const {
     return {
         ui::makePage(std::string{openGlobalId}, "Global",
                      "Video and frame generation for every game", keptText(layered_.forGlobal())),
+        ui::makePage(std::string{openLibretroId}, "Libretro",
+                     "Video and frame generation for every game a built-in core plays",
+                     keptText(layered_.forLibretro())),
         ui::makePage(std::string{consolesId}, "Consoles", "Emulator and video for each console",
                      std::to_string(catalog.servedSystems().size())),
         ui::makePage(std::string{coresId}, "Built-in cores",
@@ -76,6 +80,9 @@ std::optional<ui::SettingsCategory> LayerSettings::listPage(std::string_view id)
 std::optional<EditorContext> LayerSettings::contextOf(std::string_view id) const {
     if (id == openGlobalId) {
         return layered_.forGlobal();
+    }
+    if (id == openLibretroId) {
+        return layered_.forLibretro();
     }
     if (id.starts_with(openSystemId)) {
         return layered_.forSystem(std::string{id.substr(openSystemId.size())});

@@ -74,11 +74,11 @@ Visible deltas from the baseline:
 - A game on a built-in core has Aspect (core, 4:3, pixel 1:1, stretch), Integer scale (off, on,
   overscale), Sampling (nearest, bilinear, sharp-bilinear) and Filter (none, scanlines, LCD grid,
   CRT) or a slang Shader preset from libretro's pack (downloaded in Settings › Emulators, run by
-  librashader; it replaces Sampling and Filter), kept per game, per core, per console and
-  globally, each value showing where it comes from as a chip, set in one layered editor (Global,
-  console, core and game tabs; every list starts with "Use <value> from <layer>") from Settings ›
-  Emulators, the details page and the quick menu while the game runs, where each change shows at
-  once; a core's own options are kept per core and per game the same way (S040). iiSU has no video settings for its
+  librashader; it replaces Sampling and Filter), kept per game, per core, per console, for every
+  built-in core's game (Libretro) and globally, each value showing where it comes from as a chip,
+  set in one layered editor whose rows each open a sheet overriding or removing the value at each
+  level (the game, its core, its console, Libretro, All games) from Settings › Emulators, the
+  details page and the quick menu while the game runs, where each change shows at once; a core's own options are kept per core and per game the same way (S040). iiSU has no video settings for its
   emulators.
 - A breadcrumb trail in the top bar's start (`Library > GOG > Search "had" > Installed > <game>`)
   names where the player is; each place in it is a pointer target that goes back to that level.
@@ -1340,8 +1340,8 @@ alone; there is no current copy, a row carries its own (`ui::copyRowId`). The co
 they had when the page opened, so no row moves under a pointer; a new order shows when it opens
 again. Add to Home and Hide game are the title's. The cover and title are the top copy's.
 A fact the copies read alike shows once, one they differ on once per copy ("Last played (Epic)").
-One Game settings row serves the title, with no store in its label. Its page holds, on its own tab
-after the settings, Match a different game, Choose artwork and Controls, then Rename and Change file
+One Game settings row serves the title, with no store in its label. Its page holds, after the
+settings, Match a different game, Choose artwork and Controls, then Rename and Change file
 of the player's own game, so the row exists wherever those do, also with no setting to change. What
 differs by copy (Wine prefix, Copy saves, Sync saves) stands in a section headed by the store while
 that copy is installed or on its way (`DownloadsBoard::installing`); a store with nothing of its own

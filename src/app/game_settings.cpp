@@ -30,6 +30,8 @@ std::string layerName(const settings::Layer& layer, const library::roms::Emulato
     switch (layer.kind) {
     case settings::Layer::Kind::Global:
         return "Global";
+    case settings::Layer::Kind::Libretro:
+        return "Libretro";
     case settings::Layer::Kind::System:
         return library::roms::systemLabel(layer.id);
     case settings::Layer::Kind::Emulator: {

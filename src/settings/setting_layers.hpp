@@ -1,7 +1,8 @@
 // setting_layers — the layers a per-game setting is kept at and the one rule for which applies:
-// a game's own, else its emulator's (the core layer), else its console's, else the one set
-// everywhere, else the built-in default. Each layer keeps only the keys it sets, so a missing key
-// inherits and clearing one deletes it. Every resolved value names the layer it came from.
+// a game's own, else its emulator's (the core layer), else its console's, else Libretro's (a game
+// the built-in runner plays), else the one set everywhere, else the built-in default. Each layer
+// keeps only the keys it sets, so a missing key inherits and clearing one deletes it. Every
+// resolved value names the layer it came from.
 #pragma once
 
 #include <compare>
@@ -17,7 +18,8 @@ namespace opensu::settings {
 /// Where a setting is kept.
 struct Layer {
     /// `Emulator` is the core layer: a built-in core's, or a standalone emulator's for mappings.
-    enum class Kind : std::uint8_t { Global, System, Emulator, Game };
+    /// `Libretro` holds what every game the built-in runner plays shares; like Global it has no id.
+    enum class Kind : std::uint8_t { Global, Libretro, System, Emulator, Game };
 
     Kind kind{Kind::Global};
     /// The system's key, the emulator's catalog id or the game's id; empty for the global layer.
@@ -34,6 +36,8 @@ struct LayerKeys {
     std::string system;
     /// The catalog id of the emulator it runs on; empty for a native game.
     std::string emulator;
+    /// It runs on the built-in runner (a libretro core), so the Libretro layer applies.
+    bool libretro{false};
 
     bool operator==(const LayerKeys&) const = default;
 };

@@ -107,6 +107,8 @@ struct EmulatorOption {
     std::string processHint;
     /// Whether it is installed as its Flatpak, which keeps its folders under `~/.var/app`.
     bool flatpak{false};
+    /// A core the built-in runner plays.
+    bool builtIn{false};
 };
 
 /// One launchable entry.

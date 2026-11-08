@@ -43,7 +43,8 @@ class LayerKinds {
         }
     }
     [[nodiscard]] static constexpr LayerKinds all() noexcept {
-        return {Layer::Kind::Global, Layer::Kind::System, Layer::Kind::Emulator, Layer::Kind::Game};
+        return {Layer::Kind::Global, Layer::Kind::Libretro, Layer::Kind::System,
+                Layer::Kind::Emulator, Layer::Kind::Game};
     }
     [[nodiscard]] constexpr bool has(Layer::Kind kind) const noexcept {
         return (bits_ & bit(kind)) != 0;

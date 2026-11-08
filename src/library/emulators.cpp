@@ -341,6 +341,7 @@ std::vector<EmulatorOption> Emulators::options(std::string_view system, const fs
             continue;
         }
         EmulatorOption option{entry.name, false, {}, entry.id, entry.downloadable(), {}};
+        option.builtIn = entry.builtIn();
         if (const EmulatorInstall* install = installed(entry.id)) {
             option.problem = install->problem;
             option.installed = install->problem.empty();

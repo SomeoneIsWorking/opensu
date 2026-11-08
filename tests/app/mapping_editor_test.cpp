@@ -176,7 +176,7 @@ struct Rig {
 void aGameGetsItsOwnMapping(const fs::path& dir) {
     Rig rig{dir};
     const library::Game game = romGame("rom:/r/Kirby.gba");
-    expect(library::layerKeysOf(game) == settings::LayerKeys{game.id, "gba", "mgba"},
+    expect(library::layerKeysOf(game) == settings::LayerKeys{game.id, "gba", "mgba", false},
            "a ROM's mapping is also found by its system and its emulator's catalog id");
     rig.editor.openGame(game);
     expect(rig.editor.active() && rig.page.state() == "board" &&

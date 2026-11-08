@@ -31,6 +31,9 @@ LayeredSettings::LayeredSettings(Sources sources, Hooks hooks)
 
 EditorContext LayeredSettings::forGame(const library::Game& game) const {
     EditorContext context{library::layerKeysOf(game), {Layer{}}, game.id, game.title};
+    if (context.keys.libretro) {
+        context.scopes.push_back(Layer{Layer::Kind::Libretro, {}});
+    }
     if (!context.keys.system.empty()) {
         context.scopes.push_back(Layer{Layer::Kind::System, context.keys.system});
     }
@@ -45,6 +48,11 @@ EditorContext LayeredSettings::forGlobal() const {
     return EditorContext{{}, {Layer{}}, {}, {}};
 }
 
+EditorContext LayeredSettings::forLibretro() const {
+    return EditorContext{
+        settings::LayerKeys{.libretro = true}, {Layer{}, Layer{Layer::Kind::Libretro, {}}}, {}, {}};
+}
+
 EditorContext LayeredSettings::forSystem(const std::string& system) const {
     return EditorContext{settings::LayerKeys{.system = system},
                          {Layer{}, Layer{Layer::Kind::System, system}},
@@ -53,10 +61,15 @@ EditorContext LayeredSettings::forSystem(const std::string& system) const {
 }
 
 EditorContext LayeredSettings::forCore(const std::string& core) const {
-    return EditorContext{settings::LayerKeys{.emulator = core},
-                         {Layer{}, Layer{Layer::Kind::Emulator, core}},
-                         {},
-                         {}};
+    // A built-in core's games are the runner's, so Libretro's settings stand under its own.
+    const bool runner = builtIn(found_().catalog(), core);
+    EditorContext context{
+        settings::LayerKeys{.emulator = core, .libretro = runner}, {Layer{}}, {}, {}};
+    if (runner) {
+        context.scopes.push_back(Layer{Layer::Kind::Libretro, {}});
+    }
+    context.scopes.push_back(Layer{Layer::Kind::Emulator, core});
+    return context;
 }
 
 std::optional<library::Game> LayeredSettings::gameOf(const EditorContext& context) const {

@@ -62,7 +62,7 @@ void pickPointsLaunchAtTheEmulator() {
     applyEmulatorPicks(layers, games);
     expect(games[0].launch.program == "ryujinx" && games[0].unavailable.empty(),
            "picking an installed emulator again launches");
-    expect(layerKeysOf(games[0]) == LayerKeys{games[0].id, "switch", "ryujinx"},
+    expect(layerKeysOf(games[0]) == LayerKeys{games[0].id, "switch", "ryujinx", false},
            "its settings are then read through that emulator's layer");
 }
 

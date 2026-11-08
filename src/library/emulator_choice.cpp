@@ -63,13 +63,14 @@ void applyEmulatorPicks(const settings::SettingLayers& layers, std::vector<Game>
 }
 
 settings::LayerKeys layerKeysOf(const Game& game) {
-    settings::LayerKeys keys{dataId(game), {}, {}};
+    settings::LayerKeys keys{dataId(game), {}, {}, false};
     if (game.source == Source::Rom) {
         keys.system = game.sourceId;
     }
     const auto runs = std::ranges::find(game.emulatorOptions, game.emulator, &EmulatorOption::name);
     if (!game.emulator.empty() && runs != game.emulatorOptions.end()) {
         keys.emulator = runs->id;
+        keys.libretro = runs->builtIn;
     }
     return keys;
 }

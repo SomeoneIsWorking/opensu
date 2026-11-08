@@ -14,7 +14,15 @@ namespace {
 
 using json = nlohmann::json;
 
-constexpr const char* globalKey = "global";
+/// The sections of the layers without an id.
+struct Single {
+    Layer::Kind kind;
+    const char* name;
+};
+constexpr std::array<Single, 2> singles{{
+    {Layer::Kind::Global, "global"},
+    {Layer::Kind::Libretro, "libretro"},
+}};
 
 /// The section each kind of layer but the global one is kept in, by id.
 struct Section {
@@ -57,8 +65,10 @@ SettingLayers GameSettingsStore::load() const {
         lucent::warn("settings", "{} is not a game settings file; using none", file_.string());
         return layers;
     }
-    if (const auto global = document.find(globalKey); global != document.end()) {
-        readLayer(*global, Layer{}, layers, file_.string());
+    for (const Single& single : singles) {
+        if (const auto found = document.find(single.name); found != document.end()) {
+            readLayer(*found, Layer{single.kind, {}}, layers, file_.string());
+        }
     }
     for (const Section& section : sections) {
         const auto found = document.find(section.name);
@@ -84,9 +94,10 @@ bool GameSettingsStore::save(const SettingLayers& layers, std::string& error) co
         for (const auto& [key, value] : values) {
             kept[key] = value;
         }
-        if (layer.kind == Layer::Kind::Global) {
-            document[globalKey] = kept;
-            continue;
+        for (const Single& single : singles) {
+            if (single.kind == layer.kind) {
+                document[single.name] = kept;
+            }
         }
         for (const Section& section : sections) {
             if (section.kind == layer.kind) {

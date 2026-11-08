@@ -15,6 +15,9 @@ std::vector<Layer> layersOf(const LayerKeys& keys) {
     if (!keys.system.empty()) {
         layers.push_back(Layer{Layer::Kind::System, keys.system});
     }
+    if (keys.libretro) {
+        layers.push_back(Layer{Layer::Kind::Libretro, {}});
+    }
     layers.push_back(Layer{});
     return layers;
 }
