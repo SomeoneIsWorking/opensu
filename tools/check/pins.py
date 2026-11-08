@@ -23,5 +23,5 @@ GPU2D = GitPin(
 ANDROID_PORT = GitPin(
     "android-port",
     "https://github.com/SomeoneIsWorking/android-port.git",
-    "27a822f02b079be620ba29a12f7a00b1f649fdad",
+    "8dbec3ea2c54d944b718108a701e8f25460f13ec",
 )
