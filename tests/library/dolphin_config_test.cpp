@@ -75,7 +75,8 @@ std::optional<std::string> value(std::string_view text, std::string_view section
 }
 
 void testSlots() {
-    std::string run = dolphinSlotSettings(gcPads, "GCPad1", DolphinController::GameCube, 1, nullptr);
+    std::string run =
+        dolphinSlotSettings(gcPads, "GCPad1", DolphinController::GameCube, 1, nullptr);
     run = dolphinSlotSettings(run, "GCPad2", DolphinController::GameCube, 2, nullptr);
     expect(value(run, "GCPad1", "Device") == "SDL/0/Xbox 360 Controller" &&
                value(run, "GCPad1", "Buttons/A") == "`Button S`" &&

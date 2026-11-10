@@ -96,8 +96,8 @@ constexpr std::array extensionNames{std::string_view{"None"}, std::string_view{"
 
 // The pointer on the right stick, moved relative to where it is and recentred by the stick's click.
 constexpr std::array pointer{
-    Mapping{"IR/Up", "`Right Y+`"},       Mapping{"IR/Down", "`Right Y-`"},
-    Mapping{"IR/Left", "`Right X-`"},     Mapping{"IR/Right", "`Right X+`"},
+    Mapping{"IR/Up", "`Right Y+`"},      Mapping{"IR/Down", "`Right Y-`"},
+    Mapping{"IR/Left", "`Right X-`"},    Mapping{"IR/Right", "`Right X+`"},
     Mapping{"IR/Recenter", "`Thumb R`"},
 };
 constexpr std::string_view relativePointer{"IR/Relative Input"};
@@ -224,8 +224,7 @@ void addRun(std::vector<RunFile>& files, const fs::path& file,
 } // namespace
 
 std::string dolphinSlotSettings(std::string_view ini, std::string_view section,
-                                DolphinController controller, int player,
-                                const WiiRemote* remote) {
+                                DolphinController controller, int player, const WiiRemote* remote) {
     const IniKey device{.section = section, .key = deviceKey};
     if (iniValueIn(ini, device).value_or("").starts_with(sdlSource)) {
         return withIniValue(ini, device, virtualPad(player));
@@ -308,16 +307,16 @@ std::vector<RunFile> dolphinRunFiles(const LaunchSetup& setup) {
                                emulated = remote;
                            }
                        }
-                       run = dolphinSlotSettings(run, section, controller.controller, slot,
-                                                 emulated);
+                       run =
+                           dolphinSlotSettings(run, section, controller.controller, slot, emulated);
                    }
                    return run;
                });
     }
     for (const NamedProfile& profile : namedProfiles(setup)) {
         addRun(files, profile.path, [&profile](std::string_view settings) {
-            return dolphinSlotSettings(settings, profileSection, profile.controller,
-                                       profile.player, nullptr);
+            return dolphinSlotSettings(settings, profileSection, profile.controller, profile.player,
+                                       nullptr);
         });
     }
     return files;
