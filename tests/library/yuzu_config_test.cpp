@@ -18,7 +18,9 @@ using opensu::library::withIniValue;
 using opensu::library::yuzuLaunchSettings;
 using opensu::test::expect;
 
-constexpr std::string_view guid = "0300cece5e0400008e02000010010000";
+constexpr std::string_view sdlGuid = "0300cece5e0400008e02000010010000";
+// Eden zeroes the name's CRC.
+constexpr std::string_view guid = "030000005e0400008e02000010010000";
 
 // Eden's own layout: player 1 on the keyboard, player 2 on an Xbox pad.
 constexpr std::string_view player =
@@ -66,7 +68,7 @@ void testUpdateCheck() {
 }
 
 void testPads() {
-    const std::string run = yuzuLaunchSettings(player, guid);
+    const std::string run = yuzuLaunchSettings(player, sdlGuid);
     expect(value(run, {"Controls", "player_1_button_a"}) ==
                "\"engine:sdl,guid:" + std::string{guid} + ",port:1,button:1\"",
            "an SDL binding plays the Nth virtual pad, its button kept");
@@ -87,8 +89,8 @@ void testPads() {
     expect(value(run, {"Controls", "player_0_connected"}) == "true", "player 1 is connected");
     expect(value(run, {"Controls", "player_2_button_a"}) == "<none>",
            "a disconnected player without SDL bindings is left alone");
-    expect(yuzuLaunchSettings(run, guid) == run, "a file already set stays as it is");
-    const std::string fresh = yuzuLaunchSettings("", guid);
+    expect(yuzuLaunchSettings(run, sdlGuid) == run, "a file already set stays as it is");
+    const std::string fresh = yuzuLaunchSettings("", sdlGuid);
     expect(value(fresh, {"Controls", "player_0_connected"}) == "true" &&
                value(fresh, {"Controls", "player_0_button_b"}).find(",button:0") !=
                    std::string::npos,

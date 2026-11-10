@@ -157,13 +157,22 @@ std::string withPlayer(std::string ini, int player, std::string_view guid) {
 
 } // namespace
 
+std::string yuzuGuid(std::string_view sdlGuid) {
+    std::string guid{sdlGuid};
+    if (guid.size() == 32) {
+        guid.replace(4, 4, "0000");
+    }
+    return guid;
+}
+
 std::string yuzuLaunchSettings(std::string_view ini, std::string_view padGuid) {
     std::string out = withSetting(ini, {"UI", "check_for_updates"}, "false");
     if (padGuid.empty()) {
         return out;
     }
+    const std::string guid = yuzuGuid(padGuid);
     for (int player = 0; player < yuzuPlayers; ++player) {
-        out = withPlayer(std::move(out), player, padGuid);
+        out = withPlayer(std::move(out), player, guid);
     }
     return out;
 }
