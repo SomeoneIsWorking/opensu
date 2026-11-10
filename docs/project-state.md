@@ -1333,6 +1333,13 @@ player's AppImage with a copy of their config (`scratch/launch-rules/runs/pcsx2`
 Crash Twinsanity from its attract reel to its title menu and New Game, `PCSX2.ini` comes back
 byte-identical). Gaps: a pad of another type (guitar, Jogcon) bound to the keyboard stays so; a
 second binding line for one input keeps its old SDL index.
+melonDS reads one SDL joystick by index, `[Instance0] JoystickID`: while a launch runs the first
+instance plays joystick 0, the first virtual pad, with the player's joystick buttons or, when they
+have none, the virtual pad's raw SDL codes in the DS's positional layout (`library/melonds_config`);
+verified with the downloaded 1.1 (`scratch/launch-rules/runs/melonds`: Start skips Dawn of Sorrow's
+intro to its title, A opens the title menu, the made `melonDS.toml` is gone after). Gaps: buttons
+the player bound with a pad of another layout keep their indices on the virtual pad; a second
+melonDS instance gets no pad.
 Tested: `pad_translator` (unit), `pads`
 against real uinput pads, `handoff` passing the environment; verified headless with
 a uinput pad driving the shell (`scratch/overlay-test/drive_pad.py`): B reaches the
