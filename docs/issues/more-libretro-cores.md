@@ -1,7 +1,7 @@
 # More libretro cores, arcade on every romset version
 
-Status: open. Arcade, Nintendo DS, the Vulkan GPU cores, PS2, 3DS and GameCube are
-done (below); Wii on Dolphin's core, the Sega cores and the rest of the list are next.
+Status: open. Arcade, Nintendo DS, the Vulkan GPU cores, PS2, 3DS, GameCube and
+Wii are done (below); the Sega cores and the rest of the list are next.
 
 The player: "more libretro options, I noticed I can't play Arcade games ... since no libretro option
 for it is there right now", and "new emulator versions make it so the older rom sets don't work, I
@@ -101,13 +101,13 @@ Not done: mouse touch (the runner takes no mouse), the core's options (Touch Mod
 defaults with no way to change them, DSi mode and real BIOS files were not tried, the microphone
 reads silence.
 
-## PS2, 3DS and GameCube
+## PS2, 3DS, GameCube and Wii
 
 | Entry | Core | System | Vulkan by | Proof |
 |---|---|---|---|---|
 | `pcsx2-core` | `pcsx2_libretro` (LRPS2) | ps2 | `pcsx2_renderer=Vulkan` | Crash Twinsanity |
 | `azahar-core` | `azahar_libretro` | n3ds | `citra_graphics_api=Vulkan` | Ocarina of Time 3D |
-| `dolphin-core` | `dolphin_libretro` | gc | no option; the preferred context | Luigi's Mansion |
+| `dolphin-core` | `dolphin_libretro` | gc, wii | no option; the preferred context | Luigi's Mansion, Donkey Kong Country Returns |
 
 Play (`play_libretro`) is OpenGL only, so PS2 is LRPS2. Cores from the buildbot's x86_64 Linux
 nightlies (2026-11-10, CRC-32 pcsx2 d6105afd, azahar a69606a5, dolphin 6b3d386d). Each run went
@@ -120,6 +120,9 @@ exited 0:
 - Dolphin: the title's PRESS START, Start to the opening, A through it to the mansion gate
   (`dolphin-gc/proof-sheet.png`). Its frames were black until the hidden window gave the core a
   surface (`docs/design/libretro.md`).
+- Dolphin on Wii, Donkey Kong Country Returns: the strap notice, PRESS 2 TO PLAY; X (the remote's
+  2) opened "Controls set to horizontal position", which A, Y, B and Start did not confirm
+  (`dolphin-wii/proof-sheet.png`).
 
 Gaps:
 
@@ -130,8 +133,8 @@ Gaps:
   missing!` and cheats are off; Luigi's Mansion ran without it. Proper fix: a catalog "system
   files" download into the system folder, as PPSSPP's `PPSSPP/` files need too.
 - Azahar maps the face buttons by position (south is 3DS B).
-- Wii is not listed for the core: no Wii game has run on it yet. The Wii remote on the virtual
-  pad is the standalone Dolphin's (`library/wii_controls`).
+- The core's Wii remote is its own default mapping (X is the remote's 2; A, Y, B and Start
+  did nothing on the title's prompts), not the per-game table the standalone Dolphin gets (`library/wii_controls`).
 
 ## Arcade romsets
 

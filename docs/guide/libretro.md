@@ -15,7 +15,7 @@ It and the ROM library are the two parts of openSU that are always on.
 The built-in emulators are mGBA (Game Boy, Game Boy Color, Game Boy Advance), Gambatte (Game Boy,
 Game Boy Color), Snes9x, Mesen, PCSX ReARMed, Beetle PSX HW and SwanStation (PlayStation),
 Mupen64Plus-Next and ParaLLEl N64 (Nintendo 64), PPSSPP (PSP), Flycast (Dreamcast), melonDS DS
-(Nintendo DS), Azahar (Nintendo 3DS), Dolphin (GameCube), PCSX2 (PlayStation 2), and for Arcade FinalBurn Neo, FB Alpha 2012, MAME 2003-Plus, MAME 2010 and MAME
+(Nintendo DS), Azahar (Nintendo 3DS), Dolphin (GameCube, Wii), PCSX2 (PlayStation 2), and for Arcade FinalBurn Neo, FB Alpha 2012, MAME 2003-Plus, MAME 2010 and MAME
 (current). A
 console's standalone emulators come first, so turning on standalone emulators does not change what
 an installed one runs on. GPU cores (Beetle PSX HW, SwanStation, Mupen64Plus-Next, ParaLLEl N64, Azahar, Dolphin, PCSX2)

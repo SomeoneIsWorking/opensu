@@ -394,7 +394,7 @@
     {
       "id": "dolphin-core",
       "name": "Dolphin (built-in)",
-      "systems": ["gc"],
+      "systems": ["gc", "wii"],
       "core": "dolphin_libretro",
       "withoutBios": "hle"
     },
