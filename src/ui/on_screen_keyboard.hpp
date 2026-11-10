@@ -104,8 +104,8 @@ struct KeyboardLayout {
 [[nodiscard]] std::pair<float, float> faceStep(DaisyFace face) noexcept;
 
 /// The keyboard in `style` docked in `frame`, with the preview line over a game when `preview`.
-[[nodiscard]] KeyboardLayout layoutKeyboard(const Rect& frame, float dp,
-                                            input::KeyboardStyle style, bool preview = false);
+[[nodiscard]] KeyboardLayout layoutKeyboard(const Rect& frame, float dp, input::KeyboardStyle style,
+                                            bool preview = false);
 
 /// What pressing the focused key asked for.
 struct KeyPress {

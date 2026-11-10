@@ -87,9 +87,8 @@ void OnScreenKeyboardPainter::paint(Canvas& canvas, const OnScreenKeyboard& keyb
     if (look.alpha <= 0.0f) {
         return;
     }
-    const KeyboardLayout layout =
-        layoutKeyboard(Rect{0.0f, 0.0f, size.x, size.y}, dp, keyboard.style(),
-                       keyboard.preview().has_value());
+    const KeyboardLayout layout = layoutKeyboard(Rect{0.0f, 0.0f, size.x, size.y}, dp,
+                                                 keyboard.style(), keyboard.preview().has_value());
     const float alpha = look.alpha;
     const PanelScope scope{canvas, centreOf(layout.panel), look.scale};
     canvas.fillRoundRect(onCanvas(layout.panel), layout.panelRadius, withAlpha(dockFill, alpha));
@@ -246,8 +245,8 @@ float OnScreenKeyboardPainter::paintStrip(Canvas& canvas, const OnScreenKeyboard
     return width;
 }
 
-void OnScreenKeyboardPainter::paintPreview(Canvas& canvas, std::string_view typed,
-                                           const Rect& line, float unit, float alpha) const {
+void OnScreenKeyboardPainter::paintPreview(Canvas& canvas, std::string_view typed, const Rect& line,
+                                           float unit, float alpha) const {
     const float size = previewSp * unit;
     const float pad = pillPaddingDp * unit;
     canvas.fillRoundRect(onCanvas(line), line.height * 0.5f, withAlpha(cardFill, alpha));

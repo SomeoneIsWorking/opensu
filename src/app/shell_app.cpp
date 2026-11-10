@@ -1043,7 +1043,8 @@ void ShellApp::syncOverlay() {
     // game leaves it the keys it types.
     const bool typing = keyboardPad_.overGame();
     const bool interactive = shell_.screens().navigator().active() ||
-                             (shell_.keyboard().isOpen() && !typing) || shell_.mappingPage().isOpen();
+                             (shell_.keyboard().isOpen() && !typing) ||
+                             shell_.mappingPage().isOpen();
     const OverlayMode over = interactive                 ? OverlayMode::Interactive
                              : typing                    ? OverlayMode::Typing
                              : shell_.chordHintVisible() ? OverlayMode::Passive
@@ -1562,8 +1563,8 @@ void ShellApp::serviceRequests() {
     if (running != gameScreen_.running()) {
         gameScreen_.setRunning(running);
     }
-    relay_.follow(running, display::takesPads(gameScreen_.mode()),
-                  pads_->connected().size(), window_->touchSurface());
+    relay_.follow(running, display::takesPads(gameScreen_.mode()), pads_->connected().size(),
+                  window_->touchSurface());
     if (const bool inGame = running || remotePlay_.showing(); inGame != shell_.inGame()) {
         shell_.setInGame(inGame);
         closePages();
