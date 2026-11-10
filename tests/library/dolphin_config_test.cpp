@@ -168,7 +168,7 @@ WiiRemote remoteOf(std::string_view gameId) {
     std::string error;
     const std::optional<WiiControls> controls = WiiControls::parse(body, error);
     expect(controls.has_value(), "the shipped Wii controls are read");
-    return controls->remoteFor(gameId);
+    return controls.value_or(WiiControls{}).remoteFor(gameId);
 }
 
 void testWiiGame() {

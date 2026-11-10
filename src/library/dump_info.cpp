@@ -77,7 +77,7 @@ std::string wiiGameId(const fs::path& file) {
                                         [](char got, unsigned char want) {
                                             return static_cast<unsigned char>(got) == want;
                                         });
-    const std::string id = header.substr(0, gameIdLength);
+    std::string id = header.substr(0, gameIdLength);
     if (!wii || !std::ranges::all_of(id, [](char c) {
             return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
         })) {
