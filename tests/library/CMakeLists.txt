@@ -177,6 +177,11 @@ target_link_libraries(ryujinx_config_test PRIVATE opensu::library nlohmann_json:
 opensu_warnings(ryujinx_config_test)
 add_test(NAME ryujinx_config COMMAND ryujinx_config_test)
 
+add_executable(azahar_config_test azahar_config_test.cpp)
+target_link_libraries(azahar_config_test PRIVATE opensu::library)
+opensu_warnings(azahar_config_test)
+add_test(NAME azahar_config COMMAND azahar_config_test)
+
 add_executable(pcsx2_config_test pcsx2_config_test.cpp)
 target_link_libraries(pcsx2_config_test PRIVATE opensu::library)
 opensu_warnings(pcsx2_config_test)

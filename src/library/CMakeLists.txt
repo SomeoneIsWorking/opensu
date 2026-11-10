@@ -41,6 +41,7 @@ add_library(opensu_library STATIC
     yuzu_config.cpp
     ryujinx_config.cpp
     qt_config_ini.cpp
+    azahar_config.cpp
     pcsx2_config.cpp
     melonds_config.cpp
     rpcs3_config.cpp

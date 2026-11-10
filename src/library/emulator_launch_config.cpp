@@ -4,6 +4,7 @@
 #include <array>
 #include <vector>
 
+#include "azahar_config.hpp"
 #include "cemu_pads.hpp"
 #include "melonds_config.hpp"
 #include "pcsx2_config.hpp"
@@ -29,6 +30,7 @@ constexpr std::array rules{
     LaunchRule{.id = yuzuLineIds[1], .files = yuzuFiles, .runFiles = yuzuRunFiles},
     LaunchRule{.id = yuzuLineIds[2], .files = yuzuFiles, .runFiles = yuzuRunFiles},
     LaunchRule{.id = ryujinxId, .files = ryujinxFiles, .runFiles = ryujinxRunFiles},
+    LaunchRule{.id = azaharId, .files = azaharFiles, .runFiles = azaharRunFiles},
     LaunchRule{.id = pcsx2Id, .files = pcsx2Files, .runFiles = pcsx2RunFiles},
     LaunchRule{.id = melondsId, .files = melondsFiles, .runFiles = melondsRunFiles},
     LaunchRule{.id = rpcs3Id, .files = rpcs3Files, .runFiles = rpcs3RunFiles},
