@@ -81,6 +81,26 @@ emulators. We can make our own updater".
    Country Returns (`SF8E01`; sideways remote or remote plus Nunchuk, roll is a shake, so shake on a
    face or shoulder button) and Super Mario Galaxy (remote plus Nunchuk, pointer on the right stick,
    spin is a shake on a button). Proof game: the player's Donkey Kong Country Returns (USA) (Rev 1).
+   Built (`library/wii_controls`, `assets/wii-controls.json`; `library/dump_info` reads the disc's
+   game id from its header, plain, RVZ/WIA or WBFS): named layouts (nunchuk, the default; sideways;
+   classic) set the extension, `Options/Sideways|Upright Wiimote`, the pointer on the right stick
+   (relative, recentred by its click), shake on a button and the rest of the remote's inputs; games
+   are keyed by id or its first three characters. For a Wii game the Dolphin rule makes Wii Remote
+   slot 1, and any real remote's slot, emulated (`Source = 1`) on the virtual pad, since a pad
+   player is not holding a remote; a slot not on SDL gets the layout in `WiimoteNew.ini` for the
+   run rather than a generated per-game profile, so a player's own per-game profile, which Dolphin
+   reads instead of the slot, still wins and is only retargeted; Bluetooth passthrough is off.
+   Listed: DKC Returns (`SF8`, sideways: 2 on south, 1 on west, shake on east or the right
+   shoulder, the D-pad on the D-pad and left stick), Super Mario Galaxy (`RMG`, nunchuk) and
+   Xenoblade Chronicles (`SX4`, classic), the last two unproven. Proved with the player's Dolphin on
+   copies of their config, Wii Remote 1 a real remote (`scratch/dolphin-launch/runs/`, Dolphin's
+   input display on in the copy): `wii-table`, presses took DKC Returns from its title to a new
+   game, a held shake broke Donkey Kong out of his hut, and the D-pad walked him through 1-1 (pad
+   right read as the remote's down, the sideways turn); `wii-nunchuk`, the nunchuk layout for the
+   same game, A+B took its Nunchuk-style title, both shakes pounded the hut and the left stick read
+   as the Nunchuk's stick, but the run's shakes did not break the hut open, so Donkey Kong walking
+   by the stick is not seen. The player's folder holds no other Wii game. Real files byte-identical
+   in every run; only Dolphin's `TimePlayed.ini` and `btdinf.bak` changed in the copies.
 5. Release sources for every emulator with an official Linux build, so openSU's own Update covers
    them, and an update openSU finds shown on Downloads. Built: Ryujinx (Ryubing's Forgejo,
    `git.ryujinx.app`, no digest), Citron (`citron-neo/CI`'s `nightly-linux` release, the only Linux

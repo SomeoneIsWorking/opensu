@@ -1338,9 +1338,13 @@ mouse gets a standard GameCube pad there, and the analytics prompt and the NKit 
 (`library/dolphin_config`); verified with the player's Dolphin 2503a on copies of their config
 (`scratch/dolphin-launch/runs/dolphin-gc`: presses take Luigi's Mansion from its intro to New Game
 and the mansion; `dolphin-wii`: a per-game Wii Remote profile on another pad takes DKC Returns from
-its title to Select Game; every file the rule set comes back byte-identical). Gaps: a Wii Remote on
-the keyboard, as the player's, gets no pad until step 4's Wii controls; an evdev-bound GameCube slot
-loses its mappings for the default.
+its title to Select Game; every file the rule set comes back byte-identical). A Wii game's Wii
+Remote 1, the player's real remote included, is emulated on the virtual pad as the game is played
+(`library/wii_controls`, keyed by the disc's game id): verified on DKC Returns sideways
+(`runs/wii-table`: title to a new game, shake out of the hut, the D-pad walks 1-1). Gaps: the
+Nunchuk layout is seen reaching the game (title, shakes, stick) but not walking a character;
+Super Mario Galaxy and Xenoblade are unproven table rows; players 2-4 get a remote only when their
+slot already has one; an evdev-bound GameCube slot loses its mappings for the default.
 The standalone mGBA loads the input profile named for a pad's SDL joystick name, and none of its
 built-in ones matches the virtual pads' "Xbox 360 Controller": while a launch runs
 `[gba.input-profile.Xbox 360 Controller]` gets each button the player's lacks from mGBA's own xpad
