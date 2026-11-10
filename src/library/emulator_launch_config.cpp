@@ -7,6 +7,7 @@
 #include "cemu_pads.hpp"
 #include "melonds_config.hpp"
 #include "pcsx2_config.hpp"
+#include "rpcs3_config.hpp"
 #include "ryujinx_config.hpp"
 #include "yuzu_config.hpp"
 
@@ -30,6 +31,7 @@ constexpr std::array rules{
     LaunchRule{.id = ryujinxId, .files = ryujinxFiles, .runFiles = ryujinxRunFiles},
     LaunchRule{.id = pcsx2Id, .files = pcsx2Files, .runFiles = pcsx2RunFiles},
     LaunchRule{.id = melondsId, .files = melondsFiles, .runFiles = melondsRunFiles},
+    LaunchRule{.id = rpcs3Id, .files = rpcs3Files, .runFiles = rpcs3RunFiles},
 };
 
 const LaunchRule* ruleOf(std::string_view id) {
