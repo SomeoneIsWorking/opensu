@@ -69,7 +69,7 @@ const retro_hw_render_interface_vulkan* vulkan = nullptr;
 
 void contextReset() {
     const retro_hw_render_interface* given = nullptr;
-    if (core.environment(RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE, &given)) {
+    if (core.environment(RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE, static_cast<void*>(&given))) {
         vulkan = reinterpret_cast<const retro_hw_render_interface_vulkan*>(given);
     }
 }

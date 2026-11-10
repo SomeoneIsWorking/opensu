@@ -187,7 +187,7 @@ void lrps2ScansItsFolder(const fs::path& root) {
     put(one / "pcsx2" / "bios" / "scph39001.bin", ps2Image('A'));
     put(one / "pcsx2" / "bios" / "scph39001.NVM", std::string(1024, '\0'));
     put(one / "pcsx2" / "bios" / "no-romver.bin", ps2Image('A', false));
-    put(one / "pcsx2" / "bios" / "small.bin", ps2Image('E').substr(0, 1024 * 1024));
+    put(one / "pcsx2" / "bios" / "small.bin", ps2Image('E').substr(0, std::size_t{1024} * 1024));
     put(one / "scph39001.bin", ps2Image('A'));
     expect(lrps2BiosIn(one) == std::vector<PickedBios>{{"pcsx2/bios/scph39001.bin", "USA"}},
            "a 4 MiB image with ROMVER in its ROM directory is taken by any name, its zone from "
