@@ -65,7 +65,7 @@ void followsTheHold() {
            "a long hold shows the modifier's chords");
     const auto ended = start + std::chrono::seconds{1};
     hint.follow(std::nullopt, chords, ended);
-    expect(!hint.modifier() && hint.visible(ended) && hint.rows().size() == 4,
+    expect(!hint.modifier() && hint.visible(ended) && hint.rows().size() == 5,
            "its end starts the fade, the list kept while it fades");
     expect(!hint.visible(ended + std::chrono::seconds{1}), "and it is gone");
 }

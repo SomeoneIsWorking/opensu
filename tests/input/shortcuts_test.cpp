@@ -386,7 +386,7 @@ void gameChordsJoinTheShells() {
     expect(set.on(Button::Start) ==
                std::vector<ChordListing>{{hotkey, "Sends Select + Start", true}},
            "Start lists the game chord it holds");
-    expect(set.on(Button::Guide).size() == 4, "a game chord the shell has is not listed");
+    expect(set.on(Button::Guide).size() == 5, "a game chord the shell has is not listed");
 
     PadChords chords{set};
     auto fed = chords.feed({press(Button::Select), press(Button::R1)}, start);
@@ -407,7 +407,7 @@ void gameChordsJoinTheShells() {
            "Start held long is reported, so its chords are listed");
 
     set.setGame({});
-    expect(set.triggers().chords.size() == 4 && set.on(Button::Start).empty(),
+    expect(set.triggers().chords.size() == 5 && set.on(Button::Start).empty(),
            "the game's chords go with it");
 }
 
