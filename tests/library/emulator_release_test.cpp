@@ -145,7 +145,7 @@ std::string zipOf(const std::vector<std::pair<std::string, std::string>>& files)
     opensu::zip::Writer writer{out};
     std::string error;
     for (const auto& [name, bytes] : files) {
-        expect(writer.add(name, bytes, error), "the test zip takes " + name);
+        expect(writer.add(name, bytes, error), "the test zip takes each file");
     }
     expect(writer.finish(error), "the test zip is written");
     return out.str();
