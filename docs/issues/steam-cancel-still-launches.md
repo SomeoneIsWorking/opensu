@@ -1,6 +1,6 @@
 # Cancelling a Steam launch leaves the game running unseen
 
-Status: fixed in the tree, not committed.
+Status: fixed (8323751a).
 
 The player: "I started a Steam game then cancelled it, it still launched in the background and I
 could hear it but it didn't appear as running in openSU or anything so I ran the game again and

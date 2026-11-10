@@ -1,6 +1,6 @@
 # A libretro launch ends the moment it shows
 
-Status: fixed, not committed.
+Status: fixed (f242637f).
 
 Observed in 1 of 20 hidden launches of Kirby & the Amazing Mirror on mGBA
 (`scratch/sigterm-crash/runs/fixed-1/opensu.log`): `is running` and `shows a window` at
