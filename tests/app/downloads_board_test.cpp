@@ -473,7 +473,7 @@ void testEmulatorUpdates() {
            "an update on offer lists before what ended");
     const DownloadRow* row = shown.find("update:eden");
     expect(row != nullptr && row->state == DownloadState::Available && row->update &&
-               row->detail == "v0.2.0 → v0.2.1",
+               row->detail == "v0.2.0 to v0.2.1",
            "it says which version it replaces with which");
     expect(actionsFor(*row) == std::vector<DownloadAction>{DownloadAction::Update},
            "its one button is Update");

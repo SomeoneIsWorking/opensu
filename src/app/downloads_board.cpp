@@ -456,7 +456,7 @@ void DownloadsBoard::applyUpdates(const std::vector<UpdateLook>& updates,
         row.title = update.name;
         row.state = DownloadState::Available;
         row.update = true;
-        row.detail = update.have + " → " + update.newest;
+        row.detail = update.have + " to " + update.newest;
     }
     std::erase_if(entries_, [&offered](const auto& item) {
         return item.second.row.state == DownloadState::Available && !offered.contains(item.first);
