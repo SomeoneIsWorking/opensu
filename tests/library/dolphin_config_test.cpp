@@ -115,6 +115,8 @@ void testLaunch() {
                "a folder of per-game profiles reads the slot's virtual pad");
         expect(value(read(config / "Dolphin.ini"), "Analytics", "PermissionAsked") == "True",
                "analytics' prompt is marked asked");
+        expect(value(read(config / "Dolphin.ini"), "Interface", "SkipNKitWarning") == "True",
+               "an NKit disc starts without its warning");
     }
     expect(read(config / "GCPadNew.ini") == gcPads &&
                read(config / "Dolphin.ini") == mainSettings && read(profile) == sideways &&

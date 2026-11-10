@@ -46,7 +46,11 @@ constexpr std::array controllers{
 };
 
 constexpr std::string_view mainFile{"Dolphin.ini"};
-constexpr IniKey analyticsAsked{.section = "Analytics", .key = "PermissionAsked"};
+// Start-up prompts a pad cannot close: analytics' permission, and the warning before an NKit disc.
+constexpr std::array promptsOff{
+    IniKey{.section = "Analytics", .key = "PermissionAsked"},
+    IniKey{.section = "Interface", .key = "SkipNKitWarning"},
+};
 
 struct Mapping {
     std::string_view key;
@@ -225,10 +229,13 @@ std::vector<fs::path> dolphinFiles(const LaunchSetup& setup) {
 std::vector<RunFile> dolphinRunFiles(const LaunchSetup& setup) {
     std::vector<RunFile> files;
     addRun(files, setup.config / mainFile, [](std::string_view settings) {
-        if (iniValueIn(settings, analyticsAsked) == "True") {
-            return std::string{settings};
+        std::string run{settings};
+        for (const IniKey& prompt : promptsOff) {
+            if (iniValueIn(run, prompt) != "True") {
+                run = withIniValue(run, prompt, "True");
+            }
         }
-        return withIniValue(settings, analyticsAsked, "True");
+        return run;
     });
     if (setup.padGuid.empty()) {
         return files;

@@ -5,7 +5,7 @@
 // `WiimoteProfileN`, a name under `Profiles/GCPad` or `Profiles/Wiimote`, or a folder of them). A
 // slot or profile on an SDL pad is moved to the Nth virtual pad, its mappings kept; a GameCube one
 // on anything else (keyboard and mouse) gets a standard GameCube pad there. A Wii Remote on
-// anything else is left as it is. Analytics' permission prompt is marked asked.
+// anything else is left as it is. Analytics' permission prompt and the NKit warning are off.
 #pragma once
 
 #include <cstdint>
