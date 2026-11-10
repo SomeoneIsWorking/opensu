@@ -93,7 +93,7 @@ Visible deltas from the baseline:
   title, prefix matches first, narrowing as typed. It is a toolkit card: the Search field, the
   results as rows under it (Start or Enter goes to them, A opens one); a keyboard types straight
   into the field, a pad gets the on-screen keyboard docked along the bottom fifth with the card
-  above it (compact daisy wheel by default, regular grid in Settings › Controls › Keyboard; `docs/design/on-screen-keyboard.md`). The START options (Home and Library) add a sort (recently played,
+  above it (compact daisy wheel by default, regular grid in Settings › Controls › Keyboard; `docs/design/on-screen-keyboard.md`); inside openSU's Gamescope the same keyboard types into the game in front through XTest, opened from the Guide menu's Keyboard or Guide + X. The START options (Home and Library) add a sort (recently played,
   name, store), a source filter (a store or a ROM system), installed only and hidden games only;
   sort, source and installed are kept in `settings.json`, the search and the hidden filter are not.
   Hide/Unhide is in the context menu (Select on a pad; Tab, the Menu key or Shift+F10 on a keyboard;

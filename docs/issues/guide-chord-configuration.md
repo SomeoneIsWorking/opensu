@@ -46,13 +46,14 @@ the pads (`gamepad/pad_translator:PadTranslator`, chords given by `Pads::setChor
 ## Actions and the page
 
 - Chord-capable actions (`takesPadChord`): Quick menu, Volume up, Volume down, Mute, Close game,
-  Save state, Load state, Reset game, Devices, Downloads (no chord shipped), Home. Adding one is an
+  Save state, Load state, Reset game, Devices, Downloads (no chord shipped), Home, Keyboard (the
+  on-screen keyboard over the game, `docs/design/on-screen-keyboard.md`). Adding one is an
   `Action`, its row in `shortcuts.cpp:infos` and a case in
   `app/shortcut_router:ShortcutRouter::perform`, which the compiler asks for. Close game and the retro actions toast "no game is running" without a game;
   save, load and reset go through `RetroSession::perform`, which the quick menu shares.
-- Shipped chords hold Guide, which no game receives: Guide + A quick menu, Guide + Up/Down/Left
-  volume (L2 before; as a modifier it would have kept a held L2 from every game by default). The
-  game actions ship with none.
+- Shipped chords hold Guide, which no game receives: Guide + A quick menu, Guide + X keyboard
+  (Steam's), Guide + Up/Down/Left volume (L2 before; as a modifier it would have kept a held L2
+  from every game by default). The game actions ship with none.
 - Settings › Guide chords (`app/chord_settings`), next to Controls, which has a "Guide chords" row
   that opens it: one row per chord-capable action with its chord or "None"; A listens through
   `ShortcutEditor` (the first button held, then another; B alone cancels on its release), and

@@ -1,9 +1,10 @@
 # On-screen keyboard
 
 One keyboard types into every openSU text field (gpu2d `TextField`): Global Search, a folder
-path (the folder chooser's Path field) and the SteamGridDB key. It is an input method: the text lives in the field, the keyboard holds
-none. Typing into games
-and the browser is not built yet (`docs/issues/on-screen-keyboard.md`).
+path (the folder chooser's Path field) and the SteamGridDB key. It is an input method: the text
+lives in the field, the keyboard holds none. Inside openSU's Gamescope it also types into the game
+in front (any program launched from the library, a browser among them), which keeps the text
+(see Over a game).
 
 ## Owners
 
@@ -14,6 +15,9 @@ and the browser is not built yet (`docs/issues/on-screen-keyboard.md`).
 | Drawing | `ui/on_screen_keyboard_painter` |
 | The style chosen | `input/keyboard_style`, saved as `keyboard` (`daisy`, `regular`) in `settings.json`, Settings › Controls › Keyboard |
 | Docking it under the screens, pointer on its keys | `ui/shell` (`keyboard`, `aboveKeyboard`) |
+| Typing into the game in front | `app/game_typing` (`GameTyping`; XTest through `session/xtest_input` on Linux, none elsewhere) |
+| What the overlay is while it types into a game | `app/game_screen` (`display::OverlayMode::Typing`) |
+| Opening it over a game | `app/guide_menu_controller` (Keyboard), `input/shortcuts` (`Action::Keyboard`, Guide + X), `ShellApp::openGameKeyboard` |
 
 A on a focused field asks the navigator for a keyboard (`Navigator::setKeyboard`, which
 `ShellApp` points at `KeyboardPad::open`); search, the path and the key open it
@@ -100,10 +104,35 @@ Discs, rings, keys and cards are gpu2d's anti-aliased SDF shapes (`fillCircle`, 
 A single character is centred on its ink (`InterfaceText::drawInkCentred`, from gpu2d's
 `Text::ink` glyph bounds), not its advance box and baseline; words are centred on their advance.
 
+## Over a game
+
+Keyboard in the Guide menu's places (the quick menu, Guide + A, is the same menu), offered over a
+game running here when openSU runs inside Gamescope (`typesIntoGames`), or the Keyboard chord
+(Guide + X, Steam's, changed in Settings › Guide chords) opens the keyboard over the game:
+`ShellApp::openGameKeyboard` opens `GameTyping` on openSU's own `DISPLAY`, Gamescope's Xwayland,
+the first time, and `KeyboardPad::openOverGame` opens the keyboard in the chosen style. A remote
+game and openSU outside Gamescope are refused with a toast.
+
+- Gamescope gives keyboard focus to the overlay only while it carries `STEAM_INPUT_FOCUS`, so the
+  overlay is `Typing` (drawn, no input focus) and the X server delivers the injected keys to the
+  game's window. The game's pads are rested as for a menu (`display::takesPads`), so A types and
+  does not also jump.
+- Each character goes out as XTest key presses on the display's own key map, with Shift where the
+  map puts it on its second level; Delete is BackSpace, the caret is Left and Right, Start is
+  Return and closes the keyboard. A character with no key on the map is not typed and logs a
+  warning. Paste and Clear do nothing; the game owns its text.
+- The keyboard keeps a one-line echo of what it typed since it opened, on a preview line over the
+  strip ("Typing into the game" while empty), its end in view; the grid's B closes the keyboard
+  when the echo is empty.
+- It closes with Start or B, when any screen opens over it (Guide opens the menu) and when the game
+  ends (`KeyboardPad::follow`).
+- A Wayland-native client inside Gamescope gets none of it: XTest reaches X clients only.
+
 ## Invariants
 
 - The keyboard holds no text; the field keeps its caret (gpu2d `TextField`) and the keyboard is up
-  exactly while the field is being edited (`Navigator::edit`, `Navigator::editing`).
+  exactly while the field is being edited (`Navigator::edit`, `Navigator::editing`). Over a game
+  the game keeps the text and the keyboard only an echo of what it sent.
 - Done closes the keyboard and submits the field; B closes only the keyboard, a second B is the
   card's Back.
 - The field owns its rules: a search line never starts with a space or doubles one; lengths are
@@ -116,3 +145,12 @@ with the keyboard up,
 `up stick 3000ms` holds the stick up, `a` types, `r2` steps the set, `GET /frame.png` captures.
 `up+a stick` presses the stick and A together in one batch. `OPENSU_WIDTH` and `OPENSU_HEIGHT`
 set the window size; the dock's top should sit at or below four fifths of the frame's height.
+
+Over a game: run the hidden shell as the only client of a headless Gamescope
+(`gamescope --backend headless -W 1280 -H 720 -- opensu --hidden`), with a program whose window
+takes text (`GDK_BACKEND=x11 zenity --entry`) added as an own game in `own-games.json`. Launch it
+from Library › Your games, press `guide+a`, walk to `guide.keyboard` and press `a`, type with
+`up+right+a stick` and the like, then `start`. `gamescopectl screenshot` (with the Gamescope
+socket from a child's environment) shows the text in the program's field, the program prints it
+on Return, and `GET /frame.png` shows the keyboard with its preview line. The hidden window is
+never mapped, so Gamescope's own frame does not show the keyboard over the program.

@@ -2,10 +2,12 @@
 
 Status: open. Step 1 (openSU's own fields) built: one keyboard owner with both layouts and the
 Settings › Controls › Keyboard row (`docs/design/on-screen-keyboard.md`). Step 2 built: both
-layouts dock along the bottom fifth, the compact wheel, the preview line, anti-aliased shapes and
-ink-centred characters. Still to do: typing into
-other apps (XTest inside Gamescope), opening it from a Guide chord or the quick menu, layouts per
-language, the right stick as a cursor, and the regular grid extended to a full layout.
+layouts dock along the bottom fifth, the compact wheel, anti-aliased shapes and ink-centred
+characters. Step 3 built: typing into the game in front through XTest inside Gamescope, with the
+preview line, opened from the Guide menu's Keyboard (also in the quick menu) or Guide + X. Still to
+do: Wayland-native clients inside Gamescope, windows that are not a game launched here (the
+sign-in browser), opening it when Steam or a game asks for one, layouts per language, the right
+stick as a cursor, and the regular grid extended to a full layout.
 
 The player: "I want a daisy wheel keyboard (like in Xbox) as default and a regular keyboard as an
 option".
@@ -40,3 +42,24 @@ Decided:
 - The regular grid docks the same way, a phone-style bottom keyboard.
 - Drawing: discs and rings anti-aliased (fixed in gpu2d if its rounded shapes are not), each
   character centred on its ink bounds, not its advance box and baseline.
+
+## Step 3: typing into the game in front
+
+Built as decided: XTest on Gamescope's Xwayland, the one owner of XTest input being
+`session::XTestInput` (remote play's host input moved onto it), reached through
+`app/game_typing`. While the keyboard is over a game the overlay is `OverlayMode::Typing`: drawn
+without `STEAM_INPUT_FOCUS`, so Gamescope leaves the game the X keyboard focus the injected keys
+are delivered by, and the game's pads rested so the face buttons that type do not also play.
+
+Evidence (`scratch/osk-xtest/tools/type_into_app.py`, a hidden openSU in a headless Gamescope
+with a GTK `zenity --entry` on X11 as its own game, all input injected over the control channel):
+Guide + A opened the quick menu with Keyboard second; A on it opened the wheel with "Typing into
+the game" on its preview line; five stick chords typed h, e, l, l, o; Gamescope's screenshot showed
+"hello" in zenity's field (empty before) and the preview line read "hello"; Start sent Return,
+zenity printed `hello` and exited 0, and openSU toasted "Typing Probe closed". Focused tests:
+`keyboard_pad`, `on_screen_keyboard`, `game_screen`, `guide_menu_controller`, `shortcut_router`,
+`shortcuts`, `chord_hint`, `settings_controller`, `library_tools`, `stream`.
+
+Not shown by that run: the hidden window is never mapped, so the overlay's focus handover rests
+on Gamescope's documented behaviour (`session/gamescope_overlay.hpp`), not on a frame of the
+keyboard drawn over the game.
