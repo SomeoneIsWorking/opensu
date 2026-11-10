@@ -161,6 +161,15 @@ void openShellMenu(const char* by) {
     }
 }
 
+/// A frame that could not be drawn ends the game, the shell told why.
+RunnerExit stoppedDrawing(ControlServer* control, const std::exception& failure) {
+    lucent::error("retro", "{}", failure.what());
+    if (control != nullptr) {
+        control->reportFailure(std::string{"the game stopped drawing: "} + failure.what());
+    }
+    return RunnerExit::PresenterFailed;
+}
+
 bool writeFramePng(Presenter& presenter, const std::filesystem::path& file) {
     std::string error;
     const std::string png = framePng(presenter, error);
@@ -192,7 +201,7 @@ RunnerExit RunnerApp::run() {
         } catch (const std::system_error& failure) {
             lucent::error("retro", "netplay cannot start: {}", failure.what());
             if (!options_.control.empty()) {
-                ControlServer::reportLoadFailure(options_.control, failure.what());
+                ControlServer::reportFailure(options_.control, failure.what());
             }
             return RunnerExit::LoadFailed;
         }
@@ -212,7 +221,7 @@ RunnerExit RunnerApp::run() {
         }
         lucent::error("retro", "{}", reason);
         if (!options_.control.empty()) {
-            ControlServer::reportLoadFailure(options_.control, reason);
+            ControlServer::reportFailure(options_.control, reason);
         }
         return RunnerExit::LoadFailed;
     }
@@ -229,7 +238,7 @@ RunnerExit RunnerApp::run() {
     } catch (const SaveError& failure) {
         lucent::error("retro", "{}", failure.what());
         if (!options_.control.empty()) {
-            ControlServer::reportLoadFailure(options_.control, failure.what());
+            ControlServer::reportFailure(options_.control, failure.what());
         }
         return RunnerExit::LoadFailed;
     }
@@ -261,7 +270,7 @@ RunnerExit RunnerApp::run() {
         lucent::error("retro", "{}", failure.what());
         // A refused shader preset is the player's to read; the shell shows it.
         if (!options_.control.empty()) {
-            ControlServer::reportLoadFailure(options_.control, failure.what());
+            ControlServer::reportFailure(options_.control, failure.what());
         }
         return RunnerExit::PresenterFailed;
     }
@@ -527,12 +536,10 @@ RunnerExit RunnerApp::run() {
             presenter->present(shown, coreImageFresh || pixelsFresh, hardware.takeSync(),
                                overlay ? &*overlay : nullptr, stages);
         } catch (const VulkanError& failure) {
-            lucent::error("retro", "{}", failure.what());
-            exit = RunnerExit::PresenterFailed;
+            exit = stoppedDrawing(control.get(), failure);
             break;
         } catch (const ShaderError& failure) {
-            lucent::error("retro", "{}", failure.what());
-            exit = RunnerExit::PresenterFailed;
+            exit = stoppedDrawing(control.get(), failure);
             break;
         }
         if (control && !announcedShown && presenter->shown()) {

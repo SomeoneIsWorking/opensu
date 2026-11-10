@@ -207,8 +207,8 @@ ControlServer::~ControlServer() {
     if (server_.running()) {
         server_.stop();
     }
-    // A Rotate screen choice stays in the file for the shell, which removes it.
-    if (announced_ && !turned_) {
+    // A Rotate screen choice or a failure stays in the file for the shell, which removes it.
+    if (announced_ && !turned_ && !failed_) {
         std::error_code error;
         std::filesystem::remove(file_, error);
     }
@@ -322,13 +322,17 @@ std::vector<ControlInput> ControlServer::takeInput() {
     return std::exchange(input_, {});
 }
 
-void ControlServer::reportLoadFailure(const std::filesystem::path& file,
-                                      const std::string& reason) {
+void ControlServer::reportFailure(const std::filesystem::path& file, const std::string& reason) {
     const nlohmann::json report{{"error", reason}};
     std::string error;
     if (!fileio::writeWhole(file, report.dump(), error)) {
-        lucent::error("retro", "cannot report the load failure: {}", error);
+        lucent::error("retro", "cannot report the failure: {}", error);
     }
+}
+
+void ControlServer::reportFailure(const std::string& reason) {
+    reportFailure(file_, reason);
+    failed_ = true;
 }
 
 lucent::http::Response ControlServer::run(ControlRequest request) {

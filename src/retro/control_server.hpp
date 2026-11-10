@@ -157,7 +157,10 @@ class ControlServer {
     void publishTouch(std::string places);
 
     /// Leaves `{"error": reason}` in `file` for the shell, which removes it; logged when it cannot.
-    static void reportLoadFailure(const std::filesystem::path& file, const std::string& reason);
+    /// For a game that could not start or stopped running.
+    static void reportFailure(const std::filesystem::path& file, const std::string& reason);
+    /// The same in this channel's file, which then outlives the channel for the shell to read.
+    void reportFailure(const std::string& reason);
 
     /// Routes a request. Any thread.
     [[nodiscard]] lucent::http::Response handle(const lucent::http::Request& request);
@@ -192,6 +195,8 @@ class ControlServer {
     bool closing_{false};
     bool hasState_{false};
     bool announced_{false};
+    /// A failure was reported in the file, which the shell removes.
+    bool failed_{false};
     bool shown_{false};
     std::string panel_;
     ShownPicture picture_;
