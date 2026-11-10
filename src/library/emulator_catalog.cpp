@@ -149,7 +149,7 @@ std::vector<std::string> linksOf(const json& object, const std::vector<std::stri
     }
     for (const std::string& system : links) {
         if (std::ranges::find(systems, system) == systems.end()) {
-            throw Malformed{where + ": it links " + system + ", which it does not run"};
+            throw Malformed{std::format("{}: it links {}, which it does not run", where, system)};
         }
     }
     return links;

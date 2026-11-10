@@ -108,7 +108,7 @@ void coreReleasePerBuild() {
         pin + R"("}}}]})";
     const std::optional<EmulatorCatalog> withPin =
         EmulatorCatalog::parse(pinned, "/h", error, "linux-x86_64");
-    expect(withPin && withPin->find("a")->release->sha256 == pin &&
+    expect(withPin && withPin->find("a")->release.value_or(ReleaseSource{}).sha256 == pin &&
                withPin->find("a")->links == std::vector<std::string>{"gba"},
            "a core's release pins each asset's SHA-256 by build, and the core links GBA");
     for (const std::string& bad :
