@@ -1317,6 +1317,14 @@ byte-identical). Gaps: a profile made with a pad whose raw SDL indices differ fr
 PlayStation pad) keeps its indices on the virtual pad; a handheld player 1 binds `player_8_`,
 which is not retargeted; changes made in Eden during an openSU launch are dropped with the run's
 file.
+Ryujinx binds a player by `id`, `<k>-<GUID>` (the SDL GUID as a .NET Guid, the name's CRC
+zeroed): while a launch runs each gamepad player's `id` is the Nth virtual pad's, a keyboard player
+gets a Pro Controller in Ryujinx's default pad layout, the update prompt is off, and a version 71
+`Config.json` (SDL3 builds) is migrated down to the 70 that Ryubing 1.3.3 reads (`library/ryujinx_config`);
+verified with 1.3.3 on a copy of the player's config (`scratch/ryu-azahar/runs/ryujinx2`: presses
+take Chocobo's Mystery Dungeon from "Press Any Button" to Select Play Mode, the file comes back
+byte-identical). Gaps: a `Config.json` newer than 71 stays the player's for the run, and a player
+without one gets no pad until Ryujinx has written its own.
 Tested: `pad_translator` (unit), `pads`
 against real uinput pads, `handoff` passing the environment; verified headless with
 a uinput pad driving the shell (`scratch/overlay-test/drive_pad.py`): B reaches the
