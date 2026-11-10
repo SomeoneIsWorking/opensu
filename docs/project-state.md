@@ -1325,6 +1325,12 @@ verified with 1.3.3 on a copy of the player's config (`scratch/ryu-azahar/runs/r
 take Chocobo's Mystery Dungeon from "Press Any Button" to Select Play Mode, the file comes back
 byte-identical). Gaps: a `Config.json` newer than 71 stays the player's for the run, and a player
 without one gets no pad until Ryujinx has written its own.
+Azahar binds the 3DS by `engine:sdl,guid:<GUID>,port:<k>` in `qt-config.ini`'s active profile,
+SDL's full GUID: while a launch runs its SDL bindings play the first virtual pad, a keyboard-only
+profile gets the standard layout in Azahar's own xpad automap, and the update check on start is
+off (`library/azahar_config`); verified with Azahar 2126.2 on a copy of the player's config
+(`scratch/ryu-azahar/runs/azahar`: Start and the face buttons reach Ocarina of Time 3D's title and
+file select, the file comes back byte-identical).
 PCSX2 binds a pad by SDL player index, `SDL-<n>/<input>`, which counts only the virtual pads a
 launch lets SDL see: while a launch runs `[PadN]`'s SDL bindings play `SDL-<N-1>`, a DualShock 2
 bound only to the keyboard (the player's pad 1) or to nothing gets PCSX2's own SDL layout, input
