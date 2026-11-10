@@ -84,9 +84,9 @@ void anyBuiltInCore() {
     const std::optional<Game> played = netplayGame(game, "session.json");
     expect(played && holds(*played, "--netplay") && holds(*played, "mgba.so"),
            "the runner takes the session on that core");
+    expect(sessionCore(game) == "mgba.so", "a session runs that core");
     game.launch.args = {"rom.gba"};
     expect(!netplayable(game), "an emulator of its own cannot");
-    expect(sessionCore(game) == "mgba.so", "a session runs that core");
     game = gbaGame();
     expect(netplayCore(game).empty(), "the link core comes first where it can");
     expect(sessionCore(game) == "link.so", "and a session runs it");
