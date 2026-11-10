@@ -174,7 +174,8 @@ add_test(NAME yuzu_config COMMAND yuzu_config_test)
 
 add_executable(dolphin_config_test dolphin_config_test.cpp)
 target_link_libraries(dolphin_config_test PRIVATE opensu::library)
-target_compile_definitions(dolphin_config_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+target_compile_definitions(dolphin_config_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch"
+    OPENSU_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets")
 opensu_warnings(dolphin_config_test)
 add_test(NAME dolphin_config COMMAND dolphin_config_test)
 

@@ -1,0 +1,102 @@
+{
+  "default": "nunchuk",
+  "layouts": {
+    "nunchuk": {
+      "extension": "nunchuk",
+      "orientation": "pointing",
+      "pointer": true,
+      "shake": "`Button E`",
+      "inputs": {
+        "Buttons/A": "`Button S`",
+        "Buttons/B": "`Trigger R`",
+        "Buttons/1": "`Button N`",
+        "Buttons/2": "`Shoulder R`",
+        "Buttons/-": "`Back`",
+        "Buttons/+": "`Start`",
+        "Buttons/Home": "`Guide`",
+        "D-Pad/Up": "`Pad N`",
+        "D-Pad/Down": "`Pad S`",
+        "D-Pad/Left": "`Pad W`",
+        "D-Pad/Right": "`Pad E`",
+        "Nunchuk/Buttons/C": "`Shoulder L`",
+        "Nunchuk/Buttons/Z": "`Trigger L`",
+        "Nunchuk/Stick/Up": "`Left Y+`",
+        "Nunchuk/Stick/Down": "`Left Y-`",
+        "Nunchuk/Stick/Left": "`Left X-`",
+        "Nunchuk/Stick/Right": "`Left X+`",
+        "Nunchuk/Shake/X": "`Button W`",
+        "Nunchuk/Shake/Y": "`Button W`",
+        "Nunchuk/Shake/Z": "`Button W`"
+      }
+    },
+    "sideways": {
+      "extension": "none",
+      "orientation": "sideways",
+      "pointer": false,
+      "shake": "`Button E` | `Shoulder R`",
+      "inputs": {
+        "Buttons/A": "`Button N`",
+        "Buttons/B": "`Trigger R`",
+        "Buttons/1": "`Button W`",
+        "Buttons/2": "`Button S`",
+        "Buttons/-": "`Back`",
+        "Buttons/+": "`Start`",
+        "Buttons/Home": "`Guide`",
+        "D-Pad/Up": "`Pad N` | `Left Y+`",
+        "D-Pad/Down": "`Pad S` | `Left Y-`",
+        "D-Pad/Left": "`Pad W` | `Left X-`",
+        "D-Pad/Right": "`Pad E` | `Left X+`"
+      }
+    },
+    "classic": {
+      "extension": "classic",
+      "orientation": "pointing",
+      "pointer": false,
+      "shake": "",
+      "inputs": {
+        "Classic/Buttons/A": "`Button E`",
+        "Classic/Buttons/B": "`Button S`",
+        "Classic/Buttons/X": "`Button N`",
+        "Classic/Buttons/Y": "`Button W`",
+        "Classic/Buttons/ZL": "`Shoulder L`",
+        "Classic/Buttons/ZR": "`Shoulder R`",
+        "Classic/Buttons/-": "`Back`",
+        "Classic/Buttons/+": "`Start`",
+        "Classic/Buttons/Home": "`Guide`",
+        "Classic/Triggers/L": "`Trigger L`",
+        "Classic/Triggers/R": "`Trigger R`",
+        "Classic/Triggers/L-Analog": "`Trigger L`",
+        "Classic/Triggers/R-Analog": "`Trigger R`",
+        "Classic/Left Stick/Up": "`Left Y+`",
+        "Classic/Left Stick/Down": "`Left Y-`",
+        "Classic/Left Stick/Left": "`Left X-`",
+        "Classic/Left Stick/Right": "`Left X+`",
+        "Classic/Right Stick/Up": "`Right Y+`",
+        "Classic/Right Stick/Down": "`Right Y-`",
+        "Classic/Right Stick/Left": "`Right X-`",
+        "Classic/Right Stick/Right": "`Right X+`",
+        "Classic/D-Pad/Up": "`Pad N`",
+        "Classic/D-Pad/Down": "`Pad S`",
+        "Classic/D-Pad/Left": "`Pad W`",
+        "Classic/D-Pad/Right": "`Pad E`"
+      }
+    }
+  },
+  "games": {
+    "SF8": {
+      "title": "Donkey Kong Country Returns",
+      "layout": "sideways",
+      "proof": "SF8E01 (Rev 1): title, controls notice and a new game, Donkey Kong moved and jumped"
+    },
+    "RMG": {
+      "title": "Super Mario Galaxy",
+      "layout": "nunchuk",
+      "proof": "unproven: A jump, B the star pointer's shot, Z crouch, C camera, shake spins"
+    },
+    "SX4": {
+      "title": "Xenoblade Chronicles",
+      "layout": "classic",
+      "proof": "unproven: Classic Controller supported throughout"
+    }
+  }
+}

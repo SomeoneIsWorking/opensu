@@ -13,6 +13,7 @@
 #include <fstream>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -115,6 +116,18 @@ void writeSfo(const fs::path& path,
     out << sfo << table << keys << data;
 }
 
+/// A Wii disc whose header, game id `id`, starts at `at` behind the container's `magic`.
+void writeWiiDisc(const fs::path& path, std::string_view magic, std::size_t at,
+                  std::string_view id) {
+    std::string bytes(at + 0x80, '\0');
+    bytes.replace(0, magic.size(), magic);
+    bytes.replace(at, id.size(), id);
+    bytes.replace(at + 0x18, 4, "\x5D\x1C\x9E\xA3");
+    fs::create_directories(path.parent_path());
+    std::ofstream out{path, std::ios::binary};
+    out << bytes;
+}
+
 void writeExecutable(const fs::path& path) {
     write(path);
     fs::permissions(path, fs::perms::owner_all);
@@ -158,6 +171,10 @@ struct Fixture {
         write(root / "PS3" / "Time Crisis 4 (USA)" / "Time Crisis 4 (USA).iso");
         write(root / "PS3" / "Time Crisis 4 (USA)" / "README.TXT");
         write(root / "Android" / "game.apk");
+        writeWiiDisc(root / "Wii" / "Donkey Kong Country Returns (USA).rvz",
+                     std::string_view{"RVZ\x01", 4}, 0x58, "SF8E01");
+        writeWiiDisc(root / "Wii" / "Super Mario Galaxy (USA).iso", "", 0, "RMGE01");
+        write(root / "Wii" / "Unread (USA).wbfs", 4);
         // A folder named like a root that holds no system is not one.
         write(mounts / "Other" / "roms" / "notes.txt");
     }
@@ -293,7 +310,15 @@ void providerLists(const Fixture& f) {
            "the arcade listing is kept");
     const std::vector<Game> games = provider.list(std::stop_token{});
 
-    expect(games.size() == 12, "every game of every known system is listed once");
+    expect(games.size() == 15, "every game of every known system is listed once");
+    const Game* returns = find(games, "Donkey Kong Country Returns");
+    const Game* galaxy = find(games, "Super Mario Galaxy");
+    const Game* unreadDisc = find(games, "Unread");
+    expect(returns != nullptr && returns->titleId == "SF8E01" && galaxy != nullptr &&
+               galaxy->titleId == "RMGE01",
+           "a Wii disc's game id is read from its header, in an RVZ and a plain image");
+    expect(unreadDisc != nullptr && unreadDisc->titleId.empty(),
+           "a file without a Wii header has no game id");
     const Game* bloodborne = find(games, "Bloodborne");
     expect(bloodborne != nullptr && bloodborne->artworkKey == "Bloodborne" &&
                bloodborne->artwork == f.root / "PS4" / "CUSA00900" / "sce_sys" / "icon0.png",

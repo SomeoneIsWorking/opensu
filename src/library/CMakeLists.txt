@@ -57,6 +57,7 @@ add_library(opensu_library STATIC
     emulator_release.cpp
     shader_pack.cpp
     visual_presets.cpp
+    wii_controls.cpp
     downloaded_emulators.cpp
     libretro_cores.cpp
     core_bios.cpp

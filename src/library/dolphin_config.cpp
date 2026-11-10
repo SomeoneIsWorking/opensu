@@ -51,6 +51,13 @@ constexpr std::array promptsOff{
     IniKey{.section = "Analytics", .key = "PermissionAsked"},
     IniKey{.section = "Interface", .key = "SkipNKitWarning"},
 };
+// A real Wii Remote taking the slots over, which a pad player is not holding.
+constexpr IniKey passthrough{.section = "BluetoothPassthrough", .key = "Enabled"};
+
+constexpr std::string_view sourceKey{"Source"};
+// `[WiimoteN] Source`: none, emulated, a real remote.
+constexpr std::string_view noRemote{"0"};
+constexpr std::string_view emulatedRemote{"1"};
 
 struct Mapping {
     std::string_view key;
@@ -83,6 +90,23 @@ constexpr std::array gameCubePad{
     Mapping{"D-Pad/Left", "`Pad W`"},
     Mapping{"D-Pad/Right", "`Pad E`"},
 };
+
+constexpr std::array extensionNames{std::string_view{"None"}, std::string_view{"Nunchuk"},
+                                    std::string_view{"Classic"}};
+
+// The pointer on the right stick, moved relative to where it is and recentred by the stick's click.
+constexpr std::array pointer{
+    Mapping{"IR/Up", "`Right Y+`"},       Mapping{"IR/Down", "`Right Y-`"},
+    Mapping{"IR/Left", "`Right X-`"},     Mapping{"IR/Right", "`Right X+`"},
+    Mapping{"IR/Recenter", "`Thumb R`"},
+};
+constexpr std::string_view relativePointer{"IR/Relative Input"};
+constexpr std::array shakeAxes{std::string_view{"Shake/X"}, std::string_view{"Shake/Y"},
+                               std::string_view{"Shake/Z"}};
+
+std::string_view flag(bool on) {
+    return on ? "True" : "False";
+}
 
 std::string virtualPad(int player) {
     std::string device{sdlSource};
@@ -200,17 +224,37 @@ void addRun(std::vector<RunFile>& files, const fs::path& file,
 } // namespace
 
 std::string dolphinSlotSettings(std::string_view ini, std::string_view section,
-                                DolphinController controller, int player) {
+                                DolphinController controller, int player,
+                                const WiiRemote* remote) {
     const IniKey device{.section = section, .key = deviceKey};
     if (iniValueIn(ini, device).value_or("").starts_with(sdlSource)) {
         return withIniValue(ini, device, virtualPad(player));
     }
-    if (controller == DolphinController::WiiRemote) {
+    if (controller == DolphinController::WiiRemote && remote == nullptr) {
         return std::string{ini};
     }
     std::string out = withIniValue(ini, device, virtualPad(player));
-    for (const Mapping& mapping : gameCubePad) {
-        out = withIniValue(out, IniKey{.section = section, .key = mapping.key}, mapping.value);
+    const auto set = [&out, section](std::string_view key, std::string_view value) {
+        out = withIniValue(out, IniKey{.section = section, .key = key}, value);
+    };
+    if (controller == DolphinController::GameCube) {
+        for (const Mapping& mapping : gameCubePad) {
+            set(mapping.key, mapping.value);
+        }
+        return out;
+    }
+    set("Extension", extensionNames.at(static_cast<std::size_t>(remote->extension)));
+    set("Options/Sideways Wiimote", flag(remote->orientation == WiiOrientation::Sideways));
+    set("Options/Upright Wiimote", flag(remote->orientation == WiiOrientation::Upright));
+    for (const Mapping& mapping : pointer) {
+        set(mapping.key, remote->pointer ? mapping.value : "");
+    }
+    set(relativePointer, flag(remote->pointer));
+    for (const std::string_view axis : shakeAxes) {
+        set(axis, remote->shake);
+    }
+    for (const auto& [key, value] : remote->inputs) {
+        set(key, value);
     }
     return out;
 }
@@ -228,12 +272,17 @@ std::vector<fs::path> dolphinFiles(const LaunchSetup& setup) {
 
 std::vector<RunFile> dolphinRunFiles(const LaunchSetup& setup) {
     std::vector<RunFile> files;
-    addRun(files, setup.config / mainFile, [](std::string_view settings) {
+    const WiiRemote* remote =
+        setup.padGuid.empty() || !setup.wiiRemote ? nullptr : &*setup.wiiRemote;
+    addRun(files, setup.config / mainFile, [remote](std::string_view settings) {
         std::string run{settings};
         for (const IniKey& prompt : promptsOff) {
             if (iniValueIn(run, prompt) != "True") {
                 run = withIniValue(run, prompt, "True");
             }
+        }
+        if (remote != nullptr && iniValueIn(run, passthrough) == "True") {
+            run = withIniValue(run, passthrough, "False");
         }
         return run;
     });
@@ -241,19 +290,34 @@ std::vector<RunFile> dolphinRunFiles(const LaunchSetup& setup) {
         return files;
     }
     for (const ControllerFiles& controller : controllers) {
-        addRun(files, setup.config / controller.file, [&controller](std::string_view settings) {
-            std::string run{settings};
-            for (int slot = 1; slot <= dolphinSlots; ++slot) {
-                run = dolphinSlotSettings(run, slotSection(controller, slot), controller.controller,
-                                          slot);
-            }
-            return run;
-        });
+        addRun(files, setup.config / controller.file,
+               [&controller, remote](std::string_view settings) {
+                   std::string run{settings};
+                   for (int slot = 1; slot <= dolphinSlots; ++slot) {
+                       const std::string section = slotSection(controller, slot);
+                       const WiiRemote* emulated = nullptr;
+                       if (controller.controller == DolphinController::WiiRemote &&
+                           remote != nullptr) {
+                           const IniKey source{.section = section, .key = sourceKey};
+                           const std::string held =
+                               iniValueIn(run, source).value_or(std::string{noRemote});
+                           if (slot == 1 || held != noRemote) {
+                               lucent::info("dolphin", "{} is an emulated remote set for {}",
+                                            section, remote->title);
+                               run = withIniValue(run, source, emulatedRemote);
+                               emulated = remote;
+                           }
+                       }
+                       run = dolphinSlotSettings(run, section, controller.controller, slot,
+                                                 emulated);
+                   }
+                   return run;
+               });
     }
     for (const NamedProfile& profile : namedProfiles(setup)) {
         addRun(files, profile.path, [&profile](std::string_view settings) {
             return dolphinSlotSettings(settings, profileSection, profile.controller,
-                                       profile.player);
+                                       profile.player, nullptr);
         });
     }
     return files;

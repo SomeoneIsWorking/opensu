@@ -290,6 +290,7 @@ EmulatorSetup EmulatorSetup::standard(const config::Config& config, bool hidden,
                          .overrides = config.emulators,
                          .shaders = ShaderPack::under(config.dataDir),
                          .presets = VisualPresets::shipped(config.assetsDir, config.dataDir),
+                         .wiiControls = WiiControls::shipped(config.assetsDir),
                          .standalone = standalone};
 }
 

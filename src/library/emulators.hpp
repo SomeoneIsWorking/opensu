@@ -28,6 +28,7 @@
 #include "libretro_cores.hpp"
 #include "shader_pack.hpp"
 #include "visual_presets.hpp"
+#include "wii_controls.hpp"
 
 namespace opensu::library::roms {
 
@@ -163,6 +164,8 @@ struct EmulatorSetup {
     std::string shaderSource{shaderPackUrl};
     /// The visual preset catalog and its art; none for no presets.
     VisualPresets presets{};
+    /// How each Wii game's remote is played on a pad.
+    WiiControls wiiControls{};
     /// Whether standalone emulators and the configured overrides count; without them only the
     /// built-in emulators are searched for.
     bool standalone{true};
