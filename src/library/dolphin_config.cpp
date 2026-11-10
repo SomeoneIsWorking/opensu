@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <functional>
 #include <optional>
 #include <system_error>
 
@@ -185,24 +186,10 @@ std::vector<NamedProfile> namedProfiles(const LaunchSetup& setup) {
     return named;
 }
 
-/// `file` as read; empty when it is not there, nothing when it cannot be read.
-std::optional<std::string> playerText(const fs::path& file) {
-    std::error_code missing;
-    if (!fs::exists(file, missing)) {
-        return std::string{};
-    }
-    std::string error;
-    std::optional<std::string> text = fileio::readWhole(file, error);
-    if (!text) {
-        lucent::warn("dolphin", "{} stays the player's: {}", file.string(), error);
-    }
-    return text;
-}
-
-void addChanged(std::vector<RunFile>& files, const fs::path& path, std::string_view player,
-                std::string run) {
-    if (run != player) {
-        files.push_back(RunFile{.path = path, .bytes = std::move(run)});
+void addRun(std::vector<RunFile>& files, const fs::path& file,
+            const std::function<std::string(std::string_view)>& run) {
+    if (std::optional<RunFile> set = runFileOf(file, run)) {
+        files.push_back(std::move(*set));
     }
 }
 
@@ -237,35 +224,30 @@ std::vector<fs::path> dolphinFiles(const LaunchSetup& setup) {
 
 std::vector<RunFile> dolphinRunFiles(const LaunchSetup& setup) {
     std::vector<RunFile> files;
-    const fs::path main = setup.config / mainFile;
-    const std::optional<std::string> settings = playerText(main);
-    if (settings && iniValueIn(*settings, analyticsAsked) != "True") {
-        files.push_back(
-            RunFile{.path = main, .bytes = withIniValue(*settings, analyticsAsked, "True")});
-    }
+    addRun(files, setup.config / mainFile, [](std::string_view settings) {
+        if (iniValueIn(settings, analyticsAsked) == "True") {
+            return std::string{settings};
+        }
+        return withIniValue(settings, analyticsAsked, "True");
+    });
     if (setup.padGuid.empty()) {
         return files;
     }
     for (const ControllerFiles& controller : controllers) {
-        const fs::path path = setup.config / controller.file;
-        const std::optional<std::string> player = playerText(path);
-        if (!player) {
-            continue;
-        }
-        std::string run = *player;
-        for (int slot = 1; slot <= dolphinSlots; ++slot) {
-            run = dolphinSlotSettings(run, slotSection(controller, slot), controller.controller,
-                                      slot);
-        }
-        addChanged(files, path, *player, std::move(run));
+        addRun(files, setup.config / controller.file, [&controller](std::string_view settings) {
+            std::string run{settings};
+            for (int slot = 1; slot <= dolphinSlots; ++slot) {
+                run = dolphinSlotSettings(run, slotSection(controller, slot), controller.controller,
+                                          slot);
+            }
+            return run;
+        });
     }
     for (const NamedProfile& profile : namedProfiles(setup)) {
-        const std::optional<std::string> player = playerText(profile.path);
-        if (player) {
-            addChanged(
-                files, profile.path, *player,
-                dolphinSlotSettings(*player, profileSection, profile.controller, profile.player));
-        }
+        addRun(files, profile.path, [&profile](std::string_view settings) {
+            return dolphinSlotSettings(settings, profileSection, profile.controller,
+                                       profile.player);
+        });
     }
     return files;
 }
