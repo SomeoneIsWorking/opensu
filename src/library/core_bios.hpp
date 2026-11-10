@@ -55,9 +55,12 @@ enum class BiosScan : std::uint8_t {
     /// PCSX ReARMed's `loadPSXBios`: its own names, then any file of the folder, each kept by
     /// `try_use_bios`'s size and signature check, the first of each region.
     PcsxRearmed,
+    /// LRPS2's `retro_init`: every 4 to 8 MiB file of `pcsx2/bios` with a ROMVER entry in its
+    /// ROM directory (`IsBIOS`), the first one its `pcsx2_bios` option offers being the default.
+    Lrps2,
 };
 
-/// `pcsx_rearmed` as the catalog spells it (`"biosScan"`).
+/// `pcsx_rearmed` and `lrps2` as the catalog spells them (`"biosScan"`).
 [[nodiscard]] std::optional<BiosScan> biosScanNamed(std::string_view spelling);
 
 /// The `firmware*` entries of a core info file, in its order; malformed entries are skipped.
@@ -79,10 +82,12 @@ class CoreInfoArchive {
     zip::Archive archive_;
 };
 
-/// A BIOS file PCSX ReARMed takes from the folder, with the region it files it under.
+/// A BIOS file a scanning core takes from the folder, with the region it files it under.
 struct PickedBios {
+    /// Relative to the system folder.
     std::string file;
-    /// `US`, `EU` or `JP`, as the core logs it.
+    /// As the core logs it: `US`, `EU` or `JP` for PCSX ReARMed, `USA`, `Europe`, `Japan`... for
+    /// LRPS2.
     std::string region;
 
     bool operator==(const PickedBios&) const = default;
@@ -91,12 +96,19 @@ struct PickedBios {
 /// The files PCSX ReARMed's `loadPSXBios` keeps from `system`, in the order it keeps them.
 [[nodiscard]] std::vector<PickedBios> pcsxRearmedBiosIn(const std::filesystem::path& system);
 
+/// The folder of `system` LRPS2 looks for PS2 BIOS images in.
+inline constexpr std::string_view lrps2BiosFolder = "pcsx2/bios";
+
+/// The files LRPS2 offers from `system`'s `pcsx2/bios`, in the order it lists them; the first is
+/// the one it boots unless its `pcsx2_bios` option names another.
+[[nodiscard]] std::vector<PickedBios> lrps2BiosIn(const std::filesystem::path& system);
+
 /// A core's BIOS as the system folder has it now.
 struct CoreBios {
     struct File {
         CoreFirmware firmware;
         bool present{false};
-        /// The core boots with it.
+        /// The core boots with it, or, for a listed folder, with a file in it.
         bool used{false};
         /// The region a scanning core files it under; empty otherwise.
         std::string region;

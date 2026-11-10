@@ -15,10 +15,10 @@ It and the ROM library are the two parts of openSU that are always on.
 The built-in emulators are mGBA (Game Boy, Game Boy Color, Game Boy Advance), Gambatte (Game Boy,
 Game Boy Color), Snes9x, Mesen, PCSX ReARMed, Beetle PSX HW and SwanStation (PlayStation),
 Mupen64Plus-Next and ParaLLEl N64 (Nintendo 64), PPSSPP (PSP), Flycast (Dreamcast), melonDS DS
-(Nintendo DS), and for Arcade FinalBurn Neo, FB Alpha 2012, MAME 2003-Plus, MAME 2010 and MAME
+(Nintendo DS), PCSX2 (PlayStation 2), and for Arcade FinalBurn Neo, FB Alpha 2012, MAME 2003-Plus, MAME 2010 and MAME
 (current). A
 console's standalone emulators come first, so turning on standalone emulators does not change what
-an installed one runs on. GPU cores (Beetle PSX HW, SwanStation, Mupen64Plus-Next, ParaLLEl N64)
+an installed one runs on. GPU cores (Beetle PSX HW, SwanStation, Mupen64Plus-Next, ParaLLEl N64, PCSX2)
 draw on the runner's Vulkan device; a core that asks for OpenGL is refused by name.
 
 A core is found in `<data>/opensu/cores/` (openSU's own downloads), then on Linux in
@@ -54,8 +54,10 @@ dropped first. CPS2 games get their `.key` file written for them.
 
 Settings › Emulators › BIOS files lists what each built-in core runs on: the files it looks for,
 which of them you have in `<data>/opensu/system/`, and whether it has a built-in HLE BIOS
-(PCSX ReARMed's PlayStation BIOS is "HLE built in" until you add a file). openSU ships and downloads
-no BIOS, keys or firmware.
+(PCSX ReARMed's PlayStation BIOS is "HLE built in" until you add a file). PCSX2 needs a
+PlayStation 2 BIOS image in `<data>/opensu/system/pcsx2/bios/` (any name; it boots the first one it
+finds there, and keeps its NVRAM and memory cards under `<data>/opensu/system/pcsx2/`). openSU ships
+and downloads no BIOS, keys or firmware.
 
 ## Picture: video settings and shader presets
 

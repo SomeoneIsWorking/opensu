@@ -591,9 +591,13 @@ for each chosen built-in core but the arcade ones, the mode ("HLE built in", "Yo
 <name>", ...) and each file in use, there but not used, or missing. A core that takes images from
 the folder by its own rule has `"biosScan"` in the catalog; `pcsx_rearmed` applies PCSX ReARMed's
 `loadPSXBios` rule (its own names, then every file; exactly 512 KiB, the reset or "PS compatible"
-signature, one per region), so the rows name the file it will load, listed or not. Check it in the product: Settings ›
+signature, one per region), so the rows name the file it will load, listed or not; `lrps2`
+applies LRPS2's (PCSX2's core): every 4 to 8 MiB file of `pcsx2/bios` whose ROM directory, found
+by its `RESET` entry, holds `ROMVER`, its zone from ROMVER's region letter, the first in the
+folder's order booted (the default of its `pcsx2_bios` option). Its info lists the folder itself,
+which reads in use when it holds such a file. Check it in the product: Settings ›
 Emulators, the "<System> BIOS" rows; the runner's log line for the core's choice (PCSX ReARMed:
-`found US BIOS file` or `HLE BIOS initialized.`). Built-in entries come after the standalone ones in the catalog, so a system's
+`found US BIOS file` or `HLE BIOS initialized.`; LRPS2: `Bios Found: USA v01.60(...)`). Built-in entries come after the standalone ones in the catalog, so a system's
 automatic emulator stays the standalone one where it is installed.
 
 **Romsets.** An arcade core's catalog entry names its listing: `"romsets": {"files": [...]}`

@@ -376,6 +376,14 @@
       "withoutBios": "open"
     },
     {
+      "id": "pcsx2-core",
+      "name": "PCSX2 (built-in)",
+      "systems": ["ps2"],
+      "core": "pcsx2_libretro",
+      "biosScan": "lrps2",
+      "coreOptions": {"pcsx2_renderer": "Vulkan"}
+    },
+    {
       "id": "fbneo-core",
       "name": "FinalBurn Neo (built-in)",
       "systems": ["arcade"],

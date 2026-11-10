@@ -253,7 +253,7 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::string_view
         const std::string scan = text(object, "biosScan", where, false);
         const std::optional<BiosScan> rule = scan.empty() ? BiosScan::Listed : biosScanNamed(scan);
         if (!rule) {
-            throw Malformed{where + ": \"biosScan\" must be pcsx_rearmed"};
+            throw Malformed{where + ": \"biosScan\" must be pcsx_rearmed or lrps2"};
         }
         entry.biosScan = *rule;
         return entry;

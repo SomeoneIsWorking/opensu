@@ -116,6 +116,102 @@ std::optional<std::size_t> psxRegionOf(const fs::path& file) {
     return psxRegionUs;
 }
 
+/// LRPS2's `IsBIOS` takes files of 4 to 8 MiB.
+constexpr std::uintmax_t ps2BiosMinBytes = std::uintmax_t{4} * 1024 * 1024;
+constexpr std::uintmax_t ps2BiosMaxBytes = std::uintmax_t{8} * 1024 * 1024;
+/// A ROM directory entry: a 10-byte name, a 2-byte extended info size, a 4-byte file size.
+constexpr std::size_t romdirEntryBytes = 16;
+constexpr std::size_t romdirNameBytes = 10;
+constexpr std::size_t romdirSizeAt = 12;
+/// ROMVER's text: `0160AC20030627`, version, region letter, console or devel, date.
+constexpr std::size_t romverBytes = 14;
+constexpr std::size_t romverRegionAt = 4;
+constexpr std::size_t romverKindAt = 5;
+constexpr std::uint32_t romdirAlignment = 0x10;
+
+/// A ROM directory entry's name, up to its first NUL.
+std::string_view romdirName(std::string_view entry) {
+    const std::string_view name = entry.substr(0, romdirNameBytes);
+    return name.substr(0, std::min(name.find('\0'), name.size()));
+}
+
+std::uint32_t romdirSize(std::string_view entry) {
+    std::uint32_t size = 0;
+    for (std::size_t at = 0; at < 4; ++at) {
+        size |= static_cast<std::uint32_t>(static_cast<unsigned char>(entry[romdirSizeAt + at]))
+                << (8 * at);
+    }
+    return size;
+}
+
+/// The zone `LoadBiosVersion` reads from ROMVER's region letter.
+std::string ps2ZoneOf(char region, char kind) {
+    switch (region) {
+    case 'J':
+        return "Japan";
+    case 'A':
+        return "USA";
+    case 'E':
+        return "Europe";
+    case 'H':
+        return "Asia";
+    case 'C':
+        return "China";
+    case 'T':
+        return kind == 'Z' ? "COH-H" : "T10K";
+    case 'X':
+        return "Test";
+    case 'P':
+        return "Free";
+    default:
+        return std::string(1, region);
+    }
+}
+
+/// The zone LRPS2's `IsBIOS` gives `file`, or nothing when it is not taken: its ROM directory is
+/// found by the `RESET` entry on a 16-byte boundary and must hold a `ROMVER` entry.
+std::optional<std::string> ps2ZoneIn(const fs::path& file) {
+    std::error_code ec;
+    if (!fs::is_regular_file(file, ec)) {
+        return std::nullopt;
+    }
+    const std::uintmax_t size = fs::file_size(file, ec);
+    if (ec || size < ps2BiosMinBytes || size > ps2BiosMaxBytes) {
+        return std::nullopt;
+    }
+    std::ifstream in{file, std::ios::binary};
+    std::string data(static_cast<std::size_t>(size), '\0');
+    if (!in.read(data.data(), static_cast<std::streamsize>(data.size()))) {
+        return std::nullopt;
+    }
+    const std::string_view bytes{data};
+    std::size_t at = 0;
+    while (at + romdirEntryBytes <= bytes.size() &&
+           romdirName(bytes.substr(at, romdirEntryBytes)) != "RESET") {
+        at += romdirEntryBytes;
+    }
+    std::uint64_t offset = 0;
+    for (; at + romdirEntryBytes <= bytes.size(); at += romdirEntryBytes) {
+        const std::string_view entry = bytes.substr(at, romdirEntryBytes);
+        const std::string_view name = romdirName(entry);
+        if (name.empty() || name.size() == romdirNameBytes) {
+            break;
+        }
+        if (name == "ROMVER") {
+            if (offset + romverBytes > bytes.size()) {
+                return std::nullopt;
+            }
+            const std::string_view romver = bytes.substr(offset, romverBytes);
+            return ps2ZoneOf(romver[romverRegionAt], romver[romverKindAt]);
+        }
+        const std::uint32_t entrySize = romdirSize(entry);
+        offset += (entrySize % romdirAlignment) == 0
+                      ? entrySize
+                      : (std::uint64_t{entrySize} + romdirAlignment) & ~std::uint64_t{0xf};
+    }
+    return std::nullopt;
+}
+
 /// `description` without the file name libretro repeats in it: "PS1 US BIOS" of
 /// "scph5501.bin (PS1 US BIOS)".
 std::string describedWithout(std::string description, std::string_view path) {
@@ -253,9 +349,29 @@ std::vector<PickedBios> pcsxRearmedBiosIn(const fs::path& system) {
     return picked;
 }
 
+std::vector<PickedBios> lrps2BiosIn(const fs::path& system) {
+    std::vector<PickedBios> picked;
+    const fs::path folder = system / lrps2BiosFolder;
+    std::error_code ec;
+    if (system.empty() || !fs::is_directory(folder, ec)) {
+        return picked;
+    }
+    // The core lists the folder in readdir order, as directory_iterator does.
+    for (const fs::directory_entry& entry : fs::directory_iterator{folder, ec}) {
+        if (const std::optional<std::string> zone = ps2ZoneIn(entry.path())) {
+            picked.push_back(PickedBios{
+                (fs::path{lrps2BiosFolder} / entry.path().filename()).generic_string(), *zone});
+        }
+    }
+    return picked;
+}
+
 std::optional<BiosScan> biosScanNamed(std::string_view spelling) {
     if (spelling == "pcsx_rearmed") {
         return BiosScan::PcsxRearmed;
+    }
+    if (spelling == "lrps2") {
+        return BiosScan::Lrps2;
     }
     return std::nullopt;
 }
@@ -263,8 +379,15 @@ std::optional<BiosScan> biosScanNamed(std::string_view spelling) {
 std::string CoreBios::mode() const {
     std::string used;
     std::size_t count = 0;
+    const auto holdsUsed = [this](const File& folder) {
+        const std::string inside = folder.firmware.path + "/";
+        return std::ranges::any_of(files, [&inside](const File& file) {
+            return file.used && file.firmware.path.starts_with(inside);
+        });
+    };
     for (const File& file : files) {
-        if (file.used) {
+        // A listed folder is named by the file in it the core boots.
+        if (file.used && !holdsUsed(file)) {
             used += (used.empty() ? "" : ", ") + file.firmware.path;
             ++count;
         }
@@ -278,16 +401,26 @@ std::string CoreBios::mode() const {
 CoreBios biosIn(const std::vector<CoreFirmware>& firmware, WithoutBios without, BiosScan scan,
                 const fs::path& system) {
     CoreBios bios{without, {}};
-    const std::vector<PickedBios> picked =
-        scan == BiosScan::PcsxRearmed ? pcsxRearmedBiosIn(system) : std::vector<PickedBios>{};
+    const std::vector<PickedBios> picked = scan == BiosScan::PcsxRearmed ? pcsxRearmedBiosIn(system)
+                                           : scan == BiosScan::Lrps2 ? lrps2BiosIn(system)
+                                                                     : std::vector<PickedBios>{};
+    // PCSX ReARMed boots one file per region; LRPS2 the first it lists.
+    const auto boots = [&picked, scan](const PickedBios& one) {
+        return scan != BiosScan::Lrps2 || &one == &picked.front();
+    };
     for (const CoreFirmware& file : firmware) {
         std::error_code ec;
         const bool present = !system.empty() && fs::is_regular_file(system / file.path, ec);
         CoreBios::File row{file, present, present && scan == BiosScan::Listed, {}};
         if (const auto at = std::ranges::find(picked, file.path, &PickedBios::file);
             at != picked.end()) {
-            row.used = true;
+            row.present = true;
+            row.used = boots(*at);
             row.region = at->region;
+        } else if (scan == BiosScan::Lrps2 && file.path == lrps2BiosFolder && !picked.empty()) {
+            row.present = true;
+            row.used = true;
+            row.region = picked.front().region;
         }
         bios.files.push_back(std::move(row));
     }
@@ -295,8 +428,8 @@ CoreBios biosIn(const std::vector<CoreFirmware>& firmware, WithoutBios without, 
         if (std::ranges::none_of(firmware, [&one](const CoreFirmware& file) {
                 return file.path == one.file;
             })) {
-            bios.files.push_back(
-                CoreBios::File{{one.file, "Found in the folder", true}, true, true, one.region});
+            bios.files.push_back(CoreBios::File{
+                {one.file, "Found in the folder", true}, true, boots(one), one.region});
         }
     }
     return bios;
