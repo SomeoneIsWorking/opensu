@@ -1,6 +1,6 @@
 # Home covers can stay on the loading placeholder
 
-Status: fixed (the fix still needs `ShellApp::publishSnapshot` to set `artworkPending`).
+Status: fixed (`ShellApp::publishSnapshot` reports `HomeGrid::artworkPending`).
 
 Observed: in `tools.screenshots --parity` runs of the same build, some Home captures showed covers
 (Teeworlds, SuperTux, others) on the loading spinner and failed `home` against a good set (mean
