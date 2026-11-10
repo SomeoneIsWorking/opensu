@@ -1,4 +1,4 @@
-# Forked cores: Switch, Wii U, setsail, GameCube
+# Forked cores: Switch, Wii U, GameCube
 
 Status: open, planned; phase 3, which they wait for, is built.
 
@@ -19,14 +19,13 @@ submits its own command buffers through `set_command_buffers` (handled, not prov
 |---|---|---|---|
 | Eden | the player's fork, `gitlab.com/bobbyjunior/eden` | GitLab only | Switch; keys from the player's `prod.keys`/`title.keys`, read-only as `library/switch_keys` does |
 | Ryujinx | the player's Ryubing fork, `gitlab.com/bobbyjunior/ryubing` | GitLab only | C#/.NET: the core is a native shim hosting the runtime; the largest of the set |
-| Cemu | `wiiuport` (`github.com/SomeoneIsWorking/wiiuport`), Cemu fork as its `external/cemu` submodule | GitHub | the Wii U core is built from wiiuport, not a second Cemu fork |
-| setsail | setsail's interpolated presentation, moved into wiiuport | GitHub | Wind Waker HD at 60 Hz becomes a per-game option of the Cemu core, not its own core |
+| Cemu | the player's Cemu fork, `github.com/SomeoneIsWorking/Cemu` | GitHub | Wii U; wiiuport and setsail, which built on this fork, were deleted on 2026-11-10 |
 
 Each core is a libretro build target in its fork, pinned by revision in openSU the way the Gamescope
 fork is, and listed in `assets/emulators.json` beside the standalone emulators. A title's
 enhancement pack is switched per game by the layered settings in `retro-shaders-overlays.md`.
 
-Order: phase 3, then Cemu (wiiuport) with setsail, then Eden, then Ryujinx. GitLab-hosted cores are built and downloaded from GitLab; nothing of them goes on GitHub.
+Order: phase 3, then Cemu, then Eden, then Ryujinx. GitLab-hosted cores are built and downloaded from GitLab; nothing of them goes on GitHub.
 
 ## Later: the PSX ports
 
@@ -53,7 +52,7 @@ when the disc is recognised and switched per game in the layered settings.
 | Console | Emulator | Packs |
 |---|---|---|
 | PS1 | psxport | the psx-* titles |
-| Wii U | wiiuport (Cemu) | setsail (Wind Waker HD) |
+| Wii U | the player's Cemu fork | none: setsail, the Wind Waker HD pack, and wiiuport were deleted on 2026-11-10 |
 | GameCube | the player's Dolphin fork, `github.com/SomeoneIsWorking/dolphin` | none: Sunbright, the Sunshine pack, was deleted on 2026-11-03 |
 
 The interpolator itself (the game renders real in-between frames by blending camera and actor
