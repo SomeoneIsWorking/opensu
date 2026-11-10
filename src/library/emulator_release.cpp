@@ -126,10 +126,11 @@ net::Result<ReleaseAsset> EmulatorRelease::latest(const std::stop_token& stop,
 
 net::Result<std::string> EmulatorRelease::fetch(const std::stop_token& stop,
                                                 const ReleaseAsset& asset, const fs::path& file,
-                                                const net::WebClient::Progress& progress) const {
+                                                const net::WebClient::Progress& progress,
+                                                const net::WebClient::Refusal& refusal) const {
     lucent::info("emulators", "downloading {} {} from {}", asset.name, asset.version, asset.url);
     if (const net::Result<net::WebClient::BodyFacts> fetched =
-            web_.download(stop, asset.url, file, progress);
+            web_.download(stop, asset.url, file, progress, refusal);
         !fetched) {
         removeQuietly(file);
         return fetched.as<std::string>("the download failed: ");

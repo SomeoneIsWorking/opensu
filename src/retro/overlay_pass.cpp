@@ -11,9 +11,9 @@ constexpr std::uint32_t overlayCode[] = {
 
 } // namespace
 
-OverlayPass::OverlayPass(VulkanDevice& device, VkFormat format, VkImageLayout layout)
-    : device_{device}, vk_{device.handle()}, texture_{device, 0},
-      input_{device.handle(), VK_FILTER_NEAREST} {
+OverlayPass::OverlayPass(VulkanDevice& device, VkFormat format, VkImageLayout layout,
+                         VkFilter filter)
+    : device_{device}, vk_{device.handle()}, texture_{device, 0}, input_{device.handle(), filter} {
     try {
         pass_ = makeColourPass(vk_, format, VK_ATTACHMENT_LOAD_OP_LOAD, layout, layout);
         const VkDescriptorSetLayout setLayout = input_.setLayout();
@@ -54,8 +54,8 @@ void OverlayPass::recordUpload(VkCommandBuffer commands, const touch::OverlayIma
     }
 }
 
-void OverlayPass::recordDraw(VkCommandBuffer commands, VkFramebuffer framebuffer,
-                             VkExtent2D extent) const {
+void OverlayPass::recordDraw(VkCommandBuffer commands, VkFramebuffer framebuffer, VkExtent2D extent,
+                             VkRect2D destination) const {
     if (!texture_.ready()) {
         return;
     }
@@ -66,8 +66,10 @@ void OverlayPass::recordDraw(VkCommandBuffer commands, VkFramebuffer framebuffer
     begin.renderArea.extent = extent;
     vkCmdBeginRenderPass(commands, &begin, VK_SUBPASS_CONTENTS_INLINE);
     VkViewport viewport{};
-    viewport.width = static_cast<float>(extent.width);
-    viewport.height = static_cast<float>(extent.height);
+    viewport.x = static_cast<float>(destination.offset.x);
+    viewport.y = static_cast<float>(destination.offset.y);
+    viewport.width = static_cast<float>(destination.extent.width);
+    viewport.height = static_cast<float>(destination.extent.height);
     viewport.maxDepth = 1.0F;
     const VkRect2D scissor{{0, 0}, extent};
     const VkDescriptorSet set = input_.set();

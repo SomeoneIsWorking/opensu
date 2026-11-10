@@ -65,3 +65,11 @@ Not found (2026-10-13): an iiSU source release, decompile, design spec or layout
   CRC. We take the numbers into `assets/cps2_keys.json`, no code; that file is removable alone.
 - `HerbFargus/retropie-dat` (GPL-2.0), `libretro/mame2003-plus-libretro` and `libretro/mame2010-libretro`
   listings: the old sets' names, sizes and CRC-32s, used as facts to write recipes.
+
+## Visual preset frames (`library/visual_presets`, checked 2026-11-10)
+
+| project | URL | kind | license | target | build match | what we may take | notes |
+|---|---|---|---|---|---|---|---|
+| libretro common-overlays | https://github.com/libretro/common-overlays at `8cc97a529fc642ec9e40e2c2f7e7e5c53ea88428`, read with `gh api` | RetroArch overlay and border images with their `.cfg` | CC-BY-4.0 (repository `COPYING`) | downloaded by the player at run time | each image pinned by commit URL, size and SHA-256 in `assets/visual-presets.json`: `borders/img/tv-integer.png` (1920x1080, `3935364a…`), `effects/crt-bezels/img/horizontal.png` (1140x856, `ab0e2bbf…`), `borders/animated-border/img-nes/background.png` (1920x1080, `79c664f0…`); their transparent holes (1009x885+454+99, 1070x800+35+28, 1410x1080+255+0) sit inside the picture rects the catalog gives | the three images, never into the tree: the player's copy under `<data>/opensu/overlays/`; the credit "frames from libretro common-overlays, CC BY 4.0" is shown on the Visual preset row and the Overlay art row (`settings::presetArtCredit`) | the three are free of console logos; no logo-free portrait NES art was found (`docs/issues/nes-portrait-frame.md`) |
+| libretro overlay-borders | https://github.com/libretro/overlay-borders | console borders | MIT | not used | not applicable | nothing | its NES and Game Boy borders show Nintendo's logo |
+| other NES frame candidates (common-overlays `borders/img/nes-smb2-integer.png`, Nosh and NYNY NES bezels) | as found in common-overlays and community packs | console bezels | various | not used | not applicable | nothing | show Nintendo characters or marks |

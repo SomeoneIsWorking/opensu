@@ -389,8 +389,10 @@ All of these use the existing `settings_page` row types (choice, toggle, slider,
    at launch, `POST /option` live; options a core hides (`SET_CORE_OPTIONS_DISPLAY`) still listed.
 7. Done except parameters: librashader from a pinned fork, the `shaders_slang.zip` download and
    the preset picker. Preset parameters as sliders not built.
-8. Bezels: the common-overlays download, folder import for Bezel Project packs, the game rect from
-   the viewport or the hole.
+8. Partly done: the visual presets (`library/visual_presets`, `retro/frame_art`) download pinned
+   common-overlays frames and place the game in the catalog's picture rect. Not built: a bezel
+   picker over the whole common-overlays set, folder import for Bezel Project packs, the game rect
+   from a cfg's viewport or the hole.
 9. Touch overlays.
 
 ## Sources

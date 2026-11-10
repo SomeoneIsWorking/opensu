@@ -388,7 +388,8 @@ struct Rig {
                                       [this]() -> const library::roms::Emulators& {
                                           return emulatorSettings.found();
                                       },
-                                      downloads.shaderPack(), presentation, retro,
+                                      downloads.shaderPack(), downloads.presets(), presentation,
+                                      retro,
                                       app::CoreOptionStore{config.cacheDir / "core-options"}},
         app::LayeredSettings::Hooks{[](const std::string&) {
                                         return std::optional<library::Game>{};
@@ -402,6 +403,8 @@ struct Rig {
                                     },
                                     [this](const std::string& text, bool error) {
                                         said.push_back({text, error});
+                                    },
+                                    [] {
                                     }}};
     app::LayerSettings layerSettings{gameSettings,
                                      [this]() -> const library::roms::Emulators& {

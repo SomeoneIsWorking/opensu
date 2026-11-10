@@ -1,0 +1,39 @@
+{
+  "art": [
+    {
+      "id": "crt-television",
+      "url": "https://raw.githubusercontent.com/libretro/common-overlays/8cc97a529fc642ec9e40e2c2f7e7e5c53ea88428/borders/img/tv-integer.png",
+      "size": 1960582,
+      "sha256": "3935364aa4858718429e639c75ee0e7b14cc3dee5fe70dd2acd100b73a600283"
+    },
+    {
+      "id": "crt-bezel",
+      "url": "https://raw.githubusercontent.com/libretro/common-overlays/8cc97a529fc642ec9e40e2c2f7e7e5c53ea88428/effects/crt-bezels/img/horizontal.png",
+      "size": 18191,
+      "sha256": "ab0e2bbfaf595c05f116401ad8cc420d4ae1841861db0826b3e331a46523b56b"
+    },
+    {
+      "id": "nes-console",
+      "url": "https://raw.githubusercontent.com/libretro/common-overlays/8cc97a529fc642ec9e40e2c2f7e7e5c53ea88428/borders/animated-border/img-nes/background.png",
+      "size": 81813,
+      "sha256": "79c664f010c154af9267add41b166e8f8b6cebbec79dd09ef15fea1933f85cda"
+    }
+  ],
+  "presets": [
+    {
+      "id": "crt",
+      "shader": "crt/crt-lottes.slangp",
+      "filter": "crt",
+      "aspect": "4:3",
+      "landscape": {"art": "crt-television", "picture": [448, 92, 1024, 896]},
+      "portrait": {"art": "crt-bezel", "picture": [30, 24, 1080, 808]}
+    },
+    {
+      "id": "nes",
+      "consoles": ["nes"],
+      "aspect": "4:3",
+      "landscape": {"art": "nes-console", "picture": [255, 0, 1410, 1080]},
+      "portrait": {"art": "nes-console", "picture": [255, 0, 1410, 1080]}
+    }
+  ]
+}

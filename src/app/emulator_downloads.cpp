@@ -53,6 +53,14 @@ std::string EmulatorDownloads::start(std::string_view id) {
             return installPack(stop, progress);
         });
     }
+    if (id == library::roms::overlayArtId) {
+        if (setup_.presets.folder().empty()) {
+            return "openSU has no folder to keep the overlay art in";
+        }
+        return launch(id, [this](const std::stop_token& stop, const auto& progress) {
+            return installArt(stop, progress);
+        });
+    }
     const EmulatorEntry* entry = setup_.catalog.find(id);
     if (entry == nullptr || !entry->downloadable()) {
         return "openSU cannot download " + std::string{entry == nullptr ? id : entry->name};
@@ -88,6 +96,9 @@ std::string EmulatorDownloads::launch(std::string_view id, Installer install) {
 std::string EmulatorDownloads::nameOf(std::string_view id) const {
     if (id == library::roms::shaderPackId) {
         return std::string{library::roms::shaderPackName};
+    }
+    if (id == library::roms::overlayArtId) {
+        return std::string{library::roms::overlayArtName};
     }
     const EmulatorEntry* entry = setup_.catalog.find(id);
     return entry != nullptr ? entry->name : std::string{id};
@@ -158,6 +169,20 @@ EmulatorDownloads::installPack(const std::stop_token& stop,
     Build build{installed->version(), installed->key()};
     remember(std::string{library::roms::shaderPackId}, build);
     return build;
+}
+
+net::Result<EmulatorDownloads::Build>
+EmulatorDownloads::installArt(const std::stop_token& stop,
+                              const net::WebClient::Progress& progress) {
+    const net::Result<std::size_t> installed = setup_.presets.install(stop, release_, progress);
+    if (!installed) {
+        return installed.as<Build>();
+    }
+    std::optional<Build> build = downloaded(library::roms::overlayArtId);
+    if (!build) {
+        return net::Failure{"the overlay art is not found where it was downloaded"};
+    }
+    return std::move(*build);
 }
 
 void EmulatorDownloads::runDownload(const std::stop_token& stop, const std::string& id,
@@ -336,6 +361,17 @@ std::optional<EmulatorDownloads::Build> EmulatorDownloads::downloaded(std::strin
         const std::optional<library::roms::ShaderPackBuild> pack = setup_.shaders.installed();
         return pack ? std::optional{Build{pack->version(), pack->key()}} : std::nullopt;
     }
+    if (id == library::roms::overlayArtId) {
+        const library::roms::VisualPresets& presets = setup_.presets;
+        const std::size_t have = presets.downloadedCount();
+        if (have == 0) {
+            return std::nullopt;
+        }
+        // The catalog pins each image, so the version is how many of them are here.
+        const std::string version =
+            std::to_string(have) + " of " + std::to_string(presets.art().size());
+        return Build{version, version};
+    }
     const EmulatorEntry* entry = setup_.catalog.find(id);
     if (entry == nullptr) {
         return std::nullopt;
@@ -369,6 +405,8 @@ std::string EmulatorDownloads::remove(std::string_view id) {
     bool removed = false;
     if (id == library::roms::shaderPackId) {
         removed = setup_.shaders.remove(error);
+    } else if (id == library::roms::overlayArtId) {
+        removed = setup_.presets.remove(error);
     } else if (entry != nullptr) {
         removed = entry->builtIn() ? cores_.remove(entry->core, error) : store_.remove(id, error);
     }

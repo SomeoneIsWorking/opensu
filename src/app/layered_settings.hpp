@@ -22,6 +22,7 @@
 #include "library/emulators.hpp"
 #include "library/game.hpp"
 #include "library/shader_pack.hpp"
+#include "library/visual_presets.hpp"
 #include "retro_session.hpp"
 #include "settings/setting_schema.hpp"
 #include "settings/setting_scope.hpp"
@@ -52,12 +53,15 @@ class LayeredSettings {
         std::function<void()> changed;
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
+        /// The visual preset now in force frames with art that is not downloaded.
+        std::function<void()> artMissing;
     };
 
     struct Sources {
         GameSettings& gameSettings;
         std::function<const library::roms::Emulators&()> found;
         const library::roms::ShaderPack& shaders;
+        const library::roms::VisualPresets& presets;
         GamePresentation& presentation;
         RetroSession& retro;
         CoreOptionStore coreOptions;
@@ -138,6 +142,7 @@ class LayeredSettings {
     GameSettings& gameSettings_;
     std::function<const library::roms::Emulators&()> found_;
     const library::roms::ShaderPack& shaders_;
+    const library::roms::VisualPresets& presets_;
     GamePresentation& presentation_;
     RetroSession& retro_;
     CoreOptionStore coreOptions_;

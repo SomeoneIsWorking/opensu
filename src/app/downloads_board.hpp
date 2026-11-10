@@ -30,6 +30,7 @@ enum class DownloadKind : std::uint8_t {
     Emulator,
     Core,
     ShaderPack,
+    OverlayArt,
     RomsetList,
     WineRunner
 };

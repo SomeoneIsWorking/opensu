@@ -127,8 +127,8 @@ struct Rig {
                                       [this]() -> const library::roms::Emulators& {
                                           return emulators.found();
                                       },
-                                      downloads.shaderPack(), presentation, retro,
-                                      app::CoreOptionStore{root / "core-options"}},
+                                      downloads.shaderPack(), downloads.presets(), presentation,
+                                      retro, app::CoreOptionStore{root / "core-options"}},
         app::LayeredSettings::Hooks{[this](const std::string&) {
                                         return std::optional{game()};
                                     },
@@ -142,6 +142,8 @@ struct Rig {
                                     },
                                     [this](const std::string& text, bool error) {
                                         said.emplace_back(text, error);
+                                    },
+                                    [] {
                                     }}};
     /// ROMs are never uninstalled; the details page here offers no Uninstall.
     app::UninstallPrompt uninstall{app::UninstallPrompt::Hooks{[](const library::Game&) {

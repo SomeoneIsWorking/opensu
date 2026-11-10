@@ -160,3 +160,10 @@ target_link_libraries(cemu_pads_test PRIVATE opensu::library)
 target_compile_definitions(cemu_pads_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 opensu_warnings(cemu_pads_test)
 add_test(NAME cemu_pads COMMAND cemu_pads_test)
+
+add_executable(visual_presets_test visual_presets_test.cpp)
+target_link_libraries(visual_presets_test PRIVATE opensu::library)
+target_compile_definitions(visual_presets_test PRIVATE OPENSU_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
+    OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+opensu_warnings(visual_presets_test)
+add_test(NAME visual_presets COMMAND visual_presets_test)

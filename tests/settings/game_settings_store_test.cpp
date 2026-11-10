@@ -139,6 +139,13 @@ void launchFile() {
     expect(turned && parseVideoJson(videoJson(*turned), error) == turned, "and it round trips");
     expect(!parseVideoJson(R"({"video.aspect": "wide"})", error) && !error.empty(),
            "a value that is no choice is refused");
+    VideoSettings framed;
+    framed.landscapeArt =
+        FrameArt{.image = "/data/overlays/tv.png", .x = 1, .y = 2, .width = 3, .height = 4};
+    expect(parseVideoJson(videoJson(framed), error) == framed, "frame art round trips");
+    expect(!parseVideoJson(R"({"video.art.portrait": {"image": "a.png", "picture": [0, 0, 0, 1]}})",
+                           error),
+           "art with an empty picture rect is refused");
 }
 
 } // namespace

@@ -28,14 +28,21 @@ const library::roms::EmulatorEntry* builtInOf(const library::Game& game,
     return entry != nullptr && entry->builtIn() ? entry : nullptr;
 }
 
-std::optional<settings::VideoSettings> retroVideoOf(const library::Game& game,
-                                                    const settings::SettingLayers& layers,
-                                                    const library::roms::EmulatorCatalog& catalog,
-                                                    const std::filesystem::path& presets) {
+std::optional<RetroVideo> retroVideoOf(const library::Game& game,
+                                       const settings::SettingLayers& layers,
+                                       const library::roms::EmulatorCatalog& catalog,
+                                       const std::filesystem::path& shaders,
+                                       const library::roms::VisualPresets& looks) {
     if (builtInOf(game, catalog) == nullptr) {
         return std::nullopt;
     }
-    return settings::resolveVideo(layers, library::layerKeysOf(game), presets);
+    const settings::LayerKeys keys = library::layerKeysOf(game);
+    RetroVideo found{.video = settings::resolveVideo(layers, keys, shaders)};
+    const std::string choice = settings::resolvePreset(layers, keys);
+    if (const library::roms::VisualPreset* preset = looks.chosen(choice, keys.system)) {
+        found.artMissing = !looks.apply(*preset, found.video, shaders);
+    }
+    return found;
 }
 
 namespace {
@@ -60,20 +67,20 @@ std::string arcadeControls(const library::Game& game, const library::roms::Emula
 
 } // namespace
 
-std::string prepareRetroLaunch(library::Game& game, const settings::SettingLayers& layers,
-                               const library::roms::EmulatorCatalog& catalog,
-                               const std::filesystem::path& file,
-                               const std::filesystem::path& presets,
-                               const std::filesystem::path& saves,
-                               const library::roms::RomsetDats& romsets, bool embedded) {
-    const std::optional<settings::VideoSettings> video =
-        retroVideoOf(game, layers, catalog, presets);
+PreparedRetro prepareRetroLaunch(library::Game& game, const settings::SettingLayers& layers,
+                                 const library::roms::EmulatorCatalog& catalog,
+                                 const std::filesystem::path& file,
+                                 const std::filesystem::path& shaders,
+                                 const library::roms::VisualPresets& looks,
+                                 const std::filesystem::path& saves,
+                                 const library::roms::RomsetDats& romsets, bool embedded) {
+    const std::optional<RetroVideo> video = retroVideoOf(game, layers, catalog, shaders, looks);
     if (!video) {
         return {};
     }
     std::string error;
-    if (!fileio::writeWhole(file, settings::videoJson(*video), error)) {
-        return error;
+    if (!fileio::writeWhole(file, settings::videoJson(video->video), error)) {
+        return PreparedRetro{.refused = std::move(error)};
     }
     std::vector<std::string> options{"--saves",
                                      retro::systemSaveFolder(saves, game.sourceId).string(),
@@ -96,7 +103,7 @@ std::string prepareRetroLaunch(library::Game& game, const settings::SettingLayer
     game.launch.args.insert(game.launch.args.begin(), options.begin(), options.end());
     lucent::info("retro", "{} starts with {}, its saves in {}", game.title, file.string(),
                  saves.string());
-    return {};
+    return PreparedRetro{.artMissing = video->artMissing};
 }
 
 bool hostedLaunch(const library::Game& game) {

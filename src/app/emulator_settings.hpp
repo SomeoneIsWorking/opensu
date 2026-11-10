@@ -68,6 +68,11 @@ class EmulatorSettings {
     void runRemove(std::string_view id, const std::string& name);
     /// The shader pack's Download / Update row and its Remove.
     void addShaderPackRows(ui::SettingsCategory& page) const;
+    /// The visual presets' art: its Download row, with the credit its licence asks for, and its
+    /// Remove.
+    void addOverlayArtRows(ui::SettingsCategory& page) const;
+    /// Cancels the art's download, says it is all here, or starts it.
+    void runOverlayArt();
     /// Each emulator's Download / Update row and its Remove.
     void addEmulatorRows(ui::SettingsCategory& page) const;
     /// What `id`'s row reads while it downloads or when `ours`; nothing otherwise.

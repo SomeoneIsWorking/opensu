@@ -9,6 +9,7 @@
 #include "downloads_screen.hpp"
 #include "library/emulator_catalog.hpp"
 #include "library/shader_pack.hpp"
+#include "library/visual_presets.hpp"
 #include "ui/size_text.hpp"
 
 namespace opensu::app {
@@ -44,6 +45,8 @@ std::string sourceText(const DownloadRow& row) {
         return "Core";
     case DownloadKind::ShaderPack:
         return "Shaders";
+    case DownloadKind::OverlayArt:
+        return "Overlays";
     case DownloadKind::RomsetList:
         return "Arcade";
     case DownloadKind::WineRunner:
@@ -191,6 +194,9 @@ void DownloadsController::service() {
     const auto kindOf = [&catalog](const std::string& id) {
         if (id == library::roms::shaderPackId) {
             return DownloadKind::ShaderPack;
+        }
+        if (id == library::roms::overlayArtId) {
+            return DownloadKind::OverlayArt;
         }
         const library::roms::EmulatorEntry* entry = catalog.find(id);
         return entry != nullptr && entry->builtIn() ? DownloadKind::Core : DownloadKind::Emulator;

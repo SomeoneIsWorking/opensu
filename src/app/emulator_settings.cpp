@@ -9,13 +9,17 @@
 #include "library/core_bios.hpp"
 #include "library/rom_systems.hpp"
 #include "library/shader_pack.hpp"
+#include "library/visual_presets.hpp"
 #include "lucent/text.h"
+#include "ui/size_text.hpp"
 
 namespace opensu::app {
 namespace {
 
 using library::roms::EmulatorEntry;
 using library::roms::EmulatorInstall;
+using library::roms::overlayArtId;
+using library::roms::overlayArtName;
 using library::roms::shaderPackId;
 using library::roms::shaderPackName;
 using ui::RowKind;
@@ -133,6 +137,7 @@ ui::SettingsCategory EmulatorSettings::page(std::vector<ui::SettingsRow> layerRo
                                      "Download, update or remove each one",
                                      std::to_string(installed) + " installed"));
     addShaderPackRows(page);
+    addOverlayArtRows(page);
     page.rows.push_back(ui::makeHeading("BIOS"));
     page.rows.push_back(
         ui::makePage(std::string{biosPageId}, "BIOS files", "What each built-in core runs on", ""));
@@ -274,6 +279,50 @@ void EmulatorSettings::addShaderPackRows(ui::SettingsCategory& page) const {
     }
 }
 
+void EmulatorSettings::addOverlayArtRows(ui::SettingsCategory& page) const {
+    const library::roms::VisualPresets& presets = downloads_.presets();
+    if (presets.art().empty()) {
+        return;
+    }
+    const std::size_t have = presets.downloadedCount();
+    const std::string note = "The visual presets' art, about " + ui::sizeText(presets.totalSize()) +
+                             " · " + std::string{settings::presetArtCredit};
+    std::string value = "Download";
+    if (std::optional<std::string> downloading = downloadValue(overlayArtId, false)) {
+        value = std::move(*downloading);
+    } else if (have == presets.art().size()) {
+        value = "Downloaded";
+    } else if (have > 0) {
+        value = std::to_string(have) + " of " + std::to_string(presets.art().size());
+    }
+    page.rows.push_back(ui::makeRow(std::string{emulatorId} + std::string{overlayArtId},
+                                    RowKind::Action, std::string{overlayArtName}, note,
+                                    std::move(value)));
+    if (have > 0) {
+        ui::SettingsRow remove = ui::makeRow(
+            std::string{removeId} + std::string{overlayArtId}, RowKind::Action,
+            "Remove " + std::string{overlayArtName},
+            "Deletes the frames; a preset runs without its frame until they are back", "");
+        remove.confirm = remove.note + ".";
+        page.rows.push_back(std::move(remove));
+    }
+}
+
+void EmulatorSettings::runOverlayArt() {
+    if (const std::optional<EmulatorDownloads::Progress> progress = downloads_.progress();
+        progress && progress->id == overlayArtId) {
+        downloads_.cancel(overlayArtId);
+        return;
+    }
+    if (downloads_.presets().missing().empty()) {
+        hooks_.say("The overlay art is all downloaded", false);
+        return;
+    }
+    if (const std::string refused = downloads_.start(overlayArtId); !refused.empty()) {
+        hooks_.say(refused, true);
+    }
+}
+
 void EmulatorSettings::run(const std::string& id, int step) {
     const std::string_view row{id};
     if (row == embeddedId) {
@@ -300,6 +349,14 @@ void EmulatorSettings::run(const std::string& id, int step) {
         } else {
             runDownload(key, std::string{shaderPackName},
                         downloads_.shaderPack().installed().has_value());
+        }
+        return;
+    }
+    if (key == overlayArtId) {
+        if (remove) {
+            runRemove(key, std::string{overlayArtName});
+        } else {
+            runOverlayArt();
         }
         return;
     }

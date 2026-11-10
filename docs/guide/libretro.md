@@ -61,6 +61,9 @@ no BIOS, keys or firmware.
 
 Every built-in core's game has, under Video:
 
+- **Visual preset**: None, Auto Console or CRT, one choice that sets the shader, filter, aspect and
+  a frame drawn around the picture together (below); Aspect, Filter and Shader preset are hidden
+  while one applies.
 - **Aspect**: Core, 4:3, Pixel 1:1 or Stretch.
 - **Integer scale**: Off, On (whole multiples of the game's pixels) or Overscale (fills and crops).
 - **Sampling**: Nearest, Bilinear or Sharp bilinear.
@@ -78,6 +81,26 @@ checks for a newer build and removes it. The preset picker browses its folders (
 `pixel-art-scaling › sharp-bilinear-simple`, `bezel › Mega_Bezel` and the rest). The runner builds
 presets with librashader, shipped beside it; without it a game with a preset refuses to start and
 says why.
+
+### Visual presets
+
+`assets/visual-presets.json` lists them. CRT runs `crt/crt-lottes.slangp` from the shader pack (the
+built-in CRT filter while the pack is not downloaded) at 4:3 inside a television on a landscape
+screen and inside a curved CRT bezel on a portrait one. Auto Console picks the game's console's own
+preset, so far the NES controller frame; a console with none runs as None.
+
+The frames are never shipped. Each image is pinned to a libretro common-overlays commit by URL,
+size and SHA-256 and downloads on demand into `<data>/opensu/overlays/<id>.png`: on the first
+launch with a preset whose art is missing (the game runs without its frame and a toast says the
+frame shows from the next launch), when a preset is chosen over a running game, or from Settings ›
+Emulators › Overlay art, which also removes it. The frames are CC BY 4.0; the Visual preset row and
+the Overlay art row carry the credit.
+
+The runner letterboxes the frame into the screen above the touch controls, landscape art on a
+screen wider than tall and portrait art on a taller one, places the picture inside the art's
+picture rect at the preset's aspect and integer scale, and draws the art over it. A picture turned
+by Rotate screen has no frame. To check it: `GET /frame.png` from the runner's control port shows
+the frame around the game.
 
 ## Setting layers
 

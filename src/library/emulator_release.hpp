@@ -47,11 +47,13 @@ class EmulatorRelease {
                                                    const ReleaseSource& source) const;
 
     /// Downloads `asset` to `file` and checks its size and SHA-256 against the release's, returning
-    /// the SHA-256 it has. Unless it succeeds, a stop or cancel included, `file` is removed.
+    /// the SHA-256 it has. Unless it succeeds, a stop or cancel included, `file` is removed. Every
+    /// hop `refusal` refuses fails it.
     [[nodiscard]] net::Result<std::string> fetch(const std::stop_token& stop,
                                                  const ReleaseAsset& asset,
                                                  const std::filesystem::path& file,
-                                                 const net::WebClient::Progress& progress) const;
+                                                 const net::WebClient::Progress& progress,
+                                                 const net::WebClient::Refusal& refusal = {}) const;
 
     /// Downloads `asset` of `entry` beside the version in use, verifies it, makes it executable
     /// and switches to it. Unless it succeeds, a stop or cancel included, the partial file is

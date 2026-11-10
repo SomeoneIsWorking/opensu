@@ -849,6 +849,19 @@ std::filesystem::path ShellApp::profileRunnerSaves(const std::string& profile) c
     return retro::profileSaveFolder(profiles_.runnerSaves(), profile);
 }
 
+void ShellApp::fetchFrameArt() {
+    if (const std::optional<EmulatorDownloads::Progress> running = emulatorDownloads_.progress();
+        running && running->id == library::roms::overlayArtId) {
+        return;
+    }
+    if (const std::string refused = emulatorDownloads_.start(library::roms::overlayArtId);
+        !refused.empty()) {
+        shell_.setToast("The visual preset's frame is not downloaded: " + refused, true);
+        return;
+    }
+    shell_.setToast("Downloading the visual preset's frame; it shows from the next launch", false);
+}
+
 bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> extra,
                            const std::string& profile, const std::filesystem::path& saves) {
     library::Game started = game;
@@ -858,14 +871,17 @@ bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> e
         return false;
     }
     std::string control = retro_.begin();
-    if (const std::string refused = prepareRetroLaunch(
-            started, gameSettings_.layers(), emulatorSettings_.catalog(), retro_.settingsFile(),
-            emulatorDownloads_.shaderPack().root(), saves, romsetLists_.dats(),
-            preferences_.values().embeddedRunner && embedsGames());
-        !refused.empty()) {
+    const PreparedRetro prepared = prepareRetroLaunch(
+        started, gameSettings_.layers(), emulatorSettings_.catalog(), retro_.settingsFile(),
+        emulatorDownloads_.shaderPack().root(), emulatorDownloads_.presets(), saves,
+        romsetLists_.dats(), preferences_.values().embeddedRunner && embedsGames());
+    if (!prepared.refused.empty()) {
         static_cast<void>(retro_.end());
-        shell_.setToast("cannot write " + game.title + "'s settings: " + refused, true);
+        shell_.setToast("cannot write " + game.title + "'s settings: " + prepared.refused, true);
         return false;
+    }
+    if (prepared.artMissing) {
+        fetchFrameArt();
     }
 
     // input-sound.md 3.4 OpenAppRom: every game launch.

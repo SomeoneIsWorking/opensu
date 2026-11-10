@@ -9,21 +9,58 @@
 namespace opensu::settings {
 namespace {
 
+constexpr std::string_view landscapeArtKey = "video.art.landscape";
+constexpr std::string_view portraitArtKey = "video.art.portrait";
+
+bool withoutVisualPreset(const SettingLookup& applies) {
+    const std::string preset = applies(presetKey.key);
+    return preset.empty() || preset == noPreset;
+}
+
+nlohmann::json artJson(const std::optional<FrameArt>& art) {
+    if (!art) {
+        return nullptr;
+    }
+    return nlohmann::json{{"image", art->image.string()},
+                          {"picture", {art->x, art->y, art->width, art->height}}};
+}
+
+/// The art in `found` into `art`, which stays none for null; false with `error` when it is not
+/// art.
+bool parseArt(const nlohmann::json& found, std::string_view key, std::optional<FrameArt>& art,
+              std::string& error) {
+    if (found.is_null()) {
+        return true;
+    }
+    const auto image = found.find("image");
+    const auto picture = found.find("picture");
+    const bool shaped = found.is_object() && image != found.end() && image->is_string() &&
+                        picture != found.end() && picture->is_array() && picture->size() == 4 &&
+                        std::ranges::all_of(*picture, [](const nlohmann::json& side) {
+                            return side.is_number_unsigned();
+                        });
+    if (!shaped || (*picture)[2].get<std::uint32_t>() == 0 ||
+        (*picture)[3].get<std::uint32_t>() == 0) {
+        error = found.dump() + " is not a " + std::string{key};
+        return false;
+    }
+    art = FrameArt{.image = image->get<std::string>(),
+                   .x = (*picture)[0].get<std::uint32_t>(),
+                   .y = (*picture)[1].get<std::uint32_t>(),
+                   .width = (*picture)[2].get<std::uint32_t>(),
+                   .height = (*picture)[3].get<std::uint32_t>()};
+    return true;
+}
+
 bool touchSizeFits(int size) {
     return size >= touchSizeSmallest && size <= touchSizeLargest;
 }
 
-const ChoiceKey& aspectKey() {
-    return videoKeys[0];
-}
 const ChoiceKey& integerKey() {
     return videoKeys[1];
 }
 const ChoiceKey& samplingKey() {
     return videoKeys[2];
-}
-const ChoiceKey& filterKey() {
-    return videoKeys[3];
 }
 const ChoiceKey& shaderResolutionKey() {
     return videoKeys[4];
@@ -33,6 +70,14 @@ const ChoiceKey& touchShowKey() {
 }
 
 } // namespace
+
+const ChoiceKey& aspectKey() {
+    return videoKeys[0];
+}
+
+const ChoiceKey& filterKey() {
+    return videoKeys[3];
+}
 
 const ChoiceKey& turnedKey() {
     return videoKeys[5];
@@ -47,10 +92,17 @@ void declareVideo(Schema& schema) {
     const auto withoutShader = [](const SettingLookup& applies) {
         return applies(shaderKey).empty();
     };
-    schema.add(choiceSetting(aspectKey(),
-                             "The picture's shape: the core's, 4:3, square pixels or "
-                             "the whole screen",
-                             section));
+    schema.add(choiceSetting(presetKey,
+                             "A look set at once: CRT's shader and television, or the frame of "
+                             "the game's own console with Auto Console; " +
+                                 std::string{presetArtCredit},
+                             section, SettingType::Preset));
+    Setting aspect = choiceSetting(aspectKey(),
+                                   "The picture's shape: the core's, 4:3, square pixels or "
+                                   "the whole screen",
+                                   section);
+    aspect.shownWhen = withoutVisualPreset;
+    schema.add(std::move(aspect));
     schema.add(choiceSetting(
         integerKey(), "Whole multiples of the game's pixels; Overscale fills and crops", section));
     Setting sampling =
@@ -59,7 +111,9 @@ void declareVideo(Schema& schema) {
     schema.add(std::move(sampling));
     Setting filter = choiceSetting(
         filterKey(), "A pass over the picture: scanlines, an LCD grid or a CRT", section);
-    filter.shownWhen = withoutShader;
+    filter.shownWhen = [withoutShader](const SettingLookup& applies) {
+        return withoutShader(applies) && withoutVisualPreset(applies);
+    };
     schema.add(std::move(filter));
     Setting shader;
     shader.key = std::string{shaderKey};
@@ -67,6 +121,7 @@ void declareVideo(Schema& schema) {
     shader.help = "A RetroArch slang preset; it replaces Sampling and Filter";
     shader.section = section;
     shader.type = SettingType::Path;
+    shader.shownWhen = withoutVisualPreset;
     schema.add(std::move(shader));
     Setting resolution = choiceSetting(
         shaderResolutionKey(),
@@ -97,6 +152,12 @@ void declareVideo(Schema& schema) {
 
 Resolved resolveShader(const SettingLayers& layers, const LayerKeys& keys) {
     return layers.resolve(keys, shaderKey, std::string{});
+}
+
+std::string resolvePreset(const SettingLayers& layers, const LayerKeys& keys) {
+    const Resolved resolved = layers.resolve(keys, presetKey.key, std::string{noPreset});
+    return std::string{
+        presetChoices[choiceIndexOrDefault(presetKey, resolved.value, keys.game)].key};
 }
 
 int resolveTouchSize(const SettingLayers& layers, const LayerKeys& keys) {
@@ -144,6 +205,8 @@ std::string videoJson(const VideoSettings& video) {
         {std::string{touchShowKey().key}, spelling(touchShowKey(), video.touchShow)},
         {std::string{touchSizeKey}, video.touchSize},
         {std::string{turnedKey().key}, turnedValue(video.turned)},
+        {std::string{landscapeArtKey}, artJson(video.landscapeArt)},
+        {std::string{portraitArtKey}, artJson(video.portraitArt)},
     };
     return document.dump();
 }
@@ -185,6 +248,15 @@ std::optional<VideoSettings> parseVideoJson(std::string_view text, std::string& 
         }
         touchSize = found->get<int>();
     }
+    std::array<std::optional<FrameArt>, 2> art;
+    for (std::size_t at = 0; const std::string_view key : {landscapeArtKey, portraitArtKey}) {
+        if (const auto found = document.find(std::string{key}); found != document.end()) {
+            if (!parseArt(*found, key, art[at], error)) {
+                return std::nullopt;
+            }
+        }
+        ++at;
+    }
     return VideoSettings{
         .aspect = static_cast<Aspect>(chosen[0]),
         .integer = static_cast<IntegerScale>(chosen[1]),
@@ -195,6 +267,8 @@ std::optional<VideoSettings> parseVideoJson(std::string_view text, std::string& 
         .touchShow = static_cast<TouchShow>(chosen[6]),
         .touchSize = touchSize,
         .turned = chosen[5] == 1,
+        .landscapeArt = std::move(art[0]),
+        .portraitArt = std::move(art[1]),
     };
 }
 

@@ -425,10 +425,11 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
             overlay_ =
                 std::make_unique<OverlayPass>(*device_, format_,
                                               options_.hidden ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
-                                                              : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+                                                              : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                                              VK_FILTER_NEAREST);
         }
         overlay_->recordUpload(commands_, *overlay);
-        overlay_->recordDraw(commands_, targets_[index].framebuffer, extent_);
+        overlay_->recordDraw(commands_, targets_[index].framebuffer, extent_, {{0, 0}, extent_});
     }
     if (capture_ != VK_NULL_HANDLE) {
         recordCapture(targets_[index].image);

@@ -25,8 +25,9 @@ bool builtIn(const library::roms::EmulatorCatalog& catalog, const std::string& i
 
 LayeredSettings::LayeredSettings(Sources sources, Hooks hooks)
     : gameSettings_{sources.gameSettings}, found_{std::move(sources.found)},
-      shaders_{sources.shaders}, presentation_{sources.presentation}, retro_{sources.retro},
-      coreOptions_{std::move(sources.coreOptions)}, hooks_{std::move(hooks)} {
+      shaders_{sources.shaders}, presets_{sources.presets}, presentation_{sources.presentation},
+      retro_{sources.retro}, coreOptions_{std::move(sources.coreOptions)},
+      hooks_{std::move(hooks)} {
 }
 
 EditorContext LayeredSettings::forGame(const library::Game& game) const {
@@ -297,10 +298,13 @@ void LayeredSettings::applyToRunning() {
         return;
     }
     const settings::SettingLayers& layers = gameSettings_.layers();
-    if (const std::optional<settings::VideoSettings> video =
-            retroVideoOf(*running, layers, found_().catalog(), shaders_.root())) {
-        if (const std::string refused = retro_.setVideo(*video); !refused.empty()) {
+    if (const std::optional<RetroVideo> video =
+            retroVideoOf(*running, layers, found_().catalog(), shaders_.root(), presets_)) {
+        if (const std::string refused = retro_.setVideo(video->video); !refused.empty()) {
             hooks_.say(refused, true);
+        }
+        if (video->artMissing && hooks_.artMissing) {
+            hooks_.artMissing();
         }
     }
     const std::map<std::string, std::string> wanted =

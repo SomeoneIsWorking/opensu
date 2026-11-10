@@ -47,6 +47,7 @@ add_library(opensu_library STATIC
     emulator_catalog.cpp
     emulator_release.cpp
     shader_pack.cpp
+    visual_presets.cpp
     downloaded_emulators.cpp
     libretro_cores.cpp
     core_bios.cpp

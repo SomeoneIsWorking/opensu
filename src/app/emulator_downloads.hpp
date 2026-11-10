@@ -1,7 +1,8 @@
 // emulator_downloads — downloading, updating and removing what openSU installs for emulators, off
 // the main loop: official AppImages, built-in emulators' libretro cores and libretro's shader pack
-// (`shaderPackId`), one download at a time with its progress and cancel, the update check, and the
-// news the loop hands to the screens (`service`). Nothing updates unless the player asks.
+// (`shaderPackId`) and the visual presets' art (`overlayArtId`), one download at a time with its
+// progress and cancel, the update check, and the news the loop hands to the screens (`service`).
+// Nothing updates unless the player asks.
 #pragma once
 
 #include <cstdint>
@@ -93,9 +94,9 @@ class EmulatorDownloads {
         setup_.standalone = standalone;
     }
 
-    /// Downloads the latest release, core build or shader pack (`shaderPackId`) of `id` and
-    /// switches to it. Refused, with the reason, while another download runs or for an emulator
-    /// openSU cannot download.
+    /// Downloads the latest release, core build, shader pack (`shaderPackId`) or the missing
+    /// overlay art (`overlayArtId`) of `id` and switches to it. Refused, with the reason, while
+    /// another download runs or for an emulator openSU cannot download.
     [[nodiscard]] std::string start(std::string_view id);
     /// Stops the running download of `id`; the version in use stays.
     void cancel(std::string_view id);
@@ -119,11 +120,15 @@ class EmulatorDownloads {
     /// The version openSU downloaded for `id`.
     [[nodiscard]] std::optional<Build> downloaded(std::string_view id) const;
 
-    /// `id`'s name as the player reads it: the emulator's, or the shader pack's.
+    /// `id`'s name as the player reads it: the emulator's, the shader pack's or the art's.
     [[nodiscard]] std::string nameOf(std::string_view id) const;
     /// The shader pack on disk.
     [[nodiscard]] const library::roms::ShaderPack& shaderPack() const noexcept {
         return setup_.shaders;
+    }
+    /// The visual presets and their art on disk.
+    [[nodiscard]] const library::roms::VisualPresets& presets() const noexcept {
+        return setup_.presets;
     }
 
     /// Hands what happened on the threads to the loop through the hooks. Main loop only.
@@ -154,6 +159,9 @@ class EmulatorDownloads {
     /// Installs the shader pack the buildbot serves now.
     [[nodiscard]] net::Result<Build> installPack(const std::stop_token& stop,
                                                  const net::WebClient::Progress& progress);
+    /// Downloads the overlay art that is missing.
+    [[nodiscard]] net::Result<Build> installArt(const std::stop_token& stop,
+                                                const net::WebClient::Progress& progress);
     /// Reads the latest builds; releases of standalone emulators only when `standalone`.
     void runCheck(const std::stop_token& stop, bool standalone);
     /// Reads the buildbot's listing once for every built-in emulator without a release.

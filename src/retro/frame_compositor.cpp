@@ -137,6 +137,7 @@ FrameCompositor::FrameCompositor(VkInstance instance, VulkanDevice& device, VkFo
       finalLayout_{finalLayout}, scale_{video.shaderResolution}, timer_{device},
       // librashader copies the frame into a preset's OriginalHistory.
       texture_{device, VK_IMAGE_USAGE_TRANSFER_SRC_BIT} {
+    art_.load(video_);
     try {
         renderPass_ = makeColourPass(vk_, format, VK_ATTACHMENT_LOAD_OP_CLEAR,
                                      VK_IMAGE_LAYOUT_UNDEFINED, finalLayout);
@@ -158,6 +159,7 @@ FrameCompositor::~FrameCompositor() {
 
 void FrameCompositor::release() {
     device_.waitIdle();
+    framePass_.reset();
     reduced_.reset();
     chain_.reset();
     destroyPipeline();
@@ -184,6 +186,8 @@ void FrameCompositor::change(const settings::VideoSettings& video, VkInstance in
     destroyPipeline();
     const bool rescale = !samePreset || video.shaderResolution != video_.shaderResolution;
     video_ = video;
+    art_.load(video_);
+    uploadedArt_ = nullptr;
     if (!samePreset) {
         chain_ = std::move(chain);
     }
@@ -194,6 +198,50 @@ void FrameCompositor::change(const settings::VideoSettings& video, VkInstance in
         }
     }
     createPipeline();
+}
+
+VkRect2D FrameCompositor::room(VkExtent2D extent) const noexcept {
+    const std::uint32_t top = std::min(clearTop_, extent.height);
+    const std::uint32_t height = extent.height - top - std::min(clearBottom_, extent.height - top);
+    return VkRect2D{{0, static_cast<std::int32_t>(top)}, {extent.width, height}};
+}
+
+std::optional<std::pair<const ArtImage*, Framing>>
+FrameCompositor::framing(VkExtent2D extent) const {
+    const VkRect2D area = room(extent);
+    const ArtImage* art = turned_ ? nullptr : art_.forRoom(area.extent);
+    if (art == nullptr || area.extent.width == 0 || area.extent.height == 0) {
+        return std::nullopt;
+    }
+    return std::pair{art, frameIn(area, *art)};
+}
+
+VkRect2D FrameCompositor::placed(VkExtent2D extent, const FrameImage& frame) const {
+    const auto framed = framing(extent);
+    const VkRect2D area = framed ? framed->second.picture : room(extent);
+    VkRect2D rect = placeFrame(area.extent, frame, video_, turned_);
+    rect.offset.x += area.offset.x;
+    rect.offset.y += area.offset.y;
+    return rect;
+}
+
+void FrameCompositor::recordFrameArt(VkCommandBuffer commands, const DrawTarget& target,
+                                     VkExtent2D extent) {
+    const auto framed = framing(extent);
+    if (!framed) {
+        return;
+    }
+    const ArtImage& art = *framed->first;
+    if (!framePass_) {
+        framePass_ =
+            std::make_unique<OverlayPass>(device_, format_, finalLayout_, VK_FILTER_LINEAR);
+    }
+    framePass_->recordUpload(commands, touch::OverlayImage{.rgba = art.rgba,
+                                                           .width = art.width,
+                                                           .height = art.height,
+                                                           .changed = uploadedArt_ != &art});
+    uploadedArt_ = &art;
+    framePass_->recordDraw(commands, target.framebuffer, extent, framed->second.art);
 }
 
 void FrameCompositor::turn(bool turned) {
@@ -420,6 +468,7 @@ bool FrameCompositor::record(VkCommandBuffer commands, const FrameImage& frame, 
     takeShaderTime(frame, stages);
     if (frame.gpu) {
         recordCoreImage(commands, target, extent, frame, *frame.gpu);
+        recordFrameArt(commands, target, extent);
         return false;
     }
     const bool complete =
@@ -432,6 +481,7 @@ bool FrameCompositor::record(VkCommandBuffer commands, const FrameImage& frame, 
         bindTexture();
     }
     recordDraw(commands, target, extent, frame, textureImage(), texture_.ready());
+    recordFrameArt(commands, target, extent);
     return uploaded;
 }
 

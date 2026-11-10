@@ -1,6 +1,7 @@
 // video_settings — how opensu-retro shows a game's frame: its aspect, integer scaling, sampling,
 // filter, shader preset and the resolution the preset is drawn at, whether the player rotated the
-// screen, and the size of the touch controls over it.
+// screen, the size of the touch controls over it, and the art framed around the picture per
+// orientation, which the shell fills in from a visual preset (`library/visual_presets`).
 // The keys and choices the setting layers keep them under, a game's values resolved from those
 // layers, and their JSON: the per-launch file the shell writes and `opensu-retro --settings`
 // reads, and the body of the runner's `POST /video`. A shader
@@ -73,6 +74,17 @@ enum class TouchShow : std::uint8_t {
     Never,
 };
 
+/// Art drawn around the picture: an RGBA image and where in its pixels the picture stands.
+struct FrameArt {
+    std::filesystem::path image;
+    std::uint32_t x{0};
+    std::uint32_t y{0};
+    std::uint32_t width{0};
+    std::uint32_t height{0};
+
+    bool operator==(const FrameArt&) const = default;
+};
+
 inline constexpr std::string_view touchSizeKey = "touch.size";
 inline constexpr int touchSizeSmallest = 75;
 inline constexpr int touchSizeLargest = 175;
@@ -91,6 +103,9 @@ struct VideoSettings {
     int touchSize{touchSizeDefault};
     /// Rotate screen is on; the runner's `ScreenTurn` carries it out.
     bool turned{false};
+    /// The frame around the picture on a screen wider than tall, and on one taller than wide.
+    std::optional<FrameArt> landscapeArt{};
+    std::optional<FrameArt> portraitArt{};
 
     bool operator==(const VideoSettings&) const = default;
 };
@@ -150,18 +165,37 @@ inline constexpr std::array<ChoiceKey, 7> videoKeys{{
 inline constexpr std::string_view shaderKey = "video.shader";
 inline constexpr std::string_view shaderLabel = "Shader preset";
 
+inline constexpr std::array<ChoiceText, 3> presetChoices{{
+    {"none", "None"},
+    {"auto-console", "Auto Console"},
+    {"crt", "CRT"},
+}};
+/// The visual preset: one choice for the shader, filter, aspect and frame art together. Auto
+/// Console picks the game's console's own; the others are entries of the preset catalog.
+inline constexpr ChoiceKey presetKey{"video.preset", "Visual preset", presetChoices};
+/// What CC BY 4.0 asks to be shown where the presets' art is chosen and downloaded.
+inline constexpr std::string_view presetArtCredit =
+    "frames from libretro common-overlays, CC BY 4.0";
+inline constexpr std::string_view noPreset = "none";
+inline constexpr std::string_view autoConsolePreset = "auto-console";
+
 /// The heading the video settings stand under.
 inline constexpr std::string_view videoSection = "Video";
 
-/// Declares the video settings in `schema`: Aspect, Integer scale, Sampling and Filter (both
-/// hidden while a shader preset applies, which replaces them), the shader preset, Shader
-/// resolution (shown only while a preset applies), Touch controls, their size and Rotate screen.
+/// Declares the video settings in `schema`: the visual preset, Aspect, Integer scale, Sampling and
+/// Filter (Sampling and Filter hidden while a shader preset applies, which replaces them), the
+/// shader preset, Shader resolution (shown only while a preset applies), Touch controls, their
+/// size and Rotate screen. Aspect, Filter and the shader preset are hidden while a visual preset
+/// other than None applies, which sets them.
 void declareVideo(Schema& schema);
 
 /// `keys`' video settings, each from its winning layer; a kept value that is no choice is
 /// reported and the default used. The shader preset is found under `presets`, the shader pack.
 /// The controls' size where `keys` look; the default for a value out of the range.
 [[nodiscard]] int resolveTouchSize(const SettingLayers& layers, const LayerKeys& keys);
+/// The keys Aspect and Filter are kept under, with their choices.
+[[nodiscard]] const ChoiceKey& aspectKey();
+[[nodiscard]] const ChoiceKey& filterKey();
 /// The key Rotate screen is kept under, and its spelling for `turned`.
 [[nodiscard]] const ChoiceKey& turnedKey();
 [[nodiscard]] std::string turnedValue(bool turned);
@@ -170,6 +204,8 @@ void declareVideo(Schema& schema);
                                          const std::filesystem::path& presets);
 /// The preset `keys` resolve to, relative to the shader pack, with its layer; "" for none.
 [[nodiscard]] Resolved resolveShader(const SettingLayers& layers, const LayerKeys& keys);
+/// The visual preset `keys` resolve to, one of `presetChoices`; None for a value that is none.
+[[nodiscard]] std::string resolvePreset(const SettingLayers& layers, const LayerKeys& keys);
 
 /// `video` as one line of JSON: the per-launch file's text and the body of the runner's
 /// `POST /video`.

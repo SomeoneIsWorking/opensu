@@ -230,6 +230,8 @@ class ShellApp final {
                 const std::string& profile);
     /// The installed game here with this id.
     [[nodiscard]] std::optional<library::Game> localGame(const std::string& id) const;
+    /// Starts downloading the visual presets' missing art, saying so, unless it is under way.
+    void fetchFrameArt();
     /// Starts `game` now as `profile` with `saves` as its save folder, `extra` added to its
     /// environment; false when it was refused.
     bool startLaunch(const library::Game& game, std::vector<std::string> extra,
@@ -584,7 +586,8 @@ class ShellApp final {
                                  [this]() -> const library::roms::Emulators& {
                                      return emulatorSettings_.found();
                                  },
-                                 emulatorDownloads_.shaderPack(), presentation_, retro_,
+                                 emulatorDownloads_.shaderPack(), emulatorDownloads_.presets(),
+                                 presentation_, retro_,
                                  CoreOptionStore{environment_.cacheDir / "core-options"}},
         LayeredSettings::Hooks{[this](const std::string& id) -> std::optional<library::Game> {
                                    if (const library::Game* game = ownGame(id)) {
@@ -604,6 +607,9 @@ class ShellApp final {
                                },
                                [this](const std::string& text, bool isError) {
                                    shell_.setToast(text, isError);
+                               },
+                               [this] {
+                                   fetchFrameArt();
                                }}};
     /// Settings › Emulators' rows for Global, each console and each core.
     LayerSettings layerSettings_{gameSettings_,

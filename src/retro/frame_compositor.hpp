@@ -6,7 +6,9 @@
 // drawn into the rectangle. The presenter owns the window, the targets and the submission; this
 // owns the render pass every target's framebuffer is made for. `frame_filter` picks the built-in
 // shader. It turns the picture a quarter for a rotated monitor (`turn`), a preset's by way of
-// `reduced_output`, and keeps it off a band along the bottom (`reserve`).
+// `reduced_output`, and keeps it off a band along the bottom (`reserve`). A visual preset's frame
+// art (`frame_art`) is letterboxed into what is left, the picture placed inside the art's picture
+// rect and the art drawn over it by an `OverlayPass`; a turned picture has no frame.
 #pragma once
 
 #include <algorithm>
@@ -16,12 +18,15 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <utility>
 
 #include <vulkan/vulkan.h>
 
+#include "frame_art.hpp"
 #include "frame_stages.hpp"
 #include "fullscreen_pipeline.hpp"
 #include "gpu_timer.hpp"
+#include "overlay_pass.hpp"
 #include "reduced_output.hpp"
 #include "settings/video_settings.hpp"
 #include "shader_chain.hpp"
@@ -102,15 +107,9 @@ class FrameCompositor {
         clearBottom_ = bottom;
     }
 
-    /// Where `frame` is drawn in `extent` under the settings in force.
-    [[nodiscard]] VkRect2D placed(VkExtent2D extent, const FrameImage& frame) const {
-        const std::uint32_t top = std::min(clearTop_, extent.height);
-        const std::uint32_t height =
-            extent.height - top - std::min(clearBottom_, extent.height - top);
-        VkRect2D rect = placeFrame({extent.width, height}, frame, video_, turned_);
-        rect.offset.y += static_cast<std::int32_t>(top);
-        return rect;
-    }
+    /// Where `frame` is drawn in `extent` under the settings in force: inside the frame art's
+    /// picture rect when there is art.
+    [[nodiscard]] VkRect2D placed(VkExtent2D extent, const FrameImage& frame) const;
 
     /// The render pass a target's framebuffer is made for.
     [[nodiscard]] VkRenderPass renderPass() const {
@@ -156,6 +155,13 @@ class FrameCompositor {
     [[nodiscard]] Facing facing() const noexcept {
         return turned_ ? Facing::Turned : Facing::Upright;
     }
+    /// What of `extent` the picture may take: all but the reserved top and bottom.
+    [[nodiscard]] VkRect2D room(VkExtent2D extent) const noexcept;
+    /// The frame art `extent` takes and where it stands; none while turned or without art.
+    [[nodiscard]] std::optional<std::pair<const ArtImage*, Framing>>
+    framing(VkExtent2D extent) const;
+    /// The frame art over what `target` holds now, uploaded first when it is not yet.
+    void recordFrameArt(VkCommandBuffer commands, const DrawTarget& target, VkExtent2D extent);
     /// Begins the render pass on `target`, cleared black.
     void beginPass(VkCommandBuffer commands, const DrawTarget& target, VkExtent2D extent) const;
     /// Under Auto, says once when the GPU cannot be timed, so the scale stays full.
@@ -181,6 +187,11 @@ class FrameCompositor {
     VkPipelineLayout pipelineLayout_{VK_NULL_HANDLE};
     VkPipeline pipeline_{VK_NULL_HANDLE};
     StreamedTexture texture_;
+    FrameArtImages art_;
+    /// Made when frame art is first drawn.
+    std::unique_ptr<OverlayPass> framePass_;
+    /// The art the frame pass holds; null for none or after the art changed.
+    const ArtImage* uploadedArt_{nullptr};
     bool turned_{false};
     std::uint32_t clearTop_{0};
     std::uint32_t clearBottom_{0};
