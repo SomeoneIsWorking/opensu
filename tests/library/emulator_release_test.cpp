@@ -1,20 +1,25 @@
 // An emulator's official AppImage through the shipping download path, against a fake release host:
 // the release JSON read, the download checked against the published SHA-256, a mismatch refused,
-// an update kept apart until verified, a release without a digest recorded as seen, and removal.
+// an update kept apart until verified, a release without a digest recorded as seen, an AppImage
+// taken out of the zip it ships in, and removal.
 #include <cstdio>
 #include <exception>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <sstream>
 #include <stop_token>
 #include <string>
 #include <system_error>
+#include <utility>
+#include <vector>
 
 #include "library/downloaded_emulators.hpp"
 #include "library/emulator_release.hpp"
 #include "support/release_server.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
+#include "zip/zip_writer.hpp"
 
 namespace {
 
@@ -135,6 +140,57 @@ void noDigestIsObserved(const fs::path& root) {
            "without a published digest, the size and SHA-256 seen are recorded");
 }
 
+std::string zipOf(const std::vector<std::pair<std::string, std::string>>& files) {
+    std::ostringstream out;
+    opensu::zip::Writer writer{out};
+    std::string error;
+    for (const auto& [name, bytes] : files) {
+        expect(writer.add(name, bytes, error), "the test zip takes " + name);
+    }
+    expect(writer.finish(error), "the test zip is written");
+    return out.str();
+}
+
+void zipMemberIsUnpacked(const fs::path& root) {
+    opensu::test::ReleaseServer server;
+    const EmulatorEntry entry = server.entry({.id = "zipped",
+                                              .name = "Zipped",
+                                              .system = "nds",
+                                              .asset = "^Zipped-[0-9.]+-x86_64\\.zip$",
+                                              .member = "^Zipped-x86_64\\.AppImage$"});
+    const DownloadedEmulators store{root / "emulators"};
+    const opensu::net::WebClient web;
+    const EmulatorRelease release{web};
+    const std::string archive =
+        zipOf({{"README.txt", "read me"}, {"Zipped-x86_64.AppImage", "the appimage"}});
+    server.publish("zipped", "1.1", 21, "Zipped-1.1-x86_64.zip", archive);
+    const ReleaseAsset asset = need(
+        release.latest(std::stop_token{}, need(entry.release, "the entry has a release")), "read");
+    const DownloadedEmulator installed =
+        need(release.install(std::stop_token{}, entry, asset, store, anyProgress),
+             "a zipped AppImage installs");
+    expect(installed.file.filename() == "Zipped-x86_64.AppImage" &&
+               read(installed.file) == "the appimage",
+           "the AppImage is taken out of the zip");
+    expect((fs::status(installed.file).permissions() & fs::perms::owner_exec) != fs::perms::none,
+           "and is executable");
+    expect(installed.verified == Verification::Digest && installed.size == archive.size(),
+           "the record is the verified download's");
+    expect(!fs::exists(store.versionDir("zipped", "21") / "Zipped-1.1-x86_64.zip.part"),
+           "the zip is not kept");
+    expect(store.find("zipped") == installed, "the record names it as the version in use");
+
+    server.publish("zipped", "1.2", 22, "Zipped-1.2-x86_64.zip", zipOf({{"other", "x"}}));
+    const ReleaseAsset empty = need(
+        release.latest(std::stop_token{}, need(entry.release, "the entry has a release")), "read");
+    expect(release.install(std::stop_token{}, entry, empty, store, anyProgress)
+                   .error()
+                   .find("no file matching") != std::string::npos,
+           "a zip without the AppImage is refused");
+    expect(store.find("zipped") == installed && fs::is_empty(store.versionDir("zipped", "22")),
+           "the version before stays and nothing of the refused one is left");
+}
+
 void cancelKeepsNothing(const fs::path& root) {
     opensu::test::ReleaseServer server;
     const EmulatorEntry entry =
@@ -187,6 +243,7 @@ int main() try {
         assetsAreRead();
         digestMatchesAndMismatches(root / "digest");
         noDigestIsObserved(root / "observed");
+        zipMemberIsUnpacked(root / "zip");
         cancelKeepsNothing(root / "cancel");
         removeDeletesOnlyOurs(root / "remove");
         fs::remove_all(root, ec);

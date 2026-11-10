@@ -44,6 +44,10 @@ std::string romsetListKey(const std::string& id) {
     return "romsets:" + id;
 }
 
+std::string updateKey(const std::string& id) {
+    return "update:" + id;
+}
+
 DownloadState steamState(const steam::Download& download) {
     if (download.active && !download.paused) {
         const bool moving =
@@ -57,8 +61,10 @@ DownloadState steamState(const steam::Download& download) {
     return DownloadState::Queued;
 }
 
-/// Where a row sorts among the live ones: what moves now, then what waits on the player, then the
-/// queue.
+constexpr int endedGroup = 4;
+
+/// Where a row sorts: what moves now, then what waits on the player, then the queue, then the
+/// updates on offer, then what ended.
 int group(DownloadState state) {
     switch (state) {
     case DownloadState::Downloading:
@@ -69,13 +75,15 @@ int group(DownloadState state) {
         return 1;
     case DownloadState::Queued:
         return 2;
+    case DownloadState::Available:
+        return 3;
     case DownloadState::Finished:
     case DownloadState::Failed:
     case DownloadState::Cancelled:
     case DownloadState::Uninstalled:
         break;
     }
-    return 3;
+    return endedGroup;
 }
 
 } // namespace
@@ -91,6 +99,9 @@ std::vector<DownloadAction> actionsFor(const DownloadRow& row) {
     if (ended(row.state) || row.state == DownloadState::Uninstalling ||
         row.kind == DownloadKind::RomsetList) {
         return {};
+    }
+    if (row.state == DownloadState::Available) {
+        return {DownloadAction::Update};
     }
     if (row.store != library::Source::Steam || !row.inSteamQueue) {
         // An install openSU runs (Steam's before its download is queued) or an emulator download.
@@ -122,6 +133,7 @@ std::vector<DownloadAction> actionsFor(const DownloadRow& row) {
     case DownloadState::Cancelled:
     case DownloadState::Uninstalling:
     case DownloadState::Uninstalled:
+    case DownloadState::Available:
         break;
     }
     return {};
@@ -143,6 +155,8 @@ std::string_view label(DownloadAction action) noexcept {
         return "Remove";
     case DownloadAction::Cancel:
         return "Cancel";
+    case DownloadAction::Update:
+        return "Update";
     }
     return "";
 }
@@ -167,6 +181,8 @@ std::string_view label(DownloadState state) noexcept {
         return "Uninstalling";
     case DownloadState::Uninstalled:
         return "Uninstalled";
+    case DownloadState::Available:
+        return "Update available";
     }
     return "";
 }
@@ -191,6 +207,8 @@ std::string_view spelling(DownloadState state) noexcept {
         return "uninstalling";
     case DownloadState::Uninstalled:
         return "uninstalled";
+    case DownloadState::Available:
+        return "available";
     }
     return "";
 }
@@ -234,6 +252,7 @@ void DownloadsBoard::update(const Sources& sources) {
     applyDownload(sources.emulator, sources.emulatorEnded, emulatorKey, live);
     applyDownload(sources.runner, sources.runnerEnded, runnerKey, live);
     applyRomsetLists(sources.romsetLists, live);
+    applyUpdates(sources.updates, live);
     settle(live, sources.steamReady);
     order();
 }
@@ -421,6 +440,29 @@ void DownloadsBoard::applyRomsetLists(const std::vector<RomsetListLook>& lists,
     }
 }
 
+void DownloadsBoard::applyUpdates(const std::vector<UpdateLook>& updates,
+                                  const std::set<std::string>& live) {
+    std::set<std::string, std::less<>> offered;
+    for (const UpdateLook& update : updates) {
+        // A running download of it is its row while it runs.
+        if (live.contains(emulatorKey(update.id))) {
+            continue;
+        }
+        const std::string key = updateKey(update.id);
+        offered.insert(key);
+        DownloadRow& row = entry(key).row;
+        row.kind = update.kind;
+        row.id = update.id;
+        row.title = update.name;
+        row.state = DownloadState::Available;
+        row.update = true;
+        row.detail = update.have + " → " + update.newest;
+    }
+    std::erase_if(entries_, [&offered](const auto& item) {
+        return item.second.row.state == DownloadState::Available && !offered.contains(item.first);
+    });
+}
+
 void DownloadsBoard::settle(const std::set<std::string>& live, bool steamReady) {
     for (auto it = entries_.begin(); it != entries_.end();) {
         Entry& at = it->second;
@@ -454,7 +496,7 @@ void DownloadsBoard::order() {
         const int place = group(at->row.state);
         // Ended rows: the latest first.
         const std::uint64_t when =
-            place == 3 ? ~at->endedAt : static_cast<std::uint64_t>(at->row.queueIndex + 1);
+            place == endedGroup ? ~at->endedAt : static_cast<std::uint64_t>(at->row.queueIndex + 1);
         return std::tuple{place, when, at->seen, std::string_view{at->row.key}};
     };
     std::ranges::sort(sorted, [&rank](const Entry* a, const Entry* b) {

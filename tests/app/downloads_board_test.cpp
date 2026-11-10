@@ -1,5 +1,5 @@
 // The Downloads page's model: every source merged into one list, ordered, with each owner's state
-// and actions, and ended downloads kept.
+// and actions, ended downloads kept, and the emulator updates on offer.
 #include "downloads_board.hpp"
 #include "support/test_main.hpp"
 
@@ -19,6 +19,7 @@ using opensu::app::EmulatorEnd;
 using opensu::app::EmulatorLook;
 using opensu::app::InstallJob;
 using opensu::app::Installs;
+using opensu::app::UpdateLook;
 using opensu::library::Source;
 using opensu::steam::Download;
 using Phase = InstallJob::Phase;
@@ -456,6 +457,40 @@ void testRomsetLists() {
 
 } // namespace
 
+void testEmulatorUpdates() {
+    DownloadsBoard shown = board();
+    const UpdateLook eden{.id = "eden",
+                          .name = "Eden",
+                          .kind = DownloadKind::Emulator,
+                          .have = "v0.2.0",
+                          .newest = "v0.2.1"};
+    shown.update({.emulatorEnded = EmulatorEnd{.serial = 1,
+                                               .id = "mgba",
+                                               .name = "mGBA",
+                                               .state = DownloadState::Finished},
+                  .updates = {eden}});
+    expect(keys(shown) == std::vector<std::string>{"update:eden", "emulator:mgba"},
+           "an update on offer lists before what ended");
+    const DownloadRow* row = shown.find("update:eden");
+    expect(row != nullptr && row->state == DownloadState::Available && row->update &&
+               row->detail == "v0.2.0 → v0.2.1",
+           "it says which version it replaces with which");
+    expect(actionsFor(*row) == std::vector<DownloadAction>{DownloadAction::Update},
+           "its one button is Update");
+
+    shown.update(
+        {.emulator = EmulatorLook{.id = "eden", .name = "Eden", .total = 10}, .updates = {eden}});
+    expect(shown.find("update:eden") == nullptr && shown.find("emulator:eden") != nullptr,
+           "while it downloads, the download is its row");
+
+    shown.update(
+        {.emulatorEnded = EmulatorEnd{
+             .serial = 2, .id = "eden", .name = "Eden", .state = DownloadState::Finished}});
+    expect(shown.find("update:eden") == nullptr &&
+               shown.find("emulator:eden")->state == DownloadState::Finished,
+           "once installed, the offer is gone and the download stays listed as finished");
+}
+
 int main() try {
     testMergesEverySource();
     testSteamTitles();
@@ -472,6 +507,7 @@ int main() try {
     testEmulatorEnds();
     testLabels();
     testRomsetLists();
+    testEmulatorUpdates();
     std::printf("downloads_board: all checks passed\n");
     return 0;
 } catch (...) {

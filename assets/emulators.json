@@ -50,7 +50,12 @@
       "launchers": [
         {"programs": ["ryujinx", "Ryujinx"], "appImage": "ryujinx",
          "flatpak": "io.github.ryubing.Ryujinx", "args": ["--fullscreen", "{rom}"]}
-      ]
+      ],
+      "release": {
+        "api": "https://git.ryujinx.app/api/v1/repos/projects/Ryubing/releases/latest",
+        "asset": "^ryujinx-[0-9.]+-x64\\.AppImage$",
+        "downloads": "https://git.ryujinx.app/projects/Ryubing/releases/download/"
+      }
     },
     {
       "id": "citron",
@@ -60,7 +65,12 @@
       "saves": {"layout": "yuzu", "folder": "~/.local/share/citron/nand"},
       "launchers": [
         {"programs": ["citron"], "appImage": "citron", "args": ["-f", "-g", "{rom}"]}
-      ]
+      ],
+      "release": {
+        "api": "https://api.github.com/repos/citron-neo/CI/releases/tags/nightly-linux",
+        "asset": "^citron_nightly-[0-9a-f]+-linux-x86_64-use-nopgo\\.AppImage$",
+        "downloads": "https://github.com/citron-neo/CI/releases/download/"
+      }
     },
     {
       "id": "sudachi",
@@ -112,7 +122,13 @@
          "args": ["-e", "default", "-g", "{rom}"]},
         {"programs": ["shadps4"], "appImage": "shadps4", "flatpak": "net.shadps4.shadPS4",
          "args": ["-g", "{rom}"]}
-      ]
+      ],
+      "release": {
+        "api": "https://api.github.com/repos/shadps4-emu/shadPS4/releases/latest",
+        "asset": "^shadps4-linux-sdl-[0-9.]+\\.zip$",
+        "member": "^[Ss]hadps4-sdl\\.AppImage$",
+        "downloads": "https://github.com/shadps4-emu/shadPS4/releases/download/"
+      }
     },
     {
       "id": "duckstation",
@@ -155,7 +171,13 @@
          "args": ["-f", "{rom}"]},
         {"android": "me.magnum.melonds/me.magnum.melonds.ui.emulator.EmulatorActivity",
          "args": ["-d", "{rom}"]}
-      ]
+      ],
+      "release": {
+        "api": "https://api.github.com/repos/melonDS-emu/melonDS/releases/latest",
+        "asset": "^melonDS-[0-9.]+-appimage-x86_64\\.zip$",
+        "member": "^melonDS-x86_64\\.AppImage$",
+        "downloads": "https://github.com/melonDS-emu/melonDS/releases/download/"
+      }
     },
     {
       "id": "azahar",
@@ -209,7 +231,12 @@
       "systems": ["xbox360"],
       "launchers": [
         {"programs": ["xenia_canary"], "appImage": "xenia", "args": ["--fullscreen=true", "{rom}"]}
-      ]
+      ],
+      "release": {
+        "api": "https://api.github.com/repos/xenia-canary/xenia-canary/releases/latest",
+        "asset": "^xenia_canary_linux\\.AppImage$",
+        "downloads": "https://github.com/xenia-canary/xenia-canary/releases/download/"
+      }
     },
     {
       "id": "retroarch-mesen",

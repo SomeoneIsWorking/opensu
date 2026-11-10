@@ -256,6 +256,13 @@ void DownloadsController::service() {
     }
 
     look.romsetLists = lookAtRomsetLists();
+    for (const EmulatorDownloads::Update& update : sources_.emulators.updates()) {
+        look.updates.push_back(UpdateLook{.id = update.id,
+                                          .name = sources_.emulators.nameOf(update.id),
+                                          .kind = kindOf(update.id),
+                                          .have = update.have.version,
+                                          .newest = update.newest.version});
+    }
     board_.update(look);
     shown_.clear();
     for (const DownloadRow& row : board_.rows()) {
@@ -311,6 +318,12 @@ void DownloadsController::press(const std::string& key, std::size_t action) {
 }
 
 void DownloadsController::perform(const DownloadRow& row, DownloadAction action) {
+    if (action == DownloadAction::Update) {
+        if (const std::string refused = sources_.emulators.start(row.id); !refused.empty()) {
+            hooks_.say(refused, true);
+        }
+        return;
+    }
     if (action == DownloadAction::Cancel) {
         if (row.store) {
             cancelInstall(row);
@@ -369,6 +382,7 @@ void DownloadsController::askSteam(const DownloadRow& row, DownloadAction action
             refusal = steam.remove(download);
             break;
         case DownloadAction::Cancel:
+        case DownloadAction::Update:
             break;
         }
         const std::lock_guard lock{mutex_};

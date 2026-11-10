@@ -74,11 +74,12 @@ fs::path configPath(const std::string& raw, const fs::path& home) {
     return fs::path{raw};
 }
 
-void checkPattern(const std::string& pattern, const std::string& where) {
+void checkPattern(const std::string& pattern, const std::string& where,
+                  std::string_view key = "asset") {
     try {
         std::ignore = std::regex{pattern};
     } catch (const std::regex_error&) {
-        throw Malformed{where + ": \"asset\" is not a regular expression"};
+        throw Malformed{std::format("{}: \"{}\" is not a regular expression", where, key)};
     }
 }
 
@@ -94,7 +95,12 @@ ReleaseSource releaseOf(const json& object, const std::string& where, std::strin
 ReleaseSource releaseOf(const json& object, const std::string& where) {
     std::string asset = text(object, "asset", where, true);
     checkPattern(asset, where);
-    return releaseOf(object, where, std::move(asset));
+    ReleaseSource release = releaseOf(object, where, std::move(asset));
+    release.member = text(object, "member", where, false);
+    if (!release.member.empty()) {
+        checkPattern(release.member, where, "member");
+    }
+    return release;
 }
 
 /// A core's `"release"`: its asset for each build, as `{"android-arm64-v8a": pattern}`. Nothing on

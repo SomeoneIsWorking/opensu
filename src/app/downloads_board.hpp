@@ -1,10 +1,11 @@
 // downloads_board — every download openSU knows of as one list, the Downloads page's model: Steam's
 // queue (its own auto-updates included), the store install, update or uninstall that runs (Epic,
 // GOG, Steam's installer; a Steam update joins Steam's queue row), the emulator, core or shader
-// pack download, the Wine runner download (GE-Proton, umu-launcher), and the arcade cores' romset
-// lists (`library::roms::RomsetLists`). Each frame the sources' state goes in and one row per
-// download comes out, with its state, progress and the actions its owner supports. A download that
-// ended stays listed until openSU quits. Pure; no UI and no threads.
+// pack download, the Wine runner download (GE-Proton, umu-launcher), the arcade cores' romset
+// lists (`library::roms::RomsetLists`), and the updates the emulator update check found for what
+// openSU downloaded, each with its Update button (`update:<id>`). Each frame the sources' state
+// goes in and one row per download comes out, with its state, progress and the actions its owner
+// supports. A download that ended stays listed until openSU quits. Pure; no UI and no threads.
 #pragma once
 
 #include <cstdint>
@@ -47,6 +48,8 @@ enum class DownloadState : std::uint8_t {
     /// A store game being removed; it has no buttons.
     Uninstalling,
     Uninstalled,
+    /// A newer version of what openSU downloaded, not yet asked for.
+    Available,
 };
 
 enum class DownloadAction : std::uint8_t {
@@ -61,12 +64,14 @@ enum class DownloadAction : std::uint8_t {
     Remove,
     /// Stops an install or emulator download openSU runs.
     Cancel,
+    /// Starts the download of an available update.
+    Update,
 };
 
 /// One download as the page lists it.
 struct DownloadRow {
     /// `steam:<app id>`, `epic:<app name>`, `gog:<id>`, `emulator:<id>`, `wine:<id>`,
-    /// `romsets:<core id>`:
+    /// `romsets:<core id>`, `update:<id>`:
     /// stable across frames.
     std::string key{};
     /// The store, for a game; nothing for an emulator or a core.
@@ -130,6 +135,16 @@ struct RomsetListLook {
     std::string detail{};
 };
 
+/// A newer version of an emulator, core or the shader pack than the one openSU downloaded.
+struct UpdateLook {
+    std::string id{};
+    std::string name{};
+    DownloadKind kind{DownloadKind::Emulator};
+    /// The version in use and the newest, as the player reads them.
+    std::string have{};
+    std::string newest{};
+};
+
 /// How the last emulator, core, shader pack or Wine runner download ended.
 struct EmulatorEnd {
     /// Counts ends, so one is applied once.
@@ -158,6 +173,8 @@ class DownloadsBoard {
         std::optional<EmulatorLook> runner{};
         std::optional<EmulatorEnd> runnerEnded{};
         std::vector<RomsetListLook> romsetLists{};
+        /// Listed while no download of the same id runs.
+        std::vector<UpdateLook> updates{};
     };
 
     explicit DownloadsBoard(TitleOf titles) : titles_{std::move(titles)} {
@@ -202,6 +219,8 @@ class DownloadsBoard {
                        const std::function<std::string(const std::string&)>& key,
                        std::set<std::string>& live);
     void applyRomsetLists(const std::vector<RomsetListLook>& lists, std::set<std::string>& live);
+    /// Lists `updates` and drops the ones no longer offered.
+    void applyUpdates(const std::vector<UpdateLook>& updates, const std::set<std::string>& live);
     /// Settles what was live and is gone now.
     void settle(const std::set<std::string>& live, bool steamReady);
     void order();

@@ -59,6 +59,8 @@ class ReleaseServer {
         std::string name;
         std::string system;
         std::string asset;
+        /// The AppImage inside a zip asset; empty when the asset is the AppImage.
+        std::string member{};
     };
 
     /// The catalog entry of `emulator` with its releases here.
@@ -72,7 +74,7 @@ class ReleaseServer {
         launcher.args = {"{rom}"};
         entry.launchers = {std::move(launcher)};
         entry.release = library::roms::ReleaseSource{base() + "/api/" + emulator.id, emulator.asset,
-                                                     base() + "/dl/"};
+                                                     base() + "/dl/", emulator.member};
         return entry;
     }
 

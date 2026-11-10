@@ -33,6 +33,9 @@ void shippedCatalogParses() {
            "an emulator without an official AppImage is found, never downloaded");
     const EmulatorEntry* shad = catalog.find("shadps4");
     expect(shad != nullptr && shad->launchers.size() == 2, "an emulator may start two ways");
+    expect(shad->release && shad->release->asset.ends_with("\\.zip$") &&
+               !shad->release->member.empty(),
+           "a release that ships its AppImage in a zip names it");
     for (const EmulatorEntry& entry : catalog.entries()) {
         expect((entry.launchers.empty() == entry.builtIn()) && !entry.systems.empty(),
                "every entry is usable: launchers, or a core built in");
@@ -159,6 +162,12 @@ void malformedIsRefused() {
                                    "/h", error) &&
                error.find("regular expression") != std::string::npos,
            "a bad asset pattern is named");
+    expect(!EmulatorCatalog::parse(R"({"emulators":[{"id":"x","name":"X","systems":["gb"],
+              "launchers":[{}],"release":{"api":"a","asset":"x","member":"[",
+              "downloads":"https://h/"}}]})",
+                                   "/h", error) &&
+               error.find("\"member\" is not a regular expression") != std::string::npos,
+           "a bad member pattern is named");
     expect(!EmulatorCatalog::parse(R"({"emulators":[{"id":"x","name":"X","systems":["gb"],
               "launchers":[{}],"release":{"api":"a","asset":"x","downloads":"https://h"}}]})",
                                    "/h", error) &&

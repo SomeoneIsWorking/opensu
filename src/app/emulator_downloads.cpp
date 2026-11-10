@@ -1,6 +1,7 @@
 #include "emulator_downloads.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <system_error>
 
@@ -13,6 +14,7 @@ namespace {
 using library::roms::EmulatorEntry;
 
 constexpr std::uint64_t percentScale = 100;
+constexpr std::chrono::hours checkEvery{24};
 
 /// A downloaded core's key: a released core's record keeps no asset id, but its URL names its tag.
 std::string keyOf(const EmulatorEntry& entry, const library::roms::DownloadedCore& core) {
@@ -345,6 +347,56 @@ void EmulatorDownloads::fetchMissingInfo(const std::stop_token& stop,
     }
 }
 
+void EmulatorDownloads::setStandalone(bool standalone) {
+    setup_.standalone = standalone;
+    listUpdates();
+}
+
+std::vector<std::string> EmulatorDownloads::updatable() const {
+    std::vector<std::string> ids{std::string{library::roms::shaderPackId}};
+    for (const EmulatorEntry& entry : setup_.catalog.entries()) {
+        if (entry.downloadable() && setup_.counts(entry)) {
+            ids.push_back(entry.id);
+        }
+    }
+    return ids;
+}
+
+bool EmulatorDownloads::anyDownloaded() const {
+    return std::ranges::any_of(updatable(), [this](const std::string& id) {
+        return downloaded(id).has_value();
+    });
+}
+
+void EmulatorDownloads::listUpdates() {
+    updates_.clear();
+    for (std::string& id : updatable()) {
+        std::optional<Build> newest = latest(id);
+        if (!newest) {
+            continue;
+        }
+        if (std::optional<Build> have = downloaded(id); have && have->key != newest->key) {
+            updates_.push_back(Update{std::move(id), std::move(*have), std::move(*newest)});
+        }
+    }
+}
+
+void EmulatorDownloads::checkWhenDue(Clock::time_point now) {
+    if (now < nextCheck_.value_or(now)) {
+        return;
+    }
+    {
+        const std::lock_guard lock{mutex_};
+        if (check_.running || progress_) {
+            return;
+        }
+    }
+    nextCheck_ = now + checkEvery;
+    if (anyDownloaded()) {
+        checkUpdates();
+    }
+}
+
 EmulatorDownloads::Check EmulatorDownloads::check() const {
     const std::lock_guard lock{mutex_};
     return check_;
@@ -385,9 +437,7 @@ std::optional<EmulatorDownloads::Build> EmulatorDownloads::downloaded(std::strin
 }
 
 bool EmulatorDownloads::updateAvailable(std::string_view id) const {
-    const std::optional<Build> newest = latest(id);
-    const std::optional<Build> have = downloaded(id);
-    return newest && have && newest->key != have->key;
+    return std::ranges::find(updates_, id, &Update::id) != updates_.end();
 }
 
 std::string EmulatorDownloads::remove(std::string_view id) {
@@ -413,6 +463,7 @@ std::string EmulatorDownloads::remove(std::string_view id) {
     if (!removed) {
         return error;
     }
+    listUpdates();
     if (hooks_.installedChanged) {
         hooks_.installedChanged();
     }
@@ -422,6 +473,7 @@ std::string EmulatorDownloads::remove(std::string_view id) {
 void EmulatorDownloads::service() {
     std::vector<Ended> ended;
     bool refresh = false;
+    bool checked = false;
     {
         const std::lock_guard lock{mutex_};
         ended = std::exchange(ended_, {});
@@ -436,8 +488,13 @@ void EmulatorDownloads::service() {
         }
         const std::optional<int> percent =
             progress_ ? progress_->percent().value_or(0) : std::optional<int>{};
-        refresh = std::exchange(checkChanged_, false) || percent != shownPercent_;
+        checked = std::exchange(checkChanged_, false);
+        refresh = checked || percent != shownPercent_;
         shownPercent_ = percent;
+    }
+    const Clock::time_point now = Clock::now();
+    if (checked || !ended.empty()) {
+        listUpdates();
     }
     for (const Ended& one : ended) {
         if (downloader_.joinable()) {
@@ -445,9 +502,12 @@ void EmulatorDownloads::service() {
         }
         hooks_.say(one.text, one.outcome == Finished::Outcome::Failed);
         if (one.outcome == Finished::Outcome::Installed) {
+            // What was just installed is the newest; the others wait for the day's check.
+            nextCheck_ = nextCheck_.value_or(now + checkEvery);
             hooks_.installedChanged();
         }
     }
+    checkWhenDue(now);
     if (refresh || !ended.empty()) {
         hooks_.refresh();
     }

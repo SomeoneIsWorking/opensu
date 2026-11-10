@@ -1,9 +1,9 @@
 // downloads_controller — the Downloads screen's contents and buttons. Each frame it reads every
 // download source (Steam's queue, the store install, the emulator download, the Wine runner
-// download, the romset lists) into `DownloadsBoard`, keeps the rows the screen shows from it, and
-// sends a chosen action to the row's owner: a cancel to `Installs`, `EmulatorDownloads` or
-// `WineRunners`, a pause, resume, move or remove to Steam through `steam::DownloadControl`, which
-// runs off the loop as Steam answers.
+// download, the romset lists, the emulator updates found) into `DownloadsBoard`, keeps the rows the
+// screen shows from it, and sends a chosen action to the row's owner: a cancel to `Installs`,
+// `EmulatorDownloads` or `WineRunners`, an update to `EmulatorDownloads`, a pause, resume, move or
+// remove to Steam through `steam::DownloadControl`, which runs off the loop as Steam answers.
 #pragma once
 
 #include <cstddef>

@@ -2,13 +2,17 @@
 
 #include <algorithm>
 #include <cctype>
+#include <fstream>
+#include <iterator>
 #include <regex>
 #include <system_error>
 
 #include <nlohmann/json.hpp>
 
+#include "fileio/atomic_write.hpp"
 #include "lucent/content.h"
 #include "lucent/log.h"
+#include "zip/zip_archive.hpp"
 
 namespace opensu::library::roms {
 namespace {
@@ -62,6 +66,57 @@ std::string versionOf(const json& release) {
 void removeQuietly(const fs::path& file) {
     std::error_code ec;
     fs::remove(file, ec);
+}
+
+std::optional<std::string> readWhole(const fs::path& file, std::string& error) {
+    std::ifstream in{file, std::ios::binary};
+    std::string bytes{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
+    if (!in && !in.eof()) {
+        error = "cannot read " + file.string();
+        return std::nullopt;
+    }
+    return bytes;
+}
+
+/// Takes the one AppImage matching `member` out of the verified zip `archive` into `dir`, as
+/// `<name>.part`; the zip is removed either way. The part file, or nothing with `error`.
+std::optional<fs::path> unpackMember(const fs::path& archive, const std::string& member,
+                                     const fs::path& dir, std::string& error) {
+    std::optional<std::string> bytes = readWhole(archive, error);
+    removeQuietly(archive);
+    if (!bytes) {
+        return std::nullopt;
+    }
+    const std::optional<zip::Archive> zip = zip::Archive::open(std::move(*bytes), error);
+    if (!zip) {
+        return std::nullopt;
+    }
+    const std::regex pattern{member};
+    const zip::Entry* chosen = nullptr;
+    for (const zip::Entry& entry : zip->entries()) {
+        if (!std::regex_match(entry.name, pattern)) {
+            continue;
+        }
+        if (chosen != nullptr) {
+            error = "the archive holds two files matching " + member;
+            return std::nullopt;
+        }
+        chosen = &entry;
+    }
+    if (chosen == nullptr || chosen->name.find('/') != std::string::npos) {
+        error = "the archive holds no file matching " + member;
+        return std::nullopt;
+    }
+    const std::optional<std::string> file = zip->read(chosen->name, error);
+    if (!file) {
+        return std::nullopt;
+    }
+    const fs::path part = dir / (chosen->name + ".part");
+    if (!fileio::writeWhole(part, *file, error)) {
+        removeQuietly(part);
+        return std::nullopt;
+    }
+    return part;
 }
 
 } // namespace
@@ -169,13 +224,22 @@ EmulatorRelease::install(const std::stop_token& stop, const EmulatorEntry& entry
     if (ec) {
         return net::Failure{"cannot make " + dir.string() + ": " + ec.message()};
     }
-    const fs::path part = dir / (asset.name + ".part");
-    const net::Result<std::string> seen = fetch(stop, asset, part, progress);
+    const fs::path download = dir / (asset.name + ".part");
+    const net::Result<std::string> seen = fetch(stop, asset, download, progress);
     if (!seen) {
         return seen.as<DownloadedEmulator>();
     }
-    const std::uint64_t size = fs::file_size(part, ec);
-    const fs::path file = dir / asset.name;
+    const std::uint64_t size = fs::file_size(download, ec);
+    fs::path part = download;
+    if (entry.release && !entry.release->member.empty()) {
+        std::optional<fs::path> unpacked =
+            unpackMember(download, entry.release->member, dir, error);
+        if (!unpacked) {
+            return net::Failure{asset.name + ": " + error};
+        }
+        part = std::move(*unpacked);
+    }
+    const fs::path file = part.parent_path() / part.stem();
     fs::permissions(part,
                     fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec |
                         fs::perms::others_read | fs::perms::others_exec,

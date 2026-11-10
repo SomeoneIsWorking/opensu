@@ -57,15 +57,20 @@ std::vector<std::string> commandOf(std::string program, const EmulatorLauncher& 
     return command;
 }
 
+/// Whether `file` is an AppImage of `launcher`, by its name.
+bool namesAppImage(const EmulatorLauncher& launcher, const fs::path& file) {
+    const std::string key = nameKey(file.filename().string());
+    return !launcher.appImage.empty() && key.starts_with(launcher.appImage) &&
+           key.ends_with("appimage");
+}
+
 std::optional<EmulatorInstall> appImageIn(const EmulatorLauncher& launcher,
                                           const EmulatorSearch& search) {
     for (const fs::path& dir : search.appImageDirs) {
         std::error_code ec;
         std::vector<fs::path> found;
         for (const fs::directory_entry& entry : fs::directory_iterator{dir, ec}) {
-            const std::string key = nameKey(entry.path().filename().string());
-            if (key.starts_with(launcher.appImage) && key.ends_with("appimage") &&
-                executable(entry.path())) {
+            if (namesAppImage(launcher, entry.path()) && executable(entry.path())) {
                 found.push_back(entry.path());
             }
         }
@@ -174,11 +179,18 @@ std::optional<EmulatorInstall> locate(const EmulatorEntry& entry, const Emulator
         if (const std::optional<DownloadedEmulator> downloaded =
                 DownloadedEmulators{search.downloads}.find(entry.id)) {
             const std::string file = downloaded->file.string();
+            // A release can ship one of several programs (shadPS4's SDL build, not its launcher).
+            const auto launcher = std::ranges::find_if(
+                entry.launchers, [&downloaded](const EmulatorLauncher& candidate) {
+                    return namesAppImage(candidate, downloaded->file);
+                });
             found = EmulatorInstall{{},
                                     InstallSource::Downloaded,
                                     file,
                                     downloaded->version,
-                                    commandOf(file, entry.launchers.front()),
+                                    commandOf(file, launcher != entry.launchers.end()
+                                                        ? *launcher
+                                                        : entry.launchers.front()),
                                     appImageRefusal(downloaded->file, search.fuse)};
         }
     }

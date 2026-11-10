@@ -1,10 +1,12 @@
 // emulator_downloads — downloading, updating and removing what openSU installs for emulators, off
 // the main loop: official AppImages, built-in emulators' libretro cores and libretro's shader pack
 // (`shaderPackId`) and the visual presets' art (`overlayArtId`), one download at a time with its
-// progress and cancel, the update check, and the news the loop hands to the screens (`service`).
-// Nothing updates unless the player asks.
+// progress and cancel, the update check (at start and daily while openSU downloaded something, and
+// when asked), and the news the loop hands to the screens (`service`). Nothing updates unless the
+// player asks.
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -25,6 +27,8 @@ namespace opensu::app {
 
 class EmulatorDownloads {
   public:
+    using Clock = std::chrono::steady_clock;
+
     /// What the loop is told.
     struct Hooks {
         /// A download ended: installed, cancelled or failed; `error` marks a failure.
@@ -90,9 +94,7 @@ class EmulatorDownloads {
     }
     /// Turns standalone emulators on or off: off, they are neither searched for, downloaded nor
     /// checked for updates. Main loop only.
-    void setStandalone(bool standalone) noexcept {
-        setup_.standalone = standalone;
-    }
+    void setStandalone(bool standalone);
 
     /// Downloads the latest release, core build, shader pack (`shaderPackId`) or the missing
     /// overlay art (`overlayArtId`) of `id` and switches to it. Refused, with the reason, while
@@ -110,8 +112,19 @@ class EmulatorDownloads {
     [[nodiscard]] Check check() const;
     /// The latest version of `id` as the last check read it.
     [[nodiscard]] std::optional<Build> latest(std::string_view id) const;
-    /// Whether the last check found a newer version than the one openSU downloaded.
+    /// A newer version than the one openSU downloaded.
+    struct Update {
+        std::string id;
+        Build have;
+        Build newest;
+    };
+    /// Whether the last check found a newer version than the one openSU downloaded. Main loop only.
     [[nodiscard]] bool updateAvailable(std::string_view id) const;
+    /// Every update the last check found for what counts now, in catalog order after the shader
+    /// pack; kept current as checks, downloads and removals end. Main loop only.
+    [[nodiscard]] const std::vector<Update>& updates() const noexcept {
+        return updates_;
+    }
 
     /// Removes the AppImage or core openSU downloaded for `id`; an emulator installed another way
     /// is never touched. Empty on success, else why not.
@@ -131,7 +144,8 @@ class EmulatorDownloads {
         return setup_.presets;
     }
 
-    /// Hands what happened on the threads to the loop through the hooks. Main loop only.
+    /// Hands what happened on the threads to the loop through the hooks and starts the update
+    /// check when it is due. Main loop only.
     void service();
 
   private:
@@ -169,6 +183,14 @@ class EmulatorDownloads {
     /// Fetches the info of each core openSU downloaded without one, the archive once.
     void fetchMissingInfo(const std::stop_token& stop, std::vector<std::string>& failures);
     void remember(const std::string& id, Build build);
+    /// The ids an update can be offered for: the shader pack and the catalog's that count now.
+    [[nodiscard]] std::vector<std::string> updatable() const;
+    /// Whether openSU downloaded any of them.
+    [[nodiscard]] bool anyDownloaded() const;
+    /// Reads `updates_` again.
+    void listUpdates();
+    /// Starts the update check once a day, the first at start, while something is downloaded.
+    void checkWhenDue(Clock::time_point now);
 
     library::roms::EmulatorSetup setup_;
     library::roms::DownloadedEmulators store_;
@@ -188,6 +210,9 @@ class EmulatorDownloads {
     /// The loop's last look, so progress refreshes once per percent.
     std::optional<int> shownPercent_;
     bool checkChanged_{false};
+    /// When the next scheduled check is due; at the first service before any.
+    std::optional<Clock::time_point> nextCheck_;
+    std::vector<Update> updates_;
     /// Last, so they stop before what they use goes.
     std::jthread checker_;
     std::jthread downloader_;

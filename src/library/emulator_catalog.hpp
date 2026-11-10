@@ -41,6 +41,9 @@ struct ReleaseSource {
     std::string asset;
     /// Every download URL must start with this: the project's own release host and path.
     std::string downloads;
+    /// The AppImage inside the asset when the asset is a zip holding one, as an ECMAScript
+    /// regular expression over its name; empty when the asset is the AppImage.
+    std::string member{};
 };
 
 /// Where an arcade core's ROM-set listings come from: datafiles at fixed HTTPS URLs, merged in
