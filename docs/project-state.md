@@ -1341,6 +1341,12 @@ and the mansion; `dolphin-wii`: a per-game Wii Remote profile on another pad tak
 its title to Select Game; every file the rule set comes back byte-identical). Gaps: a Wii Remote on
 the keyboard, as the player's, gets no pad until step 4's Wii controls; an evdev-bound GameCube slot
 loses its mappings for the default.
+The standalone mGBA loads the input profile named for a pad's SDL joystick name, and none of its
+built-in ones matches the virtual pads' "Xbox 360 Controller": while a launch runs
+`[gba.input-profile.Xbox 360 Controller]` gets each button the player's lacks from mGBA's own xpad
+profile (`library/mgba_config`); verified with the downloaded 0.10.5 (`scratch/dolphin-launch/runs/mgba`:
+Start leaves Kirby & the Amazing Mirror's demo for the title, the face buttons open its language menu,
+`config.ini` comes back byte-identical).
 PCSX2 binds a pad by SDL player index, `SDL-<n>/<input>`, which counts only the virtual pads a
 launch lets SDL see: while a launch runs `[PadN]`'s SDL bindings play `SDL-<N-1>`, a DualShock 2
 bound only to the keyboard (the player's pad 1) or to nothing gets PCSX2's own SDL layout, input
