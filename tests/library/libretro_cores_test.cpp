@@ -99,7 +99,7 @@ void lookupOrder(const fs::path& root) {
     expect(ours.file == root / "ours" / lib("mgba_libretro") && ours.downloaded &&
                ours.downloaded->date == "2026-10-01" && read(ours.file) == "ours",
            "openSU's download comes first, with its record");
-    const CoreSearch infos{root / "mine", {}, {}, {root / "info"}};
+    const CoreSearch infos{root / "mine", {}, {root / "info"}};
     put(root / "info" / "mgba_libretro.info", "theirs");
     fs::create_directories(root / "mine");
     expect(infos.info("mgba_libretro") == "theirs", "a core installed another way has its info");
@@ -321,17 +321,17 @@ void releasedCoreLinks(const fs::path& root) {
     const DownloadedCores store{root / "cores"};
     std::string error;
 
-    need(store.install({"mgba_libretro", "2026-10-05", 9, "https://buildbot/mgba_libretro.so.zip"},
-                       "theirs", "", error),
-         "a buildbot core openSU downloaded before");
+    expect(store.install({"mgba_libretro", "2026-10-05", 9, "https://buildbot/mgba_libretro.so.zip"},
+                         "theirs", "", error),
+           "a buildbot core openSU downloaded before");
     const Emulators buildbot = Emulators::discover(catalog, search, {});
     expect(buildbot.installed("mgba-core")->source == InstallSource::DownloadedCore &&
                !buildbot.options("gba", rom).front().links,
            "a buildbot core stays the buildbot's and does not link");
 
-    need(store.install({"mgba_libretro", "2026-11-10", 0, "https://h/dl/2026-11-10/m.zip"}, "ours",
-                       "", error),
-         "the release's core");
+    expect(store.install({"mgba_libretro", "2026-11-10", 0, "https://h/dl/2026-11-10/m.zip"},
+                         "ours", "", error),
+           "the release's core");
     const Emulators released = Emulators::discover(catalog, search, {});
     expect(released.installed("mgba-core")->source == InstallSource::ReleasedCore &&
                label(InstallSource::ReleasedCore) == "openSU build",
