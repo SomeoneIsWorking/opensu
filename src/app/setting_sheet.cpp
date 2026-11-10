@@ -56,6 +56,10 @@ SettingSheet::find(const std::vector<settings::ScopedValue>& values) const {
     return at == values.end() ? nullptr : &*at;
 }
 
+const Layer& SettingSheet::layerOf(Layer::Kind kind) const {
+    return *std::ranges::find(context_.scopes, kind, &Layer::kind);
+}
+
 std::string SettingSheet::levelName(const Layer& level) const {
     return level.kind == Layer::Kind::Game && !context_.gameTitle.empty()
                ? context_.gameTitle
@@ -105,6 +109,7 @@ std::unique_ptr<tk::Widget> SettingSheet::build(const tk::Theme& theme) {
     tk::List& list = card.add<tk::List>("levels", spacing.gap);
     list.grow();
     tk::Column& rows = list.rows();
+    choiceKeys_.clear();
     rows.add<tk::SectionHeading>("Override for");
     std::vector<std::pair<Layer, settings::ScopedValue>> kept;
     for (const auto& [level, value] : levels) {
@@ -121,8 +126,8 @@ std::unique_ptr<tk::Widget> SettingSheet::build(const tk::Theme& theme) {
                                      ? std::string{"Remove the default for all games"}
                                      : "Remove override for " + levelName(level);
         rows.add<tk::Item>(removeId(level), tk::Item::Text{name, useText(value)})
-            .onPress([this, level = level] {
-                settings_.remove(level, key_);
+            .onPress([this, kind = level.kind] {
+                settings_.remove(layerOf(kind), key_);
             });
     }
     return root;
@@ -132,6 +137,7 @@ void SettingSheet::addLevel(tk::Column& rows, const settings::ScopedValue& value
                             const Layer& level) {
     const Setting& setting = *value.setting;
     const std::string id = levelId(level);
+    const Layer::Kind kind = level.kind;
     std::string subtitle;
     if (value.overriddenBy) {
         subtitle = levelName(*value.overriddenBy) + " uses " +
@@ -165,20 +171,22 @@ void SettingSheet::addLevel(tk::Column& rows, const settings::ScopedValue& value
             listed.push_back(offered.label);
             keys.push_back(offered.key);
         }
-        auto& choice = rows.add<tk::Choice>(
-            id, text, std::move(options), chosen,
-            [this, level, keys = std::move(keys), own = value.own, chosen](std::size_t picked) {
-                if (picked == chosen) {
-                    return;
-                }
-                if (picked == 0) {
-                    if (own) {
-                        settings_.remove(level, key_);
-                    }
-                    return;
-                }
-                settings_.set(context_, level, key_, keys[picked]);
-            });
+        choiceKeys_.insert_or_assign(kind, std::move(keys));
+        auto& choice =
+            rows.add<tk::Choice>(id, text, std::move(options), chosen,
+                                 [this, kind, own = value.own, chosen](std::size_t picked) {
+                                     if (picked == chosen) {
+                                         return;
+                                     }
+                                     if (picked == 0) {
+                                         if (own) {
+                                             settings_.remove(layerOf(kind), key_);
+                                         }
+                                         return;
+                                     }
+                                     settings_.set(context_, layerOf(kind), key_,
+                                                   choiceKeys_.find(kind)->second[picked]);
+                                 });
         choice.listAs(std::move(listed));
         row = &choice;
         break;
@@ -186,8 +194,8 @@ void SettingSheet::addLevel(tk::Column& rows, const settings::ScopedValue& value
     case SettingType::Slider: {
         auto& slider = rows.add<tk::Slider>(
             id, text, tk::Slider::Range{setting.range.low, setting.range.high, setting.range.step},
-            levelOf(value.value, setting.range), [this, level](int picked) {
-                settings_.set(context_, level, key_, std::to_string(picked));
+            levelOf(value.value, setting.range), [this, kind](int picked) {
+                settings_.set(context_, layerOf(kind), key_, std::to_string(picked));
             });
         slider.unit(setting.unit);
         row = &slider;
@@ -197,9 +205,9 @@ void SettingSheet::addLevel(tk::Column& rows, const settings::ScopedValue& value
         auto& item = rows.add<tk::Item>(id, text);
         item.value(valueLabel(setting, value.value))
             .onPress(
-                [this, level] {
+                [this, kind] {
                     navigator_.push(std::make_unique<ShaderPresetScreen>(
-                        settings_, navigator_, chrome_, context_, level, look_));
+                        settings_, navigator_, chrome_, context_, layerOf(kind), look_));
                 },
                 "Choose", true);
         row = &item;
@@ -209,8 +217,8 @@ void SettingSheet::addLevel(tk::Column& rows, const settings::ScopedValue& value
     if (const std::string* removed = !value.own ? settings_.removed(level, key_) : nullptr) {
         row->onAction(
             tk::Action::Tertiary,
-            [this, level] {
-                settings_.restore(level, key_);
+            [this, kind] {
+                settings_.restore(layerOf(kind), key_);
             },
             "Restore " + valueLabel(setting, *removed));
     }

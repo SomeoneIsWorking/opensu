@@ -4,6 +4,7 @@
 // override" row for each level that keeps one.
 #pragma once
 
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -42,6 +43,8 @@ class SettingSheet final : public gpu2d::ui::Screen {
     /// The value at `level`, or null when the setting is not kept there.
     [[nodiscard]] const settings::ScopedValue*
     find(const std::vector<settings::ScopedValue>& values) const;
+    /// The context's level of `kind`.
+    [[nodiscard]] const settings::Layer& layerOf(settings::Layer::Kind kind) const;
     /// "Alien vs Predator" for the game's level, else the level's name.
     [[nodiscard]] std::string levelName(const settings::Layer& level) const;
     /// The level's row under "Override for": "FinalBurn Neo", or "All games".
@@ -56,6 +59,9 @@ class SettingSheet final : public gpu2d::ui::Screen {
     EditorLook look_;
     settings::Schema schema_;
     std::string key_;
+    /// Each level's choice keys by place, place 0 inheriting; kept here so a row's closure holds
+    /// only values that copy without throwing.
+    std::map<settings::Layer::Kind, std::vector<std::string>> choiceKeys_;
 };
 
 } // namespace opensu::app

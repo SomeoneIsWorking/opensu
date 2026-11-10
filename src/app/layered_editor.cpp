@@ -197,9 +197,10 @@ void LayeredEditor::addGroup(tk::Column& rows, const std::vector<settings::Scope
                                                  ? lucent::text::counted(settings, "setting")
                                                  : lucent::text::counted(kept, "changed setting")})
         .onPress(
-            [this, group] {
+            // The name lives in `schema_`, so the closure copies nothing that can throw.
+            [this, name = &group] {
                 navigator_.push(std::make_unique<LayeredEditor>(
-                    settings_, navigator_, chrome_, context_, look_, group, EditorRows{}, group));
+                    settings_, navigator_, chrome_, context_, look_, *name, EditorRows{}, *name));
             },
             "Open", true);
 }
