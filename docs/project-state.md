@@ -1325,6 +1325,14 @@ verified with 1.3.3 on a copy of the player's config (`scratch/ryu-azahar/runs/r
 take Chocobo's Mystery Dungeon from "Press Any Button" to Select Play Mode, the file comes back
 byte-identical). Gaps: a `Config.json` newer than 71 stays the player's for the run, and a player
 without one gets no pad until Ryujinx has written its own.
+PCSX2 binds a pad by SDL player index, `SDL-<n>/<input>`, which counts only the virtual pads a
+launch lets SDL see: while a launch runs `[PadN]`'s SDL bindings play `SDL-<N-1>`, a DualShock 2
+bound only to the keyboard (the player's pad 1) or to nothing gets PCSX2's own SDL layout, input
+profiles are bound alike, and the setup wizard is off (`library/pcsx2_config`); verified on the
+player's AppImage with a copy of their config (`scratch/launch-rules/runs/pcsx2`: presses take
+Crash Twinsanity from its attract reel to its title menu and New Game, `PCSX2.ini` comes back
+byte-identical). Gaps: a pad of another type (guitar, Jogcon) bound to the keyboard stays so; a
+second binding line for one input keeps its old SDL index.
 Tested: `pad_translator` (unit), `pads`
 against real uinput pads, `handoff` passing the environment; verified headless with
 a uinput pad driving the shell (`scratch/overlay-test/drive_pad.py`): B reaches the
