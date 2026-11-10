@@ -24,7 +24,8 @@ struct Found {
     std::size_t sectionEnd{std::string_view::npos};
 };
 
-Found find(std::string_view text, std::string_view section, std::string_view key) {
+Found find(std::string_view text, const IniKey& wanted) {
+    const std::string_view section = wanted.section;
     Found found;
     bool inSection = false;
     std::size_t at = 0;
@@ -41,7 +42,7 @@ Found find(std::string_view text, std::string_view section, std::string_view key
             }
         } else if (inSection) {
             const std::size_t equals = line.find_first_of("=:");
-            if (equals != std::string_view::npos && trimmed(line.substr(0, equals)) == key) {
+            if (equals != std::string_view::npos && trimmed(line.substr(0, equals)) == wanted.key) {
                 found.line = at;
                 found.lineEnd = end;
                 return found;
@@ -57,9 +58,8 @@ Found find(std::string_view text, std::string_view section, std::string_view key
 
 } // namespace
 
-std::optional<std::string> iniValueIn(std::string_view text, std::string_view section,
-                                      std::string_view key) {
-    const Found found = find(text, section, key);
+std::optional<std::string> iniValueIn(std::string_view text, const IniKey& key) {
+    const Found found = find(text, key);
     if (found.line == std::string_view::npos) {
         return std::nullopt;
     }
@@ -74,13 +74,12 @@ std::optional<std::string> iniValue(const std::filesystem::path& file, std::stri
     if (!text) {
         return std::nullopt;
     }
-    return iniValueIn(*text, section, key);
+    return iniValueIn(*text, IniKey{.section = section, .key = key});
 }
 
-std::string withIniValue(std::string_view text, std::string_view section, std::string_view key,
-                         std::string_view value) {
-    const Found found = find(text, section, key);
-    std::string setting{key};
+std::string withIniValue(std::string_view text, const IniKey& key, std::string_view value) {
+    const Found found = find(text, key);
+    std::string setting{key.key};
     setting += '=';
     setting += value;
     std::string out;
@@ -105,7 +104,7 @@ std::string withIniValue(std::string_view text, std::string_view section, std::s
         out += '\n';
     }
     out += '[';
-    out.append(section);
+    out.append(key.section);
     out += "]\n";
     out.append(setting);
     out += '\n';

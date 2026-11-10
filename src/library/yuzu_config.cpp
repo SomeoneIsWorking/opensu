@@ -59,19 +59,23 @@ constexpr std::string_view emptyBinding{"[empty]"};
 /// Eden's `ControllerType::ProController`.
 constexpr std::string_view proController{"0"};
 
-/// `ini` with `key` in `[section]` set and its `\default` cleared, which Eden reads first.
-std::string withSetting(std::string_view ini, std::string_view section, const std::string& key,
-                        std::string_view value) {
-    return withIniValue(withIniValue(ini, section, key + "\\default", "false"), section, key,
-                        value);
+/// `ini` with `key` set and its `\default` cleared, which Eden reads first.
+std::string withSetting(std::string_view ini, const IniKey& key, std::string_view value) {
+    const std::string fallback = std::string{key.key} + "\\default";
+    return withIniValue(withIniValue(ini, {key.section, fallback}, "false"), key, value);
+}
+
+/// `key`'s value under `[Controls]`; empty when it is not there.
+std::string control(std::string_view ini, const std::string& key) {
+    return iniValueIn(ini, {controls, key}).value_or("");
 }
 
 /// Whether Eden reads `key` as true: its `\default` says to take `fallback`.
 bool isTrue(std::string_view ini, const std::string& key, bool fallback) {
-    if (iniValueIn(ini, controls, key + "\\default").value_or("true") == "true") {
+    if (iniValueIn(ini, {controls, key + "\\default"}).value_or("true") == "true") {
         return fallback;
     }
-    return iniValueIn(ini, controls, key).value_or("") == "true";
+    return control(ini, key) == "true";
 }
 
 std::string unquoted(std::string_view value) {
@@ -123,38 +127,38 @@ std::string defaultBinding(std::string_view value, std::string_view guid, int po
 std::string withPlayer(std::string ini, int player, std::string_view guid) {
     const std::string prefix = "player_" + std::to_string(player) + "_";
     const bool hasSdl = std::ranges::any_of(defaults, [&](const DefaultBinding& binding) {
-        return iniValueIn(ini, controls, prefix + std::string{binding.key})
-                   .value_or("")
-                   .find(sdlEngine) != std::string::npos;
+        return control(ini, prefix + std::string{binding.key}).find(sdlEngine) != std::string::npos;
     });
     if (hasSdl) {
         for (const DefaultBinding& binding : defaults) {
             const std::string key = prefix + std::string{binding.key};
-            const std::optional<std::string> value = iniValueIn(ini, controls, key);
-            if (value && value->find(sdlEngine) != std::string::npos) {
-                ini = withSetting(ini, controls, key,
-                                  quoted(retargeted(unquoted(*value), guid, player)));
+            const std::string value = control(ini, key);
+            if (value.find(sdlEngine) != std::string::npos) {
+                ini = withSetting(ini, {controls, key},
+                                  quoted(retargeted(unquoted(value), guid, player)));
             }
         }
         lucent::info("eden", "player {} bound to virtual pad port {}", player + 1, player);
     } else if (player == 0 || isTrue(ini, prefix + "connected", false)) {
         for (const DefaultBinding& binding : defaults) {
-            ini = withSetting(ini, controls, prefix + std::string{binding.key},
-                              defaultBinding(binding.value, guid, player));
+            const std::string key = prefix + std::string{binding.key};
+            ini = withSetting(ini, {controls, key}, defaultBinding(binding.value, guid, player));
         }
-        ini = withSetting(ini, controls, prefix + "type", proController);
+        const std::string type = prefix + "type";
+        ini = withSetting(ini, {controls, type}, proController);
         lucent::info("eden", "player {} given a Pro Controller on virtual pad port {}", player + 1,
                      player);
     } else {
         return ini;
     }
-    return withSetting(ini, controls, prefix + "connected", "true");
+    const std::string connected = prefix + "connected";
+    return withSetting(ini, {controls, connected}, "true");
 }
 
 } // namespace
 
 std::string yuzuLaunchSettings(std::string_view ini, std::string_view padGuid) {
-    std::string out = withSetting(ini, "UI", "check_for_updates", "false");
+    std::string out = withSetting(ini, {"UI", "check_for_updates"}, "false");
     if (padGuid.empty()) {
         return out;
     }

@@ -15,13 +15,18 @@ namespace opensu::library {
 [[nodiscard]] std::optional<std::string> iniValue(const std::filesystem::path& file,
                                                   std::string_view section, std::string_view key);
 
-/// The value of `key` in `[section]` of the INI `text`.
-[[nodiscard]] std::optional<std::string> iniValueIn(std::string_view text, std::string_view section,
-                                                    std::string_view key);
+/// A key under `[section]`.
+struct IniKey {
+    std::string_view section;
+    std::string_view key;
+};
 
-/// `text` with `key` in `[section]` set to `value` as `key=value`: the key's first line replaced,
-/// else a line added after the section's last setting, else the section added at the end.
-[[nodiscard]] std::string withIniValue(std::string_view text, std::string_view section,
-                                       std::string_view key, std::string_view value);
+/// The value of `key` in the INI `text`.
+[[nodiscard]] std::optional<std::string> iniValueIn(std::string_view text, const IniKey& key);
+
+/// `text` with `key` set to `value` as `key=value`: the key's first line replaced, else a line
+/// added after its section's last setting, else the section added at the end.
+[[nodiscard]] std::string withIniValue(std::string_view text, const IniKey& key,
+                                       std::string_view value);
 
 } // namespace opensu::library
