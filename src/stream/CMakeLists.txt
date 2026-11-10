@@ -35,14 +35,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         opensu_missing_package("openSU needs libpipewire 0.3 to capture the screen remote play streams"
             FEDORA pipewire-devel DEBIAN libpipewire-0.3-dev)
     endif()
-    pkg_check_modules(XTST IMPORTED_TARGET xtst)
-    if(NOT XTST_FOUND)
-        opensu_missing_package("openSU needs libXtst to play a remote player's keys and pointer"
-            FEDORA libXtst-devel DEBIAN libxtst-dev)
-    endif()
     target_sources(opensu_stream PRIVATE pipewire_session.cpp screen_capture_pipewire.cpp
         game_sound_pipewire.cpp host_input.cpp)
-    target_link_libraries(opensu_stream PRIVATE PkgConfig::PIPEWIRE PkgConfig::XTST)
+    target_link_libraries(opensu_stream PRIVATE PkgConfig::PIPEWIRE opensu::session)
 else()
     target_sources(opensu_stream PRIVATE screen_capture_none.cpp game_sound_none.cpp
         host_input_none.cpp)

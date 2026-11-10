@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <array>
 #include <optional>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -11,10 +10,7 @@
 
 #include "gamepad/remote_pad.hpp"
 #include "lucent/log.h"
-
-// Last: Xlib defines None, Button1 and the like as macros.
-#include <X11/Xlib.h>
-#include <X11/extensions/XTest.h>
+#include "session/xtest_input.hpp"
 
 namespace opensu::stream {
 namespace {
@@ -68,52 +64,6 @@ std::optional<unsigned> xKeycodeOf(std::uint8_t usage) {
     }
     return found->second + xKeycodeOffset;
 }
-
-/// The game's X display, through XTest.
-class XDisplay {
-  public:
-    explicit XDisplay(const std::string& name) : display_{XOpenDisplay(name.c_str())} {
-        if (display_ == nullptr) {
-            throw std::runtime_error{"cannot open the game's X display " + name};
-        }
-        int event = 0;
-        int error = 0;
-        int major = 0;
-        int minor = 0;
-        if (XTestQueryExtension(display_, &event, &error, &major, &minor) == False) {
-            XCloseDisplay(display_);
-            throw std::runtime_error{"the game's X display " + name + " has no XTest"};
-        }
-    }
-    ~XDisplay() {
-        XCloseDisplay(display_);
-    }
-    XDisplay(const XDisplay&) = delete;
-    XDisplay& operator=(const XDisplay&) = delete;
-    XDisplay(XDisplay&&) = delete;
-    XDisplay& operator=(XDisplay&&) = delete;
-
-    void key(unsigned keycode, bool down) {
-        XTestFakeKeyEvent(display_, keycode, down ? True : False, CurrentTime);
-    }
-    void button(unsigned button, bool down) {
-        XTestFakeButtonEvent(display_, button, down ? True : False, CurrentTime);
-    }
-    /// Moves the pointer to `x`, `y` across the screen, each 0 to 1.
-    void move(double x, double y) {
-        const int screen = DefaultScreen(display_);
-        const int width = DisplayWidth(display_, screen);
-        const int height = DisplayHeight(display_, screen);
-        XTestFakeMotionEvent(display_, screen, static_cast<int>(x * (width - 1)),
-                             static_cast<int>(y * (height - 1)), CurrentTime);
-    }
-    void flush() {
-        XFlush(display_);
-    }
-
-  private:
-    Display* display_;
-};
 
 } // namespace
 
@@ -190,7 +140,7 @@ class HostInput::Devices {
     }
 
   private:
-    std::optional<XDisplay> display_;
+    std::optional<session::XTestInput> display_;
     std::vector<std::uint8_t> held_;
     std::optional<wire::MouseState> mouse_;
 };
