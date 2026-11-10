@@ -1340,6 +1340,13 @@ verified with the downloaded 1.1 (`scratch/launch-rules/runs/melonds`: Start ski
 intro to its title, A opens the title menu, the made `melonDS.toml` is gone after). Gaps: buttons
 the player bound with a pad of another layout keep their indices on the virtual pad; a second
 melonDS instance gets no pad.
+RPCS3's SDL handler binds a player by name, `Device: <SDL name> <k>`: while a launch runs player N
+plays `Xbox 360 Controller N` in every input profile, an SDL player with its mappings, player 1 or
+a keyboard, evdev or DualShock player with RPCS3's SDL layout, and the welcome dialog is off
+(`library/rpcs3_config`); verified on the player's AppImage with a copy of their config
+(`scratch/launch-rules/runs/rpcs3`: Cross closes Time Crisis 4's autosave notice and the two after
+it, the profile comes back byte-identical). Gaps: an evdev player's own mappings are replaced, since
+RPCS3's evdev names follow directory order; a Guncon3, Move or Skateboard player gets a pad.
 Tested: `pad_translator` (unit), `pads`
 against real uinput pads, `handoff` passing the environment; verified headless with
 a uinput pad driving the shell (`scratch/overlay-test/drive_pad.py`): B reaches the
