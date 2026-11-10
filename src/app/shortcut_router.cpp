@@ -54,6 +54,9 @@ void ShortcutRouter::perform(input::Action action) {
     case Action::Downloads:
         hooks_.openDownloads();
         break;
+    case Action::Keyboard:
+        onGame(hooks_.openKeyboard);
+        break;
     // The button actions come out as pad events in route.
     case Action::Up:
     case Action::Down:

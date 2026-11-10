@@ -3,20 +3,21 @@ add_library(opensu::app ALIAS opensu_app)
 target_link_libraries(opensu_app PRIVATE nlohmann_json::nlohmann_json opensu::clock)
 # The session the shell runs in, what openSU's window is over a running game, where frame
 # generation, a game's scaling and the night light are switched, and the machine's services (power,
-# session mode, Bluetooth, the backlight, the desktop's night light): Gamescope, logind, BlueZ and
-# KDE on Linux; on Windows and macOS the desktop's windows and the shell's window raised over a
-# game; on Android the shell's Activity brought in front of the runner's.
+# session mode, Bluetooth, the backlight, the desktop's night light) and how the keyboard types
+# into the game: Gamescope, logind, BlueZ, KDE and XTest on Linux; on Windows and macOS the
+# desktop's windows and the shell's window raised over a game; on Android the shell's Activity
+# brought in front of the runner's.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(opensu_app PRIVATE shell_session_gamescope.cpp game_overlay_gamescope.cpp
         game_presentation_gamescope.cpp night_light_gamescope.cpp desktop_night_kde.cpp
-        host_services_linux.cpp)
+        host_services_linux.cpp game_typing_gamescope.cpp)
     target_link_libraries(opensu_app PRIVATE opensu::session PUBLIC opensu::host)
 elseif(ANDROID)
     target_sources(opensu_app PRIVATE shell_session_android.cpp game_overlay_activity_task.cpp
-        game_presentation_none.cpp night_light_none.cpp host_services_none.cpp)
+        game_presentation_none.cpp night_light_none.cpp host_services_none.cpp game_typing_none.cpp)
 elseif(WIN32 OR APPLE)
     target_sources(opensu_app PRIVATE shell_session_desktop.cpp game_overlay_raised_window.cpp
-        game_presentation_none.cpp night_light_none.cpp host_services_none.cpp)
+        game_presentation_none.cpp night_light_none.cpp host_services_none.cpp game_typing_none.cpp)
 endif()
 # The system volume: AudioManager through the Activity on Android, the desktop's mixer program
 # elsewhere. The interface's content insets come from the Activity there, SDL's safe area

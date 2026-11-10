@@ -18,6 +18,7 @@ using ui::RowKind;
 using ui::SettingsRow;
 
 constexpr const char* resumeId = "guide.resume";
+constexpr const char* keyboardId = "guide.keyboard";
 constexpr const char* closeGameId = "guide.closeGame";
 constexpr const char* saveAndCloseId = "guide.saveAndClose";
 constexpr const char* resumedId = "guide.resumed";
@@ -147,6 +148,9 @@ std::vector<SettingsRow> GuideMenuController::places() const {
     std::vector<SettingsRow> rows;
     if (context_.inGame) {
         rows.push_back(action(resumeId, "Resume"));
+        if (context_.typesIntoGame) {
+            rows.push_back(action(keyboardId, "Keyboard"));
+        }
         if (context_.remote && context_.joined) {
             rows.push_back(asking(closeGameId, "Leave game",
                                   "You leave the game; it goes on on the openSU it runs on.",
@@ -363,6 +367,8 @@ void GuideMenuController::run(const std::string& id, int step) {
         stepProfile(step);
     } else if (id == resumeId) {
         close();
+    } else if (id == keyboardId) {
+        leave(hooks_.openKeyboard);
     } else if (id == closeGameId || id == saveAndCloseId || id == saveStateId ||
                id == loadStateId || id == resetGameId || id == rotateScreenId) {
         runGame(id);

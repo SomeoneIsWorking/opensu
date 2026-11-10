@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <optional>
 #include <string>
+#include <string_view>
 
 #include "hud.hpp"
 #include "paint.hpp"
@@ -20,6 +22,8 @@ constexpr float keySp = 10.0f;
 constexpr float miniSp = 7.5f;
 constexpr float faceSp = 17.0f;
 constexpr float stripSp = 11.0f;
+constexpr float previewSp = 10.0f;
+constexpr std::string_view previewPlaceholder = "Typing into the game";
 constexpr float keyCornerDp = 4.0f;
 constexpr float keyOutlineDp = 1.5f;
 constexpr float stickGlyphDp = 14.0f;
@@ -51,18 +55,31 @@ std::vector<HintPrompt> OnScreenKeyboardPainter::hints(const OnScreenKeyboard& k
     if (prompts_->device.current() == input::Device::KeyboardMouse) {
         return {{"A", "Done"}, {"B", "Close"}};
     }
+    // A game keeps its own text, so there is nothing to paste into or clear, and Start is Return.
+    const bool game = keyboard.preview().has_value();
     if (keyboard.style() == input::KeyboardStyle::DaisyWheel) {
         std::vector<HintPrompt> wheel{{"LEFT", "Cursor"}};
         if (!keyboard.petal()) {
-            wheel.emplace_back("A", "Paste");
+            if (!game) {
+                wheel.emplace_back("A", "Paste");
+            }
             wheel.emplace_back("B", "Close");
         }
-        wheel.emplace_back("-", "Clear");
-        wheel.emplace_back("+", "Done");
+        if (!game) {
+            wheel.emplace_back("-", "Clear");
+        }
+        wheel.emplace_back("+", game ? "Enter" : "Done");
         return wheel;
     }
-    return {{"A", "Type"},  {"B", "Delete"}, {"X", keyboard.shifted() ? "Caps on" : "Caps"},
-            {"Y", "Space"}, {"-", "Clear"},  {"+", "Done"}};
+    std::vector<HintPrompt> grid{{"A", "Type"},
+                                 {"B", "Delete"},
+                                 {"X", keyboard.shifted() ? "Caps on" : "Caps"},
+                                 {"Y", "Space"}};
+    if (!game) {
+        grid.emplace_back("-", "Clear");
+    }
+    grid.emplace_back("+", game ? "Enter" : "Done");
+    return grid;
 }
 
 void OnScreenKeyboardPainter::paint(Canvas& canvas, const OnScreenKeyboard& keyboard, Point size,
@@ -71,10 +88,14 @@ void OnScreenKeyboardPainter::paint(Canvas& canvas, const OnScreenKeyboard& keyb
         return;
     }
     const KeyboardLayout layout =
-        layoutKeyboard(Rect{0.0f, 0.0f, size.x, size.y}, dp, keyboard.style());
+        layoutKeyboard(Rect{0.0f, 0.0f, size.x, size.y}, dp, keyboard.style(),
+                       keyboard.preview().has_value());
     const float alpha = look.alpha;
     const PanelScope scope{canvas, centreOf(layout.panel), look.scale};
     canvas.fillRoundRect(onCanvas(layout.panel), layout.panelRadius, withAlpha(dockFill, alpha));
+    if (const std::optional<std::string>& typed = keyboard.preview()) {
+        paintPreview(canvas, *typed, layout.preview, layout.unit, alpha);
+    }
     const std::vector<HintPrompt> own = hints(keyboard);
     if (keyboard.style() == input::KeyboardStyle::DaisyWheel) {
         paintWheel(canvas, keyboard, layout, alpha);
@@ -223,6 +244,25 @@ float OnScreenKeyboardPainter::paintStrip(Canvas& canvas, const OnScreenKeyboard
         x += text_.measure(action, label);
     }
     return width;
+}
+
+void OnScreenKeyboardPainter::paintPreview(Canvas& canvas, std::string_view typed,
+                                           const Rect& line, float unit, float alpha) const {
+    const float size = previewSp * unit;
+    const float pad = pillPaddingDp * unit;
+    canvas.fillRoundRect(onCanvas(line), line.height * 0.5f, withAlpha(cardFill, alpha));
+    if (typed.empty()) {
+        text_.drawCentred(canvas, previewPlaceholder, Point{line.x + pad, line.centreY()}, size,
+                          withAlpha(palette::inkSoft, alpha));
+        return;
+    }
+    // The end of the line, where the game's caret is, is what stays in view.
+    const float room = line.width - 2.0f * pad;
+    while (typed.size() > 1 && text_.measure(typed, size) > room) {
+        typed.remove_prefix(1);
+    }
+    text_.drawCentred(canvas, typed, Point{line.x + pad, line.centreY()}, size,
+                      withAlpha(palette::ink, alpha));
 }
 
 void OnScreenKeyboardPainter::paintHints(Canvas& canvas, std::span<const HintPrompt> hints,

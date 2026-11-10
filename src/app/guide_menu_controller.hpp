@@ -1,13 +1,14 @@
 // guide_menu_controller — what the Guide menu holds and does: one menu over the home screen or a
-// running game. Its places (the running game's actions, then Home, Library, Devices, Downloads,
-// Settings and Power) stand beside the changes made in place (volume, mute, brightness and the
-// interface size, the profile played as), each of which is set here and nowhere else, and, over
-// Home or Library, what shapes that page's shelf (`ShelfOptions`) and Search. Volume goes
-// through `VolumeControl`, brightness through `BrightnessControl`, the interface size through
-// `Preferences`, a game's state commands through `RetroSession`, power through `host::Power` and
-// the session switch through `host::SessionMode`. Every step that throws something away (Close
-// game, Load state, Reset game, Restart, Shut down, the session switch) asks first, one rule. Save
-// and close keeps the game where it is for its next start, and the menu says when a game resumed.
+// running game. Its places (the running game's actions, Keyboard among them where it can type
+// into the game, then Home, Library, Devices, Downloads, Settings and Power) stand beside the
+// changes made in place (volume, mute, brightness and the interface size, the profile played as),
+// each of which is set here and nowhere else, and, over Home or Library, what shapes that page's
+// shelf (`ShelfOptions`) and Search. Volume goes through `VolumeControl`, brightness through
+// `BrightnessControl`, the interface size through `Preferences`, a game's state commands through
+// `RetroSession`, power through `host::Power` and the session switch through `host::SessionMode`.
+// Every step that throws something away (Close game, Load state, Reset game, Restart, Shut down,
+// the session switch) asks first, one rule. Save and close keeps the game where it is for its next
+// start, and the menu says when a game resumed.
 // Over a game here, Invite to play and Players hold who may join and who has, with Kick. Devices,
 // Downloads and Settings open over the menu, so Back from them returns to it as it was left.
 #pragma once
@@ -48,6 +49,8 @@ struct GuideContext {
     std::string title{};
     /// The running game has settings to open (video, core options or frame generation).
     bool gameSettings{false};
+    /// The on-screen keyboard can type into the game: Keyboard.
+    bool typesIntoGame{false};
     /// openSU is the login session: Power ends with Switch to desktop, not Quit.
     bool loginSession{false};
     /// Session mode is installed: Power offers Switch to session mode, else Install session
@@ -87,6 +90,8 @@ class GuideMenuController final : public ui::RowActions {
         std::function<void()> closeGame;
         /// Opens the running game's settings over the menu.
         std::function<void()> openGameSettings;
+        /// Opens the on-screen keyboard over the running game, typing into it.
+        std::function<void()> openKeyboard;
         /// Keeps a Rotate screen press as the running game's own setting.
         std::function<void()> keepScreenTurn;
         /// Gives the screen the interface size the preferences now hold.

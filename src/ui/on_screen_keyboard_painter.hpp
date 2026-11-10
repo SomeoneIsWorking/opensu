@@ -2,9 +2,10 @@
 // translucent card: the daisy wheel's ring of petals with their characters in miniature, the
 // picked petal's characters large in the A/B/X/Y diamond and between them the set strip and the
 // hints; or the regular grid's keys beside the hints. The field it types into is drawn above it by
-// the screen that holds the field.
+// the screen that holds the field; over a game a preview line above the strip echoes what it typed.
 #pragma once
 
+#include <string_view>
 #include <vector>
 
 #include "button_glyph.hpp"
@@ -38,6 +39,9 @@ class OnScreenKeyboardPainter {
     /// pixels per dp; returns their width. Only measures when `draw` is false.
     float paintStrip(Canvas& canvas, const OnScreenKeyboard& keyboard, Point centre, float unit,
                      float alpha, bool draw) const;
+    /// What was typed into the game, its end in view, on a pill filling `line`.
+    void paintPreview(Canvas& canvas, std::string_view typed, const Rect& line, float unit,
+                      float alpha) const;
     /// `hints` centred in `line`, shrunk from `unit` to fit its width.
     void paintHints(Canvas& canvas, std::span<const HintPrompt> hints, const Rect& line, float unit,
                     float alpha) const;

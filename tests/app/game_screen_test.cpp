@@ -1,5 +1,5 @@
 // The window over a running game: the chord list shows it without taking the pads, a menu takes
-// them, and closing the menu under the list gives them back.
+// them, and closing the menu under the list gives them back; the keyboard over a game takes them.
 #include <cstdio>
 #include <vector>
 
@@ -36,10 +36,25 @@ void theChordListLeavesThePadsToTheGame() {
     expect(screen.mode() == OverlayMode::Hidden, "a game that ends shows nothing over it");
 }
 
+void theKeyboardOverAGameRestsThePads() {
+    std::vector<bool> blocks;
+    GameScreen screen{true, [&blocks](bool blocked) {
+                          blocks.push_back(blocked);
+                      }};
+    screen.setRunning(true);
+    screen.show(OverlayMode::Typing);
+    expect(blocks == std::vector{true}, "the keyboard over a game keeps its pads from it");
+    screen.show(OverlayMode::Interactive);
+    expect(blocks.size() == 1, "a menu from the keyboard keeps them blocked");
+    screen.show(OverlayMode::Hidden);
+    expect(blocks == std::vector{true, false}, "closing it gives them back");
+}
+
 } // namespace
 
 int main() try {
     theChordListLeavesThePadsToTheGame();
+    theKeyboardOverAGameRestsThePads();
     std::printf("game_screen: all checks passed\n");
     return 0;
 } catch (...) {

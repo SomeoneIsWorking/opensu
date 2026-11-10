@@ -56,6 +56,8 @@ enum class Action : std::uint8_t {
     Home,
     /// The Downloads page.
     Downloads,
+    /// The on-screen keyboard over the running game, typing into it.
+    Keyboard,
 };
 
 inline constexpr std::array allActions{
@@ -64,7 +66,7 @@ inline constexpr std::array allActions{
     Action::L1,        Action::R1,         Action::Search,     Action::Guide,   Action::QuickMenu,
     Action::VolumeUp,  Action::VolumeDown, Action::VolumeMute, Action::Quit,    Action::CloseGame,
     Action::SaveState, Action::LoadState,  Action::ResetGame,  Action::Devices, Action::Home,
-    Action::Downloads};
+    Action::Downloads, Action::Keyboard};
 
 /// The action's name in the Settings screen.
 [[nodiscard]] std::string_view label(Action action) noexcept;

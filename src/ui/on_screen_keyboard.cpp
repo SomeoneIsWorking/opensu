@@ -17,6 +17,7 @@ constexpr float dockShare = 0.2f;
 constexpr float columnGapDp = 14.0f;
 constexpr float stripHeightDp = 24.0f;
 constexpr float hintHeightDp = 22.0f;
+constexpr float previewHeightDp = 16.0f;
 constexpr float rowGapDp = 5.0f;
 constexpr float petalDistanceDp = 30.0f;
 constexpr float petalRadiusDp = 10.5f;
@@ -141,7 +142,8 @@ std::optional<std::size_t> petalPointedAt(bool up, bool down, bool left, bool ri
     return std::nullopt;
 }
 
-KeyboardLayout layoutKeyboard(const Rect& frame, float dp, input::KeyboardStyle style) {
+KeyboardLayout layoutKeyboard(const Rect& frame, float dp, input::KeyboardStyle style,
+                              bool preview) {
     KeyboardLayout layout;
     const bool wheel = style == input::KeyboardStyle::DaisyWheel;
     const float keysDp = wheel ? 2.0f * (petalDistanceDp + petalRadiusDp)
@@ -191,8 +193,13 @@ KeyboardLayout layoutKeyboard(const Rect& frame, float dp, input::KeyboardStyle 
     x += (keysDp + columnGapDp) * unit;
     const float column = columnDp * unit;
     const float gap = rowGapDp * unit;
-    const float rows = (stripHeightDp + hintHeightDp) * unit + gap;
+    const float line = preview ? previewHeightDp * unit + gap : 0.0f;
+    const float rows = (stripHeightDp + hintHeightDp) * unit + gap + line;
     float y = top + (inner - rows) * 0.5f;
+    if (preview) {
+        layout.preview = Rect{x, y, column, previewHeightDp * unit};
+        y += line;
+    }
     layout.strip = Rect{x, y, column, stripHeightDp * unit};
     y += stripHeightDp * unit + gap;
     layout.hints = Rect{x, y, column, hintHeightDp * unit};
@@ -228,9 +235,27 @@ void OnScreenKeyboard::open(bool grid) {
 
 void OnScreenKeyboard::close() noexcept {
     open_ = false;
+    preview_.reset();
     stick_ = {};
     pointed_ = false;
     pointerPetal_.reset();
+}
+
+void OnScreenKeyboard::openOverGame(bool grid) {
+    open(grid);
+    preview_.emplace();
+}
+
+void OnScreenKeyboard::echo(std::string_view typed) {
+    if (preview_) {
+        preview_->append(typed);
+    }
+}
+
+void OnScreenKeyboard::echoErase() noexcept {
+    if (preview_ && !preview_->empty()) {
+        preview_->pop_back();
+    }
 }
 
 bool OnScreenKeyboard::focusKey(std::size_t index) {

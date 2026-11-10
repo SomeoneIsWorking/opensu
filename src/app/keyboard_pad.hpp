@@ -11,11 +11,15 @@
 // closes. LB deletes and RB types a space either way, LT and RT step the set, D-pad Left and Right
 // move the caret, Start is Done. While touch controls show, a field types on the system's on-screen
 // keyboard where there is one (Android's), the way iiSU does; the grid is the pad's.
+// Over a game, opened from the Guide menu or its chord, the same buttons type into the game in
+// front through `GameTyping`, which keeps the text; the keyboard echoes it on its preview line,
+// Start is Return and closes it, and it closes when a screen opens over it or the game ends.
 #pragma once
 
 #include "gpu2d/ui/navigator.hpp"
 
 #include "audio/sdl_sound_player.hpp"
+#include "game_typing.hpp"
 #include "gamepad/event.hpp"
 #include "ui/on_screen_keyboard.hpp"
 
@@ -39,7 +43,13 @@ class KeyboardPad {
     /// where there is none on the regular grid a finger taps; otherwise on the grid in the
     /// chosen style.
     void open();
+    /// Opens the keyboard over the running game, typing into it through `game`.
+    void openOverGame(GameTyping& game);
     void close();
+    /// Whether it is up over a game, typing into it.
+    [[nodiscard]] bool overGame() const noexcept {
+        return game_ != nullptr;
+    }
     /// Whether openSU's own keyboard is up.
     [[nodiscard]] bool isOpen() const noexcept {
         return keyboard_.isOpen();
@@ -48,8 +58,9 @@ class KeyboardPad {
     [[nodiscard]] bool systemTyping() const noexcept {
         return systemTyping_;
     }
-    /// Closes the keyboard once the focused field is not being edited. Each frame.
-    void follow();
+    /// Closes the keyboard once the focused field is not being edited, or over a game once a screen
+    /// opens over it or no game is running (`inGame`). Each frame.
+    void follow(bool inGame);
 
     /// A pad button while it is up.
     void act(gamepad::Button button);
@@ -67,7 +78,9 @@ class KeyboardPad {
     void erase();
     /// Done: closes the keyboard and submits the field.
     void done();
-    /// Whether the focused field holds nothing.
+    /// The caret a character left or right; reports whether it moved.
+    bool caret(bool left);
+    /// Whether the focused field, or over a game the preview line, holds nothing.
     [[nodiscard]] bool fieldEmpty() const;
 
     ui::OnScreenKeyboard& keyboard_;
@@ -75,6 +88,8 @@ class KeyboardPad {
     audio::SdlSoundPlayer& sounds_;
     bool systemKeyboard_{false};
     bool systemTyping_{false};
+    /// What it types into while it is up over a game.
+    GameTyping* game_{};
 };
 
 } // namespace opensu::app

@@ -1015,13 +1015,37 @@ void ShellApp::openDownloads() {
     downloadsScreen_.open();
 }
 
+void ShellApp::openGameKeyboard() {
+    if (remotePlay_.streaming() || !launches_.running()) {
+        shell_.setToast("the keyboard types only into a game running here", true);
+        return;
+    }
+    if (!typesIntoGames(environment_.insideGamescope)) {
+        shell_.setToast("the keyboard types into games only inside openSU's Gamescope", true);
+        return;
+    }
+    if (!gameTyping_) {
+        try {
+            gameTyping_ = openGameTyping(environment_.x11Display);
+        } catch (const std::runtime_error& refused) {
+            lucent::error("keyboard", "cannot type into the game: {}", refused.what());
+            shell_.setToast(std::string{"cannot type into the game: "} + refused.what(), true);
+            return;
+        }
+    }
+    keyboardPad_.openOverGame(*gameTyping_);
+}
+
 void ShellApp::syncOverlay() {
     using display::OverlayMode;
     shell_.followChordHint(router_.longHeld(std::chrono::steady_clock::now()));
-    // A screen over Home, the keyboard or the mapping editor takes the buttons.
-    const bool interactive = shell_.screens().navigator().active() || shell_.keyboard().isOpen() ||
-                             shell_.mappingPage().isOpen();
+    // A screen over Home, the keyboard or the mapping editor takes the buttons; the keyboard over a
+    // game leaves it the keys it types.
+    const bool typing = keyboardPad_.overGame();
+    const bool interactive = shell_.screens().navigator().active() ||
+                             (shell_.keyboard().isOpen() && !typing) || shell_.mappingPage().isOpen();
     const OverlayMode over = interactive                 ? OverlayMode::Interactive
+                             : typing                    ? OverlayMode::Typing
                              : shell_.chordHintVisible() ? OverlayMode::Passive
                                                          : OverlayMode::Hidden;
     gameScreen_.show(gameScreen_.running() ? over : OverlayMode::Hidden);
@@ -1538,7 +1562,7 @@ void ShellApp::serviceRequests() {
     if (running != gameScreen_.running()) {
         gameScreen_.setRunning(running);
     }
-    relay_.follow(running, gameScreen_.mode() == display::OverlayMode::Interactive,
+    relay_.follow(running, display::takesPads(gameScreen_.mode()),
                   pads_->connected().size(), window_->touchSurface());
     if (const bool inGame = running || remotePlay_.showing(); inGame != shell_.inGame()) {
         shell_.setInGame(inGame);
@@ -1611,7 +1635,7 @@ int ShellApp::run() {
         presentation_.follow(gameInFront(), launches_.running() ? &launches_.game() : nullptr);
         nightLight_.service(preferences_.values().nightLight, std::chrono::system_clock::now());
         padOwner_.follow(focusFollow_.following(), focusFollow_.holder(),
-                         gameScreen_.mode() == display::OverlayMode::Interactive);
+                         display::takesPads(gameScreen_.mode()));
         handlePads();
         handleKeyboard();
         handlePointer();
@@ -1659,7 +1683,7 @@ int ShellApp::run() {
         if (window_->screenKeyboardHidden()) {
             keyboardPad_.close();
         }
-        keyboardPad_.follow();
+        keyboardPad_.follow(shell_.inGame());
         window_->showScreenKeyboard(keyboardPad_.systemTyping());
         syncOverlay();
         syncChrome();

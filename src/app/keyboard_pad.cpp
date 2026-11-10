@@ -4,6 +4,7 @@
 #include <string>
 
 #include "gpu2d/ui/widgets.hpp"
+#include "lucent/log.h"
 
 namespace opensu::app {
 namespace {
@@ -53,6 +54,16 @@ void KeyboardPad::open() {
     navigator_.edit(true);
 }
 
+void KeyboardPad::openOverGame(GameTyping& game) {
+    if (keyboard_.isOpen() || systemTyping_) {
+        return;
+    }
+    // input-sound.md 3.4 Open: a panel appears.
+    sounds_.play(audio::Effect::Open);
+    game_ = &game;
+    keyboard_.openOverGame(navigator_.touch());
+}
+
 void KeyboardPad::close() {
     if (!keyboard_.isOpen() && !systemTyping_) {
         return;
@@ -61,10 +72,20 @@ void KeyboardPad::close() {
     sounds_.play(audio::Effect::Close);
     keyboard_.close();
     systemTyping_ = false;
+    if (game_ != nullptr) {
+        game_ = nullptr;
+        return;
+    }
     navigator_.edit(false);
 }
 
-void KeyboardPad::follow() {
+void KeyboardPad::follow(bool inGame) {
+    if (game_ != nullptr) {
+        if (navigator_.active() || !inGame) {
+            close();
+        }
+        return;
+    }
     if (!navigator_.editing()) {
         keyboard_.close();
         systemTyping_ = false;
@@ -83,22 +104,52 @@ void KeyboardPad::stick(ui::Direction direction, bool held) {
 }
 
 bool KeyboardPad::fieldEmpty() const {
+    if (game_ != nullptr) {
+        return keyboard_.preview().value_or(std::string{}).empty();
+    }
     const auto* field =
         dynamic_cast<const gpu2d::ui::TextField*>(navigator_.find(navigator_.focused()));
     return field == nullptr || field->text().empty();
 }
 
 void KeyboardPad::type(const std::string& typed) {
-    if (!typed.empty()) {
-        navigator_.text(typed);
+    if (typed.empty()) {
+        return;
     }
+    if (game_ == nullptr) {
+        navigator_.text(typed);
+        return;
+    }
+    if (!game_->type(typed)) {
+        lucent::warn("keyboard", "the game's display has no key for \"{}\"", typed);
+        return;
+    }
+    keyboard_.echo(typed);
 }
 
 void KeyboardPad::erase() {
-    navigator_.act(gpu2d::ui::Action::Erase);
+    if (game_ == nullptr) {
+        navigator_.act(gpu2d::ui::Action::Erase);
+        return;
+    }
+    game_->erase();
+    keyboard_.echoErase();
+}
+
+bool KeyboardPad::caret(bool left) {
+    if (game_ == nullptr) {
+        return navigator_.act(left ? gpu2d::ui::Action::Left : gpu2d::ui::Action::Right);
+    }
+    game_->caret(left);
+    return true;
 }
 
 void KeyboardPad::done() {
+    if (game_ != nullptr) {
+        game_->enter();
+        close();
+        return;
+    }
     close();
     navigator_.act(gpu2d::ui::Action::Submit);
 }
@@ -108,7 +159,7 @@ void KeyboardPad::apply(const ui::KeyPress& press) {
         done();
         return;
     }
-    if (press.paste) {
+    if (press.paste && game_ == nullptr) {
         navigator_.paste();
     }
     if (press.erase) {
@@ -123,6 +174,9 @@ void KeyboardPad::act(gamepad::Button button) {
         return;
     }
     if (button == gamepad::Button::Select) {
+        if (game_ != nullptr) {
+            return;
+        }
         // Y types on the keyboard, so Select stands for the field's Clear.
         navigator_.act(gpu2d::ui::Action::Tertiary);
         return;
@@ -183,13 +237,14 @@ void KeyboardPad::onWheel(gamepad::Button button) {
     case gamepad::Button::Left:
     case gamepad::Button::Right:
         // input-sound.md 3.4 Navigation: a caret move.
-        if (navigator_.act(button == gamepad::Button::Left ? gpu2d::ui::Action::Left
-                                                           : gpu2d::ui::Action::Right)) {
+        if (caret(button == gamepad::Button::Left)) {
             sounds_.play(audio::Effect::Navigation);
         }
         break;
     case gamepad::Button::A:
-        navigator_.paste();
+        if (game_ == nullptr) {
+            navigator_.paste();
+        }
         break;
     case gamepad::Button::B:
         close();

@@ -12,6 +12,13 @@ enum class OverlayMode : std::uint8_t {
     Passive,
     /// Drawn, with the keyboard.
     Interactive,
+    /// The on-screen keyboard drawn over the game, which keeps the keyboard it is typed into.
+    Typing,
 };
+
+/// Whether the shell takes the game's pads: a menu, a page or the on-screen keyboard is up.
+[[nodiscard]] constexpr bool takesPads(OverlayMode mode) noexcept {
+    return mode == OverlayMode::Interactive || mode == OverlayMode::Typing;
+}
 
 } // namespace opensu::display

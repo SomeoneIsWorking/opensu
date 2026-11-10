@@ -1,6 +1,7 @@
 // on_screen_keyboard — the one on-screen keyboard a pad types with, an input method docked along
 // the bottom edge: it types into the focused text field (a search, a folder path, a password)
-// through the interface toolkit's typed text, Erase and Submit, and holds no line of its own. The
+// through the interface toolkit's typed text, Erase and Submit, and holds no line of its own; over
+// a game it types into the game's window and echoes what it typed on a preview line. The
 // daisy wheel has eight petals of four characters in four sets; the left stick picks a petal and A,
 // B, X and Y type its characters. The regular grid is walked with the D-pad. Pure state, tested
 // without a window; `app/keyboard_pad` is its pad buttons and `on_screen_keyboard_painter` draws
@@ -90,6 +91,8 @@ struct KeyboardLayout {
     Rect strip;
     /// The line the button hints stand on.
     Rect hints;
+    /// Over a game, the line above the strip that echoes what was typed into it; empty otherwise.
+    Rect preview;
 
     /// The circle `petal` fills.
     [[nodiscard]] Rect petalBounds(std::size_t petal) const noexcept;
@@ -100,9 +103,9 @@ struct KeyboardLayout {
 /// Where `face` sits on a petal or in the diamond, as a unit step from its centre (y down).
 [[nodiscard]] std::pair<float, float> faceStep(DaisyFace face) noexcept;
 
-/// The keyboard in `style` docked in `frame`.
+/// The keyboard in `style` docked in `frame`, with the preview line over a game when `preview`.
 [[nodiscard]] KeyboardLayout layoutKeyboard(const Rect& frame, float dp,
-                                            input::KeyboardStyle style);
+                                            input::KeyboardStyle style, bool preview = false);
 
 /// What pressing the focused key asked for.
 struct KeyPress {
@@ -138,6 +141,16 @@ class OnScreenKeyboard {
     /// Opens on the first key, without capitals, the wheel on letters with no petal picked; in
     /// the chosen style, or with `grid` the regular grid.
     void open(bool grid);
+    /// Opened over a game, where it echoes what it types into it on a preview line; the game keeps
+    /// the text.
+    void openOverGame(bool grid);
+    /// What was typed into the game since the keyboard opened over it; nothing over a field.
+    [[nodiscard]] const std::optional<std::string>& preview() const noexcept {
+        return preview_;
+    }
+    /// The preview line takes what was typed, or loses its last character (Delete).
+    void echo(std::string_view typed);
+    void echoErase() noexcept;
     void close() noexcept;
     [[nodiscard]] bool isOpen() const noexcept {
         return open_;
@@ -186,6 +199,7 @@ class OnScreenKeyboard {
     /// The petal the pointer last rested on, kept until the stick picks one.
     std::optional<std::size_t> pointerPetal_;
     bool open_{false};
+    std::optional<std::string> preview_;
 };
 
 } // namespace opensu::ui

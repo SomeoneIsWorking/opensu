@@ -45,6 +45,7 @@
 #include "game_presentation.hpp"
 #include "game_screen.hpp"
 #include "game_settings.hpp"
+#include "game_typing.hpp"
 #include "gamepad/direction_repeat.hpp"
 #include "gamepad/pad_source.hpp"
 #include "giveaways/giveaway_board.hpp"
@@ -206,6 +207,9 @@ class ShellApp final {
     void selectLauncher(library::Source source);
     /// Opens the Downloads page in place of any other page.
     void openDownloads();
+    /// Opens the on-screen keyboard over the game running here, typing into it; refused with a
+    /// toast saying why where it cannot.
+    void openGameKeyboard();
     /// A click on a level of the breadcrumb trail: go back to it.
     void activateCrumb(std::size_t index);
     /// A dock section chosen, by a click or L1 and R1: moves along the dock to it.
@@ -419,6 +423,8 @@ class ShellApp final {
     TopBarClock clock_{shell_, environment_.clock24Hour,
                        device::BatteryReader{environment_.batteryStandIn}};
     FrameTiming frameTiming_;
+    /// What the keyboard types into the game with; opened the first time it is asked for.
+    std::unique_ptr<GameTyping> gameTyping_;
     /// The on-screen keyboard the pad types into text fields with.
     KeyboardPad keyboardPad_{shell_.keyboard(), shell_.screens().navigator(), sounds_};
     /// Match a different game.
@@ -805,6 +811,10 @@ class ShellApp final {
                                                  .openDownloads =
                                                      [this] {
                                                          openDownloads();
+                                                     },
+                                                 .openKeyboard =
+                                                     [this] {
+                                                         openGameKeyboard();
                                                      },
                                                  .say =
                                                      [this](const std::string& text, bool isError) {
@@ -1370,6 +1380,7 @@ class ShellApp final {
                         .title = remote ? remotePlay_.game().title : launches_.game().title,
                         .gameSettings =
                             inGame && !remote && !layered_.sectionsOf(launches_.game()).empty(),
+                        .typesIntoGame = here && typesIntoGames(environment_.insideGamescope),
                         .loginSession = settings_.loginSession,
                         .sessionInstalled =
                             !settings_.loginSession && host_.session && host_.session->installed(),
@@ -1437,6 +1448,10 @@ class ShellApp final {
             .openGameSettings =
                 [this] {
                     openGameSettings(launches_.game(), EditorLook::Panel);
+                },
+            .openKeyboard =
+                [this] {
+                    openGameKeyboard();
                 },
             .keepScreenTurn =
                 [this] {

@@ -43,8 +43,8 @@ void GameScreen::show(display::OverlayMode wanted) {
     if (wanted == mode_) {
         return;
     }
-    const bool wasInteractive = mode_ == display::OverlayMode::Interactive;
-    const bool interactive = wanted == display::OverlayMode::Interactive;
+    const bool wasInteractive = display::takesPads(mode_);
+    const bool interactive = display::takesPads(wanted);
     mode_ = wanted;
     if (overlay_) {
         if (!closing_) {

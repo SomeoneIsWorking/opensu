@@ -114,12 +114,12 @@ void everyActionHasAHandlerNameAndKey() {
                                 action == Action::LoadState || action == Action::ResetGame ||
                                 action == Action::Devices || action == Action::Home ||
                                 action == Action::Downloads;
-        expect(s.primary(action).has_value() != gameAction,
-               "an action has a key, but the game actions ship without one");
+        expect(s.primary(action).has_value() != (gameAction || action == Action::Keyboard),
+               "an action has a key, but the game actions and the keyboard ship without one");
         expect(buttonOf(action).has_value() ==
                    !(action == Action::VolumeUp || action == Action::VolumeDown ||
                      action == Action::VolumeMute || action == Action::Quit ||
-                     action == Action::QuickMenu || gameAction),
+                     action == Action::QuickMenu || action == Action::Keyboard || gameAction),
                "an action is a pad button or one of the shell's own");
         expect(!gameAction || (worksInGame(action) && takesPadChord(action) && !s.padChord(action)),
                "a game action works over a game and takes a chord, none shipped");

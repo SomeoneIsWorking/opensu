@@ -56,6 +56,10 @@ struct Rig {
                                                 [this] {
                                                     ++downloads;
                                                 },
+                                            .openKeyboard =
+                                                [this] {
+                                                    ++keyboards;
+                                                },
                                             .say =
                                                 [this](const std::string& text, bool error) {
                                                     said.emplace_back(text, error);
@@ -74,6 +78,7 @@ struct Rig {
     int devices{0};
     int homes{0};
     int downloads{0};
+    int keyboards{0};
     std::vector<std::pair<std::string, bool>> said;
 };
 
@@ -116,7 +121,7 @@ void gameActionsTakeChords() {
     expect(rig.shortcuts.rebind(input::Action::Devices, input::PadChord{Button::Guide, Button::B})
                    .empty() &&
                rig.shortcuts
-                   .rebind(input::Action::CloseGame, input::PadChord{Button::Guide, Button::X})
+                   .rebind(input::Action::CloseGame, input::PadChord{Button::Guide, Button::L1})
                    .empty() &&
                rig.shortcuts
                    .rebind(input::Action::SaveState, input::PadChord{Button::Guide, Button::Y})
@@ -135,13 +140,19 @@ void gameActionsTakeChords() {
            "Downloads ships with no chord and takes one");
     chord(rig, Button::Guide, Button::R1);
     expect(rig.downloads == 1, "Guide + R1 opens Downloads");
-    chord(rig, Button::Guide, Button::X);
+    chord(rig, Button::Guide, Button::L1);
     expect(rig.closed == 0 &&
                rig.said.back() == std::pair<std::string, bool>{"no game is running", true},
            "Close game with no game says so");
-    rig.gameRunning = true;
     chord(rig, Button::Guide, Button::X);
+    expect(rig.keyboards == 0 &&
+               rig.said.back() == std::pair<std::string, bool>{"no game is running", true},
+           "Guide + X, the keyboard, needs a game to type into");
+    rig.gameRunning = true;
+    chord(rig, Button::Guide, Button::L1);
     expect(rig.closed == 1, "with a game it closes it");
+    chord(rig, Button::Guide, Button::X);
+    expect(rig.keyboards == 1, "Guide + X opens the keyboard over it");
     chord(rig, Button::Guide, Button::Y);
     expect(rig.said.back() == std::pair<std::string, bool>{"the game has no control channel", true},
            "Save state on a game not on opensu-retro is refused with a toast");

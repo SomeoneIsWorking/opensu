@@ -77,6 +77,10 @@ struct Rig {
                              [this] {
                                  calls.emplace_back("gameSettings");
                              },
+                         .openKeyboard =
+                             [this] {
+                                 calls.emplace_back("keyboard");
+                             },
                          .keepScreenTurn =
                              [] {
                              },
@@ -270,6 +274,19 @@ void gameStepsAskFirst() {
     rig.choose("guide.gameSettings");
     expect(rig.calls.back() == "gameSettings" && rig.controller.isOpen(),
            "the game's settings open over the menu, which Back returns to");
+}
+
+void keyboardTypesIntoTheGame() {
+    Rig rig{app::GuideContext{.inGame = true, .title = "Roboquest", .typesIntoGame = true}};
+    rig.open();
+    expect(rig.places().size() > 1 && rig.places()[1] == "guide.keyboard",
+           "where it can type into the game, Keyboard follows Resume");
+    rig.choose("guide.keyboard");
+    expect(rig.calls == std::vector<std::string>{"keyboard"} && !rig.controller.isOpen(),
+           "Keyboard closes the menu and opens the keyboard over the game");
+    rig.open(Landing::Volume);
+    expect(std::ranges::count(rig.places(), "guide.keyboard") == 1,
+           "the quick menu is the same menu, Keyboard among its places");
 }
 
 void togetherPagesInviteAndKick() {
@@ -505,6 +522,7 @@ int main() try {
     homePlacesReachTheirHooks();
     rowsAreReadAgainWhenAPageLeaves();
     gameStepsAskFirst();
+    keyboardTypesIntoTheGame();
     togetherPagesInviteAndKick();
     quickChangesSitBesideThePlaces();
     profileRowPlaysAsTheNextProfile();

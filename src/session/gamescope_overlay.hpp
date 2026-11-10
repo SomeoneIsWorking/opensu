@@ -33,7 +33,8 @@ class GamescopeOverlay {
 
     /// A game is running: the window stays an ordinary app, behind the game's windows.
     void enter();
-    /// Shows the window over the game as the overlay, with the keyboard only when `Interactive`;
+    /// Shows the window over the game as the overlay, with the keyboard only when `Interactive`
+    /// (`Typing` leaves the game the keyboard the on-screen keyboard types into);
     /// `Hidden` makes it an ordinary app again.
     void show(display::OverlayMode mode);
     /// The game's windows are gone: the window is an ordinary app and takes focus back.

@@ -11,7 +11,7 @@ void KeyboardChrome::setFrame(const ChromeFrame& frame) noexcept {
 
 KeyboardLayout KeyboardChrome::layout() const {
     return layoutKeyboard(Rect{0.0f, 0.0f, frame_.width, frame_.height}, frame_.dp,
-                          keyboard_.style());
+                          keyboard_.style(), keyboard_.preview().has_value());
 }
 
 float KeyboardChrome::top() const {

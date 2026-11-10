@@ -1,10 +1,11 @@
 // game_screen — how openSU's window relates to a running game. Inside Gamescope the window is the
 // overlay over the game: interactive while a menu or page is up, which takes the keyboard and rests
-// the game's pads, and passive while the chord list is up, which leaves both to the game (the
-// shell still hears every pad edge, so chords play). Elsewhere the window is hidden while the game
-// runs and shown only for a menu or page; mapping it would take the focus, so it stays hidden for
-// a passive overlay. One owner of the window flag, the overlay (`GameOverlay`, which also watches
-// the game-time keys) and the pads' block.
+// the game's pads, passive while the chord list is up, which leaves both to the game (the shell
+// still hears every pad edge, so chords play), and typing while the on-screen keyboard is up over
+// it, which rests the pads and leaves the game the keyboard it is typed into. Elsewhere the window
+// is hidden while the game runs and shown only for a menu or page; mapping it would take the focus,
+// so it stays hidden for a passive overlay. One owner of the window flag, the overlay
+// (`GameOverlay`, which also watches the game-time keys) and the pads' block.
 #pragma once
 
 #include <functional>
@@ -44,7 +45,7 @@ class GameScreen {
         closing_ = true;
     }
     /// What is wanted over the running game: `Interactive` for a menu or page, `Passive` for the
-    /// chord list. Applied once per change.
+    /// chord list, `Typing` for the keyboard. Applied once per change.
     void show(display::OverlayMode wanted);
     [[nodiscard]] display::OverlayMode mode() const noexcept {
         return mode_;

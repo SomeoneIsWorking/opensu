@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <optional>
+#include <string>
 
 #include "check.hpp"
 #include "support/test_main.hpp"
@@ -197,6 +199,28 @@ void layoutsHitTest() {
            "the ring on the left, the diamond on the right with Y on top and X on the left");
 }
 
+void overAGameThePreviewLineEchoes() {
+    OnScreenKeyboard keyboard;
+    keyboard.openOverGame(false);
+    keyboard.echo("hi");
+    keyboard.echo("!");
+    keyboard.echoErase();
+    expect(keyboard.preview() == std::optional<std::string>{"hi"},
+           "over a game it echoes what it typed, Delete taking the last character");
+    keyboard.close();
+    keyboard.open(false);
+    keyboard.echo("x");
+    expect(!keyboard.preview(), "over a field it holds no line");
+    for (const KeyboardStyle style : opensu::input::allKeyboardStyles) {
+        const KeyboardLayout layout =
+            layoutKeyboard(Rect{0.0f, 0.0f, 1280.0f, 800.0f}, 1.5f, style, true);
+        expect(layout.preview.height > 0.0f && layout.preview.y >= layout.panel.y &&
+                   layout.preview.bottom() <= layout.strip.y &&
+                   layout.hints.bottom() <= layout.panel.bottom(),
+               "the preview line stands over the strip inside the dock");
+    }
+}
+
 } // namespace
 
 int main() try {
@@ -207,6 +231,7 @@ int main() try {
     thePointerTypesAWheelCharacter();
     styleTakesEffectOnOpen();
     layoutsHitTest();
+    overAGameThePreviewLineEchoes();
     std::printf("on_screen_keyboard: all checks passed\n");
     return 0;
 } catch (...) {

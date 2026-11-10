@@ -48,6 +48,7 @@ constexpr std::array<ActionInfo, allActions.size()> infos{{
     {Action::Devices, "devices", "Devices", Button::None, true, true},
     {Action::Home, "home", "Home", Button::None, true, true},
     {Action::Downloads, "downloads", "Downloads", Button::None, true, true},
+    {Action::Keyboard, "keyboard", "Keyboard", Button::None, true, true},
 }};
 
 static_assert(std::ranges::all_of(allActions,
@@ -98,8 +99,10 @@ struct DefaultPad {
     PadChord chord;
 };
 
-constexpr std::array<DefaultPad, 4> defaultPads{{
+constexpr std::array<DefaultPad, 5> defaultPads{{
     {Action::QuickMenu, {Button::Guide, Button::A}},
+    // Steam's own keyboard chord.
+    {Action::Keyboard, {Button::Guide, Button::X}},
     {Action::VolumeUp, {Button::Guide, Button::Up}},
     {Action::VolumeDown, {Button::Guide, Button::Down}},
     {Action::VolumeMute, {Button::Guide, Button::Left}},

@@ -145,6 +145,11 @@ target_link_libraries(game_screen_test PRIVATE opensu::app)
 opensu_warnings(game_screen_test)
 add_test(NAME game_screen COMMAND game_screen_test)
 
+add_executable(keyboard_pad_test keyboard_pad_test.cpp)
+target_link_libraries(keyboard_pad_test PRIVATE opensu::app gpu2d::ui)
+opensu_warnings(keyboard_pad_test)
+add_test(NAME keyboard_pad COMMAND keyboard_pad_test)
+
 add_executable(downloads_board_test downloads_board_test.cpp)
 target_link_libraries(downloads_board_test PRIVATE opensu::app)
 opensu_warnings(downloads_board_test)
