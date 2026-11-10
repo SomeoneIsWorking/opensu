@@ -378,7 +378,7 @@ void gameChordsJoinTheShells() {
                  ChordMapping{taken, PadOutput{Button::X}}});
     const opensu::gamepad::ChordTriggers triggers = set.triggers();
     expect(triggers.chords.contains(save) && triggers.chords.contains(hotkey) &&
-               triggers.chords.size() == 6,
+               triggers.chords.size() == 7,
            "the gates are given the game's chords beside the shell's");
     expect(set.actionFor(save) == Action::SaveState && !set.actionFor(hotkey) &&
                set.actionFor(taken) == Action::QuickMenu,

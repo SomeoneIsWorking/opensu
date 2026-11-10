@@ -60,7 +60,7 @@ void followsTheHold() {
     const Clock::time_point start{std::chrono::seconds{10}};
     expect(!hint.visible(start) && !hint.modifier(), "nothing shown at first");
     hint.follow(Button::Guide, chords, start);
-    expect(hint.visible(start) && hint.modifier() == Button::Guide && hint.rows().size() == 4 &&
+    expect(hint.visible(start) && hint.modifier() == Button::Guide && hint.rows().size() == 5 &&
                hint.modifierGlyph() == "GUIDE",
            "a long hold shows the modifier's chords");
     const auto ended = start + std::chrono::seconds{1};
