@@ -2,12 +2,10 @@
 
 #include <array>
 #include <optional>
-#include <system_error>
 #include <utility>
 
 #include <nlohmann/json.hpp>
 
-#include "fileio/read_whole.hpp"
 #include "lucent/log.h"
 
 namespace opensu::library {
@@ -18,7 +16,6 @@ using Json = nlohmann::ordered_json;
 
 constexpr std::string_view gamepadBackend{"GamepadSDL2"};
 constexpr std::string_view keyboardBackend{"WindowKeyboard"};
-constexpr std::string_view virtualPadName{"Xbox 360 Controller"};
 
 /// An SDL3 build's enum name and the SDL2 one every build reads.
 struct Rename {
@@ -78,7 +75,10 @@ Json defaultPad(std::string_view id, int player, const Json& controllerType) {
           {"enable_motion", true}}},
         {"rumble", {{"strong_rumble", 1}, {"weak_rumble", 1}, {"enable_rumble", false}}},
         {"led",
-         {{"enable_led", false}, {"turn_off_led", false}, {"use_rainbow", false}, {"led_color", 0}}},
+         {{"enable_led", false},
+          {"turn_off_led", false},
+          {"use_rainbow", false},
+          {"led_color", 0}}},
         {"left_joycon",
          {{"button_minus", "Minus"},
           {"button_l", "LeftShoulder"},
@@ -102,7 +102,7 @@ Json defaultPad(std::string_view id, int player, const Json& controllerType) {
         {"version", 1},
         {"backend", gamepadBackend},
         {"id", id},
-        {"name", virtualPadName},
+        {"name", virtualPadSdlName},
         {"controller_type", controllerType.is_string() ? controllerType : Json("ProController")},
         {"player_index", "Player" + std::to_string(player)},
     };
@@ -141,7 +141,9 @@ std::string ryujinxPadId(std::string_view sdlGuid, int index) {
         return {};
     }
     // .NET reads the first 8 bytes as a little-endian int32 and two int16s.
-    const auto byte = [sdlGuid](int at) { return sdlGuid.substr(static_cast<std::size_t>(at) * 2, 2); };
+    const auto byte = [sdlGuid](int at) {
+        return sdlGuid.substr(static_cast<std::size_t>(at) * 2, 2);
+    };
     std::string guid{"0000"};
     for (const int at : {1, 0}) {
         guid += byte(at);
@@ -162,6 +164,9 @@ std::string ryujinxPadId(std::string_view sdlGuid, int index) {
 }
 
 std::string ryujinxLaunchSettings(std::string_view json, std::string_view padGuid) {
+    if (json.empty()) {
+        return {};
+    }
     Json settings = Json::parse(json, nullptr, false);
     if (!settings.is_object()) {
         lucent::warn("ryujinx", "the settings are not Ryujinx's JSON; they stay the player's");
@@ -192,24 +197,14 @@ std::vector<fs::path> ryujinxFiles(const LaunchSetup& setup) {
 }
 
 std::vector<RunFile> ryujinxRunFiles(const LaunchSetup& setup) {
-    const fs::path file = setup.config / ryujinxSettingsFile;
-    std::error_code missing;
-    if (!fs::exists(file, missing)) {
-        lucent::info("ryujinx", "{} is not there yet; Ryujinx writes it on its first start",
-                     file.string());
+    std::optional<RunFile> run =
+        runFileOf(setup.config / ryujinxSettingsFile, [&setup](std::string_view player) {
+            return ryujinxLaunchSettings(player, setup.padGuid);
+        });
+    if (!run) {
         return {};
     }
-    std::string error;
-    std::optional<std::string> player = fileio::readWhole(file, error);
-    if (!player) {
-        lucent::warn("ryujinx", "{} stays the player's: {}", file.string(), error);
-        return {};
-    }
-    std::string run = ryujinxLaunchSettings(*player, setup.padGuid);
-    if (run == *player) {
-        return {};
-    }
-    return {RunFile{.path = file, .bytes = std::move(run)}};
+    return {std::move(*run)};
 }
 
 } // namespace opensu::library

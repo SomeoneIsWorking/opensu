@@ -21,7 +21,7 @@ using opensu::test::expect;
 constexpr std::string_view sdlGuid = "0300cece5e0400008e02000010010000";
 
 // The player's layout: player 1 on their own SDL3 pad, player 2 on the keyboard.
-constexpr std::string_view player = R"({
+constexpr std::string_view player = R"json({
   "version": 70,
   "audio_backend": "SDL3",
   "check_updates_on_start": true,
@@ -46,7 +46,7 @@ constexpr std::string_view player = R"({
       "player_index": "Player2"
     }
   ]
-})";
+})json";
 
 void testPadId() {
     expect(ryujinxPadId(sdlGuid, 0) == "0-00000003-045e-0000-8e02-000010010000",
