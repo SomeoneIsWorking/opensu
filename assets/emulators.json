@@ -384,6 +384,14 @@
       "coreOptions": {"pcsx2_renderer": "Vulkan"}
     },
     {
+      "id": "azahar-core",
+      "name": "Azahar (built-in)",
+      "systems": ["n3ds"],
+      "core": "azahar_libretro",
+      "withoutBios": "hle",
+      "coreOptions": {"citra_graphics_api": "Vulkan"}
+    },
+    {
       "id": "fbneo-core",
       "name": "FinalBurn Neo (built-in)",
       "systems": ["arcade"],
