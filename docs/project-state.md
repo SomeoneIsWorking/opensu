@@ -1813,24 +1813,36 @@ SHA-256, Den and Loft paired to Import ROMs from. Unverified: the Android flow o
 
 `assets/emulators.json` is the one catalog (`library/emulator_catalog`): detection and downloads
 read it. Emulators with an official AppImage on their own release page carry a `release`: Cemu,
-Eden (Forgejo, `stable.eden-emu.dev`), PCSX2, RPCS3, DuckStation, PPSSPP, Azahar, mGBA, xemu.
-Dolphin, Ryujinx, shadPS4, melonDS and Xenia Canary are detected only: no official AppImage, or
-one only inside an archive. No BIOS, keys or firmware are linked.
+Eden (Forgejo, `stable.eden-emu.dev`), Ryujinx (Forgejo, `git.ryujinx.app`), Citron
+(`citron-neo/CI` `nightly-linux`), PCSX2, RPCS3, DuckStation, PPSSPP, Azahar, mGBA, xemu, Xenia
+Canary, and shadPS4 and melonDS, whose AppImage is taken out of the release's zip (`"member"`).
+Dolphin (Flatpak repositories only) and sudachi (no reachable official release) are detected
+only. No BIOS, keys or firmware are linked.
 
 A download (`app/emulator_downloads`, `library/emulator_release`) goes to
 `<data>/opensu/emulators/<id>/<asset id>/` through `net::WebClient`, is checked against the GitHub
-asset digest and refused on a mismatch; without a digest (mGBA, Eden) only HTTPS from the
-project's own host is accepted and the size and SHA-256 seen are recorded. The version in use
+asset digest and refused on a mismatch; without a digest (mGBA, Eden, Ryujinx) only HTTPS from
+the project's own host is accepted and the size and SHA-256 seen are recorded. The version in use
 changes when `installed.json` is rewritten after the new file is verified; old versions go after
-that. The update check shows versions and installs nothing. An AppImage whose runtime links
-libfuse2 is refused with the distribution's install command when libfuse2 is missing; every
-AppImage needs `/dev/fuse` and `fusermount`. `--appimage-extract-and-run` is not used.
+that. The update check runs at start and daily while openSU downloaded something, and when asked
+in Settings › Emulators; it installs nothing. Each update it finds is a row on Downloads
+(`update:<id>`, "Update available", the two versions) whose Update button starts the download.
+An AppImage whose runtime links libfuse2 is refused with the distribution's install command when
+libfuse2 is missing; every AppImage needs `/dev/fuse` and `fusermount`.
+`--appimage-extract-and-run` is not used.
 
 Verified: tests through the shipping code against a fake release host (digest match and mismatch,
 update kept apart until verified, cancel, remove, catalog parsing, merge with detected installs);
 mGBA 0.10.5 downloaded from GitHub in a hidden openSU with scratch XDG dirs, from the ROM's
-details page, then removed from Settings › Emulators. Unverified: a real update, a real Eden
-download, launching a downloaded AppImage, versions of packaged emulators (not shown).
+details page, then removed from Settings › Emulators. A real update (`scratch/emu-update/proof/`,
+a hidden openSU under a headless Gamescope with scratch XDG dirs, Eden v0.2.0 planted as openSU's
+download): the start-up check listed `update:eden` "Update available · v0.2.0 to v0.2.1" on
+Downloads and "Update to v0.2.1" in Settings › Emulators › Emulators and cores; Update on Downloads
+downloaded v0.2.1 into `eden/4770/` while `installed.json` still named `4184`, then switched and
+removed `4184`; the next launch of a Switch game ran `eden/4770/Eden-Linux-v0.2.1-…AppImage -f -g
+<rom>`. Zipped releases (shadPS4, melonDS) are verified through the shipping code against a fake
+host and the real zips' contents. Unverified: a real download of Ryujinx, Citron, shadPS4,
+melonDS or Xenia Canary, versions of packaged emulators (not shown).
 
 ### S031 — Built-in emulator cores
 

@@ -29,7 +29,17 @@ emulators. We can make our own updater".
    and what its config binds by (SDL index, name or GUID): Ryujinx, Dolphin, PCSX2, RPCS3,
    DuckStation, PPSSPP, Azahar, melonDS, xemu, Xenia Canary, shadPS4, mGBA. One emulator per change.
 4. Release sources for every emulator with an official Linux build, so openSU's own Update covers
-   them, and an update openSU finds shown on Downloads.
+   them, and an update openSU finds shown on Downloads. Built: Ryujinx (Ryubing's Forgejo,
+   `git.ryujinx.app`, no digest), Citron (`citron-neo/CI`'s `nightly-linux` release, the only Linux
+   build its site links), Xenia Canary (`xenia-canary/xenia-canary`), and shadPS4 and melonDS,
+   whose AppImage ships alone in a zip (`"member"`; shadPS4's is its SDL build, so a downloaded
+   AppImage takes the launcher its name matches). The check runs at start and daily while openSU
+   downloaded something; each update it finds is a Downloads row with an Update button. No source:
+   Dolphin (Linux builds are its Flatpak repositories only), sudachi (no reachable official
+   release: its site serves no working HTTPS and its GitHub repositories are gone). Shown with
+   Eden: v0.2.0 planted, the start-up check offered v0.2.1 on Downloads and in Settings, Update
+   installed it beside the old one and switched, and the next launch ran it
+   (`scratch/emu-update/proof/`).
 
 ## Libretro versions
 
