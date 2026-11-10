@@ -333,7 +333,7 @@ net::Result<std::size_t> VisualPresets::install(const std::stop_token& stop,
             [&progress, before, total](std::uint64_t received, std::uint64_t) {
                 return !progress || progress(before + received, total);
             },
-            [origin](const std::string& url) {
+            [&origin](const std::string& url) {
                 if (url.starts_with(origin)) {
                     return std::string{};
                 }

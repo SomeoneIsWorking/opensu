@@ -24,6 +24,14 @@ class LaunchFiles {
     /// The marker of a file the launch made, which the player did not have.
     static constexpr std::string_view absentSuffix{".opensu-absent"};
 
+    /// A file and its markers, built up front so putting it back copies nothing.
+    struct Marks {
+        explicit Marks(const std::filesystem::path& player);
+        std::filesystem::path file;
+        std::filesystem::path kept;
+        std::filesystem::path absent;
+    };
+
     /// Puts back each of `files` a crashed launch left set.
     static void recover(const std::vector<std::filesystem::path>& files);
 
@@ -37,7 +45,7 @@ class LaunchFiles {
     ~LaunchFiles();
 
   private:
-    std::vector<std::filesystem::path> set_;
+    std::vector<Marks> set_;
 };
 
 } // namespace opensu::library
