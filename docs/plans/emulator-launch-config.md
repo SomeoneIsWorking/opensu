@@ -22,9 +22,21 @@ emulators. We can make our own updater".
 
 1. One owner for launch-time config: what `library/cemu_pads` does for Cemu (set for the run, put
    back after, leftovers recovered), extended to a per-emulator rule, with Cemu its first user.
+   Built: `library/emulator_launch_config` (the rules), `library/launch_files` (set, put back,
+   recovered; a file the player lacked made and removed).
 2. Eden and its family (Citron, Sudachi): the Eden update prompt reproduced from boot and turned off for the
    launch; `qt-config.ini`'s `player_N_*` SDL bindings retargeted to the virtual pads' GUID and
-   port, and a default profile when the player has none.
+   port, and a default profile when the player has none. Built (`library/yuzu_config`): the
+   update check off; SDL bindings retargeted to the virtual pad by the GUID Eden keys pads by (the
+   name's CRC zeroed, `SDLDriver`'s `GetGUID`) and port N for player N; a Pro Controller for
+   player 1, or a connected player, without SDL bindings. Proved with the player's Eden nightly on
+   a copy of their config, Kirby Star Allies read-only (`scratch/eden-launch/after2-nightly`):
+   before, no press reached the title; after, the pad's presses took it from "Press A" to file
+   select, and `qt-config.ini` came back byte-identical. The update prompt the player reported was
+   not reproduced: the nightly, v0.2.1 and v0.2.0, with the player's config and with a fresh one
+   (`check_for_updates=true`), showed none from boot; upstream builds `ENABLE_UPDATE_CHECKER` off
+   by default. A finding, not a fix: the player's Eden has player 1 on the keyboard and their pad
+   on player 2, and no virtual pad reached Eden, so any prompt in the game took the keyboard.
 3. Each other standalone emulator, each with a reproduction of whether a virtual pad reaches the game today
    and what its config binds by (SDL index, name or GUID): Ryujinx, Dolphin, PCSX2, RPCS3,
    DuckStation, PPSSPP, Azahar, melonDS, xemu, Xenia Canary, shadPS4, mGBA. One emulator per change.

@@ -1307,7 +1307,16 @@ so a profile the player made with their own pad matches no virtual pad: while a 
 each `controllerProfiles/controller<N>.xml` with an SDL controller is bound to the Nth virtual pad
 (`0300cece5e0400008e02000010010000`, every virtual pad the same; Cemu's rule in
 `library::EmulatorLaunchConfig`), and the player's file is put back byte for byte when Cemu ends,
-or at the next launch after a crash (`library::LaunchFiles`).
+or at the next launch after a crash (`library::LaunchFiles`). Eden, Citron and sudachi bind a
+player to a pad by `engine:sdl,guid:<GUID>,port:<N>` in `qt-config.ini`, the GUID without the
+name's CRC: while a launch runs each player's SDL bindings play the Nth virtual pad, player 1 (or a
+connected player) without any gets a Pro Controller in Eden's positional layout, and the update
+check is off (`library/yuzu_config`); verified on the player's Eden nightly with a copy of their
+config (`scratch/eden-launch/after2-nightly`: presses reach Kirby Star Allies, the file comes back
+byte-identical). Gaps: a profile made with a pad whose raw SDL indices differ from xpad's (a
+PlayStation pad) keeps its indices on the virtual pad; a handheld player 1 binds `player_8_`,
+which is not retargeted; changes made in Eden during an openSU launch are dropped with the run's
+file.
 Tested: `pad_translator` (unit), `pads`
 against real uinput pads, `handoff` passing the environment; verified headless with
 a uinput pad driving the shell (`scratch/overlay-test/drive_pad.py`): B reaches the
