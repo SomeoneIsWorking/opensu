@@ -150,6 +150,7 @@ def smoke_one(name: str, layout: config.Layout, appimage: Path, env: Mapping[str
         box.run(
             "cd /work && HOME=/tmp/home XDG_CONFIG_HOME=/tmp/xdg/config "
             "XDG_CACHE_HOME=/tmp/xdg/cache XDG_DATA_HOME=/tmp/xdg/data "
+            "XDG_STATE_HOME=/tmp/xdg/state "
             f"{run} --render /tmp/frame.png"
         )
         rendered = layout.smoke / f"{name}.png"
