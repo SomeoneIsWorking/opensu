@@ -9,7 +9,7 @@ namespace {
 
 const EmulatorOption* linkCoreOf(const Game& game) {
     const auto found = std::ranges::find_if(game.emulatorOptions, [](const EmulatorOption& option) {
-        return option.id == linkCoreId && option.installed && option.problem.empty();
+        return option.links && option.installed && option.problem.empty();
     });
     return found == game.emulatorOptions.end() ? nullptr : &*found;
 }
@@ -26,11 +26,14 @@ std::optional<Game> onLinkCore(const Game& game, std::initializer_list<std::stri
     return linked;
 }
 
-} // namespace
-
-std::string_view linkCoreRevision() noexcept {
-    return OPENSU_MGBA_LINK_COMMIT;
+std::filesystem::path coreOf(const LaunchSpec& launch) {
+    const auto flag = std::ranges::find(launch.args, "--core");
+    return flag == launch.args.end() || flag + 1 == launch.args.end()
+               ? std::filesystem::path{}
+               : std::filesystem::path{*(flag + 1)};
 }
+
+} // namespace
 
 bool linkable(const Game& game) {
     return game.source == Source::Rom && game.installed && linkCoreOf(game) != nullptr;
@@ -40,10 +43,14 @@ std::filesystem::path netplayCore(const Game& game) {
     if (game.source != Source::Rom || !game.installed || linkable(game)) {
         return {};
     }
-    const auto flag = std::ranges::find(game.launch.args, "--core");
-    return flag == game.launch.args.end() || flag + 1 == game.launch.args.end()
-               ? std::filesystem::path{}
-               : std::filesystem::path{*(flag + 1)};
+    return coreOf(game.launch);
+}
+
+std::filesystem::path sessionCore(const Game& game) {
+    if (const EmulatorOption* core = linkable(game) ? linkCoreOf(game) : nullptr) {
+        return coreOf(core->launch);
+    }
+    return netplayCore(game);
 }
 
 bool netplayable(const Game& game) {

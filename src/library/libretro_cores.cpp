@@ -219,9 +219,6 @@ std::optional<FoundCore> CoreSearch::find(std::string_view core) const {
         }
     }
     const std::string name = std::string{core} + std::string{libraryExtension};
-    if (std::error_code ec; !shipped.empty() && fs::is_regular_file(shipped / name, ec)) {
-        return FoundCore{shipped / name, std::nullopt, true};
-    }
     for (const fs::path& folder : folders) {
         std::error_code ec;
         if (fs::is_regular_file(folder / name, ec)) {

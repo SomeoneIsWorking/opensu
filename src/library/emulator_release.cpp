@@ -154,6 +154,14 @@ std::optional<ReleaseAsset> releaseAssetOf(std::string_view body, const ReleaseS
     if (const std::string digest = textOf(*chosen, "digest"); digest.starts_with(digestPrefix)) {
         asset.sha256 = lowered(digest.substr(digestPrefix.size()));
     }
+    if (!source.sha256.empty()) {
+        if (!asset.sha256.empty() && asset.sha256 != source.sha256) {
+            error = "the release's " + asset.name + " is not the one openSU pins: its SHA-256 is " +
+                    asset.sha256 + ", not " + source.sha256;
+            return std::nullopt;
+        }
+        asset.sha256 = source.sha256;
+    }
     if (asset.assetId.empty() || asset.name.find('/') != std::string::npos) {
         error = "the release lists " + asset.name + " without an id";
         return std::nullopt;

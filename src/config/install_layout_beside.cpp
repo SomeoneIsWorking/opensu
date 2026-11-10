@@ -27,7 +27,6 @@ InstallLayout installLayout(std::string_view assets) {
         .gamescope = gamescopeBeside(self),
         .retroRunner = retroRunnerBeside(self),
         .librashader = librashaderBeside(self),
-        .shippedCores = shippedCoresBeside(self),
     };
 }
 

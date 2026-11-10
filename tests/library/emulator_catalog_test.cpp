@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "library/emulator_catalog.hpp"
 #include "support/test_main.hpp"
@@ -50,13 +51,14 @@ void shippedCatalogParses() {
     const EmulatorEntry* mgba = catalog.find("mgba-core");
     expect(mgba != nullptr && mgba->name == "mGBA (built-in)" && mgba->core == "mgba_libretro" &&
                mgba->serves("gb") && mgba->serves("gbc") && mgba->serves("gba") &&
-               mgba->launchers.empty() && !mgba->release && mgba->downloadable(),
+               mgba->launchers.empty() && mgba->downloadable(),
            "a built-in emulator names its core and is downloadable");
-    const EmulatorEntry* link = catalog.find("mgba-link-core");
-    expect(link != nullptr && link->core == "mgba_link_libretro" && link->shipped &&
-               link->serves("gba") && !link->serves("gb") && !link->downloadable() &&
-               !mgba->shipped,
-           "the mGBA link core ships with openSU, for GBA, and is never downloaded");
+    expect(mgba->release && mgba->release->api.find("/SomeoneIsWorking/mgba/releases/tags/") !=
+                                std::string::npos &&
+               mgba->release->sha256.size() == 64 && mgba->links == std::vector<std::string>{"gba"},
+           "mGBA comes from the fork's pinned release, checked against its pinned SHA-256, and "
+           "links GBA players");
+    expect(catalog.find("mgba-link-core") == nullptr, "there is one mGBA core");
     expect(catalog.find("mgba") != nullptr && !catalog.find("mgba")->builtIn(),
            "the standalone mGBA stays beside it");
     for (const char* id :
@@ -95,6 +97,42 @@ void coreReleasePerBuild() {
                "/h", error) &&
                error.find("by build") != std::string::npos,
            "a core's release without assets by build is refused");
+    const std::string pin(64, 'a');
+    const std::string pinned =
+        R"({"emulators":[{"id":"a","name":"A","systems":["gb","gba"],"core":"mgba_libretro",
+            "links":["gba"],
+            "release":{"api":"https://h/api","downloads":"https://h/dl/",
+                       "assets":{"linux-x86_64":"^a\\.zip$"},
+                       "sha256":{"linux-x86_64":")" +
+        pin + R"("}}}]})";
+    const std::optional<EmulatorCatalog> withPin =
+        EmulatorCatalog::parse(pinned, "/h", error, "linux-x86_64");
+    expect(withPin && withPin->find("a")->release->sha256 == pin &&
+               withPin->find("a")->links == std::vector<std::string>{"gba"},
+           "a core's release pins each asset's SHA-256 by build, and the core links GBA");
+    for (const std::string& bad :
+         {std::string{R"("sha256":{"linux-x86_64":"ABC"})"}, std::string{R"("sha256":{})"}}) {
+        expect(!EmulatorCatalog::parse(
+                   R"({"emulators":[{"id":"a","name":"A","systems":["gb"],"core":"mgba_libretro",
+                       "release":{"api":"https://h/api","downloads":"https://h/dl/",
+                       "assets":{"linux-x86_64":"x"},)" +
+                       bad + "}}]}",
+                   "/h", error),
+               "a pin that is not a SHA-256 of every asset is refused");
+    }
+    expect(!EmulatorCatalog::parse(
+               R"({"emulators":[{"id":"a","name":"A","systems":["gba"],"core":"mgba_libretro",
+                   "links":["gba"]}]})",
+               "/h", error) &&
+               error.find("release") != std::string::npos,
+           "a buildbot core does not link");
+    expect(!EmulatorCatalog::parse(
+               R"({"emulators":[{"id":"a","name":"A","systems":["gb"],"core":"mgba_libretro",
+                   "links":["gba"],"release":{"api":"https://h/api","downloads":"https://h/dl/",
+                   "assets":{"linux-x86_64":"x"}}}]})",
+               "/h", error) &&
+               error.find("does not run") != std::string::npos,
+           "nor links a system it does not run");
 
     std::ifstream shipped{std::filesystem::path{OPENSU_ASSETS_DIR} / "emulators.json",
                           std::ios::binary};

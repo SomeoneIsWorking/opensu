@@ -1,4 +1,5 @@
-// A game on the link core: what makes it linkable and the command each way of playing gets.
+// A game on a core that links its players: what makes it linkable and the command each way of
+// playing gets.
 #include "library/linked_play.hpp"
 
 #include <algorithm>
@@ -26,8 +27,9 @@ Game gbaGame() {
     official.installed = true;
     EmulatorOption link;
     link.name = "mGBA link";
-    link.id = std::string{library::linkCoreId};
+    link.id = "mgba-core";
     link.installed = true;
+    link.links = true;
     link.launch.program = "opensu-retro";
     link.launch.args = {"--core", "link.so", "rom.gba"};
     game.emulatorOptions = {official, link};
@@ -50,6 +52,9 @@ void linkableNeedsTheCore() {
     game = gbaGame();
     game.installed = false;
     expect(!library::linkable(game), "nor when the game is not here");
+    game = gbaGame();
+    game.emulatorOptions[1].links = false;
+    expect(!library::linkable(game), "nor on a core that does not link this system");
 }
 
 void splitScreen() {
@@ -81,8 +86,10 @@ void anyBuiltInCore() {
            "the runner takes the session on that core");
     game.launch.args = {"rom.gba"};
     expect(!netplayable(game), "an emulator of its own cannot");
+    expect(sessionCore(game) == "mgba.so", "a session runs that core");
     game = gbaGame();
     expect(netplayCore(game).empty(), "the link core comes first where it can");
+    expect(sessionCore(game) == "link.so", "and a session runs it");
 }
 
 int main() try {

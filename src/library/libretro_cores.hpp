@@ -96,28 +96,22 @@ struct FoundCore {
     std::filesystem::path file;
     /// openSU's download; nothing for a core installed another way.
     std::optional<DownloadedCore> downloaded;
-    /// One of the cores openSU ships.
-    bool shipped{false};
 };
 
-/// Where cores are looked for: openSU's downloads, the cores it ships, then each folder in order.
+/// Where cores are looked for: openSU's downloads, then each folder in order.
 struct CoreSearch {
     /// openSU's downloads; empty for none.
     std::filesystem::path downloads;
-    /// The cores openSU ships (`config::Config::shippedCores`); empty for none.
-    std::filesystem::path shipped;
     std::vector<std::filesystem::path> folders;
     /// Where the info files of cores installed another way are, after openSU's downloads.
     std::vector<std::filesystem::path> infoFolders;
 
-    /// openSU's downloads under `dataDir`, the cores it ships in `shipped`, then the folders
-    /// RetroArch and the system install cores to on this OS (`core_search_linux.cpp`:
+    /// openSU's downloads under `dataDir`, then the folders RetroArch and the system install cores to on this OS (`core_search_linux.cpp`:
     /// ~/.config/retroarch/cores, /usr/lib64/libretro, /usr/lib/libretro and
     /// /usr/lib/x86_64-linux-gnu/libretro, with ~/.config/retroarch/info and
     /// /usr/share/libretro/info; `core_search_none.cpp`: none).
     [[nodiscard]] static CoreSearch standard(const std::filesystem::path& home,
-                                             const std::filesystem::path& dataDir,
-                                             const std::filesystem::path& shipped);
+                                             const std::filesystem::path& dataDir);
 
     [[nodiscard]] std::optional<FoundCore> find(std::string_view core) const;
     /// `core`'s info file text, or nothing when none is found.

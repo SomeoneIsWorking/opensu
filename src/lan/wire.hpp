@@ -290,10 +290,10 @@ inline constexpr std::string_view netplayRoute = "/lan/netplay";
 inline constexpr std::string_view netplayStatusRoute = "/lan/netplay/status";
 /// `POST /lan/netplay/save` with a `NetplayRom`: the save the asked side handed over, as bytes.
 inline constexpr std::string_view netplaySaveRoute = "/lan/netplay/save";
-/// What both machines of a session must have the same, or their games part: on each side, the link
-/// core's revision, the options it would run with and the BIOS it would boot (its SHA-256, empty
-/// for none).
-/// Starts `NetplayFacts::coreRevision` for a core known by the hash of its library, not by a pin.
+/// What both machines of a session must have the same, or their games part: on each side, the
+/// core's build, the options it would run with and the BIOS it would boot (its SHA-256, empty for
+/// none).
+/// Starts `NetplayFacts::coreRevision`, which goes on with the SHA-256 of the core's library.
 inline constexpr std::string_view coreBuildPrefix = "sha256:";
 
 struct NetplayFacts {

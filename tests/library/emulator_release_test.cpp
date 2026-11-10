@@ -10,6 +10,7 @@
 #include <sstream>
 #include <stop_token>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
 #include <vector>
@@ -67,6 +68,21 @@ void assetsAreRead() {
     expect(!releaseAssetOf(R"({"tag_name":"v1","assets":[]})", source, error) &&
                error.find("no file matching") != std::string::npos,
            "a release without the AppImage says so");
+
+    ReleaseSource pinned = source;
+    pinned.sha256 = "abcd";
+    constexpr std::string_view unpublished = R"({"tag_name":"v1","assets":[{"id":1,
+            "name":"Emu-1-x86_64.AppImage","digest":null,
+            "browser_download_url":"https://github.com/emu/emu/releases/download/v1/Emu-1-x86_64.AppImage"}]})";
+    expect(need(releaseAssetOf(unpublished, pinned, error), "a pinned asset").sha256 == "abcd",
+           "a pinned asset is checked against the pin when the release publishes no digest");
+    pinned.sha256 = "ef01";
+    expect(!releaseAssetOf(R"({"tag_name":"v1.2","assets":[{"id":8,
+            "name":"Emu-1.2-x86_64.AppImage","digest":"sha256:ABCD",
+            "browser_download_url":"https://github.com/emu/emu/releases/download/v1.2/Emu-1.2-x86_64.AppImage"}]})",
+                           pinned, error) &&
+               error.find("pins") != std::string::npos,
+           "a release whose digest is not the pin is refused");
 }
 
 void digestMatchesAndMismatches(const fs::path& root) {

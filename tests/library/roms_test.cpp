@@ -398,7 +398,7 @@ void installedCoresFirst(const Fixture& f) {
            "with nothing installed the catalog's order stands");
     write(cores / ("mame2010_libretro" + std::string{coreTarget.librarySuffix}));
     EmulatorSearch search;
-    search.cores = opensu::library::roms::CoreSearch{{}, {}, {cores}, {}};
+    search.cores = opensu::library::roms::CoreSearch{{}, {cores}, {}};
     search.runner = cores / "opensu-retro";
     writeExecutable(search.runner);
     const std::vector<std::string> installed = order(Emulators::discover(shipped(), search, {}));

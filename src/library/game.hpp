@@ -109,6 +109,8 @@ struct EmulatorOption {
     bool flatpak{false};
     /// A core the built-in runner plays.
     bool builtIn{false};
+    /// Its core links two players on this game's system (`EmulatorEntry::links`).
+    bool links{false};
 };
 
 /// One launchable entry.

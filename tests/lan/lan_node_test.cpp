@@ -664,7 +664,7 @@ void askedToPlayTogether(const lan::LanNode& guest, lan::LanNode& host) {
                                     .size = 1024,
                                     .sha256 = "abcd",
                                     .salt = guestSalt,
-                                    .facts = {.coreRevision = "72bea0c51b68",
+                                    .facts = {.coreRevision = "sha256:72bea0c51b68",
                                               .options = {{"mgba_frameskip", "1"}},
                                               .bios = "ee"},
                                     .clock = {.epochMs = 1793900000000, .utcOffset = -18000}};
@@ -678,11 +678,6 @@ void askedToPlayTogether(const lan::LanNode& guest, lan::LanNode& host) {
     same.bios = "ff";
     expect(lan::netplayDifference(ask.facts, same) == "its BIOS is not the same file as yours",
            "another BIOS is named");
-    same = ask.facts;
-    same.coreRevision = "0123456789ab";
-    expect(lan::netplayDifference(ask.facts, same) ==
-               "its link core is revision 72bea0c51, yours 012345678",
-           "another core revision is named");
     same = ask.facts;
     same.coreRevision = std::string{lan::wire::coreBuildPrefix} + "aa";
     expect(lan::netplayDifference(ask.facts, same) == "its core is not the same build as yours",

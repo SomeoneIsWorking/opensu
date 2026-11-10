@@ -13,11 +13,6 @@ namespace opensu::lan {
 namespace {
 
 constexpr std::string_view waiting = "waiting";
-constexpr std::size_t shownRevisionBytes = 9;
-
-std::string revisionText(const std::string& revision) {
-    return revision.empty() ? "unknown" : revision.substr(0, shownRevisionBytes);
-}
 
 std::string optionText(const std::map<std::string, std::string>& options, const std::string& key) {
     const auto found = options.find(key);
@@ -27,14 +22,8 @@ std::string optionText(const std::map<std::string, std::string>& options, const 
 } // namespace
 
 std::string netplayDifference(const wire::NetplayFacts& here, const wire::NetplayFacts& there) {
-    if (here.coreRevision != there.coreRevision &&
-        (here.coreRevision.starts_with(wire::coreBuildPrefix) ||
-         there.coreRevision.starts_with(wire::coreBuildPrefix))) {
-        return "its core is not the same build as yours";
-    }
     if (here.coreRevision != there.coreRevision) {
-        return "its link core is revision " + revisionText(here.coreRevision) + ", yours " +
-               revisionText(there.coreRevision);
+        return "its core is not the same build as yours";
     }
     if (here.bios != there.bios) {
         if (here.bios.empty()) {

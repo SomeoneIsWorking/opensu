@@ -44,6 +44,9 @@ struct ReleaseSource {
     /// The AppImage inside the asset when the asset is a zip holding one, as an ECMAScript
     /// regular expression over its name; empty when the asset is the AppImage.
     std::string member{};
+    /// The asset's SHA-256 the catalog pins (a core release's `"sha256"`), lower-case hex; empty
+    /// to take the one the release publishes.
+    std::string sha256{};
 };
 
 /// Where an arcade core's ROM-set listings come from: datafiles at fixed HTTPS URLs, merged in
@@ -123,9 +126,9 @@ struct EmulatorEntry {
     BiosScan biosScan{BiosScan::Listed};
     /// Core options it starts with (`"coreOptions"`): a GPU core's Vulkan renderer.
     std::vector<CoreOption> coreOptions;
-    /// Its core ships with openSU (`"shipped"`) rather than coming from the buildbot; it serves a
-    /// game only when picked.
-    bool shipped{false};
+    /// The systems of `systems` its core links two players on (`"links"`), when it comes from
+    /// its release.
+    std::vector<std::string> links;
 
     [[nodiscard]] bool serves(std::string_view system) const;
     [[nodiscard]] bool builtIn() const noexcept {
@@ -146,7 +149,7 @@ struct EmulatorEntry {
     /// Whether openSU can download it: an official AppImage, or a core from the buildbot or its
     /// release.
     [[nodiscard]] bool downloadable() const noexcept {
-        return release.has_value() || (builtIn() && !shipped);
+        return release.has_value() || builtIn();
     }
 };
 

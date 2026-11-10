@@ -43,17 +43,6 @@ std::string text(const json& object, const char* key, const std::string& where, 
     return found->get<std::string>();
 }
 
-bool flag(const json& object, const char* key, const std::string& where) {
-    const auto found = object.find(key);
-    if (found == object.end()) {
-        return false;
-    }
-    if (!found->is_boolean()) {
-        throw Malformed{where + ": \"" + key + "\" is not true or false"};
-    }
-    return found->get<bool>();
-}
-
 std::vector<std::string> words(const json& object, const char* key, const std::string& where) {
     const auto found = object.find(key);
     if (found == object.end()) {
@@ -103,8 +92,17 @@ ReleaseSource releaseOf(const json& object, const std::string& where) {
     return release;
 }
 
-/// A core's `"release"`: its asset for each build, as `{"android-arm64-v8a": pattern}`. Nothing on
-/// a build it names no asset for, which takes the buildbot's core.
+bool isSha256(const json& value) {
+    constexpr std::size_t hexDigits = 64;
+    return value.is_string() && value.get_ref<const std::string&>().size() == hexDigits &&
+           std::ranges::all_of(value.get_ref<const std::string&>(), [](unsigned char c) {
+               return std::isdigit(c) != 0 || (c >= 'a' && c <= 'f');
+           });
+}
+
+/// A core's `"release"`: its asset for each build, as `{"android-arm64-v8a": pattern}`, and the
+/// SHA-256 each is pinned to when it names `"sha256"` by the same builds. Nothing on a build it
+/// names no asset for, which takes the buildbot's core.
 std::optional<ReleaseSource> coreReleaseOf(const json& object, std::string_view build,
                                            const std::string& where) {
     const auto found = object.find("release");
@@ -116,6 +114,10 @@ std::optional<ReleaseSource> coreReleaseOf(const json& object, std::string_view 
         found->contains("asset")) {
         throw Malformed{where + ": a core's \"release\" names its \"assets\" by build"};
     }
+    const auto pins = found->find("sha256");
+    if (pins != found->end() && (!pins->is_object() || pins->size() != assets->size())) {
+        throw Malformed{where + ": a core's \"sha256\" pins every asset by build"};
+    }
     std::optional<ReleaseSource> chosen;
     for (const auto& [name, pattern] : assets->items()) {
         if (!pattern.is_string()) {
@@ -123,11 +125,34 @@ std::optional<ReleaseSource> coreReleaseOf(const json& object, std::string_view 
         }
         checkPattern(pattern.get<std::string>(), where);
         ReleaseSource release = releaseOf(*found, where, pattern.get<std::string>());
+        if (pins != found->end()) {
+            const auto pin = pins->find(name);
+            if (pin == pins->end() || !isSha256(*pin)) {
+                throw Malformed{std::format("{}: the SHA-256 of {} is not 64 lower-case hex digits",
+                                            where, name)};
+            }
+            release.sha256 = pin->get<std::string>();
+        }
         if (name == build) {
             chosen = std::move(release);
         }
     }
     return chosen;
+}
+
+/// A core's `"links"`: systems it serves on which it links two players.
+std::vector<std::string> linksOf(const json& object, const std::vector<std::string>& systems,
+                                 const std::string& where) {
+    std::vector<std::string> links = words(object, "links", where);
+    if (!links.empty() && !object.contains("release")) {
+        throw Malformed{where + ": only a core from its own \"release\" links players"};
+    }
+    for (const std::string& system : links) {
+        if (std::ranges::find(systems, system) == systems.end()) {
+            throw Malformed{where + ": it links " + system + ", which it does not run"};
+        }
+    }
+    return links;
 }
 
 /// A standalone emulator's `"saves"`: its layout and folder.
@@ -242,7 +267,7 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::string_view
         entry.release = coreReleaseOf(object, build, where);
         entry.romsets = romsetsOf(object, where);
         entry.coreOptions = coreOptionsOf(object, where);
-        entry.shipped = flag(object, "shipped", where);
+        entry.links = linksOf(object, entry.systems, where);
         const std::string without = text(object, "withoutBios", where, false);
         const std::optional<WithoutBios> mode =
             without.empty() ? WithoutBios::Needed : withoutBiosNamed(without);
@@ -259,8 +284,8 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::string_view
         return entry;
     }
     if (object.contains("withoutBios") || object.contains("biosScan") ||
-        object.contains("coreOptions") || object.contains("shipped")) {
-        throw Malformed{where + ": \"withoutBios\", \"biosScan\", \"coreOptions\" and \"shipped\" "
+        object.contains("coreOptions") || object.contains("links")) {
+        throw Malformed{where + ": \"withoutBios\", \"biosScan\", \"coreOptions\" and \"links\" "
                                 "are for a built-in emulator's core"};
     }
     const auto launchers = object.find("launchers");

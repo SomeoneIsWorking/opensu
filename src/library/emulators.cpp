@@ -145,11 +145,12 @@ std::optional<EmulatorInstall> locateCore(const EmulatorEntry& entry,
     }
     const std::string file = core->file.string();
     const bool ours = core->downloaded.has_value();
-    const InstallSource downloaded =
-        entry.release ? InstallSource::ReleasedCore : InstallSource::DownloadedCore;
-    const InstallSource source = ours            ? downloaded
-                                 : core->shipped ? InstallSource::ShippedCore
-                                                 : InstallSource::Core;
+    // A buildbot core downloaded before the catalog named a release stays the buildbot's.
+    const bool released =
+        ours && entry.release && core->downloaded->url.starts_with(entry.release->downloads);
+    const InstallSource source = released ? InstallSource::ReleasedCore
+                                 : ours   ? InstallSource::DownloadedCore
+                                          : InstallSource::Core;
     std::vector<std::string> command{search.runner.string(), "--core", file};
     if (search.hiddenRunner) {
         command.emplace_back("--hidden");
@@ -248,8 +249,6 @@ std::string_view label(InstallSource source) {
         return "libretro buildbot";
     case InstallSource::ReleasedCore:
         return "openSU build";
-    case InstallSource::ShippedCore:
-        return "openSU";
     case InstallSource::Core:
         return "Core";
     }
@@ -263,8 +262,7 @@ bool downloadedByOpensu(InstallSource source) noexcept {
 
 EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& dataDir,
                                         std::vector<fs::path> executablePath, fs::path runner,
-                                        fs::path system, const fs::path& shippedCores,
-                                        bool hiddenRunner) {
+                                        fs::path system, bool hiddenRunner) {
     FuseSupport fuse = FuseSupport::detect(executablePath);
     return EmulatorSearch{
         .executablePath = std::move(executablePath),
@@ -273,7 +271,7 @@ EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& da
         .androidApps = installedAndroidApps(),
         .downloads = DownloadedEmulators::under(dataDir).root(),
         .fuse = std::move(fuse),
-        .cores = CoreSearch::standard(home, dataDir, shippedCores),
+        .cores = CoreSearch::standard(home, dataDir),
         .runner = std::move(runner),
         .system = std::move(system),
         .hiddenRunner = hiddenRunner,
@@ -284,7 +282,7 @@ EmulatorSetup EmulatorSetup::standard(const config::Config& config, bool hidden,
     return EmulatorSetup{.catalog = EmulatorCatalog::shipped(config.assetsDir, config.home),
                          .search = EmulatorSearch::standard(
                              config.home, config.dataDir, config.executablePath, config.retroRunner,
-                             config.retroSystemDir, config.shippedCores,
+                             config.retroSystemDir,
                              // Inside a Gamescope its window reaches that Gamescope's screen alone.
                              hidden && !config.insideGamescope),
                          .overrides = config.emulators,
@@ -309,7 +307,7 @@ Emulators Emulators::discover(EmulatorCatalog catalog, const EmulatorSearch& sea
                          install->problem);
         }
         for (const std::string& system : entry.systems) {
-            if (install->problem.empty() && !entry.shipped && !found.commands_.contains(system)) {
+            if (install->problem.empty() && !found.commands_.contains(system)) {
                 lucent::info("roms", "{} runs {} games: {}", entry.name, system,
                              install->command.front());
                 found.commands_.emplace(system, install->command);
@@ -363,6 +361,8 @@ std::vector<EmulatorOption> Emulators::options(std::string_view system, const fs
                 option.launch = specOf(install->command, system, rom);
                 option.processHint = install->where;
                 option.flatpak = install->source == InstallSource::Flatpak;
+                option.links = install->source == InstallSource::ReleasedCore &&
+                               std::ranges::find(entry.links, system) != entry.links.end();
             }
         }
         options.push_back(std::move(option));

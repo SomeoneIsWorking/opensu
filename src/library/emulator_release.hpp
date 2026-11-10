@@ -33,8 +33,9 @@ struct ReleaseAsset {
     bool operator==(const ReleaseAsset&) const = default;
 };
 
-/// The asset of `source` in the release JSON `body`. Nothing, with `error`, when no asset matches,
-/// two do, or its URL is not on the project's own host.
+/// The asset of `source` in the release JSON `body`, to be checked against the SHA-256 `source`
+/// pins when it pins one. Nothing, with `error`, when no asset matches, two do, its URL is not on
+/// the project's own host, or the release publishes another SHA-256 than the pin.
 [[nodiscard]] std::optional<ReleaseAsset>
 releaseAssetOf(std::string_view body, const ReleaseSource& source, std::string& error);
 

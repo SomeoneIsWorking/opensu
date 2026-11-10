@@ -55,15 +55,13 @@ struct EmulatorSearch {
 
     /// PATH, then openSU's downloads under `dataDir`, ~/Applications, ~/AppImages and
     /// ~/.local/bin for AppImages, then the user's and the system's Flatpak installations; cores
-    /// as `CoreSearch::standard` looks for them (openSU's own in `shippedCores`), run by `runner`
-    /// with BIOS files in `system`,
+    /// as `CoreSearch::standard` looks for them, run by `runner` with BIOS files in `system`,
     /// hidden when `hiddenRunner`; the shell names each launch's saves folder
     /// (`prepareRetroLaunch`).
     [[nodiscard]] static EmulatorSearch
     standard(const std::filesystem::path& home, const std::filesystem::path& dataDir,
              std::vector<std::filesystem::path> executablePath, std::filesystem::path runner,
-             std::filesystem::path system, const std::filesystem::path& shippedCores,
-             bool hiddenRunner);
+             std::filesystem::path system, bool hiddenRunner);
 };
 
 /// How an emulator got onto this machine.
@@ -81,8 +79,6 @@ enum class InstallSource : std::uint8_t {
     DownloadedCore,
     /// A core openSU downloaded from its own build's release (`EmulatorEntry::release`).
     ReleasedCore,
-    /// A core openSU ships (`config::Config::shippedCores`).
-    ShippedCore,
     /// A core in RetroArch's or the system's core folder.
     Core,
 };

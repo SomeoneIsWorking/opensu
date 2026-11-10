@@ -68,7 +68,7 @@ struct Rig {
         entry.withoutBios = library::roms::WithoutBios::Hle;
         library::roms::EmulatorSearch search;
         search.system = root / "bios";
-        search.cores = library::roms::CoreSearch{root / "cores", {}, {root / "system"}, {}};
+        search.cores = library::roms::CoreSearch{root / "cores", {root / "system"}, {}};
         search.runner = root / "bin" / "opensu-retro";
         return library::roms::EmulatorSetup{
             library::roms::EmulatorCatalog{{entry}}, search, {}, buildbot.base()};

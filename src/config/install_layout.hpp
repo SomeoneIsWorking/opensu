@@ -22,8 +22,6 @@ struct InstallLayout {
     std::filesystem::path retroRunner;
     /// The librashader the runner loads for a shader preset.
     std::filesystem::path librashader;
-    /// The folder of the libretro cores openSU ships.
-    std::filesystem::path shippedCores;
 };
 
 /// This install's layout; `assets` (OPENSU_ASSETS) replaces the shipped assets folder when set.

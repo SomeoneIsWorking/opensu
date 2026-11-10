@@ -48,13 +48,15 @@ const library::Game* NetplayRun::romOf(const std::vector<library::Game>& games,
 }
 
 lan::wire::NetplayFacts NetplayRun::factsOf(const library::Game& game) const {
-    if (const std::filesystem::path core = library::netplayCore(game); !core.empty()) {
+    std::string revision =
+        std::string{lan::wire::coreBuildPrefix} + sha256Of(library::sessionCore(game));
+    if (!library::netplayCore(game).empty()) {
         std::string files;
         for (const std::filesystem::path& file : hooks_.coreBios(game)) {
             files += file.filename().string() + "=" + sha256Of(file) + "\n";
         }
         return lan::wire::NetplayFacts{
-            .coreRevision = std::string{lan::wire::coreBuildPrefix} + sha256Of(core),
+            .coreRevision = std::move(revision),
             .options = hooks_.coreOptions(game),
             .bios =
                 files.empty() ? std::string{} : secrets::hexText(secrets::crypto::sha256(files))};
@@ -62,7 +64,7 @@ lan::wire::NetplayFacts NetplayRun::factsOf(const library::Game& game) const {
     const std::filesystem::path bios = hooks_.biosFolder() / library::linkCoreBios;
     std::error_code failed;
     return lan::wire::NetplayFacts{
-        .coreRevision = std::string{library::linkCoreRevision()},
+        .coreRevision = std::move(revision),
         .options = hooks_.coreOptions(game),
         .bios = std::filesystem::is_regular_file(bios, failed) ? sha256Of(bios) : std::string{}};
 }
