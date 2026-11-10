@@ -8,6 +8,7 @@
 #include "cemu_pads.hpp"
 #include "dolphin_config.hpp"
 #include "melonds_config.hpp"
+#include "mgba_config.hpp"
 #include "pcsx2_config.hpp"
 #include "rpcs3_config.hpp"
 #include "ryujinx_config.hpp"
@@ -28,6 +29,7 @@ struct LaunchRule {
 constexpr std::array rules{
     LaunchRule{.id = cemuId, .files = cemuFiles, .runFiles = cemuRunFiles},
     LaunchRule{.id = dolphinId, .files = dolphinFiles, .runFiles = dolphinRunFiles},
+    LaunchRule{.id = mgbaId, .files = mgbaFiles, .runFiles = mgbaRunFiles},
     LaunchRule{.id = yuzuLineIds[0], .files = yuzuFiles, .runFiles = yuzuRunFiles},
     LaunchRule{.id = yuzuLineIds[1], .files = yuzuFiles, .runFiles = yuzuRunFiles},
     LaunchRule{.id = yuzuLineIds[2], .files = yuzuFiles, .runFiles = yuzuRunFiles},

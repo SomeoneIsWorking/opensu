@@ -178,6 +178,12 @@ target_compile_definitions(dolphin_config_test PRIVATE OPENSU_TEST_SCRATCH="${CM
 opensu_warnings(dolphin_config_test)
 add_test(NAME dolphin_config COMMAND dolphin_config_test)
 
+add_executable(mgba_config_test mgba_config_test.cpp)
+target_link_libraries(mgba_config_test PRIVATE opensu::library)
+target_compile_definitions(mgba_config_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+opensu_warnings(mgba_config_test)
+add_test(NAME mgba_config COMMAND mgba_config_test)
+
 add_executable(ryujinx_config_test ryujinx_config_test.cpp)
 target_link_libraries(ryujinx_config_test PRIVATE opensu::library nlohmann_json::nlohmann_json)
 opensu_warnings(ryujinx_config_test)

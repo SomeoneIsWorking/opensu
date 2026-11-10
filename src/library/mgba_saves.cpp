@@ -1,6 +1,7 @@
 #include "mgba_saves.hpp"
 
 #include "ini_file.hpp"
+#include "mgba_config.hpp"
 
 namespace opensu::library::saves {
 namespace {
@@ -14,7 +15,8 @@ constexpr std::size_t footerBits = 0xFF;
 
 fs::path mgbaSaveFile(const fs::path& config, const fs::path& rom) {
     const fs::path name = rom.stem().string() + ".sav";
-    const fs::path named = iniValue(config / "config.ini", "ports.qt", "savegamePath").value_or("");
+    const fs::path named =
+        iniValue(config / mgbaSettingsFile, "ports.qt", "savegamePath").value_or("");
     if (named.empty()) {
         return rom.parent_path() / name;
     }
