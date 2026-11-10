@@ -1589,7 +1589,9 @@ int ShellApp::run() {
     if (const std::optional<display::Output> output = window_->output()) {
         presentation_.setScreen(settings::ScreenSize{output->width, output->height});
     }
-    if (session_ && !settings_.hidden) {
+    // A hidden shell inside Gamescope takes the same overlay and focus path; only its window is
+    // unmapped.
+    if (session_) {
         // Spanning the screen also draws the home screen at the output's own resolution.
         if (session_->coversMonitor()) {
             const gpu2d::PixelSize size = window_->fillMonitor();
