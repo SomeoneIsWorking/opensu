@@ -42,6 +42,7 @@ add_library(opensu_library STATIC
     ryujinx_config.cpp
     qt_config_ini.cpp
     pcsx2_config.cpp
+    melonds_config.cpp
     shell_link.cpp game_folder.cpp pe_resources.cpp steam_items.cpp
     emulator_choice.cpp linked_play.cpp
     text_fold.cpp

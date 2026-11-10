@@ -182,6 +182,11 @@ target_link_libraries(pcsx2_config_test PRIVATE opensu::library)
 opensu_warnings(pcsx2_config_test)
 add_test(NAME pcsx2_config COMMAND pcsx2_config_test)
 
+add_executable(melonds_config_test melonds_config_test.cpp)
+target_link_libraries(melonds_config_test PRIVATE opensu::library)
+opensu_warnings(melonds_config_test)
+add_test(NAME melonds_config COMMAND melonds_config_test)
+
 add_executable(visual_presets_test visual_presets_test.cpp)
 target_link_libraries(visual_presets_test PRIVATE opensu::library)
 target_compile_definitions(visual_presets_test PRIVATE OPENSU_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
