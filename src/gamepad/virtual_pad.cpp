@@ -16,6 +16,7 @@
 #include <unistd.h>
 
 #include "lucent/log.h"
+#include "sdl_guid.hpp"
 
 namespace opensu::gamepad {
 namespace {
@@ -58,6 +59,13 @@ PadCapabilities VirtualPad::capabilities() {
     return out;
 }
 
+static_assert(VirtualPad::bus == BUS_USB);
+
+std::string VirtualPad::sdlGuid() {
+    return gamepad::sdlGuid(
+        {.bus = bus, .vendor = vendor, .product = product, .version = version, .name = name});
+}
+
 VirtualPad::VirtualPad() {
     fd_ = ::open("/dev/uinput", O_WRONLY | O_NONBLOCK | O_CLOEXEC);
     check(fd_, "open /dev/uinput");
@@ -79,10 +87,10 @@ VirtualPad::VirtualPad() {
         }
         check(ioctl(fd_, UI_SET_PHYS, std::string{phys}.c_str()), "UI_SET_PHYS");
         uinput_setup setup{};
-        setup.id.bustype = BUS_USB;
+        setup.id.bustype = bus;
         setup.id.vendor = vendor;
         setup.id.product = product;
-        setup.id.version = 0x0110;
+        setup.id.version = version;
         std::copy_n(name.begin(), std::min(name.size(), sizeof(setup.name) - 1), setup.name);
         check(ioctl(fd_, UI_DEV_SETUP, &setup), "UI_DEV_SETUP");
         check(ioctl(fd_, UI_DEV_CREATE), "UI_DEV_CREATE");

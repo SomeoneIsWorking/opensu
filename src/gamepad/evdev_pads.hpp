@@ -64,7 +64,7 @@ class EvdevPads final : public PadSource {
     /// the game needs in its environment to read only the virtual pads: SDL hides every other
     /// controller, the grabbed ones included. Empty when a pad could not be grabbed, since hiding
     /// it would leave the game without it.
-    std::vector<std::string> hold(ForwardMap map) override;
+    HeldPads hold(ForwardMap map) override;
     /// The game is over: the map is dropped and `after` (Free or Shell) applies; the virtual pads
     /// are gone on return.
     void release(Claim after) override;

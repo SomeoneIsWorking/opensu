@@ -31,7 +31,7 @@ Claim PadOwner::claimFor(const Situation& situation) {
     return ours && situation.followsFocus && situation.guardsSteam ? Claim::Shell : Claim::Free;
 }
 
-std::vector<std::string> PadOwner::hold(const input::ButtonMap& map) {
+gamepad::HeldPads PadOwner::hold(const input::ButtonMap& map) {
     if (situation_.game) {
         // A game's launch takes the pads back from Steam.
         release();
@@ -39,15 +39,15 @@ std::vector<std::string> PadOwner::hold(const input::ButtonMap& map) {
     return take(map, FocusHolder::Game);
 }
 
-std::vector<std::string> PadOwner::take(const input::ButtonMap& map, FocusHolder serves) {
+gamepad::HeldPads PadOwner::take(const input::ButtonMap& map, FocusHolder serves) {
     chords_.setGame(map.chords());
     syncChords();
     situation_.game = true;
     situation_.serves = serves;
-    std::vector<std::string> environment = pads_.hold(forwarding(map));
+    gamepad::HeldPads held = pads_.hold(forwarding(map));
     claim_ = Claim::Game;
     follow(situation_.followsFocus, situation_.holder, situation_.menuOver);
-    return environment;
+    return held;
 }
 
 gamepad::ForwardMap PadOwner::forwarding(const input::ButtonMap& map) const {

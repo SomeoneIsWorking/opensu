@@ -87,7 +87,8 @@ def _close_settings(shell: HiddenShell) -> None:
 
 
 def _settings_page(label: str) -> Callable[[HiddenShell], None]:
-    """Settings, then down the category list until the trail names `label`."""
+    """Settings, then RB through the category tabs, down the side or across the top, until the
+    trail names `label`."""
     trail = f"Settings > {label}"
 
     def reach(shell: HiddenShell) -> None:
@@ -95,7 +96,7 @@ def _settings_page(label: str) -> Callable[[HiddenShell], None]:
         for _ in range(LONGEST_WALK):
             if shell.state().get("breadcrumb") == trail:
                 return
-            shell.press("down")
+            shell.press("r1")
         shell.wait_for("breadcrumb", trail, timeout=1.0)
 
     return reach

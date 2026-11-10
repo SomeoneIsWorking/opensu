@@ -124,6 +124,11 @@ struct EmulatorEntry {
     [[nodiscard]] bool builtIn() const noexcept {
         return !core.empty();
     }
+    /// Where the install it runs as keeps its settings: its Flatpak's folder when `flatpak` and it
+    /// has one, else `config`.
+    [[nodiscard]] const std::filesystem::path& configOf(bool flatpak) const noexcept {
+        return flatpak && !flatpakConfig.empty() ? flatpakConfig : config;
+    }
     /// Its name without the catalog's " (built-in)" mark, where the context says it is the core:
     /// "mGBA" for "mGBA (built-in)".
     [[nodiscard]] std::string_view shortName() const noexcept;

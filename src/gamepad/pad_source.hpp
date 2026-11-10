@@ -53,6 +53,16 @@ enum class OwnVirtualPads : std::uint8_t {
 
 class VirtualPad;
 
+/// What a game that holds the pads is given.
+struct HeldPads {
+    /// "NAME=value" pairs it reads only the virtual pads with; empty when it reads the pads
+    /// themselves.
+    std::vector<std::string> environment;
+    /// The SDL GUID every virtual pad shows it (`sdlGuid`); empty when it reads the pads
+    /// themselves.
+    std::string padGuid;
+};
+
 class PadSource {
   public:
     PadSource() = default;
@@ -78,9 +88,8 @@ class PadSource {
     battery(const PadInfo& pad) const = 0;
 
     /// Claims every pad for a game (Game), its virtual pads sending what `map` says. Returns what
-    /// the game needs in its environment to read only the virtual pads; empty when it reads the
-    /// pads themselves.
-    virtual std::vector<std::string> hold(ForwardMap map) = 0;
+    /// the game needs to read only the virtual pads and to know them.
+    virtual HeldPads hold(ForwardMap map) = 0;
     /// The game is over: the map is dropped and `after` (Free or Shell) applies.
     virtual void release(Claim after) = 0;
     /// Moves between claims of the same game state: Game and Away while a game runs, Shell and

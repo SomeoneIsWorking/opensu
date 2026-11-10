@@ -62,7 +62,7 @@ class SdlPads final : public PadSource {
     [[nodiscard]] std::map<std::string, PadAxes> axes() const override;
     /// What SDL reads of the pad's battery (XInput's battery level, a PlayStation pad's report).
     [[nodiscard]] std::optional<device::BatteryStatus> battery(const PadInfo& pad) const override;
-    std::vector<std::string> hold(ForwardMap map) override;
+    HeldPads hold(ForwardMap map) override;
     void release(Claim after) override;
     void claim(Claim claim) override;
     void setBlocked(bool blocked) override;

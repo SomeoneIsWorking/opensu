@@ -12,6 +12,7 @@
 #include <nlohmann/json.hpp>
 
 #include "fileio/atomic_write.hpp"
+#include "fileio/read_whole.hpp"
 #include "lucent/log.h"
 #include "zip/zip_archive.hpp"
 
@@ -25,15 +26,6 @@ constexpr std::string_view packFolder = "slang";
 constexpr std::string_view recordFile = "slang.json";
 constexpr std::string_view partSuffix = ".part";
 constexpr std::string_view oldSuffix = ".old";
-
-std::optional<std::string> readWhole(const fs::path& file, std::string& error) {
-    std::ifstream in{file, std::ios::binary};
-    if (!in) {
-        error = "cannot read " + file.string();
-        return std::nullopt;
-    }
-    return std::string{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
-}
 
 /// `name` as a path inside the pack, or nothing when it would land outside it.
 std::optional<fs::path> insidePack(std::string_view name) {
@@ -251,7 +243,7 @@ ShaderPackDownload::install(const std::stop_token& stop, const ShaderPack& pack,
         web_.download(stop, url_, part, progress, [this](const auto& url) {
             return refusal(url);
         });
-    std::optional<std::string> bytes = fetched ? readWhole(part, error) : std::nullopt;
+    std::optional<std::string> bytes = fetched ? fileio::readWhole(part, error) : std::nullopt;
     fs::remove(part, ec);
     if (!fetched) {
         return fetched.as<ShaderPackBuild>("the download failed: ");

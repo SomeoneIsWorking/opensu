@@ -2,6 +2,7 @@
 // in place of the grabbed physical pad.
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -19,6 +20,12 @@ class VirtualPad {
     /// Xbox 360 wired: the identity every game and SDL's mapping database knows.
     static constexpr std::uint16_t vendor{0x045e};
     static constexpr std::uint16_t product{0x028e};
+    static constexpr std::uint16_t version{0x0110};
+    /// BUS_USB.
+    static constexpr std::uint16_t bus{0x03};
+
+    /// The GUID SDL gives every virtual pad, which a game's controller binding names.
+    [[nodiscard]] static std::string sdlGuid();
 
     /// Its keys and axes, as a pad that reads like it.
     [[nodiscard]] static PadCapabilities capabilities();

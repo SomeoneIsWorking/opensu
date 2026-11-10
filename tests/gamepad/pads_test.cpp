@@ -36,6 +36,7 @@ using opensu::gamepad::EvdevDevice;
 using opensu::gamepad::EvdevPads;
 using opensu::gamepad::Event;
 using opensu::gamepad::ForwardMap;
+using opensu::gamepad::HeldPads;
 using opensu::gamepad::OwnVirtualPads;
 using opensu::gamepad::PadEvent;
 using opensu::gamepad::PadInfo;
@@ -358,7 +359,9 @@ int main() try {
     inputs.add(motion.node());
     std::optional<EvdevDevice> motionNode{std::in_place, motion.node()};
     const std::vector<fs::path> fakes{physical->node(), motion.node()};
-    expect(!pads.hold({}).empty(), "the game is told to read only the virtual pads");
+    const HeldPads held = pads.hold({});
+    expect(!held.environment.empty(), "the game is told to read only the virtual pads");
+    expect(held.padGuid == VirtualPad::sdlGuid(), "the game is told the virtual pads' GUID");
     std::vector<EvdevDevice> virtualPads = openAll(ownUinputNodes(fakes));
     expect(!virtualPads.empty(), "holding gives the pad a virtual pad");
     std::optional<EvdevDevice> other{std::in_place, physical->node()};
@@ -560,7 +563,7 @@ int main() try {
     physical->send({{EV_KEY, BTN_MODE, 0}});
 
     // The game's mapping: A reaches the virtual pad as B, the shell still hears A.
-    expect(!pads.hold(ForwardMap{{{Button::A, {Button::B}}}, {}}).empty(),
+    expect(!pads.hold(ForwardMap{{{Button::A, {Button::B}}}, {}}).environment.empty(),
            "the pads are held with a mapping");
     std::vector<EvdevDevice> mappedPads = openAll(ownUinputNodes(fakes));
     expect(!mappedPads.empty(), "the mapped hold gives the pad a virtual pad");

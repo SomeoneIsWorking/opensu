@@ -876,7 +876,10 @@ bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> e
     }
     recordLaunch(game);
 
-    std::vector<std::string> environment = padOwner_.hold(mappings_.forGame(game));
+    gamepad::HeldPads held = padOwner_.hold(mappings_.forGame(game));
+    std::optional<library::CemuBinding> cemu =
+        library::cemuBindingOf(started, emulatorSettings_.catalog(), held.padGuid);
+    std::vector<std::string> environment = std::move(held.environment);
     environment.push_back(std::move(control));
     environment.insert(environment.end(), wine.environment.begin(), wine.environment.end());
     environment.insert(environment.end(), started.launch.environment.begin(),
@@ -895,8 +898,8 @@ bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> e
             };
         }
     }
-    const bool running =
-        launches_.start(std::move(started), std::move(environment), std::move(convert));
+    const bool running = launches_.start(std::move(started), std::move(environment),
+                                         std::move(convert), std::move(cemu));
     if (running) {
         playingAs_ = profile;
     }

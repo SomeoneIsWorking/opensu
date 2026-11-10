@@ -66,9 +66,9 @@ class PadOwner {
         situation_.grabs = pads.grabs();
     }
 
-    /// Holds the pads for a game playing with `map`; returns what the game's environment needs
+    /// Holds the pads for a game playing with `map`; returns what the game is given
     /// (`gamepad::PadSource::hold`).
-    std::vector<std::string> hold(const input::ButtonMap& map);
+    gamepad::HeldPads hold(const input::ButtonMap& map);
     /// What the pads forward for a game playing with `map`, the shell's chords kept for openSU:
     /// what `hold` gives the local pads and remote play sends the host.
     [[nodiscard]] gamepad::ForwardMap forwarding(const input::ButtonMap& map) const;
@@ -98,7 +98,7 @@ class PadOwner {
 
   private:
     /// Holds the pads with `map` for the window `serves`.
-    std::vector<std::string> take(const input::ButtonMap& map, display::FocusHolder serves);
+    gamepad::HeldPads take(const input::ButtonMap& map, display::FocusHolder serves);
     /// Lent to Steam: the virtual pads rest unless Big Picture is in front.
     void restOutsideBigPicture();
 

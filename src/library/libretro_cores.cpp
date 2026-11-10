@@ -13,6 +13,7 @@
 #include "core_bios.hpp"
 #include "core_target.hpp"
 #include "fileio/atomic_write.hpp"
+#include "fileio/read_whole.hpp"
 #include "lucent/log.h"
 #include "zip/zip_archive.hpp"
 
@@ -67,15 +68,6 @@ std::vector<std::string_view> wordsOf(std::string_view line) {
         at = end;
     }
     return words;
-}
-
-std::optional<std::string> readWhole(const fs::path& file, std::string& error) {
-    std::ifstream in{file, std::ios::binary};
-    if (!in) {
-        error = "cannot read " + file.string();
-        return std::nullopt;
-    }
-    return std::string{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
 }
 
 void removeQuietly(const fs::path& file) {
@@ -211,7 +203,7 @@ std::optional<std::string> CoreSearch::info(std::string_view core) const {
             continue;
         }
         std::string error;
-        if (std::optional<std::string> text = readWhole(file, error)) {
+        if (std::optional<std::string> text = fileio::readWhole(file, error)) {
             return text;
         }
         lucent::warn("emulators", "{}", error);
@@ -358,7 +350,7 @@ CoreDownload::installRelease(const std::stop_token& stop, const std::string& cor
         return fetched.as<DownloadedCore>();
     }
     std::string error;
-    std::optional<std::string> bytes = readWhole(part, error);
+    std::optional<std::string> bytes = fileio::readWhole(part, error);
     removeQuietly(part);
     if (!bytes) {
         return net::Failure{std::move(error)};
@@ -387,7 +379,7 @@ net::Result<DownloadedCore> CoreDownload::install(const std::stop_token& stop,
         web_.download(stop, build.url, part, progress, [this](const auto& url) {
             return refusal(url);
         });
-    std::optional<std::string> bytes = fetched ? readWhole(part, error) : std::nullopt;
+    std::optional<std::string> bytes = fetched ? fileio::readWhole(part, error) : std::nullopt;
     removeQuietly(part);
     if (!fetched) {
         return fetched.as<DownloadedCore>("the download failed: ");

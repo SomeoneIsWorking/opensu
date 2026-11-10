@@ -88,7 +88,7 @@ std::optional<device::BatteryStatus> EvdevPads::battery(const PadInfo& pad) cons
     return batteries_.read(pad.uniq);
 }
 
-std::vector<std::string> EvdevPads::hold(ForwardMap map) {
+HeldPads EvdevPads::hold(ForwardMap map) {
     std::unique_lock lock{mutex_};
     wanted_.map = std::move(map);
     wanted_.blocked = false;
@@ -96,7 +96,8 @@ std::vector<std::string> EvdevPads::hold(ForwardMap map) {
     if (appliedMissed_) {
         return {};
     }
-    return {"SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x045e/0x028e"};
+    return {.environment = {"SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x045e/0x028e"},
+            .padGuid = VirtualPad::sdlGuid()};
 }
 
 void EvdevPads::release(Claim after) {

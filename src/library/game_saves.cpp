@@ -223,8 +223,7 @@ std::vector<EmulatorSaves> savesOf(const Game& game, const roms::EmulatorCatalog
             continue;
         }
         const bool flatpak = option.flatpak && !entry->saves->flatpakFolder.empty();
-        const fs::path& config =
-            option.flatpak && !entry->flatpakConfig.empty() ? entry->flatpakConfig : entry->config;
+        const fs::path& config = entry->configOf(option.flatpak);
         saves.processHint = option.processHint;
         const fs::path& folder = flatpak ? entry->saves->flatpakFolder : entry->saves->folder;
         if (const std::optional<SaveSlot> file =

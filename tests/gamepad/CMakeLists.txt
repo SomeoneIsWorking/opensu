@@ -23,3 +23,9 @@ target_include_directories(chord_gate_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/
 opensu_warnings(chord_gate_test)
 add_test(NAME chord_gate COMMAND chord_gate_test)
 target_compile_definitions(pads_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+
+add_executable(sdl_guid_test sdl_guid_test.cpp)
+target_link_libraries(sdl_guid_test PRIVATE opensu::pad)
+target_include_directories(sdl_guid_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../ui")
+opensu_warnings(sdl_guid_test)
+add_test(NAME sdl_guid COMMAND sdl_guid_test)

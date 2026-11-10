@@ -16,6 +16,7 @@
 
 #include "launch/handoff.hpp"
 #include "launch_mailbox.hpp"
+#include "library/cemu_pads.hpp"
 #include "library/game.hpp"
 #include "retro_session.hpp"
 
@@ -37,8 +38,10 @@ class GameLaunch {
 
     /// Starts `game` with each "NAME=value" of `environment` added to its environment; false when
     /// a game is already launching or running. `convert` serves a game whose launch has a
-    /// conversion. Main loop only.
-    bool start(library::Game game, std::vector<std::string> environment, Convert convert = {});
+    /// conversion; `cemu` binds Cemu's controller profiles while it runs (`library::CemuPads`).
+    /// Main loop only.
+    bool start(library::Game game, std::vector<std::string> environment, Convert convert = {},
+               std::optional<library::CemuBinding> cemu = {});
     /// Whether a game is launching or running. Any thread.
     [[nodiscard]] bool running() const;
     /// Whether `game` is the one launching or running.

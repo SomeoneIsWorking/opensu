@@ -283,7 +283,7 @@ std::map<std::string, PadAxes> SdlPads::axes() const {
 }
 
 // Nothing is grabbed or forwarded: the game reads the pads itself, so it needs nothing.
-std::vector<std::string> SdlPads::hold(ForwardMap /*map*/) {
+HeldPads SdlPads::hold(ForwardMap /*map*/) {
     return {};
 }
 
