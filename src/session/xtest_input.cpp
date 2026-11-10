@@ -72,7 +72,7 @@ bool XTestInput::type(char character) {
     if (character < ' ' || character > '~') {
         return false;
     }
-    const auto symbol = static_cast<KeySym>(character);
+    const auto symbol = static_cast<KeySym>(static_cast<unsigned char>(character));
     Display* display = connection_->display;
     const KeyCode code = XKeysymToKeycode(display, symbol);
     if (code == 0) {
