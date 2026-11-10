@@ -237,7 +237,7 @@ struct Rig {
     /// A frame of the loop: the stack laid out, the keyboard following the focus.
     void frame() {
         screens.frame();
-        pad.follow();
+        pad.follow(false);
     }
     /// The text field `id` on the top screen, or null.
     [[nodiscard]] const gpu2d::ui::TextField* field(const std::string& id) {

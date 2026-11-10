@@ -305,7 +305,7 @@ void searchTypesAndCloses(const fs::path& root) {
                                      }}};
     const auto frame = [&] {
         ui.frame(1.0);
-        pad.follow();
+        pad.follow(false);
     };
     const auto act = [&](Action action) {
         ui.navigator.act(action);
