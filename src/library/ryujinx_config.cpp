@@ -172,11 +172,22 @@ std::string ryujinxLaunchSettings(std::string_view json, std::string_view padGui
         lucent::warn("ryujinx", "the settings are not Ryujinx's JSON; they stay the player's");
         return std::string{json};
     }
+    const Json version = settings.value("version", Json{});
+    const int at = version.is_number_integer() ? version.get<int>() : 0;
+    if (at > ryujinxNewestRead) {
+        lucent::warn("ryujinx",
+                     "settings version {} is newer than openSU reads; they stay the player's", at);
+        return std::string{json};
+    }
+    if (at == ryujinxNewestRead) {
+        // 71's one migration renamed the SDL2 audio backend to SDL3; undone, the file is 70.
+        if (settings.contains("audio_backend")) {
+            rename(settings["audio_backend"], audioRename);
+        }
+        settings["version"] = ryujinxSettingsVersion;
+    }
     settings["update_checker_type"] = "Off";
     settings["check_updates_on_start"] = false;
-    if (settings.contains("audio_backend")) {
-        rename(settings["audio_backend"], audioRename);
-    }
     Json& inputs = settings["input_config"];
     if (!inputs.is_array()) {
         inputs = Json::array();

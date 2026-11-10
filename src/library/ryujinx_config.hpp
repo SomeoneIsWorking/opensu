@@ -4,7 +4,8 @@
 // zeroed, `k` counting connected pads of that GUID, so player N's gamepad entry is given the Nth
 // virtual pad, its mappings kept. A player on the keyboard, or player 1 without an entry, gets a
 // Pro Controller in the standard layout on its virtual pad. SDL3 builds' enum names are written as
-// their SDL2 equivalents, which 1.3.3 reads and SDL3 builds still accept.
+// their SDL2 equivalents and a version 71 file migrated down to 70, which 1.3.3 reads and SDL3
+// builds still accept; a newer file stays the player's.
 #pragma once
 
 #include <filesystem>
@@ -23,6 +24,11 @@ inline constexpr std::string_view ryujinxId{"ryujinx"};
 inline constexpr std::string_view ryujinxSettingsFile{"Config.json"};
 /// The players Ryujinx binds, `Player1` to `Player8`.
 inline constexpr int ryujinxPlayers{8};
+/// The settings version the run's file is written at, Ryubing 1.3.3's; a newer Ryujinx migrates it
+/// forward on its own.
+inline constexpr int ryujinxSettingsVersion{70};
+/// The newest settings version the rule reads, migrated down to `ryujinxSettingsVersion`.
+inline constexpr int ryujinxNewestRead{71};
 
 /// The id Ryujinx gives the `index`th connected pad of SDL GUID `sdlGuid`.
 [[nodiscard]] std::string ryujinxPadId(std::string_view sdlGuid, int index);

@@ -22,7 +22,7 @@ constexpr std::string_view sdlGuid = "0300cece5e0400008e02000010010000";
 
 // The player's layout: player 1 on their own SDL3 pad, player 2 on the keyboard.
 constexpr std::string_view player = R"json({
-  "version": 70,
+  "version": 71,
   "audio_backend": "SDL3",
   "check_updates_on_start": true,
   "update_checker_type": "PromptAtStartup",
@@ -59,6 +59,11 @@ void testUpdateCheck() {
     expect(run["update_checker_type"] == "Off", "the update check is off");
     expect(run["check_updates_on_start"] == false, "an older config's check is off too");
     expect(run["audio_backend"] == "SDL2", "an SDL3 build's audio backend is written as SDL2");
+    expect(run["version"] == 70, "a version 71 file is migrated down to the one 1.3.3 reads");
+    constexpr std::string_view newer =
+        R"({"version": 72, "update_checker_type": "PromptAtStartup"})";
+    expect(ryujinxLaunchSettings(newer, sdlGuid) == newer,
+           "a file newer than the rule reads is left alone");
     expect(run["input_config"][0]["id"] == "0-00000006-045e-0000-ea02-000008040000",
            "without virtual pads the players stay");
     expect(run["input_config"][0]["backend"] == "GamepadSDL2", "the gamepad backend is SDL2's");
