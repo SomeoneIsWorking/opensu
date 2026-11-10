@@ -1,8 +1,10 @@
 // opensu-retro end to end: the hidden runner against the fake core draws its bars letterboxed,
 // writes and reloads save RAM (a smaller save into its start), refuses what it cannot load (a
-// larger save left untouched), and dies alone when its core crashes. Its control channel announces
-// itself, saves, loads and resets between frames, refuses a core without states and a missing
-// state, and leaves a load failure for the shell.
+// larger save left untouched), and dies alone when its core crashes; a Vulkan core that withdraws
+// its image as its context is destroyed and takes the queue lock as it unloads closes cleanly, and
+// a hidden run offers its device the window's surface. Its control channel announces itself,
+// saves, loads and resets between frames, refuses a core without states and a missing state, and
+// leaves a load failure for the shell.
 #include <chrono>
 #include <cmath>
 #include <csignal>
@@ -437,13 +439,15 @@ void savesOfOtherSizes(const Paths& paths) {
 } // namespace
 
 int main(int argc, char** argv) try {
-    if (argc != 5) {
-        fail("usage: runner_test <opensu-retro> <fake core> <crashing core> <stateless core>");
+    if (argc != 6) {
+        fail("usage: runner_test <opensu-retro> <fake core> <crashing core> <stateless core> "
+             "<vulkan core>");
     }
     const std::string runner = argv[1];
     const std::string core = argv[2];
     const std::string crashing = argv[3];
     const std::string stateless = argv[4];
+    const std::string vulkan = argv[5];
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "retro_runner"};
     const std::filesystem::path rom = scratch.path() / "game.bin";
     std::ofstream{rom, std::ios::binary} << "Bgame";
@@ -485,6 +489,15 @@ int main(int argc, char** argv) try {
     expect(!crashed.exited && crashed.signal == SIGSEGV,
            "a core crashing in retro_run kills the runner by its signal");
     expect(read(srm)[0] == 40, "the crash left the last save as it was");
+
+    const std::filesystem::path vulkanSaves = scratch.path() / "vulkan-saves";
+    const Status withdrawn = run({runner, "--core", vulkan, "--saves", vulkanSaves.string(),
+                                  "--hidden", "--frames", "10", rom.string()});
+    expect(withdrawn.exited && withdrawn.code == 0,
+           "a Vulkan core that withdraws its image in context_destroy and locks the queue in "
+           "retro_unload_game exits 0");
+    expect(read(vulkanSaves / "game.srm")[10] == 1,
+           "a hidden run offers the core's device the window's surface");
 
     const Paths paths{runner, core, rom, scratch.path()};
     try {

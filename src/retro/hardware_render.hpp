@@ -50,8 +50,11 @@ class HardwareRender {
     /// The core's context is `presenter`'s device: the interface is filled and context_reset
     /// called.
     void attach(Presenter& presenter);
-    /// context_destroy, once the GPU is idle; before the game is unloaded.
+    /// context_destroy, once the GPU is idle; before the game is unloaded. The interface's queue
+    /// lock and sync calls keep working for the core's unload (Azahar submits from it).
     void detach();
+    /// The presenter is going: the interface the core holds is no longer served.
+    void release();
 
     /// The core called video refresh with RETRO_HW_FRAME_BUFFER_VALID.
     void frameReady(unsigned width, unsigned height);

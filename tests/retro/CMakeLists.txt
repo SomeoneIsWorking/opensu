@@ -1,7 +1,7 @@
-# The runner's owners through their shipping code, two fake cores, and opensu-retro end to end.
+# The runner's owners through their shipping code, fake cores, and opensu-retro end to end.
 pkg_check_modules(TEST_PNG REQUIRED IMPORTED_TARGET libpng)
 
-foreach(core fake_core fake_crashing_core fake_stateless_core)
+foreach(core fake_core fake_crashing_core fake_stateless_core fake_vulkan_core)
     add_library(${core} SHARED fake_core.cpp)
     target_link_libraries(${core} PRIVATE opensu::libretro_header)
     opensu_warnings(${core})
@@ -9,6 +9,7 @@ foreach(core fake_core fake_crashing_core fake_stateless_core)
 endforeach()
 target_compile_definitions(fake_crashing_core PRIVATE FAKE_CORE_CRASH)
 target_compile_definitions(fake_stateless_core PRIVATE FAKE_CORE_NO_STATE)
+target_compile_definitions(fake_vulkan_core PRIVATE FAKE_CORE_VULKAN)
 
 foreach(name video_frame audio_sink joypad save_memory core_environment core vulkan_messages
         netplay_link arcade_panel)
@@ -34,8 +35,10 @@ target_include_directories(retro_runner_test
 target_compile_definitions(retro_runner_test
     PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 opensu_warnings(retro_runner_test)
-add_dependencies(retro_runner_test opensu-retro fake_core fake_crashing_core fake_stateless_core)
+add_dependencies(retro_runner_test opensu-retro fake_core fake_crashing_core fake_stateless_core
+    fake_vulkan_core)
 add_test(NAME retro_runner
     COMMAND retro_runner_test "$<TARGET_FILE:opensu-retro>" "$<TARGET_FILE:fake_core>"
-            "$<TARGET_FILE:fake_crashing_core>" "$<TARGET_FILE:fake_stateless_core>")
+            "$<TARGET_FILE:fake_crashing_core>" "$<TARGET_FILE:fake_stateless_core>"
+            "$<TARGET_FILE:fake_vulkan_core>")
 set_tests_properties(retro_runner PROPERTIES TIMEOUT 120)

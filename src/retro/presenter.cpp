@@ -72,12 +72,10 @@ void Presenter::open() {
             .height = options_.height,
         });
     }
-    instance_ = std::make_unique<VulkanInstance>(options_.hidden ? std::span<const char* const>{}
-                                                                 : window_->surfaceExtensions(),
-                                                 options_.validation, options_.negotiation);
-    if (!options_.hidden) {
-        surface_ = window_->openSurface(instance_->handle());
-    }
+    instance_ = std::make_unique<VulkanInstance>(window_->surfaceExtensions(), options_.validation,
+                                                 options_.negotiation);
+    // A hidden run draws offscreen, but the core's device is made for the window's surface too.
+    surface_ = window_->openSurface(instance_->handle());
     device_ = std::make_unique<VulkanDevice>(*instance_, surface_, options_.negotiation);
     vk_ = device_->handle();
     if (!options_.hidden) {

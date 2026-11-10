@@ -20,7 +20,9 @@ SdlRunnerWindow::SdlRunnerWindow(const Options& options) : hidden_{options.hidde
     if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
         throw std::runtime_error{std::string{"video: "} + SDL_GetError()};
     }
-    SDL_WindowFlags flags = SDL_WINDOW_HIDDEN;
+    // Hidden, it still has a Vulkan surface: a core builds its frontend swapchain from it
+    // (Dolphin).
+    SDL_WindowFlags flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_VULKAN;
     if (!options.hidden) {
         flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
         if (options.fullscreen) {

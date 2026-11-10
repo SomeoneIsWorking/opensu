@@ -191,7 +191,8 @@ a key it lacks keeps its default, a value that is no choice is exit 1. The runne
 `<data>/opensu/saves/<core name>/` (the core file's stem without `_libretro`; the launcher passes
 the active profile's system folder), `--system` to `<data>/opensu/system/`, both from `config::Config`. `--hidden`,
 `--validate`, `--frames` and `--frame-png` are for tests and tools: `--hidden` is an unmapped SDL
-window (`SDL_WINDOW_HIDDEN`), drawing into an offscreen image, no sound device (the sink is drained
+window (`SDL_WINDOW_HIDDEN`) whose Vulkan surface the core's device is made for (Dolphin builds its
+frontend swapchain from it) but never presented to, drawing into an offscreen image, no sound device (the sink is drained
 by the clock, so rate control still runs), no pads and no keyboard; `--touch <dp>` (hidden only) shows
 the touch controls at that many pixels per dp, as Android's window does, for `POST /touch`; `--validate` enables
 `VK_LAYER_KHRONOS_validation` when installed and counts its errors; `--frames` stops after N frames;
@@ -491,13 +492,16 @@ refresh shows the image of the last `set_image` (`width` × `height`, the whole 
 the layout the core gave, its semaphores waited once at the fragment stage; a null refresh shows
 the same image again without them; `set_command_buffers` are submitted once before the runner's,
 and then the semaphores are not waited; `set_signal_semaphore` is signalled by the next
-submission. The core's frame goes through the same `placeFrame`, sampling and filter as a
+submission. A null `set_image` withdraws the image (LRPS2 does so in `context_destroy`, before
+destroying it): nothing is shown from it again. The core's frame goes through the same `placeFrame`, sampling and filter as a
 software frame, or the same shader preset: an image in `SHADER_READ_ONLY_OPTIMAL` is the chain's
 input as it is (librashader copies it into the history, which the `TRANSFER_SRC` usage libretro
 requires of `set_image` images allows, and gives it back in that layout); one in `GENERAL`, which
 the runner may not move, is blitted into the frame texture first and the chain reads that. Every submit, present and device wait holds the queue lock the core's
 `lock_queue` takes. At exit: the last frame read back, then `context_destroy` (GPU idle), then
-`retro_unload_game`, then the device (`destroy_device`, `vkDestroyDevice`) and the instance,
+`retro_unload_game`, during which the interface's queue lock and sync calls still work (Azahar's
+renderer submits as it shuts down; RetroArch keeps its driver up until after the core), then the
+device (`destroy_device`, `vkDestroyDevice`) and the instance,
 then `retro_deinit`. A core asking for OpenGL, GLES or Direct3D is refused; the load fails with
 `<core> cannot load <rom>: it asks for OpenGL core 3.3, and openSU draws with Vulkan only`, which
 the shell toasts. Cores whose renderer is an option get it from the catalog's `"coreOptions"`:

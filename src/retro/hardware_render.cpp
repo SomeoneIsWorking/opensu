@@ -124,11 +124,14 @@ void HardwareRender::detach() {
     }
     lucent::info("retro", "the core's Vulkan context is destroyed");
     contextUp_ = false;
-    presenter_ = nullptr;
     image_.reset();
     shown_.reset();
     imageWaits_.clear();
     pending_ = {};
+}
+
+void HardwareRender::release() {
+    presenter_ = nullptr;
 }
 
 void HardwareRender::frameReady(unsigned width, unsigned height) {
@@ -168,6 +171,13 @@ CoreSync HardwareRender::takeSync() {
 void HardwareRender::setImage(void* self, const retro_vulkan_image* image, std::uint32_t count,
                               const VkSemaphore* semaphores, std::uint32_t queueFamily) {
     HardwareRender& render = of(self);
+    if (image == nullptr) {
+        // The core withdraws its image before destroying it (LRPS2's context_destroy).
+        render.image_.reset();
+        render.shown_.reset();
+        render.imageWaits_.clear();
+        return;
+    }
     render.image_ = CoreImage{
         .image = image->create_info.image,
         .view = image->image_view,

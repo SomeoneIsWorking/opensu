@@ -3,7 +3,10 @@
 // ports' held buttons blanking a band of the picture, and save RAM holding the frame count, the
 // last joypad bits of both ports and the ROM's first byte. Its state is the save RAM and the frame
 // counter; reset zeroes the frame count. Built with FAKE_CORE_CRASH it crashes in retro_run, with
-// FAKE_CORE_NO_STATE it cannot serialize.
+// FAKE_CORE_NO_STATE it cannot serialize, with FAKE_CORE_VULKAN it asks for a Vulkan context,
+// declines to make its device while noting in save RAM byte 10 whether it was given a surface,
+// withdraws its image in context_destroy (as LRPS2 does) and takes the queue lock in
+// retro_unload_game (as Azahar's renderer does when it shuts down).
 #include <array>
 #include <cmath>
 #include <csignal>
@@ -12,6 +15,9 @@
 #include <numbers>
 
 #include <libretro.h>
+#ifdef FAKE_CORE_VULKAN
+#include <libretro_vulkan.h>
+#endif
 
 namespace {
 
@@ -57,6 +63,42 @@ retro_core_option_v2_definition definitions[] = {
 };
 
 retro_core_options_v2 options{nullptr, definitions};
+
+#ifdef FAKE_CORE_VULKAN
+const retro_hw_render_interface_vulkan* vulkan = nullptr;
+
+void contextReset() {
+    const retro_hw_render_interface* given = nullptr;
+    if (core.environment(RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE, &given)) {
+        vulkan = reinterpret_cast<const retro_hw_render_interface_vulkan*>(given);
+    }
+}
+
+/// Notes whether the runner gave a surface, then leaves the device to the runner.
+bool createDevice(retro_vulkan_context* /*context*/, VkInstance /*instance*/,
+                  VkPhysicalDevice /*gpu*/, VkSurfaceKHR surface,
+                  PFN_vkGetInstanceProcAddr /*getInstanceProcAddr*/, const char** /*extensions*/,
+                  unsigned /*extensionCount*/, const char** /*layers*/, unsigned /*layerCount*/,
+                  const VkPhysicalDeviceFeatures* /*features*/) {
+    core.saveRam[10] = surface != VK_NULL_HANDLE ? 1 : 0;
+    return false;
+}
+
+retro_hw_render_context_negotiation_interface_vulkan negotiation{
+    .interface_type = RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN,
+    .interface_version = 1,
+    .get_application_info = nullptr,
+    .create_device = createDevice,
+    .destroy_device = nullptr,
+};
+
+void contextDestroy() {
+    if (vulkan != nullptr) {
+        vulkan->set_image(vulkan->handle, nullptr, 0, nullptr, vulkan->queue_index);
+        vulkan->wait_sync_index(vulkan->handle);
+    }
+}
+#endif
 
 void drawRow(unsigned y, bool bars) {
     for (unsigned x = 0; x < width; ++x) {
@@ -151,6 +193,17 @@ RETRO_API bool retro_load_game(const retro_game_info* game) {
     if (!core.environment(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &format)) {
         return false;
     }
+#ifdef FAKE_CORE_VULKAN
+    retro_hw_render_callback render{};
+    render.context_type = RETRO_HW_CONTEXT_VULKAN;
+    render.version_major = VK_MAKE_VERSION(1, 1, 0);
+    render.context_reset = contextReset;
+    render.context_destroy = contextDestroy;
+    if (!core.environment(RETRO_ENVIRONMENT_SET_HW_RENDER, &render)) {
+        return false;
+    }
+    core.environment(RETRO_ENVIRONMENT_SET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE, &negotiation);
+#endif
     retro_variable pattern{"fake_pattern", nullptr};
     const bool bars = core.environment(RETRO_ENVIRONMENT_GET_VARIABLE, &pattern) &&
                       pattern.value != nullptr && std::strcmp(pattern.value, "bars") == 0;
@@ -161,6 +214,13 @@ RETRO_API bool retro_load_game(const retro_game_info* game) {
 }
 
 RETRO_API void retro_unload_game() {
+#ifdef FAKE_CORE_VULKAN
+    if (vulkan != nullptr) {
+        vulkan->lock_queue(vulkan->handle);
+        vulkan->unlock_queue(vulkan->handle);
+    }
+    vulkan = nullptr;
+#endif
 }
 
 RETRO_API void retro_run() {

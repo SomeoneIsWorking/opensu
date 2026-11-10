@@ -582,6 +582,7 @@ RunnerExit RunnerApp::run() {
                       presenter->validationErrors());
         exit = RunnerExit::ValidationErrors;
     }
+    hardware.release();
     presenter.reset();
     return exit;
 }
