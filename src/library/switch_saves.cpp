@@ -21,6 +21,7 @@
 #include "fileio/little_endian.hpp"
 #include "ini_file.hpp"
 #include "lucent/log.h"
+#include "yuzu_config.hpp"
 
 namespace opensu::library::saves {
 namespace {
@@ -168,7 +169,7 @@ std::vector<std::string> yuzuUsers(const fs::path& nand) {
 /// qt-config.ini's `current_user`, an index into the profiles; 0 when it names none.
 std::size_t yuzuCurrentIndex(const fs::path& config) {
     const std::string value =
-        iniValue(config / "qt-config.ini", "System", yuzuCurrentUser).value_or("");
+        iniValue(config / yuzuSettingsFile, "System", yuzuCurrentUser).value_or("");
     std::size_t index = 0;
     const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), index);
     return error == std::errc{} ? index : 0;

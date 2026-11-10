@@ -1,0 +1,38 @@
+// yuzu_config — the launch rule of yuzu's line (Eden, Citron, sudachi): `qt-config.ini` set for a
+// launch openSU starts. Its update check is off, since the dialog it opens takes a mouse or a
+// keyboard to close. Each player's SDL bindings, `engine:sdl,guid:<GUID>,port:<N>,...`, are made
+// the Nth virtual pad's: Eden numbers pads of one GUID by the order they attach, so the Nth pad
+// is port N. A player without SDL bindings, player 1 or one connected, gets a Pro Controller in
+// the standard layout on its virtual pad, read as openSU's virtual pad reports (xpad's buttons,
+// hat and axes).
+#pragma once
+
+#include <array>
+#include <filesystem>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include "launch_files.hpp"
+
+namespace opensu::library {
+
+/// The catalog's emulators of yuzu's line.
+inline constexpr std::array<std::string_view, 3> yuzuLineIds{"eden", "citron", "sudachi"};
+/// Their settings file in their settings folder.
+inline constexpr std::string_view yuzuSettingsFile{"qt-config.ini"};
+/// The players Eden's settings bind.
+inline constexpr int yuzuPlayers{8};
+
+/// The settings file `ini` as a launch reads it with the virtual pads of `padGuid`, the update
+/// check off; with `padGuid` empty only the update check is changed.
+[[nodiscard]] std::string yuzuLaunchSettings(std::string_view ini, std::string_view padGuid);
+
+/// The files the rule may set under the settings folder `config`.
+[[nodiscard]] std::vector<std::filesystem::path> yuzuFiles(const std::filesystem::path& config);
+
+/// `qt-config.ini` under `config` as the launch reads it; made when the player has none.
+[[nodiscard]] std::vector<RunFile> yuzuRunFiles(const std::filesystem::path& config,
+                                                std::string_view padGuid);
+
+} // namespace opensu::library

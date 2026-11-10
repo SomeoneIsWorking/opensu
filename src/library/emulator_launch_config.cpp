@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "cemu_pads.hpp"
+#include "yuzu_config.hpp"
 
 namespace opensu::library {
 namespace {
@@ -20,6 +21,9 @@ struct LaunchRule {
 
 constexpr std::array rules{
     LaunchRule{.id = cemuId, .files = cemuFiles, .runFiles = cemuRunFiles},
+    LaunchRule{.id = yuzuLineIds[0], .files = yuzuFiles, .runFiles = yuzuRunFiles},
+    LaunchRule{.id = yuzuLineIds[1], .files = yuzuFiles, .runFiles = yuzuRunFiles},
+    LaunchRule{.id = yuzuLineIds[2], .files = yuzuFiles, .runFiles = yuzuRunFiles},
 };
 
 const LaunchRule* ruleOf(std::string_view id) {

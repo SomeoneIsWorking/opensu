@@ -167,6 +167,11 @@ target_compile_definitions(launch_files_test PRIVATE OPENSU_TEST_SCRATCH="${CMAK
 opensu_warnings(launch_files_test)
 add_test(NAME launch_files COMMAND launch_files_test)
 
+add_executable(yuzu_config_test yuzu_config_test.cpp)
+target_link_libraries(yuzu_config_test PRIVATE opensu::library)
+opensu_warnings(yuzu_config_test)
+add_test(NAME yuzu_config COMMAND yuzu_config_test)
+
 add_executable(visual_presets_test visual_presets_test.cpp)
 target_link_libraries(visual_presets_test PRIVATE opensu::library)
 target_compile_definitions(visual_presets_test PRIVATE OPENSU_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
