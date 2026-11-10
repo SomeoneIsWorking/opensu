@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "fileio/atomic_write.hpp"
+#include "fileio/read_whole.hpp"
 #include "lucent/log.h"
 
 namespace opensu::library {
@@ -62,6 +63,25 @@ bool keep(const fs::path& file) {
 }
 
 } // namespace
+
+std::optional<RunFile> runFileOf(const fs::path& file,
+                                 const std::function<std::string(std::string_view)>& run) {
+    std::string player;
+    if (present(file)) {
+        std::string error;
+        std::optional<std::string> read = fileio::readWhole(file, error);
+        if (!read) {
+            lucent::warn("emulator", "{} stays the player's: {}", file.string(), error);
+            return std::nullopt;
+        }
+        player = std::move(*read);
+    }
+    std::string bytes = run(player);
+    if (bytes == player) {
+        return std::nullopt;
+    }
+    return RunFile{.path = file, .bytes = std::move(bytes)};
+}
 
 LaunchFiles::Marks::Marks(const fs::path& player)
     : file(player), kept(marked(player, keptSuffix)), absent(marked(player, absentSuffix)) {

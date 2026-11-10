@@ -1,9 +1,7 @@
 #include "cemu_pads.hpp"
 
 #include <optional>
-#include <system_error>
 
-#include "fileio/read_whole.hpp"
 #include "lucent/log.h"
 
 namespace opensu::library {
@@ -70,24 +68,16 @@ std::vector<RunFile> cemuRunFiles(const LaunchSetup& setup) {
         return files;
     }
     for (int controller = 0; controller < cemuControllers; ++controller) {
-        const fs::path profile = profileOf(config, controller);
-        std::error_code missing;
-        if (!fs::exists(profile, missing)) {
-            continue;
-        }
-        std::string error;
-        const std::optional<std::string> player = fileio::readWhole(profile, error);
-        if (!player) {
-            lucent::warn("cemu", "{} stays the player's: {}", profile.string(), error);
-            continue;
-        }
         const std::string uuid = std::to_string(controller) + "_" + std::string{padGuid};
-        std::string bound = reboundCemuProfile(*player, uuid);
-        if (bound == *player) {
+        std::optional<RunFile> run =
+            runFileOf(profileOf(config, controller), [&](std::string_view player) {
+                return reboundCemuProfile(player, uuid);
+            });
+        if (!run) {
             continue;
         }
         lucent::info("cemu", "controller {} bound to virtual pad {}", controller, uuid);
-        files.push_back(RunFile{.path = profile, .bytes = std::move(bound)});
+        files.push_back(std::move(*run));
     }
     return files;
 }

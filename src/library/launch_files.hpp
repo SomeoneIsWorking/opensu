@@ -5,6 +5,8 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -16,6 +18,12 @@ struct RunFile {
     std::filesystem::path path;
     std::string bytes;
 };
+
+/// What `file` says for the run: `run` of the player's bytes, or of none when the player has no
+/// such file; nothing when that leaves the file as it is, or when the player's cannot be read.
+[[nodiscard]] std::optional<RunFile>
+runFileOf(const std::filesystem::path& file,
+          const std::function<std::string(std::string_view)>& run);
 
 class LaunchFiles {
   public:

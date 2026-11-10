@@ -2,9 +2,7 @@
 
 #include <algorithm>
 #include <optional>
-#include <system_error>
 
-#include "fileio/read_whole.hpp"
 #include "ini_file.hpp"
 #include "lucent/log.h"
 
@@ -182,23 +180,14 @@ std::vector<fs::path> yuzuFiles(const LaunchSetup& setup) {
 }
 
 std::vector<RunFile> yuzuRunFiles(const LaunchSetup& setup) {
-    const fs::path file = setup.config / yuzuSettingsFile;
-    std::string player;
-    std::error_code missing;
-    if (fs::exists(file, missing)) {
-        std::string error;
-        std::optional<std::string> read = fileio::readWhole(file, error);
-        if (!read) {
-            lucent::warn("eden", "{} stays the player's: {}", file.string(), error);
-            return {};
-        }
-        player = std::move(*read);
-    }
-    std::string run = yuzuLaunchSettings(player, setup.padGuid);
-    if (run == player) {
+    std::optional<RunFile> run =
+        runFileOf(setup.config / yuzuSettingsFile, [&](std::string_view player) {
+            return yuzuLaunchSettings(player, setup.padGuid);
+        });
+    if (!run) {
         return {};
     }
-    return {RunFile{.path = file, .bytes = std::move(run)}};
+    return {std::move(*run)};
 }
 
 } // namespace opensu::library
