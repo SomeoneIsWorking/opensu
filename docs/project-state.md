@@ -1331,6 +1331,16 @@ profile gets the standard layout in Azahar's own xpad automap, and the update ch
 off (`library/azahar_config`); verified with Azahar 2126.2 on a copy of the player's config
 (`scratch/ryu-azahar/runs/azahar`: Start and the face buttons reach Ocarina of Time 3D's title and
 file select, the file comes back byte-identical).
+Dolphin binds a slot by `Device = <source>/<n>/<name>`: while a launch runs each GameCube pad, Wii
+Remote and per-game profile (named by `GameSettings/<ID>.ini [Controls]` in its data folder) on an
+SDL pad plays `SDL/<N-1>/Xbox 360 Controller` with its mappings, a GameCube slot on the keyboard and
+mouse gets a standard GameCube pad there, and the analytics prompt and the NKit warning are off
+(`library/dolphin_config`); verified with the player's Dolphin 2503a on copies of their config
+(`scratch/dolphin-launch/runs/dolphin-gc`: presses take Luigi's Mansion from its intro to New Game
+and the mansion; `dolphin-wii`: a per-game Wii Remote profile on another pad takes DKC Returns from
+its title to Select Game; every file the rule set comes back byte-identical). Gaps: a Wii Remote on
+the keyboard, as the player's, gets no pad until step 4's Wii controls; an evdev-bound GameCube slot
+loses its mappings for the default.
 PCSX2 binds a pad by SDL player index, `SDL-<n>/<input>`, which counts only the virtual pads a
 launch lets SDL see: while a launch runs `[PadN]`'s SDL bindings play `SDL-<N-1>`, a DualShock 2
 bound only to the keyboard (the player's pad 1) or to nothing gets PCSX2's own SDL layout, input
