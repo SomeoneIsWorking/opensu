@@ -90,6 +90,8 @@ retro_hw_render_context_negotiation_interface_vulkan negotiation{
     .get_application_info = nullptr,
     .create_device = createDevice,
     .destroy_device = nullptr,
+    .create_instance = nullptr,
+    .create_device2 = nullptr,
 };
 
 void contextDestroy() {
