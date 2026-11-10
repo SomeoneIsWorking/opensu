@@ -1,17 +1,17 @@
-# Forked cores: Switch, Wii U, GameCube
+# Forked cores: Switch
 
 Status: open, planned; phase 3, which they wait for, is built.
 
-The player: "eden and ryujinx cores and cemu core, integrate setsail work as a core and integrate
-sunbright work as a core too", "Ryujinx and Eden can't be on GitHub, maybe can be on gitlab",
-"Convert setsail work to be a cemu fork core".
+The player: "eden and ryujinx cores", "Ryujinx and Eden can't be on GitHub, maybe can be on gitlab".
+The Wii U and GameCube fork cores are dropped with setsail, wiiuport, Sunbright and the Cemu fork
+(2026-11-10); those consoles stay on the downloaded Cemu and Dolphin cores and standalones.
 
 All of these draw with the GPU. Phase 3 of `docs/design/libretro.md` is built
 (`RETRO_ENVIRONMENT_SET_HW_RENDER` with `RETRO_HW_CONTEXT_VULKAN` on the runner's own
 `retro/vulkan_device`, the core's extensions and features through context negotiation v2): proven
 2026-10-21 with Mupen64Plus-Next, ParaLLEl N64, Beetle PSX HW and SwanStation, validation clean
 (`docs/project-state.md` S032). A forked core must ask for Vulkan; an OpenGL request is refused.
-What the runner does not do yet and a Switch or Wii U core may need: more than one frame in flight
+What the runner does not do yet and a Switch core may need: more than one frame in flight
 (`get_sync_index` is always 0), an image on another queue family (handled, not proven), a core that
 submits its own command buffers through `set_command_buffers` (handled, not proven).
 
@@ -19,13 +19,12 @@ submits its own command buffers through `set_command_buffers` (handled, not prov
 |---|---|---|---|
 | Eden | the player's fork, `gitlab.com/bobbyjunior/eden` | GitLab only | Switch; keys from the player's `prod.keys`/`title.keys`, read-only as `library/switch_keys` does |
 | Ryujinx | the player's Ryubing fork, `gitlab.com/bobbyjunior/ryubing` | GitLab only | C#/.NET: the core is a native shim hosting the runtime; the largest of the set |
-| Cemu | the player's Cemu fork, `github.com/SomeoneIsWorking/Cemu` | GitHub | Wii U; wiiuport and setsail, which built on this fork, were deleted on 2026-11-10 |
 
 Each core is a libretro build target in its fork, pinned by revision in openSU the way the Gamescope
 fork is, and listed in `assets/emulators.json` beside the standalone emulators. A title's
 enhancement pack is switched per game by the layered settings in `retro-shaders-overlays.md`.
 
-Order: phase 3, then Cemu, then Eden, then Ryujinx. GitLab-hosted cores are built and downloaded from GitLab; nothing of them goes on GitHub.
+Order: phase 3, then Eden, then Ryujinx. GitLab-hosted cores are built and downloaded from GitLab; nothing of them goes on GitHub.
 
 ## Later: the PSX ports
 
@@ -43,31 +42,6 @@ the PS1 core.
 
 ## Emulator plus enhancements
 
-The player: setsail is Cemu plus a Wind Waker HD 60 fps interpolator, Sunbright is Aurora plus a
-Sunshine 60 fps interpolator; "they don't differ that much, I'm considering making them emulator +
-enhancements". So every one of these is the same shape: one emulator core per console, and each
-title's work (interpolated frames, native overrides, fixes) is that game's enhancement pack, loaded
-when the disc is recognised and switched per game in the layered settings.
-
-| Console | Emulator | Packs |
-|---|---|---|
-| PS1 | psxport | the psx-* titles |
-| Wii U | the player's Cemu fork | none: setsail, the Wind Waker HD pack, and wiiuport were deleted on 2026-11-10 |
-| GameCube | the player's Dolphin fork, `github.com/SomeoneIsWorking/dolphin` | none: Sunbright, the Sunshine pack, was deleted on 2026-11-03 |
-
-The interpolator itself (the game renders real in-between frames by blending camera and actor
-transforms between simulation ticks) is the shared part; each pack supplies only its title's
-tick, camera and actor hooks.
-
-### The GameCube core from the player's Dolphin fork
-
-`SomeoneIsWorking/dolphin` (fork of `dolphin-emu/dolphin`) already carries Sunbright work on two
-branches (2026-10-21): `sunbright`, 33 commits ahead of `master` (GX draw and colour capture, an
-indexed-XF seam, per-frame present in headless), and `sunbright-oracle`, 159 ahead (headless
-FIFO record, scripted pad input, save/load state at a field, game-state JSON dumps, HTTP probes
-for debugging the 60 fps interpolation). Upstream Dolphin has no libretro target; libretro's own
-`dolphin` core is a separate, older fork, so the core is a libretro frontend added to this fork.
-
-- Shipped in the core: Dolphin plus the Sunshine pack (the native operations and the interpolator).
-- Kept out of the shipped core: the probes, oracle and headless capture tools; they stay
-  maintainer builds for working on packs.
+One emulator core per console; each title's work (interpolated frames, native overrides, fixes) is
+that game's enhancement pack, loaded when the disc is recognised and switched per game in the
+layered settings. The only planned one is PS1: psxport with the psx-* titles as its packs.
