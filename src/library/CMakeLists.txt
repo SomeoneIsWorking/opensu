@@ -38,6 +38,7 @@ add_library(opensu_library STATIC
     emulator_game_list.cpp
     game_saves.cpp switch_saves.cpp mgba_saves.cpp ps1_cards.cpp save_formats.cpp
     save_copy.cpp ini_file.cpp launch_files.cpp emulator_launch_config.cpp cemu_pads.cpp
+    dolphin_config.cpp
     yuzu_config.cpp
     ryujinx_config.cpp
     qt_config_ini.cpp
