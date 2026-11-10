@@ -26,6 +26,10 @@ struct LaunchSetup {
     std::string padGuid;
 };
 
+/// The name SDL gives the virtual pads, from its own table for 045e:028e, which an emulator keying
+/// pads by SDL name binds.
+inline constexpr std::string_view virtualPadSdlName{"Xbox 360 Controller"};
+
 /// What `game`'s launch sets up when it runs on an emulator with a rule; nothing otherwise.
 [[nodiscard]] std::optional<LaunchSetup>
 launchSetupOf(const Game& game, const roms::EmulatorCatalog& catalog, std::string_view padGuid);
