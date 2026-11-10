@@ -41,8 +41,8 @@ constexpr std::array rules{
 };
 
 const LaunchRule* ruleOf(std::string_view id) {
-    const auto* rule = std::ranges::find(rules, id, &LaunchRule::id);
-    return rule == rules.end() ? nullptr : rule;
+    const auto rule = std::ranges::find(rules, id, &LaunchRule::id);
+    return rule == rules.end() ? nullptr : &*rule;
 }
 
 } // namespace

@@ -37,7 +37,7 @@ bool putBack(const LaunchFiles::Marks& marks) {
         return false;
     }
     if (failed) {
-        lucent::error("emulator", "cannot put the player's {} back: {}", marks.file.native(),
+        lucent::error("emulator", "cannot put the player's {} back: {}", marks.shown,
                       failed.message());
     }
     return true;
@@ -84,7 +84,8 @@ std::optional<RunFile> runFileOf(const fs::path& file,
 }
 
 LaunchFiles::Marks::Marks(const fs::path& player)
-    : file(player), kept(marked(player, keptSuffix)), absent(marked(player, absentSuffix)) {
+    : file(player), kept(marked(player, keptSuffix)), absent(marked(player, absentSuffix)),
+      shown(player.string()) {
 }
 
 void LaunchFiles::recover(const std::vector<fs::path>& files) {

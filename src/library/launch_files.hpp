@@ -38,6 +38,7 @@ class LaunchFiles {
         std::filesystem::path file;
         std::filesystem::path kept;
         std::filesystem::path absent;
+        std::string shown;
     };
 
     /// Puts back each of `files` a crashed launch left set.
