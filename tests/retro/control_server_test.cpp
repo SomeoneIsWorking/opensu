@@ -28,7 +28,7 @@ void announcedThenRemoved(const std::filesystem::path& dir) {
     {
         ControlServer control{file, "Fake", "game.gba"};
         expect(control.start(), "the channel starts");
-        expect(read(file).contains(R"("port":)"), "the file announces the port");
+        expect(read(file).find(R"("port":)") != std::string::npos, "the file announces the port");
     }
     expect(!std::filesystem::exists(file), "the file goes with the channel");
 }
