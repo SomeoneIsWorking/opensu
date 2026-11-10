@@ -31,6 +31,11 @@ void shippedCatalogParses() {
     expect(dolphin != nullptr && !dolphin->release &&
                dolphin->launchers.front().flatpak == "org.DolphinEmu.dolphin-emu",
            "an emulator without an official AppImage is found, never downloaded");
+    expect(dolphin->data == "/home/p/.local/share/dolphin-emu" &&
+               dolphin->dataOf(true) ==
+                   "/home/p/.var/app/org.DolphinEmu.dolphin-emu/data/dolphin-emu" &&
+               pcsx2.data.empty(),
+           "a data folder apart from the settings has its Flatpak twin");
     const EmulatorEntry* shad = catalog.find("shadps4");
     expect(shad != nullptr && shad->launchers.size() == 2, "an emulator may start two ways");
     expect(shad->release && shad->release->asset.ends_with("\\.zip$") &&

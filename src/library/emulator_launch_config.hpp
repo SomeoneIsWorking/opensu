@@ -20,6 +20,8 @@ struct LaunchSetup {
     std::string emulatorId;
     /// Where the install it runs as keeps its settings.
     std::filesystem::path config;
+    /// Where it keeps its data, when that is apart from its settings; empty otherwise.
+    std::filesystem::path data;
     /// The SDL GUID of the virtual pads the game reads; empty when it reads the pads themselves.
     std::string padGuid;
 };

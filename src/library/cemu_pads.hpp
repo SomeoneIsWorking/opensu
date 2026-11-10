@@ -10,6 +10,7 @@
 #include <string_view>
 #include <vector>
 
+#include "emulator_launch_config.hpp"
 #include "launch_files.hpp"
 
 namespace opensu::library {
@@ -22,12 +23,11 @@ inline constexpr int cemuControllers{8};
 /// `profile` with every SDL controller's uuid made `uuid`; the rest byte for byte.
 [[nodiscard]] std::string reboundCemuProfile(std::string_view profile, std::string_view uuid);
 
-/// The files Cemu's rule may set under its settings folder `config`.
-[[nodiscard]] std::vector<std::filesystem::path> cemuFiles(const std::filesystem::path& config);
+/// The files Cemu's rule may set under its settings folder.
+[[nodiscard]] std::vector<std::filesystem::path> cemuFiles(const LaunchSetup& setup);
 
-/// Each controller profile under `config` bound to the virtual pads of `padGuid`; none when the
-/// game reads the pads themselves (`padGuid` empty) or a profile has no SDL controller.
-[[nodiscard]] std::vector<RunFile> cemuRunFiles(const std::filesystem::path& config,
-                                                std::string_view padGuid);
+/// Each controller profile under the settings folder bound to the virtual pads; none when the
+/// game reads the pads themselves (no pad GUID) or a profile has no SDL controller.
+[[nodiscard]] std::vector<RunFile> cemuRunFiles(const LaunchSetup& setup);
 
 } // namespace opensu::library

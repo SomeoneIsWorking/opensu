@@ -101,6 +101,10 @@ struct EmulatorEntry {
     std::filesystem::path config;
     /// Where its Flatpak keeps them; empty for an emulator without one.
     std::filesystem::path flatpakConfig;
+    /// Where it keeps its data, when that is apart from its settings; empty otherwise.
+    std::filesystem::path data;
+    /// Where its Flatpak keeps its data; empty for an emulator without one or without `data`.
+    std::filesystem::path flatpakData;
     /// In the order they are looked for. A downloaded AppImage runs with the first one's words.
     /// None for a built-in emulator.
     std::vector<EmulatorLauncher> launchers;
@@ -131,6 +135,10 @@ struct EmulatorEntry {
     /// has one, else `config`.
     [[nodiscard]] const std::filesystem::path& configOf(bool flatpak) const noexcept {
         return flatpak && !flatpakConfig.empty() ? flatpakConfig : config;
+    }
+    /// Where the install it runs as keeps its data, as `configOf` its settings.
+    [[nodiscard]] const std::filesystem::path& dataOf(bool flatpak) const noexcept {
+        return flatpak && !flatpakData.empty() ? flatpakData : data;
     }
     /// Its name without the catalog's " (built-in)" mark, where the context says it is the core:
     /// "mGBA" for "mGBA (built-in)".

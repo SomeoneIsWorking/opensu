@@ -15,8 +15,8 @@ namespace fs = std::filesystem;
 /// One emulator's rule: the files it may set, and what they say for a run.
 struct LaunchRule {
     std::string_view id;
-    std::vector<fs::path> (*files)(const fs::path& config);
-    std::vector<RunFile> (*runFiles)(const fs::path& config, std::string_view padGuid);
+    std::vector<fs::path> (*files)(const LaunchSetup& setup);
+    std::vector<RunFile> (*runFiles)(const LaunchSetup& setup);
 };
 
 constexpr std::array rules{
@@ -46,6 +46,7 @@ std::optional<LaunchSetup> launchSetupOf(const Game& game, const roms::EmulatorC
     }
     return LaunchSetup{.emulatorId = option->id,
                        .config = entry->configOf(option->flatpak),
+                       .data = entry->dataOf(option->flatpak),
                        .padGuid = std::string{padGuid}};
 }
 
@@ -54,8 +55,8 @@ EmulatorLaunchConfig::EmulatorLaunchConfig(const LaunchSetup& setup) {
     if (rule == nullptr) {
         return;
     }
-    LaunchFiles::recover(rule->files(setup.config));
-    files_.emplace(rule->runFiles(setup.config, setup.padGuid));
+    LaunchFiles::recover(rule->files(setup));
+    files_.emplace(rule->runFiles(setup));
 }
 
 } // namespace opensu::library

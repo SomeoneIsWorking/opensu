@@ -52,7 +52,8 @@ std::string reboundCemuProfile(std::string_view profile, std::string_view uuid) 
     return out;
 }
 
-std::vector<fs::path> cemuFiles(const fs::path& config) {
+std::vector<fs::path> cemuFiles(const LaunchSetup& setup) {
+    const fs::path& config = setup.config;
     std::vector<fs::path> files;
     files.reserve(cemuControllers);
     for (int controller = 0; controller < cemuControllers; ++controller) {
@@ -61,7 +62,9 @@ std::vector<fs::path> cemuFiles(const fs::path& config) {
     return files;
 }
 
-std::vector<RunFile> cemuRunFiles(const fs::path& config, std::string_view padGuid) {
+std::vector<RunFile> cemuRunFiles(const LaunchSetup& setup) {
+    const fs::path& config = setup.config;
+    const std::string_view padGuid = setup.padGuid;
     std::vector<RunFile> files;
     if (padGuid.empty()) {
         return files;

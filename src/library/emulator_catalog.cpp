@@ -235,6 +235,7 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::string_view
         throw Malformed{where + ": no systems"};
     }
     entry.config = configPath(text(object, "config", where, false), home);
+    entry.data = configPath(text(object, "data", where, false), home);
     entry.core = text(object, "core", where, false);
     if (entry.builtIn()) {
         checkCore(object, entry.core, where);
@@ -288,6 +289,7 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::string_view
         });
     if (flatpak != entry.launchers.end()) {
         entry.flatpakConfig = flatpakFolder(entry.config, home, flatpak->flatpak);
+        entry.flatpakData = flatpakFolder(entry.data, home, flatpak->flatpak);
         if (entry.saves) {
             entry.saves->flatpakFolder = flatpakFolder(entry.saves->folder, home, flatpak->flatpak);
         }

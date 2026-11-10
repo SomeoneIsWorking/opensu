@@ -177,12 +177,12 @@ std::string yuzuLaunchSettings(std::string_view ini, std::string_view padGuid) {
     return out;
 }
 
-std::vector<fs::path> yuzuFiles(const fs::path& config) {
-    return {config / yuzuSettingsFile};
+std::vector<fs::path> yuzuFiles(const LaunchSetup& setup) {
+    return {setup.config / yuzuSettingsFile};
 }
 
-std::vector<RunFile> yuzuRunFiles(const fs::path& config, std::string_view padGuid) {
-    const fs::path file = config / yuzuSettingsFile;
+std::vector<RunFile> yuzuRunFiles(const LaunchSetup& setup) {
+    const fs::path file = setup.config / yuzuSettingsFile;
     std::string player;
     std::error_code missing;
     if (fs::exists(file, missing)) {
@@ -194,7 +194,7 @@ std::vector<RunFile> yuzuRunFiles(const fs::path& config, std::string_view padGu
         }
         player = std::move(*read);
     }
-    std::string run = yuzuLaunchSettings(player, padGuid);
+    std::string run = yuzuLaunchSettings(player, setup.padGuid);
     if (run == player) {
         return {};
     }
