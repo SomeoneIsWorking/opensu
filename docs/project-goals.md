@@ -4,8 +4,10 @@
 
 Present Steam, Epic, GOG and emulator ROMs in a single home screen that a
 controller can drive from power-on to a running game, and launch each title into
-the runtime that already owns it. openSU never bundles a game or an emulator and
-never reimplements a store's authentication, download or cloud sync.
+the runtime that already owns it. openSU never bundles a game or a runner: no emulator,
+libretro core, Wine, Proton or other compatibility layer ships inside openSU or its packages;
+each is the player's own install or a download openSU fetches and verifies at run time.
+openSU never reimplements a store's authentication, download or cloud sync.
 
 ## G002 — iiSU's UI and UX, replicated
 
