@@ -1300,7 +1300,12 @@ so a game enumerating at once can open it. While
 the menu is open the virtual pads rest (held keys released, axes centred); on
 resume they take up the held axes, and keys held then stay up until pressed again.
 A game openSU starts gets `SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x045e/0x028e`,
-so SDL hides the grabbed pads. Tested: `pad_translator` (unit), `pads`
+so SDL hides the grabbed pads. Cemu binds a Wii U controller to a pad by `<index>_<SDL GUID>`,
+so a profile the player made with their own pad matches no virtual pad: while a Cemu launch runs,
+each `controllerProfiles/controller<N>.xml` with an SDL controller is bound to the Nth virtual pad
+(`0300cece5e0400008e02000010010000`, every virtual pad the same; `library::CemuPads`), and the
+player's file is put back byte for byte when Cemu ends, or at the next Cemu launch after a crash.
+Tested: `pad_translator` (unit), `pads`
 against real uinput pads, `handoff` passing the environment; verified headless with
 a uinput pad driving the shell (`scratch/overlay-test/drive_pad.py`): B reaches the
 game while playing, Guide and all menu input do not, the virtual pad is gone after.
