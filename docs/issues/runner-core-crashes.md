@@ -56,3 +56,9 @@ already did, and `SampledInput` no longer keeps the bound handle. Proof (`scratc
 of that session): in 5 gdb runs the handle was reused at the resize and the texture was bound again,
 and all 5 ran on. 10 of 10 plain 300-frame runs ended cleanly, and a 1500-frame run shows the
 Naughty Dog logo (`after-long/last.png`).
+
+A frame that cannot be drawn during the game now ends the launch with the reason, where before the
+shell said only that the game closed. `ControlServer::reportFailure` leaves it in the control file
+and the shell shows it as an error. To check it, a hidden shell played Kirby while gdb forced one
+`VulkanDevice::submit` to return -4. The shell then showed the red notice "the game stopped drawing:
+vkQueueSubmit failed: VkResult -4" (`scratch/exit-freeze/notice/` of that session).

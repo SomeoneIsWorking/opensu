@@ -29,13 +29,30 @@ Journal of session `opensu-1476366` (shell pid 1476401, runner pid 1481804), 202
   the journal has no line for them. At 20:07:22 Gamescope reports `Primary child shut down!` and the
   session ends.
 
-## Why a hidden run cannot reproduce it
+## Hidden runs inside Gamescope
 
-`opensu --hidden` has no Gamescope, so the path above never runs there: no overlay
-(`ShellApp` attaches `GameScreen`'s overlay and `FocusFollow`'s source only inside Gamescope), no
-focus following, and the runner draws offscreen with no Gamescope WSI surface. A hidden run of the
-same close answers `/state` right after the game ends (`scratch/retro-freeze/`,
-`scratch/retro-hidden/`). A reproduction needs the nested Gamescope session.
+A plain `opensu --hidden` has no Gamescope, so the path above never runs there. Inside a headless
+Gamescope, a hidden shell used to skip it as well: `ShellApp` attached `GameScreen`'s overlay and
+`FocusFollow` only to a shown window. It now attaches both whenever it runs in Gamescope, and only
+its window stays unmapped.
+
+Attempt on 2026-11-10, on that change (`scratch/exit-freeze/tools/freeze.py`, the run in
+`scratch/exit-freeze/run1/` of that session):
+
+- Setup: `gamescope --backend headless -W 1280 -H 720 -r 60 -- opensu --hidden`, with
+  `WAYLAND_DISPLAY` empty and the desktop's `DISPLAY`, a scratch home, Kirby & the Amazing Mirror
+  on the shipped mGBA core.
+- Four rounds: Play, 370 to 720 frames of the game, then Guide, Close game, A, A.
+- After each close, `/frame.png` (drawn by the main loop only) was asked three times, one second
+  apart. Every answer came within 79 to 105 ms and showed the shell's page with "Kirby & the Amazing
+  Mirror closed".
+- The overlay path ran: the log has `overlay window 0x…, depth 32`, then each round
+  `focus on 0x…: the game` and, after the close, `focus on 0x0: openSU`.
+- So window `0x0` after a close is the normal case here, not the sign of the freeze.
+
+No freeze. One difference from the player's session is left: a hidden shell starts the runner with
+`--hidden`, which draws offscreen, not on a Gamescope WSI surface. Running the runner on Gamescope's
+surface under a hidden shell, the same class of change as the overlay, is the next step.
 
 ## Next time it freezes
 
