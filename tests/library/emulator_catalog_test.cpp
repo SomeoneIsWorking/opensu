@@ -53,8 +53,9 @@ void shippedCatalogParses() {
                mgba->serves("gb") && mgba->serves("gbc") && mgba->serves("gba") &&
                mgba->launchers.empty() && mgba->downloadable(),
            "a built-in emulator names its core and is downloadable");
-    expect(mgba->release && mgba->release->api.find("/SomeoneIsWorking/mgba/releases/tags/") !=
-                                std::string::npos &&
+    expect(mgba->release &&
+               mgba->release->api.find("/SomeoneIsWorking/mgba/releases/tags/") !=
+                   std::string::npos &&
                mgba->release->sha256.size() == 64 && mgba->links == std::vector<std::string>{"gba"},
            "mGBA comes from the fork's pinned release, checked against its pinned SHA-256, and "
            "links GBA players");

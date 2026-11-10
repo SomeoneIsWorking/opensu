@@ -321,9 +321,10 @@ void releasedCoreLinks(const fs::path& root) {
     const DownloadedCores store{root / "cores"};
     std::string error;
 
-    expect(store.install({"mgba_libretro", "2026-10-05", 9, "https://buildbot/mgba_libretro.so.zip"},
-                         "theirs", "", error),
-           "a buildbot core openSU downloaded before");
+    expect(
+        store.install({"mgba_libretro", "2026-10-05", 9, "https://buildbot/mgba_libretro.so.zip"},
+                      "theirs", "", error),
+        "a buildbot core openSU downloaded before");
     const Emulators buildbot = Emulators::discover(catalog, search, {});
     expect(buildbot.installed("mgba-core")->source == InstallSource::DownloadedCore &&
                !buildbot.options("gba", rom).front().links,

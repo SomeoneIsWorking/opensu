@@ -58,10 +58,11 @@ struct EmulatorSearch {
     /// as `CoreSearch::standard` looks for them, run by `runner` with BIOS files in `system`,
     /// hidden when `hiddenRunner`; the shell names each launch's saves folder
     /// (`prepareRetroLaunch`).
-    [[nodiscard]] static EmulatorSearch
-    standard(const std::filesystem::path& home, const std::filesystem::path& dataDir,
-             std::vector<std::filesystem::path> executablePath, std::filesystem::path runner,
-             std::filesystem::path system, bool hiddenRunner);
+    [[nodiscard]] static EmulatorSearch standard(const std::filesystem::path& home,
+                                                 const std::filesystem::path& dataDir,
+                                                 std::vector<std::filesystem::path> executablePath,
+                                                 std::filesystem::path runner,
+                                                 std::filesystem::path system, bool hiddenRunner);
 };
 
 /// How an emulator got onto this machine.
