@@ -172,6 +172,11 @@ target_link_libraries(yuzu_config_test PRIVATE opensu::library)
 opensu_warnings(yuzu_config_test)
 add_test(NAME yuzu_config COMMAND yuzu_config_test)
 
+add_executable(ryujinx_config_test ryujinx_config_test.cpp)
+target_link_libraries(ryujinx_config_test PRIVATE opensu::library nlohmann_json::nlohmann_json)
+opensu_warnings(ryujinx_config_test)
+add_test(NAME ryujinx_config COMMAND ryujinx_config_test)
+
 add_executable(visual_presets_test visual_presets_test.cpp)
 target_link_libraries(visual_presets_test PRIVATE opensu::library)
 target_compile_definitions(visual_presets_test PRIVATE OPENSU_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
