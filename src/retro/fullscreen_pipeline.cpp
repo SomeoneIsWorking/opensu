@@ -69,7 +69,6 @@ void SampledInput::release() {
 }
 
 void SampledInput::bind(VkImageView view, VkImageLayout layout) {
-    bound_ = view;
     VkDescriptorImageInfo image{sampler_, view, layout};
     VkWriteDescriptorSet write{};
     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;

@@ -274,19 +274,27 @@ void FrameCompositor::createPipeline() {
           "vkCreatePipelineLayout");
     pipeline_ = makeFullscreenPipeline(vk_, renderPass_, pipelineLayout_, fragmentShader(video_),
                                        false, facing());
+    textureBound_ = false;
     if (texture_.ready()) {
-        input_->bind(texture_.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        bindTexture();
     }
 }
 
 void FrameCompositor::bindTexture() {
-    if (input_->bound() != texture_.view()) {
+    if (!textureBound_) {
         input_->bind(texture_.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        textureBound_ = true;
+    }
+}
+
+void FrameCompositor::ensureTexture(unsigned width, unsigned height) {
+    if (texture_.ensure(width, height)) {
+        textureBound_ = false;
     }
 }
 
 void FrameCompositor::recordUpload(VkCommandBuffer commands, const FrameImage& frame) {
-    texture_.ensure(frame.width, frame.height);
+    ensureTexture(frame.width, frame.height);
     texture_.recordUpload(commands, frame.rgba);
     bindTexture();
 }
@@ -400,7 +408,7 @@ ChainImage FrameCompositor::textureImage() const {
 
 void FrameCompositor::recordCopy(VkCommandBuffer commands, const FrameImage& frame,
                                  const CoreImage& image) {
-    texture_.ensure(frame.width, frame.height);
+    ensureTexture(frame.width, frame.height);
     texture_.beginWrite(commands);
     const auto wide = static_cast<std::int32_t>(frame.width);
     const auto high = static_cast<std::int32_t>(frame.height);
@@ -438,6 +446,7 @@ void FrameCompositor::recordCoreImage(VkCommandBuffer commands, const DrawTarget
     if (!chain_) {
         // Every frame: a view the core destroyed and made again can come back with the same handle.
         input_->bind(image.view, image.layout);
+        textureBound_ = false;
         recordDraw(commands, target, extent, frame, ChainImage{image.image, image.format, size},
                    true);
     } else if (image.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {

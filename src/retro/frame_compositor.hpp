@@ -133,6 +133,8 @@ class FrameCompositor {
     /// Points the input at the frame texture unless it already is; the previous frame's commands
     /// must be done.
     void bindTexture();
+    /// Makes the frame texture `width` by `height`; a remade texture needs binding again.
+    void ensureTexture(unsigned width, unsigned height);
     void recordUpload(VkCommandBuffer commands, const FrameImage& frame);
     /// The core's image into the frame texture, converted; for a preset when the core keeps the
     /// image in GENERAL, which the runner may not change.
@@ -187,6 +189,8 @@ class FrameCompositor {
     VkPipelineLayout pipelineLayout_{VK_NULL_HANDLE};
     VkPipeline pipeline_{VK_NULL_HANDLE};
     StreamedTexture texture_;
+    /// Whether the input holds the texture's current view; a remade view can reuse the handle.
+    bool textureBound_{false};
     FrameArtImages art_;
     /// Made when frame art is first drawn.
     std::unique_ptr<OverlayPass> framePass_;

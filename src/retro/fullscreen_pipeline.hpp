@@ -24,9 +24,6 @@ class SampledInput {
 
     /// Points the descriptor at `view` in `layout`; the commands reading the last one must be done.
     void bind(VkImageView view, VkImageLayout layout);
-    [[nodiscard]] VkImageView bound() const {
-        return bound_;
-    }
     [[nodiscard]] VkDescriptorSetLayout setLayout() const {
         return setLayout_;
     }
@@ -42,7 +39,6 @@ class SampledInput {
     VkSampler sampler_{VK_NULL_HANDLE};
     VkDescriptorPool pool_{VK_NULL_HANDLE};
     VkDescriptorSet set_{VK_NULL_HANDLE};
-    VkImageView bound_{VK_NULL_HANDLE};
 };
 
 /// A render pass over one attachment of `format` entering in `initial` (UNDEFINED when `load` is
