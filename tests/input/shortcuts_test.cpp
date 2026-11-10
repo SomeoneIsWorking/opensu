@@ -313,7 +313,7 @@ void triggersAreTheBoundChords() {
     Shortcuts s;
     const ChordSet set{s};
     const opensu::gamepad::ChordTriggers shipped = set.triggers();
-    expect(shipped.holdDelay == holdDelay && shipped.chords.size() == 4 &&
+    expect(shipped.holdDelay == holdDelay && shipped.chords.size() == 5 &&
                shipped.chords.contains(PadChord{Button::Guide, Button::A}),
            "the gate is given every bound chord and the hold delay");
     expect(s.rebind(Action::VolumeUp, PadChord{Button::R3, Button::Up}).empty() &&

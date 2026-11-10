@@ -26,7 +26,8 @@ void rowsAreExactlyTheModifiersChords() {
     expect(chordHintRows(chords, Button::Guide) == Rows{{"A", "Quick menu"},
                                                         {"UP", "Volume up"},
                                                         {"DOWN", "Volume down"},
-                                                        {"LEFT", "Mute"}},
+                                                        {"LEFT", "Mute"},
+                                                        {"X", "Keyboard"}},
            "Guide lists the shipped chords: partner glyph and action");
     expect(shortcuts.rebind(Action::CloseGame, PadChord{Button::L2, Button::Start}).empty(),
            "Close game on L2 + Start");

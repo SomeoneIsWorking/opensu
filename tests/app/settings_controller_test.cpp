@@ -1253,7 +1253,7 @@ void guideChordsAreSetOnTheirPage(const fs::path& root) {
                                               "Close game: None", "Save state: None",
                                               "Load state: None", "Reset game: None",
                                               "Devices: None", "Home: None", "Downloads: None",
-                                              "Restore default chords: "},
+                                              "Keyboard: Guide + X", "Restore default chords: "},
            "one row per action a chord can do, with its chord");
 
     const auto event = [](Button button, bool pressed) {
