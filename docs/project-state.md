@@ -1910,7 +1910,7 @@ melonDS or Xenia Canary, versions of packaged emulators (not shown).
 A catalog entry with `"core"` is a built-in emulator (`library/emulator_catalog`): mGBA (GB, GBC,
 GBA), Gambatte (GB, GBC), Snes9x, Mesen, PCSX ReARMed, Beetle PSX HW and SwanStation (PlayStation),
 Mupen64Plus-Next and ParaLLEl N64 (Nintendo 64), PPSSPP (PSP), Flycast (Dreamcast, a system added
-for it), melonDS DS (Nintendo DS), and for Arcade FinalBurn Neo, MAME 2003-Plus, MAME 2010 and MAME
+for it), melonDS DS (Nintendo DS), PCSX2 (PS2), Azahar (3DS), Dolphin (GameCube), and for Arcade FinalBurn Neo, MAME 2003-Plus, MAME 2010 and MAME
 (current), listed after the standalone emulators so a system's automatic
 emulator does not change where one is installed. Genesis Plus GX and PicoDrive are not listed:
 openSU has no Mega Drive, Master System, Game Gear, Sega CD or 32X system
@@ -2536,8 +2536,9 @@ savegame` (`g7`); Final Fantasy Adventure's 256-byte MBC2 save loaded as 256 of 
 Bandicoot's DuckStation card loaded as 131072 of 131072 on SwanStation to its title screen (`p4`).
 Two runner defects met on the way are in `docs/issues/runner-core-crashes.md`.
 
-Gaps: runner to DuckStation and the gambatte MBC2 fit ran only in unit tests; PS2, GameCube and
-Wii have no core in the catalog; NDS, PSP and RetroArch's own folders are not read; mGBA's clock is
+Gaps: runner to DuckStation and the gambatte MBC2 fit ran only in unit tests; PCSX2's memory
+cards and NVRAM sit in the system folder, outside the profile, and Azahar's and Dolphin's own save
+folders under the runner's saves are not read; NDS, PSP and RetroArch's own folders are not read; mGBA's clock is
 not carried to the runner, nor gambatte's `.rtc`; a DuckStation title that differs from the
 database's save title finds the ROM's card instead; `.yuzu_save_size` (Eden's extended-size note, absent from the player's saves)
 is copied as a file like any other.

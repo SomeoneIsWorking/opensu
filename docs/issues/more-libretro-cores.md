@@ -1,7 +1,7 @@
 # More libretro cores, arcade on every romset version
 
-Status: open. Arcade, Nintendo DS and the Vulkan GPU cores are done (below); the Sega cores and the
-rest of the list are next.
+Status: open. Arcade, Nintendo DS, the Vulkan GPU cores, PS2, 3DS and GameCube are
+done (below); Wii on Dolphin's core, the Sega cores and the rest of the list are next.
 
 The player: "more libretro options, I noticed I can't play Arcade games ... since no libretro option
 for it is there right now", and "new emulator versions make it so the older rom sets don't work, I
@@ -100,6 +100,38 @@ The toast was drawn over the dock's icons (`probe.png`, `shell-04-downloading.pn
 Not done: mouse touch (the runner takes no mouse), the core's options (Touch Mode, layouts) are its
 defaults with no way to change them, DSi mode and real BIOS files were not tried, the microphone
 reads silence.
+
+## PS2, 3DS and GameCube
+
+| Entry | Core | System | Vulkan by | Proof |
+|---|---|---|---|---|
+| `pcsx2-core` | `pcsx2_libretro` (LRPS2) | ps2 | `pcsx2_renderer=Vulkan` | Crash Twinsanity |
+| `azahar-core` | `azahar_libretro` | n3ds | `citra_graphics_api=Vulkan` | Ocarina of Time 3D |
+| `dolphin-core` | `dolphin_libretro` | gc | no option; the preferred context | Luigi's Mansion |
+
+Play (`play_libretro`) is OpenGL only, so PS2 is LRPS2. Cores from the buildbot's x86_64 Linux
+nightlies (2026-11-10, CRC-32 pcsx2 d6105afd, azahar a69606a5, dolphin 6b3d386d). Each run went
+through `opensu-retro --hidden` on the shipping build (`scratch/builtin-cores/run/<name>/`) and
+exited 0:
+
+- PCSX2: `Bios Found: USA v01.60`, `the core draws with Vulkan`; PRESS START BUTTON, Start to the
+  main menu, Cross to the memory-card prompt, Cross to "Do you really wish to format".
+- Azahar: PRESS START, Start to "Please select a file.", east (3DS A) to name entry, again types.
+- Dolphin: the title's PRESS START, Start to the opening, A through it to the mansion gate
+  (`dolphin-gc/proof-sheet.png`). Its frames were black until the hidden window gave the core a
+  surface (`docs/design/libretro.md`).
+
+Gaps:
+
+- PCSX2 keeps NVRAM, memory cards, cache and cheats under `<system>/pcsx2/`, not in the profile's
+  saves folder, so they are not per profile and Copy saves cannot see them.
+- Dolphin wants `<system>/dolphin-emu/Sys` (the buildbot's `assets/system/Dolphin.zip`: AR code
+  handler, GC fonts, DSP ROM, game settings). Without it the core logs `Core file codehandler.bin
+  missing!` and cheats are off; Luigi's Mansion ran without it. Proper fix: a catalog "system
+  files" download into the system folder, as PPSSPP's `PPSSPP/` files need too.
+- Azahar maps the face buttons by position (south is 3DS B).
+- Wii is not listed for the core: no Wii game has run on it yet. The Wii remote on the virtual
+  pad is the standalone Dolphin's (`library/wii_controls`).
 
 ## Arcade romsets
 

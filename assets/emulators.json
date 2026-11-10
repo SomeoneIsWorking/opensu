@@ -392,6 +392,13 @@
       "coreOptions": {"citra_graphics_api": "Vulkan"}
     },
     {
+      "id": "dolphin-core",
+      "name": "Dolphin (built-in)",
+      "systems": ["gc"],
+      "core": "dolphin_libretro",
+      "withoutBios": "hle"
+    },
+    {
       "id": "fbneo-core",
       "name": "FinalBurn Neo (built-in)",
       "systems": ["arcade"],
