@@ -28,7 +28,7 @@ bool GameLaunch::runs(const library::Game& game) const {
 }
 
 bool GameLaunch::start(library::Game game, std::vector<std::string> environment, Convert convert,
-                       std::optional<library::CemuBinding> cemu) {
+                       std::optional<library::LaunchSetup> setup) {
     {
         const std::lock_guard lock{mutex_};
         if (running_) {
@@ -44,7 +44,7 @@ bool GameLaunch::start(library::Game game, std::vector<std::string> environment,
     }
     // The thread owns a copy because it outlives this call.
     thread_ = std::jthread{[this, copy = std::move(game), environment = std::move(environment),
-                            convert = std::move(convert), cemu = std::move(cemu)]() mutable {
+                            convert = std::move(convert), setup = std::move(setup)]() mutable {
         std::string failure;
         std::optional<int> exitStatus;
         // The window belongs to the loop's thread, so the handoff thread only raises flags and the
@@ -85,10 +85,10 @@ bool GameLaunch::start(library::Game game, std::vector<std::string> environment,
             }
         }
         if (ready) {
-            // After the last launch's thread is joined, so its profiles are back first.
-            std::optional<library::CemuPads> pads;
-            if (cemu) {
-                pads.emplace(*cemu);
+            // After the last launch's thread is joined, so its files are back first.
+            std::optional<library::EmulatorLaunchConfig> settings;
+            if (setup) {
+                settings.emplace(*setup);
             }
             handoff_.start(copy, hooks, environment, failure);
         }

@@ -161,6 +161,12 @@ target_compile_definitions(cemu_pads_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_B
 opensu_warnings(cemu_pads_test)
 add_test(NAME cemu_pads COMMAND cemu_pads_test)
 
+add_executable(launch_files_test launch_files_test.cpp)
+target_link_libraries(launch_files_test PRIVATE opensu::library)
+target_compile_definitions(launch_files_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+opensu_warnings(launch_files_test)
+add_test(NAME launch_files COMMAND launch_files_test)
+
 add_executable(visual_presets_test visual_presets_test.cpp)
 target_link_libraries(visual_presets_test PRIVATE opensu::library)
 target_compile_definitions(visual_presets_test PRIVATE OPENSU_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"

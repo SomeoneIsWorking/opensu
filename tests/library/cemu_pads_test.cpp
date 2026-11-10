@@ -1,5 +1,6 @@
 // Cemu's controller profiles bound to the virtual pads while a launch runs, and put back.
 #include "library/cemu_pads.hpp"
+#include "library/emulator_launch_config.hpp"
 
 #include <cstdio>
 #include <filesystem>
@@ -15,8 +16,8 @@
 namespace {
 
 namespace fs = std::filesystem;
-using opensu::library::CemuBinding;
-using opensu::library::CemuPads;
+using opensu::library::EmulatorLaunchConfig;
+using opensu::library::LaunchSetup;
 using opensu::library::reboundCemuProfile;
 using opensu::test::expect;
 
@@ -73,7 +74,8 @@ void testBindAndPutBack() {
     write(profiles / "controller1.xml", second);
     write(profiles / "keyboard.xml", profile);
     {
-        const CemuPads pads{CemuBinding{.config = scratch.path(), .padGuid = guid}};
+        const EmulatorLaunchConfig pads{
+            LaunchSetup{.emulatorId = "cemu", .config = scratch.path(), .padGuid = guid}};
         expect(read(profiles / "controller0.xml") ==
                    reboundCemuProfile(profile, std::string{"0_"} + guid),
                "controller 0 plays the first virtual pad");
@@ -96,7 +98,8 @@ void testCrashLeftovers() {
     write(profiles / "controller0.xml", reboundCemuProfile(profile, std::string{"0_"} + guid));
     write(profiles / "controller0.xml.opensu-player", profile);
     {
-        const CemuPads pads{CemuBinding{.config = scratch.path(), .padGuid = guid}};
+        const EmulatorLaunchConfig pads{
+            LaunchSetup{.emulatorId = "cemu", .config = scratch.path(), .padGuid = guid}};
         expect(read(profiles / "controller0.xml.opensu-player") == profile,
                "the next launch keeps the player's file, not the bound one");
     }
