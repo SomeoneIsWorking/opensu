@@ -106,7 +106,6 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | --- | --- |
 | `cmake/Libretro.cmake` | `libretro.h` and `libretro_vulkan.h` (MIT) from libretro-common at a pinned commit, SHA-256 checked |
 | `cmake/Librashader.cmake`, `cmake/thirdparty/` | librashader from the `SomeoneIsWorking/librashader` fork at the commit `cmake/ThirdParty.cmake` pins: its header (MIT, SHA-256 checked), and `librashader-capi` built with cargo (Rust 1.88 or newer; for Windows or an Android ABI cross-built for its target) once into the shared third-party prefix, found there, staged in the build tree as `<libdir>/opensu/librashader.so` and installed; the APK carries it beside the runner |
-| `cmake/MgbaLink.cmake`, `cmake/thirdparty/MgbaLink.cmake` | The mGBA link core (`SomeoneIsWorking/mgba` at the `opensu` branch commit `cmake/ThirdParty.cmake` pins; libretro/mgba PR #318's splitscreen multiplayer) built with mGBA's CMake (`-DLIBMGBA_ONLY=ON -DBUILD_LIBRETRO=ON`) once into the shared prefix, installed there renamed `mgba_link_libretro`, staged as `<libdir>/opensu/cores/mgba_link_libretro.so` and installed (Linux); `docs/plans/mgba-netplay.md` |
 | `src/retro/port_input.hpp` | What a core's input reads (`PortInput`): `Joypad`, or `NetplayLink` in a session |
 | `src/retro/netplay_link.*` | `--netplay`: the session file read (`netplaySetupOf`), this machine's pad into `netplay::Session` each frame, the core's input from it, the system RAM's CRC-32 to compare |
 | `src/netplay/` | The session and its transport, no core or LAN knowledge above the seam (`docs/plans/mgba-netplay.md`) |
@@ -151,7 +150,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/app/core_option_store.*` | Each core's option definitions as last seen, for editing while nothing runs |
 | `src/app/shader_preset_tree.*` | The shader pack's folder tree and a preset's label; the picker is `ShaderPresetScreen` in `layered_editor` |
 | `src/library/shader_pack.*` | libretro's `shaders_slang.zip`: the latest build (HEAD: `Last-Modified` and size), the download checked by length and each member's CRC-32, unpacked into `<data>/opensu/shaders/slang/` with its record, removal, the presets it holds |
-| `src/library/libretro_cores.*` | Finding a core (openSU's downloads, the cores it ships, RetroArch's and the system's folders) and its info file; core downloads from the libretro buildbot under `<data>/opensu/cores/`, with their info and record |
+| `src/library/libretro_cores.*` | Finding a core (openSU's downloads, RetroArch's and the system's folders) and its info file; core downloads from the libretro buildbot under `<data>/opensu/cores/`, with their info and record |
 | `src/library/core_bios.*` | A core's BIOS files from its core info, what it does without them, which are in the system folder |
 | `src/library/romset_dat.*` | An arcade core's ROM-set listing: a Logiqx datafile or MAME `-listxml` parsed (a set's `<input>` among it, `DatControls`), its line format under the cache |
 | `src/library/romset_dats.*` | The arcade cores' listings fetched over HTTPS from the catalog's `"romsets"` and kept under `<cache>/romsets/` for 30 days |
@@ -163,7 +162,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `assets/emulators.json`, `src/library/emulator_catalog.*` | A built-in emulator is an entry with `"core": "<name>_libretro"` and no launchers or release; `"coreOptions"` the core options it starts with (a GPU core's Vulkan renderer) |
 | `src/library/emulators.*` | A built-in emulator is installed when its core is found and `opensu-retro` is beside `opensu` (`config::retroRunnerBeside`); it starts as `opensu-retro --core <core> [--option <key>=<value>]... <rom>`, with `--hidden` from a hidden shell |
 | `src/app/emulator_downloads.*`, `emulator_settings.*`, `details_controller.*` | Download, update check, update and removal of a core and of the shader pack, on the same paths as an AppImage; the Shader presets rows; the details page's video sources, Game settings button and Clear |
-| `src/library/linked_play.*`, `src/app/lan_netplay.*` | A game on the link core: split screen and netplay commands (`linkable`, `splitScreenGame`, `netplayGame`); the shell's half of a session (Play with <name>, the question, saves, the session's file) |
+| `src/library/linked_play.*`, `src/app/lan_netplay.*` | A game on a core that links its system (`"links"`): split screen and netplay commands (`linkable`, `splitScreenGame`, `netplayGame`, `sessionCore`); the shell's half of a session (Play with <name>, the question, saves, the session's file) |
 | `src/app/retro_session.*` | The shell's side of the control channel: each launch's control file, the port read from it, the requests (`setVideo` for `POST /video`), the load failure handed over and the file removed |
 | `src/app/game_backdrop.*` | The game's last frame behind the menu where the window cannot show it (`GameOverlay::seesGame`) |
 | `src/app/guide_menu_controller.*` | Save and close, Game settings, Save state, Load state and Reset game while the running game answers on a control channel; the resumed or refused row |
@@ -581,10 +580,24 @@ it for a core downloaded without one. A core installed another way has its info 
 A core the buildbot's build cannot run comes from openSU's own build: its catalog entry's
 `"release"` names a GitHub release and, by build (`coreTarget.build`: `android-arm64-v8a`, ...), the
 asset to take; a build it names none for takes the buildbot's. The asset is a zip holding the one
-library, downloaded through `EmulatorRelease::fetch` and refused unless the release publishes its
-SHA-256 and it matches; its info still comes from the buildbot, its record keeps the release's tag
-as its date and the asset's URL, which the update check compares. Settings › Emulators names its
-source "openSU build". MAME 2010 on Android is the one so far (`docs/issues/more-libretro-cores.md`).
+library, downloaded through `EmulatorRelease::fetch` and refused unless it matches a SHA-256: the
+one the catalog pins for that build (`"sha256"`, by the same build names as `"assets"`; a release
+publishing another is refused), else the one the release publishes. Its info still comes from the
+buildbot, its record keeps the release's tag as its date and the asset's URL, which the update check
+compares. Settings › Emulators names its source "openSU build"; a buildbot core downloaded before
+the catalog named the release stays "libretro buildbot" and is offered as an update. MAME 2010 on
+Android (`docs/issues/more-libretro-cores.md`) and mGBA on Linux, Windows and Android come this way;
+macOS takes the buildbot's mGBA until the fork's macOS build is pinned.
+
+mGBA (built-in) is the `SomeoneIsWorking/mgba` fork, branch `opensu`: libretro/mgba master with
+the link-cable multiplayer of libretro/mgba PR #318, a netplay session's clock and the upstream MBC
+fix for Final Fantasy Adventure (`docs/issues/runner-core-crashes.md`). The fork's `release.yml`
+builds `mgba_libretro` with mGBA's CMake (`-DLIBMGBA_ONLY=ON -DBUILD_LIBRETRO=ON`) for each
+`coreTarget.build` on a pushed `20*` tag and uploads `mgba_libretro_<build>.zip` with its
+`.sha256` to the tag's release as each build finishes; the catalog pins the tag (`releases/tags/<tag>`) and each zip's SHA-256. Its
+`"links": ["gba"]` makes it the core GBA games link on, and only as that release's download
+(`InstallSource::ReleasedCore`): a buildbot or RetroArch `mgba_libretro` plays alone. Saves do not
+move: a shell launch keeps them by profile and system, not by core.
 
 **BIOS.** A core's BIOS files are its info's `firmware*` entries, looked for in the runner's
 system folder (`<data>/opensu/system/`). The catalog's `"withoutBios"` says what the core does

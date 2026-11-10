@@ -50,20 +50,18 @@ machine), and for rollback later, `retro_serialize`/`retro_unserialize` every fr
 
 ## Decisions
 
-- **The fork ships with openSU, built from a pinned revision.** Like librashader:
-  `cmake/ThirdParty.cmake` pins `SomeoneIsWorking/mgba` at a commit on its `opensu` branch;
-  `cmake/thirdparty/MgbaLink.cmake` builds `mgba_libretro` with mGBA's own CMake
-  (`-DLIBMGBA_ONLY=ON -DBUILD_LIBRETRO=ON`, as libretro's CI does) into the shared prefix as
-  `mgba_link_libretro`; `cmake/MgbaLink.cmake` stages it in the build tree and installs it under
-  `<libdir>/opensu/cores/`, and the AppImage and APK carry it. `library/libretro_cores`'
-  `CoreSearch` looks there after openSU's downloads. No prebuilt `.so` from anyone's checkout.
-  Linux first; Windows, macOS and Android follow the toolchains the prefix already has.
+- **The fork is downloaded from its own release, not shipped.** The fork's `release.yml` builds
+  `mgba_libretro` with mGBA's own CMake (`-DLIBMGBA_ONLY=ON -DBUILD_LIBRETRO=ON`) for Linux
+  x86_64, Windows x64, macOS arm64 and Android arm64-v8a and x86_64 on a pushed tag; the catalog's
+  `mgba-core` pins that tag and each zip's SHA-256 and downloads it like any core
+  (`docs/design/libretro.md`, Cores).
 - **The fork's branch `opensu`** starts at `splitscreen-new` 88d13c6c9. Only changes openSU needs
   go there, each its own commit; the player's branches are never rewritten.
-- **Single play keeps the official core.** In one-player mode the fork runs the same emulation as
-  libretro/mgba master (one commit behind, which is the one that quiets its per-transfer debug log)
-  with the same state format; on the link ROM both take 0.6/0.7/0.8 ms a frame (p50/p95/p99), so it
-  is not better, and pinned it would fall behind the buildbot's nightly updates. It is picked only for a multiplayer launch.
+- **One mGBA core.** mGBA (built-in) is the fork for single play too: it runs the same emulation
+  as libretro/mgba master with the same state format, and carries upstream's MBC2 fix the buildbot
+  lacks (`docs/issues/runner-core-crashes.md`). It no longer follows the buildbot's nightlies; an
+  update is a new tag in the fork and new pins in the catalog. Its `"links": ["gba"]` offers linked
+  play on GBA games when the core is that release's download.
 - **Core-agnostic netplay.** The session and the transport know nothing of mGBA:
   - `netplay::Session` (new, `src/netplay/`): the peers and which player slot (port) each drives,
     each slot's input per frame, frame sync, the start state, a desync check and the end. mGBA is
@@ -110,7 +108,8 @@ machine), and for rollback later, `retro_serialize`/`retro_unserialize` every fr
    transfers). The unmodified fork links it in today's runner (both screens show red P1 and green
    P2).
 2. The fork built from its pin through the shared prefix, staged, installed and found, with a
-   catalog entry `mgba-link-core` for GBA (Linux).
+   catalog entry `mgba-link-core` for GBA (Linux); since replaced by the fork's release as
+   mGBA (built-in) on every platform.
 3. Runner input per port: pads by first arrival, the control channel's named pads; four ports.
 4. Splitscreen proof: a hidden runner, two named control pads, the link ROM side by side, A held
    on player 2 turning its band cyan on both screens; frames looked at.

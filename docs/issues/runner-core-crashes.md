@@ -1,12 +1,11 @@
 # Two cores die in the runner
 
-Status: open for Final Fantasy Adventure. The cause is in the core and the proper fix is still to be
-decided. Crash Bandicoot is fixed; its section stays below as the record.
+Status: both fixed; the sections stay as the record.
 
 Found on 2026-11-04 while proving save transfer. Both happen without a save, and on the installed
 `opensu-retro` as well as a fresh build.
 
-## Final Fantasy Adventure on the mGBA core dumps core
+## Final Fantasy Adventure on the mGBA core dumps core (fixed)
 
 Observed: `opensu-retro` with the buildbot's `mgba_libretro` (`mGBA 0.11-212-7a12d6d`) and
 `Final Fantasy Adventure (USA).gb` (MBC2) shows its first frame, then dies of SIGSEGV in
@@ -31,10 +30,20 @@ What the player sees: the shell names a death by signal (`game_end`'s `crashName
 ends with "Final Fantasy Adventure crashed (SIGSEGV)". It is not a silent freeze. A segfault inside
 the core cannot be caught in the runner's process; the shell's notice is the containment.
 
-Proper fix (not done; whether to ask libretro/mgba is the user's call): a core that carries
-543a197. Either libretro/mgba syncs upstream, or openSU builds `mgba_libretro` from a maintained
-fork pinned to a commit that has it, served through the catalog's `"release"` the way other own
-builds are. Until then, Gambatte (built-in) runs Game Boy games.
+The `SomeoneIsWorking/mgba` fork openSU shipped as the link core (`opensu` at fab57312) has the
+same code and crashed the same way: SIGSEGV right after the first frame
+(`scratch/mgba-fork/ffa-link-fab5731` of that session).
+
+Fix: the fork's `opensu` branch carries upstream 543a197's `src/gb/mbc.c` (author kept; its Qt
+`Window` changes do not apply there), and mGBA (built-in) is now that fork's core, downloaded
+from the fork's release (`docs/design/libretro.md`, Cores). Proof: the fork built at 817d0f36a ran
+FFA in a hidden `opensu-retro` with an empty saves folder: the title, then the name entry after
+A presses, no crash in 30 s; Kirby & the Amazing Mirror reached its file select on the same core.
+In a hidden openSU with its own home the details page downloaded `mgba_libretro_linux-x86_64.zip`
+from the fork's `2026-11-10` release (the runner logs "core mGBA 2026-11-10"); FFA reached the name
+entry, Kirby its file select, and the linked launch of `tools/link_rom` drew both GBAs side by side
+with player 2's band cyan on both while its A was held (`scratch/mgba-fork/shell/frames` of that
+session).
 
 ## Crash Bandicoot on PCSX ReARMed loses the GPU device (fixed)
 
