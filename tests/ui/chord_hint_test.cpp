@@ -33,7 +33,7 @@ void rowsAreExactlyTheModifiersChords() {
            "Close game on L2 + Start");
     expect(chordHintRows(chords, Button::L2) == Rows{{"+", "Close game"}},
            "L2 lists its one chord, Start by its glyph");
-    expect(chordHintRows(chords, Button::Guide).size() == 4, "and Guide does not list it");
+    expect(chordHintRows(chords, Button::Guide).size() == 5, "and Guide does not list it");
     expect(chordHintRows(chords, Button::B).empty(), "a button with no chords lists none");
 }
 

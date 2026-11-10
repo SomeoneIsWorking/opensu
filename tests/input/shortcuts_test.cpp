@@ -328,7 +328,8 @@ void chordsOnAModifier() {
                std::vector<ChordBinding>{{Action::QuickMenu, {Button::Guide, Button::A}},
                                          {Action::VolumeUp, {Button::Guide, Button::Up}},
                                          {Action::VolumeDown, {Button::Guide, Button::Down}},
-                                         {Action::VolumeMute, {Button::Guide, Button::Left}}},
+                                         {Action::VolumeMute, {Button::Guide, Button::Left}},
+                                         {Action::Keyboard, {Button::Guide, Button::X}}},
            "Guide holds the shipped chords, in action order");
     expect(s.rebind(Action::CloseGame, PadChord{Button::L2, Button::X}).empty() &&
                s.rebind(Action::VolumeMute, PadChord{Button::L2, Button::Left}).empty(),
@@ -337,7 +338,7 @@ void chordsOnAModifier() {
                std::vector<ChordBinding>{{Action::VolumeMute, {Button::L2, Button::Left}},
                                          {Action::CloseGame, {Button::L2, Button::X}}},
            "L2 lists exactly its own");
-    expect(s.chordsOn(Button::Guide).size() == 3, "and Guide no longer the moved one");
+    expect(s.chordsOn(Button::Guide).size() == 4, "and Guide no longer the moved one");
     expect(s.chordsOn(Button::A).empty(), "a button no chord starts with holds none");
 }
 
