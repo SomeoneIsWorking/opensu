@@ -20,3 +20,12 @@ Maybes the player has raised but not decided. Nothing here is planned; a decided
   the LSFG 3 modules of the player's own `Lossless.dll` sent from the host to their own guest.
   Interpolation holds back one real frame: about 33 ms more at 30 fps, 17 ms at 60, plus the
   generation, which a phone GPU has to fit in its frame.
+
+## Libretro ports of standalone emulators
+
+A libretro core of Eden (Switch) or Cemu (Wii U) would let the built-in runner own input, pacing,
+shaders, presets and the Guide for those consoles, as it does for the cores it hosts. Neither exists;
+each is a port of a large C++ emulator onto the libretro API (its renderer onto the runner's Vulkan
+context, its threads onto `retro_run`), kept in a fork pinned by revision. Until then
+`docs/plans/emulator-launch-config.md` sets the standalone builds up per launch.
+
