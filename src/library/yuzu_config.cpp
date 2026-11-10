@@ -85,7 +85,7 @@ std::string unquoted(std::string_view value) {
     return std::string{value};
 }
 
-std::string quoted(std::string_view value) {
+std::string inQuotes(std::string_view value) {
     return "\"" + std::string{value} + "\"";
 }
 
@@ -120,8 +120,8 @@ std::string defaultBinding(std::string_view value, std::string_view guid, int po
     if (value.empty()) {
         return std::string{emptyBinding};
     }
-    return quoted(std::string{sdlEngine} + ",guid:" + std::string{guid} +
-                  ",port:" + std::to_string(port) + "," + std::string{value});
+    return inQuotes(std::string{sdlEngine} + ",guid:" + std::string{guid} +
+                    ",port:" + std::to_string(port) + "," + std::string{value});
 }
 
 std::string withPlayer(std::string ini, int player, std::string_view guid) {
@@ -135,7 +135,7 @@ std::string withPlayer(std::string ini, int player, std::string_view guid) {
             const std::string value = control(ini, key);
             if (value.find(sdlEngine) != std::string::npos) {
                 ini = withSetting(ini, {controls, key},
-                                  quoted(retargeted(unquoted(value), guid, player)));
+                                  inQuotes(retargeted(unquoted(value), guid, player)));
             }
         }
         lucent::info("eden", "player {} bound to virtual pad port {}", player + 1, player);

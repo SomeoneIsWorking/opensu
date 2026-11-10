@@ -16,7 +16,7 @@ fs::path marked(const fs::path& file, std::string_view suffix) {
     return mark;
 }
 
-bool exists(const fs::path& file) {
+bool present(const fs::path& file) {
     std::error_code missing;
     return fs::exists(file, missing);
 }
@@ -26,9 +26,9 @@ bool putBack(const fs::path& file) {
     std::error_code failed;
     const fs::path kept = marked(file, LaunchFiles::keptSuffix);
     const fs::path absent = marked(file, LaunchFiles::absentSuffix);
-    if (exists(kept)) {
+    if (present(kept)) {
         fs::rename(kept, file, failed);
-    } else if (exists(absent)) {
+    } else if (present(absent)) {
         fs::remove(file, failed);
         if (!failed) {
             fs::remove(absent, failed);
@@ -46,7 +46,7 @@ bool putBack(const fs::path& file) {
 /// Keeps the player's `file` aside, or marks that there is none; false, logged, when it cannot.
 bool keep(const fs::path& file) {
     std::error_code failed;
-    if (exists(file)) {
+    if (present(file)) {
         fs::rename(file, marked(file, LaunchFiles::keptSuffix), failed);
     } else {
         std::string error;
@@ -66,7 +66,7 @@ bool keep(const fs::path& file) {
 
 void LaunchFiles::recover(const std::vector<fs::path>& files) {
     for (const fs::path& file : files) {
-        if (exists(marked(file, keptSuffix)) || exists(marked(file, absentSuffix))) {
+        if (present(marked(file, keptSuffix)) || present(marked(file, absentSuffix))) {
             lucent::info("emulator", "putting back the player's {} a crashed run left set",
                          file.string());
             static_cast<void>(putBack(file));
