@@ -1,5 +1,7 @@
 #include "ini_file.hpp"
 
+#include <algorithm>
+
 #include "fileio/read_whole.hpp"
 
 namespace opensu::library {
@@ -13,6 +15,11 @@ std::string_view trimmed(std::string_view text) {
         return {};
     }
     return text.substr(first, text.find_last_not_of(blank) - first + 1);
+}
+
+bool isSection(std::string_view line, std::string_view section) {
+    return line.size() == section.size() + 2 && line.starts_with("[") && line.ends_with("]") &&
+           line.substr(1, section.size()) == section;
 }
 
 /// Where `key`'s first line in `[section]` is, or where the section's settings end.
@@ -35,8 +42,7 @@ Found find(std::string_view text, const IniKey& wanted) {
         const std::string_view line = trimmed(text.substr(at, end - at));
         const std::size_t next = end == text.size() ? end : end + 1;
         if (line.starts_with("[")) {
-            inSection = line.size() == section.size() + 2 && line.ends_with("]") &&
-                        line.substr(1, section.size()) == section;
+            inSection = isSection(line, section);
             if (inSection) {
                 found.sectionEnd = next;
             }
@@ -77,6 +83,31 @@ std::optional<std::string> iniValue(const std::filesystem::path& file, std::stri
     return iniValueIn(*text, IniKey{.section = section, .key = key});
 }
 
+std::vector<std::string> iniKeysIn(std::string_view text, std::string_view section) {
+    std::vector<std::string> keys;
+    bool inSection = false;
+    std::size_t at = 0;
+    while (at < text.size()) {
+        std::size_t end = text.find('\n', at);
+        end = end == std::string_view::npos ? text.size() : end;
+        const std::string_view line = trimmed(text.substr(at, end - at));
+        at = end == text.size() ? end : end + 1;
+        if (line.starts_with("[")) {
+            inSection = isSection(line, section);
+            continue;
+        }
+        const std::size_t equals = line.find_first_of("=:");
+        if (!inSection || equals == std::string_view::npos) {
+            continue;
+        }
+        std::string key{trimmed(line.substr(0, equals))};
+        if (std::ranges::find(keys, key) == keys.end()) {
+            keys.push_back(std::move(key));
+        }
+    }
+    return keys;
+}
+
 std::string withIniValue(std::string_view text, const IniKey& key, std::string_view value) {
     const Found found = find(text, key);
     std::string setting{key.key};
@@ -84,6 +115,9 @@ std::string withIniValue(std::string_view text, const IniKey& key, std::string_v
     setting += value;
     std::string out;
     if (found.line != std::string_view::npos) {
+        if (iniValueIn(text, key) == value) {
+            return std::string{text};
+        }
         out.append(text.substr(0, found.line));
         out.append(setting);
         out.append(text.substr(found.lineEnd));

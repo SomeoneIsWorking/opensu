@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "cemu_pads.hpp"
+#include "pcsx2_config.hpp"
 #include "ryujinx_config.hpp"
 #include "yuzu_config.hpp"
 
@@ -26,6 +27,7 @@ constexpr std::array rules{
     LaunchRule{.id = yuzuLineIds[1], .files = yuzuFiles, .runFiles = yuzuRunFiles},
     LaunchRule{.id = yuzuLineIds[2], .files = yuzuFiles, .runFiles = yuzuRunFiles},
     LaunchRule{.id = ryujinxId, .files = ryujinxFiles, .runFiles = ryujinxRunFiles},
+    LaunchRule{.id = pcsx2Id, .files = pcsx2Files, .runFiles = pcsx2RunFiles},
 };
 
 const LaunchRule* ruleOf(std::string_view id) {

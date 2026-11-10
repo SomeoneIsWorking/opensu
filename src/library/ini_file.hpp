@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace opensu::library {
 
@@ -24,8 +25,12 @@ struct IniKey {
 /// The value of `key` in the INI `text`.
 [[nodiscard]] std::optional<std::string> iniValueIn(std::string_view text, const IniKey& key);
 
-/// `text` with `key` set to `value` as `key=value`: the key's first line replaced, else a line
-/// added after its section's last setting, else the section added at the end.
+/// The keys under `[section]` of the INI `text`, each once, in the order they first appear.
+[[nodiscard]] std::vector<std::string> iniKeysIn(std::string_view text, std::string_view section);
+
+/// `text` with `key` set to `value` as `key=value`: the key's first line replaced unless it holds
+/// `value` already, else a line added after its section's last setting, else the section added at
+/// the end.
 [[nodiscard]] std::string withIniValue(std::string_view text, const IniKey& key,
                                        std::string_view value);
 
