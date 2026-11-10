@@ -111,7 +111,7 @@ std::optional<fs::path> unpackMember(const fs::path& archive, const std::string&
     if (!file) {
         return std::nullopt;
     }
-    const fs::path part = dir / (chosen->name + ".part");
+    fs::path part = dir / (chosen->name + ".part");
     if (!fileio::writeWhole(part, *file, error)) {
         removeQuietly(part);
         return std::nullopt;
