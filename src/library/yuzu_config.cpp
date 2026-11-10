@@ -5,6 +5,7 @@
 
 #include "ini_file.hpp"
 #include "lucent/log.h"
+#include "qt_config_ini.hpp"
 
 namespace opensu::library {
 namespace {
@@ -57,12 +58,6 @@ constexpr std::string_view emptyBinding{"[empty]"};
 /// Eden's `ControllerType::ProController`.
 constexpr std::string_view proController{"0"};
 
-/// `ini` with `key` set and its `\default` cleared, which Eden reads first.
-std::string withSetting(std::string_view ini, const IniKey& key, std::string_view value) {
-    const std::string fallback = std::string{key.key} + "\\default";
-    return withIniValue(withIniValue(ini, {key.section, fallback}, "false"), key, value);
-}
-
 /// `key`'s value under `[Controls]`; empty when it is not there.
 std::string control(std::string_view ini, const std::string& key) {
     return iniValueIn(ini, {controls, key}).value_or("");
@@ -76,81 +71,43 @@ bool isTrue(std::string_view ini, const std::string& key, bool fallback) {
     return control(ini, key) == "true";
 }
 
-std::string unquoted(std::string_view value) {
-    if (value.size() >= 2 && value.front() == '"' && value.back() == '"') {
-        value = value.substr(1, value.size() - 2);
-    }
-    return std::string{value};
-}
-
-std::string inQuotes(std::string_view value) {
-    return "\"" + std::string{value} + "\"";
-}
-
-/// An SDL binding's `guid` and `port` made `guid` and `port`; any other binding as it was.
-std::string retargeted(std::string_view binding, std::string_view guid, int port) {
-    if (!binding.starts_with(sdlEngine)) {
-        return std::string{binding};
-    }
-    std::string out;
-    std::size_t at = 0;
-    while (at <= binding.size()) {
-        std::size_t end = binding.find(',', at);
-        end = end == std::string_view::npos ? binding.size() : end;
-        const std::string_view pair = binding.substr(at, end - at);
-        if (!out.empty()) {
-            out += ',';
-        }
-        if (pair.starts_with("guid:")) {
-            out += "guid:";
-            out += guid;
-        } else if (pair.starts_with("port:")) {
-            out += "port:" + std::to_string(port);
-        } else {
-            out += pair;
-        }
-        at = end + 1;
-    }
-    return out;
-}
-
 std::string defaultBinding(std::string_view value, std::string_view guid, int port) {
     if (value.empty()) {
         return std::string{emptyBinding};
     }
-    return inQuotes(std::string{sdlEngine} + ",guid:" + std::string{guid} +
+    return qtQuoted(std::string{sdlEngine} + ",guid:" + std::string{guid} +
                     ",port:" + std::to_string(port) + "," + std::string{value});
 }
 
 std::string withPlayer(std::string ini, int player, std::string_view guid) {
     const std::string prefix = "player_" + std::to_string(player) + "_";
     const bool hasSdl = std::ranges::any_of(defaults, [&](const DefaultBinding& binding) {
-        return control(ini, prefix + std::string{binding.key}).find(sdlEngine) != std::string::npos;
+        return isSdlBinding(qtUnquoted(control(ini, prefix + std::string{binding.key})));
     });
     if (hasSdl) {
         for (const DefaultBinding& binding : defaults) {
             const std::string key = prefix + std::string{binding.key};
             const std::string value = control(ini, key);
-            if (value.find(sdlEngine) != std::string::npos) {
-                ini = withSetting(ini, {controls, key},
-                                  inQuotes(retargeted(unquoted(value), guid, player)));
+            if (isSdlBinding(qtUnquoted(value))) {
+                ini = withQtSetting(ini, {controls, key},
+                                    qtQuoted(withSdlPad(qtUnquoted(value), guid, player)));
             }
         }
         lucent::info("eden", "player {} bound to virtual pad port {}", player + 1, player);
     } else if (player == 0 || isTrue(ini, prefix + "connected", false)) {
         for (const DefaultBinding& binding : defaults) {
             const std::string key = prefix + std::string{binding.key};
-            ini = withSetting(ini, {controls, key}, defaultBinding(binding.value, guid, player));
+            ini = withQtSetting(ini, {controls, key}, defaultBinding(binding.value, guid, player));
         }
         const std::string type = prefix + "type";
-        ini = withSetting(ini, {controls, type}, proController);
+        ini = withQtSetting(ini, {controls, type}, proController);
         lucent::info("eden", "player {} given a Pro Controller on virtual pad port {}", player + 1,
                      player);
     } else {
         return ini;
     }
     const std::string connected = prefix + "connected";
-    return withSetting(ini, {controls, connected}, "true");
+    return withQtSetting(ini, {controls, connected}, "true");
 }
 
 } // namespace
@@ -164,7 +121,7 @@ std::string yuzuGuid(std::string_view sdlGuid) {
 }
 
 std::string yuzuLaunchSettings(std::string_view ini, std::string_view padGuid) {
-    std::string out = withSetting(ini, {"UI", "check_for_updates"}, "false");
+    std::string out = withQtSetting(ini, {"UI", "check_for_updates"}, "false");
     if (padGuid.empty()) {
         return out;
     }

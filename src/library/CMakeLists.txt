@@ -40,6 +40,7 @@ add_library(opensu_library STATIC
     save_copy.cpp ini_file.cpp launch_files.cpp emulator_launch_config.cpp cemu_pads.cpp
     yuzu_config.cpp
     ryujinx_config.cpp
+    qt_config_ini.cpp
     shell_link.cpp game_folder.cpp pe_resources.cpp steam_items.cpp
     emulator_choice.cpp linked_play.cpp
     text_fold.cpp
