@@ -54,6 +54,7 @@ std::string reboundCemuProfile(std::string_view profile, std::string_view uuid) 
 
 std::vector<fs::path> cemuFiles(const fs::path& config) {
     std::vector<fs::path> files;
+    files.reserve(cemuControllers);
     for (int controller = 0; controller < cemuControllers; ++controller) {
         files.push_back(profileOf(config, controller));
     }
