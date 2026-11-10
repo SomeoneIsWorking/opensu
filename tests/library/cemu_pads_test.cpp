@@ -74,8 +74,8 @@ void testBindAndPutBack() {
     write(profiles / "controller1.xml", second);
     write(profiles / "keyboard.xml", profile);
     {
-        const EmulatorLaunchConfig pads{
-            LaunchSetup{.emulatorId = "cemu", .config = scratch.path(), .padGuid = guid}};
+        const EmulatorLaunchConfig pads{LaunchSetup{
+            .emulatorId = "cemu", .config = scratch.path(), .data = {}, .padGuid = guid}};
         expect(read(profiles / "controller0.xml") ==
                    reboundCemuProfile(profile, std::string{"0_"} + guid),
                "controller 0 plays the first virtual pad");
@@ -98,8 +98,8 @@ void testCrashLeftovers() {
     write(profiles / "controller0.xml", reboundCemuProfile(profile, std::string{"0_"} + guid));
     write(profiles / "controller0.xml.opensu-player", profile);
     {
-        const EmulatorLaunchConfig pads{
-            LaunchSetup{.emulatorId = "cemu", .config = scratch.path(), .padGuid = guid}};
+        const EmulatorLaunchConfig pads{LaunchSetup{
+            .emulatorId = "cemu", .config = scratch.path(), .data = {}, .padGuid = guid}};
         expect(read(profiles / "controller0.xml.opensu-player") == profile,
                "the next launch keeps the player's file, not the bound one");
     }
