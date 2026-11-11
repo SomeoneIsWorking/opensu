@@ -136,10 +136,14 @@ class Lab:
 
 
 def bridge(at: Node, name: str, address: str) -> None:
-    """A bridge with no port, up and without carrier, as Docker's and libvirt's sit idle."""
+    """A bridge up without carrier, as Docker's and libvirt's sit once their last guest left."""
     at.ip(f"link add {name} type bridge")
     at.ip(f"addr add {address} dev {name}")
     at.ip(f"link set {name} up")
+    # A bridge that never had a port reports a carrier; one whose last port went has none.
+    at.ip(f"link add {name}-guest type veth peer name {name}-peer")
+    at.ip(f"link set {name}-guest master {name}")
+    at.ip(f"link del {name}-guest")
 
 
 def build(host_nat: Nat, friend_nat: Nat, tailnet: bool, zerotier: bool, delay_ms: int) -> Lab:

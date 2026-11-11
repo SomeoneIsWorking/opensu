@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 #include <optional>
+#include <stdexcept>
 #include <vector>
 
 #include "check.hpp"
@@ -20,7 +21,11 @@ using opensu::test::expect;
 using lucent::net::Ipv4Interface;
 
 std::uint32_t ip(const char* dotted) {
-    return opensu::stream::udpAddress(dotted, 0)->ip;
+    const std::optional<opensu::stream::UdpAddress> parsed = opensu::stream::udpAddress(dotted, 0);
+    if (!parsed) {
+        throw std::invalid_argument{dotted};
+    }
+    return parsed->ip;
 }
 
 std::uint32_t hostOrder(const char* dotted) {
@@ -55,7 +60,8 @@ void zeroTierIsAFallback() {
     const std::vector<std::uint32_t> kept = reachableLocals(found, ip("192.168.1.1"));
     const std::vector<std::uint32_t> expected{ip("10.147.17.5"), ip("192.168.1.107"),
                                               ip("10.88.0.1")};
-    expect(kept == expected, "ZeroTier first, then the gateway's; idle bridges, link-local and loopback out");
+    expect(kept == expected,
+           "ZeroTier first, then the gateway's; idle bridges, link-local and loopback out");
 }
 
 void tailscaleAndZeroTierShareTheFront() {
@@ -78,7 +84,7 @@ void zeroTierByItsDriver() {
     expect(!zeroTier(named("10.147.17.5", "255.255.255.0", "corpnet")),
            "a renamed Linux interface is ranked as any other");
     const std::vector<Ipv4Interface> renamed{named("10.0.1.2", "255.255.255.0", "eth0"),
-                                         named("10.147.17.5", "255.255.255.0", "corpnet")};
+                                             named("10.147.17.5", "255.255.255.0", "corpnet")};
     expect(reachableLocals(renamed, ip("10.0.1.1")).size() == 2, "and still kept");
 }
 
