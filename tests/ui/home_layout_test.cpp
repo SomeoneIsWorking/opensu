@@ -388,6 +388,10 @@ void aSetPage() {
                last.right() < arrows.next->x,
            "and stands clear of both arrows");
     expect(last.bottom() <= 800.0f - 40.0f && first.y >= 60.0f, "between the top and bottom bars");
+    const opensu::ui::Rect pill = layout.pagePill(1).body;
+    expect(pill.y > last.bottom() && pill.bottom() < 800.0f - 40.0f,
+           "its page pill stands under it, above the bottom bar");
+    near(pill.centreX(), 640.0f, "centred");
     expect(layout.cellOf(1).left == 1 && layout.cellOf(1).top == 0 && layout.cellOf(4).left == 0 &&
                layout.cellOf(4).top == 1,
            "it fills row by row");
@@ -433,8 +437,9 @@ void aSetPagesWindowAndWells() {
         const opensu::ui::Rect rect = layout.canvasRect(slot, scroll);
         expect(!(rect.right() > 0.0f && rect.x < 1280.0f) || seen.contains(slot),
                "every slot on the canvas is in the range");
-        const auto hit = layout.slotAt(layout.pageScroll(layout.pageOf(slot)), rect.centreX(),
-                                       rect.centreY());
+        const float own = layout.pageScroll(layout.pageOf(slot));
+        const opensu::ui::Rect rest = layout.canvasRect(slot, own);
+        const auto hit = layout.slotAt(own, rest.centreX(), rest.centreY());
         expect(hit && *hit == slot, "hit-testing finds each slot on its page");
     }
     expect(layout.emptyCells(layout.pageScroll(0)).size() == 6 &&

@@ -197,8 +197,8 @@ void aSetPageTurnsAtItsEdges() {
     under = rig.grid.at(centre(rig.tile(28)));
     expect(under && under->index == 28, "and once it has, its tiles are under the pointer");
     rig.ui.navigator.act(Action::Left);
-    expect(rig.grid.page() == 1 && rig.grid.focusIndex() == 23,
-           "Left off the first column comes back to the row's last tile");
+    expect(rig.grid.page() == 1 && rig.grid.focusIndex() == 19,
+           "Left off the first column goes back a page, to the last tile of the row it is in");
     rig.grid.focus(29);
     rig.ui.navigator.act(Action::Right);
     expect(rig.grid.focusIndex() == 29, "the last tile has nothing after it");

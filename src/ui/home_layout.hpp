@@ -121,7 +121,7 @@ struct HomeLayoutInput {
     /// Paged only: the page is `page->columns` by `rows`, centred between the arrows, a page to a
     /// screen; a tall screen takes the lesser of the two across and as many rows as fit. The icon
     /// size does not apply. Unset, a page is iiSU's WiiSu page.
-    std::optional<SetPage> page;
+    std::optional<SetPage> page{};
 };
 
 /// WiiSu's page arrows; an arrow is absent when there is no page that way (iiSU ys8.l).
@@ -252,7 +252,8 @@ class HomeLayout {
     /// The Paged scroll offset that shows `page`.
     [[nodiscard]] float pageScroll(int page) const noexcept;
 
-    /// The page pill for the current page; empty when it is not drawn.
+    /// The page pill for the current page, at iiSU's place under the top edge or, for a set page,
+    /// under the page; empty when it is not drawn.
     [[nodiscard]] PagePill pagePill(int currentPage) const;
     /// The page arrows for the current page; none outside Paged mode or with one page.
     [[nodiscard]] PageArrows pageArrows(int currentPage) const;
@@ -260,6 +261,7 @@ class HomeLayout {
   private:
     /// Compactness of a small screen, 0 to 1 (iiSU ys8.h).
     [[nodiscard]] float compactness() const noexcept;
+    [[nodiscard]] float pillHeight() const noexcept;
     [[nodiscard]] Rect arrowRect(bool previous) const noexcept;
     [[nodiscard]] int slotPages(std::size_t perPage) const noexcept;
     /// How many slots the grid holds: its items, and one cell when it has none.
@@ -290,6 +292,8 @@ class HomeLayout {
     int pageCount_{1};
     float pageStride_{};
     float pageSidePadding_{};
+    /// Where the bottom inset begins.
+    float bottomEdge_{};
     bool setPage_{false};
     bool rowMajor_{false};
 };

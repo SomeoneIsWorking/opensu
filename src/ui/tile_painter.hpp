@@ -128,6 +128,8 @@ class TilePainter {
     void paintFrame(Canvas& canvas, const Rect& rect, const Platform& platform,
                     std::string_view console, float alpha);
     void paintFallback(Canvas& canvas, const TileVisual& tile, const Rect& content) const;
+    /// The `channel` style's tile with no art: the game's name, broken at spaces.
+    void paintName(Canvas& canvas, const TileVisual& tile, const Rect& content) const;
     void paintLoading(Canvas& canvas, const TileVisual& tile, const Rect& content) const;
     /// The icon centred at a whole multiple of its size, or shrunk to fit: never stretched.
     static void paintIcon(Canvas& canvas, const TileVisual& tile, const Rect& content);

@@ -116,8 +116,13 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
     const float p = basePadding(shortSide);
     const float top = clampTo(topInsetIn, 0.0f, height_ * 0.45f);
     const float bottom = clampTo(bottomInsetIn, 0.0f, height_ * 0.45f);
-    // iiSU hx2.g: the trailing band is the base padding over a bottom inset.
-    const float tail = bottom > 0.0f ? p : clampTo(height_ * 0.045f, 28.0f, 56.0f);
+    bottomEdge_ = height_ - bottom;
+    // iiSU hx2.g: the trailing band is the base padding over a bottom inset. A set page keeps
+    // room under it for the page pill, a padding either side.
+    float tail = bottom > 0.0f ? p : clampTo(height_ * 0.045f, 28.0f, 56.0f);
+    if (paged && input.page) {
+        tail = pillHeight() + 2.0f * p;
+    }
     const float content = std::max(height_ - top - bottom - p - tail, 1.0f);
 
     rows_ = clampRows(input.rows);
@@ -514,6 +519,11 @@ float HomeLayout::compactness() const noexcept {
     return clampTo((520.0f - std::min(width_, height_) / dp_) / 160.0f, 0.0f, 1.0f);
 }
 
+float HomeLayout::pillHeight() const noexcept {
+    // iiSU ys8.h: 25 dp, less on a small screen.
+    return 25.0f * dp_ * (1.0f - 0.16f * compactness());
+}
+
 Rect HomeLayout::arrowRect(bool previous) const noexcept {
     // iiSU ys8.k, in pixels: vertically centred, inset from the canvas edge.
     const float arrowWidth = clampTo((0.05f - 0.012f * compactness()) * width_, 30.0f, 64.0f);
@@ -550,13 +560,18 @@ PagePill HomeLayout::pagePill(int currentPage) const {
     const float padding = 9.0f * dp_ * scale;
     const float slot = 10.0f * dp_ * scale;
     const float spacing = 5.5f * dp_ * scale;
-    const float height = 25.0f * dp_ * scale;
+    const float height = pillHeight();
     const auto count = static_cast<float>(pageCount_);
     const float content = count * slot + (count - 1.0f) * spacing;
     const float widthPx =
         clampTo(padding * 2.0f + content, 38.0f * dp_, std::max(width_ - 16.0f * dp_, 38.0f * dp_));
-    const float top = clampTo((34.0f - 11.0f * compact) * dp_, 8.0f * dp_,
-                              std::max(height_ - height - 8.0f * dp_, 8.0f * dp_));
+    float top = clampTo((34.0f - 11.0f * compact) * dp_, 8.0f * dp_,
+                        std::max(height_ - height - 8.0f * dp_, 8.0f * dp_));
+    if (setPage_) {
+        // Under the page, midway to the bottom bar, clear of the top bar's title.
+        const float foot = rowTop(rows_ - 1) + cellHeight_;
+        top = foot + (bottomEdge_ - foot - height) * 0.5f;
+    }
     pill.body = Rect{(width_ - widthPx) * 0.5f, top, widthPx, height};
     // iiSU wf7.l: active radius 3.1 dp with a 5 dp halo, inactive 2.7 dp, all times the scale.
     pill.haloRadius = 5.0f * dp_ * scale;

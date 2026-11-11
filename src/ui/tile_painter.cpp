@@ -106,7 +106,15 @@ constexpr float glyphTile = 0.44f;
 // A channel tile crops art to its cell while the crop keeps this share of it, else stands the art
 // whole inside this margin, a share of the cell's short side.
 constexpr float channelCropLeast = 0.75f;
-constexpr float channelArtMargin = 0.07f;
+constexpr float channelArtMargin = 0.06f;
+// A channel tile with no art reads its game's name: the line's height and the side inset as
+// shares of the cell's short side, the most lines, and how far the edge colour is darkened.
+constexpr float channelNameLine = 0.16f;
+constexpr float channelNameInset = 0.12f;
+constexpr std::size_t channelNameLines = 3;
+constexpr float channelNameDepth = 0.45f;
+// How strongly the cell behind art standing whole shows the art's own crop.
+constexpr float channelBackdrop = 0.3f;
 
 struct Stop {
     float at;
@@ -456,6 +464,13 @@ void TilePainter::paintContent(Canvas& canvas, const TileVisual& tile,
     }
     // A channel tile stands art it would crop too far whole on its body.
     const Rect art = artBox(tile, content);
+    if (tile.art != nullptr && art.width < content.width) {
+        // The cell behind it takes the art's colours, washed out.
+        drawTextureRound(canvas, RoundRect{content, geometry.contentRadius}, tile.art->view(),
+                         coverSource(static_cast<float>(tile.art->width()),
+                                     static_cast<float>(tile.art->height()), content),
+                         withAlpha(white, tile.alpha * channelBackdrop));
+    }
     if (tile.platform != nullptr) {
         // iiSU g24.e: art clipped at the larger art radius, then the platform frame over it.
         const FrameGeometry frame = frameGeometry(art);
@@ -754,6 +769,10 @@ void TilePainter::paintFallback(Canvas& canvas, const TileVisual& tile, const Re
         paintLoading(canvas, tile, content);
         return;
     }
+    if (tiles_.style == theme::TileStyle::Channel) {
+        paintName(canvas, tile, content);
+        return;
+    }
     // iiSU yy0.f: the first letter or digit, upper-cased.
     const auto found = std::ranges::find_if(tile.title, [](char c) {
         return std::isalnum(static_cast<std::uint8_t>(c)) != 0;
@@ -767,6 +786,23 @@ void TilePainter::paintFallback(Canvas& canvas, const TileVisual& tile, const Re
     const float width = text_.measure(letter, size);
     text_.drawCentred(canvas, letter, Point{content.centreX() - width * 0.5f, content.centreY()},
                       size, withAlpha(fallbackInk, tile.alpha));
+}
+
+void TilePainter::paintName(Canvas& canvas, const TileVisual& tile, const Rect& content) const {
+    const float side = std::min(content.width, content.height);
+    const float size = text_.sizeForLineHeight(side * channelNameLine);
+    const float box = text_.lineHeight(size);
+    std::vector<std::string_view> lines =
+        breakLines(text_, tile.title, size, content.width - 2.0f * side * channelNameInset);
+    lines.resize(std::min(lines.size(), channelNameLines));
+    const Colour ink = withAlpha(mix(colourOf(tiles_.edge), black, channelNameDepth), tile.alpha);
+    float y = content.centreY() - box * static_cast<float>(lines.size() - 1) * 0.5f;
+    for (const std::string_view line : lines) {
+        text_.drawCentred(canvas, line,
+                          Point{content.centreX() - text_.measure(line, size) * 0.5f, y}, size,
+                          ink);
+        y += box;
+    }
 }
 
 void TilePainter::paintLoading(Canvas& canvas, const TileVisual& tile, const Rect& content) const {
