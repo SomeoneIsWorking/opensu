@@ -22,6 +22,9 @@ HOST_LAN_GATEWAY = "10.0.1.1"
 FRIEND_PRIVATE = "10.0.2.2"
 HOST_TAILNET = "100.64.0.1"
 FRIEND_TAILNET = "100.64.0.2"
+# ZeroTier's default pool, on an interface named as ZeroTier names its own.
+HOST_ZEROTIER = "10.147.17.1"
+FRIEND_ZEROTIER = "10.147.17.2"
 
 
 @dataclass
@@ -132,7 +135,14 @@ class Lab:
             each.close()
 
 
-def build(host_nat: Nat, friend_nat: Nat, tailnet: bool, delay_ms: int) -> Lab:
+def bridge(at: Node, name: str, address: str) -> None:
+    """A bridge with no port, up and without carrier, as Docker's and libvirt's sit idle."""
+    at.ip(f"link add {name} type bridge")
+    at.ip(f"addr add {address} dev {name}")
+    at.ip(f"link set {name} up")
+
+
+def build(host_nat: Nat, friend_nat: Nat, tailnet: bool, zerotier: bool, delay_ms: int) -> Lab:
     internet = node("internet")
     transit = node("transit")
     host_router = node("host-router")
@@ -161,6 +171,10 @@ def build(host_nat: Nat, friend_nat: Nat, tailnet: bool, delay_ms: int) -> Lab:
         friend_router.nft(nat_rules(friend_nat, FRIEND_PRIVATE, FRIEND_PUBLIC))
     if tailnet:
         wire(host, "ts0", f"{HOST_TAILNET}/30", friend, "ts0", f"{FRIEND_TAILNET}/30")
+    if zerotier:
+        bridge(host, "docker0", "172.17.0.1/16")
+        bridge(host, "virbr0", "192.168.122.1/24")
+        wire(host, "zt0", f"{HOST_ZEROTIER}/24", friend, "zt0", f"{FRIEND_ZEROTIER}/24")
     if delay_ms:
         for link in ("to-host", "to-friend"):
             delay = f"{delay_ms}ms"

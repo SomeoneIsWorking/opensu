@@ -1,5 +1,6 @@
 """What the lab proves: each case one pair of networks and what must happen across them."""
 
+import os
 import re
 import shutil
 import signal
@@ -11,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from tools.link_rom.build import build as build_rom
-from tools.nat_lab import topology
+from tools.nat_lab import mdns, topology
 from tools.nat_lab.frames import colour_at
 from tools.nat_lab.gb_rom import build as build_gb_rom
 from tools.nat_lab.instance import Instance
@@ -34,6 +35,8 @@ BAND_TWO_Y = 280
 # Inside a Game Boy's screen, and how dark a held A makes it.
 SCREEN_Y = 400
 DARK = 150
+# Every integration off but LAN, which a case turns on.
+LAN_ONLY = {name: False for name in ("steam", "epic", "gog", "emulators", "plugins")}
 
 
 def invite_secret(code: str) -> str:
@@ -64,6 +67,8 @@ class Rig:
         host_nat: Nat,
         friend_nat: Nat,
         tailnet: bool = False,
+        zerotier: bool = False,
+        lan: bool = False,
         delay_ms: int = 20,
         gateway: str = "",
         lease: int = 120,
@@ -74,7 +79,7 @@ class Rig:
         context.out.mkdir(parents=True)
         self.context = context
         self.codes: list[str] = []
-        self.lab: Lab = topology.build(host_nat, friend_nat, tailnet, delay_ms)
+        self.lab: Lab = topology.build(host_nat, friend_nat, tailnet, zerotier, delay_ms)
         self.stun = self.lab.internet.start(
             [
                 sys.executable,
@@ -89,6 +94,18 @@ class Rig:
             ["tcpdump", "-n", "-l", "-i", "any", f"udp and not port {topology.STUN_PORT}"],
             context.out / "wire.log",
         )
+        self.zerotier_capture = (
+            self.lab.host.start(
+                ["tcpdump", "-n", "-l", "-i", "zt0", "udp or tcp"], context.out / "wire-zt0.log"
+            )
+            if zerotier
+            else None
+        )
+        self.mdns: list[mdns.Mdns] = []
+        if lan:
+            for at in (self.lab.host, self.lab.friend):
+                folder = context.out / f"{at.name}-mdns"
+                self.mdns.append(mdns.start(at, folder, os.getuid(), os.getgid()))
         self.gateway: subprocess.Popen[bytes] | None = None
         self.gateway_log = context.out / "gateway.log"
         if gateway:
@@ -115,10 +132,15 @@ class Rig:
             (roms / "gba").mkdir(parents=True)
             build_rom(roms / "gba" / "link_test.gba", False)
         binary = context.build / "src" / "opensu"
-        self.host = Instance("host", self.lab.host, context.out / "host", binary, roms, stun_list())
-        self.friend = Instance(
-            "friend", self.lab.friend, context.out / "friend", binary, roms, stun_list()
-        )
+        made = []
+        for at, name in ((self.lab.host, "Host"), (self.lab.friend, "Friend")):
+            settings = {"integrations": {**LAN_ONLY, "lan": lan}, "lanName": name} if lan else {}
+            bus = self.mdns[len(made)].address if lan else ""
+            folder = context.out / name.lower()
+            made.append(
+                Instance(name.lower(), at, folder, binary, roms, stun_list(), settings, bus)
+            )
+        self.host, self.friend = made
         for each in (self.host, self.friend):
             if any_core:
                 each.install_core(installed_core())
@@ -127,10 +149,12 @@ class Rig:
     def close(self) -> None:
         self.host.quit()
         self.friend.quit()
-        for each in (self.stun, self.capture, self.gateway):
+        for each in (self.stun, self.capture, self.zerotier_capture, self.gateway):
             if each is not None:
                 each.kill()
                 each.wait()
+        for each in self.mdns:
+            each.close()
         self.lab.close()
 
     def __enter__(self) -> "Rig":
@@ -421,6 +445,77 @@ def tailscale(context: Context) -> None:
         ends_cleanly(rig, signal.SIGTERM)
 
 
+def zerotier(context: Context) -> None:
+    """Symmetric NATs, and a ZeroTier network the only way between; idle bridges on the host."""
+    with Rig(context, "symmetric", "symmetric", zerotier=True) as rig:
+        code = host_offers(rig)
+        print(gathered_line(rig.host))
+        friend_enters(rig, code)
+        play(rig)
+        ends_cleanly(rig, signal.SIGTERM)
+        print(zerotier_traffic(rig))
+
+
+def zerotier_lan(context: Context) -> None:
+    """LAN pairing where the machines share only a ZeroTier network, which is no default route."""
+    with Rig(context, "restricted", "restricted", zerotier=True, lan=True) as rig:
+        for each in (rig.host, rig.friend):
+            each.wait("seeing the other", lambda state: state["lanSeen"] >= 1, seconds=30)
+            print(found_line(each))
+        lan_pair(rig)
+        print(zerotier_traffic(rig))
+
+
+def gathered_line(who: Instance) -> str:
+    lines = [line for line in who.log.read_text().splitlines() if "public addresses" in line]
+    return lines[-1] if lines else f"{who.name}: no gathered line"
+
+
+def found_line(who: Instance) -> str:
+    lines = [line for line in who.log.read_text().splitlines() if "[lan] found" in line]
+    return lines[-1] if lines else f"{who.name}: found nobody"
+
+
+def zerotier_traffic(rig: Rig) -> str:
+    log = rig.context.out / "wire-zt0.log"
+    lines = log.read_text().splitlines() if log.exists() else []
+    if not lines:
+        raise RuntimeError("nothing crossed zt0")
+    return f"{len(lines)} packets on the host's zt0, first: {lines[0]}"
+
+
+def lan_pair(rig: Rig) -> None:
+    """Settings › LAN › Pair on the friend, Accept on the host, both paired."""
+    friend, host = rig.friend, rig.host
+    friend.press("guide")
+    friend.wait("in the Guide menu", lambda state: state["guideMenuOpen"])
+    friend.focus("guide.settings")
+    friend.press("a")
+    friend.wait("in Settings", lambda state: state["settingsOpen"])
+    friend.focus("categories/lan")
+    friend.press("a")
+    for _ in range(30):
+        if str(friend.state()["screenFocus"]).startswith("lan.pair."):
+            break
+        friend.press("down")
+    else:
+        raise RuntimeError(f"no Pair row: {friend.state()['screenFocus']}")
+    rig.shot(friend, "1-pair-row")
+    friend.press("a")
+    host.wait("asked to pair", lambda state: state["screen"] == "dialog", seconds=30)
+    friend.wait("showing a code", lambda state: bool(state["lanCode"]), seconds=30)
+    rig.shot(friend, "2-pair-code")
+    rig.shot(host, "2-pair-question")
+    host.focus("dialog/1", "right", 4)
+    host.press("a")
+    for each in (friend, host):
+        each.wait("paired", lambda state: state["lanPaired"] == 1, seconds=30)
+    time.sleep(0.5)
+    rig.shot(friend, "3-paired")
+    rig.shot(host, "3-paired")
+    print("paired over zt0")
+
+
 def nat_pmp(context: Context) -> None:
     """Short leases: renewed in play, removed after a dead runner, lapsing after a dead shell."""
     with Rig(context, "restricted", "restricted", gateway="nat-pmp", lease=16) as rig:
@@ -461,6 +556,8 @@ CASES: dict[str, Callable[[Context], None]] = {
     "symmetric": symmetric,
     "symmetric-against-restricted": symmetric_against_restricted,
     "tailscale": tailscale,
+    "zerotier": zerotier,
+    "zerotier-lan": zerotier_lan,
     "nat-pmp": nat_pmp,
     "upnp": upnp,
     "any-core": any_core,

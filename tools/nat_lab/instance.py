@@ -23,6 +23,10 @@ class Instance:
     binary: Path
     roms: Path
     stun: str
+    # Merged over the STUN servers in settings.json.
+    settings: dict = field(default_factory=dict)
+    # This machine's own system bus, when it runs one (`mdns`).
+    bus: str = ""
     process: subprocess.Popen[bytes] | None = None
     port: int = 0
     ports_before: set[str] = field(default_factory=set)
@@ -42,7 +46,9 @@ class Instance:
         self.home.mkdir(parents=True, exist_ok=True)
         config = self.home / ".config" / "opensu"
         config.mkdir(parents=True, exist_ok=True)
-        (config / "settings.json").write_text(json.dumps({"onlineStunServers": self.stun}))
+        (config / "settings.json").write_text(
+            json.dumps({"onlineStunServers": self.stun, **self.settings})
+        )
         env = {
             "HOME": str(self.home),
             "XDG_CONFIG_HOME": str(self.home / ".config"),
@@ -53,6 +59,8 @@ class Instance:
             "OPENSU_ROM_ROOTS": str(self.roms),
             "OPENSU_SECRET_STORE": "file",
         }
+        if self.bus:
+            env["DBUS_SYSTEM_BUS_ADDRESS"] = self.bus
         command = ["env", *[f"{key}={value}" for key, value in env.items()], str(self.binary)]
         self.process = self.node.start([*command, "--hidden"], self.log)
         pattern = re.compile(r"control channel on http://127\.0\.0\.1:(\d+)/")
