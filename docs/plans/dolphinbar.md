@@ -74,32 +74,40 @@ keep the emulated layout only for players who have none.
    Dolphin's udev rules"), "DolphinBar" with "Switch it to mode 4 (Wii Remote) to play Wii games on
    real Wii Remotes" for a bar in mode 3, and the Bluetooth remotes counted. Tested
    (`devices_controller` test).
-4. Wii Remotes as pads outside Wii games. Not built. Two paths:
-   - Bluetooth remotes already have evdev devices from `hid-wiimote`. `gamepad/evdev_device`'s
-     `isPad` refuses them (no ABS_X/ABS_Y), so openSU neither reads nor grabs them, and Dolphin's
-     hidapi path is untouched. A `PadTranslator` layout for "Nintendo Wii Remote" (sideways: d-pad
-     turned a quarter, 1 and 2 as south and east, minus and plus as select and start, Home as
-     Guide) and for the remote with its Nunchuk device (stick as the left stick, C and Z as
-     shoulder and trigger) would make them pads; the two evdev devices of one remote share its
-     `uniq` and are one pad. While a Wii game runs on real remotes, openSU must not grab them,
-     since Dolphin needs the remote itself; the claim for a Wii game leaves `hid-wiimote` devices
-     free.
-   - DolphinBar slots have no evdev device. Reading them means hidraw (SDL's HIDAPI Wii driver, or
-     openSU's own), which would hold the slot Dolphin needs. SDL's driver is off by default because
-     it fails on the bar, maps no sideways remote and needs a write per slot to find the full ones.
-     Recommendation: pads from Bluetooth remotes through evdev first; bar slots only with openSU
-     letting go of every hidraw node before Dolphin starts, after a real-bar trial of SDL's driver
-     with `SDL_HINT_JOYSTICK_HIDAPI_WII=1`.
-5. The IR pointer in openSU's own UI. Not built. In mode 3 the bar is a mouse already, so its
-   pointer reaches the shell through SDL's mouse events into `PointerFrame`
-   (`app/shell_window`), with nothing to build; only the player's check confirms it. In mode 4 the
-   pointer needs the remote's IR camera turned on over hidraw (output reports 0x13/0x1a and the IR
-   sensitivity block), which only works while Dolphin is not running, and the dots turned into a
-   point (the bar's LEDs are the sensor bar). A Bluetooth remote's "Nintendo Wii Remote IR" evdev
-   device gives the dots without any writes; turning its two brightest dots into a point and
-   feeding it to `ShellWindow::movePointer`, with A as the primary button, is the first pointer
-   path to build. It goes through the shell's existing pointer input, so the Wii-inspired theme
-   needs nothing of its own.
+4. Wii Remotes as pads. Built for Bluetooth remotes (`gamepad/wii_remote_layout`,
+   `gamepad/evdev_pads`): `hid-wiimote`'s "Nintendo Wii Remote" device, refused before by `isPad`
+   (no ABS_X/ABS_Y), is a pad when its ids are `057e:0306`/`0330`. Alone it is held sideways (the
+   d-pad turned a quarter, 2 as A, 1 as B, B and A as Y and X); its "Nintendo Wii Remote Nunchuk"
+   device, a separate node, is read as part of the same pad while plugged in and the remote is
+   then held upright (A and B as A and B, 1 and 2 as X and Y, the stick as the left stick, its Y
+   turned to grow downwards, C and Z as L1 and L2, the accelerometer dropped). Plus, minus and
+   Home are Start, Select and Guide. The parts are paired by the device the kernel made them for
+   (`/sys/class/input/<node>/device/device`, which `hid-wiimote` shares between them; it sets no
+   `uniq` or `phys`); a part seen before its remote waits for it. openSU reads and grabs only the
+   evdev nodes, never hidraw, so Dolphin's hidapi access is not taken. Open:
+   - in a Wii game played on real Bluetooth remotes, the remote is also grabbed and drives a
+     virtual pad, which an emulated slot on that pad would read too; the hold for a Wii game with
+     real remotes should leave the remotes' pads out (`PadSource::hold`);
+   - the Classic Controller extension is not read;
+   - DolphinBar slots have no evdev device. Reading them means hidraw (SDL's HIDAPI Wii driver,
+     off by default because it fails on the bar, or openSU's own), which would hold the slot
+     Dolphin needs; not built.
+   Tested: `wii_remote_layout` (the mapping through the translator) and `pads` (a uinput
+   "Nintendo Wii Remote" read as a sideways pad, its uinput camera paired with it). A device with
+   no parent, as a uinput fake, pairs by its `phys`; the real parent pairing is shown only on the
+   real remote.
+5. The IR pointer in openSU's own UI. Built for Bluetooth remotes: the remote's "Nintendo Wii
+   Remote IR" device (the kernel turns the camera on while it is open) is read as part of its pad
+   (`gamepad::WiiPointer`): the middle of the first two dots, mirrored across (as wiiuse does), is
+   where the remote points; no dot is off the screen. They come as `Event::Kind::Pointer`, and
+   `app/pointing_pads` moves the shell's pointer there (`ShellWindow::movePointer`, the same path
+   as the mouse) and makes the remote's A a pointer press while it points, released wherever it
+   then points, so the pointer-first theme needs nothing of its own. Over a game in front the
+   pointer is left alone. Open: no calibration for a sensor bar above or below the screen and no
+   roll correction; the vertical direction follows wiiuse and wants the player's check. In mode 3
+   the DolphinBar is a mouse already and reaches the shell through SDL's mouse events with nothing
+   built. In mode 4 the pointer would need the camera turned on over hidraw while Dolphin is not
+   running; not built. Tested: `wii_remote_layout` (dots to aim) and `pointing_pads`.
 6. A settings row. Not built. Settings › Controls › "Wii Remotes in Wii games": Real when here
    (default) or Emulated always, for a player who keeps the bar in mode 4 but plays with a pad.
    It is read into the launch as `LaunchSetup::realWiiRemotes` and nothing else changes.
@@ -136,3 +144,8 @@ keep the emulated layout only for players who have none.
 6. Press the mode button to modes 1, 2 and 3 in turn and send step 1's output for each. In mode 3,
    Devices should tell you to switch to mode 4; point the remote at the screen and say whether
    openSU's pointer follows it.
+7. With the bar unplugged, pair a remote over Bluetooth (Devices › Bluetooth, press 1 and 2
+   together). It should be listed under Controllers as "Nintendo Wii Remote"; held sideways, 2 is
+   A and the d-pad moves the focus. Plug in the Nunchuk: the stick moves the focus, the d-pad is
+   no longer turned. Point the remote at the screen with a sensor bar on: the pointer should
+   follow it (say if up and down are swapped), and A should press what it points at.

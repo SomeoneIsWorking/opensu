@@ -54,8 +54,9 @@ class EvdevDevice {
     }
     /// The part of a Wii Remote this is (hid-wiimote's devices); nothing for another device.
     [[nodiscard]] std::optional<WiiRemotePart> wiiRemotePart() const;
-    /// The device the kernel made this input device for (`/sys/class/input/<node>/device/device`,
-    /// resolved), which a Wii Remote's devices share; empty when it has none, as uinput's.
+    /// What a Wii Remote's parts share: the device the kernel made this input device for
+    /// (`/sys/class/input/<node>/device/device`, resolved), or for a uinput device, which has
+    /// none, its phys; empty when there is neither.
     [[nodiscard]] const std::filesystem::path& parent() const {
         return parent_;
     }

@@ -63,6 +63,9 @@ EvdevDevice::EvdevDevice(const std::filesystem::path& node) : node_{node} {
         product_ = id.product;
     }
     parent_ = parentOf(node);
+    if (parent_.empty() && !phys_.empty()) {
+        parent_ = "phys:" + phys_;
+    }
 
     BitSet<KEY_CNT> keys{};
     BitSet<ABS_CNT> axes{};

@@ -185,8 +185,7 @@ class FakePad {
     fs::path node_;
 };
 
-/// A Bluetooth Wii Remote's buttons as hid-wiimote makes them: keys only, Nintendo's ids. The
-/// fake has no parent device, so a Nunchuk is never paired with it.
+/// A Bluetooth Wii Remote's buttons as hid-wiimote makes them: keys only, Nintendo's ids.
 class FakeWiiRemote {
   public:
     FakeWiiRemote() {
@@ -222,6 +221,59 @@ class FakeWiiRemote {
         for (const input_event out :
              {input_event{{}, EV_KEY, key, value}, input_event{{}, EV_SYN, SYN_REPORT, 0}}) {
             expect(::write(fd_, &out, sizeof(out)) == sizeof(out), "the fake remote takes input");
+        }
+    }
+
+  private:
+    int fd_{-1};
+    fs::path node_;
+};
+
+/// A Wii Remote's IR camera as hid-wiimote makes it: four dots, Nintendo's ids; it shares the fake
+/// remote's phys, as a real camera shares its remote's parent device.
+class FakeWiiCamera {
+  public:
+    FakeWiiCamera() {
+        fd_ = ::open("/dev/uinput", O_WRONLY | O_CLOEXEC);
+        expect(fd_ >= 0, "/dev/uinput opens");
+        ioctl(fd_, UI_SET_EVBIT, EV_ABS);
+        for (int axis = ABS_HAT0X; axis <= ABS_HAT3Y; ++axis) {
+            ioctl(fd_, UI_SET_ABSBIT, axis);
+            uinput_abs_setup setup{};
+            setup.code = static_cast<std::uint16_t>(axis);
+            setup.absinfo.minimum = 0;
+            setup.absinfo.maximum = (axis - ABS_HAT0X) % 2 == 0 ? 1023 : 767;
+            setup.absinfo.value = 1023;
+            ioctl(fd_, UI_ABS_SETUP, &setup);
+        }
+        ioctl(fd_, UI_SET_PHYS, std::string{VirtualPad::phys}.c_str());
+        uinput_setup setup{};
+        setup.id.bustype = BUS_BLUETOOTH;
+        setup.id.vendor = 0x057e;
+        setup.id.product = 0x0306;
+        std::snprintf(setup.name, sizeof(setup.name), "%s", "Nintendo Wii Remote IR");
+        expect(ioctl(fd_, UI_DEV_SETUP, &setup) == 0, "the fake camera is set up");
+        expect(ioctl(fd_, UI_DEV_CREATE) == 0, "the fake camera is created");
+        node_ = nodeOf(fd_);
+    }
+    FakeWiiCamera(const FakeWiiCamera&) = delete;
+    FakeWiiCamera& operator=(const FakeWiiCamera&) = delete;
+    ~FakeWiiCamera() {
+        ioctl(fd_, UI_DEV_DESTROY);
+        ::close(fd_);
+    }
+
+    [[nodiscard]] const fs::path& node() const {
+        return node_;
+    }
+
+    /// The sensor bar's two ends seen at `left` and `right` across, `down` down.
+    void see(std::int32_t left, std::int32_t right, std::int32_t down) const {
+        for (const input_event out :
+             {input_event{{}, EV_ABS, ABS_HAT0X, left}, input_event{{}, EV_ABS, ABS_HAT0Y, down},
+              input_event{{}, EV_ABS, ABS_HAT1X, right}, input_event{{}, EV_ABS, ABS_HAT1Y, down},
+              input_event{{}, EV_SYN, SYN_REPORT, 0}}) {
+            expect(::write(fd_, &out, sizeof(out)) == sizeof(out), "the fake camera takes input");
         }
     }
 
@@ -671,6 +723,33 @@ int main() try {
                "held sideways, its 2 is A and its d-pad turned");
         remote.press(BTN_2, 0);
         remote.press(KEY_UP, 0);
+
+        // Its camera is part of it: where it points comes from the remote's own node.
+        const FakeWiiCamera camera;
+        inputs.add(camera.node());
+        std::string remoteId;
+        for (const Event& event : seen) {
+            if (event.kind == Event::Kind::Connected && event.device == "Nintendo Wii Remote") {
+                remoteId = event.source;
+            }
+        }
+        const auto points = [&] {
+            return std::ranges::any_of(seen, [&](const Event& event) {
+                return event.kind == Event::Kind::Pointer && event.onScreen &&
+                       event.source == remoteId && event.x > 0.7f;
+            });
+        };
+        const auto deadline = std::chrono::steady_clock::now() + 2s;
+        while (!points() && std::chrono::steady_clock::now() < deadline) {
+            camera.see(200, 300, 384);
+            static_cast<void>(collect(pads, seen, points));
+        }
+        expect(points(), "the remote's camera says it points right of centre");
+        expect(std::ranges::none_of(pads.connected(),
+                                    [](const PadInfo& info) {
+                                        return info.name == "Nintendo Wii Remote IR";
+                                    }),
+               "and is no pad of its own");
     }
 
     std::printf("pads: all checks passed\n");
