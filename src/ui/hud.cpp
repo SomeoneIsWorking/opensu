@@ -5,6 +5,7 @@
 #include <cmath>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "clock_text.hpp"
 #include "corner_hints.hpp"
@@ -335,19 +336,32 @@ void Hud::drawToast(Canvas& canvas, float floor) const {
     const gpu2d::ui::Theme theme = interfaceTheme(Density{.dp = dp_, .display = displayDp_});
     const float u = unit();
     const float size = theme.px(theme.type.toast);
-    const float textWidth = text_.measure(toast_, size);
     const float padding = theme.px(theme.spacing.pad);
-    const float boxHeight = text_.lineHeight(size) + padding;
+    // A padding of screen on each side of the box.
+    const float room = static_cast<float>(width_) - 4.0f * padding;
+    const std::vector<std::string> lines = gpu2d::ui::wrapped(text_, toast_, room, size);
+    float textWidth = 0.0f;
+    for (const std::string& line : lines) {
+        textWidth = std::max(textWidth, text_.measure(line, size));
+    }
+    const float lineHeight = text_.lineHeight(size);
+    const float boxHeight = lineHeight * static_cast<float>(lines.size()) + padding;
     const Rect box{
         (static_cast<float>(width_) - textWidth - 2.0f * padding) / 2.0f,
         std::min(static_cast<float>(height_) - u * 8.0f, floor - u - boxHeight),
         textWidth + 2.0f * padding,
         boxHeight,
     };
-    canvas.fillRoundRect(onCanvas(box), cornerRadius(box, 0.5f),
+    // A toast of several lines keeps the corners of one.
+    const Rect oneLine{box.x, box.y, box.width, lineHeight + padding};
+    canvas.fillRoundRect(onCanvas(box), cornerRadius(oneLine, 0.5f),
                          toastError_ ? theme.colours.toastError : theme.colours.toast);
-    text_.drawCentred(canvas, toast_, Point{box.x + padding, box.centreY()}, size,
-                      theme.colours.onToast);
+    float centreY = box.y + (padding + lineHeight) / 2.0f;
+    for (const std::string& line : lines) {
+        const float x = (static_cast<float>(width_) - text_.measure(line, size)) / 2.0f;
+        text_.drawCentred(canvas, line, Point{x, centreY}, size, theme.colours.onToast);
+        centreY += lineHeight;
+    }
 }
 
 } // namespace opensu::ui
