@@ -249,8 +249,10 @@ std::optional<SystemFilesSource> systemFilesOf(const json& object, const std::st
     if (!found->is_object()) {
         throw Malformed{where + ": \"systemFiles\" is not an object"};
     }
-    SystemFilesSource source{text(*found, "url", where, true), {},
-                             text(*found, "folder", where, true), text(*found, "into", where, true)};
+    SystemFilesSource source{text(*found, "url", where, true),
+                             {},
+                             text(*found, "folder", where, true),
+                             text(*found, "into", where, true)};
     if (!source.url.starts_with("https://")) {
         throw Malformed{where + ": \"systemFiles\" must be fetched over HTTPS"};
     }

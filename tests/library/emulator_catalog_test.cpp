@@ -56,9 +56,12 @@ void shippedCatalogParses() {
                dolphinCore->systemFiles->folder.ends_with("/Data/Sys"),
            "the built-in Dolphin pins its Sys folder");
     const EmulatorEntry* lrps2 = catalog.find("pcsx2-core");
-    expect(lrps2 != nullptr && std::ranges::any_of(lrps2->coreOptions, [](const CoreOption& o) {
-               return o.key == "pcsx2_shared_memory_cards" && o.value == "disabled";
-           }),
+    expect(lrps2 != nullptr && std::ranges::any_of(lrps2->coreOptions,
+                                                   [](const CoreOption& o) {
+                                                       return o.key ==
+                                                                  "pcsx2_shared_memory_cards" &&
+                                                              o.value == "disabled";
+                                                   }),
            "LRPS2 keeps a card per game in the saves folder");
     const EmulatorEntry* mgba = catalog.find("mgba-core");
     expect(mgba != nullptr && mgba->name == "mGBA (built-in)" && mgba->core == "mgba_libretro" &&

@@ -19,8 +19,8 @@
 #include <thread>
 #include <vector>
 
-#include "library/emulator_release.hpp"
 #include "library/core_system_files.hpp"
+#include "library/emulator_release.hpp"
 #include "library/emulators.hpp"
 #include "library/libretro_cores.hpp"
 #include "net/web_client.hpp"

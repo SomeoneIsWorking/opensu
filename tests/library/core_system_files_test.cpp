@@ -1,7 +1,7 @@
 // A built-in core's system files through the shipping code, against a loopback host: the catalog's
-// pin read, the folder unpacked under the system folder with its record, a player's file left, a new
-// pin replacing and removing only openSU's files, a wrong SHA-256 refused with nothing written, and
-// removal keeping the player's file.
+// pin read, the folder unpacked under the system folder with its record, a player's file left, a
+// new pin replacing and removing only openSU's files, a wrong SHA-256 refused with nothing written,
+// and removal keeping the player's file.
 #include <cstddef>
 #include <cstdio>
 #include <exception>
@@ -78,10 +78,11 @@ class ZipHost {
 };
 
 void catalogPinIsRead() {
-    const std::string pinned = R"j([{"id": "d", "name": "D (built-in)", "systems": ["gc"],
+    const std::string pinned =
+        R"j([{"id": "d", "name": "D (built-in)", "systems": ["gc"],
         "core": "dolphin_libretro", "systemFiles": {"url": "https://h/a.zip", "sha256": ")j" +
-                               std::string(64, 'a') +
-                               R"j(", "folder": "dolphin-1/Data/Sys", "into": "dolphin-emu/Sys"}}])j";
+        std::string(64, 'a') +
+        R"j(", "folder": "dolphin-1/Data/Sys", "into": "dolphin-emu/Sys"}}])j";
     std::string error;
     const EmulatorCatalog catalog =
         need(EmulatorCatalog::parse(R"({"emulators": )" + pinned + "}", "/home/p", error),
@@ -116,9 +117,8 @@ void installsReplacesAndRemoves(const fs::path& root) {
 
     const auto installed = files.install({}, web, "dolphin_libretro", one, anyProgress);
     expect(installed && *installed == 3, "the folder's three free files are written");
-    expect(read(sys / "codehandler.bin") == "handler 1" && read(sys / "GC/font_western.bin") ==
-                                                               "font" &&
-               read(sys / "Wii/old.bin") == "old",
+    expect(read(sys / "codehandler.bin") == "handler 1" &&
+               read(sys / "GC/font_western.bin") == "font" && read(sys / "Wii/old.bin") == "old",
            "under the system folder's place, paths kept");
     expect(!fs::exists(system / "dolphin-emu" / "README.md"), "nothing outside the folder");
     expect(read(sys / "GC/USA/IPL.bin") == "the player's BIOS", "a player's file is left");
@@ -140,8 +140,7 @@ void installsReplacesAndRemoves(const fs::path& root) {
     expect(!fs::exists(root / "cores" / "dolphin_libretro.system.zip.part"),
            "and its download is not kept");
 
-    expect(files.install({}, web, "dolphin_libretro", two, anyProgress).ok(),
-           "a new pin installs");
+    expect(files.install({}, web, "dolphin_libretro", two, anyProgress).ok(), "a new pin installs");
     expect(read(sys / "codehandler.bin") == "handler 2", "its changed file is written");
     expect(!fs::exists(sys / "Wii"), "a file the new pin lacks goes, with its empty folder");
     expect(read(sys / "GC/USA/IPL.bin") == "the player's BIOS", "the player's file stays");

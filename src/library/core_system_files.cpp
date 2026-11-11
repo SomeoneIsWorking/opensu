@@ -104,17 +104,15 @@ net::Result<std::size_t> CoreSystemFiles::install(const std::stop_token& stop,
     lucent::info("emulators", "downloading {}'s system files from {}", core, source.url);
     const net::Result<net::WebClient::BodyFacts> fetched =
         web.download(stop, source.url, part, progress, [&origin](const std::string& url) {
-            return !origin.empty() && url.starts_with(origin)
-                       ? std::string{}
-                       : url + " is not on " + origin;
+            return !origin.empty() && url.starts_with(origin) ? std::string{}
+                                                              : url + " is not on " + origin;
         });
     if (!fetched) {
         removeQuietly(part);
         return fetched.as<std::size_t>("the download failed: ");
     }
     std::string error;
-    const std::optional<lucent::content::Sha256> digest =
-        lucent::content::sha256_file(part, error);
+    const std::optional<lucent::content::Sha256> digest = lucent::content::sha256_file(part, error);
     std::optional<std::string> bytes =
         digest ? fileio::readWhole(part, error) : std::optional<std::string>{};
     removeQuietly(part);
