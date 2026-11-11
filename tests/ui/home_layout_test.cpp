@@ -217,13 +217,38 @@ void paged() {
 void pagedShrink() {
     // Tall enough that height alone would make cells too wide for the page.
     const HomeLayout layout{HomeLayoutInput{
-        .width = 1000.0f, .height = 1200.0f, .dp = 1.0f, .items = 20, .mode = ScrollMode::Paged}};
+        .width = 1000.0f, .height = 1200.0f, .dp = 2.0f, .items = 20, .mode = ScrollMode::Paged}};
     expect(layout.columns() == 3, "a WiiSu page has at least 3 columns");
     const float pageWidth = 3.0f * layout.cellWidth() + 2.0f * layout.gap();
-    const float peek = layout.pageSidePadding() - 36.0f;
-    expect(peek > 0.0f && peek <= 6.0f + 1e-3f, "shrunk cells leave at most the 6 dp peek");
-    near(pageWidth + 2.0f * (peek + 36.0f), 1000.0f,
+    const float peek = layout.pageSidePadding() - 72.0f;
+    expect(peek > 0.0f && peek <= 12.0f + 1e-3f, "shrunk cells leave at most the 6 dp peek");
+    near(pageWidth + 2.0f * (peek + 72.0f), 1000.0f,
          "a page, both gaps and both peeks fill the width");
+}
+
+void largerScreen() {
+    // 3840 x 2160 at 2.5 per dp: 1536 x 864 dp.
+    HomeLayoutInput big = window(60, ScrollMode::Flow);
+    big.width = 3840.0f;
+    big.height = 2160.0f;
+    big.dp = 2.5f;
+    big.topInset = 150.0f;
+    big.bottomInset = 100.0f;
+    const HomeLayout layout{big};
+    expect(layout.rows() == 4, "a 1536 x 864 dp screen takes a fourth row");
+    expect(layout.cellHeight() <= 220.0f * 2.5f, "and no cell passes 220 dp");
+    big.page = opensu::ui::SetPage{.columns = 4, .aspect = 1.5f};
+    big.mode = ScrollMode::Paged;
+    const HomeLayout channels{big};
+    expect(channels.columns() == 4 && channels.rows() == 3, "a set page of 4 by 3 stays there");
+    big.width = 1920.0f;
+    big.height = 1080.0f;
+    big.dp = 1.0f;
+    big.topInset = 75.0f;
+    big.bottomInset = 70.0f;
+    const HomeLayout wide{big};
+    expect(wide.columns() == 5 && wide.cellWidth() <= 360.0f,
+           "1920 x 1080 dp takes a fifth column, no cell past 360 dp");
 }
 
 void columnGrowth() {
@@ -504,6 +529,7 @@ int main() try {
     flowScrollKeepsFocusVisible();
     paged();
     pagedShrink();
+    largerScreen();
     columnGrowth();
     pill();
     arrows();
