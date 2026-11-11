@@ -108,9 +108,11 @@ emulators. We can make our own updater".
    game id from its header, plain, RVZ/WIA or WBFS): named layouts (nunchuk, the default; sideways;
    classic) set the extension, `Options/Sideways|Upright Wiimote`, the pointer on the right stick
    (relative, recentred by its click), shake on a button and the rest of the remote's inputs; games
-   are keyed by id or its first three characters. For a Wii game the Dolphin rule makes Wii Remote
-   slot 1, and any real remote's slot, emulated (`Source = 1`) on the virtual pad, since a pad
-   player is not holding a remote; each emulated slot gets the game's layout in `WiimoteNew.ini` at
+   are keyed by id or its first three characters. For a Wii game with no real remote here the
+   Dolphin rule makes Wii Remote slot 1, and any real remote's slot, emulated (`Source = 1`) on the
+   virtual pad, since a pad player is not holding a remote; with real remotes here (a DolphinBar in
+   Wii Remote mode, a Bluetooth remote) the player's real slots are kept and given back
+   (`docs/plans/dolphinbar.md` step 2); each emulated slot gets the game's layout in `WiimoteNew.ini` at
    every launch rather than a generated per-game profile, so a player's own per-game profile, which Dolphin
    reads instead of the slot, still wins and is only retargeted; Bluetooth passthrough is off.
    Listed: DKC Returns (`SF8`, sideways: 2 on south, 1 on west, shake on east or the right
