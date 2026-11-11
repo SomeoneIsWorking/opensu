@@ -555,6 +555,16 @@ start of what was loaded is not a change, so learning the save type writes nothi
 starts the game with the core's blank save RAM; a core without save RAM leaves any file alone. A
 failed write is logged and tried again at the next check.
 
+LRPS2 keeps no save RAM; its saves are a memory card. The catalog starts it with
+`pcsx2_shared_memory_cards=disabled`, under which its `retro_load_game` puts the card folder at the
+save directory and names slot 1's card after the content (`<saves>/<rom stem>.ps2`, slot 2 off;
+`libretro/ps2` `libretro/main.cpp`, `pcsx2/VMManager.cpp`), so each profile has its own card per
+game. With the option on, both cards were `<system>/pcsx2/memcards/Mcd001.ps2` and `Mcd002.ps2`,
+one pair for every game and profile. A game without its card starts from a copy of that shared
+`Mcd001.ps2` (`retro/lrps2_card`, before the core loads), which is never written; a card is never
+written over. The card is not yet one of the game's save slots (`game_saves`), so Copy saves,
+backups and sync do not carry it.
+
 Invariant: a save file the runner did not load is never written over. A file larger than the core's
 save RAM, or one that cannot be read, is a load failure (`SaveError`): the game is not started, the
 runner exits 2 with the reason in the control file for the shell's toast, and the file is left
@@ -614,6 +624,26 @@ which reads in use when it holds such a file. Check it in the product: Settings 
 Emulators, the "<System> BIOS" rows; the runner's log line for the core's choice (PCSX ReARMed:
 `found US BIOS file` or `HLE BIOS initialized.`; LRPS2: `Bios Found: USA v01.60(...)`). Built-in entries come after the standalone ones in the catalog, so a system's
 automatic emulator stays the standalone one where it is installed.
+
+**System files.** A core that reads data from the system folder besides BIOS files names it in the
+catalog: `"systemFiles": {url, sha256, folder, into}`, one folder of an HTTPS zip pinned by SHA-256,
+unpacked under `<system>/<into>` (`core_system_files`). It is the core's own source tree at the
+revision the buildbot builds it from, so the data matches the code that reads it: Dolphin's is
+`libretro/dolphin`'s `Data/Sys` at the commit its library names (`strings` on the `.so` shows it
+after `GBPlayer: ROM save set to`; GitHub's archive of a commit is byte-stable), into
+`dolphin-emu/Sys`, the folder the core logs as `System Directory set to`. When the buildbot's core
+moves to a newer commit the pin stays until the catalog moves it. `EmulatorDownloads` installs it
+after the core (Settings › Emulators, the details page), and the update check installs it for a
+core found without it; every redirect hop stays on the zip's origin. The record
+`<cores>/<core>.system.json` lists the pin and each file openSU wrote. Only those are replaced or
+removed: a file already there that openSU did not write (a player's `Sys/GC/USA/IPL.bin`) stays,
+a file of an older pin the new one lacks goes with its empty folders, and the files are claimed in
+the record before they are written, so an install cut short is finished by the next. Removing the
+core removes them. Without Dolphin's `Sys` the core logs `Core file codehandler.bin missing!`,
+`Post-processing shader not found: .../Sys/Shaders/default_pre_post_process.glsl` and, on Wii,
+`ScanDirectoryTree error on .../Sys/Wii`; with it none of these appear. PPSSPP's `PPSSPP/` assets
+(`hrydgard/ppsspp`'s `assets/` at its core's revision) can go through the same field; not pinned
+yet.
 
 **Romsets.** An arcade core's catalog entry names its listing: `"romsets": {"files": [...]}`
 (HTTPS datafiles merged in order) or `"romsets": {"release": {api, asset, downloads}}` (the latest

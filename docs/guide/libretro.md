@@ -56,8 +56,12 @@ Settings › Emulators › BIOS files lists what each built-in core runs on: the
 which of them you have in `<data>/opensu/system/`, and whether it has a built-in HLE BIOS
 (PCSX ReARMed's PlayStation BIOS is "HLE built in" until you add a file). PCSX2 needs a
 PlayStation 2 BIOS image in `<data>/opensu/system/pcsx2/bios/` (any name; it boots the first one it
-finds there, and keeps its NVRAM and memory cards under `<data>/opensu/system/pcsx2/`). openSU ships
-and downloads no BIOS, keys or firmware.
+finds there, and keeps its NVRAM under `<data>/opensu/system/pcsx2/`). Its memory card is one per
+game in your profile's saves, `<data>/opensu/saves/profiles/<profile>/ps2/<game>.ps2`; a game you
+played before on the shared card `system/pcsx2/memcards/Mcd001.ps2` starts from a copy of it.
+Dolphin's `Sys` folder (GameCube fonts, the Wii shared folders, game settings) is downloaded with
+the core into `<data>/opensu/system/dolphin-emu/Sys/`, from Dolphin's source at the revision the
+core is built from. openSU ships and downloads no BIOS, keys or firmware.
 
 ## Picture: video settings and shader presets
 

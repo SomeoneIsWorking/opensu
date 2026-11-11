@@ -126,12 +126,19 @@ exited 0:
 
 Gaps:
 
-- PCSX2 keeps NVRAM, memory cards, cache and cheats under `<system>/pcsx2/`, not in the profile's
-  saves folder, so they are not per profile and Copy saves cannot see them.
-- Dolphin wants `<system>/dolphin-emu/Sys` (the buildbot's `assets/system/Dolphin.zip`: AR code
-  handler, GC fonts, DSP ROM, game settings). Without it the core logs `Core file codehandler.bin
-  missing!` and cheats are off; Luigi's Mansion ran without it. Proper fix: a catalog "system
-  files" download into the system folder, as PPSSPP's `PPSSPP/` files need too.
+- PCSX2 keeps NVRAM, cache and cheats under `<system>/pcsx2/`. Its memory card is now one per game
+  in the profile's saves (`pcsx2_shared_memory_cards=disabled`, `<saves>/<rom stem>.ps2`; a game
+  without one starts from a copy of the old shared `Mcd001.ps2`). Shown on Crash Twinsanity: profile
+  a's card adopted the shared one (`starts from a copy of the shared card` in the log), profile b's
+  was made by the core in b's saves, the fresh system's `memcards` stayed empty
+  (`scratch/core-files/run/ps2-profile-{a,b}/`). Left: the card is not a `game_saves` slot, so Copy
+  saves, backups and sync do not carry it; no in-game save was written in the proof.
+- Dolphin's `Sys` comes with the core (`"systemFiles"`, `libretro/dolphin` `Data/Sys` at the core's
+  commit `32c61f9d`). Before: `Core file codehandler.bin missing!`, `Post-processing shader not
+  found` and on Wii `ScanDirectoryTree error on .../Sys/Wii`; after, a hidden openSU's update check
+  wrote 2639 files and none of the three lines appears on Luigi's Mansion or Donkey Kong Country
+  Returns (`scratch/core-files/run/{gc,wii}-{before,after}/runner.log`). PPSSPP's `PPSSPP/` assets
+  can use the same field; not pinned (no PSP game here to prove it).
 - Azahar maps the face buttons by position (south is 3DS B).
 - The core's Wii remote is its own default mapping (X is the remote's 2; A, Y, B and Start
   did nothing on the title's prompts), not the per-game table the standalone Dolphin gets (`library/wii_controls`).
