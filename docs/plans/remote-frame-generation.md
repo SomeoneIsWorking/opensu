@@ -210,6 +210,88 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
 - Step 5, the Android guest through `AHardwareBuffer`, timed on the tablet's GPU.
 - Step 6, the Windows guest.
 
+## Quality
+
+Asked for 2026-11-12: openSU's frame generation measurably better than Lossless Scaling's.
+
+### The harness
+
+`tools/framegen_quality` (`uv run --frozen --group framegen python -m tools.framegen_quality
+--scenes FILE`): each scene is recorded once at the full rate by a hidden `opensu-retro
+--frame-pngs` (1280x720, its own home, presses over its control channel), every other frame is
+left out, `opensu-framegen-pairs` makes it again from the real frames on either side through
+`frame_gen::Interpolator` (the same `GeneratorDevice`, images and Lossless generator remote play's
+guest runs), and each made frame is scored against the real one: PSNR over RGB, SSIM over luma and
+NVIDIA's FLIP (lower is better). `blend` (the two real frames mixed) and `repeat` (the earlier one)
+are references. Tables are over moving frames (the real frames on either side differ); runs,
+scores and the worst frames side by side (real before, left out, after; each generator's frame
+over its FLIP map) are in `scratch/framegen-quality/runs/<run>/`. Scenes are the player's own
+cores and games, named in a JSON file outside the tree.
+
+### Baseline and the choice
+
+Lossless's LSFG 3 shaders (the player's DLL 3.2.2.0, balanced, FP16, flow scale 1) against the
+references, run `base1`: on every scene with real motion Lossless is far ahead of `blend` and
+`repeat` (Super Metroid's intro FLIP 0.038 against 0.086 and 0.093). Where a game moves only every
+other frame (the scroll test ROM, which misses a vblank each frame and so moves every second one),
+the frame left out equals a real one and `repeat` is perfect while every interpolator is not.
+
+Of the three ways forward, openSU's own generator (d) came first: Lossless takes no motion
+vectors and only interpolates (`Generate` takes t in (0, 1)), so host-supplied vectors (b) and
+extrapolation (c) both need a generator of openSU's own anyway; PyroWave is intra only, so the
+host has no encoder vectors to send, only a second motion search of its own. (d) also removes the
+dependency on the player's DLL. FSR 3's interpolator needs the game's motion vectors and depth,
+which neither a libretro core nor a stream has; its optical flow (MIT at FidelityFX SDK `v1.1.4`,
+`docs/prior-art.md`) is the candidate to port if this generator's search falls short.
+
+### openSU's generator (`flow`)
+
+`src/frame_gen/flow_interpolator.cpp`, `shaders/flow_*.comp`, written from scratch: each real
+frame's luma in a 4-level pyramid; on its arrival the motion from the earlier real frame, one
+vector per 8x8 block of the frame between, searched symmetrically by the sum of absolute luma
+differences less their mean (so a fade moves nothing), every vector within 8 pixels at the
+coarsest level (64 in the frame) and each finer level's parents' 3x3 doubled and refined by 2;
+each pixel of a frame between then takes, of its block's and the 8 neighbours' vectors, the one
+whose two real pixels agree best over 3x3, and mixes the two frames there by t, bilinearly.
+
+Runs `v2` (three Super Metroid attract windows) and `v2-base` (the scenes of `base1`), the same
+recorded frames for both generators, 119 frames left out each:
+
+| scene | moving | PSNR Lossless / flow (dB) | SSIM Lossless / flow | FLIP Lossless / flow | FLIP worst 5% Lossless / flow |
+|---|---|---|---|---|---|
+| Super Metroid, rain over the ship | 119 | 26.58 / 27.15 | 0.829 / 0.868 | 0.0671 / 0.0552 | 0.173 / 0.168 |
+| Super Metroid, cave scroll | 119 | 26.12 / 26.17 | 0.797 / 0.814 | 0.0693 / 0.0622 | 0.111 / 0.109 |
+| Super Metroid, gameplay demo | 117 | 27.13 / 26.86 | 0.894 / 0.893 | 0.0513 / 0.0496 | 0.113 / 0.113 |
+| Super Metroid, intro text and fades | 75 | 29.64 / 29.82 | 0.947 / 0.949 | 0.0381 / 0.0347 | 0.075 / 0.073 |
+| Chrono Trigger, title | 53 | 44.10 / 43.72 | 0.997 / 0.997 | 0.0017 / 0.0016 | 0.003 / 0.003 |
+| Killer Instinct, title loop | 62 | 50.38 / 49.02 | 0.995 / 0.995 | 0.0080 / 0.0081 | 0.034 / 0.034 |
+| Kirby & the Amazing Mirror, title fade | 65 | 36.78 / 37.11 | 0.990 / 0.985 | 0.0333 / 0.0333 | 0.082 / 0.082 |
+| Monster in My Pocket, title | 22 | 45.17 / 50.34 | 0.997 / 0.998 | 0.0010 / 0.0010 | 0.002 / 0.002 |
+| scroll test ROM (moves every other frame) | 119 | 23.07 / 23.01 | 0.981 / 0.981 | 0.0120 / 0.0119 | 0.012 / 0.012 |
+
+What it shows: on the busy scenes `flow` is ahead by FLIP (18%, 10%, 3% and 9% lower on the four
+Super Metroid scenes) and by SSIM on three of them; elsewhere the two are within a few percent
+either way, and `flow`'s worst 5% PSNR is below Lossless's on seven scenes, by up to 1.1 dB
+(a PSNR mean counts a frame equal to the real one as 100 dB, which moves Monster in My Pocket's). It is better,
+not by much, and only shown on 16-bit content. The first `flow` (pixels rounded to whole places,
+search not mean-free) lost on the Kirby fade (worst 5% FLIP 0.103 against 0.082), which the
+mean-free search fixed. In the worst frames of both (`v2/worst/`) most error is a background that
+moved one pixel over two game frames: the left-out frame equals one real neighbour exactly, and
+both generators draw the half step.
+
+### Left
+
+- `flow` in the product: a generator choice beside Lossless in `settings::framegen_settings`, taken
+  by `RemoteFrameGen` (it already holds an `Interpolator`), and by the fork's Gamescope generator;
+  until then it runs only in the harness. Its GPU time per generated frame is not measured yet.
+- Odd displacements: a background that moves 1 pixel over two game frames is, in the truth, one
+  of the two real frames; deciding which (from the frames before) instead of drawing the half step
+  is where most of both generators' remaining error is.
+- Occlusion: a pixel uncovered between the two real frames takes the best-agreeing vector, not the
+  background's from the side it is visible in.
+- (b) and (c) on top of `flow`; the shell's own animated screens as scenes (they have no per-frame
+  dump yet).
+
 ## Found while planning step 3
 
 - openSU's PyroWave decoder runs on a Vulkan device of its own (`pyrowave_create_default_device`)
