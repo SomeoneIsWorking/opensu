@@ -91,6 +91,9 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   its refresh). Stage A adds an upload per real frame and a readback per shown frame.
 - Below 10 fps, while measuring, or within the tolerance of the target, real frames show as they
   come, as in the fork.
+- Planned: a decoded frame waits for the shell loop's next pass before it reaches the generator,
+  4 to 13 ms after its decode (`h-pace`, `h-grab2`); the decode thread waking the generator
+  removes that wait from the added latency.
 
 ## The setting
 
@@ -178,7 +181,16 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   pacing nor an uneven step; whether it is in the generator's output or the guest's copies is
   next, from a generated image read back beside its two real frames.
 - Before the grabs in `h-grab2`, the pacer held a phase where every present is generated
-  (t 0.19 and 0.69) for 8 s, as Gamescope's runs did; it is the pacer's, unchanged.
+  (t 0.19 and 0.69) for 8 s, as Gamescope's runs did. Replaying the run's logged arrivals and
+  vblanks through `CFramePacer` (`scratch/remote-framegen/pacer-harness/`, 818 of 853 plans as
+  logged, all 458 of `h-pace`) shows why: one skipped capture (a 50 ms interval at real frame 8)
+  holds the 15-interval mean high, the timeline runs about 5 ms ahead of the arrivals, and when
+  that interval leaves the history (frame 23) the aligned delay moves 1.7 ms, past the 5%
+  tolerance, so `PlanOnVBlanks` keeps the old delay while the timeline settles off the vblank grid,
+  until the delay stops fitting 275 real frames later. No judder (content steps 16.7 ms each
+  present) and content 6.6 ms newer than aligned, but no real frame shows. Retaking the aligned
+  delay once it has held still for 15 real frames cuts that run's offset plans from 318 to 58 with
+  no more delay jumps (7 against 9) and leaves `h-pace` unchanged; a fork change, not made.
 
 ## Found while planning step 3
 
