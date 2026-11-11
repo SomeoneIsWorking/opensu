@@ -47,7 +47,8 @@ def invite_secret(code: str) -> str:
 
 
 def installed_core() -> Path:
-    """The real mGBA core this machine's openSU downloaded, as a non-link core to play on."""
+    """The real mGBA core this machine's openSU downloaded: the link core for a GBA, and a core with
+    no link for a Game Boy."""
     core = Path.home() / ".local" / "share" / "opensu" / "cores" / "mgba_libretro.so"
     if not core.exists():
         raise RuntimeError(f"{core} is missing: download mGBA (built-in) in openSU first")
@@ -142,8 +143,8 @@ class Rig:
             )
         self.host, self.friend = made
         for each in (self.host, self.friend):
-            if any_core:
-                each.install_core(installed_core())
+            # mGBA's own release links GBA players and plays the Game Boy ROM alike.
+            each.install_core(installed_core())
             each.start()
 
     def close(self) -> None:
@@ -479,6 +480,7 @@ def found_line(who: Instance) -> str:
 def zerotier_traffic(rig: Rig) -> str:
     log = rig.context.out / "wire-zt0.log"
     lines = log.read_text().splitlines() if log.exists() else []
+    lines = [line for line in lines if not line.startswith(("tcpdump:", "listening on"))]
     if not lines:
         raise RuntimeError("nothing crossed zt0")
     return f"{len(lines)} packets on the host's zt0, first: {lines[0]}"
