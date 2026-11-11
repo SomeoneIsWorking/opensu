@@ -1893,6 +1893,14 @@ device. A tap on the read-only ROM folders row reaches no widget (`hitTest` take
 pressable ones): 21 finger taps across it moved nothing. The tablet's Sort by change at 12:13 on
 2026-11-06 had no frame of Sort by before the tap, while other agents shared the tablet.
 
+A game file directly in a ROM root is placed by an extension only one console uses
+(`RomSystem::loose`, `roms::readRoot`); a loose `.iso`, `.chd`, `.cue`, `.rvz` or `.zip` is left
+out and counted, as `dump_info` reads only a Wii disc's header. Adding a folder that holds no games
+says so and where they go; one with discs left out says how many need a console folder
+(`docs/issues/rom-folder-loose-files.md`). Seen in a hidden run on 2026-11-11 by pad
+(`scratch/rom-loose/`): a folder of `.gba`, `.gb`, `.nes` and `.sfc` files gave four console tiles
+on Home, an empty folder the no-games toast, wrapped onto three lines. Unverified: the tablet.
+
 Add a game is one of Library's add tiles (`app::LibraryAdditions`): Add a ROM folder opens
 Settings' own folder flow (Android's folder picker there) and the library reads the folder at once;
 Set up Steam, Epic, GOG, emulators, plugins and LAN each open that switch in Settings ›

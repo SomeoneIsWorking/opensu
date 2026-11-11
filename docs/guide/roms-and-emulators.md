@@ -9,6 +9,13 @@ Library › Add a ROM folder, adds one (on Android through the system's folder p
 folders automatically forgets the added ones; either is read at once, without a restart.
 `OPENSU_ROM_ROOTS` overrides the search ([environment.md](environment.md)).
 
+A game file directly in a ROM root, with no console folder, is placed by an extension only one
+console uses: `.nes`, `.fds`, `.sfc`, `.smc`, `.gb`, `.gbc`, `.gba`, `.z64`, `.n64`, `.v64`,
+`.nds`, `.3ds`, `.cci`, `.cxi`, `.gcm`, `.wbfs`, `.wux`, `.wud`, `.wua`, `.nsp`, `.xci`, `.nsz`,
+`.xcz`, `.gdi` and `.zar`. One whose extension several consoles share (`.iso`, `.chd`, `.cue`,
+`.rvz`, `.cso`, `.zip`, ...) is not guessed: it needs a folder named for its console. Adding a
+folder says when it holds no games, and how many loose files were left out.
+
 Settings › Library lists each added folder with Remove, which asks first. It only forgets the
 folder, one that is no longer on disk included: no file changes and its games leave Library at once.
 What belongs to those games stays: Home entries, play history, hidden marks, per-game settings and
