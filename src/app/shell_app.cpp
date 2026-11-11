@@ -234,8 +234,7 @@ void ShellApp::applyLayout() {
     }
     shell_.setTheme(interfaceThemeSettings_.current());
     grid.setHomeMode(interfaceThemeSettings_.homeMode(settings_.homeMode));
-    shell_.setUiScale(settings::uiScaleFactor(chosen.uiScale),
-                      settings::uiDisplayFactor(chosen.uiScale));
+    shell_.setUiScale(settings::uiScaleFactor(chosen.uiScale));
     shell_.setKeyboardStyle(chosen.keyboardStyle);
     if (standing_ != chosen.portrait) {
         standing_ = chosen.portrait;
@@ -1745,7 +1744,7 @@ int ShellApp::run() {
 bool ShellApp::openWindow(const std::string& title, bool hidden) {
     try {
         window_ = std::make_unique<ShellWindow>(ShellWindow::Options{
-            title, settings_.width, settings_.height, hidden, settings_.hiddenDp});
+            title, settings_.width, settings_.height, hidden, settings_.scale});
         shell_.attach(window_->device());
         remotePicture_ =
             std::make_unique<RemotePicture>(window_->device(), window_->importsDmabuf());

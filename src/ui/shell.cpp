@@ -9,14 +9,6 @@
 #include "lucent/log.h"
 
 namespace opensu::ui {
-namespace {
-
-// STOPGAP: Android reports a density and a desktop does not, so a dp is the window mapped onto
-// the 853 x 480 dp canvas iiSU's renderer scales against (tb0.g).
-constexpr float referenceWidthDp = 853.0f;
-constexpr float referenceHeightDp = 480.0f;
-
-} // namespace
 
 Shell::Shell(int width, int height, config::HomeMode mode, const std::filesystem::path& assetsDir)
     : text_{assetsDir}, icons_{assetsDir, images_}, grid_{mode, text_, icons_, images_},
@@ -46,9 +38,7 @@ SDL_GPUDevice& Shell::device() const {
 }
 
 float Shell::dp() const noexcept {
-    const float fit = std::min(static_cast<float>(width_) / referenceWidthDp,
-                               static_cast<float>(height_) / referenceHeightDp);
-    return std::max(fit * uiScale_, displayDp_ * uiDisplayScale_);
+    return displayDp_ * uiScale_;
 }
 
 Hud::Size Shell::hudSize() const noexcept {
@@ -107,10 +97,9 @@ void Shell::setSize(int width, int height) {
     frameGrid();
 }
 
-void Shell::setUiScale(float factor, float display) {
-    if (factor != uiScale_ || display != uiDisplayScale_) {
+void Shell::setUiScale(float factor) {
+    if (factor != uiScale_) {
         uiScale_ = factor;
-        uiDisplayScale_ = display;
         hud_.setSize(hudSize());
         frameGrid();
     }

@@ -32,7 +32,6 @@ constexpr const char* findRomFoldersKey = "findRomFolders";
 constexpr const char* gameFoldersKey = "gameFolders";
 constexpr const char* steamRootsKey = "steamRoots";
 constexpr const char* uiScaleKey = "uiScale";
-constexpr const char* uiScaleBaseKey = "uiScaleBase";
 constexpr const char* portraitKey = "portrait";
 constexpr const char* keyboardStyleKey = "keyboard";
 constexpr const char* nightLightKey = "nightLight";
@@ -379,22 +378,7 @@ Settings Store::load() const {
     read.paths(steamRootsKey, settings.steamRoots, "using the discovered Steam roots");
     read.installFolders(installFoldersKey, settings.installFolders,
                         "every store installs where it chooses");
-    // The interface size's base changed: a percent draws at 80% of what it used to, so a size
-    // saved before the change is moved up to keep the size the player chose.
-    const bool based = document.value(uiScaleBaseKey, 1) >= uiScaleBaseVersion;
-    int storedScale = -1;
-    read.integer(uiScaleKey, minUiScale, maxUiScale, storedScale, "using 100%");
-    if (storedScale >= 0) {
-        if (based) {
-            settings.uiScale = storedScale;
-        } else {
-            const float moved = static_cast<float>(storedScale) / uiScaleBase;
-            settings.uiScale =
-                std::clamp(static_cast<int>(std::lround(moved / static_cast<float>(uiScaleStep))) *
-                               uiScaleStep,
-                           minUiScale, maxUiScale);
-        }
-    }
+    read.integer(uiScaleKey, minUiScale, maxUiScale, settings.uiScale, "using 100%");
     read.boolean(portraitKey, settings.portrait, "standing in landscape");
     std::string runner;
     read.text(wineRunnerKey, runner, "using the newest GE-Proton");
@@ -547,7 +531,6 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {steamRootsKey, listOf(settings.steamRoots)},
         {installFoldersKey, folders},
         {uiScaleKey, settings.uiScale},
-        {uiScaleBaseKey, uiScaleBaseVersion},
         {portraitKey, settings.portrait},
         {keyboardStyleKey, std::string{input::key(settings.keyboardStyle)}},
         {nightLightKey, std::string{key(settings.nightLight)}},
@@ -638,10 +621,6 @@ config::Config resolved(config::Config base, const Settings& settings) {
 }
 
 float uiScaleFactor(int percent) noexcept {
-    return static_cast<float>(percent) / 100.0f * uiScaleBase;
-}
-
-float uiDisplayFactor(int percent) noexcept {
     return static_cast<float>(percent) / 100.0f;
 }
 

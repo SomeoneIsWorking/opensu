@@ -115,7 +115,9 @@ int main(int argc, char** argv) try {
     opensu::app::Settings settings{
         .width = config.width,
         .height = config.height,
-        .hiddenDp = config.hiddenDisplayScale,
+        .scale = {.stated = config.displayScale,
+                  .unscaled = config.insideGamescope,
+                  .connector = config.insideGamescope},
         .controlPort = arguments.hidden ? std::uint16_t{0} : config.controlPort,
         .lanPort = arguments.hidden ? std::uint16_t{0} : config.lanPort,
         .controlChannel = config.controlChannel,

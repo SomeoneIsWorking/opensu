@@ -45,18 +45,15 @@ SDL_Event eventOf(SDL_Window* window, const Finger& finger) {
     return event;
 }
 
-WindowSurface surfaceOf(SDL_Window* window, unsigned width, unsigned height) {
+WindowSurface surfaceOf(SDL_Window* window, unsigned width, unsigned height, float dp) {
     WindowSurface surface{.width = width,
                           .height = height,
                           .safeX = 0.0F,
                           .safeY = 0.0F,
                           .safeWidth = static_cast<float>(width),
                           .safeHeight = static_cast<float>(height),
-                          .dp = 1.0F};
+                          .dp = dp};
     const float density = SDL_GetWindowPixelDensity(window);
-    if (const float scale = SDL_GetWindowDisplayScale(window); scale > 0.0F) {
-        surface.dp = scale;
-    }
     SDL_Rect safe{};
     if (density > 0.0F && SDL_GetWindowSafeArea(window, &safe)) {
         surface.safeX = static_cast<float>(safe.x) * density;

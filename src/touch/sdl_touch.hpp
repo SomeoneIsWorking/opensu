@@ -14,7 +14,9 @@ namespace opensu::touch {
 [[nodiscard]] Finger fingerOf(const SDL_TouchFingerEvent& event, unsigned width, unsigned height);
 /// The event `finger`, in `window`'s pixels, comes as: a tool's way into the window's queue.
 [[nodiscard]] SDL_Event eventOf(SDL_Window* window, const Finger& finger);
-/// `window`, whose drawing target is `width` by `height` pixels: its safe area and pixels per dp.
-[[nodiscard]] WindowSurface surfaceOf(SDL_Window* window, unsigned width, unsigned height);
+/// `window`, whose drawing target is `width` by `height` pixels at `dp` pixels per dp
+/// (`display::DisplayScale`): its safe area.
+[[nodiscard]] WindowSurface surfaceOf(SDL_Window* window, unsigned width, unsigned height,
+                                      float dp);
 
 } // namespace opensu::touch

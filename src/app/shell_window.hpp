@@ -24,6 +24,7 @@
 #include "gpu2d/ui/widget.hpp"
 
 #include "display/output.hpp"
+#include "display/scale.hpp"
 #include "input/key_names.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "touch/touch_surface.hpp"
@@ -60,8 +61,8 @@ class ShellWindow {
         int height{};
         /// Unmapped and without vsync, for maintainer runs and still renders.
         bool hidden{false};
-        /// Hidden only: pixels per dp of the display it stands for (`Config::hiddenDisplayScale`).
-        float hiddenDp{1.0F};
+        /// Where the display's pixels per dp come from.
+        display::ScaleSource scale;
     };
 
     /// Records a frame into a target on the canvas.
@@ -130,7 +131,7 @@ class ShellWindow {
     /// Whether this machine has a touchscreen.
     [[nodiscard]] bool hasTouchscreen() const noexcept;
     /// The window as an on-screen pad covers it.
-    [[nodiscard]] touch::WindowSurface touchSurface() const;
+    [[nodiscard]] touch::WindowSurface touchSurface();
     /// Pixels in from each edge the interface keeps clear of (`contentInsets`).
     [[nodiscard]] gpu2d::ui::Insets contentInsets() const;
     /// Whether the system has an on-screen keyboard (Android's) a text field can ask for.
@@ -162,8 +163,8 @@ class ShellWindow {
     /// Posts the wheel turning `notches` at `at`, positive away from the player.
     void turnWheel(ui::Point at, float notches);
 
-    /// Pixels per dp of the display the window is on: SDL's display scale, 1 when it has none.
-    [[nodiscard]] float displayDp() const noexcept;
+    /// Pixels per dp of the display the window is on (`display::DisplayScale`).
+    [[nodiscard]] float displayDp();
 
     /// The window's new size, once per resize.
     [[nodiscard]] std::optional<gpu2d::PixelSize> takeResize() noexcept;
@@ -218,8 +219,7 @@ class ShellWindow {
     /// window: the pointer's place in frames that post nothing.
     std::optional<ui::Point> posted_;
     std::optional<gpu2d::PixelSize> resized_;
-    /// A hidden window's stated pixels per dp; none for a window on a display.
-    std::optional<float> hiddenDp_;
+    display::DisplayScale scale_;
     /// SDL hands app lifecycle events only to watchers, on whichever thread sends them.
     static bool watchLifecycle(void* self, SDL_Event* event);
     std::atomic<bool> foreground_{false};

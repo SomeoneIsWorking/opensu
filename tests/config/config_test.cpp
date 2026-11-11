@@ -40,12 +40,12 @@ int main(int argc, char** argv) try {
         return 0;
     }
     if (which == "display-scale") {
-        expect(config.hiddenDisplayScale == 2.625F, "OPENSU_DISPLAY_SCALE is read");
+        expect(config.displayScale == 2.625F, "OPENSU_DISPLAY_SCALE is read");
         std::printf("config: all checks passed\n");
         return 0;
     }
     if (which == "display-scale-default") {
-        expect(config.hiddenDisplayScale == 1.0F, "a hidden window is 1 pixel per dp unless told");
+        expect(!config.displayScale, "no scale is stated unless told");
         std::printf("config: all checks passed\n");
         return 0;
     }

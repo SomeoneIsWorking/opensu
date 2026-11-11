@@ -4,6 +4,7 @@
 
 #include <SDL3/SDL_video.h>
 
+#include "display/scale.hpp"
 #include "runner_window.hpp"
 
 namespace opensu::retro {
@@ -15,6 +16,8 @@ class SdlRunnerWindow final : public RunnerWindow {
         bool fullscreen{false};
         int width{1280};
         int height{800};
+        /// Where the display's pixels per dp come from.
+        display::ScaleSource scale;
     };
 
     /// Opens it; throws std::runtime_error when SDL's video or the window cannot start.
@@ -35,6 +38,7 @@ class SdlRunnerWindow final : public RunnerWindow {
 
   private:
     bool hidden_;
+    mutable display::DisplayScale scale_;
     SDL_Window* window_{nullptr};
 };
 

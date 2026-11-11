@@ -13,14 +13,17 @@ struct Output {
     int height{0};
     /// Zero or negative leaves the refresh rate to whoever shows it.
     int refreshHz{0};
+    /// The desktop's pixels per dp on it, which a nested Gamescope's windows are told
+    /// (`scaleVariable`); zero where there is no desktop.
+    float scale{0.0F};
 
     [[nodiscard]] bool native() const noexcept {
         return width <= 0 || height <= 0;
     }
 };
 
-/// The size and refresh rate of SDL display `display`, with SDL's video already up. Nothing when
-/// SDL cannot read its mode.
+/// The size, refresh rate and scale of SDL display `display`, with SDL's video already up. Nothing
+/// when SDL cannot read its mode.
 [[nodiscard]] std::optional<Output> displayOutput(std::uint32_t display);
 
 } // namespace opensu::display

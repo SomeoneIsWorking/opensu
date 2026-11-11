@@ -16,6 +16,7 @@
 
 #include <vulkan/vulkan.h>
 
+#include "display/scale.hpp"
 #include "frame_compositor.hpp"
 #include "frame_stages.hpp"
 #include "overlay_pass.hpp"
@@ -33,8 +34,8 @@ struct PresenterOptions {
     bool hosted{false};
     int width{1280};
     int height{800};
-    /// Hidden only: pixels per dp, which a window on a screen is told.
-    float hiddenDp{1.0F};
+    /// Where the display's pixels per dp come from, for a window of the runner's own.
+    display::ScaleSource scale;
     /// The Vulkan validation layer, with its errors counted.
     bool validation{false};
     /// A Vulkan core's context negotiation: the instance and device are made through it.

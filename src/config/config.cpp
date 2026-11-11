@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "clock/local_time.hpp"
+#include "display/scale.hpp"
 #include "install_layout.hpp"
 #include "launch/process_id.hpp"
 #include "locations.hpp"
@@ -37,17 +38,17 @@ int envInt(const char* name, int fallback) {
     return value;
 }
 
-float envScale(const char* name, float fallback) {
+std::optional<float> envScale(const char* name) {
     const std::string_view raw = env(name);
     if (raw.empty()) {
-        return fallback;
+        return std::nullopt;
     }
     float value = 0.0F;
     const auto [end, error] =
         lucent::text::from_chars_real(raw.data(), raw.data() + raw.size(), value);
     if (error != std::errc{} || end != raw.data() + raw.size() || value <= 0.0F) {
-        lucent::warn("config", "{} is not pixels per dp; using {}", name, fallback);
-        return fallback;
+        lucent::warn("config", "{} is not pixels per dp; leaving the scale to the display", name);
+        return std::nullopt;
     }
     return value;
 }
@@ -256,7 +257,7 @@ Config read() {
     value.clock24Hour = clock::localeClock24Hour();
     value.width = envInt("OPENSU_WIDTH", value.width);
     value.height = envInt("OPENSU_HEIGHT", value.height);
-    value.hiddenDisplayScale = envScale("OPENSU_DISPLAY_SCALE", value.hiddenDisplayScale);
+    value.displayScale = envScale(display::scaleVariable);
     value.controlPort = envPort("OPENSU_CONTROL_PORT", value.controlPort);
     value.lanPort = envPort("OPENSU_LAN_PORT", value.lanPort);
     value.controlChannel = envBool("OPENSU_CONTROL_CHANNEL", value.controlChannel);

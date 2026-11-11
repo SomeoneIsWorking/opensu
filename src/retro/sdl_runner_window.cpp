@@ -16,7 +16,8 @@
 
 namespace opensu::retro {
 
-SdlRunnerWindow::SdlRunnerWindow(const Options& options) : hidden_{options.hidden} {
+SdlRunnerWindow::SdlRunnerWindow(const Options& options)
+    : hidden_{options.hidden}, scale_{options.scale} {
     if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
         throw std::runtime_error{std::string{"video: "} + SDL_GetError()};
     }
@@ -135,7 +136,17 @@ VkExtent2D SdlRunnerWindow::pixels() const {
 }
 
 touch::WindowSurface SdlRunnerWindow::surface(unsigned width, unsigned height) const {
-    return touch::surfaceOf(window_, width, height);
+    const float dp =
+        scale_.of(window_, {.width = static_cast<int>(width), .height = static_cast<int>(height)});
+    // A hidden window is on no screen: it has no safe area but its own size.
+    if (hidden_) {
+        return touch::WindowSurface{.width = width,
+                                    .height = height,
+                                    .safeWidth = static_cast<float>(width),
+                                    .safeHeight = static_cast<float>(height),
+                                    .dp = dp};
+    }
+    return touch::surfaceOf(window_, width, height, dp);
 }
 
 void SdlRunnerWindow::inject(const touch::Finger& finger) {

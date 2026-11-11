@@ -141,9 +141,9 @@ struct Config {
     /// runner's.
     int width{1280};
     int height{800};
-    /// Pixels per dp of the display a hidden window stands for, from OPENSU_DISPLAY_SCALE; a
-    /// mapped window is told by the system.
-    float hiddenDisplayScale{1.0F};
+    /// Pixels per dp stated in OPENSU_DISPLAY_SCALE (`display::scaleVariable`); none leaves the
+    /// scale to `display::DisplayScale`.
+    std::optional<float> displayScale;
 
     /// The loopback control channel's port. Zero asks the system for a free one.
     std::uint16_t controlPort{7311};

@@ -3,6 +3,7 @@
 #include <chrono>
 #include <csignal>
 #include <ctime>
+#include <format>
 #include <fstream>
 #include <utility>
 
@@ -10,6 +11,7 @@
 
 #include <string_view>
 
+#include "display/scale.hpp"
 #include "launch/child_environment.hpp"
 #include "launch/command.hpp"
 #include "launch/process_launcher.hpp"
@@ -103,11 +105,17 @@ int CompositorSession::runOnce(const display::Output& output, const std::string&
                                const std::vector<std::string>& args, const sigset_t& signals) {
     launch::ProcessLauncher compositor;
     std::string failure;
+    std::vector<std::string> environment{std::string{sessionVariable} + "=" + session_,
+                                         std::string{launch::gamescopeWsiOff} + "=1",
+                                         std::string{qtOnXwayland}};
+    // A nested Gamescope's windows see no desktop, so they are told its scale.
+    if (output.scale > 0.0F) {
+        environment.push_back(std::string{display::scaleVariable} + "=" +
+                              std::format("{}", output.scale));
+    }
     if (!compositor.start(session_ + "-compositor.scope", gamescope_.string(),
-                          gamescopeArgs(output, self, args), failure,
-                          {std::string{sessionVariable} + "=" + session_,
-                           std::string{launch::gamescopeWsiOff} + "=1", std::string{qtOnXwayland}},
-                          {}, logOf(logDir_, output))) {
+                          gamescopeArgs(output, self, args), failure, environment, {},
+                          logOf(logDir_, output))) {
         lucent::error("session", "{}", failure);
         return -1;
     }

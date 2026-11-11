@@ -70,6 +70,7 @@ void Presenter::open() {
             .fullscreen = options_.fullscreen,
             .width = options_.width,
             .height = options_.height,
+            .scale = options_.scale,
         });
     }
     instance_ = std::make_unique<VulkanInstance>(window_->surfaceExtensions(), options_.validation,
@@ -315,13 +316,6 @@ touch::WindowSurface Presenter::surface() const {
         surface.width = extent_.width;
         surface.height = extent_.height;
         return surface;
-    }
-    if (options_.hidden) {
-        return touch::WindowSurface{.width = extent_.width,
-                                    .height = extent_.height,
-                                    .safeWidth = static_cast<float>(extent_.width),
-                                    .safeHeight = static_cast<float>(extent_.height),
-                                    .dp = options_.hiddenDp};
     }
     return window_->surface(extent_.width, extent_.height);
 }

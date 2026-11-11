@@ -76,11 +76,12 @@ std::optional<int> runInOwnSession(const config::Config& config, const config::A
             config.executablePath};
         return login.run(args);
     }
-    const std::optional<display::Output> output = session::readMonitor();
+    std::optional<display::Output> output = session::readMonitor();
     if (!output) {
         lucent::error("session", "no display to read the monitor from");
         return 1;
     }
+    output->scale = config.displayScale.value_or(output->scale);
     return session.run(*output, args);
 }
 

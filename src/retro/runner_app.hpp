@@ -12,6 +12,7 @@
 
 #include "arcade_cabinet.hpp"
 #include "core_options.hpp"
+#include "display/scale.hpp"
 #include "netplay_link.hpp"
 #include "settings/video_settings.hpp"
 
@@ -43,8 +44,8 @@ struct RunnerOptions {
     bool fullscreen{false};
     int width{1280};
     int height{800};
-    /// Hidden only: pixels per dp of the display it stands for (`Config::hiddenDisplayScale`).
-    float hiddenDp{1.0F};
+    /// Where the display's pixels per dp come from.
+    display::ScaleSource scale;
     /// Vulkan's validation layer; its errors end the run as ValidationErrors.
     bool validation{false};
     /// Stop after this many frames.
@@ -65,7 +66,7 @@ struct RunnerOptions {
     std::optional<NetplaySetup> netplay;
     /// The touch controls' art, where the runner draws its own (`shell_handoff`).
     std::filesystem::path touchArt;
-    /// Hidden only: the touch controls shown, at this many pixels per dp in place of `hiddenDp`.
+    /// Hidden only: the touch controls shown, at this many pixels per dp whatever `scale` says.
     std::optional<float> touchDp;
     /// Drawn in the shell's window: its surface where it can be, and the shell's input and
     /// menu in place of pads and a window of its own.

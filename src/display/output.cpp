@@ -14,7 +14,10 @@ std::optional<Output> displayOutput(std::uint32_t display) {
         lucent::warn("session", "no display mode for display {}: {}", display, SDL_GetError());
         return std::nullopt;
     }
-    return Output{mode->w, mode->h, static_cast<int>(std::lround(mode->refresh_rate))};
+    return Output{.width = mode->w,
+                  .height = mode->h,
+                  .refreshHz = static_cast<int>(std::lround(mode->refresh_rate)),
+                  .scale = SDL_GetDisplayContentScale(display)};
 }
 
 } // namespace opensu::display

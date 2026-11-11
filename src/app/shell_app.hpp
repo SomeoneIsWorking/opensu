@@ -135,8 +135,8 @@ namespace opensu::app {
 struct Settings {
     int width{1280};
     int height{800};
-    /// Pixels per dp of the display a hidden window stands for.
-    float hiddenDp{1.0F};
+    /// Where the display's pixels per dp come from; the window adds whether it is hidden.
+    display::ScaleSource scale;
     /// Where the loopback control channel listens. Zero asks for a free port.
     std::uint16_t controlPort{0};
     /// Where other openSUs on the LAN reach this one while LAN is on. Zero asks for a free port.

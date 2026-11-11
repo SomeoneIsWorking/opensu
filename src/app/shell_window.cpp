@@ -66,6 +66,16 @@ void sizeInDp(SDL_Window* window, display::Size dp) {
     SDL_SyncWindow(window);
 }
 
+/// A hidden window is on no screen: nothing scales it and no connector is its own.
+display::ScaleSource scaleSource(const ShellWindow::Options& options) {
+    display::ScaleSource source = options.scale;
+    if (options.hidden) {
+        source.unscaled = true;
+        source.connector = false;
+    }
+    return source;
+}
+
 gpu2d::WindowOptions windowOptions(const ShellWindow::Options& options) {
     return gpu2d::WindowOptions{.title = options.title,
                                 .width = options.width,
@@ -84,8 +94,7 @@ SDL_GPUCommandBuffer* acquireCommands(SDL_GPUDevice& device) {
 } // namespace
 
 ShellWindow::ShellWindow(const Options& options)
-    : window_{windowOptions(options)}, canvas_{window_.device()},
-      hiddenDp_{options.hidden ? std::optional<float>{options.hiddenDp} : std::nullopt} {
+    : window_{windowOptions(options)}, canvas_{window_.device()}, scale_{scaleSource(options)} {
     // A hidden window is the screen a tool names, whatever its size.
     if (!options.hidden) {
         sizeInDp(window_.window(), {.width = options.width, .height = options.height});
@@ -152,10 +161,10 @@ bool ShellWindow::hasTouchscreen() const noexcept {
     return count > 0;
 }
 
-touch::WindowSurface ShellWindow::touchSurface() const {
+touch::WindowSurface ShellWindow::touchSurface() {
     const gpu2d::PixelSize window = size();
     return touch::surfaceOf(window_.window(), static_cast<unsigned>(window.width),
-                            static_cast<unsigned>(window.height));
+                            static_cast<unsigned>(window.height), displayDp());
 }
 
 gpu2d::ui::Insets ShellWindow::contentInsets() const {
@@ -431,13 +440,9 @@ void ShellWindow::post(SDL_Event& event) {
     }
 }
 
-float ShellWindow::displayDp() const noexcept {
-    // A hidden window is on no display; the desktop's scale must not change a tool's frames.
-    if (hiddenDp_) {
-        return *hiddenDp_;
-    }
-    const float scale = SDL_GetWindowDisplayScale(window_.window());
-    return scale > 0.0f ? scale : 1.0f;
+float ShellWindow::displayDp() {
+    const gpu2d::PixelSize pixels = size();
+    return scale_.of(window_.window(), {.width = pixels.width, .height = pixels.height});
 }
 
 bool ShellWindow::takeForeground() noexcept {

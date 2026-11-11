@@ -195,8 +195,10 @@ int main(int argc, char** argv) try {
     }
     options->width = config.width;
     options->height = config.height;
-    options->hiddenDp = config.hiddenDisplayScale;
     options->fullscreen = config.insideGamescope && !options->hidden;
+    options->scale = {.stated = config.displayScale,
+                      .unscaled = config.insideGamescope || options->hidden,
+                      .connector = options->fullscreen};
     options->control = config.retroControl;
     options->librashader = config.librashader;
     options->touchArt = config.assetsDir / "touch";

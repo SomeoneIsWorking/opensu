@@ -44,6 +44,15 @@ namespace {
 using Clock = std::chrono::steady_clock;
 
 constexpr int outputRate = 48000;
+
+/// The window's scale source: the density a tool shows the touch controls at comes first.
+display::ScaleSource presenterScale(const RunnerOptions& options) {
+    display::ScaleSource scale = options.scale;
+    if (options.touchDp) {
+        scale.stated = options.touchDp;
+    }
+    return scale;
+}
 /// About 40 ms of sound buffered ahead of the device.
 constexpr std::size_t audioTarget = outputRate / 25;
 constexpr auto saveInterval = std::chrono::seconds{1};
@@ -264,7 +273,7 @@ RunnerExit RunnerApp::run() {
             .hosted = options_.embedded && !options_.hidden,
             .width = options_.width,
             .height = options_.height,
-            .hiddenDp = options_.touchDp.value_or(options_.hiddenDp),
+            .scale = presenterScale(options_),
             .validation = options_.validation,
             .negotiation = hardware.requested() ? hardware.negotiation() : nullptr,
             .video = options_.video,
