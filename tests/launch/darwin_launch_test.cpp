@@ -103,9 +103,14 @@ void grandchildEndsWithGroup(const fs::path& dir) {
                std::chrono::seconds{10}),
            "the started program exits");
     expect(launcher.running(), "the group runs on while its grandchild does");
-    expect(launch::table::commandLine(grandchild) == std::string{"sleep\0"
-                                                                 "60\0",
-                                                                 9},
+    // $! is written at fork, before the grandchild has exec'd sleep.
+    expect(waitUntil(
+               [grandchild] {
+                   return launch::table::commandLine(grandchild) == std::string{"sleep\0"
+                                                                                "60\0",
+                                                                                9};
+               },
+               std::chrono::seconds{10}),
            "the process table reads the grandchild's command line");
     launcher.stop();
     expect(waitUntil(
