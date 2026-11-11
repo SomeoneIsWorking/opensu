@@ -1,7 +1,6 @@
 #include "save_copy.hpp"
 
 #include <algorithm>
-#include <array>
 #include <format>
 #include <fstream>
 #include <iterator>
@@ -24,8 +23,6 @@ using json = nlohmann::json;
 using TimePoint = std::chrono::system_clock::time_point;
 
 constexpr std::string_view manifestFile = "backup.json";
-constexpr std::array kinds{SlotKind::Account, SlotKind::Device, SlotKind::Memory, SlotKind::State,
-                           SlotKind::Resume};
 
 /// A slot copied over another, or over one made for it.
 struct Pair {
@@ -229,7 +226,8 @@ std::vector<Pair> pairsOf(const EmulatorSaves& from, const EmulatorSaves& to, st
     return pairs;
 }
 
-/// `to`'s resume state when `pairs` replace its save RAM and bring none: it went with that save.
+/// `to`'s resume state when `pairs` replace its save RAM or card and bring none: it went with that
+/// save.
 const SaveSlot* outdatedResume(const std::vector<Pair>& pairs, const EmulatorSaves& to) {
     const auto copied = [&pairs](SlotKind kind) {
         return std::ranges::any_of(pairs, [kind](const Pair& pair) {
@@ -237,7 +235,8 @@ const SaveSlot* outdatedResume(const std::vector<Pair>& pairs, const EmulatorSav
         });
     };
     const SaveSlot* resume = to.slotFor(SlotKind::Resume);
-    const bool outdated = resume != nullptr && resume->modified && copied(SlotKind::Memory) &&
+    const bool outdated = resume != nullptr && resume->modified &&
+                          (copied(SlotKind::Memory) || copied(SlotKind::Card)) &&
                           !copied(SlotKind::Resume);
     return outdated ? resume : nullptr;
 }
@@ -256,7 +255,7 @@ fs::path newBackupFolder(const fs::path& parent, TimePoint now) {
 
 std::vector<const SaveSlot*> copiedSlots(const EmulatorSaves& from) {
     std::vector<const SaveSlot*> slots;
-    for (const SlotKind kind : kinds) {
+    for (const SlotKind kind : slotKinds) {
         const SaveSlot* slot = from.slotFor(kind);
         if (slot != nullptr && slot->modified) {
             slots.push_back(slot);

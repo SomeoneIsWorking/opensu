@@ -7,6 +7,7 @@
 // installed as one), the built-in runner's files from its own path owner (`retro/save_paths`).
 #pragma once
 
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
@@ -43,7 +44,13 @@ enum class SlotKind : std::uint8_t {
     State,
     /// The resume state Save and close left, which goes with the save RAM it was taken with.
     Resume,
+    /// The memory card a built-in core keeps of the game itself: LRPS2's `.ps2`.
+    Card,
 };
+
+/// Every kind, in the order a copy takes them.
+inline constexpr std::array slotKinds{SlotKind::Account, SlotKind::Device, SlotKind::Memory,
+                                      SlotKind::State,   SlotKind::Resume, SlotKind::Card};
 
 /// How a save RAM file is laid out, where emulators of one console differ (`save_formats`).
 enum class SaveFormat : std::uint8_t {
@@ -127,8 +134,8 @@ inline constexpr std::string_view runnerSavesId = "built-in";
 /// slots it keeps of the game for `profile`, which sits `seat` in openSU's order
 /// (`ProfileBook::seatOf`), none when it has none yet: standalone ones through
 /// their catalog `SaveStore`, the built-in runner's `.srm` and state in the profile's folder under
-/// `runnerSaves` (`Config::savesDir`), both listed where the runner keeps them, holding a file or
-/// not.
+/// `runnerSaves` (`Config::savesDir`), and LRPS2's card where LRPS2 is one of its cores, each
+/// listed where the runner keeps it, holding a file or not.
 [[nodiscard]] std::vector<EmulatorSaves> savesOf(const Game& game,
                                                  const roms::EmulatorCatalog& catalog,
                                                  const std::filesystem::path& runnerSaves,

@@ -1,5 +1,6 @@
 // A folder share as two openSUs see it: saves sealed by one open for the other with the same
-// passphrase, never with another, and a changed or swapped file is refused.
+// passphrase, never with another, and a changed or swapped file is refused; a memory card travels
+// as one.
 
 #include <array>
 #include <chrono>
@@ -104,6 +105,38 @@ void aResumeStateRidesOnlyWithItsSave(const fs::path& root) {
     expect(sent(alone) == 0, "and one with no save beside it never goes alone");
 }
 
+void aCardTravelsAsACard(const fs::path& root) {
+    using library::saves::SlotKind;
+    const fs::path card = root / "card" / "Crash Twinsanity (v1.00).ps2";
+    fs::create_directories(card.parent_path());
+    std::ofstream{card, std::ios::binary} << "memory card";
+    const library::saves::EmulatorSaves saves{
+        .emulatorId = "built-in",
+        .emulatorName = "Built-in",
+        .slots = {library::saves::SaveSlot{.kind = SlotKind::Card,
+                                           .user = {},
+                                           .current = false,
+                                           .root = card,
+                                           .content = {card},
+                                           .format = library::saves::SaveFormat::AsIs,
+                                           .bytes = 11,
+                                           .modified = std::chrono::system_clock::now()}},
+        .home = std::nullopt,
+        .processHint = {}};
+    std::string error;
+    const std::optional<save_sync::SaveBundle> bundle = save_sync::bundleOf(saves, error);
+    const std::optional<save_sync::SaveBundle> read =
+        bundle ? save_sync::readBundle(save_sync::write(*bundle)) : std::nullopt;
+    expect(read && read->files.size() == 1 && read->files[0].kind == SlotKind::Card &&
+               read->files[0].bytes == "memory card",
+           "a memory card is bundled and read back as a card");
+    const library::saves::EmulatorSaves staged =
+        save_sync::staged(*read, root / "card-staged", "Share");
+    expect(staged.slotFor(SlotKind::Card) != nullptr &&
+               bytesOf(staged.slotFor(SlotKind::Card)->content.front()) == "memory card",
+           "and staged as the card slot a copy takes");
+}
+
 void sealedSavesOpenOnlyWithThePassphrase(const fs::path& root) {
     const fs::path folder = root / "share";
     fs::create_directories(folder);
@@ -166,6 +199,7 @@ int main() try {
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "share-target"};
     sealedSavesOpenOnlyWithThePassphrase(scratch.path());
     aResumeStateRidesOnlyWithItsSave(scratch.path());
+    aCardTravelsAsACard(scratch.path());
     std::printf("share_target: all checks passed\n");
     return 0;
 } catch (...) {

@@ -2,7 +2,8 @@
 // a Flatpak's folders, the built-in runner's files by ROM name, and a copy between two emulators
 // backed up first and undone byte for byte, into a slot there or one made as the emulator would
 // make it (yuzu's folder, Ryubing's save id and index entry, Kenji-NX's game folder); mGBA's
-// `.sav` and DuckStation's cards copied with the runner, converted where their layouts differ.
+// `.sav` and DuckStation's cards copied with the runner, converted where their layouts differ;
+// LRPS2's card one of the runner's slots per profile.
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -553,7 +554,11 @@ roms::EmulatorCatalog cartridgeCatalog(const fs::path& root) {
           {{"id", "pcsx-rearmed-core"},
            {"name", "PCSX ReARMed (built-in)"},
            {"systems", {"psx"}},
-           {"core", "pcsx_rearmed_libretro"}}}}};
+           {"core", "pcsx_rearmed_libretro"}},
+          {{"id", "pcsx2-core"},
+           {"name", "PCSX2 (built-in)"},
+           {"systems", {"ps2"}},
+           {"core", "pcsx2_libretro"}}}}};
     std::string error;
     return opensu::test::need(roms::EmulatorCatalog::parse(catalog.dump(), "/home/p", error),
                               "the cartridge catalog parses");
@@ -654,6 +659,49 @@ void copiesPs1CardsBetweenDuckStationAndTheRunner() {
            "a shared card holds every game's, so DuckStation offers none to copy");
 }
 
+void keepsLrps2sCardPerProfile() {
+    const Rig rig;
+    const fs::path root = rig.scratch.path();
+    const roms::EmulatorCatalog catalog = cartridgeCatalog(root);
+    const Game game = romOf(root / "roms/ps2/Crash Twinsanity (v1.00).iso", "ps2",
+                            "Crash Twinsanity", {installed("PCSX2 (built-in)", "pcsx2-core")});
+    constexpr std::string_view other = "fedcba9876543210fedcba9876543210";
+    const fs::path here = rig.runner / "ps2";
+    const fs::path there = rig.saves / "profiles" / std::string{other} / "ps2";
+    const std::string card = std::string(0x8000, 'c');
+    write(there / "Crash Twinsanity (v1.00).ps2", card);
+    write(here / "Crash Twinsanity (v1.00).resume", "state with the old card");
+    const std::vector<EmulatorSaves> theirs = savesOf(game, catalog, rig.saves, other, 1);
+    const SaveSlot* theirCard = theirs.empty() ? nullptr : theirs[0].slotFor(SlotKind::Card);
+    expect(theirCard != nullptr && theirCard->root == there / "Crash Twinsanity (v1.00).ps2" &&
+               theirCard->format == SaveFormat::AsIs && theirs[0].bytes() == card.size(),
+           "LRPS2's card is a slot of the runner's saves, in the profile's own folder");
+    const std::vector<EmulatorSaves> mine = savesOf(game, catalog, rig.saves, player, firstSeat);
+    const SaveSlot* myCard = mine[0].slotFor(SlotKind::Card);
+    expect(myCard != nullptr && !myCard->modified &&
+               myCard->root == here / "Crash Twinsanity (v1.00).ps2",
+           "another profile's card is its own, not there yet");
+
+    const SaveKey key = opensu::test::need(keyOf(game, player), "the game has a key");
+    const SaveCopier copier{root / "state"};
+    CopyProgress progress;
+    expect(copier.copy(key, theirs[0], mine[0], std::chrono::system_clock::now(), progress).empty(),
+           "a card copies");
+    expect(read(here / "Crash Twinsanity (v1.00).ps2") == card &&
+               !fs::exists(here / "Crash Twinsanity (v1.00).resume"),
+           "the card lands and the resume state that went with the old one goes");
+    expect(copier.undo(key, runnerSavesId, progress).empty() &&
+               !fs::exists(here / "Crash Twinsanity (v1.00).ps2") &&
+               read(here / "Crash Twinsanity (v1.00).resume") == "state with the old card",
+           "undo removes the card and puts the resume state back");
+
+    const Game gba = romOf(root / "roms/gba/Minish Cap.gba", "gba", "Minish Cap",
+                           {installed("mGBA (built-in)", "mgba-core")});
+    expect(savesOf(gba, catalog, rig.saves, player, firstSeat)[0].slotFor(SlotKind::Card) ==
+               nullptr,
+           "a core that keeps no card has no card slot");
+}
+
 void seatsPlayAsTheEmulatorsOtherUsers() {
     const Rig rig;
     std::string users(0x650, '\0');
@@ -698,6 +746,7 @@ int main() try {
     readsEdensNewerLayoutAndFlatpaks();
     convertsMgbasSaveForTheRunner();
     copiesPs1CardsBetweenDuckStationAndTheRunner();
+    keepsLrps2sCardPerProfile();
     std::puts("game_saves: ok");
     return 0;
 } catch (...) {

@@ -1,7 +1,7 @@
-// save_copy — one emulator's saves of a game copied over another's, slot by slot for each kind
-// the source holds files in (`copiedSlots`); a slot the target lacks is made as that emulator
-// would make it (`plannedSlot`), one it keeps where nothing is yet is made there. The source can
-// be a target's saves staged on disk (`save_sync::SaveSync`). Save RAM copied without a resume
+// save_copy — one emulator's saves of a game copied over another's, slot by slot for each kind the
+// source holds files in (`copiedSlots`); a slot the target lacks is made as that emulator would
+// make it (`plannedSlot`), one it keeps where nothing is yet is made there. The source can be a
+// target's saves staged on disk (`save_sync::SaveSync`). Save RAM or a card copied without a resume
 // state removes the target's, which went with the save replaced. The target's slots, and what
 // making one changes, are copied whole into a backup first, `<system>/<game>/<emulator>/<UTC
 // time>/` under the profile's backups (`profileBackups`), with `backup.json` naming where each came

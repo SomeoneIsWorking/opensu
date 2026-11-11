@@ -32,7 +32,7 @@ using TimePoint = std::chrono::system_clock::time_point;
 constexpr std::array kindKeys{
     std::pair{SlotKind::Account, "account"}, std::pair{SlotKind::Device, "device"},
     std::pair{SlotKind::Memory, "memory"}, std::pair{SlotKind::State, "state"},
-    std::pair{SlotKind::Resume, "resume"}};
+    std::pair{SlotKind::Resume, "resume"}, std::pair{SlotKind::Card, "card"}};
 /// A header names a few thousand files at most.
 constexpr std::size_t largestHeader = std::size_t{16} * 1024 * 1024;
 

@@ -8,6 +8,7 @@
 #include "clock/file_time.hpp"
 #include "mgba_saves.hpp"
 #include "ps1_cards.hpp"
+#include "retro/lrps2_card.hpp"
 #include "retro/save_paths.hpp"
 #include "switch_saves.hpp"
 
@@ -53,16 +54,29 @@ fs::path runnerFolder(const fs::path& saves, std::string_view profile, const Gam
     return retro::systemSaveFolder(retro::profileSaveFolder(saves, profile), game.sourceId);
 }
 
-/// The runner's save RAM, state and resume state of `game` for `profile`, each where the runner
-/// keeps it whether it is there yet or not.
-std::vector<SaveSlot> runnerSlots(const fs::path& saves, std::string_view profile,
-                                  const Game& game) {
+/// Whether an installed built-in emulator of `game` runs LRPS2, which keeps its own card.
+bool keepsLrps2Card(const Game& game, const roms::EmulatorCatalog& catalog) {
+    return std::ranges::any_of(game.emulatorOptions, [&catalog](const EmulatorOption& option) {
+        const roms::EmulatorEntry* entry = option.installed ? catalog.find(option.id) : nullptr;
+        return entry != nullptr && entry->builtIn() &&
+               retro::coreName(entry->core) == retro::lrps2Core;
+    });
+}
+
+/// The runner's save RAM, state and resume state of `game` for `profile`, and LRPS2's card with
+/// `card`, each where the runner keeps it whether it is there yet or not.
+std::vector<SaveSlot> runnerSlots(const fs::path& saves, std::string_view profile, const Game& game,
+                                  bool card) {
     const fs::path folder = runnerFolder(saves, profile, game);
+    std::vector<std::pair<SlotKind, fs::path>> files{
+        {SlotKind::Memory, retro::saveMemoryFile(folder, game.file)},
+        {SlotKind::State, retro::saveStateFile(folder, game.file)},
+        {SlotKind::Resume, retro::resumeStateFile(folder, game.file)}};
+    if (card) {
+        files.emplace_back(SlotKind::Card, retro::lrps2CardFile(folder, game.file));
+    }
     std::vector<SaveSlot> slots;
-    for (const auto& [kind, file] :
-         {std::pair{SlotKind::Memory, retro::saveMemoryFile(folder, game.file)},
-          std::pair{SlotKind::State, retro::saveStateFile(folder, game.file)},
-          std::pair{SlotKind::Resume, retro::resumeStateFile(folder, game.file)}}) {
+    for (const auto& [kind, file] : files) {
         slots.push_back(
             SaveSlot{.kind = kind,
                      .root = file,
@@ -212,7 +226,8 @@ std::vector<EmulatorSaves> savesOf(const Game& game, const roms::EmulatorCatalog
             runnerListed = true;
             saves = EmulatorSaves{.emulatorId = std::string{runnerSavesId},
                                   .emulatorName = std::string{runnerName},
-                                  .slots = runnerSlots(runnerSaves, profile, game),
+                                  .slots = runnerSlots(runnerSaves, profile, game,
+                                                       keepsLrps2Card(game, catalog)),
                                   .home = std::nullopt,
                                   .processHint = {}};
             std::ranges::for_each(saves.slots, measure);
