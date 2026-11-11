@@ -78,10 +78,10 @@ class ZipHost {
 };
 
 void catalogPinIsRead() {
-    const std::string pinned = R"([{"id": "d", "name": "D (built-in)", "systems": ["gc"],
-        "core": "dolphin_libretro", "systemFiles": {"url": "https://h/a.zip", "sha256": ")" +
+    const std::string pinned = R"j([{"id": "d", "name": "D (built-in)", "systems": ["gc"],
+        "core": "dolphin_libretro", "systemFiles": {"url": "https://h/a.zip", "sha256": ")j" +
                                std::string(64, 'a') +
-                               R"(", "folder": "dolphin-1/Data/Sys", "into": "dolphin-emu/Sys"}}])";
+                               R"j(", "folder": "dolphin-1/Data/Sys", "into": "dolphin-emu/Sys"}}])j";
     std::string error;
     const EmulatorCatalog catalog =
         need(EmulatorCatalog::parse(R"({"emulators": )" + pinned + "}", "/home/p", error),
