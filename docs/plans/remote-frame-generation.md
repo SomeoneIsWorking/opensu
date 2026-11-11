@@ -137,3 +137,32 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
 ## Status
 
 - Step 1: this file (2026-11-11).
+- Step 2: done in fork `78dd9fb3` (branch `opensu`, pushed); openSU still pins `ecb71a2e`, and the
+  pin moves with step 3, its first consumer. `framegen/include/framegen/` is the public part
+  (`Device.h`: `DeviceDesc_t`, `IQueue`, `CDevice`; `FramePacer.h`; `LosslessGenerator.h`:
+  `CLosslessGenerator::Create`, `BeginSession`, `AddRealFrame`, `Generate` with output hooks,
+  each returning its `Submission_t`), the rest is private to `framegen/src/`. The standalone
+  CMake build installs `libframegen.a`, the headers and `framegen::framegen`.
+  Proof (headless Gamescope 1280x720 at 60 Hz, ffplay's 32 px bar at 16 px per frame and 30 fps,
+  fixed 2x, the player's DLL 3.2.2.0 balanced FP16; frames from Gamescope's PipeWire stream,
+  `scratch/remote-framegen/tools/gs_proof.py`, runs in `scratch/remote-framegen/runs/`): the pin's
+  binary (`gs-before-2x*`) and the new one (`gs-after-2x*`) both show 60 shown/s from 30 real/s,
+  every captured frame one full 32 px bar with no half-bright edge, advancing 8 px per shown frame
+  (the in-between at the half step); the linear blend on the new binary (`gs-after-blend`) shows
+  half-bright edges on every other frame and Off (`gs-after-off`) 16 px steps at 30 distinct/s.
+  Both binaries settle sometimes on a phase where every shown frame is generated (t 0.25 and 0.75:
+  60 generated/s, `gs-before-2x-r3`, `gs-after-2x-r4`), which is the pacer's, unchanged by the move.
+
+## Found while planning step 3
+
+- openSU's PyroWave decoder runs on a Vulkan device of its own (`pyrowave_create_default_device`)
+  and reads every picture back to CPU RGBA (`decode_cpu_buffer_synchronous`); the shell draws it
+  on SDL GPU's device. So the decoded frame is not yet a Vulkan image the guest can use: stage A
+  uploads it, and stage B decodes with PyroWave's direct API on the generator's device.
+- The generator's device needs `shaderFloat16` (else FP32 modules), `shaderStorageImageWriteWithoutFormat`,
+  `shaderStorageImageExtendedFormats` and robustness2's `nullDescriptor` (missing inputs are null
+  views), on a compute queue; the runner's `retro::VulkanDevice` is the libretro core's device and
+  enables none of them, so the guest makes its own.
+- The loader of shader modules reads them from a DLL path (`LoadLosslessShaders`); the guest needs
+  the same checks from modules held in memory, a public loader in `framegen/` beside it, and the
+  host the resource reader to send them (`PeResources`, private today).

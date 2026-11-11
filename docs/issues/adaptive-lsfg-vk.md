@@ -30,7 +30,12 @@ discarding the fork". So:
 
 ## Frame generation in the fork
 
-The fork's `src/FrameGen/` (pinned `d155d8c9`):
+The fork's `src/FrameGen/` (pinned `d155d8c9`). Since fork `78dd9fb3` the pacer and the Lossless
+generator (`FramePacer`, `LosslessGenerator` and its shaders, images, pipelines, `PeResources`,
+`SpirvInterface`) are the fork's `framegen/` library (MIT, its own CMake and meson build, raw Vulkan
+on a `framegen::CDevice` seam the host fills), which Gamescope links; `src/FrameGen/` keeps the
+capture (`CFrameGenerator`), the linear blend and `CLosslessSynthesizer`, the adapter onto
+Gamescope's device, queue, timestamps and textures (`docs/plans/remote-frame-generation.md`):
 - `FramePacer`: the one owner of how many images each real frame gets, their timestamps and when
   each is shown.
   - Base rate: the mean of the last 15 intervals between the times the real frames' buffers
