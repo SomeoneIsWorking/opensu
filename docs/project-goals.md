@@ -9,12 +9,15 @@ libretro core, Wine, Proton or other compatibility layer ships inside openSU or 
 each is the player's own install or a download openSU fetches and verifies at run time.
 openSU never reimplements a store's authentication, download or cloud sync.
 
-## G002 — iiSU's UI and UX, replicated
+## G002 — A console shell of its own
 
-Reproduce iiSU's interface and the way it behaves, not only its look, from
-facts reverse-engineered out of the iiSU APK rather than guessed from
-screenshots: screens, navigation, transitions, sounds, timings. The
-specification is `reference/design-reference.md` (private, see `re-frontier.md`).
+openSU has its own interface and sound, not a replica of another launcher's. The direction is a
+calm console menu in the spirit of the Wii's: pages of rounded live tiles, a soft light look,
+rounded type, gentle sounds and pointer-first navigation, driven equally well by a pad, a
+pointer (mouse, touch, a Wii Remote through a DolphinBar) and a keyboard. Its art, sounds and
+type are openSU's own or openly licensed; no Nintendo or iiSU asset, name or pixel-level copy.
+Replicating iiSU is no longer a goal (2026-11-11); what was built from it stays only where it is
+the better design.
 
 ## G003 — Gamepad in, game out
 
