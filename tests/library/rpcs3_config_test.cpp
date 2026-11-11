@@ -4,19 +4,27 @@
 #include "library/rpcs3_config.hpp"
 
 #include <cstdio>
+#include <filesystem>
 #include <string>
 #include <string_view>
 
 #include "library/ini_file.hpp"
+#include "support/launch_writes.hpp"
+#include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
 
 using opensu::library::iniValueIn;
+using opensu::library::LaunchSetup;
+using opensu::library::rpcs3DefaultProfile;
 using opensu::library::rpcs3GuiLaunchSettings;
+using opensu::library::rpcs3Id;
 using opensu::library::rpcs3PadProfile;
 using opensu::test::expect;
+using opensu::test::rewriteWritesNothing;
+using opensu::test::writtenOver;
 
 // The player's own: 1 and 3 on the keyboard, 2 off, 4 on an SDL pad.
 constexpr std::string_view player = "Player 1 Input:\n"
@@ -83,11 +91,24 @@ void testWelcome() {
     expect(rpcs3GuiLaunchSettings(set) == set, "a file already set stays byte for byte");
 }
 
+void testWrites() {
+    const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "rpcs3-config"};
+    const LaunchSetup setup{.emulatorId = std::string{rpcs3Id},
+                            .config = scratch.path(),
+                            .data = {},
+                            .padGuid = std::string{"0300cece5e0400008e02000010010000"}};
+    expect(writtenOver(setup, scratch.path() / rpcs3DefaultProfile, player) ==
+               rpcs3PadProfile(player),
+           "RPCS3's default input profile are written in place");
+    expect(rewriteWritesNothing(setup), "a second launch writes nothing");
+}
+
 } // namespace
 
 int main() try {
     testPads();
     testWelcome();
+    testWrites();
     std::printf("rpcs3_config: all checks passed\n");
     return 0;
 } catch (...) {

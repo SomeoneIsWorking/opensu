@@ -3,20 +3,28 @@
 #include "library/ryujinx_config.hpp"
 
 #include <cstdio>
+#include <filesystem>
 #include <string>
 #include <string_view>
 
 #include <nlohmann/json.hpp>
 
+#include "support/launch_writes.hpp"
+#include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
 
 using nlohmann::json;
+using opensu::library::LaunchSetup;
+using opensu::library::ryujinxId;
 using opensu::library::ryujinxLaunchSettings;
 using opensu::library::ryujinxPadId;
+using opensu::library::ryujinxSettingsFile;
 using opensu::test::expect;
+using opensu::test::rewriteWritesNothing;
+using opensu::test::writtenOver;
 
 constexpr std::string_view sdlGuid = "0300cece5e0400008e02000010010000";
 
@@ -106,6 +114,18 @@ void testFirstStart() {
            "player 1 plays the first virtual pad, not the keyboard");
 }
 
+void testWrites() {
+    const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "ryujinx-config"};
+    const LaunchSetup setup{.emulatorId = std::string{ryujinxId},
+                            .config = scratch.path(),
+                            .data = {},
+                            .padGuid = std::string{sdlGuid}};
+    expect(writtenOver(setup, scratch.path() / ryujinxSettingsFile, player) ==
+               ryujinxLaunchSettings(player, sdlGuid),
+           "Ryujinx's settings are written in place");
+    expect(rewriteWritesNothing(setup), "a second launch writes nothing");
+}
+
 } // namespace
 
 int main() try {
@@ -113,6 +133,7 @@ int main() try {
     testUpdateCheck();
     testPads();
     testFirstStart();
+    testWrites();
     std::printf("ryujinx_config: all checks passed\n");
     return 0;
 } catch (...) {

@@ -1,16 +1,16 @@
 // emulator_launch_config — the one owner of what a standalone emulator's own settings say for a
-// launch openSU starts. Each emulator with a rule has the files it names set for the run through
-// `LaunchFiles` and put back when the run ends; a crashed run's leftovers are put back first.
+// launch openSU starts. Each emulator with a rule has its settings applied to the files it names,
+// written in place before the run and left there; every other setting in them stays the player's.
 #pragma once
 
 #include <filesystem>
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
 
 #include "emulator_catalog.hpp"
 #include "game.hpp"
-#include "launch_files.hpp"
 #include "wii_controls.hpp"
 
 namespace opensu::library {
@@ -40,13 +40,20 @@ inline constexpr std::string_view virtualPadSdlName{"Xbox 360 Controller"};
                                                        const WiiControls& wii,
                                                        std::string_view padGuid);
 
-class EmulatorLaunchConfig {
-  public:
-    /// Puts back what a crashed run left, then sets the emulator's files for this run.
-    explicit EmulatorLaunchConfig(const LaunchSetup& setup);
-
-  private:
-    std::optional<LaunchFiles> files_;
+/// A settings file a rule writes, and the bytes it writes there.
+struct SettingsWrite {
+    std::filesystem::path path;
+    std::string bytes;
 };
+
+/// What `file` becomes: `settings` of what it says now, or of none when it is missing; nothing
+/// when that leaves it as it is, or when it cannot be read.
+[[nodiscard]] std::optional<SettingsWrite>
+settingsWriteOf(const std::filesystem::path& file,
+                const std::function<std::string(std::string_view)>& settings);
+
+/// Writes what `setup`'s emulator rule sets into its files, each replaced whole. One that cannot
+/// be written is logged and stays as it was.
+void writeLaunchSettings(const LaunchSetup& setup);
 
 } // namespace opensu::library

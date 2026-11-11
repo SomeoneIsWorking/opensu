@@ -14,7 +14,6 @@
 #include <vector>
 
 #include "emulator_launch_config.hpp"
-#include "launch_files.hpp"
 
 namespace opensu::library {
 
@@ -34,11 +33,8 @@ inline constexpr int duckstationPads{8};
 /// launcher-shortcut question off; with `virtualPads` false the pads stay the player's.
 [[nodiscard]] std::string duckstationLaunchSettings(std::string_view ini, bool virtualPads);
 
-/// The files the rule may set under `setup.config`.
-[[nodiscard]] std::vector<std::filesystem::path> duckstationFiles(const LaunchSetup& setup);
-
 /// The settings file, made when the player has none, and each input profile as the launch reads
 /// them.
-[[nodiscard]] std::vector<RunFile> duckstationRunFiles(const LaunchSetup& setup);
+[[nodiscard]] std::vector<SettingsWrite> duckstationWrites(const LaunchSetup& setup);
 
 } // namespace opensu::library

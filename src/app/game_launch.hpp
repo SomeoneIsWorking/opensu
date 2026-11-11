@@ -38,8 +38,7 @@ class GameLaunch {
 
     /// Starts `game` with each "NAME=value" of `environment` added to its environment; false when
     /// a game is already launching or running. `convert` serves a game whose launch has a
-    /// conversion; `setup` sets its emulator's settings for the run
-    /// (`library::EmulatorLaunchConfig`).
+    /// conversion; `setup` writes its emulator's settings first (`library::writeLaunchSettings`).
     /// Main loop only.
     bool start(library::Game game, std::vector<std::string> environment, Convert convert = {},
                std::optional<library::LaunchSetup> setup = {});

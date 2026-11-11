@@ -3,10 +3,13 @@
 #include "library/yuzu_config.hpp"
 
 #include <cstdio>
+#include <filesystem>
 #include <string>
 #include <string_view>
 
 #include "library/ini_file.hpp"
+#include "support/launch_writes.hpp"
+#include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
 
@@ -14,9 +17,13 @@ namespace {
 
 using opensu::library::IniKey;
 using opensu::library::iniValueIn;
+using opensu::library::LaunchSetup;
 using opensu::library::withIniValue;
 using opensu::library::yuzuLaunchSettings;
+using opensu::library::yuzuSettingsFile;
 using opensu::test::expect;
+using opensu::test::rewriteWritesNothing;
+using opensu::test::writtenOver;
 
 constexpr std::string_view sdlGuid = "0300cece5e0400008e02000010010000";
 // Eden zeroes the name's CRC.
@@ -148,6 +155,18 @@ void testHandheld() {
            "the handheld's SDL bindings play the first virtual pad");
 }
 
+void testWrites() {
+    const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "yuzu-config"};
+    const LaunchSetup setup{.emulatorId = std::string{"eden"},
+                            .config = scratch.path(),
+                            .data = {},
+                            .padGuid = std::string{sdlGuid}};
+    expect(writtenOver(setup, scratch.path() / yuzuSettingsFile, player) ==
+               yuzuLaunchSettings(player, sdlGuid),
+           "Eden's settings are written in place");
+    expect(rewriteWritesNothing(setup), "a second launch writes nothing");
+}
+
 } // namespace
 
 int main() try {
@@ -156,6 +175,7 @@ int main() try {
     testPads();
     testLayout();
     testHandheld();
+    testWrites();
     std::printf("yuzu_config: all checks passed\n");
     return 0;
 } catch (...) {

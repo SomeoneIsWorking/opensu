@@ -15,7 +15,6 @@
 #include <vector>
 
 #include "emulator_launch_config.hpp"
-#include "launch_files.hpp"
 
 namespace opensu::library {
 
@@ -39,10 +38,7 @@ inline constexpr int ryujinxNewestRead{71};
 /// first-start settings; `json` as it was when it is not Ryujinx's settings.
 [[nodiscard]] std::string ryujinxLaunchSettings(std::string_view json, std::string_view padGuid);
 
-/// The files the rule may set under the settings folder.
-[[nodiscard]] std::vector<std::filesystem::path> ryujinxFiles(const LaunchSetup& setup);
-
 /// `Config.json` as the launch reads it; made when the player has none.
-[[nodiscard]] std::vector<RunFile> ryujinxRunFiles(const LaunchSetup& setup);
+[[nodiscard]] std::vector<SettingsWrite> ryujinxWrites(const LaunchSetup& setup);
 
 } // namespace opensu::library

@@ -341,13 +341,9 @@ std::string ryujinxLaunchSettings(std::string_view json, std::string_view padGui
     return settings.dump(2);
 }
 
-std::vector<fs::path> ryujinxFiles(const LaunchSetup& setup) {
-    return {setup.config / ryujinxSettingsFile};
-}
-
-std::vector<RunFile> ryujinxRunFiles(const LaunchSetup& setup) {
-    std::optional<RunFile> run =
-        runFileOf(setup.config / ryujinxSettingsFile, [&setup](std::string_view player) {
+std::vector<SettingsWrite> ryujinxWrites(const LaunchSetup& setup) {
+    std::optional<SettingsWrite> run =
+        settingsWriteOf(setup.config / ryujinxSettingsFile, [&setup](std::string_view player) {
             return ryujinxLaunchSettings(player, setup.padGuid);
         });
     if (!run) {

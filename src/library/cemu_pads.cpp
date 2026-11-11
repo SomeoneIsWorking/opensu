@@ -50,27 +50,17 @@ std::string reboundCemuProfile(std::string_view profile, std::string_view uuid) 
     return out;
 }
 
-std::vector<fs::path> cemuFiles(const LaunchSetup& setup) {
-    const fs::path& config = setup.config;
-    std::vector<fs::path> files;
-    files.reserve(cemuControllers);
-    for (int controller = 0; controller < cemuControllers; ++controller) {
-        files.push_back(profileOf(config, controller));
-    }
-    return files;
-}
-
-std::vector<RunFile> cemuRunFiles(const LaunchSetup& setup) {
+std::vector<SettingsWrite> cemuWrites(const LaunchSetup& setup) {
     const fs::path& config = setup.config;
     const std::string_view padGuid = setup.padGuid;
-    std::vector<RunFile> files;
+    std::vector<SettingsWrite> files;
     if (padGuid.empty()) {
         return files;
     }
     for (int controller = 0; controller < cemuControllers; ++controller) {
         const std::string uuid = std::to_string(controller) + "_" + std::string{padGuid};
-        std::optional<RunFile> run =
-            runFileOf(profileOf(config, controller), [&](std::string_view player) {
+        std::optional<SettingsWrite> run =
+            settingsWriteOf(profileOf(config, controller), [&](std::string_view player) {
                 return reboundCemuProfile(player, uuid);
             });
         if (!run) {

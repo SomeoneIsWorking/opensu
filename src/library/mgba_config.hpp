@@ -13,7 +13,6 @@
 #include <vector>
 
 #include "emulator_launch_config.hpp"
-#include "launch_files.hpp"
 
 namespace opensu::library {
 
@@ -25,10 +24,7 @@ inline constexpr std::string_view mgbaSettingsFile{"config.ini"};
 /// The settings file `ini` with the virtual pads' input profile completed.
 [[nodiscard]] std::string mgbaLaunchSettings(std::string_view ini);
 
-/// The files the rule may set under the settings folder.
-[[nodiscard]] std::vector<std::filesystem::path> mgbaFiles(const LaunchSetup& setup);
-
 /// `config.ini` as the launch reads it; none when the game reads the pads themselves.
-[[nodiscard]] std::vector<RunFile> mgbaRunFiles(const LaunchSetup& setup);
+[[nodiscard]] std::vector<SettingsWrite> mgbaWrites(const LaunchSetup& setup);
 
 } // namespace opensu::library

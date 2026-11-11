@@ -85,10 +85,9 @@ bool GameLaunch::start(library::Game game, std::vector<std::string> environment,
             }
         }
         if (ready) {
-            // After the last launch's thread is joined, so its files are back first.
-            std::optional<library::EmulatorLaunchConfig> settings;
+            // After the last launch's thread is joined, so its emulator has saved its own settings.
             if (setup) {
-                settings.emplace(*setup);
+                library::writeLaunchSettings(*setup);
             }
             handoff_.start(copy, hooks, environment, failure);
         }

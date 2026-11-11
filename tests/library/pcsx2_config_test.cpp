@@ -3,11 +3,14 @@
 #include "library/pcsx2_config.hpp"
 
 #include <cstdio>
+#include <filesystem>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "library/ini_file.hpp"
+#include "support/launch_writes.hpp"
+#include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
 
@@ -16,9 +19,14 @@ namespace {
 using opensu::library::IniKey;
 using opensu::library::iniKeysIn;
 using opensu::library::iniValueIn;
+using opensu::library::LaunchSetup;
+using opensu::library::pcsx2Id;
 using opensu::library::pcsx2LaunchSettings;
 using opensu::library::pcsx2PadSettings;
+using opensu::library::pcsx2SettingsFile;
 using opensu::test::expect;
+using opensu::test::rewriteWritesNothing;
+using opensu::test::writtenOver;
 
 // The player's own layout: pad 1 on the keyboard, pad 2 on their second SDL pad, pad 3 a guitar.
 constexpr std::string_view player = "[UI]\n"
@@ -77,11 +85,24 @@ void testPads() {
            "a section's keys are listed in order");
 }
 
+void testWrites() {
+    const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "pcsx2-config"};
+    const LaunchSetup setup{.emulatorId = std::string{pcsx2Id},
+                            .config = scratch.path(),
+                            .data = {},
+                            .padGuid = std::string{"0300cece5e0400008e02000010010000"}};
+    expect(writtenOver(setup, scratch.path() / pcsx2SettingsFile, player) ==
+               pcsx2LaunchSettings(player, true),
+           "PCSX2's settings are written in place");
+    expect(rewriteWritesNothing(setup), "a second launch writes nothing");
+}
+
 } // namespace
 
 int main() try {
     testWizard();
     testPads();
+    testWrites();
     std::printf("pcsx2_config: all checks passed\n");
     return 0;
 } catch (...) {

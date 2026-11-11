@@ -3,19 +3,27 @@
 #include "library/azahar_config.hpp"
 
 #include <cstdio>
+#include <filesystem>
 #include <string>
 #include <string_view>
 
 #include "library/ini_file.hpp"
+#include "support/launch_writes.hpp"
+#include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
 
+using opensu::library::azaharId;
 using opensu::library::azaharLaunchSettings;
+using opensu::library::azaharSettingsFile;
 using opensu::library::IniKey;
 using opensu::library::iniValueIn;
+using opensu::library::LaunchSetup;
 using opensu::test::expect;
+using opensu::test::rewriteWritesNothing;
+using opensu::test::writtenOver;
 
 // Azahar keys a pad by SDL's full GUID, the name's CRC kept.
 constexpr std::string_view guid = "0300cece5e0400008e02000010010000";
@@ -83,11 +91,24 @@ void testPads() {
            "a player with no settings file still plays the first virtual pad");
 }
 
+void testWrites() {
+    const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "azahar-config"};
+    const LaunchSetup setup{.emulatorId = std::string{azaharId},
+                            .config = scratch.path(),
+                            .data = {},
+                            .padGuid = std::string{guid}};
+    expect(writtenOver(setup, scratch.path() / azaharSettingsFile, player) ==
+               azaharLaunchSettings(player, guid),
+           "Azahar's settings are written in place");
+    expect(rewriteWritesNothing(setup), "a second launch writes nothing");
+}
+
 } // namespace
 
 int main() try {
     testUpdateCheck();
     testPads();
+    testWrites();
     std::printf("azahar_config: all checks passed\n");
     return 0;
 } catch (...) {

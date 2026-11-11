@@ -214,9 +214,9 @@ std::vector<NamedProfile> namedProfiles(const LaunchSetup& setup) {
     return named;
 }
 
-void addRun(std::vector<RunFile>& files, const fs::path& file,
+void addRun(std::vector<SettingsWrite>& files, const fs::path& file,
             const std::function<std::string(std::string_view)>& run) {
-    if (std::optional<RunFile> set = runFileOf(file, run)) {
+    if (std::optional<SettingsWrite> set = settingsWriteOf(file, run)) {
         files.push_back(std::move(*set));
     }
 }
@@ -226,21 +226,24 @@ void addRun(std::vector<RunFile>& files, const fs::path& file,
 std::string dolphinSlotSettings(std::string_view ini, std::string_view section,
                                 DolphinController controller, int player, const WiiRemote* remote) {
     const IniKey device{.section = section, .key = deviceKey};
-    if (iniValueIn(ini, device).value_or("").starts_with(sdlSource)) {
-        return withIniValue(ini, device, virtualPad(player));
+    const bool onSdl = iniValueIn(ini, device).value_or("").starts_with(sdlSource);
+    if (controller == DolphinController::WiiRemote && remote == nullptr && !onSdl) {
+        return std::string{ini};
     }
     std::string out = withIniValue(ini, device, virtualPad(player));
     const auto set = [&out, section](std::string_view key, std::string_view value) {
         out = withIniValue(out, IniKey{.section = section, .key = key}, value);
     };
     if (controller == DolphinController::GameCube) {
-        for (const Mapping& mapping : gameCubePad) {
-            set(mapping.key, mapping.value);
+        if (!onSdl) {
+            for (const Mapping& mapping : gameCubePad) {
+                set(mapping.key, mapping.value);
+            }
         }
         return out;
     }
     if (remote == nullptr) {
-        return std::string{ini};
+        return out;
     }
     set("Extension", extensionNames.at(static_cast<std::size_t>(remote->extension)));
     set("Options/Sideways Wiimote", flag(remote->orientation == WiiOrientation::Sideways));
@@ -258,19 +261,8 @@ std::string dolphinSlotSettings(std::string_view ini, std::string_view section,
     return out;
 }
 
-std::vector<fs::path> dolphinFiles(const LaunchSetup& setup) {
-    std::vector<fs::path> files{setup.config / mainFile};
-    for (const ControllerFiles& controller : controllers) {
-        files.push_back(setup.config / controller.file);
-    }
-    for (NamedProfile& profile : namedProfiles(setup)) {
-        files.push_back(std::move(profile.path));
-    }
-    return files;
-}
-
-std::vector<RunFile> dolphinRunFiles(const LaunchSetup& setup) {
-    std::vector<RunFile> files;
+std::vector<SettingsWrite> dolphinWrites(const LaunchSetup& setup) {
+    std::vector<SettingsWrite> files;
     const WiiRemote* remote =
         setup.padGuid.empty() || !setup.wiiRemote ? nullptr : &*setup.wiiRemote;
     addRun(files, setup.config / mainFile, [remote](std::string_view settings) {

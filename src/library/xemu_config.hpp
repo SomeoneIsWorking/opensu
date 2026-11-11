@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "emulator_launch_config.hpp"
-#include "launch_files.hpp"
 
 namespace opensu::library {
 
@@ -27,10 +26,7 @@ inline constexpr int xemuPorts{4};
 /// empty, every port on the virtual pads.
 [[nodiscard]] std::string xemuLaunchSettings(std::string_view toml, std::string_view padGuid);
 
-/// The files the rule may set under `setup.config`.
-[[nodiscard]] std::vector<std::filesystem::path> xemuFiles(const LaunchSetup& setup);
-
 /// The settings file as the launch reads it, made when the player has none.
-[[nodiscard]] std::vector<RunFile> xemuRunFiles(const LaunchSetup& setup);
+[[nodiscard]] std::vector<SettingsWrite> xemuWrites(const LaunchSetup& setup);
 
 } // namespace opensu::library

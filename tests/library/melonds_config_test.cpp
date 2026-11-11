@@ -3,10 +3,14 @@
 #include "library/melonds_config.hpp"
 
 #include <cstdio>
+#include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 
 #include "library/ini_file.hpp"
+#include "support/launch_writes.hpp"
+#include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
 
@@ -14,8 +18,13 @@ namespace {
 
 using opensu::library::IniKey;
 using opensu::library::iniValueIn;
+using opensu::library::LaunchSetup;
+using opensu::library::melondsId;
 using opensu::library::melondsLaunchSettings;
+using opensu::library::melondsSettingsFile;
 using opensu::test::expect;
+using opensu::test::rewriteWritesNothing;
+using opensu::test::writtenOver;
 
 // melonDS's own first file: every joystick button unbound.
 constexpr std::string_view fresh = "[Instance0]\n"
@@ -56,11 +65,24 @@ void testPlayerButtons() {
     expect(value(run, {"Instance0", "JoystickID"}) == "0", "they play the first virtual pad");
 }
 
+void testWrites() {
+    const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "melonds-config"};
+    const LaunchSetup setup{.emulatorId = std::string{melondsId},
+                            .config = scratch.path(),
+                            .data = {},
+                            .padGuid = std::string{"0300cece5e0400008e02000010010000"}};
+    expect(writtenOver(setup, scratch.path() / melondsSettingsFile, std::nullopt) ==
+               melondsLaunchSettings(""),
+           "melonDS's settings, made when missing, are written in place");
+    expect(rewriteWritesNothing(setup), "a second launch writes nothing");
+}
+
 } // namespace
 
 int main() try {
     testDefaults();
     testPlayerButtons();
+    testWrites();
     std::printf("melonds_config: all checks passed\n");
     return 0;
 } catch (...) {

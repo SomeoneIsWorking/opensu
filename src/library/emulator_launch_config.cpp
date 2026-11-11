@@ -2,12 +2,17 @@
 
 #include <algorithm>
 #include <array>
+#include <system_error>
+#include <utility>
 #include <vector>
 
 #include "azahar_config.hpp"
 #include "cemu_pads.hpp"
 #include "dolphin_config.hpp"
 #include "duckstation_config.hpp"
+#include "fileio/atomic_write.hpp"
+#include "fileio/read_whole.hpp"
+#include "lucent/log.h"
 #include "melonds_config.hpp"
 #include "mgba_config.hpp"
 #include "pcsx2_config.hpp"
@@ -22,28 +27,27 @@ namespace {
 
 namespace fs = std::filesystem;
 
-/// One emulator's rule: the files it may set, and what they say for a run.
+/// One emulator's rule: what it writes into the emulator's settings.
 struct LaunchRule {
     std::string_view id;
-    std::vector<fs::path> (*files)(const LaunchSetup& setup);
-    std::vector<RunFile> (*runFiles)(const LaunchSetup& setup);
+    std::vector<SettingsWrite> (*writes)(const LaunchSetup& setup);
 };
 
 constexpr std::array rules{
-    LaunchRule{.id = cemuId, .files = cemuFiles, .runFiles = cemuRunFiles},
-    LaunchRule{.id = dolphinId, .files = dolphinFiles, .runFiles = dolphinRunFiles},
-    LaunchRule{.id = mgbaId, .files = mgbaFiles, .runFiles = mgbaRunFiles},
-    LaunchRule{.id = yuzuLineIds[0], .files = yuzuFiles, .runFiles = yuzuRunFiles},
-    LaunchRule{.id = yuzuLineIds[1], .files = yuzuFiles, .runFiles = yuzuRunFiles},
-    LaunchRule{.id = yuzuLineIds[2], .files = yuzuFiles, .runFiles = yuzuRunFiles},
-    LaunchRule{.id = ryujinxId, .files = ryujinxFiles, .runFiles = ryujinxRunFiles},
-    LaunchRule{.id = azaharId, .files = azaharFiles, .runFiles = azaharRunFiles},
-    LaunchRule{.id = pcsx2Id, .files = pcsx2Files, .runFiles = pcsx2RunFiles},
-    LaunchRule{.id = melondsId, .files = melondsFiles, .runFiles = melondsRunFiles},
-    LaunchRule{.id = rpcs3Id, .files = rpcs3Files, .runFiles = rpcs3RunFiles},
-    LaunchRule{.id = duckstationId, .files = duckstationFiles, .runFiles = duckstationRunFiles},
-    LaunchRule{.id = xemuId, .files = xemuFiles, .runFiles = xemuRunFiles},
-    LaunchRule{.id = shadps4Id, .files = shadps4Files, .runFiles = shadps4RunFiles},
+    LaunchRule{.id = cemuId, .writes = cemuWrites},
+    LaunchRule{.id = dolphinId, .writes = dolphinWrites},
+    LaunchRule{.id = mgbaId, .writes = mgbaWrites},
+    LaunchRule{.id = yuzuLineIds[0], .writes = yuzuWrites},
+    LaunchRule{.id = yuzuLineIds[1], .writes = yuzuWrites},
+    LaunchRule{.id = yuzuLineIds[2], .writes = yuzuWrites},
+    LaunchRule{.id = ryujinxId, .writes = ryujinxWrites},
+    LaunchRule{.id = azaharId, .writes = azaharWrites},
+    LaunchRule{.id = pcsx2Id, .writes = pcsx2Writes},
+    LaunchRule{.id = melondsId, .writes = melondsWrites},
+    LaunchRule{.id = rpcs3Id, .writes = rpcs3Writes},
+    LaunchRule{.id = duckstationId, .writes = duckstationWrites},
+    LaunchRule{.id = xemuId, .writes = xemuWrites},
+    LaunchRule{.id = shadps4Id, .writes = shadps4Writes},
 };
 
 const LaunchRule* ruleOf(std::string_view id) {
@@ -73,13 +77,40 @@ std::optional<LaunchSetup> launchSetupOf(const Game& game, const roms::EmulatorC
                                         : std::nullopt};
 }
 
-EmulatorLaunchConfig::EmulatorLaunchConfig(const LaunchSetup& setup) {
+std::optional<SettingsWrite>
+settingsWriteOf(const fs::path& file,
+                const std::function<std::string(std::string_view)>& settings) {
+    std::string now;
+    std::error_code missing;
+    if (fs::exists(file, missing)) {
+        std::string error;
+        std::optional<std::string> read = fileio::readWhole(file, error);
+        if (!read) {
+            lucent::warn("emulator", "{} is left as it is: {}", file.string(), error);
+            return std::nullopt;
+        }
+        now = std::move(*read);
+    }
+    std::string bytes = settings(now);
+    if (bytes == now) {
+        return std::nullopt;
+    }
+    return SettingsWrite{.path = file, .bytes = std::move(bytes)};
+}
+
+void writeLaunchSettings(const LaunchSetup& setup) {
     const LaunchRule* rule = ruleOf(setup.emulatorId);
     if (rule == nullptr) {
         return;
     }
-    LaunchFiles::recover(rule->files(setup));
-    files_.emplace(rule->runFiles(setup));
+    for (const SettingsWrite& write : rule->writes(setup)) {
+        std::string error;
+        if (!fileio::writeWhole(write.path, write.bytes, error)) {
+            lucent::warn("emulator", "{} is left as it was: {}", write.path.string(), error);
+            continue;
+        }
+        lucent::info("emulator", "{} written for the launch", write.path.string());
+    }
 }
 
 } // namespace opensu::library

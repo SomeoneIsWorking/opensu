@@ -53,6 +53,19 @@ constexpr SdlPadLayout layout{.emulator = "duckstation",
                               .firstPadType = analogController,
                               .defaults = defaults};
 
+/// The settings files the rule reads under `setup.config`.
+std::vector<fs::path> settingsFiles(const LaunchSetup& setup) {
+    std::vector<fs::path> files{setup.config / duckstationSettingsFile};
+    std::error_code error;
+    fs::directory_iterator entry(setup.config / duckstationProfilesFolder, error);
+    for (; !error && entry != fs::directory_iterator{}; entry.increment(error)) {
+        if (entry->path().extension() == ".ini") {
+            files.push_back(entry->path());
+        }
+    }
+    return files;
+}
+
 } // namespace
 
 std::string duckstationPadSettings(std::string_view ini) {
@@ -67,29 +80,17 @@ std::string duckstationLaunchSettings(std::string_view ini, bool virtualPads) {
     return virtualPads ? duckstationPadSettings(out) : out;
 }
 
-std::vector<fs::path> duckstationFiles(const LaunchSetup& setup) {
-    std::vector<fs::path> files{setup.config / duckstationSettingsFile};
-    std::error_code error;
-    fs::directory_iterator entry(setup.config / duckstationProfilesFolder, error);
-    for (; !error && entry != fs::directory_iterator{}; entry.increment(error)) {
-        if (entry->path().extension() == ".ini") {
-            files.push_back(entry->path());
-        }
-    }
-    return files;
-}
-
-std::vector<RunFile> duckstationRunFiles(const LaunchSetup& setup) {
+std::vector<SettingsWrite> duckstationWrites(const LaunchSetup& setup) {
     const bool virtualPads = !setup.padGuid.empty();
-    std::vector<RunFile> files;
-    for (const fs::path& file : duckstationFiles(setup)) {
-        std::optional<RunFile> run =
+    std::vector<SettingsWrite> files;
+    for (const fs::path& file : settingsFiles(setup)) {
+        std::optional<SettingsWrite> run =
             file == setup.config / duckstationSettingsFile
-                ? runFileOf(file,
-                            [&](std::string_view ini) {
-                                return duckstationLaunchSettings(ini, virtualPads);
-                            })
-                : runFileOf(file, [&](std::string_view ini) {
+                ? settingsWriteOf(file,
+                                  [&](std::string_view ini) {
+                                      return duckstationLaunchSettings(ini, virtualPads);
+                                  })
+                : settingsWriteOf(file, [&](std::string_view ini) {
                       return virtualPads ? duckstationPadSettings(ini) : std::string{ini};
                   });
         if (run) {

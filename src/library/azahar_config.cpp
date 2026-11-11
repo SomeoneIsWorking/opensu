@@ -107,13 +107,9 @@ std::string azaharLaunchSettings(std::string_view ini, std::string_view padGuid)
     return withProfile(std::move(out), padGuid);
 }
 
-std::vector<fs::path> azaharFiles(const LaunchSetup& setup) {
-    return {setup.config / azaharSettingsFile};
-}
-
-std::vector<RunFile> azaharRunFiles(const LaunchSetup& setup) {
-    std::optional<RunFile> run =
-        runFileOf(setup.config / azaharSettingsFile, [&setup](std::string_view player) {
+std::vector<SettingsWrite> azaharWrites(const LaunchSetup& setup) {
+    std::optional<SettingsWrite> run =
+        settingsWriteOf(setup.config / azaharSettingsFile, [&setup](std::string_view player) {
             return azaharLaunchSettings(player, setup.padGuid);
         });
     if (!run) {

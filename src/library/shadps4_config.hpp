@@ -13,7 +13,6 @@
 #include <vector>
 
 #include "emulator_launch_config.hpp"
-#include "launch_files.hpp"
 
 namespace opensu::library {
 
@@ -28,10 +27,7 @@ inline constexpr int shadps4Slots{4};
 /// each, or when it cannot be read.
 [[nodiscard]] std::string shadps4LaunchUsers(std::string_view json);
 
-/// The files the rule may set under `setup.config`.
-[[nodiscard]] std::vector<std::filesystem::path> shadps4Files(const LaunchSetup& setup);
-
 /// The user list as the launch reads it; nothing when the player has none.
-[[nodiscard]] std::vector<RunFile> shadps4RunFiles(const LaunchSetup& setup);
+[[nodiscard]] std::vector<SettingsWrite> shadps4Writes(const LaunchSetup& setup);
 
 } // namespace opensu::library

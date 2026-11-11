@@ -1,16 +1,18 @@
-// DuckStation's settings.ini as a launch reads it: the update check, setup wizard and launcher
+// DuckStation's settings.ini as a launch writes it: the update check, setup wizard and launcher
 // question off, SDL bindings on the Nth virtual pad, a pad bound only to the keyboard given
-// DuckStation's SDL layout.
+// DuckStation's SDL layout; a second launch writes nothing.
 #include "library/duckstation_config.hpp"
 
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <string>
 #include <string_view>
 
 #include "library/emulator_launch_config.hpp"
 #include "library/ini_file.hpp"
+#include "support/launch_writes.hpp"
 #include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
@@ -21,11 +23,17 @@ namespace fs = std::filesystem;
 
 using opensu::library::duckstationLaunchSettings;
 using opensu::library::duckstationPadSettings;
-using opensu::library::duckstationRunFiles;
 using opensu::library::IniKey;
 using opensu::library::iniValueIn;
 using opensu::library::LaunchSetup;
+using opensu::library::writeLaunchSettings;
 using opensu::test::expect;
+using opensu::test::rewriteWritesNothing;
+
+std::string read(const fs::path& file) {
+    std::ifstream in{file, std::ios::binary};
+    return {std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
+}
 
 // Pad 1 on the keyboard, pad 2 on a DualSense by its persistent identifier, pad 3 a mouse.
 constexpr std::string_view player = "[Main]\n"
@@ -83,7 +91,7 @@ void testPads() {
            "a digital pad keeps its type and gets the layout");
 }
 
-void testRunFiles() {
+void testWrites() {
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "duckstation-config"};
     const fs::path& root = scratch.path();
     fs::create_directories(root / "inputprofiles");
@@ -93,20 +101,16 @@ void testRunFiles() {
                             .config = root,
                             .data = {},
                             .padGuid = "0300cece5e0400008e02000010010000"};
-    const auto files = duckstationRunFiles(setup);
-    expect(files.size() == 2, "the settings file, which the player lacks, and the profile are set");
-    bool made = false;
-    bool profile = false;
-    for (const auto& file : files) {
-        if (file.path == root / "settings.ini") {
-            made = value(file.bytes, {"Main", "NoDesktopFile"}) == "true" &&
-                   value(file.bytes, {"Pad1", "Cross"}) == "SDL-0/A";
-        } else if (file.path == root / "inputprofiles" / "Pad.ini") {
-            profile = value(file.bytes, {"Pad1", "Cross"}) == "SDL-0/A";
-        }
-    }
-    expect(made, "the made settings file has the prompts off and the first virtual pad");
-    expect(profile, "an input profile's pad 1 plays the first virtual pad");
+    writeLaunchSettings(setup);
+    const std::string made = read(root / "settings.ini");
+    expect(made == duckstationLaunchSettings("", true),
+           "the settings file the player lacks is made");
+    expect(value(made, {"Main", "NoDesktopFile"}) == "true" &&
+               value(made, {"Pad1", "Cross"}) == "SDL-0/A",
+           "the made settings file has the prompts off and the first virtual pad");
+    expect(value(read(root / "inputprofiles" / "Pad.ini"), {"Pad1", "Cross"}) == "SDL-0/A",
+           "an input profile's pad 1 plays the first virtual pad");
+    expect(rewriteWritesNothing(setup), "a second launch writes nothing");
 }
 
 } // namespace
@@ -114,7 +118,7 @@ void testRunFiles() {
 int main() try {
     testPrompts();
     testPads();
-    testRunFiles();
+    testWrites();
     std::printf("duckstation_config: all checks passed\n");
     return 0;
 } catch (...) {

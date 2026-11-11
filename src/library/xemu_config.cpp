@@ -27,13 +27,9 @@ std::string xemuLaunchSettings(std::string_view toml, std::string_view padGuid) 
     return out;
 }
 
-std::vector<fs::path> xemuFiles(const LaunchSetup& setup) {
-    return {setup.config / xemuSettingsFile};
-}
-
-std::vector<RunFile> xemuRunFiles(const LaunchSetup& setup) {
-    std::optional<RunFile> run =
-        runFileOf(setup.config / xemuSettingsFile, [&](std::string_view toml) {
+std::vector<SettingsWrite> xemuWrites(const LaunchSetup& setup) {
+    std::optional<SettingsWrite> run =
+        settingsWriteOf(setup.config / xemuSettingsFile, [&](std::string_view toml) {
             return xemuLaunchSettings(toml, setup.padGuid);
         });
     if (!run) {

@@ -61,12 +61,9 @@ std::string shadps4LaunchUsers(std::string_view text) {
     return added ? root.dump(2) : std::string{text};
 }
 
-std::vector<fs::path> shadps4Files(const LaunchSetup& setup) {
-    return {setup.config / shadps4UsersFile};
-}
-
-std::vector<RunFile> shadps4RunFiles(const LaunchSetup& setup) {
-    std::optional<RunFile> run = runFileOf(setup.config / shadps4UsersFile, shadps4LaunchUsers);
+std::vector<SettingsWrite> shadps4Writes(const LaunchSetup& setup) {
+    std::optional<SettingsWrite> run =
+        settingsWriteOf(setup.config / shadps4UsersFile, shadps4LaunchUsers);
     if (!run) {
         return {};
     }

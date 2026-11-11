@@ -12,18 +12,18 @@ emulators. We can make our own updater".
   pad profile written when none does.
 - No emulator stops on a dialog a pad cannot close at start: its own update check, first-run
   wizard or "new version" prompt is off for openSU's launches.
-- The player's own files come back byte-identical when the emulator ends; a crash's leftovers are put
-  back at the next launch. Starting the emulator outside openSU behaves as before.
+- openSU's settings stay in the emulator's own files: decided by the player on 2026-11-11 ("It can
+  change emulator configs permanently, no reason to restore it"). Starting the emulator outside
+  openSU then runs with them too.
 - Updates come from openSU: Settings › Emulators checks and installs each emulator's official
   build (`library/emulator_release`, `app/emulator_downloads`), for every emulator that publishes
   one.
 
 ## Order
 
-1. One owner for launch-time config: what `library/cemu_pads` does for Cemu (set for the run, put
-   back after, leftovers recovered), extended to a per-emulator rule, with Cemu its first user.
-   Built: `library/emulator_launch_config` (the rules), `library/launch_files` (set, put back,
-   recovered; a file the player lacked made and removed).
+1. One owner for launch-time config: what `library/cemu_pads` does for Cemu, extended to a
+   per-emulator rule, with Cemu its first user. Built: `library/emulator_launch_config` (the rules
+   and `writeLaunchSettings`, which writes what they set).
 2. Eden and its family (Citron, Sudachi): the Eden update prompt reproduced from boot and turned off for the
    launch; `qt-config.ini`'s `player_N_*` SDL bindings retargeted to the virtual pads' GUID and
    port, and a default profile when the player has none. Built (`library/yuzu_config`): the
@@ -50,20 +50,16 @@ emulators. We can make our own updater".
    virtual pad with player 1 off and presses took Kirby Star Allies from "Press A" to file select;
    the seeded copy came back byte-identical (`f70ffe39…`), the real `qt-config.ini` (`0579ff17…`)
    untouched.
-   Settings changed in the emulator during a launch are lost: the player's file is put back
-   whole. Not built, since it does not generalise inside `library/launch_files`: a line or byte
-   merge of the run's file and what the emulator left is wrong for every emulator that rewrites its
-   whole file in its own order and format (Eden's Qt settings, Ryujinx's JSON, Dolphin's INI),
-   where it would carry openSU's own values or duplicate keys. The design: the rule that made a
-   file also merges it back. `RunFile` carries a `merge(player, run, ended)` from the rule; at put
-   back, `LaunchFiles` reads what the emulator left and writes the merge in place of the player's
-   kept bytes, the kept file staying until that write succeeds. A merge reads the three by key in
-   the file's own format (the INI, Qt, JSON, TOML, YAML and XML owners the rules already use) and
-   takes from `ended` each key whose value differs from `run` and that the rule did not set
-   (`run` equal to `player` there), so openSU's bindings and prompts never leak back. A crash's
-   `recover` has no `run` and puts the player's file back as now. Values an emulator writes on its
-   own, a migration or a new default, are carried too, which it would write at its next start
-   anyway. Each rule gains its merge in its own change.
+   Written in place, kept: before each launch the rule reads the emulator's file as it is now,
+   applies its settings and, when that changes the bytes, writes the result through
+   `fileio::writeWhole` (a `.part` file beside it renamed over it), so the emulator never reads a
+   half-written file. Nothing is put back when the emulator ends. A file the rule makes because the
+   player had none (Ryujinx's first-start `Config.json`, Dolphin's `Dolphin.ini`, melonDS's
+   `melonDS.toml`) stays. Every key the rule does not set keeps what the player or the emulator last
+   wrote, so a setting changed inside the emulator survives; a key the rule sets is set again at the
+   next launch. A rule applied to its own output changes nothing, so a second launch writes no file
+   (each rule's focused test checks both). A Wii game's remote (step 4) is applied to the emulated
+   slots at every launch, since every Wii game shares them.
 3. Each other standalone emulator, each with a reproduction of whether a virtual pad reaches the game today
    and what its config binds by (SDL index, name or GUID): Ryujinx, Dolphin, PCSX2, RPCS3,
    DuckStation, PPSSPP, Azahar, melonDS, xemu, Xenia Canary, shadPS4, mGBA. One emulator per change.
@@ -103,7 +99,7 @@ emulators. We can make our own updater".
    It also says where the pointer goes on a pad (the right stick works best) and where shake and
    motion go. A game not listed gets a generic remote plus Nunchuk. The pick is written as a
    Dolphin per-game input profile (`GameSettings/<ID>.ini` `[Controls] WiimoteProfileN` and its
-   `Profiles/Wiimote/<name>.ini`) for the launch and put back after, like the other overrides; a
+   `Profiles/Wiimote/<name>.ini`), like the other overrides; a
    player's own per-game profile is retargeted (step 3), never replaced. Examples: Donkey Kong
    Country Returns (`SF8E01`; sideways remote or remote plus Nunchuk, roll is a shake, so shake on a
    face or shoulder button) and Super Mario Galaxy (remote plus Nunchuk, pointer on the right stick,
@@ -114,8 +110,8 @@ emulators. We can make our own updater".
    (relative, recentred by its click), shake on a button and the rest of the remote's inputs; games
    are keyed by id or its first three characters. For a Wii game the Dolphin rule makes Wii Remote
    slot 1, and any real remote's slot, emulated (`Source = 1`) on the virtual pad, since a pad
-   player is not holding a remote; a slot not on SDL gets the layout in `WiimoteNew.ini` for the
-   run rather than a generated per-game profile, so a player's own per-game profile, which Dolphin
+   player is not holding a remote; each emulated slot gets the game's layout in `WiimoteNew.ini` at
+   every launch rather than a generated per-game profile, so a player's own per-game profile, which Dolphin
    reads instead of the slot, still wins and is only retargeted; Bluetooth passthrough is off.
    Listed: DKC Returns (`SF8`, sideways: 2 on south, 1 on west, shake on east or the right
    shoulder, the D-pad on the D-pad and left stick), Super Mario Galaxy (`RMG`, nunchuk) and

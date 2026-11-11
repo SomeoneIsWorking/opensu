@@ -1,6 +1,6 @@
-// Dolphin's pad settings and per-game profiles bound to the virtual pads while a launch runs, a
-// keyboard GameCube slot given a standard pad, a Wii game's remote emulated as the game wants it,
-// analytics' prompt marked asked; all put back.
+// Dolphin's pad settings and per-game profiles written bound to the virtual pads, a keyboard
+// GameCube slot given a standard pad, each Wii game's remote emulated as the game wants it,
+// analytics' prompt marked asked; a second launch writes nothing.
 #include "library/dolphin_config.hpp"
 
 #include <cstdio>
@@ -14,6 +14,7 @@
 #include "library/emulator_launch_config.hpp"
 #include "library/ini_file.hpp"
 #include "library/wii_controls.hpp"
+#include "support/launch_writes.hpp"
 #include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
@@ -22,14 +23,16 @@ namespace {
 
 namespace fs = std::filesystem;
 using opensu::library::DolphinController;
+using opensu::library::dolphinSlots;
 using opensu::library::dolphinSlotSettings;
-using opensu::library::EmulatorLaunchConfig;
 using opensu::library::IniKey;
 using opensu::library::iniValueIn;
 using opensu::library::LaunchSetup;
 using opensu::library::WiiControls;
 using opensu::library::WiiRemote;
+using opensu::library::writeLaunchSettings;
 using opensu::test::expect;
+using opensu::test::rewriteWritesNothing;
 
 constexpr const char* guid = "0300cece5e0400008e02000010010000";
 
@@ -107,43 +110,41 @@ void testLaunch() {
     write(data / "GameSettings" / "SF8E01.ini", gameSettings);
     write(profile, sideways);
     write(folderProfile, sideways);
-    {
-        const EmulatorLaunchConfig launch{
-            LaunchSetup{.emulatorId = "dolphin", .config = config, .data = data, .padGuid = guid}};
-        expect(value(read(config / "GCPadNew.ini"), "GCPad1", "Device") ==
-                   "SDL/0/Xbox 360 Controller",
-               "the pad settings read the virtual pads");
-        expect(read(config / "WiimoteNew.ini") == wiimotes,
-               "unchanged settings are not set for the run");
-        expect(value(read(profile), "Profile", "Device") == "SDL/0/Xbox 360 Controller",
-               "a per-game Wii Remote profile reads the player's virtual pad");
-        expect(value(read(folderProfile), "Profile", "Device") == "SDL/1/Xbox 360 Controller",
-               "a folder of per-game profiles reads the slot's virtual pad");
-        expect(value(read(config / "Dolphin.ini"), "Analytics", "PermissionAsked") == "True",
-               "analytics' prompt is marked asked");
-        expect(value(read(config / "Dolphin.ini"), "Interface", "SkipNKitWarning") == "True",
-               "an NKit disc starts without its warning");
+    const LaunchSetup setup{
+        .emulatorId = "dolphin", .config = config, .data = data, .padGuid = guid};
+    writeLaunchSettings(setup);
+    std::string pads{gcPads};
+    for (int slot = 1; slot <= dolphinSlots; ++slot) {
+        pads = dolphinSlotSettings(pads, "GCPad" + std::to_string(slot),
+                                   DolphinController::GameCube, slot, nullptr);
     }
-    expect(read(config / "GCPadNew.ini") == gcPads &&
-               read(config / "Dolphin.ini") == mainSettings && read(profile) == sideways &&
-               read(folderProfile) == sideways,
-           "the player's files come back byte for byte");
-    expect(!fs::exists(config / "GCPadNew.ini.opensu-player"), "nothing is left kept");
+    expect(read(config / "GCPadNew.ini") == pads,
+           "the pad settings are written on the virtual pads");
+    expect(read(config / "WiimoteNew.ini") == wiimotes, "a file the rule leaves alone is kept");
+    expect(value(read(profile), "Profile", "Device") == "SDL/0/Xbox 360 Controller",
+           "a per-game Wii Remote profile reads the player's virtual pad");
+    expect(value(read(folderProfile), "Profile", "Device") == "SDL/1/Xbox 360 Controller",
+           "a folder of per-game profiles reads the slot's virtual pad");
+    const std::string settings = read(config / "Dolphin.ini");
+    expect(value(settings, "Analytics", "PermissionAsked") == "True",
+           "analytics' prompt is marked asked");
+    expect(value(settings, "Interface", "SkipNKitWarning") == "True",
+           "an NKit disc starts without its warning");
+    expect(value(settings, "Core", "SIDevice0") == "6", "the player's other settings stay");
+    expect(rewriteWritesNothing(setup), "a second launch writes nothing");
 }
 
 void testOwnPads() {
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "dolphin-config-own"};
     const fs::path config = scratch.path() / "config";
     write(config / "GCPadNew.ini", gcPads);
-    {
-        const EmulatorLaunchConfig launch{
-            LaunchSetup{.emulatorId = "dolphin", .config = config, .data = {}, .padGuid = {}}};
-        expect(read(config / "GCPadNew.ini") == gcPads,
-               "a game reading the pads themselves keeps the player's pads");
-        expect(value(read(config / "Dolphin.ini"), "Analytics", "PermissionAsked") == "True",
-               "and still gets no analytics prompt");
-    }
-    expect(!fs::exists(config / "Dolphin.ini"), "a settings file the player lacked is removed");
+    const LaunchSetup setup{.emulatorId = "dolphin", .config = config, .data = {}, .padGuid = {}};
+    writeLaunchSettings(setup);
+    expect(read(config / "GCPadNew.ini") == gcPads,
+           "a game reading the pads themselves keeps the player's pads");
+    expect(value(read(config / "Dolphin.ini"), "Analytics", "PermissionAsked") == "True",
+           "and still gets no analytics prompt, in a settings file made for it");
+    expect(rewriteWritesNothing(setup), "a second launch writes nothing");
 }
 
 // The player's own: a real Wii Remote in slot 1, nothing in the others, passthrough on.
@@ -180,35 +181,42 @@ void testWiiGame() {
     write(config / "Dolphin.ini", passthrough);
     write(data / "GameSettings" / "SF8E01.ini", gameSettings);
     write(profile, sideways);
-    {
-        const EmulatorLaunchConfig launch{LaunchSetup{.emulatorId = "dolphin",
-                                                      .config = config,
-                                                      .data = data,
-                                                      .padGuid = guid,
-                                                      .wiiRemote = remoteOf("SF8E01")}};
-        const std::string run = read(config / "WiimoteNew.ini");
-        expect(value(run, "Wiimote1", "Source") == "1" &&
-                   value(run, "Wiimote1", "Device") == "SDL/0/Xbox 360 Controller",
-               "a real remote's slot is emulated on the first virtual pad");
-        expect(value(run, "Wiimote1", "Extension") == "None" &&
-                   value(run, "Wiimote1", "Options/Sideways Wiimote") == "True" &&
-                   value(run, "Wiimote1", "Buttons/2") == "`Button S`" &&
-                   value(run, "Wiimote1", "Shake/X") == "`Button E` | `Shoulder R`",
-               "Donkey Kong Country Returns gets a sideways remote, shake on a button");
-        expect(value(run, "Wiimote1", "IR/Up") == "",
-               "a game without the pointer has none on the right stick");
-        expect(value(run, "Wiimote2", "Source") == "0" &&
-                   value(run, "Wiimote2", "Device") == "XInput2/0/Virtual core pointer",
-               "a slot with no remote stays empty");
-        expect(value(read(profile), "Profile", "Device") == "SDL/0/Xbox 360 Controller" &&
-                   value(read(profile), "Profile", "Buttons/2") == "`Button S`",
-               "the player's own per-game profile is moved, not replaced");
-        expect(value(read(config / "Dolphin.ini"), "BluetoothPassthrough", "Enabled") == "False",
-               "passthrough does not take the remotes over");
-    }
-    expect(read(config / "WiimoteNew.ini") == realRemote &&
-               read(config / "Dolphin.ini") == passthrough && read(profile) == sideways,
-           "the player's files come back byte for byte");
+    const LaunchSetup setup{.emulatorId = "dolphin",
+                            .config = config,
+                            .data = data,
+                            .padGuid = guid,
+                            .wiiRemote = remoteOf("SF8E01")};
+    writeLaunchSettings(setup);
+    const std::string run = read(config / "WiimoteNew.ini");
+    expect(value(run, "Wiimote1", "Source") == "1" &&
+               value(run, "Wiimote1", "Device") == "SDL/0/Xbox 360 Controller",
+           "a real remote's slot is emulated on the first virtual pad");
+    expect(value(run, "Wiimote1", "Extension") == "None" &&
+               value(run, "Wiimote1", "Options/Sideways Wiimote") == "True" &&
+               value(run, "Wiimote1", "Buttons/2") == "`Button S`" &&
+               value(run, "Wiimote1", "Shake/X") == "`Button E` | `Shoulder R`",
+           "Donkey Kong Country Returns gets a sideways remote, shake on a button");
+    expect(value(run, "Wiimote1", "IR/Up") == "",
+           "a game without the pointer has none on the right stick");
+    expect(value(run, "Wiimote2", "Source") == "0" &&
+               value(run, "Wiimote2", "Device") == "XInput2/0/Virtual core pointer",
+           "a slot with no remote stays empty");
+    expect(value(read(profile), "Profile", "Device") == "SDL/0/Xbox 360 Controller" &&
+               value(read(profile), "Profile", "Buttons/2") == "`Button S`",
+           "the player's own per-game profile is moved, not replaced");
+    expect(value(read(config / "Dolphin.ini"), "BluetoothPassthrough", "Enabled") == "False",
+           "passthrough does not take the remotes over");
+    expect(rewriteWritesNothing(setup), "a second launch of the game writes nothing");
+
+    LaunchSetup next = setup;
+    next.wiiRemote = remoteOf("ZZZE01");
+    writeLaunchSettings(next);
+    const std::string other = read(config / "WiimoteNew.ini");
+    expect(value(other, "Wiimote1", "Device") == "SDL/0/Xbox 360 Controller" &&
+               value(other, "Wiimote1", "Extension") == "Nunchuk" &&
+               value(other, "Wiimote1", "Options/Sideways Wiimote") == "False" &&
+               value(other, "Wiimote1", "IR/Up") == "`Right Y+`",
+           "the next Wii game gets its own remote on the slot the last one left");
 }
 
 void testUnlistedWiiGame() {

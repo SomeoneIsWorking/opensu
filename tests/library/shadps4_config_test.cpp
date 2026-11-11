@@ -2,19 +2,27 @@
 #include "library/shadps4_config.hpp"
 
 #include <cstdio>
+#include <filesystem>
 #include <string>
 #include <string_view>
 
 #include <nlohmann/json.hpp>
 
+#include "support/launch_writes.hpp"
+#include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
 
 using nlohmann::json;
+using opensu::library::LaunchSetup;
+using opensu::library::shadps4Id;
 using opensu::library::shadps4LaunchUsers;
+using opensu::library::shadps4UsersFile;
 using opensu::test::expect;
+using opensu::test::rewriteWritesNothing;
+using opensu::test::writtenOver;
 
 // One user on slot 1, as a player who removed shadPS4's others has it.
 constexpr std::string_view player = R"({
@@ -51,11 +59,24 @@ void testUnread() {
            "a file without a user list gets shadPS4's defaults, so it stays");
 }
 
+void testWrites() {
+    const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "shadps4-config"};
+    const LaunchSetup setup{.emulatorId = std::string{shadps4Id},
+                            .config = scratch.path(),
+                            .data = {},
+                            .padGuid = std::string{"0300cece5e0400008e02000010010000"}};
+    expect(writtenOver(setup, scratch.path() / shadps4UsersFile, player) ==
+               shadps4LaunchUsers(player),
+           "shadPS4's user list are written in place");
+    expect(rewriteWritesNothing(setup), "a second launch writes nothing");
+}
+
 } // namespace
 
 int main() try {
     testSlots();
     testUnread();
+    testWrites();
     std::printf("shadps4_config: all checks passed\n");
     return 0;
 } catch (...) {

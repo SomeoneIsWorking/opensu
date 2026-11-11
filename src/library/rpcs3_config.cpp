@@ -169,6 +169,24 @@ void bindPlayer(std::vector<std::string>& lines, int player) {
     setLine(lines, *block, deviceKey, device, lineOf(lines, *block, handlerKey) + 1);
 }
 
+/// The settings files the rule reads under `setup.config`.
+std::vector<fs::path> settingsFiles(const LaunchSetup& setup) {
+    const fs::path fallback = setup.config / rpcs3DefaultProfile;
+    std::vector<fs::path> files{setup.config / rpcs3GuiSettings, fallback};
+    std::error_code error;
+    fs::directory_iterator folder(setup.config / rpcs3InputConfigs, error);
+    for (; !error && folder != fs::directory_iterator{}; folder.increment(error)) {
+        std::error_code inner;
+        fs::directory_iterator entry(folder->path(), inner);
+        for (; !inner && entry != fs::directory_iterator{}; entry.increment(inner)) {
+            if (entry->path().extension() == ".yml" && entry->path() != fallback) {
+                files.push_back(entry->path());
+            }
+        }
+    }
+    return files;
+}
+
 } // namespace
 
 std::string rpcs3PadProfile(std::string_view yml) {
@@ -186,37 +204,21 @@ std::string rpcs3GuiLaunchSettings(std::string_view ini) {
     return withIniValue(ini, {"main_window", "infoBoxEnabledWelcome"}, "false");
 }
 
-std::vector<fs::path> rpcs3Files(const LaunchSetup& setup) {
-    const fs::path fallback = setup.config / rpcs3DefaultProfile;
-    std::vector<fs::path> files{setup.config / rpcs3GuiSettings, fallback};
-    std::error_code error;
-    fs::directory_iterator folder(setup.config / rpcs3InputConfigs, error);
-    for (; !error && folder != fs::directory_iterator{}; folder.increment(error)) {
-        std::error_code inner;
-        fs::directory_iterator entry(folder->path(), inner);
-        for (; !inner && entry != fs::directory_iterator{}; entry.increment(inner)) {
-            if (entry->path().extension() == ".yml" && entry->path() != fallback) {
-                files.push_back(entry->path());
-            }
-        }
-    }
-    return files;
-}
-
-std::vector<RunFile> rpcs3RunFiles(const LaunchSetup& setup) {
-    std::vector<RunFile> files;
+std::vector<SettingsWrite> rpcs3Writes(const LaunchSetup& setup) {
+    std::vector<SettingsWrite> files;
     const fs::path gui = setup.config / rpcs3GuiSettings;
-    for (const fs::path& file : rpcs3Files(setup)) {
+    for (const fs::path& file : settingsFiles(setup)) {
         if (file != gui && setup.padGuid.empty()) {
             continue;
         }
-        std::optional<RunFile> run = file == gui ? runFileOf(file,
-                                                             [](std::string_view ini) {
-                                                                 return rpcs3GuiLaunchSettings(ini);
-                                                             })
-                                                 : runFileOf(file, [](std::string_view yml) {
-                                                       return rpcs3PadProfile(yml);
-                                                   });
+        std::optional<SettingsWrite> run =
+            file == gui ? settingsWriteOf(file,
+                                          [](std::string_view ini) {
+                                              return rpcs3GuiLaunchSettings(ini);
+                                          })
+                        : settingsWriteOf(file, [](std::string_view yml) {
+                              return rpcs3PadProfile(yml);
+                          });
         if (run) {
             files.push_back(std::move(*run));
         }

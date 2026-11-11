@@ -1303,11 +1303,11 @@ the menu is open the virtual pads rest (held keys released, axes centred); on
 resume they take up the held axes, and keys held then stay up until pressed again.
 A game openSU starts gets `SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x045e/0x028e`,
 so SDL hides the grabbed pads. Cemu binds a Wii U controller to a pad by `<index>_<SDL GUID>`,
-so a profile the player made with their own pad matches no virtual pad: while a Cemu launch runs,
+so a profile the player made with their own pad matches no virtual pad: before a Cemu launch,
 each `controllerProfiles/controller<N>.xml` with an SDL controller is bound to the Nth virtual pad
 (`0300cece5e0400008e02000010010000`, every virtual pad the same; Cemu's rule in
-`library::EmulatorLaunchConfig`), and the player's file is put back byte for byte when Cemu ends,
-or at the next launch after a crash (`library::LaunchFiles`). Eden, Citron and sudachi bind a
+`library::emulator_launch_config`). Every rule writes its settings into the emulator's own files
+in place and leaves them; the rest of each file stays as the player or the emulator left it. Eden, Citron and sudachi bind a
 player to a pad by `engine:sdl,guid:<GUID>,port:<N>` in `qt-config.ini`, the GUID without the
 name's CRC: while a launch runs each player's SDL bindings play the Nth virtual pad, player 1 (or a
 connected player) without any gets a Pro Controller in Eden's positional layout, and the update

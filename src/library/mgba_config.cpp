@@ -45,15 +45,12 @@ std::string mgbaLaunchSettings(std::string_view ini) {
     return out;
 }
 
-std::vector<fs::path> mgbaFiles(const LaunchSetup& setup) {
-    return {setup.config / mgbaSettingsFile};
-}
-
-std::vector<RunFile> mgbaRunFiles(const LaunchSetup& setup) {
+std::vector<SettingsWrite> mgbaWrites(const LaunchSetup& setup) {
     if (setup.padGuid.empty()) {
         return {};
     }
-    std::optional<RunFile> run = runFileOf(setup.config / mgbaSettingsFile, mgbaLaunchSettings);
+    std::optional<SettingsWrite> run =
+        settingsWriteOf(setup.config / mgbaSettingsFile, mgbaLaunchSettings);
     if (!run) {
         return {};
     }

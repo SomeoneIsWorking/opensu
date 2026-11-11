@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "emulator_launch_config.hpp"
-#include "launch_files.hpp"
 
 namespace opensu::library {
 
@@ -25,10 +24,7 @@ inline constexpr std::string_view azaharSettingsFile{"qt-config.ini"};
 /// check off; with `padGuid` empty only the update check is changed.
 [[nodiscard]] std::string azaharLaunchSettings(std::string_view ini, std::string_view padGuid);
 
-/// The files the rule may set under the settings folder.
-[[nodiscard]] std::vector<std::filesystem::path> azaharFiles(const LaunchSetup& setup);
-
 /// `qt-config.ini` as the launch reads it; made when the player has none.
-[[nodiscard]] std::vector<RunFile> azaharRunFiles(const LaunchSetup& setup);
+[[nodiscard]] std::vector<SettingsWrite> azaharWrites(const LaunchSetup& setup);
 
 } // namespace opensu::library

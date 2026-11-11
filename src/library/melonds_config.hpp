@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "emulator_launch_config.hpp"
-#include "launch_files.hpp"
 
 namespace opensu::library {
 
@@ -24,11 +23,8 @@ inline constexpr std::string_view melondsSettingsFile{"melonDS.toml"};
 /// The settings file `toml` as a launch on the virtual pads reads it.
 [[nodiscard]] std::string melondsLaunchSettings(std::string_view toml);
 
-/// The files the rule may set under `setup.config`.
-[[nodiscard]] std::vector<std::filesystem::path> melondsFiles(const LaunchSetup& setup);
-
 /// `melonDS.toml` as the launch reads it, made when the player has none; nothing when the game
 /// reads the pads themselves.
-[[nodiscard]] std::vector<RunFile> melondsRunFiles(const LaunchSetup& setup);
+[[nodiscard]] std::vector<SettingsWrite> melondsWrites(const LaunchSetup& setup);
 
 } // namespace opensu::library

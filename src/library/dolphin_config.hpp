@@ -5,9 +5,10 @@
 // `WiimoteProfileN`, a name under `Profiles/GCPad` or `Profiles/Wiimote`, or a folder of them). A
 // slot or profile on an SDL pad is moved to the Nth virtual pad, its mappings kept; a GameCube one
 // on anything else (keyboard and mouse) gets a standard GameCube pad there. For a Wii game, slot
-// 1 and every real remote's slot are emulated, and a Wii Remote slot not on SDL gets the game's
-// remote (`wii_controls`); a player's per-game profile, which Dolphin reads instead, is only
-// moved. Analytics' permission prompt, the NKit warning and Bluetooth passthrough are off.
+// 1 and every real remote's slot are emulated and get the game's remote (`wii_controls`) at every
+// launch, since the slot is shared by every Wii game; a player's per-game profile, which Dolphin
+// reads instead, is only moved. Analytics' permission prompt, the NKit warning and Bluetooth
+// passthrough are off.
 #pragma once
 
 #include <cstdint>
@@ -17,7 +18,6 @@
 #include <vector>
 
 #include "emulator_launch_config.hpp"
-#include "launch_files.hpp"
 #include "wii_controls.hpp"
 
 namespace opensu::library {
@@ -34,15 +34,12 @@ enum class DolphinController : std::uint8_t {
 };
 
 /// `ini` with `[section]`, a `controller` slot, bound to the `player`th virtual pad (from 1); a Wii
-/// Remote slot not on SDL made `remote`, or left as it is without one.
+/// Remote slot made `remote` whatever it was on, or without one left as it is when not on SDL.
 [[nodiscard]] std::string dolphinSlotSettings(std::string_view ini, std::string_view section,
                                               DolphinController controller, int player,
                                               const WiiRemote* remote);
 
-/// The files the rule may set: the pad settings, `Dolphin.ini` and each per-game profile.
-[[nodiscard]] std::vector<std::filesystem::path> dolphinFiles(const LaunchSetup& setup);
-
 /// Those files as the launch reads them; none when the game reads the pads themselves.
-[[nodiscard]] std::vector<RunFile> dolphinRunFiles(const LaunchSetup& setup);
+[[nodiscard]] std::vector<SettingsWrite> dolphinWrites(const LaunchSetup& setup);
 
 } // namespace opensu::library

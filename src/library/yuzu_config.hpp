@@ -16,7 +16,6 @@
 #include <vector>
 
 #include "emulator_launch_config.hpp"
-#include "launch_files.hpp"
 
 namespace opensu::library {
 
@@ -36,11 +35,8 @@ inline constexpr int yuzuHandheld{8};
 /// check off; with `padGuid` empty only the update check is changed.
 [[nodiscard]] std::string yuzuLaunchSettings(std::string_view ini, std::string_view padGuid);
 
-/// The files the rule may set under the settings folder.
-[[nodiscard]] std::vector<std::filesystem::path> yuzuFiles(const LaunchSetup& setup);
-
 /// `qt-config.ini` under the settings folder as the launch reads it; made when the player has
 /// none.
-[[nodiscard]] std::vector<RunFile> yuzuRunFiles(const LaunchSetup& setup);
+[[nodiscard]] std::vector<SettingsWrite> yuzuWrites(const LaunchSetup& setup);
 
 } // namespace opensu::library

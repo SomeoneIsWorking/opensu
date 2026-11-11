@@ -15,12 +15,14 @@ bool writeWhole(const std::filesystem::path& file, std::string_view bytes, std::
         out.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
         if (!out) {
             error = "cannot write " + partial.string();
+            std::filesystem::remove(partial, ec);
             return false;
         }
     }
     std::filesystem::rename(partial, file, ec);
     if (ec) {
         error = "cannot replace " + file.string() + ": " + ec.message();
+        std::filesystem::remove(partial, ec);
         return false;
     }
     return true;

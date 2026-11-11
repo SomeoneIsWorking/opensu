@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "emulator_launch_config.hpp"
-#include "launch_files.hpp"
 
 namespace opensu::library {
 
@@ -32,11 +31,8 @@ inline constexpr int pcsx2Pads{8};
 /// the pads stay the player's.
 [[nodiscard]] std::string pcsx2LaunchSettings(std::string_view ini, bool virtualPads);
 
-/// The files the rule may set under `setup.config`.
-[[nodiscard]] std::vector<std::filesystem::path> pcsx2Files(const LaunchSetup& setup);
-
 /// The settings file, made when the player has none, and each input profile as the launch reads
 /// them.
-[[nodiscard]] std::vector<RunFile> pcsx2RunFiles(const LaunchSetup& setup);
+[[nodiscard]] std::vector<SettingsWrite> pcsx2Writes(const LaunchSetup& setup);
 
 } // namespace opensu::library

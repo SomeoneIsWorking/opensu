@@ -2,10 +2,13 @@
 #include "library/xemu_config.hpp"
 
 #include <cstdio>
+#include <filesystem>
 #include <string>
 #include <string_view>
 
 #include "library/ini_file.hpp"
+#include "support/launch_writes.hpp"
+#include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
 
@@ -13,8 +16,13 @@ namespace {
 
 using opensu::library::IniKey;
 using opensu::library::iniValueIn;
+using opensu::library::LaunchSetup;
+using opensu::library::xemuId;
 using opensu::library::xemuLaunchSettings;
+using opensu::library::xemuSettingsFile;
 using opensu::test::expect;
+using opensu::test::rewriteWritesNothing;
+using opensu::test::writtenOver;
 
 constexpr std::string_view guid{"0300cece5e0400008e02000010010000"};
 constexpr std::string_view quoted{"'0300cece5e0400008e02000010010000'"};
@@ -56,11 +64,24 @@ void testPorts() {
     expect(xemuLaunchSettings(run, guid) == run, "a file already bound stays as it is");
 }
 
+void testWrites() {
+    const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "xemu-config"};
+    const LaunchSetup setup{.emulatorId = std::string{xemuId},
+                            .config = scratch.path(),
+                            .data = {},
+                            .padGuid = std::string{guid}};
+    expect(writtenOver(setup, scratch.path() / xemuSettingsFile, player) ==
+               xemuLaunchSettings(player, guid),
+           "xemu's settings are written in place");
+    expect(rewriteWritesNothing(setup), "a second launch writes nothing");
+}
+
 } // namespace
 
 int main() try {
     testWelcome();
     testPorts();
+    testWrites();
     std::printf("xemu_config: all checks passed\n");
     return 0;
 } catch (...) {

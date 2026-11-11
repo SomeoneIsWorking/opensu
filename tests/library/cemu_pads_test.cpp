@@ -1,4 +1,4 @@
-// Cemu's controller profiles bound to the virtual pads while a launch runs, and put back.
+// Cemu's controller profiles written bound to the virtual pads; a second launch writes nothing.
 #include "library/cemu_pads.hpp"
 #include "library/emulator_launch_config.hpp"
 
@@ -9,6 +9,7 @@
 #include <string>
 #include <string_view>
 
+#include "support/launch_writes.hpp"
 #include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
@@ -16,10 +17,11 @@
 namespace {
 
 namespace fs = std::filesystem;
-using opensu::library::EmulatorLaunchConfig;
 using opensu::library::LaunchSetup;
 using opensu::library::reboundCemuProfile;
+using opensu::library::writeLaunchSettings;
 using opensu::test::expect;
+using opensu::test::rewriteWritesNothing;
 
 constexpr const char* guid = "0300cece5e0400008e02000010010000";
 
@@ -66,52 +68,32 @@ void testRebound() {
     expect(reboundCemuProfile(keyboard, "0_x") == keyboard, "a keyboard is not rebound");
 }
 
-void testBindAndPutBack() {
+void testBind() {
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "cemu-pads"};
     const fs::path profiles = scratch.path() / "controllerProfiles";
     const std::string second = reboundCemuProfile(profile, "0_other");
     write(profiles / "controller0.xml", profile);
     write(profiles / "controller1.xml", second);
     write(profiles / "keyboard.xml", profile);
-    {
-        const EmulatorLaunchConfig pads{LaunchSetup{
-            .emulatorId = "cemu", .config = scratch.path(), .data = {}, .padGuid = guid}};
-        expect(read(profiles / "controller0.xml") ==
-                   reboundCemuProfile(profile, std::string{"0_"} + guid),
-               "controller 0 plays the first virtual pad");
-        expect(read(profiles / "controller1.xml") ==
-                   reboundCemuProfile(profile, std::string{"1_"} + guid),
-               "controller 1 plays the second virtual pad");
-        expect(read(profiles / "controller0.xml.opensu-player") == profile,
-               "the player's file is kept beside it");
-        expect(read(profiles / "keyboard.xml") == profile, "a named profile is left alone");
-    }
-    expect(read(profiles / "controller0.xml") == profile, "the player's file comes back");
-    expect(read(profiles / "controller1.xml") == second, "every player's file comes back");
-    expect(!fs::exists(profiles / "controller0.xml.opensu-player"), "nothing is left kept");
-}
-
-void testCrashLeftovers() {
-    const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "cemu-pads-crash"};
-    const fs::path profiles = scratch.path() / "controllerProfiles";
-    // A run that died while bound.
-    write(profiles / "controller0.xml", reboundCemuProfile(profile, std::string{"0_"} + guid));
-    write(profiles / "controller0.xml.opensu-player", profile);
-    {
-        const EmulatorLaunchConfig pads{LaunchSetup{
-            .emulatorId = "cemu", .config = scratch.path(), .data = {}, .padGuid = guid}};
-        expect(read(profiles / "controller0.xml.opensu-player") == profile,
-               "the next launch keeps the player's file, not the bound one");
-    }
-    expect(read(profiles / "controller0.xml") == profile, "the player's file comes back");
+    const LaunchSetup setup{
+        .emulatorId = "cemu", .config = scratch.path(), .data = {}, .padGuid = guid};
+    writeLaunchSettings(setup);
+    expect(read(profiles / "controller0.xml") ==
+               reboundCemuProfile(profile, std::string{"0_"} + guid),
+           "controller 0 plays the first virtual pad");
+    expect(read(profiles / "controller1.xml") ==
+               reboundCemuProfile(profile, std::string{"1_"} + guid),
+           "controller 1 plays the second virtual pad");
+    expect(read(profiles / "keyboard.xml") == profile, "a named profile is left alone");
+    expect(!fs::exists(profiles / "controller2.xml"), "a controller the player lacks is not made");
+    expect(rewriteWritesNothing(setup), "a second launch writes nothing");
 }
 
 } // namespace
 
 int main() try {
     testRebound();
-    testBindAndPutBack();
-    testCrashLeftovers();
+    testBind();
     std::printf("cemu_pads: all checks passed\n");
     return 0;
 } catch (...) {

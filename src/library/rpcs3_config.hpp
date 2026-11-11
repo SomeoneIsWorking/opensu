@@ -14,7 +14,6 @@
 #include <vector>
 
 #include "emulator_launch_config.hpp"
-#include "launch_files.hpp"
 
 namespace opensu::library {
 
@@ -34,10 +33,7 @@ inline constexpr int rpcs3Players{7};
 /// The interface settings `ini` with the welcome dialog off.
 [[nodiscard]] std::string rpcs3GuiLaunchSettings(std::string_view ini);
 
-/// The files the rule may set under `setup.config`.
-[[nodiscard]] std::vector<std::filesystem::path> rpcs3Files(const LaunchSetup& setup);
-
 /// The interface settings and, on the virtual pads, every input profile as the launch reads them.
-[[nodiscard]] std::vector<RunFile> rpcs3RunFiles(const LaunchSetup& setup);
+[[nodiscard]] std::vector<SettingsWrite> rpcs3Writes(const LaunchSetup& setup);
 
 } // namespace opensu::library

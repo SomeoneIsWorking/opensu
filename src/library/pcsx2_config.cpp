@@ -52,6 +52,19 @@ constexpr SdlPadLayout layout{.emulator = "pcsx2",
                               .firstPadType = dualShock2,
                               .defaults = defaults};
 
+/// The settings files the rule reads under `setup.config`.
+std::vector<fs::path> settingsFiles(const LaunchSetup& setup) {
+    std::vector<fs::path> files{setup.config / pcsx2SettingsFile};
+    std::error_code error;
+    fs::directory_iterator entry(setup.config / pcsx2ProfilesFolder, error);
+    for (; !error && entry != fs::directory_iterator{}; entry.increment(error)) {
+        if (entry->path().extension() == ".ini") {
+            files.push_back(entry->path());
+        }
+    }
+    return files;
+}
+
 } // namespace
 
 std::string pcsx2PadSettings(std::string_view ini) {
@@ -68,29 +81,17 @@ std::string pcsx2LaunchSettings(std::string_view ini, bool virtualPads) {
     return virtualPads ? pcsx2PadSettings(out) : out;
 }
 
-std::vector<fs::path> pcsx2Files(const LaunchSetup& setup) {
-    std::vector<fs::path> files{setup.config / pcsx2SettingsFile};
-    std::error_code error;
-    fs::directory_iterator entry(setup.config / pcsx2ProfilesFolder, error);
-    for (; !error && entry != fs::directory_iterator{}; entry.increment(error)) {
-        if (entry->path().extension() == ".ini") {
-            files.push_back(entry->path());
-        }
-    }
-    return files;
-}
-
-std::vector<RunFile> pcsx2RunFiles(const LaunchSetup& setup) {
+std::vector<SettingsWrite> pcsx2Writes(const LaunchSetup& setup) {
     const bool virtualPads = !setup.padGuid.empty();
-    std::vector<RunFile> files;
-    for (const fs::path& file : pcsx2Files(setup)) {
-        std::optional<RunFile> run =
+    std::vector<SettingsWrite> files;
+    for (const fs::path& file : settingsFiles(setup)) {
+        std::optional<SettingsWrite> run =
             file == setup.config / pcsx2SettingsFile
-                ? runFileOf(file,
-                            [&](std::string_view ini) {
-                                return pcsx2LaunchSettings(ini, virtualPads);
-                            })
-                : runFileOf(file, [&](std::string_view ini) {
+                ? settingsWriteOf(file,
+                                  [&](std::string_view ini) {
+                                      return pcsx2LaunchSettings(ini, virtualPads);
+                                  })
+                : settingsWriteOf(file, [&](std::string_view ini) {
                       return virtualPads ? pcsx2PadSettings(ini) : std::string{ini};
                   });
         if (run) {

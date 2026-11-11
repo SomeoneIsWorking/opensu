@@ -1,5 +1,5 @@
-// mGBA's config.ini as a launch reads it: the virtual pads' input profile completed from mGBA's own
-// xpad profile, the player's bindings kept; all put back when the launch ends.
+// mGBA's config.ini as a launch writes it: the virtual pads' input profile completed from mGBA's
+// own xpad profile, the player's bindings kept; a second launch writes nothing.
 #include "library/mgba_config.hpp"
 
 #include <cstdio>
@@ -12,6 +12,7 @@
 
 #include "library/emulator_launch_config.hpp"
 #include "library/ini_file.hpp"
+#include "support/launch_writes.hpp"
 #include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
@@ -19,12 +20,13 @@
 namespace {
 
 namespace fs = std::filesystem;
-using opensu::library::EmulatorLaunchConfig;
 using opensu::library::IniKey;
 using opensu::library::iniValueIn;
 using opensu::library::LaunchSetup;
 using opensu::library::mgbaLaunchSettings;
+using opensu::library::writeLaunchSettings;
 using opensu::test::expect;
+using opensu::test::rewriteWritesNothing;
 
 constexpr const char* guid = "0300cece5e0400008e02000010010000";
 constexpr std::string_view section = "gba.input-profile.Xbox 360 Controller";
@@ -70,17 +72,15 @@ void testLaunch() {
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "mgba-config"};
     const fs::path file = scratch.path() / "config.ini";
     write(file, player);
-    {
-        const EmulatorLaunchConfig launch{LaunchSetup{
-            .emulatorId = "mgba", .config = scratch.path(), .data = {}, .padGuid = guid}};
-        expect(value(read(file), "keyStart") == "7", "the launch reads the completed profile");
-    }
-    expect(read(file) == player, "the player's file comes back byte for byte");
-    {
-        const EmulatorLaunchConfig launch{
-            LaunchSetup{.emulatorId = "mgba", .config = scratch.path(), .data = {}, .padGuid = {}}};
-        expect(read(file) == player, "a game reading the pads themselves keeps the player's");
-    }
+    const LaunchSetup own{
+        .emulatorId = "mgba", .config = scratch.path(), .data = {}, .padGuid = {}};
+    writeLaunchSettings(own);
+    expect(read(file) == player, "a game reading the pads themselves keeps the player's");
+    const LaunchSetup setup{
+        .emulatorId = "mgba", .config = scratch.path(), .data = {}, .padGuid = guid};
+    writeLaunchSettings(setup);
+    expect(read(file) == mgbaLaunchSettings(player), "the completed profile is written");
+    expect(rewriteWritesNothing(setup), "a second launch writes nothing");
 }
 
 } // namespace

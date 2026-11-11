@@ -170,13 +170,9 @@ std::string yuzuLaunchSettings(std::string_view ini, std::string_view padGuid) {
     return out;
 }
 
-std::vector<fs::path> yuzuFiles(const LaunchSetup& setup) {
-    return {setup.config / yuzuSettingsFile};
-}
-
-std::vector<RunFile> yuzuRunFiles(const LaunchSetup& setup) {
-    std::optional<RunFile> run =
-        runFileOf(setup.config / yuzuSettingsFile, [&](std::string_view player) {
+std::vector<SettingsWrite> yuzuWrites(const LaunchSetup& setup) {
+    std::optional<SettingsWrite> run =
+        settingsWriteOf(setup.config / yuzuSettingsFile, [&](std::string_view player) {
             return yuzuLaunchSettings(player, setup.padGuid);
         });
     if (!run) {
