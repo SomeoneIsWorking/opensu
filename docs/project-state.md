@@ -1270,6 +1270,14 @@ makes the display manager start it again; untested against the real session). Sl
 Shut down are `systemctl suspend|reboot|poweroff` through `host::Power`; the session entries are
 S010. Over a game it draws through the Gamescope overlay (`GameScreen`).
 
+By screen (hidden frames, 2026-11-11, `docs/issues/guide-over-home-full-width.md`): at 1280 x 800,
+on a tablet in portrait and on a phone in landscape the places stand beside the quick rows with the
+page showing to the right; under 572 dp wide (a phone in portrait) the places stand above the quick
+rows; where that is too tall (split-screen) both share the height and scroll, clear of the hint
+bar. A hidden run's frames no longer follow the desktop's scale: its screen is `OPENSU_WIDTH` x
+`OPENSU_HEIGHT` pixels at `OPENSU_DISPLAY_SCALE` per dp. A window on a display opens in dp
+(`docs/issues/window-opens-in-pixels.md`), unit-tested, not yet seen on a visible window.
+
 Devices (`DevicesScreen`, tabs down the side): Bluetooth (BlueZ over `busctl`: adapter on/off, scan
 held by `bluetoothctl`, pair with trust and connect, connect, disconnect; X or a right click forgets
 a paired device after a `confirm`; no PIN or passkey agent, so Just-Works pairing only),

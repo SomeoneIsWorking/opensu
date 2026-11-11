@@ -1737,9 +1737,8 @@ int ShellApp::run() {
 
 bool ShellApp::openWindow(const std::string& title, bool hidden) {
     try {
-        window_ = std::make_unique<ShellWindow>(
-            ShellWindow::Options{title, settings_.width, settings_.height, hidden,
-                                 settings_.hiddenDp});
+        window_ = std::make_unique<ShellWindow>(ShellWindow::Options{
+            title, settings_.width, settings_.height, hidden, settings_.hiddenDp});
         shell_.attach(window_->device());
         remotePicture_ =
             std::make_unique<RemotePicture>(window_->device(), window_->importsDmabuf());
