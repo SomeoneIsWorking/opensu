@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from tools.link_rom.build import build as build_rom
-from tools.nat_lab import mdns, topology
+from tools.nat_lab import core_cache, mdns, topology
 from tools.nat_lab.frames import colour_at
 from tools.nat_lab.gb_rom import build as build_gb_rom
 from tools.nat_lab.instance import Instance
@@ -44,15 +44,6 @@ def invite_secret(code: str) -> str:
     bits = "".join(format(ALPHABET.index(letter), "05b") for letter in code[3:])
     data = bytes(int(bits[at : at + 8], 2) for at in range(0, len(bits) - 7, 8))
     return data[2:18].hex()
-
-
-def installed_core() -> Path:
-    """The real mGBA core this machine's openSU downloaded: the link core for a GBA, and a core with
-    no link for a Game Boy."""
-    core = Path.home() / ".local" / "share" / "opensu" / "cores" / "mgba_libretro.so"
-    if not core.exists():
-        raise RuntimeError(f"{core} is missing: download mGBA (built-in) in openSU first")
-    return core
 
 
 def stun_list() -> str:
@@ -142,9 +133,12 @@ class Rig:
                 Instance(name.lower(), at, folder, binary, roms, stun_list(), settings, bus)
             )
         self.host, self.friend = made
+        # mGBA (built-in) as openSU downloads it: links GBA players, plays the Game Boy ROM.
+        downloaded = core_cache.cores(
+            context.repo, context.build, context.repo / "scratch" / "nat-lab-cores"
+        )
         for each in (self.host, self.friend):
-            # mGBA's own release links GBA players and plays the Game Boy ROM alike.
-            each.install_core(installed_core())
+            each.install_core(downloaded / f"{core_cache.CORE}.so")
             each.start()
 
     def close(self) -> None:

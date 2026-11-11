@@ -121,8 +121,10 @@ Play with <name> on the LAN stays on the link core.
 across `nft` NATs with a STUN server and, for `nat-pmp` and `upnp`, a router (`gateway.py`), and keeps
 frames and logs in `scratch/wan-netplay-proof/<case>/`. Each case that plays checks each player's
 held A on both screens' bands, and that no code is in a log and no socket is left. Pad B is the
-console's A: pads name buttons by place. `any-core` plays a generated Game Boy ROM on the real mGBA
-core this machine's openSU downloaded, at 120 ms of round trip, and asks for frames run again.
+console's A: pads name buttons by place. Every shell plays on mGBA (built-in) as openSU downloads
+it (`core_cache.py`): a hidden openSU outside the namespaces downloads the catalog's pinned release
+once into `scratch/nat-lab-cores/<release hash>/`, and each shell gets a copy. `any-core` plays a
+generated Game Boy ROM on it at 120 ms of round trip and asks for frames run again.
 `zerotier` puts symmetric NATs on both sides, a ZeroTier stand-in (`zt0`, `10.147.17.0/24`, not the
 default route) between the machines and two idle bridges on the host (`docker0`, `virbr0`), and
 plays by one code; `zerotier-lan` gives each machine its own system bus and Avahi (`mdns.py`) and
