@@ -55,8 +55,13 @@ constexpr std::array defaults{
 };
 
 constexpr std::string_view emptyBinding{"[empty]"};
-/// Eden's `ControllerType::ProController`.
+/// Eden's `ControllerType::ProController` and `ControllerType::Handheld`.
 constexpr std::string_view proController{"0"};
+constexpr std::string_view handheldType{"4"};
+
+std::string playerPrefix(int index) {
+    return "player_" + std::to_string(index) + "_";
+}
 
 /// `key`'s value under `[Controls]`; empty when it is not there.
 std::string control(std::string_view ini, const std::string& key) {
@@ -79,8 +84,22 @@ std::string defaultBinding(std::string_view value, std::string_view guid, int po
                     ",port:" + std::to_string(port) + "," + std::string{value});
 }
 
-std::string withPlayer(std::string ini, int player, std::string_view guid) {
-    const std::string prefix = "player_" + std::to_string(player) + "_";
+/// One of Eden's controllers: its `player_<index>_` settings, the virtual pad it plays, the type it
+/// is given without SDL bindings, and whether it is to be connected for the run.
+struct Slot {
+    std::string shown;
+    int index;
+    int port;
+    std::string_view type;
+    /// Without SDL bindings, given the standard layout.
+    bool given;
+    /// With SDL bindings, connected.
+    bool connects;
+};
+
+std::string withSlot(std::string ini, const Slot& slot, std::string_view guid) {
+    const std::string prefix = playerPrefix(slot.index);
+    const std::string connected = prefix + "connected";
     const bool hasSdl = std::ranges::any_of(defaults, [&](const DefaultBinding& binding) {
         return isSdlBinding(qtUnquoted(control(ini, prefix + std::string{binding.key})));
     });
@@ -90,23 +109,23 @@ std::string withPlayer(std::string ini, int player, std::string_view guid) {
             const std::string value = control(ini, key);
             if (isSdlBinding(qtUnquoted(value))) {
                 ini = withQtSetting(ini, {controls, key},
-                                    qtQuoted(withSdlPad(qtUnquoted(value), guid, player)));
+                                    qtQuoted(withSdlPad(qtUnquoted(value), guid, slot.port)));
             }
         }
-        lucent::info("eden", "player {} bound to virtual pad port {}", player + 1, player);
-    } else if (player == 0 || isTrue(ini, prefix + "connected", false)) {
-        for (const DefaultBinding& binding : defaults) {
-            const std::string key = prefix + std::string{binding.key};
-            ini = withQtSetting(ini, {controls, key}, defaultBinding(binding.value, guid, player));
-        }
-        const std::string type = prefix + "type";
-        ini = withQtSetting(ini, {controls, type}, proController);
-        lucent::info("eden", "player {} given a Pro Controller on virtual pad port {}", player + 1,
-                     player);
-    } else {
+        lucent::info("eden", "{} bound to virtual pad port {}", slot.shown, slot.port);
+        return slot.connects ? withQtSetting(ini, {controls, connected}, "true") : ini;
+    }
+    if (!slot.given) {
         return ini;
     }
-    const std::string connected = prefix + "connected";
+    for (const DefaultBinding& binding : defaults) {
+        const std::string key = prefix + std::string{binding.key};
+        ini = withQtSetting(ini, {controls, key}, defaultBinding(binding.value, guid, slot.port));
+    }
+    const std::string type = prefix + "type";
+    ini = withQtSetting(ini, {controls, type}, slot.type);
+    lucent::info("eden", "{} given the standard layout on virtual pad port {}", slot.shown,
+                 slot.port);
     return withQtSetting(ini, {controls, connected}, "true");
 }
 
@@ -126,8 +145,27 @@ std::string yuzuLaunchSettings(std::string_view ini, std::string_view padGuid) {
         return out;
     }
     const std::string guid = yuzuGuid(padGuid);
+    // Player 1 plays the handheld while it is connected, as Eden sets it for a Handheld player 1.
+    const bool handheld = isTrue(out, playerPrefix(yuzuHandheld) + "connected", false);
+    out = withSlot(std::move(out),
+                   Slot{.shown = "the handheld",
+                        .index = yuzuHandheld,
+                        .port = 0,
+                        .type = handheldType,
+                        .given = handheld,
+                        .connects = false},
+                   guid);
     for (int player = 0; player < yuzuPlayers; ++player) {
-        out = withPlayer(std::move(out), player, guid);
+        const bool first = player == 0;
+        const bool connected = isTrue(out, playerPrefix(player) + "connected", first);
+        out = withSlot(std::move(out),
+                       Slot{.shown = "player " + std::to_string(player + 1),
+                            .index = player,
+                            .port = player,
+                            .type = proController,
+                            .given = first ? !handheld : connected,
+                            .connects = !first || !handheld},
+                       guid);
     }
     return out;
 }

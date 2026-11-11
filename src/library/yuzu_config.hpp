@@ -4,7 +4,9 @@
 // the Nth virtual pad's, its GUID without the name's CRC as Eden keys pads: Eden numbers pads of
 // one GUID by the order they attach, so the Nth pad is port N. A player without SDL bindings,
 // player 1 or one connected, gets a Pro Controller in the standard layout on its virtual pad, read
-// as openSU's virtual pad reports (xpad's buttons, hat and axes).
+// as openSU's virtual pad reports (xpad's buttons, hat and axes), positional as Nintendo's (Switch
+// A east). The handheld, `player_8_`, is player 1's hands: it plays the first virtual pad, and
+// while it is connected it, not player 1, gets the standard layout.
 #pragma once
 
 #include <array>
@@ -24,6 +26,8 @@ inline constexpr std::array<std::string_view, 3> yuzuLineIds{"eden", "citron", "
 inline constexpr std::string_view yuzuSettingsFile{"qt-config.ini"};
 /// The players Eden's settings bind.
 inline constexpr int yuzuPlayers{8};
+/// The handheld's index in Eden's settings, `NpadIdTypeToIndex(Handheld)`.
+inline constexpr int yuzuHandheld{8};
 
 /// `sdlGuid` as Eden keys a pad by: SDL's GUID with the name's CRC-16 (bytes 2 and 3) zeroed.
 [[nodiscard]] std::string yuzuGuid(std::string_view sdlGuid);

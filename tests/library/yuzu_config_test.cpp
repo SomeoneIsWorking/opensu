@@ -97,12 +97,65 @@ void testPads() {
            "a player with no settings file still plays the first virtual pad");
 }
 
+// A handheld player 1 as Eden sets it: player 1 Handheld and off, the handheld on the keyboard.
+constexpr std::string_view handheldPlayer =
+    "[Controls]\n"
+    "player_0_type\\default=false\n"
+    "player_0_type=4\n"
+    "player_0_connected\\default=false\n"
+    "player_0_connected=false\n"
+    "player_0_button_a\\default=false\n"
+    "player_0_button_a=\"engine:keyboard,code:67,toggle:0\"\n"
+    "player_8_type\\default=false\n"
+    "player_8_type=4\n"
+    "player_8_connected\\default=false\n"
+    "player_8_connected=true\n"
+    "player_8_button_a\\default=false\n"
+    "player_8_button_a=\"engine:keyboard,code:67,toggle:0\"\n";
+
+void testLayout() {
+    const std::string run = yuzuLaunchSettings("", sdlGuid);
+    const auto button = [&](std::string_view key) {
+        return value(run, {"Controls", "player_0_" + std::string{key}});
+    };
+    // Positional, as the Azahar rule and Eden's own xpad mapping: the button where Switch A sits.
+    expect(button("button_a").ends_with(",button:1\"") &&
+               button("button_b").ends_with(",button:0\""),
+           "Switch A is the east button (xpad B), B the south one");
+    expect(button("button_x").ends_with(",button:3\"") &&
+               button("button_y").ends_with(",button:2\""),
+           "Switch X is the north button (xpad Y), Y the west one");
+}
+
+void testHandheld() {
+    const std::string run = yuzuLaunchSettings(handheldPlayer, sdlGuid);
+    expect(value(run, {"Controls", "player_8_button_a"}) ==
+               "\"engine:sdl,guid:" + std::string{guid} + ",port:0,button:1\"",
+           "a connected handheld plays the first virtual pad");
+    expect(value(run, {"Controls", "player_8_type"}) == "4", "the handheld stays a Handheld");
+    expect(value(run, {"Controls", "player_0_connected"}) == "false" &&
+               value(run, {"Controls", "player_0_button_a"}) ==
+                   value(handheldPlayer, {"Controls", "player_0_button_a"}),
+           "player 1 stays off while the handheld is player 1's controller");
+    const std::string docked = yuzuLaunchSettings(player, sdlGuid);
+    expect(value(docked, {"Controls", "player_8_button_a"}) == "<none>",
+           "a disconnected handheld without SDL bindings is left alone");
+    const std::string sdlHandheld =
+        withIniValue(player, {"Controls", "player_8_button_b"},
+                     "\"engine:sdl,guid:060000005e040000ea02000008040000,port:3,button:0\"");
+    expect(value(yuzuLaunchSettings(sdlHandheld, sdlGuid), {"Controls", "player_8_button_b"}) ==
+               "\"engine:sdl,guid:" + std::string{guid} + ",port:0,button:0\"",
+           "the handheld's SDL bindings play the first virtual pad");
+}
+
 } // namespace
 
 int main() try {
     testIniValue();
     testUpdateCheck();
     testPads();
+    testLayout();
+    testHandheld();
     std::printf("yuzu_config: all checks passed\n");
     return 0;
 } catch (...) {
