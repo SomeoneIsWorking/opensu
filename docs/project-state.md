@@ -1314,17 +1314,22 @@ connected player) without any gets a Pro Controller in Eden's positional layout,
 check is off (`library/yuzu_config`); verified on the player's Eden nightly with a copy of their
 config (`scratch/eden-launch/after2-nightly`: presses reach Kirby Star Allies, the file comes back
 byte-identical). Gaps: a profile made with a pad whose raw SDL indices differ from xpad's (a
-PlayStation pad) keeps its indices on the virtual pad; a handheld player 1 binds `player_8_`,
-which is not retargeted; changes made in Eden during an openSU launch are dropped with the run's
-file.
+PlayStation pad) keeps its indices on the virtual pad; changes made in Eden during an openSU
+launch are dropped with the run's file (design in `docs/plans/emulator-launch-config.md` step 2).
+A handheld player 1 (`player_8_` connected) plays the first virtual pad on the handheld, player 1
+left off; verified with the nightly on a handheld-seeded copy (`scratch/switch-gaps/runs/eden-handheld-after`:
+presses take Kirby Star Allies from "Press A" to file select through the handheld alone).
 Ryujinx binds a player by `id`, `<k>-<GUID>` (the SDL GUID as a .NET Guid, the name's CRC
 zeroed): while a launch runs each gamepad player's `id` is the Nth virtual pad's, a keyboard player
 gets a Pro Controller in Ryujinx's default pad layout, the update prompt is off, and a version 71
 `Config.json` (SDL3 builds) is migrated down to the 70 that Ryubing 1.3.3 reads (`library/ryujinx_config`);
 verified with 1.3.3 on a copy of the player's config (`scratch/ryu-azahar/runs/ryujinx2`: presses
 take Chocobo's Mystery Dungeon from "Press Any Button" to Select Play Mode, the file comes back
-byte-identical). Gaps: a `Config.json` newer than 71 stays the player's for the run, and a player
-without one gets no pad until Ryujinx has written its own.
+byte-identical). A player without `Config.json` gets Ryujinx's own first-start settings with
+player 1 on the virtual pad, removed after the run; verified with 1.3.3 on a copy without the file
+(`scratch/switch-gaps/runs/ryujinx-fresh-after`: presses take Chocobo's Mystery Dungeon to Select
+Play Mode; before, `ryujinx-fresh-before`, it stayed on "Press Any Button"). Gap: a `Config.json`
+newer than 71 stays the player's for the run.
 Azahar binds the 3DS by `engine:sdl,guid:<GUID>,port:<k>` in `qt-config.ini`'s active profile,
 SDL's full GUID: while a launch runs its SDL bindings play the first virtual pad, a keyboard-only
 profile gets the standard layout in Azahar's own xpad automap, and the update check on start is
