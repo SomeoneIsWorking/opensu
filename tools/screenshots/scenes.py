@@ -54,6 +54,9 @@ def _home(shell: HiddenShell) -> None:
 
 
 def _details(shell: HiddenShell) -> None:
+    """Home leads with the console cards: A opens the first console's shelf, A its first game."""
+    shell.press("a")
+    shell.wait_until(lambda state: state.get("shelf") != "home", "a console's shelf")
     shell.press("a")
     shell.wait_for("detailsOpen", True)
 
@@ -61,6 +64,8 @@ def _details(shell: HiddenShell) -> None:
 def _back_from_details(shell: HiddenShell) -> None:
     shell.press("b")
     shell.wait_for("detailsOpen", False)
+    shell.press("b")
+    shell.wait_for("shelf", "home")
 
 
 def _guide(shell: HiddenShell) -> None:
