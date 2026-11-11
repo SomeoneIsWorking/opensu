@@ -5,6 +5,7 @@
 //
 //   opensu-framegen-pairs --generator lossless [--dll <Lossless.dll>] [--performance]
 //                         [--flow-scale <percent>] [--step N] --in <dir> --out <dir>
+//   opensu-framegen-pairs --generator flow [--step N] --in <dir> --out <dir>
 //
 // Without --dll, the player's Lossless.dll is the one the shell finds in their Steam libraries.
 //
@@ -96,11 +97,11 @@ std::optional<Options> parse(std::span<const std::string> args) {
             return std::nullopt;
         }
     }
-    if (options.generator != "lossless" || options.in.empty() || options.out.empty() ||
-        options.step < 2) {
-        lucent::error("framegen", "usage: opensu-framegen-pairs --generator lossless [--dll <dll>] "
-                                  "[--performance] [--flow-scale <percent>] [--step N] --in <dir> "
-                                  "--out <dir> (--step 2 or more)");
+    if ((options.generator != "lossless" && options.generator != "flow") || options.in.empty() ||
+        options.out.empty() || options.step < 2) {
+        lucent::error("framegen", "usage: opensu-framegen-pairs --generator lossless|flow "
+                                  "[--dll <dll>] [--performance] [--flow-scale <percent>] "
+                                  "[--step N] --in <dir> --out <dir> (--step 2 or more)");
         return std::nullopt;
     }
     return options;
@@ -108,6 +109,14 @@ std::optional<Options> parse(std::span<const std::string> args) {
 
 std::unique_ptr<opensu::frame_gen::Interpolator> generatorOf(Options options,
                                                              GeneratorDevice& gpu) {
+    std::string why;
+    if (options.generator == "flow") {
+        std::unique_ptr<opensu::frame_gen::Interpolator> made = opensu::frame_gen::flow(gpu, why);
+        if (!made) {
+            lucent::error("framegen", "no flow generator: {}", why);
+        }
+        return made;
+    }
     if (options.dll.empty()) {
         const opensu::config::Config config = opensu::config::read();
         const std::optional<std::filesystem::path> found = opensu::library::findLosslessDll(
@@ -120,7 +129,6 @@ std::unique_ptr<opensu::frame_gen::Interpolator> generatorOf(Options options,
         options.dll = *found;
     }
     lucent::info("framegen", "Lossless shaders from {}", options.dll.string());
-    std::string why;
     std::unique_ptr<opensu::frame_gen::Interpolator> made = opensu::frame_gen::lossless(
         gpu,
         framegen::LosslessSettings_t{

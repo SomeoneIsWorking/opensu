@@ -1,0 +1,50 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+// The frame at time t between two real ones: each pixel tries the vectors of its block and the 8
+// around it, keeps the one whose earlier and later pixels agree best over a 3 x 3 neighbourhood,
+// and mixes those two pixels by t.
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(set = 0, binding = 0, rgba8) uniform readonly image2D earlier;
+layout(set = 0, binding = 1, rgba8) uniform readonly image2D later;
+layout(set = 0, binding = 2, rg32f) uniform readonly image2D field;
+layout(set = 1, binding = 0, rgba8) uniform writeonly image2D made;
+#include "flow_push.glsl"
+
+vec3 at(ivec2 p, bool isLater) {
+    const ivec2 q = clamp(p, ivec2(0), push.size - 1);
+    return isLater ? imageLoad(later, q).rgb : imageLoad(earlier, q).rgb;
+}
+
+void main() {
+    const ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(p, push.size))) {
+        return;
+    }
+    const ivec2 block = p / blockSize;
+    const ivec2 fieldLast = push.blocks - 1;
+    ivec2 bestBack = ivec2(0);
+    ivec2 bestAhead = ivec2(0);
+    float bestError = 1e30;
+    for (int y = -1; y <= 1; ++y) {
+        for (int x = -1; x <= 1; ++x) {
+            const vec2 d = imageLoad(field, clamp(block + ivec2(x, y), ivec2(0), fieldLast)).rg;
+            const ivec2 back = earlierShare(d, push.t);
+            const ivec2 ahead = ivec2(d) - back;
+            float error = 0.0;
+            for (int v = -1; v <= 1; ++v) {
+                for (int u = -1; u <= 1; ++u) {
+                    const vec3 diff = at(p + ivec2(u, v) - back, false) -
+                                      at(p + ivec2(u, v) + ahead, true);
+                    error += abs(diff.r) + abs(diff.g) + abs(diff.b);
+                }
+            }
+            if (error < bestError) {
+                bestError = error;
+                bestBack = back;
+                bestAhead = ahead;
+            }
+        }
+    }
+    const vec3 colour = mix(at(p - bestBack, false), at(p + bestAhead, true), push.t);
+    imageStore(made, p, vec4(colour, 1.0));
+}

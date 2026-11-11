@@ -321,13 +321,13 @@ void GeneratorDevice::release() noexcept {
 }
 
 GeneratorImage::GeneratorImage(const GeneratorDevice& gpu, std::uint32_t width,
-                               std::uint32_t height)
+                               std::uint32_t height, VkFormat format)
     : device_{gpu.device()}, width_{width}, height_{height} {
     const VkImageCreateInfo info{.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
                                  .pNext = nullptr,
                                  .flags = 0,
                                  .imageType = VK_IMAGE_TYPE_2D,
-                                 .format = VK_FORMAT_R8G8B8A8_UNORM,
+                                 .format = format,
                                  .extent = {.width = width, .height = height, .depth = 1},
                                  .mipLevels = 1,
                                  .arrayLayers = 1,
@@ -351,7 +351,7 @@ GeneratorImage::GeneratorImage(const GeneratorDevice& gpu, std::uint32_t width,
         .flags = 0,
         .image = image_,
         .viewType = VK_IMAGE_VIEW_TYPE_2D,
-        .format = VK_FORMAT_R8G8B8A8_UNORM,
+        .format = format,
         .components = {},
         .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                              .baseMipLevel = 0,

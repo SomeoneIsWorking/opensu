@@ -38,7 +38,7 @@ def main() -> None:
     parser.add_argument("--run", default="latest", help="the run's folder name")
     parser.add_argument(
         "--generators",
-        default="lossless,own,blend,repeat",
+        default="lossless,flow,blend,repeat",
         help="comma-separated; the first is the one worst frames are picked by",
     )
     parser.add_argument(

@@ -41,4 +41,8 @@ class Interpolator {
 [[nodiscard]] std::unique_ptr<Interpolator>
 lossless(GeneratorDevice& gpu, const framegen::LosslessSettings_t& settings, std::string& why);
 
+/// openSU's own generator (`flow_interpolator.cpp`); nothing with why when its passes cannot be
+/// made on the device.
+[[nodiscard]] std::unique_ptr<Interpolator> flow(GeneratorDevice& gpu, std::string& why);
+
 } // namespace opensu::frame_gen

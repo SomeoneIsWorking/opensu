@@ -1,8 +1,9 @@
 """The frames left out, made again by each generator from the real frames around them: every
 `step`-th recorded frame is real, the ones between are written under their own names.
 
-`lossless` and `own` are openSU's generators run by `opensu-framegen-pairs`; `repeat` (the last
-real frame) and `blend` (the two real frames mixed by time) are references to read scores by."""
+`lossless` (the player's LSFG 3 shaders) and `flow` (openSU's own) run in
+`opensu-framegen-pairs`; `repeat` (the last real frame) and `blend` (the two mixed by time) are
+references to read scores by."""
 
 import subprocess
 from pathlib import Path
@@ -11,7 +12,7 @@ import numpy as np
 
 from tools.framegen_quality.images import load_rgb, save_rgb
 
-OPENSU = ("lossless", "own")
+OPENSU = ("lossless", "flow")
 REFERENCES = ("repeat", "blend")
 
 

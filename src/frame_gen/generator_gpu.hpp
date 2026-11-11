@@ -73,10 +73,12 @@ class GeneratorDevice final : public framegen::IQueue {
     std::deque<std::pair<std::uint64_t, VkCommandBuffer>> submitted_;
 };
 
-/// An RGBA8 image a generator reads or writes, in GENERAL layout from its first use.
+/// An image a generator reads or writes, RGBA8 unless a generator's own intermediate, in GENERAL
+/// layout from its first use.
 class GeneratorImage {
   public:
-    GeneratorImage(const GeneratorDevice& gpu, std::uint32_t width, std::uint32_t height);
+    GeneratorImage(const GeneratorDevice& gpu, std::uint32_t width, std::uint32_t height,
+                   VkFormat format = VK_FORMAT_R8G8B8A8_UNORM);
     ~GeneratorImage();
     GeneratorImage(const GeneratorImage&) = delete;
     GeneratorImage& operator=(const GeneratorImage&) = delete;

@@ -1,0 +1,22 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+// One pyramid level from the one below: each pixel the mean of the four under it.
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(set = 0, binding = 0, r32f) uniform readonly image2D fine;
+layout(set = 0, binding = 1, r32f) uniform writeonly image2D coarse;
+#include "flow_push.glsl"
+
+void main() {
+    const ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(p, push.size))) {
+        return;
+    }
+    const ivec2 last = imageSize(fine) - 1;
+    float sum = 0.0;
+    for (int y = 0; y < 2; ++y) {
+        for (int x = 0; x < 2; ++x) {
+            sum += imageLoad(fine, min(p * 2 + ivec2(x, y), last)).r;
+        }
+    }
+    imageStore(coarse, p, vec4(sum * 0.25));
+}
