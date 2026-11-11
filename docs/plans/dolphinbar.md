@@ -99,18 +99,19 @@ keep the emulated layout only for players who have none.
 5. The IR pointer in openSU's own UI. Built for Bluetooth remotes: the remote's "Nintendo Wii
    Remote IR" device (the kernel turns the camera on while it is open) is read as part of its pad
    (`gamepad::WiiPointer`): the middle of the first two dots, mirrored across (as wiiuse does), is
-   where the remote points; no dot is off the screen; the dots there when the camera opens are
-   read at once. They come as `Event::Kind::Pointer`, and `app/pointing_pads` moves the shell's
-   pointer there (`ShellWindow::movePointer`, the same path as the mouse). While the shell holds
-   the pads, the remote's own A pressed as it points is the pointer's button
-   (`Event::Kind::PointerButton`, not the pad's X it is when held sideways), let go wherever it then
-   points; the window keeps a posted pointer's place between its events, as SDL's mouse is
-   elsewhere. The pointer-first theme needs nothing of its own. Over a game in front the
-   pointer is left alone. Open: no calibration for a sensor bar above or below the screen and no
-   roll correction; the vertical direction follows wiiuse and wants the player's check. In mode 3
-   the DolphinBar is a mouse already and reaches the shell through SDL's mouse events with nothing
-   built. In mode 4 the pointer would need the camera turned on over hidraw while Dolphin is not
-   running; not built. Tested: `wii_remote_layout` (dots to aim) and `pointing_pads`.
+   where the remote points; no dot is off the screen; the dots there when the camera opens are read
+   at once. They come as `Event::Kind::Pointer`, and `app/pointing_pads` moves the shell's pointer
+   there (`ShellWindow::movePointer`, the same path as the mouse). While the shell holds the pads,
+   the remote's own A pressed as it points is the pointer's button (`Event::Kind::PointerButton`,
+   not the pad's X it is when held sideways), let go wherever it then points; the window keeps a
+   posted pointer's place between its events until the remote points away, when the pointer leaves,
+   or SDL's own mouse comes over the window, which then is the pointer. The pointer-first theme
+   needs nothing of its own. Over a game in front the pointer is left alone. Open: no calibration
+   for a sensor bar above or below the screen and no roll correction; the vertical direction
+   follows wiiuse and wants the player's check. In mode 3 the DolphinBar is a mouse already and
+   reaches the shell through SDL's mouse events with nothing built. In mode 4 the pointer would
+   need the camera turned on over hidraw while Dolphin is not running; not built. Tested:
+   `wii_remote_layout` (dots to aim) and `pointing_pads`.
 6. A settings row. Not built. Settings › Controls › "Wii Remotes in Wii games": Real when here
    (default) or Emulated always, for a player who keeps the bar in mode 4 but plays with a pad.
    It is read into the launch as `LaunchSetup::realWiiRemotes` and nothing else changes.

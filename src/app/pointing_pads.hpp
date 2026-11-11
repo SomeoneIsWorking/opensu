@@ -19,6 +19,8 @@ class PointingPads {
         std::function<void(float x, float y)> move;
         /// The pointer's primary button going down or up there.
         std::function<void(float x, float y, bool down)> press;
+        /// The pad no longer points at the screen.
+        std::function<void()> leave;
     };
 
     explicit PointingPads(Hooks hooks) : hooks_{std::move(hooks)} {
@@ -35,7 +37,8 @@ class PointingPads {
     };
 
     Hooks hooks_;
-    /// Where each pad last pointed on the screen, by `Event::source`.
+    /// Where each pad last pointed on the screen, by `Event::source`; kept once it points away, for
+    /// the release of a press made there.
     std::map<std::string, Spot> spots_;
 };
 

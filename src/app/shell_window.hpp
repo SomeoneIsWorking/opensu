@@ -154,6 +154,9 @@ class ShellWindow {
     void movePointer(ui::Point at);
     /// Posts the mouse's `button` (an `SDL_BUTTON_*`) going down or up at `at`.
     void pressPointer(ui::Point at, std::uint8_t button, bool down);
+    /// The posted mouse is gone from the window: the next frame's pointer leaves, unless SDL's
+    /// own mouse is over it.
+    void leavePointer();
     /// Posts what SDL makes of a finger's tap at `at`.
     void tapPointer(ui::Point at);
     /// Posts the wheel turning `notches` at `at`, positive away from the player.
@@ -211,8 +214,8 @@ class ShellWindow {
     PointerFrame pointer_;
     /// The mouse's buttons held, as `PointerFrame::held`; kept across frames.
     std::uint8_t pointerHeld_{0};
-    /// Where a posted mouse last was: the pointer's place in frames that post nothing while SDL's
-    /// own mouse is not over the window.
+    /// Where a posted mouse last was put, until `leavePointer` or SDL's own mouse is over the
+    /// window: the pointer's place in frames that post nothing.
     std::optional<ui::Point> posted_;
     std::optional<gpu2d::PixelSize> resized_;
     /// A hidden window's stated pixels per dp; none for a window on a display.

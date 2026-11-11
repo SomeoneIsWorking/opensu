@@ -7,6 +7,8 @@ bool PointingPads::take(const gamepad::Event& event) {
         if (event.onScreen) {
             spots_[event.source] = Spot{.x = event.x, .y = event.y};
             hooks_.move(event.x, event.y);
+        } else {
+            hooks_.leave();
         }
         return true;
     }

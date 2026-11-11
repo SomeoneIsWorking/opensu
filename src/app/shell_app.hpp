@@ -1392,6 +1392,9 @@ class ShellApp final {
                                 window_->pressPointer({x * static_cast<float>(size.width),
                                                        y * static_cast<float>(size.height)},
                                                       SDL_BUTTON_LEFT, down);
+                            },
+                            [this] {
+                                window_->leavePointer();
                             }}};
     /// The pads as the Devices page lists them.
     ControllerRoster roster_{ControllerRoster::Sources{[this] {

@@ -195,11 +195,14 @@ bool ShellWindow::pollEvents() {
     postStroke();
     pointer_.held = pointerHeld_;
     // An event's own position stands, as a posted one never moves SDL's mouse.
-    if (!pointer_.point && SDL_GetMouseFocus() == window_.window()) {
-        float x = 0.0f;
-        float y = 0.0f;
-        SDL_GetMouseState(&x, &y);
-        pointer_.point = ui::Point{x, y};
+    if (SDL_GetMouseFocus() == window_.window()) {
+        posted_.reset();
+        if (!pointer_.point) {
+            float x = 0.0f;
+            float y = 0.0f;
+            SDL_GetMouseState(&x, &y);
+            pointer_.point = ui::Point{x, y};
+        }
     }
     if (!pointer_.point) {
         pointer_.point = posted_;
@@ -317,7 +320,9 @@ void ShellWindow::movePointer(ui::Point at) {
 }
 
 void ShellWindow::pressPointer(ui::Point at, std::uint8_t button, bool down) {
-    posted_ = at;
+    if (down) {
+        posted_ = at;
+    }
     SDL_Event event{};
     event.button.type = down ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
     event.button.windowID = SDL_GetWindowID(window_.window());
@@ -327,6 +332,10 @@ void ShellWindow::pressPointer(ui::Point at, std::uint8_t button, bool down) {
     event.button.x = at.x;
     event.button.y = at.y;
     post(event);
+}
+
+void ShellWindow::leavePointer() {
+    posted_.reset();
 }
 
 void ShellWindow::tapPointer(ui::Point at) {
