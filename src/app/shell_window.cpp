@@ -17,6 +17,7 @@
 
 #include "content_insets.hpp"
 #include "display/output.hpp"
+#include "display/window_size.hpp"
 #include "lucent/log.h"
 #include "sdl_keys.hpp"
 #include "touch/sdl_touch.hpp"
@@ -38,9 +39,32 @@ unsigned heldBit(std::uint8_t button) {
     }
 }
 
-/// The layout is computed from the window's size, but a window smaller than this crowds it.
-constexpr int minimumWidth = 960;
-constexpr int minimumHeight = 600;
+/// The layout is computed from the window's size, but a window smaller than this crowds it; dp
+/// for a window on a display, pixels for a hidden one.
+constexpr display::Size minimumSize{.width = 960, .height = 600};
+
+/// Sizes a window on a display in dp, so a scaled desktop gives the layouts the room a plain one
+/// does: `dp` and the minimum by the display's content scale, inside its usable area.
+void sizeInDp(SDL_Window* window, display::Size dp) {
+    const SDL_DisplayID on = SDL_GetDisplayForWindow(window);
+    const float scale = SDL_GetDisplayContentScale(on);
+    SDL_Rect usable{};
+    if (!SDL_GetDisplayUsableBounds(on, &usable)) {
+        usable = SDL_Rect{};
+    }
+    const display::Size opened = display::windowOn(dp, scale, {usable.w, usable.h});
+    const display::Size least = display::windowOn(minimumSize, scale, opened);
+    SDL_SetWindowMinimumSize(window, least.width, least.height);
+    lucent::info("shell", "window of {}x{} dp opens {}x{} on a display of {} per dp, {}x{} usable",
+                 dp.width, dp.height, opened.width, opened.height, scale, usable.w, usable.h);
+    if (opened.width == dp.width && opened.height == dp.height) {
+        return;
+    }
+    SDL_SetWindowSize(window, opened.width, opened.height);
+    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(on),
+                          SDL_WINDOWPOS_CENTERED_DISPLAY(on));
+    SDL_SyncWindow(window);
+}
 
 gpu2d::WindowOptions windowOptions(const ShellWindow::Options& options) {
     return gpu2d::WindowOptions{.title = options.title,
@@ -62,7 +86,11 @@ SDL_GPUCommandBuffer* acquireCommands(SDL_GPUDevice& device) {
 ShellWindow::ShellWindow(const Options& options)
     : window_{windowOptions(options)}, canvas_{window_.device()},
       hiddenDp_{options.hidden ? std::optional<float>{options.hiddenDp} : std::nullopt} {
-    SDL_SetWindowMinimumSize(window_.window(), minimumWidth, minimumHeight);
+    if (options.hidden) {
+        SDL_SetWindowMinimumSize(window_.window(), minimumSize.width, minimumSize.height);
+    } else {
+        sizeInDp(window_.window(), {.width = options.width, .height = options.height});
+    }
     // The system's on-screen keyboard shows only when a field asks for it (`showScreenKeyboard`).
     SDL_SetHint(SDL_HINT_ENABLE_SCREEN_KEYBOARD, "0");
     SDL_StartTextInput(window_.window());

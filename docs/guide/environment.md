@@ -29,7 +29,7 @@ All optional.
 | `OPENSU_STEAM_ROOTS` | Colon-separated Steam install roots. Discovered when unset. |
 | `OPENSU_ROM_ROOTS` | Colon-separated ROM roots, each holding one folder per system. Discovered when unset. |
 | `OPENSU_EMULATORS` | Per-system command overriding the one found: `ps2=pcsx2-qt -batch {rom};gc=dolphin-emu -b -e {rom}`. |
-| `OPENSU_WIDTH`, `OPENSU_HEIGHT` | Window size, default 1280x800. |
+| `OPENSU_WIDTH`, `OPENSU_HEIGHT` | Window size, default 1280x800: dp for a window on a display (multiplied by the display's scale, kept inside its usable area), pixels for a `--hidden` or `--render` run. |
 | `OPENSU_DISPLAY_SCALE` | Pixels per dp of the screen a `--hidden` or `--render` run stands for, default 1; the desktop's own scale never reaches such a run. A phone is `OPENSU_WIDTH=1080 OPENSU_HEIGHT=2400 OPENSU_DISPLAY_SCALE=2.625`. |
 | `OPENSU_ASSETS` | Directory holding the typeface. Defaults to `share/opensu` beside the executable's directory. |
 | `OPENSU_HOME_MODE` | `standard` (scrolling grid, default) or `wiisu` (pages with peeks and page dots). |

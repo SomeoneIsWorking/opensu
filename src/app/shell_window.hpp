@@ -55,6 +55,7 @@ class ShellWindow {
   public:
     struct Options {
         std::string title;
+        /// The size: dp for a window on a display, pixels for a hidden one.
         int width{};
         int height{};
         /// Unmapped and without vsync, for maintainer runs and still renders.
