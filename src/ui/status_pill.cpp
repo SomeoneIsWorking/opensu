@@ -130,6 +130,10 @@ void StatusPillPainter::paintLaunchers(Canvas& canvas, const StatusPillView& vie
         return;
     }
     badges_.paint(canvas, view.launchers, view.badges);
+    // The divider parts the badges from the text row; a theme may leave that row empty.
+    if (view.clock.empty() && !view.battery) {
+        return;
+    }
     const float height = view.body.height * 0.5f;
     canvas.line(Point{view.divider, view.body.centreY() - height * 0.5f},
                 Point{view.divider, view.body.centreY() + height * 0.5f}, std::max(view.dp, 1.0f),

@@ -41,7 +41,10 @@ Taken, as a design language:
 Not taken: any of Nintendo's art, icons, fonts, sounds or music, the name or logo, the bar's
 buttons or exact curve, or a pixel-level recreation. The theme is called Channels; "Wii-inspired"
 appears only in docs. Its type is Nunito Bold (SIL OFL 1.1, from the font's own repository,
-`vernnobile/NunitoFont`, version 2.0), stored with its licence like Cal Sans. Its sounds and music
+`vernnobile/NunitoFont`, version 2.0), stored with its licence like Cal Sans. That build sets
+`USE_TYPO_METRICS` with a positive `sTypoDescender` and a wrapped `usWinDescent`, which gives a
+0.70 em line box; the stored copy has both set to its hhea descent, -572 (OFL 1.1 allows the
+change, Nunito has no reserved name; `docs/issues/channels-layout.md`). Its sounds and music
 are synthesised by `tools/sounds/`, openSU's own, MIT.
 
 ## Tokens
