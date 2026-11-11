@@ -402,7 +402,7 @@ void aSetPage() {
     near(layout.maxScroll(), layout.pageScroll(2), "the furthest scroll shows the last page");
 
     HomeLayoutInput byColumns = setPage(30);
-    byColumns.page->rowMajor = false;
+    byColumns.page = opensu::ui::SetPage{.columns = 4, .aspect = 1.5f, .rowMajor = false};
     const HomeLayout columns{byColumns};
     expect(columns.cellOf(1).left == 0 && columns.cellOf(1).top == 1 && columns.cellOf(3).left == 1,
            "a page may fill column by column instead");
