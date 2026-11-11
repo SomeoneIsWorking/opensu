@@ -9,15 +9,15 @@ libretro core, Wine, Proton or other compatibility layer ships inside openSU or 
 each is the player's own install or a download openSU fetches and verifies at run time.
 openSU never reimplements a store's authentication, download or cloud sync.
 
-## G002 — A console shell of its own
+## G002 — Console shell themes
 
-openSU has its own interface and sound, not a replica of another launcher's. The direction is a
-calm console menu in the spirit of the Wii's: pages of rounded live tiles, a soft light look,
-rounded type, gentle sounds and pointer-first navigation, driven equally well by a pad, a
-pointer (mouse, touch, a Wii Remote through a DolphinBar) and a keyboard. Its art, sounds and
-type are openSU's own or openly licensed; no Nintendo or iiSU asset, name or pixel-level copy.
-Replicating iiSU is no longer a goal (2026-11-11); what was built from it stays only where it is
-the better design.
+openSU's look, layout and sound come as themes the player picks, each a whole console-menu feel
+on one shell, driven equally well by a pad, a pointer (mouse, touch, a Wii Remote through a
+DolphinBar) and a keyboard. The first two: the iiSU look already built (the default), and one
+in the spirit of the Wii's menu (pages of rounded live tiles, a soft light look, rounded type,
+gentle sounds, pointer-first). A theme takes a design language, not assets: art, sounds and type
+are openSU's own or openly licensed, never Nintendo's or iiSU's, and no pixel-level copy. Which
+theme leads, or whether openSU grows its own, is open (2026-11-11).
 
 ## G003 — Gamepad in, game out
 
