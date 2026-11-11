@@ -52,6 +52,8 @@ struct RunnerOptions {
     std::optional<std::uint64_t> frames;
     /// Hidden only: the last image shown, written here as PNG.
     std::optional<std::filesystem::path> framePng;
+    /// Hidden only: every frame the core runs, written into this folder as `<frame>.png`.
+    std::optional<std::filesystem::path> framePngs;
     /// Where the control channel is announced, or a load failure reported; none when empty.
     std::filesystem::path control;
     /// How the frame is shown: the shell's per-launch settings, else the defaults.

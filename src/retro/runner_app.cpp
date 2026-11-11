@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <exception>
+#include <format>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -187,7 +188,6 @@ bool writeFramePng(Presenter& presenter, const std::filesystem::path& file) {
         lucent::error("retro", "cannot write {}: {}", file.string(), error);
         return false;
     }
-    lucent::info("retro", "wrote the last frame to {}", file.string());
     return true;
 }
 
@@ -557,6 +557,11 @@ RunnerExit RunnerApp::run() {
             exit = stoppedDrawing(control.get(), failure);
             break;
         }
+        if (options_.framePngs && !holding &&
+            !writeFramePng(*presenter, *options_.framePngs / std::format("{:06}.png", frame))) {
+            exit = RunnerExit::PresenterFailed;
+            break;
+        }
         if (control && !announcedShown && presenter->shown()) {
             announcedShown = true;
             control->reportShown();
@@ -592,9 +597,12 @@ RunnerExit RunnerApp::run() {
                  millisecondsOf(sink.underrunFrames()), millisecondsOf(sink.overrunFrames()));
     saves.flush(core->saveRam());
 
-    if (exit == RunnerExit::Quit && options_.framePng &&
-        !writeFramePng(*presenter, *options_.framePng)) {
-        exit = RunnerExit::PresenterFailed;
+    if (exit == RunnerExit::Quit && options_.framePng) {
+        if (writeFramePng(*presenter, *options_.framePng)) {
+            lucent::info("retro", "wrote the last frame to {}", options_.framePng->string());
+        } else {
+            exit = RunnerExit::PresenterFailed;
+        }
     }
     // A GPU core's context goes before its game, and the device after both.
     hardware.detach();
