@@ -93,6 +93,7 @@ using Pool = Owned<VkDescriptorPool, vkDestroyDescriptorPool>;
 
 SetLayout storageImages(VkDevice device, std::uint32_t count) {
     std::vector<VkDescriptorSetLayoutBinding> bindings;
+    bindings.reserve(count);
     for (std::uint32_t i = 0; i < count; ++i) {
         bindings.push_back(
             VkDescriptorSetLayoutBinding{.binding = i,
@@ -330,6 +331,7 @@ class FlowInterpolator final : public Interpolator {
                                                    .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
         }
         std::vector<VkWriteDescriptorSet> writes;
+        writes.reserve(images.size());
         for (std::size_t i = 0; i < images.size(); ++i) {
             writes.push_back(
                 VkWriteDescriptorSet{.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
