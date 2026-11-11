@@ -45,12 +45,12 @@ elseif(APPLE)
 else()
     target_sources(opensu_launch PRIVATE steam_request_applaunch.cpp)
 endif()
-# The launcher's backend: on Linux the one its Containment picks at run time (a systemd user scope), a Job Object on Windows and a process
+# The launcher's backend: on Linux the one its Containment picks at run time (a systemd user scope, else a keeper process), a Job Object on Windows and a process
 # group on macOS (the desktop's windows for the handoff on both), an intent from the shell's
 # Activity on Android.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(opensu_launch PRIVATE process_launcher_linux.cpp process_launcher_systemd_scope.cpp
-        containment_linux.cpp)
+        process_launcher_keeper.cpp containment_linux.cpp)
 elseif(WIN32)
     target_sources(opensu_launch PRIVATE process_launcher_job_object.cpp win32_windows.cpp)
 elseif(ANDROID)

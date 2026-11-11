@@ -4,9 +4,15 @@
 #include <string>
 #include <vector>
 
+#include <sys/wait.h>
+
 #include "launch_group.hpp"
 
 namespace opensu::launch {
+
+int exitStatusOf(int waitStatus) {
+    return WIFEXITED(waitStatus) ? WEXITSTATUS(waitStatus) : 128 + WTERMSIG(waitStatus);
+}
 
 struct ProcessLauncher::Group {
     std::unique_ptr<LaunchGroup> held;
@@ -30,8 +36,8 @@ bool ProcessLauncher::start(const std::string& group, const std::string& program
                             const std::filesystem::path& workingDirectory,
                             const std::filesystem::path& output) {
     const std::lock_guard lock{mutex_};
-    return group_->held->start(group, program, args, failure, environment, workingDirectory,
-                               output, exitStatus_);
+    return group_->held->start(group, program, args, failure, environment, workingDirectory, output,
+                               exitStatus_);
 }
 
 bool ProcessLauncher::running() {

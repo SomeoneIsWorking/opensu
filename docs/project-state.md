@@ -1223,7 +1223,13 @@ this proof. The -11 exit in the proof's reports was openSU's, from builds before
 Every scope openSU creates is named `<session>-<role>[-N].scope`
 (`Config::session`: `OPENSU_SESSION`, else `opensu-<pid>`), and is a transient
 systemd user scope (`launch::ProcessLauncher`'s Linux backend), so processes that setsid or double-fork
-stay owned. A non-Steam game runs in its own scope,
+stay owned. Where `systemd-run --user --scope` cannot reach a user manager (no systemd, a container,
+a login without one), each launch runs under a keeper of openSU's instead, chosen once at start-up
+and logged (`launch::chooseContainment`, `docs/issues/launch-without-user-manager.md`). The keeper is
+the child subreaper of the game's tree, ends it as the scope does (SIGTERM, SIGKILL after 5 s) and
+ends it as well when openSU exits or crashes. Shown with a GBA game played and closed from the Guide
+without a session bus, nothing left running (`scratch/zerotier-lab/keeper-run/`), and in
+`process_launcher_test`. A non-Steam game runs in its own scope,
 stopped when the game leaves. A Steam game is handed to the background client
 (`steam -applaunch`). Close game in the Guide menu ends either. A game in a scope
 (ROMs on `opensu-retro` or a standalone emulator, GOG and Epic games under Wine) is stopped:

@@ -1,4 +1,4 @@
-// The process launcher, against real systemd scopes and real processes.
+// The process launcher, against real processes in real systemd scopes and under keepers.
 #include "launch/process_launcher.hpp"
 #include "support/test_main.hpp"
 
@@ -9,11 +9,13 @@
 #include <fstream>
 #include <functional>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
 #include <pthread.h>
 #include <signal.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 namespace {
@@ -60,15 +62,8 @@ pid_t readPid(const fs::path& path) {
     return static_cast<pid_t>(value);
 }
 
-/// Starts a command that leaves a grandchild in its own session, and returns the
-/// grandchild's pid once recorded.
-pid_t startEscaper(ProcessLauncher& instance, const char* stem, const fs::path& pidFile) {
-    fs::remove(pidFile);
-    std::string failure;
-    expect(instance.start(unitName(stem), "/bin/sh",
-                          {"-c", "setsid sleep 60 & echo $! > " + pidFile.string() + "; sleep 60"},
-                          failure),
-           "an escaping command starts");
+/// The pid a started command recorded in `pidFile`, once it is there and running.
+pid_t awaitPid(const fs::path& pidFile) {
     expect(waitUntil(
                [&pidFile] {
                    return readPid(pidFile) > 0;
@@ -80,15 +75,166 @@ pid_t startEscaper(ProcessLauncher& instance, const char* stem, const fs::path& 
     return grandchild;
 }
 
-} // namespace
+/// Starts a command that leaves a grandchild in its own session, and returns the
+/// grandchild's pid once recorded.
+pid_t startEscaper(ProcessLauncher& instance, const char* stem, const fs::path& pidFile) {
+    fs::remove(pidFile);
+    std::string failure;
+    expect(instance.start(unitName(stem), "/bin/sh",
+                          {"-c", "setsid sleep 60 & echo $! > " + pidFile.string() + "; sleep 60"},
+                          failure),
+           "an escaping command starts");
+    return awaitPid(pidFile);
+}
 
-int main() try {
-    const fs::path scratch =
-        fs::path{OPENSU_TEST_SCRATCH} / ("opensu-instance-test-" + std::to_string(getpid()));
+/// Starts a command whose grandchild double-forks into a session of its own, its parent gone,
+/// and returns the grandchild's pid once recorded.
+pid_t startDoubleForker(ProcessLauncher& instance, const char* stem, const fs::path& pidFile) {
+    fs::remove(pidFile);
+    std::string failure;
+    expect(
+        instance.start(unitName(stem), "/bin/sh",
+                       {"-c", "(setsid sleep 60 & echo $! > " + pidFile.string() + ") ; sleep 60"},
+                       failure),
+        "a double-forking command starts");
+    return awaitPid(pidFile);
+}
+
+bool endsWithin(pid_t pid) {
+    return waitUntil(
+        [pid] {
+            return !alive(pid);
+        },
+        std::chrono::seconds{8});
+}
+
+/// The stand-in openSU: two games under keepers, their grandchildren's pids in `dir`, then it
+/// waits to be killed.
+int standInParent(const fs::path& dir) {
+    ProcessLauncher first{Containment::keeper};
+    ProcessLauncher second{Containment::keeper};
+    static_cast<void>(startDoubleForker(first, "parent-first", dir / "first.pid"));
+    static_cast<void>(startDoubleForker(second, "parent-second", dir / "second.pid"));
+    std::ofstream{dir / "ready"} << "ready\n";
+    for (;;) {
+        pause();
+    }
+}
+
+/// An openSU that dies without stopping its launchers still ends every game's tree: each
+/// keeper sees openSU's end of its pipe close, and neither keeper holds the other's.
+void checkParentDeath(const fs::path& scratch) {
+    const fs::path dir = scratch / "parent";
+    fs::create_directories(dir);
+    const std::string self = fs::read_symlink("/proc/self/exe").string();
+    const pid_t parent = fork();
+    expect(parent >= 0, "the stand-in parent forks");
+    if (parent == 0) {
+        execl(self.c_str(), self.c_str(), "parent", dir.c_str(), nullptr);
+        std::_Exit(127);
+    }
+    expect(waitUntil(
+               [&dir] {
+                   return fs::exists(dir / "ready");
+               },
+               std::chrono::seconds{20}),
+           "the stand-in parent started both games");
+    const pid_t first = readPid(dir / "first.pid");
+    const pid_t second = readPid(dir / "second.pid");
+    expect(alive(first) && alive(second), "both games' grandchildren run");
+    ::kill(parent, SIGKILL);
+    int status = 0;
+    waitpid(parent, &status, 0);
+    expect(endsWithin(first), "the first game's tree ends with its openSU");
+    expect(endsWithin(second), "the second game's tree ends with its openSU");
+}
+
+/// Checks only a keeper has to make: a double fork stays owned, and the game's own status
+/// comes back whole.
+void checkKeeper(const fs::path& scratch) {
+    {
+        ProcessLauncher instance{Containment::keeper};
+        const pid_t grandchild = startDoubleForker(instance, "double", scratch / "double.pid");
+        instance.stop();
+        expect(endsWithin(grandchild),
+               "stop() ends a process that double-forked into its own session");
+    }
+    {
+        // The started process exits at once; its orphan is still the launch's.
+        ProcessLauncher instance{Containment::keeper};
+        const fs::path pidFile = scratch / "linger.pid";
+        std::string failure;
+        expect(instance.start(unitName("linger"), "/bin/sh",
+                              {"-c", "(setsid sleep 60 & echo $! > " + pidFile.string() + ")"},
+                              failure),
+               "a launcher that leaves an orphan starts");
+        const pid_t orphan = awaitPid(pidFile);
+        expect(waitUntil(
+                   [&instance] {
+                       return !instance.startedRunning();
+                   },
+                   std::chrono::seconds{10}),
+               "the started process is seen to exit");
+        expect(instance.running(), "the launch runs while its orphan does");
+        instance.stop();
+        expect(endsWithin(orphan), "stop() ends the orphan");
+    }
+    const auto endedWith = [](const std::string& script) {
+        ProcessLauncher instance{Containment::keeper};
+        std::string failure;
+        expect(instance.start(unitName("status"), "/bin/sh", {"-c", script}, failure),
+               "the status probe starts");
+        expect(waitUntil(
+                   [&instance] {
+                       return !instance.running();
+                   },
+                   std::chrono::seconds{10}),
+               "the status probe ends");
+        return instance.exitStatus();
+    };
+    expect(endedWith("exit 7") == 7, "a game's exit code comes back as given");
+    expect(endedWith("ulimit -c 0; kill -SEGV $$") == 128 + SIGSEGV,
+           "a game's crash comes back as 128 plus its signal");
+    {
+        ProcessLauncher instance{Containment::keeper};
+        std::string failure;
+        expect(instance.start(unitName("term"), "/bin/sleep", {"60"}, failure), "sleep starts");
+        instance.stop();
+        expect(instance.exitStatus() == 128 + SIGTERM, "a stopped game ends on SIGTERM");
+    }
+    {
+        // A game that ignores SIGTERM is killed after the scope's 5 s.
+        ProcessLauncher instance{Containment::keeper};
+        std::string failure;
+        const fs::path ready = scratch / "stubborn.ready";
+        expect(instance.start(
+                   unitName("stubborn"), "/bin/sh",
+                   {"-c", "trap '' TERM; echo > " + ready.string() + "; while :; do sleep 1; done"},
+                   failure),
+               "a stubborn game starts");
+        expect(waitUntil(
+                   [&ready] {
+                       return fs::exists(ready);
+                   },
+                   std::chrono::seconds{10}),
+               "the stubborn game ignores SIGTERM");
+        const Clock::time_point began = Clock::now();
+        instance.stop();
+        const Clock::duration took = Clock::now() - began;
+        expect(!instance.running(), "a stubborn game is gone after stop()");
+        expect(took >= std::chrono::seconds{5}, "a stubborn game gets the 5 s to end");
+        expect(took < std::chrono::seconds{8}, "stop() kills it in bounded time");
+        expect(instance.exitStatus() == 128 + SIGKILL, "a stubborn game ends on SIGKILL");
+    }
+    checkParentDeath(scratch);
+}
+
+/// What every Linux containment has to do.
+void checkLauncher(Containment containment, const fs::path& scratch) {
     fs::create_directories(scratch);
 
     {
-        ProcessLauncher instance{Containment::systemdScope};
+        ProcessLauncher instance{containment};
         std::string failure;
         expect(instance.start(unitName("plain"), "/bin/sleep", {"60"}, failure), "sleep starts");
         expect(instance.running(), "a started instance is running");
@@ -99,7 +245,7 @@ int main() try {
     }
 
     {
-        ProcessLauncher instance{Containment::systemdScope};
+        ProcessLauncher instance{containment};
         const pid_t grandchild = startEscaper(instance, "stop", scratch / "stop.pid");
         instance.stop();
         expect(waitUntil(
@@ -111,17 +257,19 @@ int main() try {
     }
 
     {
-        ProcessLauncher instance{Containment::systemdScope};
+        ProcessLauncher instance{containment};
         std::string failure;
         expect(!instance.start(unitName("missing"), "/no/such/program", {}, failure),
                "a missing program is refused");
-        expect(failure == "could not start program", "the failure names it, not its folder");
+        expect(failure.starts_with("could not start program") &&
+                   failure.find("/no/such") == std::string::npos,
+               "the failure names it, not its folder");
     }
 
     {
         pid_t grandchild = 0;
         {
-            ProcessLauncher instance{Containment::systemdScope};
+            ProcessLauncher instance{containment};
             grandchild = startEscaper(instance, "dtor", scratch / "dtor.pid");
         }
         expect(waitUntil(
@@ -140,7 +288,7 @@ int main() try {
         sigset_t previous;
         pthread_sigmask(SIG_BLOCK, &term, &previous);
         const fs::path mask = scratch / "mask";
-        ProcessLauncher instance{Containment::systemdScope};
+        ProcessLauncher instance{containment};
         std::string failure;
         expect(instance.start(unitName("mask"), "/bin/sh",
                               {"-c", "grep SigBlk /proc/self/status > " + mask.string()}, failure),
@@ -166,7 +314,7 @@ int main() try {
         // The shell's own Gamescope WSI switch stays with the shell; a game gets the layer.
         setenv("DISABLE_GAMESCOPE_WSI", "1", 1);
         const fs::path seen = scratch / "wsi";
-        ProcessLauncher instance{Containment::systemdScope};
+        ProcessLauncher instance{containment};
         std::string failure;
         expect(instance.start(unitName("wsi"), "/bin/sh", {"-c", "env > " + seen.string()}, failure,
                               {"FROM_CALLER=given"}),
@@ -202,7 +350,7 @@ int main() try {
         }
         fs::permissions(program, fs::perms::owner_all);
         const std::vector<std::string> args{"$HOME", "${HOME}", "a$$b", "x${X}y", "$"};
-        ProcessLauncher instance{Containment::systemdScope};
+        ProcessLauncher instance{containment};
         std::string failure;
         expect(instance.start(unitName("dollar"), program.string(), args, failure),
                "a program with $ in its path starts");
@@ -221,7 +369,20 @@ int main() try {
         expected.insert(expected.end(), args.begin(), args.end());
         expect(words == expected, "the program's path and arguments arrive unchanged");
     }
+}
 
+} // namespace
+
+int main(int argc, char** argv) try {
+    if (argc == 3 && std::string_view{argv[1]} == "parent") {
+        return standInParent(argv[2]);
+    }
+    const fs::path scratch =
+        fs::path{OPENSU_TEST_SCRATCH} / ("opensu-instance-test-" + std::to_string(getpid()));
+    fs::create_directories(scratch);
+    checkLauncher(Containment::systemdScope, scratch / "scope");
+    checkLauncher(Containment::keeper, scratch / "keeper");
+    checkKeeper(scratch);
     fs::remove_all(scratch);
     std::printf("instance: all checks passed\n");
     return 0;

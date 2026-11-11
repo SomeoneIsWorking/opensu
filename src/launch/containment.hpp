@@ -10,6 +10,9 @@ namespace opensu::launch {
 enum class Containment : std::uint8_t {
     /// A transient systemd user scope: Linux with a user manager that systemd-run reaches.
     systemdScope,
+    /// A keeper process of openSU's per launch, the child subreaper of the program's tree:
+    /// Linux without a user manager systemd-run reaches.
+    keeper,
     /// The OS's own group: a Job Object on Windows, a process group on macOS, an intent on
     /// Android.
     platform,

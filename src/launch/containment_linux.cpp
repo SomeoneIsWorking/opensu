@@ -15,14 +15,17 @@ Containment chooseContainment() {
         lucent::info("launch", "launches run in systemd user scopes");
         return Containment::systemdScope;
     }
-    lucent::error("launch", "no launch can start: {}", why);
-    return Containment::systemdScope;
+    lucent::warn("launch",
+                 "launches run under openSU's own keeper, as systemd user scopes cannot: {}", why);
+    return Containment::keeper;
 }
 
 std::unique_ptr<LaunchGroup> makeLaunchGroup(Containment containment) {
     switch (containment) {
     case Containment::systemdScope:
         return makeSystemdScope();
+    case Containment::keeper:
+        return makeKeeper();
     case Containment::platform:
         break;
     }

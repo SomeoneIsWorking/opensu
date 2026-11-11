@@ -39,11 +39,6 @@ int systemctl(const std::vector<std::string>& args) {
     return runCommand("systemctl", full, systemctlWait).value_or(-1);
 }
 
-/// A wait status as a shell reports it: the exit code, or 128 plus the signal.
-int statusOf(int waitStatus) {
-    return WIFEXITED(waitStatus) ? WEXITSTATUS(waitStatus) : 128 + WTERMSIG(waitStatus);
-}
-
 /// systemd-run's flags for a scope named `unit`. systemd 258 and later expand "$" in a scope's
 /// command unless told not to.
 std::vector<std::string> scopeArgs(const std::string& unit) {
@@ -195,7 +190,7 @@ bool SystemdScope::childRunning(int& exitStatus) {
         return true;
     }
     child_ = -1;
-    exitStatus = statusOf(status);
+    exitStatus = exitStatusOf(status);
     return false;
 }
 
@@ -217,7 +212,7 @@ void SystemdScope::reapChild(int& exitStatus) {
         std::this_thread::sleep_for(step);
     }
     if (done == child_) {
-        exitStatus = statusOf(status);
+        exitStatus = exitStatusOf(status);
     }
     child_ = -1;
 }
@@ -229,7 +224,8 @@ std::unique_ptr<LaunchGroup> makeSystemdScope() {
 }
 
 bool systemdScopeWorks(std::string& why) {
-    std::vector<std::string> args = scopeArgs("opensu-" + std::to_string(getpid()) + "-probe.scope");
+    std::vector<std::string> args =
+        scopeArgs("opensu-" + std::to_string(getpid()) + "-probe.scope");
     args.emplace_back("--");
     args.emplace_back("true");
     const std::optional<Captured> ran = runCaptured("systemd-run", args, CaptureErrors::Merged);

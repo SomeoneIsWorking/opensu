@@ -1,28 +1,46 @@
 # No game starts without a reachable systemd user manager
 
-Status: open.
+Status: closed.
 
-On Linux `src/launch/process_launcher_systemd_scope.cpp:ProcessLauncher::start` is the only
-launcher backend (picked at build time in `src/launch/CMakeLists.txt`): every launch runs through
-`systemd-run --user --scope`. When systemd-run cannot reach the user manager it exits at once, and
-start() returns "could not start <program>" with no reason; the toast shows just that, and the only
-cause on record is systemd-run's own stderr in openSU's log, `Failed to connect to user scope bus
-via local transport: No such file or directory`. There is no fallback, so opensu-retro, emulators
-and every other program fail alike.
+On Linux every launch ran through `systemd-run --user --scope`, the only Linux backend, picked at
+build time. When systemd-run could not reach the user manager it exited at once, and
+`ProcessLauncher::start` returned "could not start <program>" with no reason; the only cause on
+record was systemd-run's stderr in openSU's log, `Failed to connect to user scope bus via local
+transport: No such file or directory`. opensu-retro, emulators and Steam all failed alike. A
+player on a distribution without systemd (Void, Alpine, Artix, Devuan, Gentoo with OpenRC), in a
+container or chroot without the user bus, or in a login with no user manager (ssh or `su` without a
+logind session) could start nothing. A systemd desktop, openSU's own session and the AppImage
+there were never affected.
 
-A player on a systemd desktop or openSU's own session has the manager, including from the
-AppImage, which leaves `XDG_RUNTIME_DIR` and `DBUS_SESSION_BUS_ADDRESS` as the session set them.
-A player hits this on a distribution without systemd (Void, Alpine, Artix, Devuan, Gentoo with
-OpenRC), in a container or chroot without the user bus, or in a login with no user manager (ssh or
-`su` without a logind session).
+Reproduced in `scratch/zerotier-lab/moved/shell.log`: a hidden shell whose `XDG_RUNTIME_DIR`
+pointed at a scratch directory and whose session bus was dropped (`tools/screenshots/shell.py`
+`Profile` without `user_session`).
 
-Reproduced in `scratch/zerotier-lab/moved/shell.log`: a hidden shell whose `XDG_RUNTIME_DIR` pointed
-at a scratch directory and whose session bus was dropped (`tools/screenshots/shell.py` `Profile`
-without `user_session`). The same walk with `user_session=True`
-(`scratch/zerotier-lab/moved-fixed/`) logs `opensu-retro started in opensu-<pid>-game-0.scope`
-and the runner draws 482 frames.
+Fix: each process chooses its launchers' containment once at start-up
+(`launch::chooseContainment`). It tries `systemd-run --user --scope` with the flags every launch
+uses and logs the choice and why. When that fails, every launch runs under a keeper of its own
+(`process_launcher_keeper.cpp`): a forked child of openSU that runs only syscalls, makes itself
+the child subreaper of the game's tree, starts the game in its own process group and stays its
+parent. A process that setsids or double-forks reparents to the keeper instead of escaping. Stop
+SIGTERMs the group and every descendant, SIGKILLs what is left after 5 s, as the scope's
+`TimeoutStopSec`, and reaps it all. The keeper also stops the tree when openSU's end of the pipe
+between them closes, which happens only when openSU exits or crashes: both ends are `O_CLOEXEC`,
+and every keeper closes every descriptor it inherited, so no other child holds it.
+`PR_SET_PDEATHSIG` is not used because it fires when the forking thread exits, and openSU forks
+from per-launch threads. The keeper exits with the game's code, or raises the game's signal on
+itself with core dumps off, so `exitStatus` reads as it does from a scope. A start that fails
+names the cause: "could not start opensu-retro: No such file or directory".
 
-Proper fix, not yet chosen: either the Linux launcher starts the program in a process group (the
-macOS backend's behaviour, losing the cgroup ownership of setsid and double-fork children) when no
-user manager answers, decided once at start-up; or openSU refuses at start-up with the reason and
-what to install. Either way start() should name the cause instead of the bare "could not start".
+Proof, a hidden shell walking to a GBA game, playing it and closing it from the Guide:
+- `scratch/zerotier-lab/keeper-run/` is the reproduction: no session bus, `XDG_RUNTIME_DIR` in
+  scratch. The log reads `launches run under openSU's own keeper, as systemd user scopes cannot:
+  systemd-run exited with 1: Failed to connect to user scope bus via local transport`, then
+  `opensu-retro started under keeper <pid>`. The runner drew 483 frames, Close game toasted "link
+  test closed", and no process named the ROM afterwards.
+- `scratch/zerotier-lab/scope-run/` is the same walk with the session: `launches run in systemd
+  user scopes`, and the game ran in its scope as before.
+- `process_launcher_test` runs every check under both containments. For the keeper it also
+  checks: a double fork into its own session is ended on stop; an orphan keeps the launch running
+  after the started process exits; exit 7 and SIGSEGV come back as 7 and 139; a game that ignores
+  SIGTERM is SIGKILLed after 5 s; a stand-in openSU SIGKILLed with two games running ends both
+  trees.

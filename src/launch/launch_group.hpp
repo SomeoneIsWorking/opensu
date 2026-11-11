@@ -32,11 +32,17 @@ class LaunchGroup {
     virtual void stop(int& exitStatus) = 0;
 };
 
+/// A wait status as a shell reports it: the exit code, or 128 plus the signal.
+[[nodiscard]] int exitStatusOf(int waitStatus);
+
 /// The backend for `containment`; throws std::invalid_argument for one Linux has none of.
 [[nodiscard]] std::unique_ptr<LaunchGroup> makeLaunchGroup(Containment containment);
 
 /// A transient systemd user scope per launch (`process_launcher_systemd_scope.cpp`).
 [[nodiscard]] std::unique_ptr<LaunchGroup> makeSystemdScope();
+
+/// A keeper process per launch (`process_launcher_keeper.cpp`).
+[[nodiscard]] std::unique_ptr<LaunchGroup> makeKeeper();
 
 /// Whether systemd-run starts a program in a user scope here, tried once with the flags every
 /// launch uses; false with what systemd-run said in `why`.
