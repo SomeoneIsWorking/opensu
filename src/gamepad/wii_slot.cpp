@@ -212,7 +212,7 @@ void WiiSlot::takeReport(std::span<const std::uint8_t> report, std::vector<WiiPa
         break;
     case buttonsAndExtension:
         if (extension_) {
-            takeExtension(report.subspan(3, extensionBytes), out);
+            takeExtension(*extension_, report.subspan(3, extensionBytes), out);
         }
         break;
     default:
@@ -303,8 +303,8 @@ void WiiSlot::takeButtons(std::uint8_t first, std::uint8_t second, std::vector<W
     }
 }
 
-void WiiSlot::takeExtension(std::span<const std::uint8_t> bytes, std::vector<WiiPartEvent>& out) {
-    const WiiRemotePart part = extension_.value();
+void WiiSlot::takeExtension(WiiRemotePart part, std::span<const std::uint8_t> bytes,
+                            std::vector<WiiPartEvent>& out) {
     const std::size_t before = out.size();
     if (part == WiiRemotePart::Nunchuk) {
         axis(part, ABS_HAT0X, static_cast<std::int32_t>(bytes[0]) - stickMiddle, out);

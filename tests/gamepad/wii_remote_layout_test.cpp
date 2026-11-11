@@ -30,6 +30,7 @@ using opensu::gamepad::WiiRemoteLayout;
 using opensu::gamepad::WiiRemotePart;
 using opensu::gamepad::wiiRemotePartOf;
 using opensu::test::expect;
+using opensu::test::need;
 
 /// hid-wiimote's Nunchuk device: the stick at +-120, C and Z, the accelerometer.
 PadCapabilities nunchuk() {
@@ -182,26 +183,27 @@ void testClassic() {
 
 void testRange() {
     // The camera's aims at the corners, the bar above the screen: the screen is the lower part.
-    const std::optional<WiiPointerRange> range =
-        WiiPointerRange::fromCorners(0.2f, 0.6f, 0.8f, 0.9f);
+    const WiiPointerRange range =
+        need(WiiPointerRange::fromCorners(0.2f, 0.6f, 0.8f, 0.9f), "two corners apart fit a range");
     const auto near = [](float value, float wanted) {
         return value > wanted - 0.001f && value < wanted + 0.001f;
     };
-    expect(range.has_value(), "two corners apart fit a range");
-    expect(near(range.value().across(0.5f), 0.5f) && near(range.value().down(0.75f), 0.5f),
+    expect(near(range.across(0.5f), 0.5f) && near(range.down(0.75f), 0.5f),
            "the corners' aims are the screen's edges");
-    expect(range.value().barPlace() == SensorBarPlace::Above,
-           "the camera's middle is above the screen");
-    expect(WiiPointerRange::fromCorners(0.2f, 0.1f, 0.8f, 0.4f).value().barPlace() ==
+    expect(range.barPlace() == SensorBarPlace::Above, "the camera's middle is above the screen");
+    expect(need(WiiPointerRange::fromCorners(0.2f, 0.1f, 0.8f, 0.4f), "a range below").barPlace() ==
                SensorBarPlace::Below,
            "and below it, the other way");
-    expect(near(WiiPointerRange::fromCorners(0.8f, 0.9f, 0.2f, 0.3f).value().across(0.2f), 1.0f),
+    expect(near(need(WiiPointerRange::fromCorners(0.8f, 0.9f, 0.2f, 0.3f),
+                     "a range read the other way")
+                    .across(0.2f),
+                1.0f),
            "a camera that reads across the other way is fitted too");
     expect(!WiiPointerRange::fromCorners(0.5f, 0.5f, 0.51f, 0.9f),
            "one spot pointed at twice fits nothing");
 
     WiiPointer pointer;
-    pointer.setRange(range.value());
+    pointer.setRange(range);
     const PadEvent report{EV_SYN, SYN_REPORT, 0};
     // The bar's two ends 200 dots apart about 512 across, 576 down: the camera's 0.5, 0.75.
     for (const PadEvent dot :

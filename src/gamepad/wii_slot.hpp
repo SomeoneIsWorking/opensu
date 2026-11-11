@@ -91,7 +91,8 @@ class WiiSlot {
     void takeAck(std::span<const std::uint8_t> report);
     void takeName(std::span<const std::uint8_t> report);
     void takeButtons(std::uint8_t first, std::uint8_t second, std::vector<WiiPartEvent>& out);
-    void takeExtension(std::span<const std::uint8_t> bytes, std::vector<WiiPartEvent>& out);
+    void takeExtension(WiiRemotePart part, std::span<const std::uint8_t> bytes,
+                       std::vector<WiiPartEvent>& out);
     /// Sets one of the extension's registers (report 0x16).
     void writeRegister(std::uint32_t address, std::uint8_t value);
     /// The report mode for what is plugged in: buttons, and the extension's bytes with one.

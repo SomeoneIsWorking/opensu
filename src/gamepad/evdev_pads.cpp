@@ -46,26 +46,28 @@ std::string EvdevPads::Pad::id() const {
 }
 
 const std::string& EvdevPads::Pad::name() const {
-    return slot != nullptr ? slot->name() : device.value().name();
+    return device ? device->name() : slot->name();
 }
 
 std::optional<WiiRemoteLayout> EvdevPads::Pad::layoutNow() const {
-    if (slot != nullptr) {
+    if (!device) {
         const std::optional<WiiRemotePart> plugged = slot->extension();
         return plugged ? WiiRemoteLayout{*plugged, WiiSlot::capabilitiesOf(*plugged)}
                        : WiiRemoteLayout{};
     }
-    if (!device.value().wiiRemotePart()) {
+    if (!device->wiiRemotePart()) {
         return std::nullopt;
     }
-    if (extension) {
-        return WiiRemoteLayout{extension->wiiRemotePart().value(), extension->capabilities()};
-    }
-    return WiiRemoteLayout{};
+    const std::optional<WiiRemotePart> plugged =
+        extension ? extension->wiiRemotePart() : std::nullopt;
+    return plugged ? WiiRemoteLayout{*plugged, extension->capabilities()} : WiiRemoteLayout{};
 }
 
 PadCapabilities EvdevPads::Pad::capabilities() const {
-    return layout ? layout->capabilities() : device.value().capabilities();
+    if (layout) {
+        return layout->capabilities();
+    }
+    return device ? device->capabilities() : PadCapabilities{};
 }
 
 std::vector<PadEvent> EvdevPads::Pad::translatable(const std::vector<PadEvent>& read,
@@ -84,8 +86,11 @@ std::vector<PadEvent> EvdevPads::Pad::translatable(const std::vector<PadEvent>& 
 
 std::vector<PadEvent> EvdevPads::Pad::translatable(const std::vector<WiiPartEvent>& read) const {
     std::vector<PadEvent> mapped;
+    if (!layout) {
+        return mapped;
+    }
     for (const WiiPartEvent& event : read) {
-        if (const std::optional<PadEvent> to = layout.value().map(event.part, event.event)) {
+        if (const std::optional<PadEvent> to = layout->map(event.part, event.event)) {
             mapped.push_back(*to);
         }
     }
@@ -103,13 +108,15 @@ void EvdevPads::Pad::restart(const ChordTriggers& chords, const ForwardMap& map)
             translator.translate(event, ignored, controls, ChordGate::Clock::now());
         }
     };
-    if (slot != nullptr) {
+    if (!device) {
         feed(translatable(slot->state()));
         return;
     }
-    feed(translatable(device.value().state(), WiiRemotePart::Remote));
-    if (extension) {
-        feed(translatable(extension->state(), extension->wiiRemotePart().value()));
+    feed(translatable(device->state(), WiiRemotePart::Remote));
+    const std::optional<WiiRemotePart> plugged =
+        extension ? extension->wiiRemotePart() : std::nullopt;
+    if (plugged) {
+        feed(translatable(extension->state(), *plugged));
     }
 }
 
@@ -429,7 +436,8 @@ void EvdevPads::relayout(Pad& pad) {
     if (pad.live) {
         write(pad, pad.translator.resume());
     }
-    const std::optional<WiiRemotePart> extension = pad.layout.value().extension();
+    const std::optional<WiiRemotePart> extension =
+        pad.layout ? pad.layout->extension() : std::nullopt;
     lucent::info("gamepad", "{} ({}) {}", pad.name(), pad.id(),
                  extension == WiiRemotePart::Classic   ? "read as its Classic Controller"
                  : extension == WiiRemotePart::Nunchuk ? "held upright with its Nunchuk"
