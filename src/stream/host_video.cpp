@@ -47,8 +47,40 @@ HostVideo::HostVideo(Audience& audience, const std::filesystem::path& gamescopeS
     : audience_{audience},
       capture_{ScreenCapture::Setup{.gamescopeSocket = gamescopeSocket,
                                     .frame = [this](const CapturedFrame& frame) {
-                                        send(frame);
+                                        take(frame);
                                     }}} {
+}
+
+void HostVideo::hold(bool held) {
+    if (held_.exchange(held) == held || held) {
+        return;
+    }
+    const std::lock_guard lock{sendMutex_};
+    if (!heldBack_) {
+        return;
+    }
+    CapturedFrame frame = *heldBack_;
+    heldBack_.reset();
+    frame.capturedUs = wire::nowMicros();
+    send(frame);
+}
+
+void HostVideo::take(const CapturedFrame& frame) {
+    const std::lock_guard lock{sendMutex_};
+    if (!held_) {
+        heldBack_.reset();
+        send(frame);
+        return;
+    }
+    heldPlanes_.assign(frame.luma.begin(), frame.luma.end());
+    heldPlanes_.insert(heldPlanes_.end(), frame.chroma.begin(), frame.chroma.end());
+    const std::span<const std::uint8_t> planes{heldPlanes_};
+    heldBack_ = CapturedFrame{.width = frame.width,
+                              .height = frame.height,
+                              .stride = frame.stride,
+                              .luma = planes.first(frame.luma.size()),
+                              .chroma = planes.subspan(frame.luma.size()),
+                              .capturedUs = frame.capturedUs};
 }
 
 void HostVideo::fit() {
@@ -76,9 +108,6 @@ void HostVideo::fit() {
 }
 
 void HostVideo::send(const CapturedFrame& frame) {
-    if (held_) {
-        return;
-    }
     audience_.visit([this, &frame](std::span<HostStream* const> streams) {
         std::map<VideoCodec, Group> groups;
         for (HostStream* stream : streams) {

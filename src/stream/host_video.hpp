@@ -6,7 +6,8 @@
 // is numbered once, the same in every encode. Frames before a guest joined and its link was probed
 // are not sent to it. A codec that cannot open is refused to its guests' links, which plan another;
 // a key frame goes out when a codec's guests change or one of them asks. The newest frame is kept,
-// so the control channel can show what went out.
+// so the control channel can show what went out; the newest frame captured while held is sent when
+// the hold ends.
 #pragma once
 
 #include <atomic>
@@ -42,11 +43,10 @@ class HostVideo {
         native_ = size;
     }
 
-    /// While `held`, nothing is sent: the Gamescope still shows the shell, not the game. Any
-    /// thread.
-    void hold(bool held) noexcept {
-        held_ = held;
-    }
+    /// While `held`, nothing is sent: the Gamescope still shows the shell, not the game. The
+    /// newest frame held back is sent when the hold ends, since Gamescope sends a window again only
+    /// when it draws again. Any thread.
+    void hold(bool held);
 
     /// Fits the capture to the largest picture its guests show, and a hardware codec's guest to
     /// what it codes smoothly at their rates. Throws `std::runtime_error` when the capture cannot
@@ -69,6 +69,9 @@ class HostVideo {
         std::uint64_t bitsPerSecond{0};
     };
 
+    /// A frame as it arrives: kept while held, else sent.
+    void take(const CapturedFrame& frame);
+    /// Under `sendMutex_`.
     void send(const CapturedFrame& frame);
     /// Codes `frame` as `number` for `group` with `codec` and sends it to each of them; false when
     /// nothing went.
@@ -78,7 +81,12 @@ class HostVideo {
     Audience& audience_;
     std::atomic<bool> held_{false};
     PictureSize native_;
-    /// Capture thread only.
+    /// Sending, from the capture thread or from the hold's end.
+    std::mutex sendMutex_;
+    /// The newest frame captured while held, its planes copied; under `sendMutex_`.
+    std::optional<CapturedFrame> heldBack_;
+    std::vector<std::uint8_t> heldPlanes_;
+    /// Under `sendMutex_`.
     std::map<VideoCodec, Encoding> encodings_;
     std::uint32_t frames_{0};
     /// The newest frame sent, its planes as captured.
