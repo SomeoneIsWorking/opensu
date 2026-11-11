@@ -216,6 +216,11 @@ target_compile_definitions(duckstation_config_test PRIVATE OPENSU_TEST_SCRATCH="
 opensu_warnings(duckstation_config_test)
 add_test(NAME duckstation_config COMMAND duckstation_config_test)
 
+add_executable(xemu_config_test xemu_config_test.cpp)
+target_link_libraries(xemu_config_test PRIVATE opensu::library)
+opensu_warnings(xemu_config_test)
+add_test(NAME xemu_config COMMAND xemu_config_test)
+
 add_executable(visual_presets_test visual_presets_test.cpp)
 target_link_libraries(visual_presets_test PRIVATE opensu::library)
 target_compile_definitions(visual_presets_test PRIVATE OPENSU_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"

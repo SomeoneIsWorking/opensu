@@ -13,6 +13,7 @@
 #include "pcsx2_config.hpp"
 #include "rpcs3_config.hpp"
 #include "ryujinx_config.hpp"
+#include "xemu_config.hpp"
 #include "yuzu_config.hpp"
 
 namespace opensu::library {
@@ -40,6 +41,7 @@ constexpr std::array rules{
     LaunchRule{.id = melondsId, .files = melondsFiles, .runFiles = melondsRunFiles},
     LaunchRule{.id = rpcs3Id, .files = rpcs3Files, .runFiles = rpcs3RunFiles},
     LaunchRule{.id = duckstationId, .files = duckstationFiles, .runFiles = duckstationRunFiles},
+    LaunchRule{.id = xemuId, .files = xemuFiles, .runFiles = xemuRunFiles},
 };
 
 const LaunchRule* ruleOf(std::string_view id) {
