@@ -71,7 +71,7 @@ void aThemeStatesWhatItChanges(const fs::path& root) {
     const std::optional<InterfaceTheme> theme =
         parseTheme(R"({"format": 1, "name": "Small", "palette": {"accent": "#3CB4E580"},
                        "type": {"face": "face.ttf", "body": 16}, "tiles": {"style": "channel"},
-                       "home": {"scroll": "pages", "clockBar": true},
+                       "home": {"scroll": "pages", "clockBar": true, "columns": 5, "fill": "rows"},
                        "sounds": {"set": "glass", "folder": "sounds"}, "music": "loop.ogg"})",
                    folder, "small", error);
     expect(theme.has_value(), "a small theme parses: " + error);
@@ -89,6 +89,9 @@ void aThemeStatesWhatItChanges(const fs::path& root) {
     expect(small.tiles.style == opensu::theme::TileStyle::Channel && small.home.pages &&
                small.home.clockBar && small.home.pillClock,
            "the tiles and Home take the options set");
+    expect(small.home.columns == 5 && small.home.rows == 3 && small.home.fillRows &&
+               small.tiles.aspect == 1.0f && defaults.home.columns == 0 && !defaults.home.fillRows,
+           "a page's columns and fill are set, its rows and the tiles' shape keep their defaults");
     expect(small.sounds.set == opensu::settings::SoundSet::Glass &&
                small.sounds.folder == fs::weakly_canonical(folder / "sounds") &&
                small.music == fs::weakly_canonical(folder / "loop.ogg"),
@@ -120,6 +123,10 @@ void brokenManifestsAreRefused(const fs::path& root) {
         {R"({"format": 1, "name": "X", "tiles": {"style": "neon"}})", "not glass or channel"},
         {R"({"format": 1, "name": "X", "home": {"scroll": "both"}})", "not pages or scrolling"},
         {R"({"format": 1, "name": "X", "home": {"clockBar": 1}})", "is not true or false"},
+        {R"({"format": 1, "name": "X", "home": {"columns": 0}})", "home.columns is outside"},
+        {R"({"format": 1, "name": "X", "home": {"rows": 2.5}})", "is not a whole number"},
+        {R"({"format": 1, "name": "X", "home": {"fill": "spiral"}})", "not rows or columns"},
+        {R"({"format": 1, "name": "X", "tiles": {"aspect": 3}})", "tiles.aspect is outside"},
         {R"({"format": 1, "name": "X", "sounds": {"set": "iisu"}})", "not marimba, glass or"},
         {R"({"format": 1, "name": "X", "type": {"face": "../outside.ttf"}})", "not a path inside"},
         {R"({"format": 1, "name": "X", "type": {"face": "/etc/passwd"}})", "not a path inside"},

@@ -31,9 +31,17 @@
     "body": "#FFFFFF",
     "edge": "#C4CAD2",
     "well": "#E5E8EC",
-    "focus": "#34B4E4"
+    "focus": "#34B4E4",
+    "aspect": 1.5
   },
-  "home": { "scroll": "pages", "clockBar": true, "pillClock": false },
+  "home": {
+    "scroll": "pages",
+    "columns": 4,
+    "rows": 3,
+    "fill": "rows",
+    "clockBar": true,
+    "pillClock": false
+  },
   "sounds": { "set": "glass", "folder": "sounds" },
   "music": "music.ogg"
 }

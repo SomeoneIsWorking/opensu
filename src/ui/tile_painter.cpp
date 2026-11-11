@@ -103,6 +103,10 @@ constexpr Colour photoEdge{0, 0, 0, 230};
 constexpr float blockMost = 0.86f;
 constexpr float markGap = 0.05f;
 constexpr float glyphTile = 0.44f;
+// A channel tile crops art to its cell while the crop keeps this share of it, else stands the art
+// whole inside this margin, a share of the cell's short side.
+constexpr float channelCropLeast = 0.75f;
+constexpr float channelArtMargin = 0.07f;
 
 struct Stop {
     float at;
@@ -381,6 +385,26 @@ void TilePainter::paintChrome(Canvas& canvas, const TileGeometry& geometry,
     }
 }
 
+Rect TilePainter::artBox(const TileVisual& tile, const Rect& content) const noexcept {
+    if (tiles_.style != theme::TileStyle::Channel || tile.art == nullptr ||
+        tile.art->height() <= 0 || content.height <= 0.0f) {
+        return content;
+    }
+    const float art =
+        static_cast<float>(tile.art->width()) / static_cast<float>(tile.art->height());
+    const float cell = content.width / content.height;
+    if (std::min(art, cell) / std::max(art, cell) >= channelCropLeast) {
+        return content;
+    }
+    const float margin = std::min(content.width, content.height) * channelArtMargin;
+    const float high = content.height - 2.0f * margin;
+    const float wide = content.width - 2.0f * margin;
+    const float width = std::min(wide, high * art);
+    const float height = width / art;
+    return Rect{content.centreX() - width * 0.5f, content.centreY() - height * 0.5f, width,
+                height};
+}
+
 void TilePainter::paintContent(Canvas& canvas, const TileVisual& tile,
                                const TileGeometry& geometry) {
     const Rect& content = geometry.content;
@@ -430,30 +454,32 @@ void TilePainter::paintContent(Canvas& canvas, const TileVisual& tile,
         paintCard(canvas, tile, content, addGameFrom, addGameTo);
         return;
     }
+    // A channel tile stands art it would crop too far whole on its body.
+    const Rect art = artBox(tile, content);
     if (tile.platform != nullptr) {
         // iiSU g24.e: art clipped at the larger art radius, then the platform frame over it.
-        const FrameGeometry frame = frameGeometry(content);
+        const FrameGeometry frame = frameGeometry(art);
         if (tile.art != nullptr) {
-            drawTextureRound(canvas, RoundRect{content, frame.artRadius}, tile.art->view(),
+            drawTextureRound(canvas, RoundRect{art, frame.artRadius}, tile.art->view(),
                              coverSource(static_cast<float>(tile.art->width()),
-                                         static_cast<float>(tile.art->height()), content),
+                                         static_cast<float>(tile.art->height()), art),
                              tint);
         } else {
-            paintFallback(canvas, tile, content);
+            paintFallback(canvas, tile, art);
         }
-        paintFrame(canvas, content, *tile.platform, tile.console, tile.alpha);
+        paintFrame(canvas, art, *tile.platform, tile.console, tile.alpha);
     } else if (tile.art != nullptr) {
         // iiSU nx2.l: a cover crop into the content rect at the content radius.
-        drawTextureRound(canvas, RoundRect{content, geometry.contentRadius}, tile.art->view(),
+        drawTextureRound(canvas, RoundRect{art, geometry.contentRadius}, tile.art->view(),
                          coverSource(static_cast<float>(tile.art->width()),
-                                     static_cast<float>(tile.art->height()), content),
+                                     static_cast<float>(tile.art->height()), art),
                          tint);
     } else {
-        paintFallback(canvas, tile, content);
+        paintFallback(canvas, tile, art);
     }
-    paintStores(canvas, tile, content);
+    paintStores(canvas, tile, art);
     if (tile.update) {
-        paintUpdate(canvas, tile, content);
+        paintUpdate(canvas, tile, art);
     }
 }
 

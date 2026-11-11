@@ -113,6 +113,8 @@ struct Tiles {
     Colour edge{0xC9, 0xCD, 0xD3, 255};
     Colour well{0xE4, 0xE7, 0xEB, 255};
     Colour focus{0x3C, 0xB4, 0xE5, 255};
+    /// A tile's width over its height on a page of set columns.
+    float aspect{1.0f};
 
     bool operator==(const Tiles&) const = default;
 };
@@ -124,6 +126,12 @@ struct Home {
     bool clockBar{false};
     /// Whether the top bar's status pill shows the time.
     bool pillClock{true};
+    /// A page's tiles across in pages mode; 0 is iiSU's page, as many square tiles as fit, filled
+    /// by columns. Set, the page is `columns` by `rows`, centred, and slides when it turns.
+    int columns{0};
+    int rows{3};
+    /// Whether a page of set columns fills row by row, else column by column.
+    bool fillRows{false};
 
     bool operator==(const Home&) const = default;
 };

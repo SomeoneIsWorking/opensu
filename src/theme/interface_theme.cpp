@@ -25,6 +25,9 @@ constexpr float typeLeast = 6.0f;
 constexpr float typeMost = 64.0f;
 constexpr float lengthMost = 1200.0f;
 constexpr float growMost = 1.3f;
+constexpr float aspectMost = 2.0f;
+constexpr int pageColumnsMost = 8;
+constexpr int pageRowsMost = 6;
 
 constexpr std::array faceExtensions{".ttf", ".otf"};
 constexpr std::array soundExtensions{".ogg", ".wav"};
@@ -114,6 +117,23 @@ class Reader {
                         std::to_string(most));
         }
         out = static_cast<float>(read);
+        return true;
+    }
+
+    bool whole(std::string_view key, int& out, int least, int most) {
+        const Json* value = find(key);
+        if (value == nullptr) {
+            return true;
+        }
+        if (!value->is_number_integer()) {
+            return fail(name(key) + " is not a whole number");
+        }
+        const auto read = value->get<std::int64_t>();
+        if (read < least || read > most) {
+            return fail(name(key) + " is outside " + std::to_string(least) + " to " +
+                        std::to_string(most));
+        }
+        out = static_cast<int>(read);
         return true;
     }
 
@@ -314,7 +334,7 @@ bool readSpacing(Reader& reader, Spacing& spacing) {
 }
 
 bool readTiles(Reader& reader, Tiles& tiles) {
-    if (!reader.only({"style", "grow", "body", "edge", "well", "focus"})) {
+    if (!reader.only({"style", "grow", "body", "edge", "well", "focus", "aspect"})) {
         return false;
     }
     std::string style;
@@ -332,11 +352,12 @@ bool readTiles(Reader& reader, Tiles& tiles) {
     }
     return reader.number("grow", tiles.grow, 1.0f, growMost) && reader.colour("body", tiles.body) &&
            reader.colour("edge", tiles.edge) && reader.colour("well", tiles.well) &&
-           reader.colour("focus", tiles.focus);
+           reader.colour("focus", tiles.focus) &&
+           reader.number("aspect", tiles.aspect, 1.0f, aspectMost);
 }
 
 bool readHome(Reader& reader, Home& home) {
-    if (!reader.only({"scroll", "clockBar", "pillClock"})) {
+    if (!reader.only({"scroll", "clockBar", "pillClock", "columns", "rows", "fill"})) {
         return false;
     }
     std::string scroll;
@@ -349,7 +370,19 @@ bool readHome(Reader& reader, Home& home) {
         }
         home.pages = scroll == "pages";
     }
-    return reader.flag("clockBar", home.clockBar) && reader.flag("pillClock", home.pillClock);
+    std::string fill;
+    if (!reader.text("fill", fill, nameLimit)) {
+        return false;
+    }
+    if (reader.find("fill") != nullptr) {
+        if (fill != "rows" && fill != "columns") {
+            return reader.fail(reader.name("fill") + " is not rows or columns");
+        }
+        home.fillRows = fill == "rows";
+    }
+    return reader.flag("clockBar", home.clockBar) && reader.flag("pillClock", home.pillClock) &&
+           reader.whole("columns", home.columns, 1, pageColumnsMost) &&
+           reader.whole("rows", home.rows, 1, pageRowsMost);
 }
 
 bool readSounds(Reader& reader, Sounds& sounds) {

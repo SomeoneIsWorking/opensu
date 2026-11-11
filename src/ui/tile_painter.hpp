@@ -12,7 +12,8 @@
 // A store game that is owned in more than one store carries a row of store icons in its
 // bottom-right corner, and one its store has an update for a down arrow on the same disc in its
 // top-right corner (opensu's own). An interface theme's `channel` style draws the tile instead as a
-// white glossy body with a thin edge, an empty slot as a faint well and focus as an accent outline.
+// white glossy body with a thin edge, an empty slot as a faint well and focus as an accent outline;
+// art far from the cell's shape stands whole on the body instead of being cropped.
 #pragma once
 
 #include <cstdint>
@@ -121,6 +122,9 @@ class TilePainter {
     void paintChrome(Canvas& canvas, const TileGeometry& geometry, const ChromeVariant& variant,
                      bool focused, float alpha) const;
     void paintContent(Canvas& canvas, const TileVisual& tile, const TileGeometry& geometry);
+    /// Where a game's art stands in `content`: all of it, or, in the `channel` style when a crop
+    /// would cut away more than a quarter, the largest box of the art's shape inside a margin.
+    [[nodiscard]] Rect artBox(const TileVisual& tile, const Rect& content) const noexcept;
     void paintFrame(Canvas& canvas, const Rect& rect, const Platform& platform,
                     std::string_view console, float alpha);
     void paintFallback(Canvas& canvas, const TileVisual& tile, const Rect& content) const;

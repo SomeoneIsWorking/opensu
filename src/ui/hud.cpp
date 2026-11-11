@@ -9,6 +9,7 @@
 
 #include "clock_text.hpp"
 #include "corner_hints.hpp"
+#include "dock_metrics.hpp"
 #include "gpu2d/ui/text_fit.hpp"
 #include "interface_theme.hpp"
 #include "round_shape.hpp"
@@ -16,13 +17,17 @@
 namespace opensu::ui {
 namespace {
 
-// The clock bar's row above the prompts, and its time and date, in dp.
-constexpr float clockRowDp = 50.0f;
-constexpr float clockTimeDp = 25.0f;
-constexpr float clockDateDp = 11.5f;
-// Where the time's and the date's centres stand in the row, as shares of it.
-constexpr float clockTimeAt = 0.46f;
-constexpr float clockDateAt = 0.9f;
+// The clock bar's time and date either side of the dock, and their gap from it, in dp.
+constexpr float clockTimeDp = 24.0f;
+constexpr float clockDateDp = 14.0f;
+constexpr float clockDockGapDp = 22.0f;
+// The narrowest screen whose dock leaves the time and date room beside it, in dp.
+constexpr float clockBesideDockDp = 600.0f;
+// On a narrower one, their line above the prompt row, its sizes and the gap between the two.
+constexpr float clockRowDp = 26.0f;
+constexpr float clockRowTimeDp = 16.0f;
+constexpr float clockRowDateDp = 12.5f;
+constexpr float clockRowGapDp = 8.0f;
 
 } // namespace
 
@@ -59,8 +64,12 @@ float Hud::bottomInset() const noexcept {
     return metrics().gridBottomInset() * dp_ + clockRow() + safe_.bottom;
 }
 
+bool Hud::clockBesideDock() const noexcept {
+    return static_cast<float>(width_) >= clockBesideDockDp * dp_;
+}
+
 float Hud::clockRow() const noexcept {
-    return tokens_.home.clockBar ? clockRowDp * dp_ : 0.0f;
+    return tokens_.home.clockBar && !clockBesideDock() ? clockRowDp * dp_ : 0.0f;
 }
 
 const std::string& Hud::pillClock() const noexcept {
@@ -136,18 +145,30 @@ void Hud::drawClockBar(Canvas& canvas) const {
     });
     // A bright rim along its top.
     canvas.fillRect(onCanvas(Rect{0.0f, top, width, std::max(1.5f * dp_, 1.0f)}), white);
-    const float row = clockRow();
     const Colour ink = colourOf(colours.inkMuted);
-    const float timeSize = clockTimeDp * dp_;
-    const float dateSize = clockDateDp * dp_;
-    text_.drawCentred(
-        canvas, clock_,
-        Point{(width - text_.measure(clock_, timeSize)) * 0.5f, top + row * clockTimeAt}, timeSize,
-        ink);
-    text_.drawCentred(
-        canvas, date_,
-        Point{(width - text_.measure(date_, dateSize)) * 0.5f, top + row * clockDateAt}, dateSize,
-        colourOf(colours.inkFaint));
+    const Colour faint = colourOf(colours.inkFaint);
+    if (clockBesideDock()) {
+        const DockLayout dock = layoutDock(
+            DockMetrics{width / dp_, height / dp_, {sectionItems.begin(), sectionItems.end()}},
+            width, height, dp_);
+        const float gap = clockDockGapDp * dp_;
+        const float timeSize = clockTimeDp * dp_;
+        const float centre = dock.bar.centreY();
+        text_.drawCentred(
+            canvas, clock_,
+            Point{dock.leftBadge.x - gap - text_.measure(clock_, timeSize), centre}, timeSize, ink);
+        text_.drawCentred(canvas, date_, Point{dock.rightBadge.right() + gap, centre},
+                          clockDateDp * dp_, faint);
+        return;
+    }
+    const float timeSize = clockRowTimeDp * dp_;
+    const float dateSize = clockRowDateDp * dp_;
+    const float timeWidth = text_.measure(clock_, timeSize);
+    const float between = clockRowGapDp * dp_;
+    const float left = (width - timeWidth - between - text_.measure(date_, dateSize)) * 0.5f;
+    const float centre = top + clockRow() * 0.6f;
+    text_.drawCentred(canvas, clock_, Point{left, centre}, timeSize, ink);
+    text_.drawCentred(canvas, date_, Point{left + timeWidth + between, centre}, dateSize, faint);
 }
 
 TopBarLayout Hud::topBarLayout() const {

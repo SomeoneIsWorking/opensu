@@ -18,6 +18,8 @@ constexpr float wiiSuPeekDp = 6.0f;
 constexpr float wiiSuMinPageCellScale = 0.92f;
 // iiSU zj2: a WiiSu page has at least 3 columns.
 constexpr int wiiSuMinColumns = 3;
+// A set page keeps this share of an arrow's width between the arrow and its first cell.
+constexpr float setPageArrowGap = 0.5f;
 // Rounding slack when counting the rows that fit, so an exact fit is not lost to float error.
 constexpr float rowFitSlack = 0.001f;
 
@@ -141,7 +143,9 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
     // Square cells: iiSU ul2.F's aspect ratio 1.0.
     cellWidth_ = clampTo(cellHeight_, std::min(180.0f, std::max(floorSize, cellHeight_)),
                          std::max(196.0f, viewportWidth_));
-    if (clampIconLevel(input.iconLevel) != defaultIconLevel) {
+    if (paged && input.page) {
+        layoutSetPage(*input.page, content, shortSide);
+    } else if (clampIconLevel(input.iconLevel) != defaultIconLevel) {
         // The icon size scales the cell; the rows are as many as then fit.
         const float scaled = std::max(cellHeight_ * relativeIconScale(input.iconLevel), 1.0f);
         gap_ = gapForCell(scaled);
@@ -154,7 +158,14 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
         rows_ = clampRows(static_cast<int>(fits + rowFitSlack));
     }
 
-    if (paged) {
+    if (setPage_) {
+        const float pageWidth = static_cast<float>(columns_) * cellWidth_ +
+                                static_cast<float>(columns_ - 1) * gap_;
+        pageSidePadding_ = (viewportWidth_ - pageWidth) * 0.5f;
+        pageStride_ = viewportWidth_;
+        pageCount_ = slotPages(perPage());
+        slots_ = slotsFor();
+    } else if (paged) {
         // STOPGAP: use the grid gap as zj2's spacing because the value iiSU passes is not traced.
         columns_ = clampColumns(wiiSuPageColumns(
             {width_, height_ - top - bottom - 2.0f * pad, rows_, gap_, pageGap, peek}));
@@ -201,6 +212,65 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
     computeMaxScroll();
 }
 
+void HomeLayout::layoutSetPage(const SetPage& page, float content, float shortSide) {
+    setPage_ = true;
+    rowMajor_ = page.rowMajor;
+    const float aspect = std::max(page.aspect, 1.0f);
+    const bool tall = content > viewportWidth_;
+    columns_ = std::max(tall ? std::min(page.columns, rows_) : page.columns, 1);
+    // The page stands between the arrows, clear of them.
+    const Rect arrow = arrowRect(true);
+    const float side = arrow.right() + arrow.width * setPageArrowGap;
+    const float across = std::max(viewportWidth_ - 2.0f * side, 1.0f);
+    const auto columns = static_cast<float>(columns_);
+    const auto fit = [&](float gap) {
+        const float wide = (across - (columns - 1.0f) * gap) / columns;
+        const float high =
+            (content - static_cast<float>(rows_ - 1) * gap) / static_cast<float>(rows_);
+        return std::max(tall ? wide : std::min(wide, high * aspect), 1.0f);
+    };
+    float gap = clampTo(shortSide * 0.018f, 10.0f, 28.0f);
+    for (int pass = 0; pass < 2; ++pass) {
+        gap = gapForCell(fit(gap) / aspect);
+    }
+    gap_ = gap;
+    cellWidth_ = fit(gap_);
+    cellHeight_ = cellWidth_ / aspect;
+    if (tall) {
+        const float fits = (content + gap_) / (cellHeight_ + gap_);
+        rows_ = clampRows(static_cast<int>(fits + rowFitSlack));
+    }
+}
+
+std::size_t HomeLayout::perPage() const noexcept {
+    return static_cast<std::size_t>(columns_) * static_cast<std::size_t>(rows_);
+}
+
+GridCell HomeLayout::cellOnPage(std::size_t place, int page) const noexcept {
+    const auto lanes = static_cast<std::size_t>(rowMajor_ ? columns_ : rows_);
+    const auto along = static_cast<int>(place / lanes);
+    const auto across = static_cast<int>(place % lanes);
+    const int column = rowMajor_ ? across : along;
+    const int row = rowMajor_ ? along : across;
+    return GridCell{column, row, column, row, page};
+}
+
+std::vector<Rect> HomeLayout::emptyCells(float scroll) const {
+    std::vector<Rect> cells;
+    if (!setPage_) {
+        return cells;
+    }
+    const std::size_t page = perPage();
+    const auto last = static_cast<int>((slots_ - 1) / page);
+    for (std::size_t place = slots_ - static_cast<std::size_t>(last) * page; place < page;
+         ++place) {
+        const GridCell cell = cellOnPage(place, last);
+        cells.push_back(Rect{columnLeft(cell.left, last) + viewportX_ - scroll, rowTop(cell.top),
+                             cellWidth_, cellHeight_});
+    }
+    return cells;
+}
+
 int HomeLayout::slotPages(std::size_t perPage) const noexcept {
     // Every page up to the one holding the last item; iiSU ou4.q's four-page minimum of empty
     // slots is left out, so a shelf never ends in blank tiles.
@@ -216,6 +286,10 @@ std::size_t HomeLayout::slotsFor() const noexcept {
 void HomeLayout::computeMaxScroll() {
     if (slots_ == 0) {
         maxScroll_ = 0.0f;
+        return;
+    }
+    if (setPage_) {
+        maxScroll_ = pageScroll(pageCount_ - 1);
         return;
     }
     // Slots run left to right, so the last one reaches furthest.
@@ -235,6 +309,9 @@ std::size_t HomeLayout::slotCount() const noexcept {
 }
 
 GridCell HomeLayout::cellOf(std::size_t index) const noexcept {
+    if (setPage_) {
+        return cellOnPage(index % perPage(), static_cast<int>(index / perPage()));
+    }
     // iiSU kj2.a0: horizontal flow fills column-major.
     const auto rows = static_cast<std::size_t>(rows_);
     const auto column = static_cast<int>(index / rows);
@@ -290,6 +367,19 @@ Rect HomeLayout::canvasRect(std::size_t index, float scroll) const noexcept {
 }
 
 SlotRange HomeLayout::visibleSlots(float scroll, float canvasWidth, float margin) const noexcept {
+    if (setPage_) {
+        // A page's slots are not in order across it, so the window is whole pages.
+        const float pageWidth = viewportWidth_ - 2.0f * pageSidePadding_;
+        const float origin = viewportX_ + pageSidePadding_ - scroll;
+        const float stride = std::max(pageStride_, 1.0f);
+        const auto pages = static_cast<float>(pageCount_);
+        const float first =
+            clampTo(std::floor((-margin - origin - pageWidth) / stride) + 1.0f, 0.0f, pages);
+        const float last =
+            clampTo(std::ceil((canvasWidth + margin - origin) / stride), first, pages);
+        return SlotRange{std::min(static_cast<std::size_t>(first) * perPage(), slots_),
+                         std::min(static_cast<std::size_t>(last) * perPage(), slots_)};
+    }
     // A slot's left and right edges never decrease with its index, so each bound is a binary
     // search for the first slot past it.
     const auto firstWhere = [this](const auto& past) {
@@ -333,6 +423,13 @@ std::size_t HomeLayout::slotOnPage(int page, int row, bool last) const noexcept 
     const std::size_t start = static_cast<std::size_t>(page) * columns * rows;
     if (row < 0 || row >= rows_) {
         return start;
+    }
+    if (rowMajor_) {
+        // The row's first (or last) slot, in the page's last row when the row has none.
+        const std::size_t held = std::min(slots_ - start, columns * rows);
+        const std::size_t lane = std::min(static_cast<std::size_t>(row), (held - 1) / columns);
+        const std::size_t inRow = std::min(held - lane * columns, columns);
+        return start + lane * columns + (last ? inRow - 1 : 0);
     }
     // Column-major: the row's slot in the first (or last) column that has one on this page.
     for (std::size_t step = 0; step < columns; ++step) {

@@ -5,6 +5,7 @@
 // the screen's size in dp.
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <optional>
 #include <vector>
@@ -17,6 +18,8 @@ namespace opensu::ui {
 /// the others `I`).
 inline constexpr float plainItem = 1.0f;
 inline constexpr float wideItem = 1.235f;
+/// The sections' items, in dock order: Home, then Library (iiSU's ROMs).
+inline constexpr std::array sectionItems{plainItem, wideItem};
 
 /// The bar's sizes in dp, from the screen's.
 struct DockMetrics {

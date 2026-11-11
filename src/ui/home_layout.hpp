@@ -91,6 +91,14 @@ struct WiiSuPageInput {
     float peek{};
 };
 
+/// A page of a set size (an interface theme's): `columns` cells across of `aspect`, width over
+/// height, filled row by row when `rowMajor`.
+struct SetPage {
+    int columns{4};
+    float aspect{1.0f};
+    bool rowMajor{true};
+};
+
 /// What the layout is computed from.
 struct HomeLayoutInput {
     float width{};
@@ -110,6 +118,10 @@ struct HomeLayoutInput {
     /// iiSU's icon size level. Away from the default the cells are that much larger or smaller
     /// and as many rows are laid out as fit, up to 6.
     int iconLevel{defaultIconLevel};
+    /// Paged only: the page is `page->columns` by `rows`, centred between the arrows, a page to a
+    /// screen; a tall screen takes the lesser of the two across and as many rows as fit. The icon
+    /// size does not apply. Unset, a page is iiSU's WiiSu page.
+    std::optional<SetPage> page;
 };
 
 /// WiiSu's page arrows; an arrow is absent when there is no page that way (iiSU ys8.l).
@@ -197,8 +209,15 @@ class HomeLayout {
     }
     /// Every cell the grid shows: one per item, and one when there are none.
     [[nodiscard]] std::size_t slotCount() const noexcept;
+    /// Whether the page is of a set size.
+    [[nodiscard]] bool setPage() const noexcept {
+        return setPage_;
+    }
+    /// A set page's cells past the last slot, on the canvas at a scroll offset: the wells an
+    /// unfilled page shows. None on a page that is not set.
+    [[nodiscard]] std::vector<Rect> emptyCells(float scroll) const;
 
-    /// The lane cell of a slot: column-major, page by page.
+    /// The lane cell of a slot: column-major, or row-major on a set page that asks, page by page.
     [[nodiscard]] GridCell cellOf(std::size_t index) const noexcept;
     [[nodiscard]] int pageOf(std::size_t index) const noexcept;
     /// Every slot's cell, in index order.
@@ -246,6 +265,11 @@ class HomeLayout {
     /// How many slots the grid holds: its items, and one cell when it has none.
     [[nodiscard]] std::size_t slotsFor() const noexcept;
     void computeMaxScroll();
+    /// Sizes a set page's cells and counts its rows and columns in `content` pixels of height.
+    void layoutSetPage(const SetPage& page, float content, float shortSide);
+    [[nodiscard]] std::size_t perPage() const noexcept;
+    /// The cell at `place` on `page`, places running in fill order.
+    [[nodiscard]] GridCell cellOnPage(std::size_t place, int page) const noexcept;
 
     ScrollMode mode_;
     float width_;
@@ -266,6 +290,8 @@ class HomeLayout {
     int pageCount_{1};
     float pageStride_{};
     float pageSidePadding_{};
+    bool setPage_{false};
+    bool rowMajor_{false};
 };
 
 } // namespace opensu::ui

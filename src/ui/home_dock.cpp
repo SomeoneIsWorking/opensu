@@ -87,7 +87,7 @@ void HomeDock::setPinLibrary(bool pinned) {
 
 HomeDock::Geometry HomeDock::geometry() const {
     const float dp = frame_.dp;
-    const std::vector<float> widths{plainItem, wideItem};
+    const std::vector<float> widths{sectionItems.begin(), sectionItems.end()};
     const DockMetrics metrics{frame_.width / dp, frame_.height / dp, widths};
     return Geometry{metrics, layoutDock(metrics, frame_.width, frame_.height, dp),
                     DockStyle{frame_.dark, dp, visibility_.progress(nowMs())}};

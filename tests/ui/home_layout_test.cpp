@@ -367,6 +367,101 @@ void slotOnPage() {
     expect(layout.slotOnPage(2, 0, false) == 30, "page 2 starts at slot 30");
 }
 
+/// The window with a theme's page: 4 x 3 cells half again as wide as tall, filled by rows.
+HomeLayoutInput setPage(std::size_t items) {
+    HomeLayoutInput input = window(items, ScrollMode::Paged);
+    input.page = opensu::ui::SetPage{.columns = 4, .aspect = 1.5f, .rowMajor = true};
+    return input;
+}
+
+void aSetPage() {
+    const HomeLayout layout{setPage(30)};
+    expect(layout.setPage() && layout.columns() == 4 && layout.rows() == 3,
+           "the page is the columns and rows asked for");
+    near(layout.cellWidth(), layout.cellHeight() * 1.5f, "cells keep the shape asked for");
+    expect(layout.pageCount() == 3 && layout.slotCount() == 30, "30 items take three pages of 12");
+    const opensu::ui::Rect first = layout.canvasRect(0, 0.0f);
+    const opensu::ui::Rect last = layout.canvasRect(11, 0.0f);
+    near(first.x, 1280.0f - last.right(), "the page is centred");
+    const opensu::ui::PageArrows arrows = layout.pageArrows(1);
+    expect(arrows.previous && arrows.next && first.x > arrows.previous->right() &&
+               last.right() < arrows.next->x,
+           "and stands clear of both arrows");
+    expect(last.bottom() <= 800.0f - 40.0f && first.y >= 60.0f, "between the top and bottom bars");
+    expect(layout.cellOf(1).left == 1 && layout.cellOf(1).top == 0 && layout.cellOf(4).left == 0 &&
+               layout.cellOf(4).top == 1,
+           "it fills row by row");
+    expect(layout.pageOf(11) == 0 && layout.pageOf(12) == 1 && layout.cellOf(12).left == 0,
+           "and page by page");
+    near(layout.pageStride(), 1280.0f, "a turn moves a whole screen, so no other page shows");
+    near(layout.canvasRect(12, layout.pageScroll(1)).x, first.x, "page 1 sits where page 0 did");
+    near(layout.maxScroll(), layout.pageScroll(2), "the furthest scroll shows the last page");
+
+    HomeLayoutInput byColumns = setPage(30);
+    byColumns.page->rowMajor = false;
+    const HomeLayout columns{byColumns};
+    expect(columns.cellOf(1).left == 0 && columns.cellOf(1).top == 1 && columns.cellOf(3).left == 1,
+           "a page may fill column by column instead");
+
+    HomeLayoutInput scaled = setPage(30);
+    scaled.iconLevel = opensu::ui::maxIconLevel;
+    expect(HomeLayout{scaled}.cellWidth() == layout.cellWidth(),
+           "the icon size leaves a set page alone");
+}
+
+void aSetPageOnATallScreen() {
+    HomeLayoutInput tall = setPage(40);
+    tall.width = 800.0f;
+    tall.height = 1280.0f;
+    const HomeLayout layout{tall};
+    expect(layout.columns() == 3, "a tall screen takes the lesser of columns and rows across");
+    expect(layout.rows() > 3, "and as many rows as fit");
+    near(layout.cellWidth(), layout.cellHeight() * 1.5f, "in the same shape");
+    const opensu::ui::Rect last = layout.canvasRect(layout.slotOnPage(0, layout.rows() - 1, true),
+                                                    0.0f);
+    expect(last.bottom() <= 1280.0f - 40.0f && last.right() < 800.0f, "the page fits the screen");
+}
+
+void aSetPagesWindowAndWells() {
+    const HomeLayout layout{setPage(30)};
+    const float scroll = layout.pageScroll(1);
+    const opensu::ui::SlotRange seen = layout.visibleSlots(scroll, 1280.0f);
+    expect(seen.first == 12 && seen.last == 24, "a page at rest shows its own slots");
+    const opensu::ui::SlotRange turning = layout.visibleSlots(scroll + 640.0f, 1280.0f);
+    expect(turning.first == 12 && turning.last == 30, "half way through a turn, both pages");
+    for (std::size_t slot = 0; slot < layout.slotCount(); ++slot) {
+        const opensu::ui::Rect rect = layout.canvasRect(slot, scroll);
+        expect(!(rect.right() > 0.0f && rect.x < 1280.0f) || seen.contains(slot),
+               "every slot on the canvas is in the range");
+        const auto hit = layout.slotAt(layout.pageScroll(layout.pageOf(slot)), rect.centreX(),
+                                       rect.centreY());
+        expect(hit && *hit == slot, "hit-testing finds each slot on its page");
+    }
+    expect(layout.emptyCells(layout.pageScroll(0)).size() == 6 &&
+               layout.emptyCells(layout.pageScroll(2)).size() == 6,
+           "the last page's six empty cells are its wells");
+    const opensu::ui::Rect well = layout.emptyCells(layout.pageScroll(2)).front();
+    const opensu::ui::Rect under = layout.canvasRect(26, layout.pageScroll(2));
+    near(well.x, under.x, "the first well follows the last item, a row down");
+    near(well.y, under.y + layout.cellHeight() + layout.gap(), "in the next row");
+    expect(HomeLayout{setPage(24)}.emptyCells(0.0f).empty(), "a full last page has none");
+    expect(HomeLayout{setPage(0)}.emptyCells(0.0f).size() == 11,
+           "an empty grid's one cell leaves eleven");
+    expect(HomeLayout{window(30, ScrollMode::Paged)}.emptyCells(0.0f).empty(),
+           "iiSU's page has no wells");
+}
+
+void slotOnASetPage() {
+    const HomeLayout layout{setPage(30)};
+    expect(layout.slotOnPage(1, 1, false) == 16 && layout.slotOnPage(1, 1, true) == 19,
+           "the row's first and last slots");
+    expect(layout.slotOnPage(2, 0, true) == 27, "the last slot of a full row on the last page");
+    expect(layout.slotOnPage(2, 1, false) == 28 && layout.slotOnPage(2, 1, true) == 29,
+           "a short row ends at its last item");
+    expect(layout.slotOnPage(2, 2, false) == 28 && layout.slotOnPage(2, 2, true) == 29,
+           "a row with none gives the page's last row");
+}
+
 void visibleWindowIsSmallWhateverTheLibrary() {
     for (const ScrollMode mode : {ScrollMode::Flow, ScrollMode::Paged}) {
         const HomeLayout layout{window(5000, mode)};
@@ -411,6 +506,10 @@ int main() try {
     slotsUnderThePointer();
     pagesUnderThePointer();
     slotOnPage();
+    aSetPage();
+    aSetPageOnATallScreen();
+    aSetPagesWindowAndWells();
+    slotOnASetPage();
     safeInsets();
     tallScreen();
     std::printf("home_layout: all checks passed\n");

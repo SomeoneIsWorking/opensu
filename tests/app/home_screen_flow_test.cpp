@@ -177,6 +177,36 @@ void theWheelAndAnArrowTurnPages() {
     expect(rig.grid.page() == 1 && rig.calls.empty(), "a click on it turns the page, opening none");
 }
 
+void aSetPageTurnsAtItsEdges() {
+    Rig rig;
+    theme::InterfaceTheme tokens;
+    tokens.home.columns = 4;
+    tokens.home.fillRows = true;
+    tokens.tiles.aspect = 1.5f;
+    rig.grid.setTheme(tokens);
+    // 30 tiles on pages of 12: the last page holds six, in a row and a half.
+    expect(rig.grid.layout().setPage() && rig.grid.layout().pageCount() == 3,
+           "the theme's page is laid out");
+    rig.grid.focus(23);
+    rig.ui.navigator.act(Action::Right);
+    expect(rig.grid.page() == 2 && rig.grid.focusIndex() == 28,
+           "Right off a row the next page lacks lands in its last row");
+    auto under = rig.grid.at(centre(rig.tile(28)));
+    expect(under && under->index != 28, "the page slides in, the last one still where it stood");
+    rig.grid.settle();
+    under = rig.grid.at(centre(rig.tile(28)));
+    expect(under && under->index == 28, "and once it has, its tiles are under the pointer");
+    rig.ui.navigator.act(Action::Left);
+    expect(rig.grid.page() == 1 && rig.grid.focusIndex() == 23,
+           "Left off the first column comes back to the row's last tile");
+    rig.grid.focus(29);
+    rig.ui.navigator.act(Action::Right);
+    expect(rig.grid.focusIndex() == 29, "the last tile has nothing after it");
+    rig.grid.focus(0);
+    rig.ui.navigator.act(Action::Left);
+    expect(rig.grid.focusIndex() == 0 && rig.grid.page() == 0, "nor the first before it");
+}
+
 void theShouldersStepTheDock() {
     Rig rig;
     rig.ui.navigator.act(Action::NextTab);
@@ -256,6 +286,7 @@ void theTouchButtonsFillTheRowAndKeepAFingersRoom() {
 int main() try {
     theDpadMovesAcrossTiles();
     theWheelAndAnArrowTurnPages();
+    aSetPageTurnsAtItsEdges();
     theShouldersStepTheDock();
     aAndYReachTheHooks();
     thePointerFocusesAndOpensTiles();

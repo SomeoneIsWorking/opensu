@@ -166,8 +166,9 @@ class Hud {
     };
 
     void drawGround(Canvas& canvas) const;
-    /// The theme's clock bar along the bottom edge, the time large and the date under it; nothing
-    /// for a theme without one.
+    /// The theme's clock bar: a band along the bottom edge the dock stands on, the time before the
+    /// dock and the date after it, or both on a line above it on a narrow screen; nothing for a
+    /// theme without one.
     void drawClockBar(Canvas& canvas) const;
     void drawTopBar(Canvas& canvas, const TopBarHover& hover);
     void drawHints(Canvas& canvas) const;
@@ -179,8 +180,11 @@ class Hud {
     /// One hundredth of the window's shorter side, the unit of opensu's own chrome.
     [[nodiscard]] float unit() const noexcept;
     [[nodiscard]] TopBarMetrics metrics() const noexcept;
+    /// Whether the clock bar's time and date stand either side of the dock: the screen is wide
+    /// enough for them between it and the corner prompts.
+    [[nodiscard]] bool clockBesideDock() const noexcept;
     /// The room the clock bar's time and date take above the prompt row, in pixels; none
-    /// without the bar.
+    /// without the bar or beside the dock.
     [[nodiscard]] float clockRow() const noexcept;
     /// The clock the status pill shows: none when the theme moves it to the clock bar.
     [[nodiscard]] const std::string& pillClock() const noexcept;

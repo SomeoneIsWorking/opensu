@@ -196,6 +196,32 @@ void pageCrossingNeedsRow() {
            "the next page's tile on the remembered row");
 }
 
+void aSetPageByRows() {
+    // 4 columns x 3 rows a page, filled by rows; 30 items leave six on the last page.
+    HomeLayoutInput input{.width = 1280.0f,
+                          .height = 800.0f,
+                          .dp = 1.5f,
+                          .items = 30,
+                          .mode = ScrollMode::Paged,
+                          .topInset = 60.0f,
+                          .bottomInset = 40.0f};
+    input.page = opensu::ui::SetPage{.columns = 4, .aspect = 1.5f, .rowMajor = true};
+    const FocusGrid grid = FocusGrid::of(HomeLayout{input});
+    GridFocus focus = at(grid, 0);
+    expect(focus.move(Direction::Right, grid) && focus.index() == 1, "right walks the row");
+    expect(focus.move(Direction::Down, grid) && focus.index() == 5, "down walks the column");
+    focus = at(grid, 7);
+    expect(focus.move(Direction::Right, grid) && focus.index() == 16,
+           "right off a page lands on the next page's first column, same row");
+    expect(focus.move(Direction::Left, grid) && focus.index() == 7, "and left comes back");
+    focus = at(grid, 23);
+    expect(!focus.move(Direction::Right, grid),
+           "a row the next page lacks is left to the grid, which turns the page");
+    focus = at(grid, 27);
+    expect(focus.move(Direction::Down, grid) && focus.index() == 29,
+           "down into a short row takes its nearest tile");
+}
+
 } // namespace
 
 int main() try {
@@ -206,6 +232,7 @@ int main() try {
     pixelPassScore();
     pageCrossing();
     pageCrossingNeedsRow();
+    aSetPageByRows();
     std::printf("grid_focus: all checks passed\n");
     return 0;
 } catch (...) {

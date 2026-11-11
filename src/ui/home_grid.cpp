@@ -92,21 +92,26 @@ void HomeGrid::setFrame(const Frame& frame) {
 void HomeGrid::setTheme(const theme::InterfaceTheme& tokens) {
     tokens_ = tokens;
     tilePainter_.setTiles(tokens.tiles);
+    relayout();
 }
 
 HomeLayout HomeGrid::computeLayout() const {
+    const theme::Home& home = tokens_.home;
+    const bool set = home.columns > 0;
     return HomeLayout{HomeLayoutInput{
         .width = static_cast<float>(frame_.width),
         .height = static_cast<float>(frame_.height),
         .dp = frame_.dp,
         .items = tiles_.size(),
         .mode = scrollModeFor(mode_),
-        .rows = gridViewport.rows,
+        .rows = set ? home.rows : gridViewport.rows,
         .topInset = frame_.topInset,
         .bottomInset = frame_.bottomInset,
         .leftInset = frame_.leftInset,
         .rightInset = frame_.rightInset,
         .iconLevel = iconSize_,
+        .page = set ? std::optional{SetPage{home.columns, tokens_.tiles.aspect, home.fillRows}}
+                    : std::nullopt,
     }};
 }
 
@@ -413,7 +418,13 @@ void HomeGrid::relayout() {
 void HomeGrid::focusOn(std::size_t index, int dx) {
     focusAt_ = now_;
     if (layout_.mode() == ScrollMode::Paged) {
-        page_ = layout_.pageOf(index);
+        const int page = layout_.pageOf(index);
+        if (layout_.setPage() && page != page_) {
+            // A set page slides in from where the last one stood.
+            dragShift_ = pageShift() + layout_.pageScroll(page) - layout_.pageScroll(page_);
+            settleAt_ = now_;
+        }
+        page_ = page;
         return;
     }
     scroller_.retarget(layout_.scrollTarget({index, scroller_.target(), dx}));
@@ -480,10 +491,11 @@ bool HomeGrid::move(gpu2d::ui::Direction direction) {
     if (presentation() != Presentation::Grid) {
         return moveRail(direction);
     }
-    if (!focus_.move(direction, FocusGrid::of(layout_))) {
-        return false;
-    }
     const int dx = direction == Direction::Right ? 1 : (direction == Direction::Left ? -1 : 0);
+    if (!focus_.move(direction, FocusGrid::of(layout_))) {
+        // Off a set page's edge the next page takes the focus, in the row nearest the one left.
+        return layout_.setPage() && dx != 0 && atPageEdge(dx) && focusPage(page_ + dx);
+    }
     focusOn(focus_.index(), dx);
     return true;
 }
@@ -626,6 +638,11 @@ bool HomeGrid::focusPage(int page) {
     return focusTile(layout_.slotOnPage(page, focus_.rememberedRow(), page < page_));
 }
 
+bool HomeGrid::atPageEdge(int dx) const {
+    const GridCell cell = layout_.cellOf(focus_.index());
+    return dx > 0 ? cell.left == layout_.columns() - 1 : cell.left == 0;
+}
+
 void HomeGrid::pressFocused() {
     if (focus_.index() < tiles_.size()) {
         pressAt_ = now_;
@@ -658,6 +675,9 @@ void HomeGrid::settle() {
     }
     if (pressAt_) {
         remaining = std::max(remaining, motion::pulseMs - sinceMs(*pressAt_));
+    }
+    if (!dragging_ && dragShift_ != 0.0f) {
+        remaining = std::max(remaining, settleMs - sinceMs(settleAt_));
     }
     now_ += std::chrono::duration_cast<Clock::duration>(
         std::chrono::duration<float, std::milli>{remaining});
@@ -779,6 +799,14 @@ void HomeGrid::drawGrid(Canvas& canvas) {
     // iiSU nx2.d: unfocused tiles first, the focused tile last, over its neighbours.
     const SlotRange seen = layout_.visibleSlots(scroll(), static_cast<float>(frame_.width));
     const std::size_t focused = focus_.index();
+    for (const Rect& well : layout_.emptyCells(scroll())) {
+        TileVisual visual;
+        visual.rect = well;
+        visual.cell = std::min(well.width, well.height);
+        visual.placeholder = true;
+        visual.dark = chromeDark(tokens_.palette);
+        tilePainter_.paint(canvas, visual);
+    }
     for (std::size_t slot = seen.first; slot < seen.last; ++slot) {
         if (slot == focused) {
             continue;

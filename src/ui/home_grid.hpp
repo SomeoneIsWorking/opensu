@@ -211,6 +211,8 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
     /// Turns a Paged grid to `page`, focusing the same row's first or last slot there; reports
     /// whether it turned.
     bool focusPage(int page);
+    /// Whether the focused tile stands in its page's first column (`dx` < 0) or last.
+    [[nodiscard]] bool atPageEdge(int dx) const;
     [[nodiscard]] float aspectOf(const Tile& tile) const noexcept;
     /// What an XMB or a Carousel is laid out from, at the eased focus.
     [[nodiscard]] RailInput railInput() const;
@@ -264,7 +266,8 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
     std::optional<Clock::time_point> pressAt_;
     std::size_t pressIndex_{};
     std::optional<Clock::time_point> entranceAt_;
-    /// A Paged grid's offset from its page while dragged, and when it was let go to settle.
+    /// A Paged grid's offset from its page while dragged or as a set page turns, and when it was
+    /// let go to settle.
     float dragShift_{};
     bool dragging_{false};
     Clock::time_point settleAt_{};
