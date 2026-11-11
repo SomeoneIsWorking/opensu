@@ -137,7 +137,8 @@ struct Config {
     /// Whether empty `romRoots` are discovered; else there are none.
     bool findRomRoots{true};
 
-    /// Window size: dp for the shell's window on a display, pixels for a hidden one and the runner's.
+    /// Window size: dp for the shell's window on a display, pixels for a hidden one and the
+    /// runner's.
     int width{1280};
     int height{800};
     /// Pixels per dp of the display a hidden window stands for, from OPENSU_DISPLAY_SCALE; a

@@ -39,8 +39,8 @@ unsigned heldBit(std::uint8_t button) {
     }
 }
 
-/// The layout is computed from the window's size, but a window smaller than this crowds it; dp
-/// for a window on a display, pixels for a hidden one.
+/// The layout is computed from the window's size, but a window on a display smaller than this
+/// crowds it, in dp.
 constexpr display::Size minimumSize{.width = 960, .height = 600};
 
 /// Sizes a window on a display in dp, so a scaled desktop gives the layouts the room a plain one
@@ -86,9 +86,8 @@ SDL_GPUCommandBuffer* acquireCommands(SDL_GPUDevice& device) {
 ShellWindow::ShellWindow(const Options& options)
     : window_{windowOptions(options)}, canvas_{window_.device()},
       hiddenDp_{options.hidden ? std::optional<float>{options.hiddenDp} : std::nullopt} {
-    if (options.hidden) {
-        SDL_SetWindowMinimumSize(window_.window(), minimumSize.width, minimumSize.height);
-    } else {
+    // A hidden window is the screen a tool names, whatever its size.
+    if (!options.hidden) {
         sizeInDp(window_.window(), {.width = options.width, .height = options.height});
     }
     // The system's on-screen keyboard shows only when a field asks for it (`showScreenKeyboard`).
