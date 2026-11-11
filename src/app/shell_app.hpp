@@ -969,8 +969,8 @@ class ShellApp final {
                 [this](const std::string& hostId,
                        std::function<void(std::optional<std::string>, std::string)> answer) {
                     return lan_.askPeers(
-                        [hostId, answer = std::move(answer)](const lan::LanNode& node,
-                                                             const std::stop_token& stop) {
+                        [hostId = hostId, answer = std::move(answer)](const lan::LanNode& node,
+                                                                      const std::stop_token& stop) {
                             std::string error;
                             std::optional<std::string> modules =
                                 node.frameGenModulesOf(stop, hostId, error);
