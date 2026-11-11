@@ -1,7 +1,8 @@
 // devices_controller — what the Devices screen holds and does. Four tabs: Bluetooth (the adapter,
 // a scan, shown only where the machine has a Bluetooth service; and each device to pair, connect,
 // disconnect or forget), Controllers (the connected pads with player order, battery and a live
-// button test, and the way to the shortcut remapping), Audio output (the outputs to choose between)
+// button test, a DolphinBar's mode and Bluetooth Wii Remotes, and the way to the shortcut
+// remapping), Audio output (the outputs to choose between)
 // and Display (the output's size). Volume, brightness and the interface size are the Guide menu's.
 // Everything it changes goes through the owner of that thing: `BluetoothSession` and
 // `AudioOutputs`.
@@ -19,6 +20,7 @@
 #include "audio_outputs.hpp"
 #include "bluetooth_session.hpp"
 #include "controller_roster.hpp"
+#include "device/wii_remotes.hpp"
 #include "ui/row_widgets.hpp"
 #include "ui/screen_stack.hpp"
 #include "ui/setting_row.hpp"
@@ -40,6 +42,8 @@ class DevicesController final : public ui::RowActions {
         std::function<void()> openShortcuts;
         /// The output's size and refresh rate as a line ("2560 x 1440 at 60 Hz").
         std::function<std::string()> output;
+        /// The real Wii Remotes there are now (`device::findWiiRemotes`).
+        std::function<device::WiiRemotes()> wiiRemotes;
     };
 
     /// What the rows act on.

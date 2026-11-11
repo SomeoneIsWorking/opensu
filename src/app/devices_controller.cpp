@@ -53,6 +53,30 @@ std::string deviceVerb(const host::BluetoothDevice& device) {
     return device.connected ? "Disconnect" : "Connect";
 }
 
+/// The rows saying what Wii games play: a DolphinBar's mode, Bluetooth Wii Remotes.
+void addWiiRemoteRows(std::vector<SettingsRow>& rows, const device::WiiRemotes& remotes) {
+    if (remotes.dolphinBars > 0) {
+        rows.push_back(ui::makeRow("wii.bar", RowKind::Info, "DolphinBar (Wii Remote mode)",
+                                   remotes.barsReachable
+                                       ? "Wii games play the remotes synced to it"
+                                       : "Dolphin cannot open it: install Dolphin's udev rules",
+                                   ""));
+    }
+    if (remotes.otherModeBars > 0) {
+        rows.push_back(ui::makeRow("wii.bar.mode", RowKind::Info, "DolphinBar",
+                                   "Switch it to mode 4 (Wii Remote) to play Wii games on "
+                                   "real Wii Remotes",
+                                   ""));
+    }
+    if (remotes.bluetoothRemotes > 0) {
+        const int count = remotes.bluetoothRemotes;
+        rows.push_back(ui::makeRow("wii.bluetooth", RowKind::Info,
+                                   count == 1 ? std::string{"Wii Remote"}
+                                              : std::to_string(count) + " Wii Remotes",
+                                   "Connected over Bluetooth, for Wii games", ""));
+    }
+}
+
 std::string heldText(const std::vector<gamepad::Button>& held) {
     std::vector<std::string> names;
     names.reserve(held.size());
@@ -165,6 +189,7 @@ ui::SettingsCategory DevicesController::controllersTab() const {
         tab.rows.push_back(ui::makeRow(padPrefix + pad.id, RowKind::Info, pad.name,
                                        joined(parts, " · "), heldText(pad.held)));
     }
+    addWiiRemoteRows(tab.rows, hooks_.wiiRemotes());
     tab.rows.push_back(ui::makeRow(remapId, RowKind::Action, "Shortcut remapping",
                                    "Buttons and chords, the Guide menu's included", "Open"));
     return tab;

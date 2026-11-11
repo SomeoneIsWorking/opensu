@@ -1,6 +1,7 @@
 // The Devices screen on the interface toolkit, driven as the shell drives it: a tab per area,
 // Bluetooth actions through the session with forgetting asked first, the controllers' live button
-// test, the audio output choice, and Back from the rows to the tabs, then out.
+// test, a DolphinBar's mode and Bluetooth Wii Remotes, the audio output choice, and Back from the
+// rows to the tabs, then out.
 #include <chrono>
 #include <cstdio>
 #include <thread>
@@ -38,6 +39,9 @@ struct Rig {
                       },
                       [] {
                           return std::string{"1920 x 1080 at 60 Hz"};
+                      },
+                      [this] {
+                          return wiiRemotes;
                       }}} {
         radio.state = test::pairedPadAndHeadset();
         pads = {{"/dev/input/event5", "Pro Pad", "aa"}};
@@ -102,6 +106,7 @@ struct Rig {
     test::FakeBluetooth radio;
     app::BluetoothSession bluetooth;
     std::vector<gamepad::PadInfo> pads;
+    device::WiiRemotes wiiRemotes;
     app::ControllerRoster roster;
     audio::SdlSoundPlayer sounds;
     std::vector<std::string> calls;
@@ -208,6 +213,26 @@ void controllersShowTheLiveButtonTest() {
     expect(rig.calls == std::vector<std::string>{"shortcuts"}, "the remapping link opens");
 }
 
+void wiiRemotesSayWhatWiiGamesPlay() {
+    Rig rig;
+    rig.openOn("controllers");
+    expect(rig.controller.tabs()[1].rows.size() == 2, "no Wii Remote, no line for one");
+    rig.wiiRemotes = device::WiiRemotes{.dolphinBars = 1};
+    rig.controller.refresh();
+    expect(rig.row("wii.bar").label == "DolphinBar (Wii Remote mode)" &&
+               rig.row("wii.bar").note == "Wii games play the remotes synced to it",
+           "a DolphinBar in Wii Remote mode is named");
+    rig.wiiRemotes.barsReachable = false;
+    rig.controller.refresh();
+    expect(rig.row("wii.bar").note.find("udev") != std::string::npos,
+           "one Dolphin cannot open says what it needs");
+    rig.wiiRemotes = device::WiiRemotes{.otherModeBars = 1, .bluetoothRemotes = 2};
+    rig.controller.refresh();
+    expect(rig.row("wii.bar.mode").note.find("mode 4") != std::string::npos,
+           "a DolphinBar in another mode is told to switch to mode 4");
+    expect(rig.row("wii.bluetooth").label == "2 Wii Remotes", "Bluetooth remotes are counted");
+}
+
 void audioChoosesTheOutput() {
     Rig rig;
     rig.openOn("audio");
@@ -243,6 +268,7 @@ int main() try {
     forgettingAsksFirst();
     aRefusalIsSaid();
     controllersShowTheLiveButtonTest();
+    wiiRemotesSayWhatWiiGamesPlay();
     audioChoosesTheOutput();
     displayShowsTheOutput();
     backGoesToTheTabsThenCloses();

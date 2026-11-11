@@ -1325,6 +1325,8 @@ class ShellApp final {
     /// Who has the pads: the shell, the running launch with its mapping, or another window.
     /// Main loop only.
     PadOwner padOwner_{*pads_, shell_.chords()};
+    /// Where the real Wii Remotes are looked for, for the Devices page and a Wii game's launch.
+    device::HidPlaces hidPlaces_{device::HidPlaces::of(environment_.dataDir, settings_.hidden)};
     /// The pads as the Devices page lists them.
     ControllerRoster roster_{ControllerRoster::Sources{[this] {
                                                            return pads_->connected();
@@ -1345,6 +1347,9 @@ class ShellApp final {
                                  },
                                  [this] {
                                      return outputLine();
+                                 },
+                                 [this] {
+                                     return device::findWiiRemotes(hidPlaces_);
                                  }}};
     /// Installing session mode: its question and the root step through polkit. Null where there
     /// is no session mode.
