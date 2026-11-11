@@ -30,7 +30,7 @@ All optional.
 | `OPENSU_ROM_ROOTS` | Colon-separated ROM roots, each holding one folder per system. Discovered when unset. |
 | `OPENSU_EMULATORS` | Per-system command overriding the one found: `ps2=pcsx2-qt -batch {rom};gc=dolphin-emu -b -e {rom}`. |
 | `OPENSU_WIDTH`, `OPENSU_HEIGHT` | Window size, default 1280x800: dp for a window on a display (multiplied by the display's scale, kept inside its usable area), pixels for a `--hidden` or `--render` run. |
-| `OPENSU_DISPLAY_SCALE` | Pixels per dp of the screen a `--hidden` or `--render` run stands for, default 1; the desktop's own scale never reaches such a run. A phone is `OPENSU_WIDTH=1080 OPENSU_HEIGHT=2400 OPENSU_DISPLAY_SCALE=2.625`. |
+| `OPENSU_DISPLAY_SCALE` | Pixels per dp of the screen, in place of the display's own scale. Unset, a window on a desktop takes the desktop's scale, and a `--hidden` or `--render` run or openSU's own session takes the recommended scale for the screen (2.5 at 3840x2160, 1 at 1280x800); the desktop's own scale never reaches a hidden run. A phone is `OPENSU_WIDTH=1080 OPENSU_HEIGHT=2400 OPENSU_DISPLAY_SCALE=2.625`. Interface size in the Guide menu multiplies it. |
 | `OPENSU_ASSETS` | Directory holding the typeface. Defaults to `share/opensu` beside the executable's directory. |
 | `OPENSU_HOME_MODE` | `standard` (scrolling grid, default) or `wiisu` (pages with peeks and page dots). |
 | `OPENSU_CONTROL_PORT` | The control channel's port, default 7311. |

@@ -69,7 +69,9 @@ column by column, the next page peeking in. With it the page is set: `columns` b
 screen. It fills in `fill` order, its cells past the last tile are drawn as empty slots (wells in
 the `channel` style), a turn slides the page, and Left or Right off its edge turns to the next
 page even where that page's row is empty. A screen taller than wide takes the lesser of `columns`
-and `rows` across and as many rows as fit, up to 6. The icon size (Settings › Appearance) does not
+and `rows` across and as many rows as fit, up to 6. A screen with room for more shows more
+tiles, not larger ones: a column joins while a cell would pass 360 dp across, up to 8, then the
+rows that fit. The icon size (Settings › Appearance) does not
 change a set page. In the `channel` style a game's art is cropped to the cell while the crop
 keeps three quarters of it, and otherwise stands whole on the tile's body.
 

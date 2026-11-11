@@ -74,9 +74,9 @@ through gpu2d.
 
 - `--hidden`: an unmapped window on the player's session, no vsync, no sound device unless `--sound`, errors logged.
   Its frames depend on no display: the window is `OPENSU_WIDTH` x `OPENSU_HEIGHT` pixels at
-  `OPENSU_DISPLAY_SCALE` pixels per dp (1 unless told), not the desktop's scale
-  (`ShellWindow::displayDp`), so the same command draws the same frame on any machine and a phone
-  or tablet screen is drawn by naming its size and density.
+  `OPENSU_DISPLAY_SCALE` pixels per dp, or the recommended scale for that size when none is
+  stated (section 4.1), never the desktop's scale, so the same command draws the same frame on any
+  machine and a phone or tablet screen is drawn by naming its size and density.
   It reads the player's files and writes none: `settings.json`, `game-settings.json`,
   `mappings.json`, `own-games.json`, the chosen covers and the built-in runner's saves are copied
   at start into `<runtime dir>/hidden-<pid>` and the run saves to the copies, removed at its end
@@ -86,7 +86,55 @@ through gpu2d.
 - `--render FILE` and `GET /frame.png`: one frame drawn offscreen and read back, same size.
 - Inside Gamescope the window is the overlay: SDL is told to use X11 there (the overlay is an X11
   property on the window) and the window is created with alpha so the game shows through.
-- UI scale, the dock blur radius, fonts and colours are unchanged.
+- The dock blur radius, fonts and colours are unchanged.
+
+### 4.1 Display scale
+
+openSU draws at the output's own pixels and one factor maps dp to pixels, as a desktop does:
+`dp = display scale x Interface size` (`Shell::dp`; Interface size is the player's multiplier, 100%
+by default, `settings::uiScaleFactor`). Layouts are computed from the logical size, so 3840 x 2160
+at 2.5 is a 1536 x 864 dp screen. Touch targets never go under the display's own dp
+(`ui::fingerDp`).
+
+`display::DisplayScale` (`src/display/scale.*`) is the one decision, for the shell's window
+(`ShellWindow::displayDp`, `touchSurface`) and the runner's (`SdlRunnerWindow::surface`). In order:
+
+1. A stated scale, `OPENSU_DISPLAY_SCALE` (`Config::displayScale`): a tool's, the player's, or
+   the desktop's own, which openSU passes to its nested Gamescope (`display::Output::scale`,
+   `CompositorSession`), because a window inside Gamescope sees no desktop.
+2. The window system's scale where there is one (`SDL_GetWindowDisplayScale`: KDE and other X11 or
+   Wayland desktops, Windows, macOS, Android's density).
+3. Where there is none, a hidden window or one inside Gamescope with nothing stated (the login
+   session, a headless Gamescope): the recommended scale for the screen, `recommendedScale`
+   (`src/display/recommended_scale.hpp`). Inside Gamescope on a screen the glass comes from the
+   connected DRM connector's EDID (`connectedPanel`, `/sys/class/drm`, a built-in panel first).
+
+The recommended scale is KWin's rule (`OutputConfigurationStore::chooseScale`, kwin
+`src/outputconfigurationstore.cpp`, read 2026-11-11), rounded to Windows' 25% steps, 1 to 3, and 1
+below 1.2 as KWin has it:
+
+| Screen | Scale before rounding |
+|--------|-----------------------|
+| A desk monitor (glass up to 500 mm on its short side) | its dpi over 96, keeping 800 dp a side (KWin) |
+| A built-in panel (eDP, LVDS, DSI) | its dpi over 130 (KWin's tablet), keeping 853 x 480 dp, the screen iiSU lays a handheld out for, where KWin keeps 720 |
+| A TV (short side over 500 mm), or a size nobody states | its short side over 864 dp |
+
+KWin reads a TV at 30.5 dpi, which is 864 dp of height on a 58-inch 16:9 screen. openSU leaves
+the TV's size out: a TV's EDID size is often a placeholder (the 4K TV this was written on states
+1210 x 680 mm in one field and 1872 x 1053 mm in another, which KWin's rule turns into 2.65 or
+1.7), and a larger TV is watched from farther. So 3840 x 2160 is 2.5, 2560 x 1440 is 1.75,
+1920 x 1080 is 1.25 and 1280 x 800 is 1. Windows documents no table: it also derives its
+recommended scale from the EDID size and an assumed viewing distance, in 25% steps. Examples:
+a 27-inch 4K monitor 1.75, a 27-inch 1440p monitor 1, a 7-inch 1280 x 800 handheld 1.5 (853 x 533
+dp), a 15.6-inch 4K laptop 2.25. `ctest -R recommended_scale` holds them.
+
+Check in the product: the log line `[display] <scale> pixels per dp on <W>x<H>: stated |
+recommended | the window system's`, preceded for a recommended one by the glass read.
+
+Layouts for the larger logical sizes: Home and Library add rows past 220 dp a cell
+(`HomeLayout`), a set page adds columns past 360 dp a cell and the rows that then fit, and a page's
+body (`ui::pageFrame`: Settings, Devices, Downloads, Giveaways, a game's details) stops at 1280 dp,
+centred.
 
 ## 5. Proving the look
 

@@ -19,7 +19,7 @@ content scale (1 where the system already sizes windows in points, as macOS and 
 keeps it inside the display's usable area; `ShellWindow` opens at that size, centred, with the
 minimum scaled the same way and never larger than the window, and logs
 `window of 1280x800 dp opens WxH on a display of S per dp`. A hidden window keeps its size in
-pixels, at the density `OPENSU_DISPLAY_SCALE` states. `Shell::dp`'s floor is unchanged.
+pixels, at the density `OPENSU_DISPLAY_SCALE` states. Since then a dp is the display's scale times Interface size (`display::DisplayScale`, docs/design/sdl3-gpu-shell.md 4.1), with no fit to the window.
 
 Shown: `ctest -R window_size` (1 per dp opens 1280 x 800; 2.5 per dp opens 3200 x 2000 with a
 2400 x 1500 minimum; a 1920 x 1040 usable area at 2 per dp holds it to that).

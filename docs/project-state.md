@@ -139,7 +139,8 @@ Visible deltas from the baseline:
   openSU needed; iiSU shows no emulator play time.
 - No volume overlay in iiSU (its main activity hands the volume keys to Android); openSU draws its
   own pill on every volume change. No display-scale setting in iiSU (it follows the Android
-  density); openSU has "Interface size", 70 to 150 percent, clamped so every screen fits.
+  density); openSU follows the display's scale as well (the desktop's, Android's density, else the
+  recommended one for the screen) and has "Interface size", 70 to 150 percent, on top.
 - iiSU stands in landscape only; on Android openSU can rest in portrait (Guide › Screen), its pages
   laying out for a tall screen, and a wide game stands at the top with the touch controls under it.
   Seen in 720x1560 hidden renders; not yet on a phone.
@@ -562,7 +563,6 @@ offscreen at 1280×800 and 1920×1080 and looking at them.
 
 Stopgaps, each marked in code:
 
-- dp is `min(W/853, H/480)`; iiSU's density comes from Android.
 - WiiSu's 12 dp horizontal padding is not applied and `zj2` takes the grid gap as
   its spacing; the call site's arguments are unresolved.
 - `hx2.z`'s cross-flow fallback for multi-lane tiles is not ported; every home
@@ -1278,6 +1278,18 @@ rows; where that is too tall (split-screen) both share the height and scroll, cl
 bar. A hidden run's frames no longer follow the desktop's scale: its screen is `OPENSU_WIDTH` x
 `OPENSU_HEIGHT` pixels at `OPENSU_DISPLAY_SCALE` per dp. A window on a display opens in dp
 (`docs/issues/window-opens-in-pixels.md`), unit-tested, not yet seen on a visible window.
+
+Display scale (2026-11-11, `docs/design/sdl3-gpu-shell.md` 4.1): openSU draws at the output's
+pixels and a dp is the display's scale times Interface size; the fit to an 853 x 480 dp canvas is
+gone. `display::DisplayScale` decides for the shell and the runner: a stated scale, the window
+system's, else the recommended one (KWin's rule in 25% steps; a TV or an unknown screen by its
+short side over 864 dp, so 4K is 2.5). Shown on hidden frames at 3840 x 2160 at 2.5, 2560 x 1440
+(recommended 1.75), 1920 x 1080 and 1280 x 800 at 1 and a phone and tablet in portrait, in both
+themes, and by a hidden run in a headless Gamescope at 3840 x 2160 with no scale stated logging
+`2.5 pixels per dp on 3840x2160: recommended`. Home and Library add rows, a set page columns,
+and a page's body stops at 1280 dp. Not yet seen: the login session's read of the connector's
+EDID (`connectedPanel`) and a nested Gamescope taking the desktop's scale, both on a visible
+session only the player can open.
 
 Devices (`DevicesScreen`, tabs down the side): Bluetooth (BlueZ over `busctl`: adapter on/off, scan
 held by `bluetoothctl`, pair with trust and connect, connect, disconnect; X or a right click forgets
