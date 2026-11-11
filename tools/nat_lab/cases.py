@@ -76,10 +76,26 @@ class Rig:
             host_nat, friend_nat, tailnet, zerotier, embedded_zerotier, delay_ms
         )
         self.root: subprocess.Popen[bytes] | None = None
+        self.stun: subprocess.Popen[bytes] | None = None
+        self.capture: subprocess.Popen[bytes] | None = None
+        self.zerotier_capture: subprocess.Popen[bytes] | None = None
+        self.gateway: subprocess.Popen[bytes] | None = None
+        self.mdns: list[mdns.Mdns] = []
+        self.instances: list[Instance] = []
         self.embedded_zerotier = embedded_zerotier
+        # __exit__ never runs for a failed __init__, so a failed start stops what it started.
+        try:
+            self.start(context, zerotier, lan, gateway, lease, any_core)
+        except BaseException:
+            self.close()
+            raise
+
+    def start(
+        self, context: Context, zerotier: bool, lan: bool, gateway: str, lease: int, any_core: bool
+    ) -> None:
         # openSU's own ZeroTier node, through the lab's root; every other case plays without it.
         online: dict[str, object] = {"onlineZeroTier": False}
-        if embedded_zerotier:
+        if self.embedded_zerotier:
             roots = context.out / "zerotier-roots"
             root_log = context.out / "zerotier-root.log"
             assert self.lab.zerotier_root is not None
@@ -121,12 +137,10 @@ class Rig:
             if zerotier
             else None
         )
-        self.mdns: list[mdns.Mdns] = []
         if lan:
             for at in (self.lab.host, self.lab.friend):
                 folder = context.out / f"{at.name}-mdns"
                 self.mdns.append(mdns.start(at, folder, os.getuid(), os.getgid()))
-        self.gateway: subprocess.Popen[bytes] | None = None
         self.gateway_log = context.out / "gateway.log"
         if gateway:
             self.gateway = self.lab.host_router.start(
@@ -162,6 +176,7 @@ class Rig:
                 Instance(name.lower(), at, folder, binary, roms, stun_list(), settings, bus)
             )
         self.host, self.friend = made
+        self.instances = made
         # mGBA (built-in) as openSU downloads it: links GBA players, plays the Game Boy ROM.
         downloaded = core_cache.cores(
             context.repo, context.build, context.repo / "scratch" / "nat-lab-cores"
@@ -171,8 +186,8 @@ class Rig:
             each.start()
 
     def close(self) -> None:
-        self.host.quit()
-        self.friend.quit()
+        for instance in self.instances:
+            instance.quit()
         for each in (self.stun, self.capture, self.zerotier_capture, self.gateway, self.root):
             if each is not None:
                 each.kill()
