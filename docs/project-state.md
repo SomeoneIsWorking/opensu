@@ -1336,9 +1336,9 @@ zeroed): while a launch runs each gamepad player's `id` is the Nth virtual pad's
 gets a Pro Controller in Ryujinx's default pad layout, the update prompt is off, and a version 71
 `Config.json` (SDL3 builds) is migrated down to the 70 that Ryubing 1.3.3 reads (`library/ryujinx_config`);
 verified with 1.3.3 on a copy of the player's config (`scratch/ryu-azahar/runs/ryujinx2`: presses
-take Chocobo's Mystery Dungeon from "Press Any Button" to Select Play Mode, the file comes back
-byte-identical). A player without `Config.json` gets Ryujinx's own first-start settings with
-player 1 on the virtual pad, removed after the run; verified with 1.3.3 on a copy without the file
+take Chocobo's Mystery Dungeon from "Press Any Button" to Select Play Mode, the file keeps the rule's
+settings). A player without `Config.json` gets Ryujinx's own first-start settings with
+player 1 on the virtual pad, kept as written; verified with 1.3.3 on a copy without the file
 (`scratch/switch-gaps/runs/ryujinx-fresh-after`: presses take Chocobo's Mystery Dungeon to Select
 Play Mode; before, `ryujinx-fresh-before`, it stayed on "Press Any Button"). Gap: a `Config.json`
 newer than 71 stays the player's for the run.
