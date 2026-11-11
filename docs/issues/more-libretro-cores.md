@@ -131,8 +131,12 @@ Gaps:
   without one starts from a copy of the old shared `Mcd001.ps2`). Shown on Crash Twinsanity: profile
   a's card adopted the shared one (`starts from a copy of the shared card` in the log), profile b's
   was made by the core in b's saves, the fresh system's `memcards` stayed empty
-  (`scratch/core-files/run/ps2-profile-{a,b}/`). Left: the card is not a `game_saves` slot, so Copy
-  saves, backups and sync do not carry it; no in-game save was written in the proof.
+  (`scratch/core-files/run/ps2-profile-{a,b}/`). The card is now a `game_saves` slot
+  (`SlotKind::Card`): two hidden openSUs with one profile id and a folder share, the attic played
+  Twinsanity (its card made, 8650752 bytes), the sync after play gave an 8650858-byte bundle, and
+  the den's Sync saves now took it (`took shared's saves (version 1, 8650752 bytes)`), its card the
+  attic's byte for byte (`scratch/ps2-card/run/proof.txt`). Left: no in-game save was written in
+  either proof; Copy saves is not offered for PS2, as standalone PCSX2 has no `SaveStore`.
 - Dolphin's `Sys` comes with the core (`"systemFiles"`, `libretro/dolphin` `Data/Sys` at the core's
   commit `32c61f9d`). Before: `Core file codehandler.bin missing!`, `Post-processing shader not
   found` and on Wii `ScanDirectoryTree error on .../Sys/Wii`; after, a hidden openSU's update check

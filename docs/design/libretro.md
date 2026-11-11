@@ -567,8 +567,12 @@ save directory and names slot 1's card after the content (`<saves>/<rom stem>.ps
 game. With the option on, both cards were `<system>/pcsx2/memcards/Mcd001.ps2` and `Mcd002.ps2`,
 one pair for every game and profile. A game without its card starts from a copy of that shared
 `Mcd001.ps2` (`retro/lrps2_card`, before the core loads), which is never written; a card is never
-written over. The card is not yet one of the game's save slots (`game_saves`), so Copy saves,
-backups and sync do not carry it.
+written over. The card is one of the runner's save slots of the game (`SlotKind::Card`,
+`library::game_saves`, listed when an installed built-in emulator of the game runs LRPS2), so
+Copy saves, its backups and save sharing carry it per profile like save RAM; a card copied without
+a resume state removes the target's. Check: two hidden openSUs with one profile id and a folder
+share, the first plays the game and gives the card, the second's Sync saves now takes it byte for
+byte (`scratch/ps2-card/tools/proof.py`).
 
 Invariant: a save file the runner did not load is never written over. A file larger than the core's
 save RAM, or one that cannot be read, is a load failure (`SaveError`): the game is not started, the
