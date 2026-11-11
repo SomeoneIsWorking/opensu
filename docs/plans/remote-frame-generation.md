@@ -162,16 +162,17 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   prefix's Gamescope, hidden guest, the scrolling NES ROM, stream rate 30, fixed 2x,
   `scratch/remote-framegen/tools/remote_fg.py`): 30.0 real/s, 59.8 to 59.96 shown/s, 420 generated
   in 14 s, capture to submit p50 46.9 to 48.1 ms against 14.9 to 17.3 ms off (about 30 ms added,
-  the held real interval); the `held` runs, 40.3 ms on against 6.8 off. Grabbing the guest's
-  frames over the control channel slows its loop, so rates are measured with no grabs. With the ROM's `held` motion (8 px every other game frame,
-  runs `h-on`, `h-off2`), every real frame lies on an 8 px lattice: off, 280 of 280 grabbed frames
-  are on it and all 300 are one clean band; on, 96 of 282 are on it and the rest lie between
-  (83 at 3.5 to 5.5 px, the others spread from 1 to 3.5 and 6 to 7), so the guest shows
-  in-betweens but not all at the half step; 16 of 300 show the band split or with faint ghost
-  streaks. Not yet traced: whether the spread is the pacer timing each in-between to its present
-  against real frames whose capture times beat with the game's 60.1 Hz (the Gamescope run had
-  ffplay's exact 30 fps and showed clean half steps), and where the ghosts come from. A per-present
-  log of the pacer's interval and phase on the guest would settle the first.
+  the held real interval); the `held` runs, 40.3 ms on against 6.8 off. With the ROM's `held`
+  motion (8 px every other game frame) every real frame lies on an 8 px lattice and a 2x
+  in-between belongs 4 px off it. Unattended, the guest's `framegen-pace` log (run `h-pace`) has
+  412 of 457 in-betweens at t 0.50, the rest around the 5 of 458 capture gaps that were not two
+  game frames, and presents every 16.7 ms on their vblank.
+- Grabbing the guest's frames (`/frame.png`) stalls its loop: `ShellApp::serviceControlRequests`
+  renders and encodes the PNG on the loop thread, presents fall to about 21 a second, and the
+  pacer times each in-between to those late vblanks (t 0.06 to 0.76, run `h-pace-grab`), so
+  grabbed frames lie all over the lattice (67 of 289 on it) and rates are measured with no grabs.
+  An off run's grabbed frames are all on the lattice and one clean band (280 of 280); on, 16 of
+  300 showed the band split or with faint ghost streaks, not yet traced.
 
 ## Found while planning step 3
 
