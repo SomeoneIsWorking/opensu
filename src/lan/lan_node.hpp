@@ -68,6 +68,8 @@ class LanNode {
         decltype(LanListener::Sources::playStatus) playStatus;
         /// A peer invites this one to its game (`LanListener::Sources::invited`).
         decltype(LanListener::Sources::invited) invited;
+        /// The frame generation shaders a peer asks for (`LanListener::Sources::frameGenModules`).
+        decltype(LanListener::Sources::frameGenModules) frameGenModules;
         /// Where ROMs being imported are staged, where each one taken goes, and when an import's
         /// progress changes (`RomImport::Setup`; this node gives its id and the hosts' links).
         RomImport::Setup roms;
@@ -143,6 +145,11 @@ class LanNode {
     /// Its profiles, each saying whether it is linked with this one.
     [[nodiscard]] std::optional<std::vector<wire::ListedProfile>>
     profilesOf(const std::stop_token& stop, const std::string& hostId, std::string& error) const;
+    /// The frame generation shaders `hostId` sends (`wire::frameGenModulesRoute`). Blocks for the
+    /// call, so never on the loop. Nothing with `error` when it is gone, unpaired or has none.
+    [[nodiscard]] std::optional<std::string> frameGenModulesOf(const std::stop_token& stop,
+                                                               const std::string& hostId,
+                                                               std::string& error) const;
     /// Asks it for a copy of its profile `profileId`, which its player is asked about.
     [[nodiscard]] bool askCopy(const std::stop_token& stop, const std::string& hostId,
                                const std::string& profileId, std::string& error) const;

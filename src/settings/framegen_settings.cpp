@@ -114,6 +114,23 @@ void declareFrameGen(Schema& schema) {
     schema.add(std::move(flow));
 }
 
+void declareRemoteStreamRate(Schema& schema) {
+    schema.add(settings::choiceSetting(
+        remoteStreamRateKey, "30 fps halves what the host sends; frame generation fills it in here",
+        std::string{frameGenSection}, SettingType::Choice));
+}
+
+std::uint8_t resolveRemoteStreamRate(const SettingLayers& layers, const LayerKeys& keys) {
+    const std::string kept =
+        layers.resolve(keys, remoteStreamRateKey.key, std::string{remoteStreamRateKey.defaultKey()})
+            .value;
+    const std::size_t index = choiceIndexOrDefault(remoteStreamRateKey, kept, keys.game);
+    return static_cast<std::uint8_t>(thousandths(remoteStreamRateChoices[index].key == "game"
+                                                     ? std::string_view{"0"}
+                                                     : remoteStreamRateChoices[index].key) /
+                                     1000);
+}
+
 FrameGenSettings resolveFrameGen(const SettingLayers& layers, const LayerKeys& keys) {
     return resolveFrameGen(
         [&layers, &keys](std::string_view key) {

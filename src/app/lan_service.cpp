@@ -80,22 +80,24 @@ void LanService::start() {
         news->store(true);
     };
     try {
-        node_ = std::make_unique<lan::LanNode>(lan::LanNode::Setup{.bookFile = places_.bookFile,
-                                                                   .secrets = places_.secrets,
-                                                                   .coverCache = places_.coverCache,
-                                                                   .name = name(),
-                                                                   .port = places_.port,
-                                                                   .remote = remote_,
-                                                                   .changed =
-                                                                       [news = news_] {
-                                                                           news->store(true);
-                                                                       },
-                                                                   .saves = places_.saves,
-                                                                   .profiles = places_.profiles,
-                                                                   .play = hooks_.play,
-                                                                   .playStatus = hooks_.playStatus,
-                                                                   .invited = hooks_.invited,
-                                                                   .roms = std::move(roms)});
+        node_ = std::make_unique<lan::LanNode>(
+            lan::LanNode::Setup{.bookFile = places_.bookFile,
+                                .secrets = places_.secrets,
+                                .coverCache = places_.coverCache,
+                                .name = name(),
+                                .port = places_.port,
+                                .remote = remote_,
+                                .changed =
+                                    [news = news_] {
+                                        news->store(true);
+                                    },
+                                .saves = places_.saves,
+                                .profiles = places_.profiles,
+                                .play = hooks_.play,
+                                .playStatus = hooks_.playStatus,
+                                .invited = hooks_.invited,
+                                .frameGenModules = hooks_.frameGenModules,
+                                .roms = std::move(roms)});
     } catch (const std::runtime_error& error) {
         lucent::error("lan", "LAN cannot start: {}", error.what());
         hooks_.say("LAN cannot start: " + std::string{error.what()}, true);

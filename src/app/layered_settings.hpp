@@ -119,11 +119,12 @@ class LayeredSettings {
     [[nodiscard]] const library::roms::ShaderPack& shaders() const noexcept {
         return shaders_;
     }
-    /// The summary over `section`'s rows of what the values `applies` reads come to, with its
-    /// note; nothing for a section without one. `where` names them in a report.
+    /// The summary over `section`'s rows of what the values `applies` reads come to in
+    /// `context`, with its note; nothing for a section without one. `where` names them in a
+    /// report.
     [[nodiscard]] std::optional<PresentationSummary>
-    summaryOf(std::string_view section, const settings::SettingLookup& applies,
-              const std::string& where) const;
+    summaryOf(std::string_view section, const EditorContext& context,
+              const settings::SettingLookup& applies, const std::string& where) const;
 
   private:
     /// The running core's options when `core` runs now, else those it defined when last run.

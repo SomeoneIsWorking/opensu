@@ -150,7 +150,8 @@ void payloadsReadAsWritten() {
                               .probeDatagrams = 900,
                               .probeQueueUs = 4100,
                               .pictureWidth = 1920,
-                              .pictureHeight = 1262};
+                              .pictureHeight = 1262,
+                              .framesPerSecond = 30};
     expect(wire::readReport(wire::write(report)) == report, "a report reads as written");
 
     using gamepad::Button;
@@ -730,7 +731,8 @@ void theLinkPicksTheCodec() {
                                         .probeDatagrams = heard,
                                         .probeQueueUs = 0,
                                         .pictureWidth = 0,
-                                        .pictureHeight = 0};
+                                        .pictureHeight = 0,
+                                        .framesPerSecond = 0};
         });
         expect(heard > 0, "the opening probe is sent");
         return end;

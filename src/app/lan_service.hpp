@@ -67,6 +67,8 @@ class LanService {
         decltype(lan::LanNode::Setup::playStatus) playStatus;
         /// A paired peer invites this one to its game; on the listener's thread.
         decltype(lan::LanNode::Setup::invited) invited;
+        /// The frame generation shaders a paired peer asks for; on the listener's thread.
+        decltype(lan::LanNode::Setup::frameGenModules) frameGenModules;
     };
 
     /// On from the start when `active`. The question and the card go on `navigator`.

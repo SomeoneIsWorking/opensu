@@ -96,6 +96,7 @@
 #include "polkit_prompt_controller.hpp"
 #include "preferences.hpp"
 #include "profile_settings.hpp"
+#include "remote_frame_gen.hpp"
 #include "remote_input.hpp"
 #include "remote_picture.hpp"
 #include "remote_play.hpp"
@@ -301,6 +302,11 @@ class ShellApp final {
     void closeRunningGame();
     /// Shows the newest picture of a remote game and hands it to the shell to draw.
     void showGamePicture();
+    /// How often the window presents: the display's refresh while a remote game's frames are
+    /// generated, else `ShellWindow::shellHz`.
+    [[nodiscard]] std::chrono::nanoseconds presentInterval() const;
+    /// The player's Lossless.dll in their Steam libraries, or nothing.
+    [[nodiscard]] std::optional<std::filesystem::path> losslessDll() const;
     /// Whether a remote game has the player's controls: it streams and no menu is up.
     [[nodiscard]] bool remoteHasControls();
     /// Sends the player's controls to the remote game, or lets go of them while a menu is up.
@@ -380,11 +386,10 @@ class ShellApp final {
     library::roms::RomsetLists romsetLists_{resolved_.cacheDir};
     /// Frame generation for the game in front and the running game's resolution and upscaling:
     /// Gamescope's atoms, set from their layers.
-    GamePresentation presentation_{
-        gameSettings_, openPresentationOutput(environment_.insideGamescope), [this] {
-            return library::findLosslessDll(
-                library::steam::Library::discover(resolved_.home, resolved_.steamRoots));
-        }};
+    GamePresentation presentation_{gameSettings_,
+                                   openPresentationOutput(environment_.insideGamescope), [this] {
+                                       return losslessDll();
+                                   }};
     /// The paired openSUs' games, which `lan_` fills and the catalog lists; before the catalog.
     std::shared_ptr<lan::RemoteLibrary> remoteGames_{
         std::make_shared<lan::RemoteLibrary>(environment_.cacheDir / "lan-library.json")};
@@ -939,6 +944,30 @@ class ShellApp final {
             .seats =
                 [this](std::string id, std::vector<std::string> profiles) {
                     lan_.playing(std::move(id), std::move(profiles));
+                },
+            .frameGen =
+                [this](const library::Game& game) {
+                    return settings::resolveFrameGen(gameSettings_.layers(),
+                                                     library::layerKeysOf(game));
+                },
+            .streamRate =
+                [this](const library::Game& game) {
+                    return settings::resolveRemoteStreamRate(gameSettings_.layers(),
+                                                             library::layerKeysOf(game));
+                },
+            .frameGenModules =
+                [this](const std::string& hostId,
+                       std::function<void(std::optional<std::string>, std::string)> answer) {
+                    return lan_.askPeers(
+                        [hostId, answer = std::move(answer)](const lan::LanNode& node,
+                                                             const std::stop_token& stop) {
+                            std::string error;
+                            std::optional<std::string> modules =
+                                node.frameGenModulesOf(stop, hostId, error);
+                            if (!stop.stop_requested()) {
+                                answer(std::move(modules), std::move(error));
+                            }
+                        });
                 }}};
     /// The ROM folders as LAN import writes into them; the import's thread shares it.
     std::shared_ptr<const library::roms::RomTree> romTree_{library::roms::openRomTree()};
@@ -976,36 +1005,44 @@ class ShellApp final {
         sounds_,
         remoteGames_,
         integrations_.current().lan,
-        LanService::Hooks{.say =
-                              [this](const std::string& text, bool isError) {
-                                  shell_.setToast(text, isError);
-                              },
-                          .remoteChanged =
-                              [this] {
-                                  reloadCatalog();
-                              },
-                          .peersChanged =
-                              [this] {
-                                  settingsScreen_.refresh();
-                              },
-                          .romsChanged =
-                              [this] {
-                                  lanRoms_.progressed();
-                              },
-                          .play =
-                              [this](const lan::Peer& peer, const std::string& game,
-                                     const std::string& profile, bool linked,
-                                     const lan::StreamKeys& keys) {
-                                  return remotePlay_.offer(peer, game, profile, linked, keys);
-                              },
-                          .playStatus =
-                              [this](const lan::Peer& peer, const std::string& game) {
-                                  return remotePlay_.playStatus(peer, game);
-                              },
-                          .invited =
-                              [this](const lan::Peer& peer, const lan::wire::Invitation& game) {
-                                  return remotePlay_.invited(peer, game);
-                              }}};
+        LanService::Hooks{
+            .say =
+                [this](const std::string& text, bool isError) {
+                    shell_.setToast(text, isError);
+                },
+            .remoteChanged =
+                [this] {
+                    reloadCatalog();
+                },
+            .peersChanged =
+                [this] {
+                    settingsScreen_.refresh();
+                },
+            .romsChanged =
+                [this] {
+                    lanRoms_.progressed();
+                },
+            .play =
+                [this](const lan::Peer& peer, const std::string& game, const std::string& profile,
+                       bool linked, const lan::StreamKeys& keys) {
+                    return remotePlay_.offer(peer, game, profile, linked, keys);
+                },
+            .playStatus =
+                [this](const lan::Peer& peer, const std::string& game) {
+                    return remotePlay_.playStatus(peer, game);
+                },
+            .invited =
+                [this](const lan::Peer& peer, const lan::wire::Invitation& game) {
+                    return remotePlay_.invited(peer, game);
+                },
+            .frameGenModules = [this](std::string& why) -> std::optional<std::string> {
+                const std::optional<std::filesystem::path> dll = losslessDll();
+                if (!dll) {
+                    why = "Lossless Scaling is not installed here";
+                    return std::nullopt;
+                }
+                return RemoteFrameGen::pack(*dll, why);
+            }}};
     /// What play together asks the player here.
     TogetherQuestions togetherQuestions_{shell_.screens().navigator(), sounds_, remotePlay_};
     /// The details page's Saves fact and row for saves shared with paired openSUs.

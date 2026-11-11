@@ -40,7 +40,8 @@ GuestStream::GuestStream(Setup setup)
                 .probeDatagrams = 0,
                 .probeQueueUs = 0,
                 .pictureWidth = 0,
-                .pictureHeight = 0} {
+                .pictureHeight = 0,
+                .framesPerSecond = 0} {
     secrets::wipeBytes(setup_.keys.host.data(), setup_.keys.host.size());
     secrets::wipeBytes(setup_.keys.guest.data(), setup_.keys.guest.size());
     receiver_ = std::jthread{[this](const std::stop_token& stop) {
@@ -197,6 +198,11 @@ void GuestStream::showsIn(int width, int height) {
     const std::lock_guard lock{mutex_};
     received_.pictureWidth = static_cast<std::uint16_t>(width);
     received_.pictureHeight = static_cast<std::uint16_t>(height);
+}
+
+void GuestStream::wantRate(std::uint8_t framesPerSecond) {
+    const std::lock_guard lock{mutex_};
+    received_.framesPerSecond = framesPerSecond;
 }
 
 void GuestStream::sendReport() {

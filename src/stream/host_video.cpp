@@ -15,6 +15,8 @@
 namespace opensu::stream {
 namespace {
 
+constexpr std::uint64_t microsPerSecond = 1'000'000;
+
 /// The longest side a hardware codec is sent; the guest scales up from there.
 constexpr int hardwareSide = 1920;
 
@@ -113,9 +115,16 @@ void HostVideo::send(const CapturedFrame& frame) {
         for (HostStream* stream : streams) {
             if (const std::optional<LinkPlan> plan = stream->plan()) {
                 Group& group = groups[plan->codec];
-                group.bitsPerSecond = group.guests.empty()
-                                          ? plan->bitsPerSecond
-                                          : std::min(group.bitsPerSecond, plan->bitsPerSecond);
+                const std::uint8_t wanted = stream->wantedRate();
+                if (group.guests.empty()) {
+                    group.bitsPerSecond = plan->bitsPerSecond;
+                    group.framesPerSecond = wanted;
+                } else {
+                    group.bitsPerSecond = std::min(group.bitsPerSecond, plan->bitsPerSecond);
+                    group.framesPerSecond = group.framesPerSecond == 0 || wanted == 0
+                                                ? 0
+                                                : std::max(group.framesPerSecond, wanted);
+                }
                 group.guests.push_back(stream);
             }
         }
@@ -128,7 +137,9 @@ void HostVideo::send(const CapturedFrame& frame) {
         const std::uint32_t number = frames_ + 1;
         bool sent = false;
         for (const auto& [codec, group] : groups) {
-            sent = code(frame, codec, group, number) || sent;
+            if (due(frame, codec, group)) {
+                sent = code(frame, codec, group, number) || sent;
+            }
         }
         if (!sent) {
             return;
@@ -142,6 +153,18 @@ void HostVideo::send(const CapturedFrame& frame) {
         last_.assign(frame.luma.begin(), frame.luma.end());
         last_.insert(last_.end(), frame.chroma.begin(), frame.chroma.end());
     });
+}
+
+bool HostVideo::due(const CapturedFrame& frame, VideoCodec codec, const Group& group) const {
+    const auto found = encodings_.find(codec);
+    if (group.framesPerSecond == 0 || found == encodings_.end() ||
+        found->second.sentCapturedUs == 0) {
+        return true;
+    }
+    // Less half a captured frame, so a capture a little early is not put off a whole frame.
+    const std::uint64_t gapUs = (microsPerSecond / group.framesPerSecond) -
+                                (microsPerSecond / (std::uint64_t{2} * videoFramesPerSecond));
+    return frame.capturedUs >= found->second.sentCapturedUs + gapUs;
 }
 
 bool HostVideo::code(const CapturedFrame& frame, VideoCodec codec, const Group& group,
@@ -222,6 +245,7 @@ bool HostVideo::code(const CapturedFrame& frame, VideoCodec codec, const Group& 
         group.guests[i]->sendFrame(payloads);
     }
     group.guests.back()->sendFrame(std::move(payloads));
+    encoding.sentCapturedUs = frame.capturedUs;
     return true;
 }
 

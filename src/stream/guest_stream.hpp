@@ -74,6 +74,9 @@ class GuestStream {
     [[nodiscard]] std::string stage() const;
     /// The pixels the picture is shown in, which the host fits what it sends to. Any thread.
     void showsIn(int width, int height);
+    /// Asks the host for `framesPerSecond` frames a second, 0 for every one it captures. Any
+    /// thread.
+    void wantRate(std::uint8_t framesPerSecond);
     /// Takes at most `bitsPerSecond` from the host from now on, 0 for all: a test run's slow link.
     void capLink(std::uint64_t bitsPerSecond) {
         cap_.set(bitsPerSecond);

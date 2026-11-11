@@ -170,8 +170,14 @@ class ShellWindow {
         std::chrono::steady_clock::time_point submitted;
         bool drawn{false};
     };
-    /// Draws one frame into the window and presents it, at most 60 a second.
+    /// How often the shell presents unless told otherwise.
+    static constexpr int shellHz = 60;
+    /// Draws one frame into the window and presents it, at most one each `presentEvery`.
     Presented present(const Draw& draw);
+    /// Presents at most one frame each `interval` from now on.
+    void presentEvery(std::chrono::nanoseconds interval) noexcept {
+        interval_ = interval;
+    }
     /// Draws one frame the window's size into an offscreen target and reads it back
     /// (premultiplied RGBA).
     [[nodiscard]] gpu2d::image::Bitmap render(const Draw& draw);
@@ -191,7 +197,7 @@ class ShellWindow {
     /// Encodes the canvas's frame into `commands` and submits it.
     void submit(SDL_GPUCommandBuffer* commands);
     void handle(const SDL_Event& event);
-    /// Waits out what is left of the frame's 60th of a second.
+    /// Waits out what is left of the frame's interval.
     void pace();
 
     gpu2d::GpuWindow window_;
@@ -215,6 +221,7 @@ class ShellWindow {
     bool screenKeyboard_{false};
     bool screenKeyboardHidden_{false};
     std::chrono::steady_clock::time_point nextFrame_{std::chrono::steady_clock::now()};
+    std::chrono::nanoseconds interval_{std::chrono::nanoseconds{std::chrono::seconds{1}} / shellHz};
 };
 
 } // namespace opensu::app

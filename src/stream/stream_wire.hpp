@@ -75,7 +75,8 @@ struct Probe {
 /// their sealed bytes and the newest counter among them; of the newest probe burst heard, its
 /// number, the datagrams of it that came and how much longer the quickest of those since the last
 /// report took than the quickest of the burst (the queue they met, `probeQueueUs`); the codecs it
-/// decodes (bit `VideoCodec` value); and the pixels it shows the picture in, 0 until it knows.
+/// decodes (bit `VideoCodec` value); the pixels it shows the picture in, 0 until it knows; and the
+/// frames a second it wants, 0 for every frame the host captures.
 struct Report {
     std::uint8_t decoders{0};
     std::uint64_t datagrams{0};
@@ -86,6 +87,7 @@ struct Report {
     std::uint32_t probeQueueUs{0};
     std::uint16_t pictureWidth{0};
     std::uint16_t pictureHeight{0};
+    std::uint8_t framesPerSecond{0};
 
     bool operator==(const Report&) const = default;
 };

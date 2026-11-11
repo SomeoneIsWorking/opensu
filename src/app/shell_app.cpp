@@ -972,6 +972,20 @@ void ShellApp::openGameSettings(const library::Game& game, EditorLook look, Edit
                                                    std::move(more)));
 }
 
+std::optional<std::filesystem::path> ShellApp::losslessDll() const {
+    return library::findLosslessDll(
+        library::steam::Library::discover(resolved_.home, resolved_.steamRoots));
+}
+
+std::chrono::nanoseconds ShellApp::presentInterval() const {
+    // Generated frames go at the display's rate; the shell itself needs no more than 60.
+    const std::optional<display::Output> output = window_->output();
+    const int hz = remotePlay_.generating() && output && output->refreshHz > 0
+                       ? output->refreshHz
+                       : ShellWindow::shellHz;
+    return std::chrono::nanoseconds{std::chrono::seconds{1}} / hz;
+}
+
 const library::Game* ShellApp::gameInFront() const {
     if (!shell_.inGame() || remotePlay_.streaming()) {
         return nullptr;
@@ -1486,6 +1500,8 @@ display::Placed ShellApp::remotePlacement() const {
 }
 
 void ShellApp::showGamePicture() {
+    const std::chrono::nanoseconds refresh = presentInterval();
+    window_->presentEvery(refresh);
     if (!remotePlay_.streaming()) {
         remotePicture_->clear();
         const GameOverlay* overlay = gameScreen_.overlay();
@@ -1499,7 +1515,8 @@ void ShellApp::showGamePicture() {
     }
     const gpu2d::PixelSize window = window_->size();
     remotePlay_.showsIn(window.width, window.height);
-    if (std::optional<stream::GuestVideo::Frame> frame = remotePlay_.takePicture()) {
+    if (std::optional<stream::GuestVideo::Frame> frame = remotePlay_.takePicture(
+            stream::wire::nowMicros(), static_cast<std::uint64_t>(refresh.count()))) {
         if (!remotePicture_->show(*frame)) {
             remotePlay_.readPicturesBack();
         }

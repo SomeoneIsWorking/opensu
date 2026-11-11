@@ -194,6 +194,10 @@ struct GameRef {
 };
 [[nodiscard]] std::string write(const GameRef& ref);
 [[nodiscard]] std::optional<GameRef> readGameRef(std::string_view body);
+/// `GET /lan/framegen/modules`: the frame generation shaders of the host player's Lossless.dll,
+/// for a guest of theirs that generates frames (`app::RemoteFrameGen::pack`), or why there are
+/// none.
+inline constexpr std::string_view frameGenModulesRoute = "/lan/framegen/modules";
 /// `POST /lan/covers`: what the host offers as a cover of a game it lists, and how the last pick
 /// ended. The guest asks again until the answer is complete.
 inline constexpr std::string_view coverOffersRoute = "/lan/covers";

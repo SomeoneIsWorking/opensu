@@ -207,7 +207,8 @@ void LayeredEditor::addGroup(tk::Column& rows, const std::vector<settings::Scope
 
 void LayeredEditor::addSummary(tk::Column& rows, const std::string& section) {
     std::optional<PresentationSummary> summary = settings_.summaryOf(
-        section, settings::scopeLookup(schema_, settings_.layersOf(), context_.keys, scope()),
+        section, context_,
+        settings::scopeLookup(schema_, settings_.layersOf(), context_.keys, scope()),
         settings_.scopeName(scope()));
     if (summary) {
         rows.add<tk::Item>(summary->id,

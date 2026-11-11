@@ -4,7 +4,8 @@
 // a maximum of generated frames per real frame and a tolerance, and the Lossless generator's
 // performance mode and flow scale. The keys, their schema declarations, a game's values resolved
 // into what the Gamescope fork's GAMESCOPE_FRAMEGEN_* root atoms take, and the one-line summary
-// the editor shows. Every default is off.
+// the editor shows. Every default is off. A game played from another openSU generates on this one
+// with the same keys, and beside them asks its host for a stream rate (`remote.stream-rate`).
 #pragma once
 
 #include <array>
@@ -113,6 +114,14 @@ inline constexpr std::array<ChoiceKey, 7> frameGenKeys{{
     {"framegen.tolerance", "Tolerance", frameGenToleranceChoices, 0},
     {"framegen.performance", "Performance mode", frameGenPerformanceChoices, 0},
 }};
+inline constexpr std::array<ChoiceText, 2> remoteStreamRateChoices{{
+    {"game", "The game's own"},
+    {"30", "30 fps"},
+}};
+/// The frames a second a remote game's host sends: fewer halve the link and the host's encoding,
+/// and frame generation here fills them in.
+inline constexpr ChoiceKey remoteStreamRateKey{"remote.stream-rate", "Stream rate",
+                                               remoteStreamRateChoices, 0};
 /// Lossless Scaling's flow scale slider: 25 to 100 percent in steps of 5.
 inline constexpr std::string_view frameGenFlowScaleKey = "framegen.flow-scale";
 inline constexpr Setting::Range frameGenFlowScaleRange{25, 100, 5};
@@ -122,6 +131,12 @@ inline constexpr std::string_view frameGenSection = "Frame generation";
 
 /// Declares frame generation's settings in `schema`: the preset, then the detail rows Custom shows.
 void declareFrameGen(Schema& schema);
+
+/// Declares the stream rate of a game played from another openSU, under frame generation.
+void declareRemoteStreamRate(Schema& schema);
+/// The frames a second `keys`' remote game asks its host for, 0 for the game's own.
+[[nodiscard]] std::uint8_t resolveRemoteStreamRate(const SettingLayers& layers,
+                                                   const LayerKeys& keys);
 
 /// `keys`' frame generation, each value from its winning layer; a kept value that is no choice is
 /// reported and the default used.

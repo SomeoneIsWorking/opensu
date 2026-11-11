@@ -137,8 +137,8 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
 ## Status
 
 - Step 1: this file (2026-11-11).
-- Step 2: done in fork `78dd9fb3` (branch `opensu`, pushed); openSU still pins `ecb71a2e`, and the
-  pin moves with step 3, its first consumer. `framegen/include/framegen/` is the public part
+- Step 2: done in fork `78dd9fb3` (branch `opensu`, pushed); openSU pins it from `24f646aa`, with
+  step 3 its first consumer. `framegen/include/framegen/` is the public part
   (`Device.h`: `DeviceDesc_t`, `IQueue`, `CDevice`; `FramePacer.h`; `LosslessGenerator.h`:
   `CLosslessGenerator::Create`, `BeginSession`, `AddRealFrame`, `Generate` with output hooks,
   each returning its `Submission_t`), the rest is private to `framegen/src/`. The standalone
@@ -152,6 +152,26 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   half-bright edges on every other frame and Off (`gs-after-off`) 16 px steps at 30 distinct/s.
   Both binaries settle sometimes on a phase where every shown frame is generated (t 0.25 and 0.75:
   60 generated/s, `gs-before-2x-r3`, `gs-after-2x-r4`), which is the pacer's, unchanged by the move.
+
+- Step 3: built against the fork at `34bab3a8` (openSU pin `eef48b2f`): the wire report carries
+  the guest's wanted rate, `HostVideo` codes each codec group at the highest rate any of its
+  guests wants (all frames if one wants the game's own), `/lan/framegen/modules` serves the
+  modules to paired guests, `RemoteFrameGen` (`remote_frame_gen_vulkan.cpp`, a stub elsewhere)
+  generates on the guest and `ShellWindow` presents at the display's refresh while it does. A real
+  frame's arrival is when it reaches the generator, after decode. Proof (hidden host in the
+  prefix's Gamescope, hidden guest, the scrolling NES ROM, stream rate 30, fixed 2x,
+  `scratch/remote-framegen/tools/remote_fg.py`): 30.0 real/s, 59.8 to 59.96 shown/s, 420 generated
+  in 14 s, capture to submit p50 46.9 to 48.1 ms against 14.9 to 17.3 ms off (about 30 ms added,
+  the held real interval); the `held` runs, 40.3 ms on against 6.8 off. Grabbing the guest's
+  frames over the control channel slows its loop, so rates are measured with no grabs. With the ROM's `held` motion (8 px every other game frame,
+  runs `h-on`, `h-off2`), every real frame lies on an 8 px lattice: off, 280 of 280 grabbed frames
+  are on it and all 300 are one clean band; on, 96 of 282 are on it and the rest lie between
+  (83 at 3.5 to 5.5 px, the others spread from 1 to 3.5 and 6 to 7), so the guest shows
+  in-betweens but not all at the half step; 16 of 300 show the band split or with faint ghost
+  streaks. Not yet traced: whether the spread is the pacer timing each in-between to its present
+  against real frames whose capture times beat with the game's 60.1 Hz (the Gamescope run had
+  ffplay's exact 30 fps and showed clean half steps), and where the ghosts come from. A per-present
+  log of the pacer's interval and phase on the guest would settle the first.
 
 ## Found while planning step 3
 

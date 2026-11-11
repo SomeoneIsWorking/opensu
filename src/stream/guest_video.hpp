@@ -44,10 +44,13 @@ class GuestVideo {
     /// On the stream's thread.
     bool take(const wire::VideoPacket& packet, std::uint64_t receivedUs, std::int64_t hostAheadUs);
 
-    /// The newest decoded frame not taken yet. Any thread.
+    /// The newest decoded frame not taken yet, with when the host captured it and when it was
+    /// decoded, on this clock. Any thread.
     struct Frame {
         std::uint32_t number{0};
         Picture picture;
+        std::uint64_t capturedUs{0};
+        std::uint64_t decodedUs{0};
     };
     [[nodiscard]] std::optional<Frame> takeFrame();
     /// The frame showing frame `number` was submitted at `submittedUs`, into the window when

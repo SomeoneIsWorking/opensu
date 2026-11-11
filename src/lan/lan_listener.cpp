@@ -103,7 +103,7 @@ Response LanListener::handle(const Request& request) {
     const bool peerPath =
         (request.method == "GET" &&
          (path == "/lan/library" || path == wire::romListRoute || path == wire::profilesRoute ||
-          path.starts_with(coverPrefix))) ||
+          path == wire::frameGenModulesRoute || path.starts_with(coverPrefix))) ||
         (request.method == "POST" &&
          (path == "/lan/unpair" || path == wire::playRoute || path == wire::playStatusRoute ||
           path == wire::inviteRoute || path == wire::libraryNewsRoute ||
@@ -210,6 +210,18 @@ Response LanListener::peerRoute(const Request& request, const Signed& verified) 
                                                  .linked = profile.linkedWith(verified.peer.id)});
         }
         return Response::json(ok, "OK", wire::write(listed));
+    }
+    if (path == wire::frameGenModulesRoute) {
+        std::string why = "this openSU has no frame generation";
+        std::optional<std::string> modules =
+            sources_.frameGenModules ? sources_.frameGenModules(why) : std::nullopt;
+        if (!modules) {
+            lucent::info("lan", "no frame generation shaders for {}: {}", verified.peer.name, why);
+            return refused(notFound, "Not Found", why);
+        }
+        lucent::info("lan", "sending {} the frame generation shaders, {} bytes", verified.peer.name,
+                     modules->size());
+        return Response::binary(ok, "OK", "application/octet-stream", std::move(*modules));
     }
     if (path == "/lan/unpair") {
         std::string error;

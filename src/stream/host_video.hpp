@@ -5,7 +5,10 @@
 // their rates, so a slow guest on a hardware codec does not take PyroWave from the others. A frame
 // is numbered once, the same in every encode. Frames before a guest joined and its link was probed
 // are not sent to it. A codec that cannot open is refused to its guests' links, which plan another;
-// a key frame goes out when a codec's guests change or one of them asks. The newest frame is kept,
+// a key frame goes out when a codec's guests change or one of them asks. A guest may ask for fewer
+// frames a second (`HostStream::wantedRate`); a codec's guests get the most any of them asks, every
+// frame for one that asks for all, and each frame keeps its byte budget, so 30 halves the bit rate
+// and the encode work. The newest frame is kept,
 // so the control channel can show what went out; the newest frame captured while held is sent when
 // the hold ends.
 #pragma once
@@ -57,22 +60,28 @@ class HostVideo {
     [[nodiscard]] std::optional<std::pair<std::uint32_t, Picture>> lastSent() const;
 
   private:
-    /// One codec's encoder, the streams it coded for last and at what rate.
+    /// One codec's encoder, the streams it coded for last and at what rate, and the capture time
+    /// of the last frame it sent.
     struct Encoding {
         std::unique_ptr<VideoEncoder> encoder;
         std::vector<const HostStream*> guests;
         std::uint64_t bitsPerSecond{0};
+        std::uint64_t sentCapturedUs{0};
     };
-    /// The guests planned onto one codec, and the lowest of their rates.
+    /// The guests planned onto one codec, the lowest of their rates and the most frames a second
+    /// any of them wants (0 for every frame).
     struct Group {
         std::vector<HostStream*> guests;
         std::uint64_t bitsPerSecond{0};
+        std::uint8_t framesPerSecond{0};
     };
 
     /// A frame as it arrives: kept while held, else sent.
     void take(const CapturedFrame& frame);
     /// Under `sendMutex_`.
     void send(const CapturedFrame& frame);
+    /// Whether `frame` is due for `codec`'s `group` at the rate it wants.
+    [[nodiscard]] bool due(const CapturedFrame& frame, VideoCodec codec, const Group& group) const;
     /// Codes `frame` as `number` for `group` with `codec` and sends it to each of them; false when
     /// nothing went.
     bool code(const CapturedFrame& frame, VideoCodec codec, const Group& group,

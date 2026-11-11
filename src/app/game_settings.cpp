@@ -17,6 +17,7 @@ settings::Schema keptSchema() {
     settings::Schema schema;
     settings::declareVideo(schema);
     settings::declareFrameGen(schema);
+    settings::declareRemoteStreamRate(schema);
     settings::declareScaling(schema, std::nullopt);
     settings::declareCoreOptionFamily(schema);
     schema.addOpen(std::string{library::emulatorKey});

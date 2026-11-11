@@ -41,7 +41,6 @@ unsigned heldBit(std::uint8_t button) {
 /// The layout is computed from the window's size, but a window smaller than this crowds it.
 constexpr int minimumWidth = 960;
 constexpr int minimumHeight = 600;
-constexpr std::chrono::nanoseconds frameInterval{1'000'000'000 / 60};
 
 gpu2d::WindowOptions windowOptions(const ShellWindow::Options& options) {
     return gpu2d::WindowOptions{.title = options.title,
@@ -436,7 +435,7 @@ void ShellWindow::pace() {
     if (now < nextFrame_) {
         SDL_DelayPrecise(static_cast<Uint64>((nextFrame_ - now).count()));
     }
-    nextFrame_ = std::max(nextFrame_ + frameInterval, std::chrono::steady_clock::now());
+    nextFrame_ = std::max(nextFrame_ + interval_, std::chrono::steady_clock::now());
 }
 
 } // namespace opensu::app

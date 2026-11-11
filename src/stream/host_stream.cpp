@@ -285,6 +285,7 @@ void HostStream::handle(const Opened& opened) {
                     PictureSize{.width = report->pictureWidth, .height = report->pictureHeight};
                 noCodec = link_.noCodec();
             }
+            wantedRate_ = report->framesPerSecond;
             if (noCodec) {
                 end("no video format both ends can use; its graphics driver may lack H.264 and "
                     "HEVC encoding");

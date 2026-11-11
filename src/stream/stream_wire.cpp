@@ -193,6 +193,7 @@ std::string write(const Report& report) {
     appendLittleEndian(out, report.probeQueueUs, 4);
     appendLittleEndian(out, report.pictureWidth, 2);
     appendLittleEndian(out, report.pictureHeight, 2);
+    out.push_back(static_cast<char>(report.framesPerSecond));
     return out;
 }
 
@@ -208,6 +209,7 @@ std::optional<Report> readReport(std::string_view payload) {
     report.probeQueueUs = static_cast<std::uint32_t>(in.take(4));
     report.pictureWidth = static_cast<std::uint16_t>(in.take(2));
     report.pictureHeight = static_cast<std::uint16_t>(in.take(2));
+    report.framesPerSecond = static_cast<std::uint8_t>(in.take(1));
     return in.whole() ? std::optional{report} : std::nullopt;
 }
 

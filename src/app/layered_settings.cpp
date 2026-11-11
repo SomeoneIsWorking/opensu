@@ -4,6 +4,7 @@
 
 #include "library/emulator_choice.hpp"
 #include "library/rom_systems.hpp"
+#include "remote_frame_gen.hpp"
 #include "retro_launch.hpp"
 #include "settings/core_option_settings.hpp"
 #include "settings/framegen_settings.hpp"
@@ -151,7 +152,12 @@ settings::Schema LayeredSettings::schemaOf(const EditorContext& context) const {
     if (video) {
         settings::declareVideo(schema);
     }
-    if (GamePresentation::supported()) {
+    if (game && !game->hostId.empty()) {
+        if (RemoteFrameGen::built()) {
+            settings::declareFrameGen(schema);
+            settings::declareRemoteStreamRate(schema);
+        }
+    } else if (GamePresentation::supported()) {
         settings::declareFrameGen(schema);
         settings::declareScaling(schema, presentation_.screen());
     }
@@ -203,9 +209,17 @@ std::string LayeredSettings::scopeName(const Layer& scope) const {
 }
 
 std::optional<PresentationSummary>
-LayeredSettings::summaryOf(std::string_view section, const settings::SettingLookup& applies,
-                           const std::string& where) const {
+LayeredSettings::summaryOf(std::string_view section, const EditorContext& context,
+                           const settings::SettingLookup& applies, const std::string& where) const {
     if (section == settings::frameGenSection) {
+        if (const std::optional<library::Game> game = gameOf(context);
+            game && !game->hostId.empty()) {
+            return PresentationSummary{
+                .id = "framegen.summary",
+                .line = settings::frameGenSummary(settings::resolveFrameGen(applies, where)),
+                .note = "Generated here, with the Lossless Scaling shaders of " + game->hostName +
+                        "'s Steam install"};
+        }
         return presentation_.frameGenSummary(applies, where);
     }
     if (section == settings::scalingSection) {

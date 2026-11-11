@@ -792,9 +792,13 @@ void RemotePlay::serviceGuest() {
             hooks_.say(game_.hostName + " is not at an IPv4 address", true);
             return;
         }
+        generation_ = hooks_.frameGen ? hooks_.frameGen(game_) : settings::FrameGenSettings{};
         try {
             link_ = std::make_unique<stream::LinkHold>();
-            video_ = std::make_unique<stream::GuestVideo>(pictures_);
+            // The generator takes CPU RGBA.
+            video_ = std::make_unique<stream::GuestVideo>(
+                generation_.mode == settings::FrameGenMode::Off ? pictures_
+                                                                : stream::PictureMemory::Cpu);
             speaker_ = hooks_.speaker ? hooks_.speaker() : nullptr;
             audio_ = std::make_unique<stream::GuestAudio>(
                 [speaker = speaker_.get()](std::span<const float> samples) {
@@ -818,6 +822,7 @@ void RemotePlay::serviceGuest() {
                 .decoders = stream::decodableHere()});
             guest_->mapping(mapping_);
             guest_->capLink(linkCap_);
+            guest_->wantRate(hooks_.streamRate ? hooks_.streamRate(game_) : 0);
         } catch (const std::runtime_error& failure) {
             drop();
             lucent::warn("remote", "remote play cannot start: {}", failure.what());
@@ -833,8 +838,27 @@ void RemotePlay::serviceGuest() {
         } else if (joined_) {
             hooks_.say("Joined " + game_.title + " on " + game_.hostName, false);
         }
+        if (generation_.mode != settings::FrameGenMode::Off) {
+            // A slot of this session's own, so an answer to an earlier one lands elsewhere.
+            modules_ = std::make_shared<
+                std::optional<std::pair<std::optional<std::string>, std::string>>>();
+            modulesAsked_ =
+                hooks_.frameGenModules &&
+                hooks_.frameGenModules(
+                    game_.hostId, [mutex = modulesMutex_, answer = modules_](
+                                      std::optional<std::string> modules, std::string error) {
+                        const std::lock_guard lock{*mutex};
+                        *answer = std::pair{std::move(modules), std::move(error)};
+                    });
+            if (!modulesAsked_) {
+                frameGenOff_ = "LAN is off or busy";
+                lucent::warn("framegen", "frame generation is off: cannot ask {} for its shaders",
+                             game_.hostName);
+            }
+        }
         return;
     }
+    serviceFrameGen();
     if (guest_) {
         if (const std::optional<std::string> over = guest_->over()) {
             hooks_.say(game_.title + " on " + game_.hostName + ": " + *over, !pictured_);
@@ -843,7 +867,37 @@ void RemotePlay::serviceGuest() {
     }
 }
 
+void RemotePlay::serviceFrameGen() {
+    if (!modulesAsked_ || !guest_) {
+        return;
+    }
+    std::optional<std::pair<std::optional<std::string>, std::string>> answer;
+    {
+        const std::lock_guard lock{*modulesMutex_};
+        answer = std::exchange(*modules_, std::nullopt);
+    }
+    if (!answer) {
+        return;
+    }
+    modulesAsked_ = false;
+    std::string why = answer->second;
+    if (answer->first) {
+        frameGen_ = RemoteFrameGen::open(generation_, *answer->first, why);
+    }
+    if (!frameGen_) {
+        frameGenOff_ = why;
+        lucent::warn("framegen", "frame generation for {} is off: {}", game_.title, why);
+        hooks_.say("Frame generation is off: " + why, true);
+        return;
+    }
+    lucent::info("framegen", "frame generation for {} from {}'s shaders", game_.title,
+                 game_.hostName);
+}
+
 void RemotePlay::drop() {
+    frameGen_.reset();
+    frameGenOff_.clear();
+    modulesAsked_ = false;
     guest_.reset();
     audio_.reset();
     speaker_.reset();
@@ -928,13 +982,23 @@ void RemotePlay::readPicturesBack() {
     }
 }
 
-std::optional<stream::GuestVideo::Frame> RemotePlay::takePicture() {
+std::optional<stream::GuestVideo::Frame> RemotePlay::takePicture(std::uint64_t nowUs,
+                                                                 std::uint64_t refreshNs) {
     if (!video_) {
         return std::nullopt;
     }
     std::optional<stream::GuestVideo::Frame> frame = video_->takeFrame();
     pictured_ = pictured_ || frame.has_value();
-    return frame;
+    if (!frameGen_) {
+        return frame;
+    }
+    if (frame && !frameGen_->real(std::move(*frame), refreshNs)) {
+        frameGen_.reset();
+        frameGenOff_ = "it failed; see the log";
+        hooks_.say("Frame generation stopped", true);
+        return std::nullopt;
+    }
+    return frameGen_->present(nowUs, refreshNs);
 }
 
 void RemotePlay::presented(std::uint32_t number, std::uint64_t submittedUs, bool drawn) {
@@ -955,7 +1019,8 @@ std::optional<stream::GuestVideo::Frame> RemotePlay::picture() const {
     if (!sent) {
         return std::nullopt;
     }
-    return stream::GuestVideo::Frame{.number = sent->first, .picture = std::move(sent->second)};
+    return stream::GuestVideo::Frame{
+        .number = sent->first, .picture = std::move(sent->second), .capturedUs = 0, .decodedUs = 0};
 }
 
 RemotePlay::Glance RemotePlay::glance() const {
@@ -970,6 +1035,11 @@ RemotePlay::Glance RemotePlay::glance() const {
         glance.roundTripUs = timing.roundTripUs;
         glance.bytesPerSecond = timing.bytesPerSecond;
         glance.video = video_->summary();
+        if (frameGen_) {
+            glance.video += " " + frameGen_->summary();
+        } else if (!frameGenOff_.empty()) {
+            glance.video += " framegen off: " + frameGenOff_;
+        }
         glance.audio = audio_->summary();
     }
     const std::lock_guard lock{hostMutex_};

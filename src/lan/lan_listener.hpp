@@ -8,7 +8,8 @@
 // profile linked with the peer (`save_sync::SaveSync`: `/lan/saves/status`, `/get`, `/news`,
 // `/synced`), `POST /lan/play`, which asks to play a listed game here over remote play or to join
 // it while it runs here (`play`), and how such an ask stands (`/lan/play/status`), and ROM import's
-// routes (`RomShelf`: `GET /lan/roms`, `POST /lan/roms/file`, `/chunk`). A request
+// routes (`RomShelf`: `GET /lan/roms`, `POST /lan/roms/file`, `/chunk`), and the frame generation
+// shaders of the player's Lossless.dll (`GET /lan/framegen/modules`). A request
 // that fails its signature, comes late, repeats or does not open is refused with 403, as are the
 // save routes of a profile not linked with the peer.
 #pragma once
@@ -85,6 +86,9 @@ class LanListener {
             invited;
         /// A peer's listing changed; called on the listener's thread.
         std::function<void()> libraryNews;
+        /// The frame generation shaders for a peer, or nothing with why; called on the listener's
+        /// thread. Empty answers that this openSU has none.
+        std::function<std::optional<std::string>(std::string& why)> frameGenModules;
     };
 
     /// Listens on `port`, or a free one when it is 0, once started.

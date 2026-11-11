@@ -179,7 +179,10 @@ void GuestVideo::finish(VideoCodec codec, Picture picture, std::uint32_t number)
     Times times = *found;
     inFlight_.erase(inFlight_.begin(), found + 1);
     times.decodedUs = static_cast<double>(wire::nowMicros());
-    Frame frame{.number = shows, .picture = std::move(picture)};
+    Frame frame{.number = shows,
+                .picture = std::move(picture),
+                .capturedUs = static_cast<std::uint64_t>(std::max(times.capturedUs, 0.0)),
+                .decodedUs = static_cast<std::uint64_t>(times.decodedUs)};
     const std::lock_guard lock{mutex_};
     ++decoded_;
     if (nameOf(codec) != codec_) {

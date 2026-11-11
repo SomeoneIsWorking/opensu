@@ -19,6 +19,14 @@ elseif(WIN32 OR APPLE)
     target_sources(opensu_app PRIVATE shell_session_desktop.cpp game_overlay_raised_window.cpp
         game_presentation_none.cpp night_light_none.cpp host_services_none.cpp game_typing_none.cpp)
 endif()
+# Frame generation for a game played from another openSU: the Gamescope fork's framegen on a
+# Vulkan device of its own on Linux (docs/plans/remote-frame-generation.md); none elsewhere yet.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_sources(opensu_app PRIVATE remote_frame_gen_vulkan.cpp)
+    target_link_libraries(opensu_app PRIVATE framegen::framegen opensu::vulkan)
+else()
+    target_sources(opensu_app PRIVATE remote_frame_gen_none.cpp)
+endif()
 # The system volume: AudioManager through the Activity on Android, the desktop's mixer program
 # elsewhere. The interface's content insets come from the Activity there, SDL's safe area
 # elsewhere; only the Activity turns the screen for the shell. Folders are picked with Android's

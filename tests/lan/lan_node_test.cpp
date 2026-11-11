@@ -244,6 +244,7 @@ struct Node {
                   invitedTo = peer.name + " " + game.game + " " + game.title;
                   return std::nullopt;
               },
+              .frameGenModules = {},
               .roms = lan::RomImport::Setup{.selfId = {},
                                             .staging = state / "lan-roms",
                                             .link = {},
@@ -1056,7 +1057,8 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
                                                         .play = {},
                                                         .playStatus = {},
                                                         .invited = {},
-                                                        .libraryNews = {}},
+                                                        .libraryNews = {},
+                                                        .frameGenModules = {}},
                               0};
     const secrets::crypto::Bytes secret = secrets::crypto::randomBytes(secrets::crypto::keyBytes);
     const std::string peer = secrets::hexText(secrets::crypto::randomBytes(lan::peerIdBytes));

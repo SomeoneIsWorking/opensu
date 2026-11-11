@@ -29,6 +29,8 @@ constexpr std::size_t largestNotice = std::size_t{16} * 1024;
 constexpr std::chrono::seconds playPoll{1};
 constexpr std::chrono::seconds playPatience{130};
 constexpr std::size_t largestSave = std::size_t{4} * 1024 * 1024;
+/// The LSFG 3 shaders of a Lossless.dll, a few megabytes.
+constexpr std::size_t largestShaders = std::size_t{32} * 1024 * 1024;
 /// How often the worker looks at who is announced.
 constexpr std::chrono::seconds lookEvery{2};
 /// How often the paired peers' games are asked for again while nothing changes.
@@ -78,7 +80,8 @@ LanNode::LanNode(Setup setup)
                                      .libraryNews =
                                          [this] {
                                              wake();
-                                         }},
+                                         },
+                                     .frameGenModules = std::move(setup.frameGenModules)},
                 setup.port} {
     if (!listener_.start()) {
         problem_ = setup.port == 0 ? std::string{"no port can be had to listen on"}
@@ -442,6 +445,12 @@ LanNode::romsOf(const std::stop_token& stop, const std::string& hostId, std::str
         error = "its answer is not a ROM listing";
     }
     return consoles;
+}
+
+std::optional<std::string> LanNode::frameGenModulesOf(const std::stop_token& stop,
+                                                      const std::string& hostId,
+                                                      std::string& error) const {
+    return askHost(stop, hostId, "GET", wire::frameGenModulesRoute, {}, largestShaders, error);
 }
 
 std::optional<std::vector<wire::ListedProfile>> LanNode::profilesOf(const std::stop_token& stop,

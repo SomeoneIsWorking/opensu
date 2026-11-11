@@ -11,7 +11,9 @@
 // a game started for a guest closes when its last guest leaves. As guest: Play on another openSU's
 // game asks that host (`start`), waiting while its player is asked when the game runs there, and
 // once it agrees a `GuestStream` carries the session, its pictures decoded by `GuestVideo` for the
-// loop to show and its sound by `GuestAudio` for the shell's device, until the player ends it from
+// loop to show and its sound by `GuestAudio` for the shell's device; with frame generation set for
+// the game, the host is asked for its player's shaders and the frames between the host's are made
+// here (`RemoteFrameGen`), the host asked for the game's stream rate; until the player ends it from
 // the Guide menu (`end`) or the host does. One session at a time either way. The player here
 // invites a paired openSU to the game that runs here (`invite`), which lets it in without asking
 // for 120 s; that openSU's player is asked (`invited`, `invitation`, `answerInvitation`) and Join
@@ -40,6 +42,8 @@
 #include "lan/lan_listener.hpp"
 #include "lan/lan_node.hpp"
 #include "library/game.hpp"
+#include "remote_frame_gen.hpp"
+#include "settings/framegen_settings.hpp"
 #include "stream/audience.hpp"
 #include "stream/guest_audio.hpp"
 #include "stream/guest_stream.hpp"
@@ -115,6 +119,14 @@ class RemotePlay {
         std::function<std::shared_ptr<gamepad::VirtualPad>()> seatPad;
         /// The game `id` runs here with `profiles` in its seats; an empty id, none runs.
         std::function<void(std::string id, std::vector<std::string> profiles)> seats;
+        /// The frame generation and the stream rate (0 for the game's own) set for a remote game.
+        std::function<settings::FrameGenSettings(const library::Game&)> frameGen;
+        std::function<std::uint8_t(const library::Game&)> streamRate;
+        /// Asks host `hostId` for its frame generation shaders, `answer` called off the loop with
+        /// them or why not; false when it cannot be asked now.
+        std::function<bool(const std::string& hostId,
+                           std::function<void(std::optional<std::string>, std::string)> answer)>
+            frameGenModules;
     };
 
     /// Where a host's game is shown: the Wayland socket of the Gamescope this openSU runs in, whose
@@ -248,8 +260,16 @@ class RemotePlay {
     /// A test run's slow link: takes at most `bitsPerSecond` from the host from now on, 0 for
     /// all. Main loop only.
     void capLink(std::uint64_t bitsPerSecond);
-    /// The newest picture from the host not taken yet, to show. Main loop only.
-    [[nodiscard]] std::optional<stream::GuestVideo::Frame> takePicture();
+    /// The picture the present at `nowUs` shows, on a display refreshing every `refreshNs`: the
+    /// newest from the host not taken yet, or with frame generation the one its pacer picks;
+    /// nothing keeps the one shown. Main loop only.
+    [[nodiscard]] std::optional<stream::GuestVideo::Frame> takePicture(std::uint64_t nowUs,
+                                                                       std::uint64_t refreshNs);
+    /// Whether frames are generated here, so the loop presents at the display's rate. Main loop
+    /// only.
+    [[nodiscard]] bool generating() const noexcept {
+        return frameGen_ != nullptr;
+    }
     /// The loop submitted the frame showing the host's frame `number` at `submittedUs`; `drawn`
     /// says whether the window had a surface for it. Main loop only.
     void presented(std::uint32_t number, std::uint64_t submittedUs, bool drawn);
@@ -265,8 +285,9 @@ class RemotePlay {
         std::string peer;
         std::uint64_t roundTripUs{0};
         std::uint64_t bytesPerSecond{0};
-        /// On a guest, how its frames went (`GuestVideo::summary`); on a host, each guest's link,
-        /// its plan and measures (`HostStream::linkSummary`), after its name.
+        /// On a guest, how its frames went (`GuestVideo::summary`) and its frame generation
+        /// (`RemoteFrameGen::summary`, or why it is off); on a host, each guest's link, its plan
+        /// and measures (`HostStream::linkSummary`), after its name.
         std::string video;
         /// On a guest, how its sound came (`GuestAudio::summary`).
         std::string audio;
@@ -378,6 +399,8 @@ class RemotePlay {
     void tellGuests(Hosted& hosted, const GameFacts& facts);
     void serviceHost(const library::Game* running, const std::string& profile);
     void serviceGuest();
+    /// Opens frame generation once the host's shaders came.
+    void serviceFrameGen();
     /// Ends the guest's session here, the stream first.
     void drop();
 
@@ -428,6 +451,15 @@ class RemotePlay {
     bool cancelled_{false};
     bool saidWaiting_{false};
     stream::PictureMemory pictures_{stream::PictureMemory::Cpu};
+    /// The session's frame generation: as set, the host's answer for its shaders while asked, the
+    /// generator, and why it is off when it was wanted.
+    settings::FrameGenSettings generation_;
+    bool modulesAsked_{false};
+    std::shared_ptr<std::mutex> modulesMutex_{std::make_shared<std::mutex>()};
+    std::shared_ptr<std::optional<std::pair<std::optional<std::string>, std::string>>> modules_{
+        std::make_shared<std::optional<std::pair<std::optional<std::string>, std::string>>>()};
+    std::unique_ptr<RemoteFrameGen> frameGen_;
+    std::string frameGenOff_;
     /// Before the stream, whose thread feeds them; the speaker before the sound that plays on it.
     std::unique_ptr<stream::LinkHold> link_;
     std::unique_ptr<stream::GuestVideo> video_;

@@ -1,6 +1,7 @@
 // Frame generation and scaling through their one owner, against a recording output: each part
 // follows its own game, writes only what changed, a value change reaches the game at once except a
-// resolution, and with no game Gamescope's defaults come back.
+// resolution, and with no game Gamescope's defaults come back. A remote game's stream rate resolves
+// from its layers.
 #include "game_presentation.hpp"
 
 #include <cstdio>
@@ -139,12 +140,29 @@ void summariesNoteTheSession(const fs::path& root) {
            "scaling's note says where it applies");
 }
 
+void streamRateResolves(const fs::path& root) {
+    app::GameSettings gameSettings{settings::GameSettingsStore{root / "stream-rate.json"},
+                                   root / "stream-rate-settings.json", [](const std::string&) {
+                                   }};
+    settings::SettingLayers& layers = gameSettings.layers();
+    const settings::LayerKeys keys{"lan:host:game", {}, {}, false};
+    expect(settings::resolveRemoteStreamRate(layers, keys) == 0,
+           "a remote game streams at its own rate by default");
+    layers.set(settings::Layer{settings::Layer::Kind::Global, {}},
+               settings::remoteStreamRateKey.key, "30");
+    expect(settings::resolveRemoteStreamRate(layers, keys) == 30, "the global 30 fps applies");
+    layers.set(settings::Layer{settings::Layer::Kind::Game, "lan:host:game"},
+               settings::remoteStreamRateKey.key, "game");
+    expect(settings::resolveRemoteStreamRate(layers, keys) == 0, "the game's own layer wins");
+}
+
 } // namespace
 
 int main() try {
     const test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "game_presentation"};
     followsAndWritesChangesOnly(scratch.path());
     summariesNoteTheSession(scratch.path());
+    streamRateResolves(scratch.path());
     std::puts("game_presentation: ok");
     return 0;
 } catch (...) {
