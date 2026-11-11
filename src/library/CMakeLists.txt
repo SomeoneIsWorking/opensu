@@ -48,6 +48,7 @@ add_library(opensu_library STATIC
     melonds_config.cpp
     rpcs3_config.cpp
     sdl_pad_ini.cpp
+    duckstation_config.cpp
     shell_link.cpp game_folder.cpp pe_resources.cpp steam_items.cpp
     emulator_choice.cpp linked_play.cpp
     text_fold.cpp

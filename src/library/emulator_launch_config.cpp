@@ -7,6 +7,7 @@
 #include "azahar_config.hpp"
 #include "cemu_pads.hpp"
 #include "dolphin_config.hpp"
+#include "duckstation_config.hpp"
 #include "melonds_config.hpp"
 #include "mgba_config.hpp"
 #include "pcsx2_config.hpp"
@@ -38,6 +39,7 @@ constexpr std::array rules{
     LaunchRule{.id = pcsx2Id, .files = pcsx2Files, .runFiles = pcsx2RunFiles},
     LaunchRule{.id = melondsId, .files = melondsFiles, .runFiles = melondsRunFiles},
     LaunchRule{.id = rpcs3Id, .files = rpcs3Files, .runFiles = rpcs3RunFiles},
+    LaunchRule{.id = duckstationId, .files = duckstationFiles, .runFiles = duckstationRunFiles},
 };
 
 const LaunchRule* ruleOf(std::string_view id) {
