@@ -5,7 +5,7 @@ target_compile_definitions(instance_lock_test PRIVATE OPENSU_TEST_SCRATCH="${CMA
 add_test(NAME instance_lock COMMAND instance_lock_test)
 
 add_executable(atomic_write_test atomic_write_test.cpp)
-target_link_libraries(atomic_write_test PRIVATE opensu::fileio)
+target_link_libraries(atomic_write_test PRIVATE opensu::fileio opensu::command)
 opensu_warnings(atomic_write_test)
 target_compile_definitions(atomic_write_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME atomic_write COMMAND atomic_write_test)
