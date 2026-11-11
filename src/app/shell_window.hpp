@@ -211,6 +211,9 @@ class ShellWindow {
     PointerFrame pointer_;
     /// The mouse's buttons held, as `PointerFrame::held`; kept across frames.
     std::uint8_t pointerHeld_{0};
+    /// Where a posted mouse last was: the pointer's place in frames that post nothing while SDL's
+    /// own mouse is not over the window.
+    std::optional<ui::Point> posted_;
     std::optional<gpu2d::PixelSize> resized_;
     /// A hidden window's stated pixels per dp; none for a window on a display.
     std::optional<float> hiddenDp_;

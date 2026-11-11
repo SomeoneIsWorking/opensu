@@ -201,6 +201,9 @@ bool ShellWindow::pollEvents() {
         SDL_GetMouseState(&x, &y);
         pointer_.point = ui::Point{x, y};
     }
+    if (!pointer_.point) {
+        pointer_.point = posted_;
+    }
     return !closing_;
 }
 
@@ -301,6 +304,7 @@ void ShellWindow::type(std::string text) {
 }
 
 void ShellWindow::movePointer(ui::Point at) {
+    posted_ = at;
     SDL_Event event{};
     event.motion.type = SDL_EVENT_MOUSE_MOTION;
     event.motion.windowID = SDL_GetWindowID(window_.window());
@@ -313,6 +317,7 @@ void ShellWindow::movePointer(ui::Point at) {
 }
 
 void ShellWindow::pressPointer(ui::Point at, std::uint8_t button, bool down) {
+    posted_ = at;
     SDL_Event event{};
     event.button.type = down ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
     event.button.windowID = SDL_GetWindowID(window_.window());

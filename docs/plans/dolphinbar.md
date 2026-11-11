@@ -99,10 +99,13 @@ keep the emulated layout only for players who have none.
 5. The IR pointer in openSU's own UI. Built for Bluetooth remotes: the remote's "Nintendo Wii
    Remote IR" device (the kernel turns the camera on while it is open) is read as part of its pad
    (`gamepad::WiiPointer`): the middle of the first two dots, mirrored across (as wiiuse does), is
-   where the remote points; no dot is off the screen. They come as `Event::Kind::Pointer`, and
-   `app/pointing_pads` moves the shell's pointer there (`ShellWindow::movePointer`, the same path
-   as the mouse) and makes the remote's A a pointer press while it points, released wherever it
-   then points, so the pointer-first theme needs nothing of its own. Over a game in front the
+   where the remote points; no dot is off the screen; the dots there when the camera opens are
+   read at once. They come as `Event::Kind::Pointer`, and `app/pointing_pads` moves the shell's
+   pointer there (`ShellWindow::movePointer`, the same path as the mouse). While the shell holds
+   the pads, the remote's own A pressed as it points is the pointer's button
+   (`Event::Kind::PointerButton`, not the pad's X it is when held sideways), let go wherever it then
+   points; the window keeps a posted pointer's place between its events, as SDL's mouse is
+   elsewhere. The pointer-first theme needs nothing of its own. Over a game in front the
    pointer is left alone. Open: no calibration for a sensor bar above or below the screen and no
    roll correction; the vertical direction follows wiiuse and wants the player's check. In mode 3
    the DolphinBar is a mouse already and reaches the shell through SDL's mouse events with nothing
