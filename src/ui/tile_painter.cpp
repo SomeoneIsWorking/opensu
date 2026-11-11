@@ -114,7 +114,7 @@ constexpr float channelNameInset = 0.12f;
 constexpr std::size_t channelNameLines = 3;
 constexpr float channelNameDepth = 0.45f;
 // How strongly the cell behind art standing whole shows the art's own crop.
-constexpr float channelBackdrop = 0.3f;
+constexpr float channelBackdrop = 0.15f;
 
 struct Stop {
     float at;
