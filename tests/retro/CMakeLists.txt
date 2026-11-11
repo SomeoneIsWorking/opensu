@@ -10,6 +10,7 @@ endforeach()
 target_compile_definitions(fake_crashing_core PRIVATE FAKE_CORE_CRASH)
 target_compile_definitions(fake_stateless_core PRIVATE FAKE_CORE_NO_STATE)
 target_compile_definitions(fake_vulkan_core PRIVATE FAKE_CORE_VULKAN)
+target_link_libraries(fake_vulkan_core PRIVATE opensu::vulkan)
 
 foreach(name video_frame audio_sink joypad save_memory core_environment core vulkan_messages
         netplay_link arcade_panel control_server)
