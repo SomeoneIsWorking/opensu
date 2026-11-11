@@ -334,8 +334,7 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::string_view
             const fs::path inside =
                 home / ".var" / "app" / flatpak->flatpak / "config" / fs::path{xdg};
             if (entry.saves) {
-                entry.saves->flatpakFolder =
-                    rebased(entry.saves->folder, entry.config, inside);
+                entry.saves->flatpakFolder = rebased(entry.saves->folder, entry.config, inside);
             }
             entry.flatpakConfig = inside;
         }
@@ -415,7 +414,8 @@ EmulatorCatalog EmulatorCatalog::shipped(const fs::path& assetsDir, const fs::pa
     }
     const std::string body{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
     std::string error;
-    std::optional<EmulatorCatalog> catalog = parse(body, home, error, coreTarget.build, xdgConfigHome);
+    std::optional<EmulatorCatalog> catalog =
+        parse(body, home, error, coreTarget.build, xdgConfigHome);
     if (!catalog) {
         lucent::error("emulators", "{}: {}; no emulator is known", file.string(), error);
         return {};

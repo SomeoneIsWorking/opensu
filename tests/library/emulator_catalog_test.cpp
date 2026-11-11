@@ -196,8 +196,8 @@ void coreEntries() {
 void xdgConfigFolder() {
     const EmulatorCatalog plain = EmulatorCatalog::shipped(OPENSU_ASSETS_DIR, "/home/p");
     const EmulatorEntry* duck = plain.find("duckstation");
-    expect(duck != nullptr && duck->config == "/home/p/.local/share/duckstation" &&
-               duck->saves && duck->saves->folder == "/home/p/.local/share/duckstation/memcards",
+    expect(duck != nullptr && duck->config == "/home/p/.local/share/duckstation" && duck->saves &&
+               duck->saves->folder == "/home/p/.local/share/duckstation/memcards",
            "without XDG_CONFIG_HOME DuckStation keeps its data under ~/.local/share");
     expect(duck->configOf(true) ==
                    "/home/p/.var/app/org.duckstation.DuckStation/config/duckstation" &&
