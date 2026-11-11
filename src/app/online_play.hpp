@@ -57,6 +57,8 @@ class OnlinePlay {
     static constexpr std::string_view categoryId = "online";
     [[nodiscard]] ui::SettingsCategory page() const;
     [[nodiscard]] static bool owns(const std::string& id);
+    /// Acts on row `id`: Join asks for the code, ZeroTier turns over and is saved.
+    void run(const std::string& id, int step);
 
     /// Offers `game`, once the player has read who will see what.
     void host(const library::Game& game);
@@ -99,6 +101,7 @@ class OnlinePlay {
     void serviceHash();
     void begin(online::Agreement& agreement, const library::Game& game);
     [[nodiscard]] online::Network network() const;
+    [[nodiscard]] std::string zeroTierNote() const;
 
     gpu2d::ui::Navigator& navigator_;
     audio::SdlSoundPlayer& sounds_;

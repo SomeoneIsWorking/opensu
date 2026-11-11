@@ -112,9 +112,15 @@ reasons it is taken now are there. What stands:
 - An ad-hoc network is open to anyone who picks its port, so nothing that arrives over it is taken
   unless it opens under the code's secret: one handshake for every backend (Lucent's ZeroTier test
   runs a stranger with the host's node and network but not the code, which never connects).
-- `settings.json`'s `onlineZeroTier` (default on) turns it off; `onlineZeroTierRoots` names a root
-  set file in place of ZeroTier's roots (the lab's). `OPENSU_BUILD_ZEROTIER` (on) builds it on
-  every platform; a build without it says so in Settings.
+- Settings › Play online's ZeroTier switch (`OnlinePlay::page`, `run`) keeps `settings.json`'s
+  `onlineZeroTier` (default on). It is read each time Play online opens: off, no node starts and
+  the meeting gets none; on, the node starts then. libzt cannot start a node twice in one process,
+  so a node already started is not stopped when the switch goes off: no later meeting uses it, it
+  stays until openSU closes, and the row says so; turned on again, meetings use that same node.
+  With the switch off, "If you cannot connect" names the switch and Tailscale.
+- `onlineZeroTierRoots` names a root set file in place of ZeroTier's roots (the lab's) and has no
+  row. `OPENSU_BUILD_ZEROTIER` (on) builds it on every platform; a build without it has no switch
+  and says so in Settings.
 - libzt is a library linked into openSU, not a runner, so G001's rule against bundled runners does
   not apply to it.
 

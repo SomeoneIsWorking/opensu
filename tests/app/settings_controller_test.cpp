@@ -21,6 +21,7 @@
 #include "installs.hpp"
 #include "keyboard_pad.hpp"
 #include "night_light.hpp"
+#include "online/zero_tier.hpp"
 #include "path_editor.hpp"
 #include "preferences.hpp"
 #include "profiles/profile_book.hpp"
@@ -1906,6 +1907,36 @@ void steamGridDbBlockedSteamSaysWhy(const fs::path& root) {
            "no key is asked for and the default browser stays shut");
 }
 
+/// Settings > Play online's ZeroTier switch turns the saved setting over, and back.
+void zeroTierIsTurnedOffAndOn(const fs::path& root) {
+    Rig rig{root};
+    rig.controller.open();
+    rig.enter("Play online");
+    if (!online::ZeroTier::built()) {
+        expect(std::ranges::none_of(rig.rows(),
+                                    [](const ui::SettingsRow& row) {
+                                        return row.id == "online.zerotier";
+                                    }),
+               "a build without ZeroTier has no switch for it");
+        return;
+    }
+    const ui::SettingsRow before = rig.rowOf("online.zerotier");
+    expect(before.kind == ui::RowKind::Toggle && before.label == "ZeroTier" && before.on &&
+               before.note == "A second way through when two routers block a game",
+           "ZeroTier is on until the player turns it off, and its row says what it is for");
+    rig.focus("online.zerotier");
+    rig.act(Button::A);
+    expect(!rig.preferences.values().onlineZeroTier && !rig.onDisk().onlineZeroTier &&
+               !rig.rowOf("online.zerotier").on &&
+               rig.rowOf("online.zerotier").note == "Games online connect directly only",
+           "A turns ZeroTier off, saved, and the row says games connect directly");
+    expect(rig.rowOf("online.fallback").note.find("turn ZeroTier on here") != std::string::npos,
+           "and what to do when two routers block a game names the switch");
+    rig.act(Button::A);
+    expect(rig.onDisk().onlineZeroTier && rig.rowOf("online.zerotier").on,
+           "A again turns it back on, saved");
+}
+
 int main() try {
     const test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "settings_controller"};
     const fs::path& root = scratch.path();
@@ -1936,6 +1967,7 @@ int main() try {
     steamGridDbThroughSteam(root / "steamgriddb-steam");
     steamGridDbBlockedSteamSaysWhy(root / "steamgriddb-blocked");
     profilesAreAddedAndPlayedAs(root / "profiles");
+    zeroTierIsTurnedOffAndOn(root / "zerotier");
     std::printf("settings_controller: all checks passed\n");
     return 0;
 } catch (...) {

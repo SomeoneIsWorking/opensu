@@ -21,6 +21,7 @@ namespace opensu::app {
 namespace {
 
 constexpr std::string_view joinRowId = "online.join";
+constexpr std::string_view zeroTierRowId = "online.zerotier";
 constexpr std::string_view codeCardId = "online/code";
 /// An invite with every address it can hold, and room for what a chat app adds.
 constexpr std::size_t mostCodeBytes = 256;
@@ -78,24 +79,59 @@ ui::SettingsCategory OnlinePlay::page() const {
     join.label = "Join a friend's game";
     join.note = "Paste the code your friend sent you. To host, open a game and pick Play online.";
     page.rows.push_back(std::move(join));
+    const bool zeroTier = preferences_.values().onlineZeroTier;
+    if (online::ZeroTier::built()) {
+        page.rows.push_back(
+            ui::makeToggle(std::string{zeroTierRowId}, "ZeroTier", zeroTierNote(), zeroTier));
+    }
     ui::SettingsRow fallback;
     fallback.id = "online.fallback";
     fallback.kind = ui::RowKind::Info;
     fallback.label = "If you cannot connect";
-    fallback.note =
-        online::ZeroTier::built()
-            ? "When two routers will not let you through, openSU tries again over ZeroTier, "
-              "which it brings along: nothing to install. If that fails too, install Tailscale "
-              "on both machines and join one network: the same codes then work over it."
-            : "There is no relay server. When two routers will not let you through, install "
-              "Tailscale or ZeroTier on both machines and join one network: the same codes "
-              "then work over it.";
+    if (!online::ZeroTier::built()) {
+        fallback.note =
+            "There is no relay server. When two routers will not let you through, install "
+            "Tailscale or ZeroTier on both machines and join one network: the same codes "
+            "then work over it.";
+    } else if (zeroTier) {
+        fallback.note =
+            "When two routers will not let you through, openSU tries again over ZeroTier, "
+            "which it brings along: nothing to install. If that fails too, install Tailscale "
+            "on both machines and join one network: the same codes then work over it.";
+    } else {
+        fallback.note =
+            "There is no relay server. When two routers will not let you through, turn "
+            "ZeroTier on here on both machines, or install Tailscale on both and join one "
+            "network: the same codes then work over it.";
+    }
     page.rows.push_back(std::move(fallback));
     return page;
 }
 
+std::string OnlinePlay::zeroTierNote() const {
+    if (preferences_.values().onlineZeroTier) {
+        return "A second way through when two routers block a game";
+    }
+    if (zeroTier_.paths() != nullptr) {
+        return "Off from the next game online; the one started stays until openSU closes";
+    }
+    return "Games online connect directly only";
+}
+
 bool OnlinePlay::owns(const std::string& id) {
-    return id == joinRowId;
+    return id == joinRowId || id == zeroTierRowId;
+}
+
+void OnlinePlay::run(const std::string& id, int step) {
+    if (id == zeroTierRowId) {
+        settings::Settings& values = preferences_.values();
+        values.onlineZeroTier = !values.onlineZeroTier;
+        preferences_.save();
+        return;
+    }
+    if (step == 0) {
+        join();
+    }
 }
 
 online::Network OnlinePlay::network() const {

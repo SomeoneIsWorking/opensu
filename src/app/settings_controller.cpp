@@ -577,9 +577,8 @@ void SettingsController::run(const std::string& id, int step) {
         return;
     }
     if (OnlinePlay::owns(id)) {
-        if (step == 0) {
-            online_.join();
-        }
+        online_.run(id, step);
+        refresh();
         return;
     }
     if (LanRoms::owns(id)) {
