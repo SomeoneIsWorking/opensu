@@ -22,6 +22,7 @@
 #include "keyboard_pad.hpp"
 #include "night_light.hpp"
 #include "online/zero_tier.hpp"
+#include "pad_owner.hpp"
 #include "path_editor.hpp"
 #include "preferences.hpp"
 #include "profiles/profile_book.hpp"
@@ -180,6 +181,7 @@ struct Rig {
                                                        saveSettings,
                                                        profileSettings,
                                                        shelf,
+                                                       wiiRemotes,
                                                        inForce},
                      sounds,
                      preferences,
@@ -606,6 +608,12 @@ struct Rig {
                                                             return false;
                                                         }}};
     app::ShelfOptions shelf;
+    /// A hidden run's pads: none linked, no bar.
+    std::unique_ptr<gamepad::PadSource> pads{
+        gamepad::openPadSource(app::PadOwner::padsFor(OPENSU_TEST_SCRATCH, true))};
+    app::WiiRemoteSettings wiiRemotes{preferences, *pads, [this] {
+                                          controller.refresh();
+                                      }};
     app::SettingsController controller;
     bool steamReady{false};
     int applied{0};
