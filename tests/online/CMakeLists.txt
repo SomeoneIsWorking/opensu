@@ -11,6 +11,7 @@ add_test(NAME online_meeting COMMAND online_meeting_test)
 if(OPENSU_BUILD_ZEROTIER)
     add_executable(online_zero_tier_root zero_tier_root.cpp)
     target_link_libraries(online_zero_tier_root PRIVATE lucent::zerotier opensu::online)
+    target_include_directories(online_zero_tier_root PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
     opensu_warnings(online_zero_tier_root)
 
     # Two openSUs meet over the embedded node alone, a root at this machine's own address.

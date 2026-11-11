@@ -10,8 +10,9 @@
 
 #include "lucent/p2p/zerotier.h"
 #include "online/zero_tier.hpp"
+#include "support/test_main.hpp"
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) try {
     if (argc != 4) {
         std::fputs("usage: online_zero_tier_root <storage> <address/port> <roots file>\n", stderr);
         return 2;
@@ -43,4 +44,6 @@ int main(int argc, char** argv) {
         std::this_thread::sleep_for(std::chrono::seconds{1});
     }
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }
