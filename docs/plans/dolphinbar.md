@@ -74,47 +74,59 @@ keep the emulated layout only for players who have none.
    Dolphin's udev rules"), "DolphinBar" with "Switch it to mode 4 (Wii Remote) to play Wii games on
    real Wii Remotes" for a bar in mode 3, and the Bluetooth remotes counted. Tested
    (`devices_controller` test).
-4. Wii Remotes as pads. Built for Bluetooth remotes (`gamepad/wii_remote_layout`,
-   `gamepad/evdev_pads`): `hid-wiimote`'s "Nintendo Wii Remote" device, refused before by `isPad`
-   (no ABS_X/ABS_Y), is a pad when its ids are `057e:0306`/`0330`. Alone it is held sideways (the
-   d-pad turned a quarter, 2 as A, 1 as B, B and A as Y and X); its "Nintendo Wii Remote Nunchuk"
-   device, a separate node, is read as part of the same pad while plugged in and the remote is
-   then held upright (A and B as A and B, 1 and 2 as X and Y, the stick as the left stick, its Y
-   turned to grow downwards, C and Z as L1 and L2, the accelerometer dropped). Plus, minus and
-   Home are Start, Select and Guide. The parts are paired by the device the kernel made them for
-   (`/sys/class/input/<node>/device/device`, which `hid-wiimote` shares between them; it sets no
-   `uniq` or `phys`); a part seen before its remote waits for it. openSU reads and grabs only the
-   evdev nodes, never hidraw, so Dolphin's hidapi access is not taken. Open:
-   - in a Wii game played on real Bluetooth remotes, the remote is also grabbed and drives a
-     virtual pad, which an emulated slot on that pad would read too; the hold for a Wii game with
-     real remotes should leave the remotes' pads out (`PadSource::hold`);
-   - the Classic Controller extension is not read;
-   - DolphinBar slots have no evdev device. Reading them means hidraw (SDL's HIDAPI Wii driver,
-     off by default because it fails on the bar, or openSU's own), which would hold the slot
-     Dolphin needs; not built.
-   Tested: `wii_remote_layout` (the mapping through the translator) and `pads` (a uinput
-   "Nintendo Wii Remote" read as a sideways pad, its uinput camera paired with it). A device with
-   no parent, as a uinput fake, pairs by its `phys`; the real parent pairing is shown only on the
-   real remote.
+4. Wii Remotes as pads. Built (`gamepad/wii_remote_layout`, `gamepad/wii_slot`,
+   `gamepad/evdev_pads`). A Bluetooth remote: `hid-wiimote`'s "Nintendo Wii Remote" device, refused
+   before by `isPad` (no ABS_X/ABS_Y), is a pad when its ids are `057e:0306`/`0330`. Alone it is
+   held sideways (the d-pad turned a quarter, 2 as A, 1 as B, B and A as Y and X); with its
+   "Nintendo Wii Remote Nunchuk" device it is held upright (A and B as A and B, 1 and 2 as X and Y,
+   the stick as the left stick, its Y turned to grow downwards, C and Z as L1 and L2, the
+   accelerometer dropped); with its "Nintendo Wii Remote Classic Controller" device only the
+   Classic is read, its buttons by place as `assets/wii-controls.json`'s emulated Classic maps them
+   (B, A, Y, X as A, B, X, Y; ZL and ZR as L1 and R1; L and R fully in as L2 and R2, their travel
+   dropped; both sticks, Y turned). Plus, minus and Home are Start, Select and Guide. The parts are
+   paired by the device the kernel made them for (`/sys/class/input/<node>/device/device`, which
+   `hid-wiimote` shares between them); a part seen before its remote waits for it. A DolphinBar in
+   mode 4: the shell (not the runner, which reads only what the shell gives it) opens each slot's
+   hidraw node (`device::WiiRemotes::barSlots`, found again as hidraw nodes appear) and speaks the
+   remote's reports there (`WiiSlot`): a status request every second, which the bar refuses for an
+   empty slot; the slot's player light; report 0x30, or 0x32 with an extension set up unencrypted
+   and named by its id (Nunchuk or Classic Controller). What it reads comes out as `hid-wiimote`'s
+   events, so both kinds are one layout. A node that is not a character device is refused, so the
+   earlier fake bar's plain files open nothing. While a Wii game plays real remotes
+   (`LaunchSetup::realWiiRemotes`), the shell's hold is `WiiRemoteHold::ToGame`: every remote's
+   evdev devices and every bar slot are closed before the game starts (closing the camera and
+   extension devices also stops the kernel changing the remote's report mode), and a remote's part
+   that appears meanwhile is told from sysfs and never opened; when the hold ends they are opened
+   again and are pads. Tested: `wii_remote_layout` (the mapping through the translator),
+   `wii_slot` (a slot against a stand-in remote on a packet socket pair: empty slot, light, modes,
+   Nunchuk and Classic setup and bytes) and `pads` (a uinput remote read sideways with its camera
+   and its Classic, let go for a Wii game with none of its nodes held and taken back after; a bar
+   slot on a pseudo-terminal under a private bar tree, its remote a pad, its Classic read, let go and
+   taken back). The real parent pairing and the real bar's protocol are shown only on the real
+   hardware (the player's check).
 5. The IR pointer in openSU's own UI. Built for Bluetooth remotes: the remote's "Nintendo Wii
    Remote IR" device (the kernel turns the camera on while it is open) is read as part of its pad
    (`gamepad::WiiPointer`): the middle of the first two dots, mirrored across (as wiiuse does), is
-   where the remote points; no dot is off the screen; the dots there when the camera opens are read
-   at once. They come as `Event::Kind::Pointer`, and `app/pointing_pads` moves the shell's pointer
-   there (`ShellWindow::movePointer`, the same path as the mouse). While the shell holds the pads,
-   the remote's own A pressed as it points is the pointer's button (`Event::Kind::PointerButton`,
-   not the pad's X it is when held sideways), let go wherever it then points; the window keeps a
-   posted pointer's place between its events until the remote points away, when the pointer leaves,
-   or SDL's own mouse comes over the window, which then is the pointer. The pointer-first theme
-   needs nothing of its own. Over a game in front the pointer is left alone. Open: no calibration
-   for a sensor bar above or below the screen and no roll correction; the vertical direction
-   follows wiiuse and wants the player's check. In mode 3 the DolphinBar is a mouse already and
-   reaches the shell through SDL's mouse events with nothing built. In mode 4 the pointer would
-   need the camera turned on over hidraw while Dolphin is not running; not built. Tested:
-   `wii_remote_layout` (dots to aim) and `pointing_pads`.
-6. A settings row. Not built. Settings › Controls › "Wii Remotes in Wii games": Real when here
-   (default) or Emulated always, for a player who keeps the bar in mode 4 but plays with a pad.
-   It is read into the launch as `LaunchSetup::realWiiRemotes` and nothing else changes.
+   the camera's aim; the range set (`WiiPointerRange`) says where the screen is in those aims, and
+   an aim past its edges, or no dot, is off the screen. The dots there when the camera opens are
+   read at once. They come as `Event::Kind::Pointer`, and `app/pointing_pads` moves the shell's
+   pointer there (`ShellWindow::movePointer`, the same path as the mouse). While the shell holds the
+   pads, the remote's own A pressed as it points is the pointer's button
+   (`Event::Kind::PointerButton`), let go wherever it then points; the window keeps a posted
+   pointer's place between its events until the remote points away, when the pointer leaves, or
+   SDL's own mouse comes over the window. Fitting (`app/wii_remote_settings`, Settings › Controls ›
+   Wii Remote pointer): the pads read the camera's whole view, the player points at the screen's
+   top-left corner and presses A, then the bottom-right; the two aims are the screen's edges
+   (`WiiPointerRange::fromCorners`), which also fixes an axis read the other way, and where the
+   camera's middle falls says whether the sensor bar is above or below the screen (`barPlace`). The
+   range is saved (`settings.json` `wiiPointer`) and set on the pads at start. No roll correction.
+   In mode 3 the DolphinBar is a mouse already and reaches the shell through SDL's mouse events. In
+   mode 4 the slot's camera is not turned on, so a bar's remote does not point. Tested:
+   `wii_remote_layout` (dots to aim, the range from corners, the bar's place) and `pointing_pads`.
+6. A settings row. Built (`app/wii_remote_settings`): Settings › Controls › "Wii Remotes in Wii
+   games": Real when here (default) or Emulated always, for a player who keeps the bar in mode 4
+   but plays with a pad (`settings.json` `realWiiRemotes`). The launch reads it with the remotes'
+   presence into `LaunchSetup::realWiiRemotes`, which also picks the hold's `WiiRemoteHold`.
 
 ## Proof
 
@@ -129,6 +141,23 @@ keep the emulated layout only for players who have none.
   gone, `WiimoteContinuousScanning=True`; the game stayed on "Press any button on the Wii Remote",
   since the pad no longer plays slot 1. The player's real files were untouched in both. A real
   remote reaching the game needs the player.
+- Step 4's let-go in Dolphin (`scratch/dolphinbar2/runs/wii-bluetooth/`): a fake Bluetooth remote
+  (its bus `0005` HID device under `<data>/hidden-hid`, hid-wiimote's remote and camera as uinput
+  devices in `hidden-pads`) was a pad and pointed with its camera; on Play openSU logged "Nintendo
+  Wii Remote (...) is left to the game" before Dolphin started, and while DKC Returns ran openSU
+  held only `/dev/uinput` (Dolphin's own evdev backend opens every input node, the fakes too);
+  slot 1 stayed `Source = 2`. The player's real files were untouched.
+- Steps 4 to 6 in a hidden openSU (`scratch/dolphinbar2/proof2/`): a mode-4 bar slot on a
+  pseudo-terminal under `<data>/hidden-hid`, a stand-in remote answering on it, and a uinput
+  Bluetooth remote with its Classic Controller and camera. The slot was asked for its status,
+  lit player light 1 (`0x10`) and set report 0x30; its remote's d-pad down moved the focus right
+  (sideways); with a Classic plugged in it set up 0x55/0x00, read the id, logged "read as its
+  Classic Controller", switched to 0x32, and the Classic's d-pad left moved the focus back. The
+  Bluetooth Classic's right moved the focus. Settings › Controls shows the Wii Remotes rows (frame
+  `6-settings-wii-pointer.png`); fitting with the camera aimed at 0.2, 0.6 and 0.8, 0.9 logged
+  "fitted: across 0.200 to 0.800, down 0.600 to 0.900" and the row read "Fitted, sensor bar above
+  the screen" (`7-pointer-fitted.png`); aiming at 0.5, 0.75 put the pointer on the middle of the
+  screen (`8-pointer-middle.png`).
 
 ## Player's check with the real bar
 
@@ -153,3 +182,12 @@ keep the emulated layout only for players who have none.
    A and the d-pad moves the focus. Plug in the Nunchuk: the stick moves the focus, the d-pad is
    no longer turned. Point the remote at the screen with a sensor bar on: the pointer should
    follow it (say if up and down are swapped), and A should press what it points at.
+8. With the bar in mode 4 and a remote synced, outside a game: the remote's player light should
+   light and, held sideways, its d-pad should move the focus. Plug a Classic Controller into it:
+   its d-pad and buttons should move and press as a pad's do. Then start a Wii game: the remote
+   should play it (openSU lets go of it), and after the game it moves the focus again.
+9. Settings › Controls › Wii Remote pointer, with a Bluetooth remote and a sensor bar: press A,
+   point at the top-left corner and press A, then the bottom-right and press A. The row should
+   say whether the sensor bar is above or below the screen, as it is; the pointer should then
+   reach every edge. Set "Wii Remotes in Wii games" to Emulated always and start a Wii game with
+   the bar plugged in: it should play on the pad, `[Wiimote1] Source = 1`.
