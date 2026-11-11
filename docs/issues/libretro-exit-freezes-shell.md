@@ -50,9 +50,22 @@ Attempt on 2026-11-10, on that change (`scratch/exit-freeze/tools/freeze.py`, th
   `focus on 0x…: the game` and, after the close, `focus on 0x0: openSU`.
 - So window `0x0` after a close is the normal case here, not the sign of the freeze.
 
-No freeze. One difference from the player's session is left: a hidden shell starts the runner with
-`--hidden`, which draws offscreen, not on a Gamescope WSI surface. Running the runner on Gamescope's
-surface under a hidden shell, the same class of change as the overlay, is the next step.
+No freeze. That run already took the player's present path: inside a Gamescope a hidden shell has
+not passed `--hidden` to the runner since remote play landed (b8e05dcd), and its log has the Gamescope
+WSI swapchain on the runner's window (`flip: true`) and "the first frame is on screen". The note that
+it drew offscreen was wrong. What that runner did take from the player's session was the default
+sound device and every pad on the machine; it now starts with `--silent` (`roms::RunnerMode`,
+`docs/design/libretro.md` Command line).
+
+Attempt on 2026-11-11 with `--silent` (`scratch/runner-surface/` and `scratch/exit-freeze/run2/` of
+that session):
+
+- Gamescope's own screenshot (`gamescopectl screenshot`) during play shows Kirby's title screen
+  drawn by the runner, before the change and after (`runner-surface/before|after/frames/game-gamescope.png`).
+- The runner's arguments carry `--silent`; PipeWire lists no `opensu-retro` stream for it, where
+  the same runner without the flag in a headless Gamescope has two `Stream/Output/Audio` nodes
+  (`runner-surface/player-mode/`).
+- `freeze.py`, four rounds: each `/frame.png` after a close answered in 56 to 84 ms. No freeze.
 
 ## Next time it freezes
 
