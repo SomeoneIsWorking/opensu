@@ -995,9 +995,10 @@ int main() try {
             });
         };
         expect(serveUntil(came), "the remote answering in the slot is a pad");
-        expect(remote.lights() == 0x10 && remote.mode() == 0x30,
+        expect(serveUntil([&] {
+                   return remote.lights() == 0x10 && remote.mode() == 0x30;
+               }),
                "its player light is lit and its buttons asked for");
-        std::this_thread::sleep_for(50ms);
         remote.report(0x00, 0x01);
         expect(serveUntil([&] {
                    return pressed(heard, Button::A);
@@ -1011,7 +1012,6 @@ int main() try {
                    return remote.mode() == 0x32;
                }),
                "a Classic Controller plugged into it is set up");
-        std::this_thread::sleep_for(50ms);
         std::array<std::uint8_t, 6> bytes = FakeBarRemote::classicIdle();
         bytes[5] = static_cast<std::uint8_t>(bytes[5] & ~0x08);
         remote.report(0x00, 0x00, bytes);

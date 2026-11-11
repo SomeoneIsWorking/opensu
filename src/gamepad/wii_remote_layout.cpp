@@ -48,12 +48,13 @@ constexpr std::array nunchukKeys{
 };
 
 // hid-wiimote names the Classic's buttons for their labels: BTN_B is its B, at the bottom; L and
-// R fully in are BTN_TL and BTN_TR, ZL and ZR are BTN_TL2 and BTN_TR2.
+// R fully in are BTN_TL and BTN_TR, ZL and ZR are BTN_TL2 and BTN_TR2. The pad's BTN_X is the
+// west button and BTN_Y the north, as the translator reads them.
 constexpr std::array classicKeys{
     KeyMap{KEY_UP, BTN_DPAD_UP},     KeyMap{KEY_DOWN, BTN_DPAD_DOWN},
     KeyMap{KEY_LEFT, BTN_DPAD_LEFT}, KeyMap{KEY_RIGHT, BTN_DPAD_RIGHT},
     KeyMap{BTN_B, BTN_SOUTH},        KeyMap{BTN_A, BTN_EAST},
-    KeyMap{BTN_Y, BTN_WEST},         KeyMap{BTN_X, BTN_NORTH},
+    KeyMap{BTN_Y, BTN_X},            KeyMap{BTN_X, BTN_Y},
     KeyMap{BTN_TL2, BTN_TL},         KeyMap{BTN_TR2, BTN_TR},
     KeyMap{BTN_TL, BTN_TL2},         KeyMap{BTN_TR, BTN_TR2},
     KeyMap{KEY_NEXT, BTN_START},     KeyMap{KEY_PREVIOUS, BTN_SELECT},
