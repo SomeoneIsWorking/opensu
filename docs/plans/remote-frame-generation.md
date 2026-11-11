@@ -176,10 +176,14 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   pixels and the request's thread encodes; with grabs, presents stay at 60 a second, every
   in-between is at t 0.50 and 264 of 284 grabbed frames are a real frame on the lattice (116) or
   an in-between 4 px off it (148) (run `h-grab2`).
-- 5 of 300 grabbed frames show the band split, a half-bright edge or a faint curved streak
-  beside it. Not traced: each lies among regular two-frame captures at t 0.50, so neither the
-  pacing nor an uneven step; whether it is in the generator's output or the guest's copies is
-  next, from a generated image read back beside its two real frames.
+- The ghost is Lossless's own: 300 in-betweens read back from the generator beside their two real
+  frames (run `h-dump`, a debug patch never committed) are 257 clean, 27 with the band wrapping at
+  the picture's edge in the real frames too, and 8 with a faint curved streak beside a band in the
+  right place and width (46 to 58 of 255 off the band, 0 in both real frames), once a scroll cycle
+  at the same place; the other 8 flagged were the dump reading a real frame's slot after it was
+  reused. So the LSFG 3 shaders draw it on a hard white edge over black, and the guest's copy,
+  upload and draw add nothing; openSU has no fix for it. Grabbed frames' split bands were the edge
+  wrap.
 - Before the grabs in `h-grab2`, the pacer held a phase where every present is generated
   (t 0.19 and 0.69) for 8 s, as Gamescope's runs did. Replaying the run's logged arrivals and
   vblanks through `CFramePacer` (`scratch/remote-framegen/pacer-harness/`, 818 of 853 plans as
