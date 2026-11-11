@@ -224,12 +224,12 @@ std::vector<EmulatorSaves> savesOf(const Game& game, const roms::EmulatorCatalog
                 continue;
             }
             runnerListed = true;
-            saves = EmulatorSaves{.emulatorId = std::string{runnerSavesId},
-                                  .emulatorName = std::string{runnerName},
-                                  .slots = runnerSlots(runnerSaves, profile, game,
-                                                       keepsLrps2Card(game, catalog)),
-                                  .home = std::nullopt,
-                                  .processHint = {}};
+            saves = EmulatorSaves{
+                .emulatorId = std::string{runnerSavesId},
+                .emulatorName = std::string{runnerName},
+                .slots = runnerSlots(runnerSaves, profile, game, keepsLrps2Card(game, catalog)),
+                .home = std::nullopt,
+                .processHint = {}};
             std::ranges::for_each(saves.slots, measure);
             found.push_back(std::move(saves));
             continue;
