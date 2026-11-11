@@ -51,7 +51,7 @@ std::optional<InstalledSystemFiles> CoreSystemFiles::installed(std::string_view 
     }
     const std::optional<std::string> text = fileio::readWhole(record(core), error);
     const json root = text ? json::parse(*text, nullptr, false) : json{};
-    const auto string = [&root](const char* key) {
+    const auto field = [&root](const char* key) {
         const auto found = root.find(key);
         return found != root.end() && found->is_string() ? found->get<std::string>()
                                                          : std::string{};
@@ -61,7 +61,7 @@ std::optional<InstalledSystemFiles> CoreSystemFiles::installed(std::string_view 
         return std::nullopt;
     }
     InstalledSystemFiles found{
-        SystemFilesSource{string("url"), string("sha256"), string("folder"), string("into")}, {}};
+        SystemFilesSource{field("url"), field("sha256"), field("folder"), field("into")}, {}};
     if (!isInsidePath(found.source.into)) {
         lucent::warn("emulators", "{}: its folder is not under the system folder; ignored",
                      record(core).string());
