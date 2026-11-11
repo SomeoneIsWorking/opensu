@@ -57,9 +57,7 @@ def generate(
             "--out",
             str(into),
         ]
-        if generator == "lossless":
-            if dll is None:
-                raise SystemExit("lossless needs the player's Lossless.dll (--dll)")
+        if generator == "lossless" and dll is not None:
             command += ["--dll", str(dll)]
         with log.open("wb") as out:
             code = subprocess.run(

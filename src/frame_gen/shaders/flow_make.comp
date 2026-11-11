@@ -1,8 +1,9 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 // The frame at time t between two real ones: each pixel tries the vectors of its block and the 8
-// around it, keeps the one whose earlier and later pixels agree best over a 3 x 3 neighbourhood,
-// and mixes those two pixels by t.
+// around it (its own first, which keeps ties), keeps the one whose earlier and later pixels agree
+// best over a 3 x 3 neighbourhood less their mean difference, and mixes the two frames by t at
+// that vector's places, bilinearly where they fall between pixels.
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(set = 0, binding = 0, rgba8) uniform readonly image2D earlier;
 layout(set = 0, binding = 1, rgba8) uniform readonly image2D later;
@@ -15,6 +16,14 @@ vec3 at(ivec2 p, bool isLater) {
     return isLater ? imageLoad(later, q).rgb : imageLoad(earlier, q).rgb;
 }
 
+vec3 between(vec2 place, bool isLater) {
+    const vec2 corner = floor(place);
+    const vec2 f = place - corner;
+    const ivec2 c = ivec2(corner);
+    return mix(mix(at(c, isLater), at(c + ivec2(1, 0), isLater), f.x),
+               mix(at(c + ivec2(0, 1), isLater), at(c + ivec2(1, 1), isLater), f.x), f.y);
+}
+
 void main() {
     const ivec2 p = ivec2(gl_GlobalInvocationID.xy);
     if (any(greaterThanEqual(p, push.size))) {
@@ -22,29 +31,35 @@ void main() {
     }
     const ivec2 block = p / blockSize;
     const ivec2 fieldLast = push.blocks - 1;
-    ivec2 bestBack = ivec2(0);
-    ivec2 bestAhead = ivec2(0);
+    vec2 bestD = vec2(0.0);
     float bestError = 1e30;
     for (int y = -1; y <= 1; ++y) {
         for (int x = -1; x <= 1; ++x) {
-            const vec2 d = imageLoad(field, clamp(block + ivec2(x, y), ivec2(0), fieldLast)).rg;
+            // (0, 0) first, then the eight neighbours.
+            const ivec2 n = ivec2((x + 2) % 3 - 1, (y + 2) % 3 - 1);
+            const vec2 d = imageLoad(field, clamp(block + n, ivec2(0), fieldLast)).rg;
             const ivec2 back = earlierShare(d, push.t);
             const ivec2 ahead = ivec2(d) - back;
+            vec3 diffs[9];
+            vec3 mean = vec3(0.0);
+            for (int i = 0; i < 9; ++i) {
+                const ivec2 o = ivec2(i % 3 - 1, i / 3 - 1);
+                diffs[i] = at(p + o - back, false) - at(p + o + ahead, true);
+                mean += diffs[i];
+            }
+            mean /= 9.0;
             float error = 0.0;
-            for (int v = -1; v <= 1; ++v) {
-                for (int u = -1; u <= 1; ++u) {
-                    const vec3 diff = at(p + ivec2(u, v) - back, false) -
-                                      at(p + ivec2(u, v) + ahead, true);
-                    error += abs(diff.r) + abs(diff.g) + abs(diff.b);
-                }
+            for (int i = 0; i < 9; ++i) {
+                const vec3 e = abs(diffs[i] - mean);
+                error += e.r + e.g + e.b;
             }
             if (error < bestError) {
                 bestError = error;
-                bestBack = back;
-                bestAhead = ahead;
+                bestD = d;
             }
         }
     }
-    const vec3 colour = mix(at(p - bestBack, false), at(p + bestAhead, true), push.t);
+    const vec3 colour = mix(between(vec2(p) - push.t * bestD, false),
+                            between(vec2(p) + (1.0 - push.t) * bestD, true), push.t);
     imageStore(made, p, vec4(colour, 1.0));
 }

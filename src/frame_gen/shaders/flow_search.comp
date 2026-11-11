@@ -2,7 +2,7 @@
 #extension GL_GOOGLE_include_directive : require
 // One level's motion field, from the earlier real frame to the later, one vector per block of the
 // frame between them: the block's pixels matched symmetrically (earlier at -t d, later at
-// +(1-t) d, t 0.5) by the sum of absolute luma differences over the block and a 2 pixel margin.
+// +(1-t) d, t 0.5) by the sum of absolute luma differences over the block and a 2 pixel margin, less their mean.
 // The coarsest level tries every vector within `range`; each finer one its parent's 3 x 3
 // neighbourhood's vectors, doubled, and then every vector within 2 pixels of the best.
 layout(local_size_x = 8, local_size_y = 8) in;
@@ -20,15 +20,24 @@ float cost(ivec2 origin, ivec2 d) {
     const ivec2 back = earlierShare(vec2(d), 0.5);
     const ivec2 ahead = d - back;
     const ivec2 last = push.size - 1;
-    float sum = 0.0;
-    for (int y = -margin; y < blockSize + margin; ++y) {
-        for (int x = -margin; x < blockSize + margin; ++x) {
-            const ivec2 p = origin + ivec2(x, y);
-            sum += abs(imageLoad(earlier, clamp(p - back, ivec2(0), last)).r -
-                       imageLoad(later, clamp(p + ahead, ivec2(0), last)).r);
+    const int side = blockSize + 2 * margin;
+    float differences[side * side];
+    float mean = 0.0;
+    for (int y = 0; y < side; ++y) {
+        for (int x = 0; x < side; ++x) {
+            const ivec2 p = origin + ivec2(x - margin, y - margin);
+            const float difference = imageLoad(earlier, clamp(p - back, ivec2(0), last)).r -
+                                     imageLoad(later, clamp(p + ahead, ivec2(0), last)).r;
+            differences[y * side + x] = difference;
+            mean += difference;
         }
     }
-    const int side = blockSize + 2 * margin;
+    mean /= float(side * side);
+    // The block's mean difference left out, so a fade or a flash moves nothing.
+    float sum = 0.0;
+    for (int i = 0; i < side * side; ++i) {
+        sum += abs(differences[i] - mean);
+    }
     return sum + lengthCost * float(side * side) * float(abs(d.x) + abs(d.y));
 }
 

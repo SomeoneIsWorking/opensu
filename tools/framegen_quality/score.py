@@ -5,6 +5,7 @@ trivially right for every generator, so the tables are over moving frames."""
 
 import json
 import math
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -28,26 +29,27 @@ class FrameScore:
     flip: float
 
 
+def _one(place: tuple[Path, Path, Path, float], made: Path) -> FrameScore:
+    before, between, after, t = place
+    truth = load_rgb(between)
+    picture = load_rgb(made / between.name)
+    if picture.shape != truth.shape:
+        raise SystemExit(f"{made / between.name} is not the size of {between}")
+    flip_mean, _ = metrics.flip(truth, picture)
+    return FrameScore(
+        frame=between.name,
+        t=t,
+        moving=not np.array_equal(load_rgb(before), load_rgb(after)),
+        psnr=min(metrics.psnr(truth, picture), PSNR_CAP),
+        ssim=metrics.ssim(truth, picture),
+        flip=flip_mean,
+    )
+
+
 def score(frames: Path, made: Path, step: int) -> list[FrameScore]:
-    scores = []
-    for before, between, after, t in left_out(frames, step):
-        truth = load_rgb(between)
-        picture = load_rgb(made / between.name)
-        if picture.shape != truth.shape:
-            raise SystemExit(f"{made / between.name} is not the size of {between}")
-        moving = not np.array_equal(load_rgb(before), load_rgb(after))
-        flip_mean, _ = metrics.flip(truth, picture)
-        scores.append(
-            FrameScore(
-                frame=between.name,
-                t=t,
-                moving=moving,
-                psnr=min(metrics.psnr(truth, picture), PSNR_CAP),
-                ssim=metrics.ssim(truth, picture),
-                flip=flip_mean,
-            )
-        )
-    return scores
+    places = left_out(frames, step)
+    with ProcessPoolExecutor() as pool:
+        return list(pool.map(_one, places, [made] * len(places)))
 
 
 def save(scores: list[FrameScore], path: Path) -> None:
