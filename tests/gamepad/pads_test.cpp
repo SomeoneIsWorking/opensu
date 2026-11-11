@@ -739,12 +739,36 @@ int main() try {
                        event.source == remoteId && event.x > 0.7f;
             });
         };
+        // The camera is opened a moment after it appears; the kernel drops a repeated value.
         const auto deadline = std::chrono::steady_clock::now() + 2s;
-        while (!points() && std::chrono::steady_clock::now() < deadline) {
-            camera.see(200, 300, 384);
-            static_cast<void>(collect(pads, seen, points));
+        for (std::int32_t step = 0; !points() && std::chrono::steady_clock::now() < deadline;
+             ++step) {
+            camera.see(200 + (step % 2), 300, 384);
+            std::this_thread::sleep_for(20ms);
+            for (Event& event : pads.takeEvents()) {
+                seen.push_back(std::move(event));
+            }
         }
         expect(points(), "the remote's camera says it points right of centre");
+        const auto pointerButton = [&](bool down) {
+            return std::ranges::any_of(seen, [&](const Event& event) {
+                return event.kind == Event::Kind::PointerButton && event.pressed == down &&
+                       event.source == remoteId;
+            });
+        };
+        remote.press(BTN_A, 1);
+        expect(collect(pads, seen,
+                       [&] {
+                           return pointerButton(true);
+                       }),
+               "its A while it points is the pointer's button");
+        remote.press(BTN_A, 0);
+        expect(collect(pads, seen,
+                       [&] {
+                           return pointerButton(false);
+                       }),
+               "and is let go");
+        expect(!pressed(seen, Button::X), "and not the pad's X");
         expect(std::ranges::none_of(pads.connected(),
                                     [](const PadInfo& info) {
                                         return info.name == "Nintendo Wii Remote IR";

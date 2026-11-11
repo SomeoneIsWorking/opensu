@@ -1,5 +1,6 @@
-// A Wii Remote pointing at the screen as the shell's pointer: the pointer follows it, its A is a
-// press where it points, released even once it points away, and its A pointed away is the pad's.
+// A Wii Remote pointing at the screen as the shell's pointer: the pointer follows it, its pointer
+// button presses where it points and lets go there though it points away, and its other buttons
+// are the pad's.
 #include "pointing_pads.hpp"
 
 #include <cstdio>
@@ -19,13 +20,19 @@ using opensu::test::expect;
 constexpr const char* remote = "/dev/input/event9";
 
 Event aim(bool onScreen, float x = 0.0f, float y = 0.0f) {
-    return Event{
-        .kind = Event::Kind::Pointer, .source = remote, .onScreen = onScreen, .x = x, .y = y};
+    return Event{.kind = Event::Kind::Pointer,
+                 .device = "Nintendo Wii Remote",
+                 .source = remote,
+                 .onScreen = onScreen,
+                 .x = x,
+                 .y = y};
 }
 
-Event a(bool pressed, const char* source = remote) {
-    return Event{
-        .kind = Event::Kind::Button, .button = Button::A, .pressed = pressed, .source = source};
+Event button(bool pressed) {
+    return Event{.kind = Event::Kind::PointerButton,
+                 .pressed = pressed,
+                 .device = "Nintendo Wii Remote",
+                 .source = remote};
 }
 
 } // namespace
@@ -40,19 +47,20 @@ int main() try {
             calls.push_back(std::string{down ? "down " : "up "} + std::to_string(x) + " " +
                             std::to_string(y));
         }}};
-    expect(!pads.take(a(true)) && !pads.take(a(false)), "a pad that never pointed keeps its A");
     expect(pads.take(aim(true, 0.25f, 0.5f)) && calls.back() == "move 0.250000 0.500000",
            "pointing at the screen moves the pointer there");
-    expect(pads.take(a(true)) && calls.back() == "down 0.250000 0.500000",
-           "A while it points presses there");
-    expect(!pads.take(a(true, "/dev/input/event3")), "another pad's A stays that pad's");
-    expect(pads.take(aim(false)) && pads.take(a(false)) && calls.back() == "up 0.250000 0.500000",
-           "the press is let go where it was, though the remote points away");
-    expect(!pads.take(a(true)), "pointed away, its A is the pad's A again");
-    expect(
-        !pads.take(Event{
-            .kind = Event::Kind::Button, .button = Button::B, .pressed = true, .source = remote}),
-        "B is always the pad's");
+    expect(pads.take(button(true)) && calls.back() == "down 0.250000 0.500000",
+           "the pointer button presses there");
+    expect(pads.take(aim(false)) && calls.back() == "down 0.250000 0.500000",
+           "pointing away leaves the pointer where it was");
+    expect(pads.take(button(false)) && calls.back() == "up 0.250000 0.500000",
+           "the press is let go where it was");
+    expect(!pads.take(Event{.kind = Event::Kind::Button,
+                            .button = Button::A,
+                            .pressed = true,
+                            .device = "Nintendo Wii Remote",
+                            .source = remote}),
+           "the pad's buttons are the pad's");
     std::printf("pointing_pads: all checks passed\n");
     return 0;
 } catch (...) {

@@ -489,6 +489,7 @@ void ShellApp::handleEvents(const std::vector<gamepad::Event>& incoming) {
         }
         switch (event.kind) {
         case gamepad::Event::Kind::Pointer:
+        case gamepad::Event::Kind::PointerButton:
             break;
         case gamepad::Event::Kind::Connected:
             lucent::info("gamepad", "controller ready: {}", event.device);

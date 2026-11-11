@@ -12,6 +12,8 @@
 #include <sys/inotify.h>
 #include <unistd.h>
 
+#include <linux/input-event-codes.h>
+
 #include "lucent/log.h"
 
 namespace opensu::gamepad {
@@ -330,6 +332,13 @@ bool EvdevPads::attach(Pad& pad, EvdevDevice& part) {
         lucent::info("gamepad", "{} ({}) points with its camera", pad.device.name(),
                      pad.device.node().string());
         pad.camera = std::move(part);
+        // Dots that hold still after the open are never reported again; the camera's next report
+        // says where it points.
+        for (const PadEvent& event : pad.camera->state()) {
+            if (event.type == EV_ABS) {
+                static_cast<void>(pad.pointer.feed(event));
+            }
+        }
         if (pad.grabbed) {
             static_cast<void>(pad.camera->grab());
         }
@@ -546,6 +555,7 @@ void EvdevPads::run(const std::stop_token& stop) {
                 for (const PadEvent& event : read) {
                     if (const std::optional<WiiAim> aim = pad.pointer.feed(event)) {
                         events.push_back(Event{.kind = Event::Kind::Pointer,
+                                               .device = pad.device.name(),
                                                .source = pad.device.node().string(),
                                                .onScreen = aim->onScreen,
                                                .x = aim->x,
@@ -559,6 +569,26 @@ void EvdevPads::run(const std::stop_token& stop) {
             if (!device.read(read) || hungUp) {
                 (fromExtension ? extensionGone : gone).push_back(source.index);
                 continue;
+            }
+            if (!fromExtension && pad.camera) {
+                // A game reads the remote's A as its own, wherever the remote points.
+                const bool shellHolds =
+                    applied_.claim == Claim::Free || applied_.claim == Claim::Shell;
+                std::erase_if(read, [&](const PadEvent& event) {
+                    if (event.type != EV_KEY || event.code != BTN_A) {
+                        return false;
+                    }
+                    const bool pointer = event.value == 1
+                                             ? shellHolds && pad.pointer.press(true)
+                                             : event.value == 0 && pad.pointer.press(false);
+                    if (pointer) {
+                        events.push_back(Event{.kind = Event::Kind::PointerButton,
+                                               .pressed = event.value == 1,
+                                               .device = pad.device.name(),
+                                               .source = pad.device.node().string()});
+                    }
+                    return pointer;
+                });
             }
             std::vector<PadEvent> forward;
             const std::size_t before = events.size();
@@ -587,6 +617,7 @@ void EvdevPads::run(const std::stop_token& stop) {
             pad.camera.reset();
             pad.pointer = WiiPointer{};
             events.push_back(Event{.kind = Event::Kind::Pointer,
+                                   .device = pad.device.name(),
                                    .source = pad.device.node().string(),
                                    .onScreen = false});
         }
@@ -601,8 +632,10 @@ void EvdevPads::run(const std::stop_token& stop) {
             }
             const std::string id = pad.device.node().string();
             if (pad.camera) {
-                events.push_back(
-                    Event{.kind = Event::Kind::Pointer, .source = id, .onScreen = false});
+                events.push_back(Event{.kind = Event::Kind::Pointer,
+                                       .device = pad.device.name(),
+                                       .source = id,
+                                       .onScreen = false});
             }
             events.push_back(Event{
                 .kind = Event::Kind::Disconnected, .device = pad.device.name(), .source = id});

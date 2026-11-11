@@ -51,6 +51,8 @@ struct Event {
         Disconnected,
         /// A pad that points (a Wii Remote's camera) moved on or off the screen.
         Pointer,
+        /// That pad's pointer button (the remote's A) went down (`pressed`) or up.
+        PointerButton,
     };
 
     Kind kind{Kind::Button};

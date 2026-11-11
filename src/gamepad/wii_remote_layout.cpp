@@ -79,8 +79,7 @@ WiiRemoteLayout::WiiRemoteLayout(const PadCapabilities& nunchuk) {
         const auto found = nunchuk.axes.find(code);
         return found != nunchuk.axes.end() ? found->second : AxisRange{-1, 1};
     };
-    stickX_ = range(ABS_HAT0X);
-    stickY_ = range(ABS_HAT0Y);
+    stick_ = Stick{.x = range(ABS_HAT0X), .y = range(ABS_HAT0Y)};
 }
 
 PadCapabilities WiiRemoteLayout::capabilities() const {
@@ -88,12 +87,12 @@ PadCapabilities WiiRemoteLayout::capabilities() const {
     for (const KeyMap& key : withNunchuk() ? upright : sideways) {
         pad.keys.insert(key.second);
     }
-    if (withNunchuk()) {
+    if (stick_) {
         for (const KeyMap& key : nunchukKeys) {
             pad.keys.insert(key.second);
         }
-        pad.axes[ABS_X] = *stickX_;
-        pad.axes[ABS_Y] = *stickY_;
+        pad.axes[ABS_X] = stick_->x;
+        pad.axes[ABS_Y] = stick_->y;
     }
     return pad;
 }
@@ -116,7 +115,7 @@ std::optional<PadEvent> WiiRemoteLayout::map(WiiRemotePart part, const PadEvent&
         }
         return PadEvent{.type = EV_KEY, .code = *code, .value = in.value};
     }
-    if (!withNunchuk()) {
+    if (!stick_) {
         return std::nullopt;
     }
     if (in.type == EV_KEY) {
@@ -135,7 +134,7 @@ std::optional<PadEvent> WiiRemoteLayout::map(WiiRemotePart part, const PadEvent&
     if (in.code == ABS_HAT0Y) {
         // The Nunchuk reports up as positive; a gamepad's y grows downwards.
         return PadEvent{
-            .type = EV_ABS, .code = ABS_Y, .value = stickY_->min + stickY_->max - in.value};
+            .type = EV_ABS, .code = ABS_Y, .value = stick_->y.min + stick_->y.max - in.value};
     }
     // The accelerometer is not a stick.
     return std::nullopt;
@@ -173,6 +172,14 @@ std::optional<WiiAim> WiiPointer::feed(const PadEvent& in) {
     }
     last_ = aim;
     return aim;
+}
+
+bool WiiPointer::press(bool down) {
+    if (down) {
+        pressing_ = last_.onScreen;
+        return pressing_;
+    }
+    return std::exchange(pressing_, false);
 }
 
 } // namespace opensu::gamepad

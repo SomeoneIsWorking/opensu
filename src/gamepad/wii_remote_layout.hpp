@@ -46,12 +46,16 @@ class WiiRemoteLayout {
     [[nodiscard]] std::optional<PadEvent> map(WiiRemotePart part, const PadEvent& in) const;
 
     [[nodiscard]] bool withNunchuk() const noexcept {
-        return stickX_.has_value();
+        return stick_.has_value();
     }
 
   private:
-    std::optional<AxisRange> stickX_;
-    std::optional<AxisRange> stickY_;
+    /// The Nunchuk's stick, across and down.
+    struct Stick {
+        AxisRange x;
+        AxisRange y;
+    };
+    std::optional<Stick> stick_;
 };
 
 /// Where a remote points: on the screen, from 0 to 1 across and down, or off it.
@@ -71,12 +75,16 @@ class WiiPointer {
     /// Takes one camera event; at the end of each report, where the remote points when that
     /// changed.
     [[nodiscard]] std::optional<WiiAim> feed(const PadEvent& in);
+    /// The remote's A going `down` or up; true when it is the pointer's button: pressed while
+    /// the remote points at the screen, and that press let go wherever it then points.
+    [[nodiscard]] bool press(bool down);
 
   private:
     static constexpr std::int32_t noDot = 1023;
     /// x then y of each dot.
     std::array<std::int32_t, 8> dots_{noDot, noDot, noDot, noDot, noDot, noDot, noDot, noDot};
     WiiAim last_;
+    bool pressing_{false};
 };
 
 } // namespace opensu::gamepad

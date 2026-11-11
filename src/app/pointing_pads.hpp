@@ -1,11 +1,11 @@
 // pointing_pads — pads that point at the screen (a Wii Remote's IR camera, `gamepad::WiiPointer`)
-// as the shell's pointer. Where one points moves the pointer, and its A while it points is the
-// pointer's press there, as on the Wii's own menu; pointed away, its A is the pad's A again.
+// as the shell's pointer. Where one points moves the pointer, and its pointer button (the remote's
+// A while it points, as on the Wii's own menu) presses there; let go away from the screen, the
+// press ends where it last pointed.
 #pragma once
 
 #include <functional>
 #include <map>
-#include <set>
 #include <string>
 
 #include "gamepad/event.hpp"
@@ -24,22 +24,19 @@ class PointingPads {
     explicit PointingPads(Hooks hooks) : hooks_{std::move(hooks)} {
     }
 
-    /// Takes `event` when it is a pad's pointer, or the A of a pad that points; false for
-    /// anything else, which the shell handles as before.
+    /// Takes `event` when it is a pad's pointer or pointer button; false for anything else,
+    /// which the shell handles as before.
     [[nodiscard]] bool take(const gamepad::Event& event);
 
   private:
-    struct Aim {
+    struct Spot {
         float x{};
         float y{};
-        bool onScreen{false};
     };
 
     Hooks hooks_;
-    /// Where each pad last pointed at the screen, and whether it still does, by `Event::source`.
-    std::map<std::string, Aim> aims_;
-    /// The pads whose A holds the pointer's button down, released by that A wherever it points.
-    std::set<std::string> pressing_;
+    /// Where each pad last pointed on the screen, by `Event::source`.
+    std::map<std::string, Spot> spots_;
 };
 
 } // namespace opensu::app

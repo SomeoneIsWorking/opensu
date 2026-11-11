@@ -61,9 +61,8 @@ void testParts() {
            "a remote's buttons are its pad");
     expect(wiiRemotePartOf(0x057e, 0x0330, "Nintendo Wii Remote Nunchuk") == WiiRemotePart::Nunchuk,
            "a Motion Plus remote's Nunchuk is part of it");
-    expect(!wiiRemotePartOf(0x057e, 0x0306, "Nintendo Wii Remote IR") &&
-               !wiiRemotePartOf(0x057e, 0x0306, "Nintendo Wii Remote Accelerometer"),
-           "the camera and the accelerometer are no pad");
+    expect(!wiiRemotePartOf(0x057e, 0x0306, "Nintendo Wii Remote Accelerometer"),
+           "the accelerometer is not read");
     expect(!wiiRemotePartOf(0x045e, 0x028e, "Nintendo Wii Remote"), "the name alone is not enough");
 }
 
@@ -126,6 +125,7 @@ void testPointer() {
                aim->y < 0.51f,
            "two dots left of centre: the remote points right of centre, mirrored");
     expect(!pointer.feed(report), "the same aim again is not reported");
+    expect(pointer.press(true), "A while it points is the pointer's button");
     for (const PadEvent gone :
          {PadEvent{EV_ABS, ABS_HAT0X, 1023}, PadEvent{EV_ABS, ABS_HAT0Y, 1023},
           PadEvent{EV_ABS, ABS_HAT1X, 1023}, PadEvent{EV_ABS, ABS_HAT1Y, 1023}}) {
@@ -133,6 +133,8 @@ void testPointer() {
     }
     const std::optional<WiiAim> away = pointer.feed(report);
     expect(away && !away->onScreen, "no dot seen: it points off the screen");
+    expect(pointer.press(false), "the press is let go though it points away");
+    expect(!pointer.press(true) && !pointer.press(false), "pointed away, A is the pad's");
 }
 
 } // namespace
