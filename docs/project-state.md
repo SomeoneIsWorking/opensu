@@ -1378,6 +1378,12 @@ takes port N and the keyboard none, and its welcome window is off (`library/xemu
 with the downloaded 0.8.139 on a copy of the player's data (`scratch/launch-rules3/runs/xemu`: the
 pad works xemu's error dialog, `xemu.toml` comes back byte-identical). Gaps: no game boots without
 an Xbox BIOS, which the player lacks.
+shadPS4 gives a pad a slot only when a user plays it: while a launch runs `users.json` has a user
+for each of the four slots, shadPS4's own default for any the player's file lacks
+(`library/shadps4_config`); verified with the player's launcher on a copy of their data seeded with
+one user (`scratch/launch-rules3/runs/shadps4`: the file the launch reads is byte-identical to the
+four-user one shadPS4 makes, the virtual pad registers for slot 0, the seed comes back
+byte-identical). Gaps: players 2 to 4 shown registering, which needs more than one guest.
 melonDS reads one SDL joystick by index, `[Instance0] JoystickID`: while a launch runs the first
 instance plays joystick 0, the first virtual pad, with the player's joystick buttons or, when they
 have none, the virtual pad's raw SDL codes in the DS's positional layout (`library/melonds_config`);
