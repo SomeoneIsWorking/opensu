@@ -54,10 +54,16 @@ def _home(shell: HiddenShell) -> None:
 
 
 def _details(shell: HiddenShell) -> None:
-    """Home leads with the console cards: A opens the first console's shelf, A its first game."""
+    """The focused game's details. A on a console's card (Home leads with them) opens its shelf
+    instead, and A again opens its first game."""
+    shelf = shell.state().get("shelf")
     shell.press("a")
-    shell.wait_until(lambda state: state.get("shelf") != "home", "a console's shelf")
-    shell.press("a")
+    opened = shell.wait_until(
+        lambda state: state.get("detailsOpen") is True or state.get("shelf") != shelf,
+        "a game's details or a console's shelf",
+    )
+    if opened.get("detailsOpen") is not True:
+        shell.press("a")
     shell.wait_for("detailsOpen", True)
 
 
@@ -115,9 +121,12 @@ def _settings_page(label: str) -> Callable[[HiddenShell], None]:
 
     def reach(shell: HiddenShell) -> None:
         _settings(shell)
-        for _ in range(LONGEST_WALK):
-            if shell.state().get("breadcrumb") == trail:
+        # Once a trail comes round again every tab has been seen.
+        seen: set[object] = set()
+        while (shown := shell.state().get("breadcrumb")) not in seen:
+            if shown == trail:
                 return
+            seen.add(shown)
             shell.press("r1")
         shell.wait_for("breadcrumb", trail, timeout=1.0)
 
@@ -705,8 +714,8 @@ def retro_scenes(home: Profile, work: Path) -> tuple[Scene, ...]:
 
     def game_settings(shell: HiddenShell) -> None:
         _guide(shell)
-        # Its rows over a game: Resume, Close game, Game settings.
-        shell.press("down", "down", "a")
+        _guide_row(shell, "down", "guide.gameSettings")
+        shell.press("a")
         shell.wait_for("screen", "layered")
         for _ in range(LONGEST_WALK):
             if shell.state().get("screenFocus") == "row/video.shader":
@@ -717,8 +726,7 @@ def retro_scenes(home: Profile, work: Path) -> tuple[Scene, ...]:
     def close_game(shell: HiddenShell) -> None:
         shell.press("b")
         shell.wait_for("screen", "guide")
-        shell.press("up")
-        shell.wait_for("screenFocus", "guide.closeGame")
+        _guide_row(shell, "up", "guide.closeGame")
         # Close game asks first.
         shell.press("a", "a")
         shell.wait_for("inGame", False)
@@ -747,6 +755,15 @@ def retro_scenes(home: Profile, work: Path) -> tuple[Scene, ...]:
             frame=lambda shell: retro.over_game(shell, home, work),
         ),
     )
+
+
+def _guide_row(shell: HiddenShell, direction: str, focus: str) -> None:
+    """Moves `direction` along the Guide menu's rows until `focus` has the focus."""
+    for _ in range(LONGEST_WALK):
+        if shell.state().get("screenFocus") == focus:
+            return
+        shell.press(direction)
+    shell.wait_for("screenFocus", focus, timeout=1.0)
 
 
 def _runner_past(shell: HiddenShell, home: Profile) -> bool:
