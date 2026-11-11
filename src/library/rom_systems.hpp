@@ -47,7 +47,8 @@ struct RootTop {
     std::vector<RootEntry> folders;
     /// The files placed by an extension of one system's alone.
     std::vector<RootEntry> loose;
-    /// The files with a game extension that more than one system shares, which are not guessed.
+    /// The files with a game extension that places no loose file, such as .iso or .chd, which
+    /// are not guessed.
     std::size_t leftOut{0};
 };
 
