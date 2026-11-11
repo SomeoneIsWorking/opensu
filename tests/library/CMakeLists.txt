@@ -101,6 +101,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_test(NAME libretro_cores_standard_search COMMAND libretro_cores_test linux-standard-search)
 endif()
 
+add_executable(core_system_files_test core_system_files_test.cpp)
+target_link_libraries(core_system_files_test PRIVATE opensu::library lucent::lucent ZLIB::ZLIB)
+opensu_warnings(core_system_files_test)
+target_compile_definitions(core_system_files_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME core_system_files COMMAND core_system_files_test)
+
 add_executable(core_bios_test core_bios_test.cpp)
 target_link_libraries(core_bios_test PRIVATE opensu::library lucent::lucent ZLIB::ZLIB)
 opensu_warnings(core_bios_test)

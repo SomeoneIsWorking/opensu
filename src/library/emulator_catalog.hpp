@@ -95,6 +95,26 @@ struct CoreOption {
     std::string value;
 };
 
+/// The data a built-in core reads from the system folder besides BIOS files (`"systemFiles"`):
+/// one folder of a zip pinned by URL and SHA-256, the source tree at the revision the core is built
+/// from, unpacked under the system folder (`core_system_files`).
+struct SystemFilesSource {
+    /// An HTTPS zip; every redirect hop stays on its origin.
+    std::string url;
+    /// Lower-case hex.
+    std::string sha256;
+    /// The folder inside the zip whose files are taken: "dolphin-<revision>/Data/Sys".
+    std::string folder;
+    /// Where they go under the system folder: "dolphin-emu/Sys".
+    std::string into;
+
+    bool operator==(const SystemFilesSource&) const = default;
+};
+
+/// Whether `path` is relative, in generic normal form and stays inside the folder it is taken
+/// under: a system files `folder`, `into` or member.
+[[nodiscard]] bool isInsidePath(std::string_view path);
+
 struct EmulatorEntry {
     /// Stable key: the download folder's name and the settings' spelling.
     std::string id;
@@ -128,6 +148,8 @@ struct EmulatorEntry {
     BiosScan biosScan{BiosScan::Listed};
     /// Core options it starts with (`"coreOptions"`): a GPU core's Vulkan renderer.
     std::vector<CoreOption> coreOptions;
+    /// The data its core reads from the system folder (`"systemFiles"`); absent for most cores.
+    std::optional<SystemFilesSource> systemFiles;
     /// The systems of `systems` its core links two players on (`"links"`), when it comes from
     /// its release.
     std::vector<std::string> links;

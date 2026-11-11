@@ -408,7 +408,13 @@
       "name": "Dolphin (built-in)",
       "systems": ["gc", "wii"],
       "core": "dolphin_libretro",
-      "withoutBios": "hle"
+      "withoutBios": "hle",
+      "systemFiles": {
+        "url": "https://codeload.github.com/libretro/dolphin/zip/32c61f9d0e933331bb7087ba57e96883241b4960",
+        "sha256": "c3cfe21fe5a3c06f497343dc07ec0fdeb4391a40a777b0d97bc533b0154fb817",
+        "folder": "dolphin-32c61f9d0e933331bb7087ba57e96883241b4960/Data/Sys",
+        "into": "dolphin-emu/Sys"
+      }
     },
     {
       "id": "fbneo-core",

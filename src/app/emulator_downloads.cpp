@@ -37,7 +37,8 @@ std::optional<int> EmulatorDownloads::Progress::percent() const noexcept {
 
 EmulatorDownloads::EmulatorDownloads(library::roms::EmulatorSetup setup, Hooks hooks)
     : setup_{std::move(setup)}, store_{setup_.search.downloads},
-      cores_{setup_.search.cores.downloads}, hooks_{std::move(hooks)} {
+      cores_{setup_.search.cores.downloads},
+      systemFiles_{setup_.search.system, setup_.search.cores.downloads}, hooks_{std::move(hooks)} {
 }
 
 EmulatorDownloads::~EmulatorDownloads() {
@@ -145,6 +146,10 @@ EmulatorDownloads::installCore(const std::stop_token& stop, const EmulatorEntry&
         if (!installed) {
             return installed.as<Build>();
         }
+        if (const net::Result<std::size_t> files = installSystemFiles(stop, entry, progress);
+            !files) {
+            return files.as<Build>("its system files were not installed: ");
+        }
         return Build{installed->date, keyOf(entry, *installed)};
     }
     const net::Result<library::roms::CoreBuild> build = coreDownload_.latest(stop, entry.core);
@@ -157,7 +162,20 @@ EmulatorDownloads::installCore(const std::stop_token& stop, const EmulatorEntry&
     if (!installed) {
         return installed.as<Build>();
     }
+    if (const net::Result<std::size_t> files = installSystemFiles(stop, entry, progress); !files) {
+        return files.as<Build>("its system files were not installed: ");
+    }
     return Build{installed->date, keyOf(entry, *installed)};
+}
+
+net::Result<std::size_t>
+EmulatorDownloads::installSystemFiles(const std::stop_token& stop, const EmulatorEntry& entry,
+                                      const net::WebClient::Progress& progress) {
+    if (!entry.systemFiles || setup_.search.system.empty() ||
+        systemFiles_.current(entry.core, *entry.systemFiles)) {
+        return std::size_t{0};
+    }
+    return systemFiles_.install(stop, web_, entry.core, *entry.systemFiles, progress);
 }
 
 net::Result<EmulatorDownloads::Build>
@@ -314,6 +332,30 @@ void EmulatorDownloads::checkCores(const std::stop_token& stop,
         }
     }
     fetchMissingInfo(stop, failures);
+    fetchMissingSystemFiles(stop, failures);
+}
+
+void EmulatorDownloads::fetchMissingSystemFiles(const std::stop_token& stop,
+                                                std::vector<std::string>& failures) {
+    const auto keepGoing = [](std::uint64_t, std::uint64_t) {
+        return true;
+    };
+    for (const EmulatorEntry& entry : setup_.catalog.entries()) {
+        if (stop.stop_requested()) {
+            return;
+        }
+        if (!entry.systemFiles || !setup_.search.cores.find(entry.core)) {
+            continue;
+        }
+        const net::Result<std::size_t> files = installSystemFiles(stop, entry, keepGoing);
+        if (files.stopped()) {
+            return;
+        }
+        if (!files) {
+            lucent::warn("emulators", "{}: its system files: {}", entry.name, files.error());
+            failures.push_back(entry.name + ": its system files: " + files.error());
+        }
+    }
 }
 
 void EmulatorDownloads::fetchMissingInfo(const std::stop_token& stop,
@@ -458,7 +500,9 @@ std::string EmulatorDownloads::remove(std::string_view id) {
     } else if (id == library::roms::overlayArtId) {
         removed = setup_.presets.remove(error);
     } else if (entry != nullptr) {
-        removed = entry->builtIn() ? cores_.remove(entry->core, error) : store_.remove(id, error);
+        removed = entry->builtIn()
+                      ? cores_.remove(entry->core, error) && systemFiles_.remove(entry->core, error)
+                      : store_.remove(id, error);
     }
     if (!removed) {
         return error;

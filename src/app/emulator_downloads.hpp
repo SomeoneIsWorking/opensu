@@ -1,5 +1,6 @@
 // emulator_downloads — downloading, updating and removing what openSU installs for emulators, off
-// the main loop: official AppImages, built-in emulators' libretro cores and libretro's shader pack
+// the main loop: official AppImages, built-in emulators' libretro cores with the system files the
+// catalog pins for them (`core_system_files`), libretro's shader pack
 // (`shaderPackId`) and the visual presets' art (`overlayArtId`), one download at a time with its
 // progress and cancel, the update check (at start and daily while openSU downloaded something, and
 // when asked), and the news the loop hands to the screens (`service`). Nothing updates unless the
@@ -19,6 +20,7 @@
 #include <vector>
 
 #include "library/emulator_release.hpp"
+#include "library/core_system_files.hpp"
 #include "library/emulators.hpp"
 #include "library/libretro_cores.hpp"
 #include "net/web_client.hpp"
@@ -170,6 +172,10 @@ class EmulatorDownloads {
     [[nodiscard]] net::Result<Build> installCore(const std::stop_token& stop,
                                                  const library::roms::EmulatorEntry& entry,
                                                  const net::WebClient::Progress& progress);
+    /// Installs the system files the catalog pins for `entry`'s core unless they are in place.
+    [[nodiscard]] net::Result<std::size_t>
+    installSystemFiles(const std::stop_token& stop, const library::roms::EmulatorEntry& entry,
+                       const net::WebClient::Progress& progress);
     /// Installs the shader pack the buildbot serves now.
     [[nodiscard]] net::Result<Build> installPack(const std::stop_token& stop,
                                                  const net::WebClient::Progress& progress);
@@ -182,6 +188,8 @@ class EmulatorDownloads {
     void checkCores(const std::stop_token& stop, std::vector<std::string>& failures);
     /// Fetches the info of each core openSU downloaded without one, the archive once.
     void fetchMissingInfo(const std::stop_token& stop, std::vector<std::string>& failures);
+    /// Installs the pinned system files of each core found without them.
+    void fetchMissingSystemFiles(const std::stop_token& stop, std::vector<std::string>& failures);
     void remember(const std::string& id, Build build);
     /// The ids an update can be offered for: the shader pack and the catalog's that count now.
     [[nodiscard]] std::vector<std::string> updatable() const;
@@ -195,6 +203,7 @@ class EmulatorDownloads {
     library::roms::EmulatorSetup setup_;
     library::roms::DownloadedEmulators store_;
     library::roms::DownloadedCores cores_;
+    library::roms::CoreSystemFiles systemFiles_;
     Hooks hooks_;
     net::WebClient web_;
     library::roms::EmulatorRelease release_{web_};

@@ -239,6 +239,32 @@ std::vector<CoreOption> coreOptionsOf(const json& object, const std::string& whe
     return options;
 }
 
+/// A built-in core's `"systemFiles"`: `url` (HTTPS), `sha256`, the zip's `folder` and where it
+/// goes, `into`.
+std::optional<SystemFilesSource> systemFilesOf(const json& object, const std::string& where) {
+    const auto found = object.find("systemFiles");
+    if (found == object.end()) {
+        return std::nullopt;
+    }
+    if (!found->is_object()) {
+        throw Malformed{where + ": \"systemFiles\" is not an object"};
+    }
+    SystemFilesSource source{text(*found, "url", where, true), {},
+                             text(*found, "folder", where, true), text(*found, "into", where, true)};
+    if (!source.url.starts_with("https://")) {
+        throw Malformed{where + ": \"systemFiles\" must be fetched over HTTPS"};
+    }
+    const auto pin = found->find("sha256");
+    if (pin == found->end() || !isSha256(*pin)) {
+        throw Malformed{where + ": \"systemFiles\" pins its zip by 64 lower-case hex digits"};
+    }
+    source.sha256 = pin->get<std::string>();
+    if (!isInsidePath(source.folder) || !isInsidePath(source.into)) {
+        throw Malformed{where + ": \"systemFiles\" \"folder\" and \"into\" are relative paths"};
+    }
+    return source;
+}
+
 /// A built-in emulator's core: a file name of the buildbot's, and nothing else to start it with.
 void checkCore(const json& object, const std::string& core, const std::string& where) {
     const bool named = core.ends_with(coreSuffix) && core.size() > coreSuffix.size() &&
@@ -276,6 +302,7 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::string_view
         entry.release = coreReleaseOf(object, build, where);
         entry.romsets = romsetsOf(object, where);
         entry.coreOptions = coreOptionsOf(object, where);
+        entry.systemFiles = systemFilesOf(object, where);
         entry.links = linksOf(object, entry.systems, where);
         const std::string without = text(object, "withoutBios", where, false);
         const std::optional<WithoutBios> mode =
@@ -293,9 +320,10 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::string_view
         return entry;
     }
     if (object.contains("withoutBios") || object.contains("biosScan") ||
-        object.contains("coreOptions") || object.contains("links")) {
-        throw Malformed{where + ": \"withoutBios\", \"biosScan\", \"coreOptions\" and \"links\" "
-                                "are for a built-in emulator's core"};
+        object.contains("coreOptions") || object.contains("links") ||
+        object.contains("systemFiles")) {
+        throw Malformed{where + ": \"withoutBios\", \"biosScan\", \"coreOptions\", \"links\" and "
+                                "\"systemFiles\" are for a built-in emulator's core"};
     }
     const auto launchers = object.find("launchers");
     if (launchers == object.end() || !launchers->is_array() || launchers->empty()) {
@@ -350,6 +378,12 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::string_view
 }
 
 } // namespace
+
+bool isInsidePath(std::string_view path) {
+    const fs::path relative = fs::path{path}.lexically_normal();
+    return !path.empty() && relative.is_relative() && relative.generic_string() == path &&
+           *relative.begin() != "..";
+}
 
 fs::path flatpakFolder(const fs::path& path, const fs::path& home, std::string_view appId) {
     const fs::path sandbox = home / ".var" / "app" / std::string{appId};
