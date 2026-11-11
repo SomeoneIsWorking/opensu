@@ -409,8 +409,7 @@ Rect TilePainter::artBox(const TileVisual& tile, const Rect& content) const noex
     const float wide = content.width - 2.0f * margin;
     const float width = std::min(wide, high * art);
     const float height = width / art;
-    return Rect{content.centreX() - width * 0.5f, content.centreY() - height * 0.5f, width,
-                height};
+    return Rect{content.centreX() - width * 0.5f, content.centreY() - height * 0.5f, width, height};
 }
 
 void TilePainter::paintContent(Canvas& canvas, const TileVisual& tile,

@@ -164,8 +164,8 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
     }
 
     if (setPage_) {
-        const float pageWidth = static_cast<float>(columns_) * cellWidth_ +
-                                static_cast<float>(columns_ - 1) * gap_;
+        const float pageWidth =
+            static_cast<float>(columns_) * cellWidth_ + static_cast<float>(columns_ - 1) * gap_;
         pageSidePadding_ = (viewportWidth_ - pageWidth) * 0.5f;
         pageStride_ = viewportWidth_;
         pageCount_ = slotPages(perPage());

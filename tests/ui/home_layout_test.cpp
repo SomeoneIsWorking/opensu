@@ -421,8 +421,8 @@ void aSetPageOnATallScreen() {
     expect(layout.columns() == 3, "a tall screen takes the lesser of columns and rows across");
     expect(layout.rows() > 3, "and as many rows as fit");
     near(layout.cellWidth(), layout.cellHeight() * 1.5f, "in the same shape");
-    const opensu::ui::Rect last = layout.canvasRect(layout.slotOnPage(0, layout.rows() - 1, true),
-                                                    0.0f);
+    const opensu::ui::Rect last =
+        layout.canvasRect(layout.slotOnPage(0, layout.rows() - 1, true), 0.0f);
     expect(last.bottom() <= 1280.0f - 40.0f && last.right() < 800.0f, "the page fits the screen");
 }
 

@@ -154,9 +154,9 @@ void Hud::drawClockBar(Canvas& canvas) const {
         const float gap = clockDockGapDp * dp_;
         const float timeSize = clockTimeDp * dp_;
         const float centre = dock.bar.centreY();
-        text_.drawCentred(
-            canvas, clock_,
-            Point{dock.leftBadge.x - gap - text_.measure(clock_, timeSize), centre}, timeSize, ink);
+        text_.drawCentred(canvas, clock_,
+                          Point{dock.leftBadge.x - gap - text_.measure(clock_, timeSize), centre},
+                          timeSize, ink);
         text_.drawCentred(canvas, date_, Point{dock.rightBadge.right() + gap, centre},
                           clockDateDp * dp_, ink);
         return;

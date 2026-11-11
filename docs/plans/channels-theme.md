@@ -61,9 +61,10 @@ format doc lists them with ranges. Groups:
 - `spacing`: the toolkit's lengths.
 - `tiles`: `style` (`glass`, iiSU's chrome and turning cyan-violet ring; `channel`, a white glossy
   body with a thin edge and an accent outline when focused), the focus grow (scale), the edge,
-  body and well colours.
-- `home`: the scroll mode it defaults to (`scrolling` or `pages`), whether Home has a bottom bar
-  with the clock and date (`clockBar`), and whether the top bar's pill still shows the clock.
+  body and well colours, and a tile's shape on a set page (`aspect`).
+- `home`: the scroll mode it defaults to (`scrolling` or `pages`), the page of pages mode
+  (`columns`, `rows`, `fill`), whether Home has a bottom bar with the clock and date (`clockBar`),
+  and whether the top bar's pill still shows the clock.
 - `sounds`: a shipped set by name (`marimba`, `glass`, `pluck`) or a folder in the theme holding
   the effect files (`src/audio/effect.hpp`'s names); a missing file plays the default set's.
 - `music`: an optional Ogg Vorbis or WAV loop in the folder.
@@ -71,11 +72,17 @@ format doc lists them with ranges. Groups:
 ## Layout under Channels
 
 All of it is tokens and options on the existing owners, not a second Home:
-- `HomeGrid` in Paged mode (the theme's scroll default) with 4 x 3 cells a page; empty slots as
-  wells (`TilePainter`, `channel` style).
-- The bottom bar (`Hud`): a pale band along the bottom edge with a soft top rim, the time large in
-  its middle and the date under it, from `TopBarClock`'s tick (`ui::ClockText` and a date line);
-  the grid's bottom inset grows by the band. The dock stands on the band.
+- `HomeGrid` in Paged mode (the theme's scroll default) with a set page (`HomeLayout`'s
+  `SetPage`): 4 x 3 cells half again as wide as tall, filled row by row, centred between the page
+  arrows, one page to a screen with the page pill under it; empty slots as wells (`TilePainter`,
+  `channel` style). A turn slides the page; Left or Right off its edge turns it. A tall screen
+  takes three across and up to six rows.
+- Art in a wide cell (`TilePainter::artBox`): cropped while three quarters of it stay, else whole
+  over a faint crop of itself; a game without art reads its name.
+- The bottom bar (`Hud`): a pale band as tall as the dock's row with a soft top rim; the dock
+  stands on it, the time before the dock and the date after it, from `TopBarClock`'s tick
+  (`ui::ClockText` and a date line). Under 600 dp of width both share a line above the dock's
+  row, and only then does the grid's bottom inset grow.
 - Hover-grow: the pointer focuses the tile under it (`CellGrid::hover`, as today) and the focused
   tile eases up to the theme's grow; the press pulse dips it.
 
@@ -109,15 +116,22 @@ what rings past the loop's end is folded onto its start.
    Channels folder with its palette and Nunito.
 4. The sound set and the menu music: the timbre, the cues and loop, the Interface sounds row's
    "Theme's", the music switch and its player.
+5. The page and the bar (`docs/issues/channels-layout.md`): the page's tokens, the set page in
+   `HomeLayout`, wells, the slide and the edge turn in `HomeGrid`, art in a wide cell, the clock
+   beside the dock.
+
+All five are built.
 
 ## Proof
 
 Hidden openSU in a home of its own under `scratch/channels-theme/`: Home, a console's shelf,
 Settings and a game's details in both themes; the iiSU frames compared with frames taken on HEAD
 before the change. The cues and the loop are files in the theme folder, played back to check.
+Step 5's frames are under `scratch/channels-layout/` (the issue lists them).
 
 ## Left out
 
 - Wii Remote and DolphinBar pointer input: a later task.
 - The painters that still draw with the fixed `palette` (on-screen keyboard, mapping editor, chord
   list, volume display) keep the iiSU colours until they take the theme too.
+- The page pill and arrows keep iiSU's glass look.
