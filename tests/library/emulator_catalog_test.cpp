@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iterator>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -196,19 +197,27 @@ void coreEntries() {
 void xdgConfigFolder() {
     const EmulatorCatalog plain = EmulatorCatalog::shipped(OPENSU_ASSETS_DIR, "/home/p");
     const EmulatorEntry* duck = plain.find("duckstation");
-    expect(duck != nullptr && duck->config == "/home/p/.local/share/duckstation" && duck->saves &&
-               duck->saves->folder == "/home/p/.local/share/duckstation/memcards",
+    if (duck == nullptr || !duck->saves) {
+        throw std::runtime_error{"DuckStation is listed with its memory cards"};
+    }
+    const SaveStore& cards = *duck->saves;
+    expect(duck->config == "/home/p/.local/share/duckstation" &&
+               cards.folder == "/home/p/.local/share/duckstation/memcards",
            "without XDG_CONFIG_HOME DuckStation keeps its data under ~/.local/share");
     expect(duck->configOf(true) ==
                    "/home/p/.var/app/org.duckstation.DuckStation/config/duckstation" &&
-               duck->saves.value().flatpakFolder ==
+               cards.flatpakFolder ==
                    "/home/p/.var/app/org.duckstation.DuckStation/config/duckstation/memcards",
            "its Flatpak, whose sandbox sets XDG_CONFIG_HOME, keeps it in the sandbox's config");
     const EmulatorCatalog set =
         EmulatorCatalog::shipped(OPENSU_ASSETS_DIR, "/home/p", "/home/p/.config");
     const EmulatorEntry* duckSet = set.find("duckstation");
-    expect(duckSet != nullptr && duckSet->config == "/home/p/.config/duckstation" &&
-               duckSet->saves.value().folder == "/home/p/.config/duckstation/memcards",
+    if (duckSet == nullptr || !duckSet->saves) {
+        throw std::runtime_error{"DuckStation is listed with its memory cards"};
+    }
+    const SaveStore& setCards = *duckSet->saves;
+    expect(duckSet->config == "/home/p/.config/duckstation" &&
+               setCards.folder == "/home/p/.config/duckstation/memcards",
            "with XDG_CONFIG_HOME set DuckStation keeps it there, as the game started reads it");
     const EmulatorEntry* pcsx2 = set.find("pcsx2");
     expect(pcsx2 != nullptr && pcsx2->config == "/home/p/.config/PCSX2",
