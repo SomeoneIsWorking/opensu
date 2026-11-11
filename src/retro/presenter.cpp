@@ -540,8 +540,10 @@ void Presenter::recordCapture(VkCommandBuffer commands, VkImage image) {
 }
 
 Readback Presenter::readBack() {
-    if (options_.hidden ? !drawnOffscreen_ || *drawnOffscreen_ >= targets_.size()
-                        : !lastFrame_ || !readable_ || stale_ || targets_.empty()) {
+    const std::optional<std::size_t> drawn = drawnOffscreen_;
+    const std::optional<FrameImage> last = lastFrame_;
+    if (options_.hidden ? !drawn || *drawn >= targets_.size()
+                        : !last || !readable_ || stale_ || targets_.empty()) {
         return {};
     }
     waitAll();
@@ -561,7 +563,8 @@ Readback Presenter::readBack() {
         memory = device_->allocate(needs, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         check(vkBindBufferMemory(vk_, buffer, memory, 0), "vkBindBufferMemory");
-        if (options_.hidden) {
+        // Only a hidden presenter draws offscreen; the check above leaves one of the two.
+        if (drawn) {
             const Slot& slot = slots_[slot_];
             check(vkResetFences(vk_, 1, &slot.done), "vkResetFences");
             check(vkResetCommandBuffer(slot.commands, 0), "vkResetCommandBuffer");
@@ -572,7 +575,7 @@ Readback Presenter::readBack() {
             VkBufferImageCopy region{};
             region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
             region.imageExtent = {extent_.width, extent_.height, 1};
-            vkCmdCopyImageToBuffer(slot.commands, targets_[drawnOffscreen_.value()].image,
+            vkCmdCopyImageToBuffer(slot.commands, targets_[*drawn].image,
                                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer, 1, &region);
             check(vkEndCommandBuffer(slot.commands), "vkEndCommandBuffer");
             VkSubmitInfo submit{};
@@ -581,12 +584,12 @@ Readback Presenter::readBack() {
             submit.pCommandBuffers = &slot.commands;
             check(device_->submit(submit, slot.done), "vkQueueSubmit");
             waitAll();
-        } else {
+        } else if (last) {
             // A swapchain image is out of reach once presented, so the frame is shown once more.
             capture_ = buffer;
             captured_ = false;
             FrameStages unmeasured;
-            present(lastFrame_.value(), false, {}, nullptr, unmeasured);
+            present(*last, false, {}, nullptr, unmeasured);
             capture_ = VK_NULL_HANDLE;
             waitAll();
             if (!captured_) {
