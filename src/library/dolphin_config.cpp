@@ -229,9 +229,6 @@ std::string dolphinSlotSettings(std::string_view ini, std::string_view section,
     if (iniValueIn(ini, device).value_or("").starts_with(sdlSource)) {
         return withIniValue(ini, device, virtualPad(player));
     }
-    if (controller == DolphinController::WiiRemote && remote == nullptr) {
-        return std::string{ini};
-    }
     std::string out = withIniValue(ini, device, virtualPad(player));
     const auto set = [&out, section](std::string_view key, std::string_view value) {
         out = withIniValue(out, IniKey{.section = section, .key = key}, value);
@@ -241,6 +238,9 @@ std::string dolphinSlotSettings(std::string_view ini, std::string_view section,
             set(mapping.key, mapping.value);
         }
         return out;
+    }
+    if (remote == nullptr) {
+        return std::string{ini};
     }
     set("Extension", extensionNames.at(static_cast<std::size_t>(remote->extension)));
     set("Options/Sideways Wiimote", flag(remote->orientation == WiiOrientation::Sideways));
