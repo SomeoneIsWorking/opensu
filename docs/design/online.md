@@ -1,19 +1,22 @@
 # Playing online
 
-Two people play one game over the internet with no server of ours: no relay, no lobby. `src/online/`
-gets two shells to agree on a game; the game itself then runs as a LAN session does, over
+Two people play one game over the internet with no server of ours: no relay, no lobby. Lucent's
+transport (`lucent::p2p`, `lucent/docs/p2p.md`) takes a code to an authenticated path; `src/online/`
+gets two shells to agree on a game over it; the game itself then runs as a LAN session does, over
 `netplay::UdpTransport` in `opensu-retro`. The reasoning is in `docs/plans/wan-netplay.md`.
 
 ## Owns
 
 - `online::Meeting`: a thread from Play online until both sides agree, or fail. Input: `Network`
-  (STUN servers, interfaces, the router) and `Patience`; output: a `View` for the screen, and an
-  `Agreement` (port, peer, keys, saves, clock, delay).
-- `invite_code`: what a code holds, read and written. `stun`: a Binding request. `nat_pmp`,
-  `upnp_igd`: a router's mapping behind `PortMapper`. `port_lease`: that mapping kept and taken down.
-  `rendezvous`: the sealed Hello, Welcome and Knock. `reliable_link`: Ask, Answer, Save and Go.
-  `host_network`: interfaces, which of them a code keeps (`reachableLocals`), the default gateway,
-  name lookups.
+  (Lucent's `p2p::DirectNetwork`: STUN servers, interfaces, the router) and `Patience` (Lucent's,
+  plus `agreeing`); output: a `View` for the screen, and an `Agreement` (port, peer, the game keys,
+  saves, clock, delay). It runs Lucent's `p2p::Connector` to a path, then Ask, Answer, Save and Go
+  over Lucent's `ReliableLink` with openSU's caps. It owns openSU's code prefixes (`OSU`, `OSR`), its
+  key label (`opensu-online`) and the words for each failure and code problem.
+- Lucent owns the rest: codes (`p2p::Descriptor`), STUN, NAT-PMP, UPnP and the lease, which
+  addresses a code keeps (`p2p::reachable_locals`), the sealed Hello, Welcome and Knock
+  (`p2p::Handshake`) and the session's keys (`p2p::SessionKeys`: `link` and `game`, one per
+  sender).
 - `app::OnlinePlay` and `app::OnlineScreen`: the shell's side, on its loop. `app::NetplayRun`: the
   session folder, the launch and the save put back, for LAN and online alike.
 
@@ -55,7 +58,7 @@ Tailscale and ZeroTier.
 
 With Tailscale or ZeroTier on both machines nothing changes in openSU, which neither ships nor
 installs either: it uses the interface the player's own install made. A code holds at most 3 local
-addresses (`mostAddresses`), and `reachableLocals` picks them:
+addresses (Lucent's `p2p::kMostAddresses`), and `p2p::reachable_locals` picks them:
 
 1. Interfaces without a carrier are left out: Docker's and libvirt's bridges sit up with none while
    nothing runs on them, and would otherwise take the slots.
@@ -80,7 +83,7 @@ The lab proves the path with a stand-in interface; a real network is the player'
 2. Create a network, join it from both (`zerotier-cli join <network id>`), and authorise both
    members in the network's page.
 3. Check each machine has an address on it (`ip -br addr` shows a `zt...` interface).
-4. On the host, Play online on a game: its log's `[online] ... local (...)` line names the `zt`
+4. On the host, Play online on a game: its log's `[p2p] ... local (...)` line names the `zt`
    address first.
 5. The friend pastes the code: both connect with no reply code needed, as over a LAN.
 6. With LAN on in both, Settings › LAN lists the other openSU found over ZeroTier (`[lan] found
@@ -95,8 +98,8 @@ direct path works. This puts a third party in the path, which `docs/plans/wan-ne
 out; the reasons it is taken now are there. What stands:
 
 - The friend tries the direct paths first, then the ZeroTier one, before `Failure::Unreachable`.
-  The code moves to Lucent's descriptor, which carries each backend's candidates, in one version
-  change when openSU takes it.
+  The code is Lucent's descriptor (version 2), which carries each backend's candidates; a code from
+  an openSU before it is refused as from another version.
 - An ad-hoc network is open to anyone who knows its port, so nothing that arrives over it is taken
   unless it opens under the code's secret: one handshake for every backend.
 - libzt is a library linked into openSU and its runner, not a runner, so G001's rule against

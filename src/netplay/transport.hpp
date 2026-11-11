@@ -1,6 +1,6 @@
 // transport — how a netplay session's messages reach the other players. A session only sends and
 // takes datagrams, so a path is one implementation of this: sealed UDP (`udp_transport`), whether
-// pairing or an invite code (`online::Rendezvous`) found the other machine.
+// pairing or an invite code (Lucent's `p2p::Handshake`) found the other machine.
 #pragma once
 
 #include <chrono>

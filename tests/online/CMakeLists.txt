@@ -1,10 +1,8 @@
-# The internet path through its shipping code: codes, STUN, the router's protocols against stand-ins,
-# and two machines over loopback, with forged, replayed and oversized datagrams thrown at them.
-foreach(name host_network invite_code stun port_lease rendezvous reliable_link meeting)
-    add_executable(online_${name}_test ${name}_test.cpp)
-    target_link_libraries(online_${name}_test PRIVATE opensu::online lucent::lucent)
-    target_include_directories(online_${name}_test
-        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../ui" "${CMAKE_CURRENT_SOURCE_DIR}/..")
-    opensu_warnings(online_${name}_test)
-    add_test(NAME online_${name} COMMAND online_${name}_test)
-endforeach()
+# Two meetings over loopback with a stand-in STUN server, through the shipping code. The transport
+# under them is Lucent's and tested there (`lucent/tests/p2p`).
+add_executable(online_meeting_test meeting_test.cpp)
+target_link_libraries(online_meeting_test PRIVATE opensu::online lucent::lucent)
+target_include_directories(online_meeting_test
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../ui" "${CMAKE_CURRENT_SOURCE_DIR}/..")
+opensu_warnings(online_meeting_test)
+add_test(NAME online_meeting COMMAND online_meeting_test)

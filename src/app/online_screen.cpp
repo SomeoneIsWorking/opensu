@@ -3,7 +3,7 @@
 #include "gpu2d/ui/layout.hpp"
 #include "gpu2d/ui/widgets.hpp"
 
-#include "online/invite_code.hpp"
+#include "lucent/p2p/descriptor.h"
 
 namespace opensu::app {
 namespace {
@@ -28,7 +28,7 @@ std::unique_ptr<tk::Widget> OnlineScreen::build(const tk::Theme& theme) {
         card.add<tk::Label>(page.note, tk::TextRole::Body, true);
     }
     if (!page.code.empty()) {
-        card.add<tk::Label>(online::spaced(page.code), tk::TextRole::Body, true);
+        card.add<tk::Label>(lucent::p2p::spaced(page.code), tk::TextRole::Body, true);
         card.add<tk::Button>(
             copyId, "Copy code",
             [this] {

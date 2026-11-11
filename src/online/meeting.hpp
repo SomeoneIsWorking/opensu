@@ -1,9 +1,8 @@
-// meeting — two people getting from a code to a game, on a thread of its own: this machine's
-// addresses found (STUN, the router), the code shown, the other machine found (`Rendezvous`), then
-// over `ReliableLink` the ask, the friend's answer, both saves and the word to go. The owner looks
-// at `view`, passes on what the player does and takes the `Agreement` when it is `Ready`, by then
-// with the socket closed so a runner can bind its port. Every wait has a limit and ends in words
-// that say what to do next.
+// meeting — two people getting from a code to a game, on a thread of its own: Lucent's
+// `p2p::Connector` takes the code to an authenticated path, then over its `ReliableLink` the ask,
+// the friend's answer, both saves and the word to go. The owner looks at `view`, passes on what the
+// player does and takes the `Agreement` when it is `Ready`, by then with the socket closed so a
+// runner can bind its port. Every wait has a limit and ends in words that say what to do next.
 #pragma once
 
 #include <chrono>
@@ -14,55 +13,49 @@
 #include <stop_token>
 #include <string>
 #include <thread>
-#include <vector>
 
-#include "host_network.hpp"
-#include "invite_code.hpp"
 #include "lan/wire.hpp"
-#include "port_lease.hpp"
-#include "reliable_link.hpp"
-#include "rendezvous.hpp"
+#include "lucent/p2p/connector.h"
+#include "lucent/p2p/reliable_link.h"
 
 namespace opensu::online {
 
-/// Public STUN servers of two operators, so a NAT that varies its mapping shows.
-inline constexpr std::string_view defaultStunServers =
-    "stun.l.google.com:19302,stun.cloudflare.com:3478";
+/// openSU's names for its codes, and the label that keeps its keys its own.
+inline constexpr lucent::p2p::CodePrefixes codePrefixes{"OSU", "OSR"};
+inline constexpr std::string_view keyLabel = "opensu-online";
+
+/// The problem with a pasted code, in words for the player.
+[[nodiscard]] std::string_view textOf(lucent::p2p::CodeProblem problem) noexcept;
 
 /// Where a meeting looks for what it needs; a test or a lab points these elsewhere.
-struct Network {
-    /// `host:port`, comma-separated.
-    std::string stunServers{defaultStunServers};
-    /// Instead of the system's.
-    std::optional<std::vector<lucent::net::Ipv4Interface>> interfaces;
-    /// Whether to ask the router for a port at all.
-    bool router{true};
-    /// NAT-PMP's address; the default gateway when not set.
-    std::optional<stream::UdpAddress> natPmp;
-    /// Where SSDP searches go; the multicast group when not set.
-    std::optional<stream::UdpAddress> ssdp;
-};
+using Network = lucent::p2p::DirectNetwork;
 
-/// How long each wait lasts.
-struct Patience {
-    /// A host's code stays good this long.
-    std::chrono::seconds invite{std::chrono::minutes{10}};
-    /// A friend tries the host alone this long before showing a reply code.
-    std::chrono::milliseconds direct{std::chrono::seconds{3}};
-    /// A friend keeps trying this long after pasting the invite.
-    std::chrono::seconds friendTries{std::chrono::minutes{2}};
-    /// Both punch this long once the host has the friend's reply.
-    std::chrono::seconds punch{std::chrono::seconds{15}};
+/// How long each wait lasts: Lucent's to the connection, then the agreement's.
+struct Patience : lucent::p2p::Patience {
     /// A question to a player, and the whole of what follows the connection.
     std::chrono::seconds agreeing{std::chrono::minutes{3}};
+};
+
+/// The kinds of message the shells send over the link, each capped.
+enum class LinkKind : std::uint8_t {
+    /// The ROM, its console and what must match (`lan::wire::NetplayAsk`).
+    Ask = 1,
+    /// Yes, or no and why.
+    Answer = 2,
+    /// One player's save.
+    Save = 3,
+    /// The session's clock and delay; both start.
+    Go = 4,
 };
 
 /// What both start a session with.
 struct Agreement {
     /// The local port the runner binds, and where the other machine is.
     std::uint16_t port{0};
-    stream::UdpAddress peer;
-    SessionKeys keys;
+    lucent::net::Endpoint peer;
+    /// The keys the runners' session seals under: this side's, then the other's.
+    lucent::p2p::crypto::Bytes sendKey;
+    lucent::p2p::crypto::Bytes receiveKey;
     std::string hostSave;
     std::string friendSave;
     lan::wire::NetplayClock clock;
@@ -71,7 +64,7 @@ struct Agreement {
     /// Frames a runner may run past the input it has; 0 for lockstep.
     unsigned ahead{0};
     /// The router's mapping, while the game runs.
-    std::unique_ptr<PortLease> lease;
+    std::unique_ptr<lucent::p2p::PortLease> lease;
 };
 
 class Meeting {
@@ -127,7 +120,7 @@ class Meeting {
     Meeting(Network network, Patience patience, lan::wire::NetplayAsk ask, std::string save,
             bool rollback);
     /// A friend who pasted `invite`.
-    Meeting(Network network, Patience patience, Invite invite);
+    Meeting(Network network, Patience patience, lucent::p2p::Invite invite);
     ~Meeting();
     Meeting(const Meeting&) = delete;
     Meeting& operator=(const Meeting&) = delete;
@@ -136,7 +129,7 @@ class Meeting {
 
     [[nodiscard]] View view() const;
     /// The host's player pasted `code`; nothing when it is taken, else what is wrong with it.
-    [[nodiscard]] std::optional<CodeProblem> reply(std::string_view code);
+    [[nodiscard]] std::optional<lucent::p2p::CodeProblem> reply(std::string_view code);
     /// The friend's player said yes, offering `save`.
     void accept(std::string save);
     /// The friend said no, or cannot play; the host is told `why`.
@@ -146,28 +139,27 @@ class Meeting {
 
     /// `failure` in words for the player.
     [[nodiscard]] static std::string textOf(Failure failure);
-    /// The input delay for a measured round trip.
     /// What a host with a core that may roll back asks for, from the frames `delayFor` gives: the
     /// least delay, and at least the rest as frames to run ahead.
     [[nodiscard]] static unsigned aheadFor(unsigned delay) noexcept;
+    /// The input delay for a measured round trip.
     [[nodiscard]] static unsigned delayFor(std::chrono::milliseconds roundTrip) noexcept;
 
   private:
     /// What the player did, which the thread picks up.
     struct Inbox {
-        std::optional<Reach> reply;
         std::optional<std::string> accepted;
         std::optional<std::string> declined;
     };
-    struct Gathered;
+    using ReliableLink = lucent::p2p::ReliableLink;
+    using LinkMessage = lucent::p2p::LinkMessage;
 
+    [[nodiscard]] static lucent::p2p::ConnectorConfig configOf(Network network,
+                                                               const Patience& patience);
     void run(const std::stop_token& stop);
     void meet(const std::stop_token& stop);
-    [[nodiscard]] Gathered gather(const std::stop_token& stop,
-                                  const stream::UdpSocket& socket) const;
-    [[nodiscard]] std::optional<Found> find(const std::stop_token& stop,
-                                            std::unique_ptr<stream::UdpSocket>& socket,
-                                            Gathered& gathered);
+    /// The connector's view as this meeting's, until it is connected.
+    [[nodiscard]] std::unique_ptr<lucent::p2p::Connection> connect(const std::stop_token& stop);
     void agreeAsHost(const std::stop_token& stop, ReliableLink& link,
                      const lan::wire::NetplayAsk& ask, Agreement& agreement);
     void agreeAsFriend(const std::stop_token& stop, ReliableLink& link, Agreement& agreement);
@@ -176,18 +168,15 @@ class Meeting {
     void drain(const std::stop_token& stop, ReliableLink& link, std::chrono::milliseconds most);
     void fail(Failure failure, std::string refusal = {});
     void show(Step step);
-    void offer(std::string code, bool closed, Step step);
     [[nodiscard]] Inbox takeInbox();
     [[nodiscard]] bool failed() const;
 
-    Network network_;
     Patience patience_;
     /// The host's.
     std::optional<lan::wire::NetplayAsk> ask_;
     std::string save_;
     bool rollback_{false};
-    /// The friend's; for the host, its secret alone until a reach goes in.
-    Invite invite_;
+    std::unique_ptr<lucent::p2p::Connector> connector_;
 
     mutable std::mutex mutex_;
     View view_;

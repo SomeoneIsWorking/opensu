@@ -93,8 +93,10 @@ if(NOT SQLITE3_FOUND)
         FEDORA sqlite-devel DEBIAN libsqlite3-dev)
 endif()
 
-# Lucent is the project logger. Shared, not vendored.
+# Lucent is the project logger and owns the online transport (`lucent::online`). Shared, not
+# vendored.
 set(LUCENT_ROOT "$ENV{HOME}/repo/lucent" CACHE PATH "Shared Lucent checkout")
+set(LUCENT_BUILD_ONLINE ON CACHE BOOL "openSU plays online over Lucent's transport" FORCE)
 
 add_subdirectory("${LUCENT_ROOT}" "${CMAKE_BINARY_DIR}/lucent" EXCLUDE_FROM_ALL)
 

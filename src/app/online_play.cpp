@@ -95,7 +95,7 @@ bool OnlinePlay::owns(const std::string& id) {
 online::Network OnlinePlay::network() const {
     online::Network network;
     if (const std::string& servers = preferences_.values().onlineStunServers; !servers.empty()) {
-        network.stunServers = servers;
+        network.stun_servers = servers;
     }
     return network;
 }
@@ -215,8 +215,9 @@ void OnlinePlay::closeCode() {
 }
 
 void OnlinePlay::submitCode() {
-    online::CodeProblem problem{};
-    std::optional<online::Invite> invite = online::readInvite(codeDraft_, problem);
+    lucent::p2p::CodeProblem problem{};
+    std::optional<lucent::p2p::Invite> invite =
+        lucent::p2p::read_invite(codeDraft_, online::codePrefixes, problem);
     secrets::wipe(codeDraft_);
     codeDraft_.clear();
     if (!invite) {
@@ -310,7 +311,7 @@ void OnlinePlay::submitReply() {
     if (!meeting_) {
         return;
     }
-    const std::optional<online::CodeProblem> problem = meeting_->reply(replyDraft_);
+    const std::optional<lucent::p2p::CodeProblem> problem = meeting_->reply(replyDraft_);
     replyProblem_ = problem ? std::string{online::textOf(*problem)} : std::string{};
     if (!problem) {
         replyDraft_.clear();
@@ -408,20 +409,14 @@ void OnlinePlay::closeQuestion() {
 void OnlinePlay::begin(online::Agreement& agreement, const library::Game& game) {
     const bool host = hosting_;
     closeScreen();
-    const std::array<std::uint8_t, 4> ip = [&agreement] {
-        std::array<std::uint8_t, 4> bytes{};
-        std::memcpy(bytes.data(), &agreement.peer.ip, bytes.size());
-        return bytes;
-    }();
     const std::string peer =
-        std::format("{}.{}.{}.{}:{}", ip[0], ip[1], ip[2], ip[3], agreement.peer.port);
-    const online::SessionKeys& keys = agreement.keys;
+        std::format("{}:{}", lucent::net::format_ipv4(agreement.peer.address), agreement.peer.port);
     const std::string why = run_.begin({.game = game,
                                         .slot = host ? 0U : 1U,
                                         .peer = peer,
                                         .port = agreement.port,
-                                        .sendKey = host ? keys.gameHost : keys.gameFriend,
-                                        .receiveKey = host ? keys.gameFriend : keys.gameHost,
+                                        .sendKey = agreement.sendKey,
+                                        .receiveKey = agreement.receiveKey,
                                         .saves = {agreement.hostSave, agreement.friendSave},
                                         .clock = agreement.clock,
                                         .delay = agreement.delay,

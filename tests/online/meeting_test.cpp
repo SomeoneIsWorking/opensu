@@ -7,23 +7,39 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "check.hpp"
-#include "online/stun.hpp"
+#include "lucent/udp_socket.h"
 #include "support/test_main.hpp"
 
 namespace {
 
 using namespace std::chrono_literals;
 using namespace opensu::online;
-using opensu::stream::UdpAddress;
-using opensu::stream::UdpSocket;
+using lucent::net::Endpoint;
+using lucent::net::UdpSocket;
+using lucent::p2p::CodeProblem;
+using lucent::p2p::Descriptor;
+using lucent::p2p::DirectReach;
+using lucent::p2p::Invite;
 using opensu::test::expect;
+namespace crypto = lucent::p2p::crypto;
 
-constexpr std::uint32_t loopbackIp = 0x0100007FU;
+constexpr std::uint32_t loopbackIp = 0x7F000001U;
+
+UdpSocket bound(std::uint16_t port) {
+    std::string error;
+    std::optional<UdpSocket> socket = UdpSocket::bind(port, error);
+    if (!socket) {
+        opensu::test::fail("a UDP socket");
+    }
+    return std::move(*socket);
+}
 
 /// Answers each Binding request with the address it came from, plus `portShift`.
 class StunServer {
@@ -41,7 +57,7 @@ class StunServer {
     void serve(const std::stop_token& stop) {
         std::vector<char> buffer(2048);
         while (!stop.stop_requested()) {
-            UdpAddress from;
+            Endpoint from;
             const auto length = socket_.receive(buffer, from, 10ms);
             if (!length || *length < 20) {
                 continue;
@@ -52,24 +68,22 @@ class StunServer {
             answer.append("\x00\x20\x00\x08\x00\x01", 6);
             answer.push_back(static_cast<char>(port >> 8U));
             answer.push_back(static_cast<char>(port & 0xFFU));
-            const std::array<std::uint8_t, 4> cookie{0x21, 0x12, 0xA4, 0x42};
-            std::array<std::uint8_t, 4> ip{};
-            std::memcpy(ip.data(), &from.ip, ip.size());
-            for (std::size_t at = 0; at < ip.size(); ++at) {
-                answer.push_back(static_cast<char>(ip[at] ^ cookie[at]));
+            const std::uint32_t ip = from.address ^ 0x2112A442U;
+            for (int shift = 24; shift >= 0; shift -= 8) {
+                answer.push_back(static_cast<char>((ip >> static_cast<unsigned>(shift)) & 0xFFU));
             }
             socket_.send(from, answer);
         }
     }
 
     std::uint16_t shift_;
-    UdpSocket socket_{0};
+    UdpSocket socket_{bound(0)};
     std::jthread thread_;
 };
 
 Network network(const std::string& stun) {
     Network network;
-    network.stunServers = stun;
+    network.stun_servers = stun;
     network.router = false;
     // Loopback stands in for a LAN interface.
     lucent::net::Ipv4Interface loopback;
@@ -85,7 +99,7 @@ Network network(const std::string& stun) {
 Patience quick() {
     Patience patience;
     patience.direct = 300ms;
-    patience.friendTries = 3s;
+    patience.friend_tries = 3s;
     patience.punch = 1s;
     patience.invite = 3s;
     patience.agreeing = 5s;
@@ -98,7 +112,7 @@ opensu::lan::wire::NetplayAsk ask() {
             .title = "Link",
             .size = 1024,
             .sha256 = std::string(64, 'a'),
-            .salt = opensu::secrets::crypto::randomBytes(opensu::secrets::crypto::nonceBytes),
+            .salt = crypto::random_bytes(16),
             .facts = {.coreRevision = "abc", .options = {{"a", "1"}}, .bios = {}},
             .clock = {.epochMs = 1000, .utcOffset = 7200}};
 }
@@ -130,14 +144,17 @@ std::string inviteFrom(const Meeting& host) {
 
 Invite invited(const std::string& code) {
     CodeProblem problem{};
-    return opensu::test::need(readInvite(code, problem), "the code reads");
+    return opensu::test::need(lucent::p2p::read_invite(code, codePrefixes, problem),
+                              "the code reads");
 }
 
 void oneCodeToASession(bool rollback) {
     const StunServer stun;
     Meeting host{network(stun.address()), quick(), ask(), "host save", rollback};
     const Invite invite = invited(inviteFrom(host));
-    expect(!invite.reach.publics.empty() && !invite.reach.varying, "the code holds STUN's address");
+    expect(invite.descriptor.direct && !invite.descriptor.direct->publics.empty() &&
+               !invite.descriptor.direct->varying,
+           "the code holds STUN's address");
     Meeting joiner{network(stun.address()), quick(), invite};
     expect(waitFor(
                [&joiner] {
@@ -158,7 +175,9 @@ void oneCodeToASession(bool rollback) {
     const std::unique_ptr<Agreement> onHost = host.takeAgreement();
     const std::unique_ptr<Agreement> onFriend = joiner.takeAgreement();
     expect(onHost && onFriend, "both hold the session");
-    expect(onHost->keys == onFriend->keys, "the same keys");
+    expect(onHost->sendKey == onFriend->receiveKey && onHost->receiveKey == onFriend->sendKey &&
+               onHost->sendKey != onHost->receiveKey,
+           "one key each way, the same on both");
     expect(onHost->hostSave == "host save" && onFriend->hostSave == "host save" &&
                onHost->friendSave == "friend save" && onFriend->friendSave == "friend save",
            "both saves on both sides");
@@ -167,7 +186,7 @@ void oneCodeToASession(bool rollback) {
     expect(onHost->ahead == onFriend->ahead && (onHost->ahead >= 4) == rollback,
            "a rollback host says how far to run ahead");
     expect(onHost->port != 0 && onHost->peer.port == onFriend->port, "the host dials the friend");
-    const UdpSocket rebound{onHost->port};
+    const UdpSocket rebound = bound(onHost->port);
     expect(rebound.port() == onHost->port, "the port is free for the runner");
     expect(!host.takeAgreement(), "a session is taken once");
 }
@@ -211,11 +230,10 @@ void codeLapses() {
 
 /// Reach no socket answers on.
 Invite deadInvite(bool varying) {
-    const UdpSocket nobody{0};
-    Invite invite{.secret = opensu::secrets::crypto::randomBytes(secretBytes), .reach = {}};
-    invite.reach.port = nobody.port();
-    invite.reach.locals = {loopbackIp};
-    invite.reach.varying = varying;
+    const UdpSocket nobody = bound(0);
+    Invite invite{.secret = crypto::random_bytes(lucent::p2p::kSecretBytes), .descriptor = {}};
+    invite.descriptor.direct = DirectReach{
+        .port = nobody.port(), .publics = {}, .locals = {loopbackIp}, .varying = varying};
     return invite;
 }
 
@@ -259,13 +277,14 @@ void hostGivesUpOnPunching() {
     const StunServer stun;
     Meeting host{network(stun.address()), quick(), ask(), {}, false};
     const Invite invite = invited(inviteFrom(host));
-    Reach dead;
-    dead.port = 9;
-    dead.locals = {loopbackIp};
-    expect(host.reply(writeReply(dead, opensu::secrets::crypto::randomBytes(secretBytes))) ==
+    Descriptor dead;
+    dead.direct = DirectReach{.port = 9, .publics = {}, .locals = {loopbackIp}, .varying = false};
+    const crypto::Bytes other = crypto::random_bytes(lucent::p2p::kSecretBytes);
+    expect(host.reply(lucent::p2p::write_reply(dead, other, codePrefixes)) ==
                CodeProblem::OtherInvite,
            "a reply to another invite is refused");
-    expect(!host.reply(writeReply(dead, invite.secret)), "the right reply is taken");
+    expect(!host.reply(lucent::p2p::write_reply(dead, invite.secret, codePrefixes)),
+           "the right reply is taken");
     expect(waitFor(
                [&host] {
                    return stepOf(host) == Meeting::Step::Punching;

@@ -40,10 +40,10 @@ LAN_ONLY = {name: False for name in ("steam", "epic", "gog", "emulators", "plugi
 
 
 def invite_secret(code: str) -> str:
-    """The 16 secret bytes of an invite, after its version and flags, in hex."""
+    """The 16 secret bytes of an invite, after its version, in hex."""
     bits = "".join(format(ALPHABET.index(letter), "05b") for letter in code[3:])
     data = bytes(int(bits[at : at + 8], 2) for at in range(0, len(bits) - 7, 8))
-    return data[2:18].hex()
+    return data[1:17].hex()
 
 
 def stun_list() -> str:

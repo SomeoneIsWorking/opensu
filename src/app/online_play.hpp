@@ -115,7 +115,7 @@ class OnlinePlay {
     std::string codeDraft_;
     std::string replyDraft_;
     std::string replyProblem_;
-    std::unique_ptr<online::PortLease> lease_;
+    std::unique_ptr<lucent::p2p::PortLease> lease_;
     online::Meeting::View view_;
 };
 

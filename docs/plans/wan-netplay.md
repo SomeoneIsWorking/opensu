@@ -200,12 +200,12 @@ names Tailscale and ZeroTier. No waiting state is without a limit, and every one
 
 | Promise | Held by | Tested by |
 |---|---|---|
-| No open ports outside a session | The socket exists only from Play online to the end of the game. `PortLease` removes the mapping when it goes; `OnlinePlay` holds it, so a dead runner still takes it down | `port_lease_test`, the lab's gateway log |
-| Short lease on a crash | 120 s, renewed at half. A router offering only permanent mappings (UPnP 725) gets none from us: punching is used instead | `port_lease_test`; `kill -9` in the lab |
-| One-time secret, unauthenticated dropped | Everything but STUN opens under a key from the secret, or is dropped uncounted. STUN answers must match a transaction id and come from the server asked | `rendezvous_test` |
+| No open ports outside a session | The socket exists only from Play online to the end of the game. `PortLease` removes the mapping when it goes; `OnlinePlay` holds it, so a dead runner still takes it down | Lucent's `lucent_p2p_port_lease_tests`, the lab's gateway log |
+| Short lease on a crash | 120 s, renewed at half. A router offering only permanent mappings (UPnP 725) gets none from us: punching is used instead | Lucent's `lucent_p2p_port_lease_tests`; `kill -9` in the lab |
+| One-time secret, unauthenticated dropped | Everything but STUN opens under a key from the secret, or is dropped uncounted. STUN answers must match a transaction id and come from the server asked | Lucent's `lucent_p2p_handshake_tests` |
 | Secret never logged | Nothing logs a code, a key or a datagram; a code is only on the screen and clipboard | The lab greps both logs for the secret |
-| Same encryption as the LAN seal | `stream::PacketSeal` and `secrets::crypto` | `rendezvous_test`, `reliable_link_test` |
-| Game data only | Four message kinds; no field is a path | `reliable_link_test` |
+| Same encryption as the LAN seal | Lucent's `p2p::PacketSeal` (the wire of `stream::PacketSeal`) and `p2p::crypto` | Lucent's `lucent_p2p_handshake_tests`, `lucent_p2p_reliable_link_tests` |
+| Game data only | Four message kinds, each capped (`online::Meeting`'s `LinkCaps`); no field is a path | Lucent's `lucent_p2p_reliable_link_tests`, `meeting_test` |
 | States size-checked | `netplay::StateSync`, against the local core's own size before any allocation, then its hash, and none at all when both machines hold the same state | `state_sync_test` |
 | The friend sees your IP | The question before a code is made or entered | Frame in the proof folder |
 

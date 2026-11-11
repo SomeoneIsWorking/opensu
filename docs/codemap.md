@@ -472,17 +472,8 @@ Design: `docs/design/libretro.md`. `opensu_retro` and the `opensu-retro` executa
 
 | Path | Owns |
 | --- | --- |
-| `src/online/meeting.*` | One thread from Play online until two shells agree or fail: gather, find, agree; what the screen shows (`View`), every limit (`Patience`), the failures in words |
-| `src/online/invite_code.*` | The invite (`OSU`) and reply (`OSR`) codes, written and read, Crockford base32, what is wrong with one |
-| `src/online/stun.*` | A STUN Binding request and its answer |
-| `src/online/port_mapper.hpp` | A router's mapping behind one interface (`PortMapper`) |
-| `src/online/nat_pmp.*` | `PortMapper` over NAT-PMP |
-| `src/online/upnp_igd.*` | `PortMapper` over UPnP: SSDP, the description, SOAP, each held to the address that answered |
-| `src/online/port_lease.*` | A mapping held: renewed at half its lease, taken down when it goes |
-| `src/online/rendezvous.*` | The sealed Hello, Welcome and Knock, and the session's keys (`SessionKeys`) |
-| `src/online/reliable_link.*` | Ordered capped messages over sealed datagrams: Ask, Answer, Save, Go, with keepalives giving the round trip |
-| `src/online/host_network*` | Which of Lucent's interfaces (`lucent::net::ipv4_interfaces`) a code keeps and in what order (`reachableLocals`: Tailscale's and ZeroTier's first, no idle bridge), ZeroTier's interface known (`zeroTier`); name lookups and the default gateway per platform |
-| `tests/online/` | Codes, STUN, leases, the rendezvous and link: forged, replayed, oversized and wrong input through the shipping code |
+| `src/online/meeting.*` | One thread from Play online until two shells agree or fail: Lucent's `p2p::Connector` to a path, then Ask, Answer, Save and Go over its `ReliableLink`; what the screen shows (`View`), every limit (`Patience`), the failures and code problems in words, openSU's code prefixes (`OSU`, `OSR`) and key label |
+| `tests/online/` | Two meetings over loopback with a stand-in STUN server: a code to a session, declined, lapsed, both strict, a friend and a host giving up, cancelling. The transport under them is tested in Lucent (`tests/p2p`) |
 
 ## Plugins
 
