@@ -112,6 +112,12 @@ struct Settings {
     /// Whether openSU checks for GE-Proton at start and daily, downloads the newest and removes
     /// all but the newest two; off, it checks only when asked and removes nothing.
     bool keepGeProtonCurrent{true};
+    /// Whether Wii games on Dolphin play the real Wii Remotes when they are here; off, they always
+    /// play the emulated remote on a pad.
+    bool realWiiRemotes{true};
+    /// Where the screen is in a Wii Remote's camera view, from pointing at its corners; the
+    /// camera's whole view until then.
+    std::optional<gamepad::WiiPointerRange> wiiPointer;
     /// The games pinned to a runner of their own, by game id: its Wine binary.
     std::map<std::string, std::filesystem::path> wineRunnerPins;
 
@@ -126,13 +132,6 @@ struct Settings {
 
     /// Which on-screen keyboard openSU's fields open.
     input::KeyboardStyle keyboardStyle{input::KeyboardStyle::DaisyWheel};
-
-    /// Whether Wii games on Dolphin play the real Wii Remotes when they are here; off, they always
-    /// play the emulated remote on a pad.
-    bool realWiiRemotes{true};
-    /// Where the screen is in a Wii Remote's camera view, from pointing at its corners; the
-    /// camera's whole view until then.
-    std::optional<gamepad::WiiPointerRange> wiiPointer;
 
     /// The night light in session mode.
     NightLightChoice nightLight{NightLightChoice::Desktop};

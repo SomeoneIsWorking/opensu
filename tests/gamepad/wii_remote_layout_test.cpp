@@ -187,19 +187,21 @@ void testRange() {
     const auto near = [](float value, float wanted) {
         return value > wanted - 0.001f && value < wanted + 0.001f;
     };
-    expect(range && near(range->across(0.5f), 0.5f) && near(range->down(0.75f), 0.5f),
+    expect(range.has_value(), "two corners apart fit a range");
+    expect(near(range.value().across(0.5f), 0.5f) && near(range.value().down(0.75f), 0.5f),
            "the corners' aims are the screen's edges");
-    expect(range->barPlace() == SensorBarPlace::Above, "the camera's middle is above the screen");
-    expect(WiiPointerRange::fromCorners(0.2f, 0.1f, 0.8f, 0.4f)->barPlace() ==
+    expect(range.value().barPlace() == SensorBarPlace::Above,
+           "the camera's middle is above the screen");
+    expect(WiiPointerRange::fromCorners(0.2f, 0.1f, 0.8f, 0.4f).value().barPlace() ==
                SensorBarPlace::Below,
            "and below it, the other way");
-    expect(near(WiiPointerRange::fromCorners(0.8f, 0.9f, 0.2f, 0.3f)->across(0.2f), 1.0f),
+    expect(near(WiiPointerRange::fromCorners(0.8f, 0.9f, 0.2f, 0.3f).value().across(0.2f), 1.0f),
            "a camera that reads across the other way is fitted too");
     expect(!WiiPointerRange::fromCorners(0.5f, 0.5f, 0.51f, 0.9f),
            "one spot pointed at twice fits nothing");
 
     WiiPointer pointer;
-    pointer.setRange(*range);
+    pointer.setRange(range.value());
     const PadEvent report{EV_SYN, SYN_REPORT, 0};
     // The bar's two ends 200 dots apart about 512 across, 576 down: the camera's 0.5, 0.75.
     for (const PadEvent dot :

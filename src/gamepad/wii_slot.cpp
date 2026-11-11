@@ -117,9 +117,10 @@ WiiSlot::WiiSlot(int fd, std::filesystem::path node, int index)
 }
 
 WiiSlot::WiiSlot(WiiSlot&& other) noexcept
-    : fd_{std::exchange(other.fd_, -1)}, node_{std::move(other.node_)}, index_{other.index_},
-      remote_{other.remote_}, plugged_{other.plugged_}, setup_{other.setup_},
-      extension_{other.extension_}, now_{std::move(other.now_)} {
+    : fd_{std::exchange(other.fd_, -1)}, node_{std::move(other.node_)},
+      name_{std::move(other.name_)}, index_{other.index_}, remote_{other.remote_},
+      plugged_{other.plugged_}, setup_{other.setup_}, extension_{other.extension_},
+      now_{std::move(other.now_)} {
 }
 
 WiiSlot& WiiSlot::operator=(WiiSlot&& other) noexcept {
@@ -129,6 +130,7 @@ WiiSlot& WiiSlot::operator=(WiiSlot&& other) noexcept {
         }
         fd_ = std::exchange(other.fd_, -1);
         node_ = std::move(other.node_);
+        name_ = std::move(other.name_);
         index_ = other.index_;
         remote_ = other.remote_;
         plugged_ = other.plugged_;
@@ -302,7 +304,7 @@ void WiiSlot::takeButtons(std::uint8_t first, std::uint8_t second, std::vector<W
 }
 
 void WiiSlot::takeExtension(std::span<const std::uint8_t> bytes, std::vector<WiiPartEvent>& out) {
-    const WiiRemotePart part = *extension_;
+    const WiiRemotePart part = extension_.value();
     const std::size_t before = out.size();
     if (part == WiiRemotePart::Nunchuk) {
         axis(part, ABS_HAT0X, static_cast<std::int32_t>(bytes[0]) - stickMiddle, out);

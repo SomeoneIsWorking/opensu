@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <optional>
 #include <span>
+#include <string>
 #include <vector>
 
 #include "pad_translator.hpp"
@@ -48,6 +49,10 @@ class WiiSlot {
     }
     [[nodiscard]] const std::filesystem::path& node() const noexcept {
         return node_;
+    }
+    /// The remote's name, as hid-wiimote names a Bluetooth one.
+    [[nodiscard]] const std::string& name() const noexcept {
+        return name_;
     }
 
     /// Asks whether a remote is there; its status report answers. False when the slot refuses
@@ -100,6 +105,7 @@ class WiiSlot {
 
     int fd_{-1};
     std::filesystem::path node_;
+    std::string name_{"Nintendo Wii Remote"};
     int index_{0};
     bool remote_{false};
     /// The status says an extension is plugged in.
