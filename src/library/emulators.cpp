@@ -152,7 +152,9 @@ std::optional<EmulatorInstall> locateCore(const EmulatorEntry& entry,
                                  : ours   ? InstallSource::DownloadedCore
                                           : InstallSource::Core;
     std::vector<std::string> command{search.runner.string(), "--core", file};
-    if (search.hiddenRunner) {
+    if (search.runnerMode == RunnerMode::Silent) {
+        command.emplace_back("--silent");
+    } else if (search.runnerMode == RunnerMode::Hidden) {
         command.emplace_back("--hidden");
     }
     for (const CoreOption& option : entry.coreOptions) {
@@ -262,7 +264,7 @@ bool downloadedByOpensu(InstallSource source) noexcept {
 
 EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& dataDir,
                                         std::vector<fs::path> executablePath, fs::path runner,
-                                        fs::path system, bool hiddenRunner) {
+                                        fs::path system, RunnerMode runnerMode) {
     FuseSupport fuse = FuseSupport::detect(executablePath);
     return EmulatorSearch{
         .executablePath = std::move(executablePath),
@@ -274,23 +276,24 @@ EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& da
         .cores = CoreSearch::standard(home, dataDir),
         .runner = std::move(runner),
         .system = std::move(system),
-        .hiddenRunner = hiddenRunner,
+        .runnerMode = runnerMode,
     };
 }
 
 EmulatorSetup EmulatorSetup::standard(const config::Config& config, bool hidden, bool standalone) {
-    return EmulatorSetup{.catalog = EmulatorCatalog::shipped(config.assetsDir, config.home,
-                                                             config.sessionXdgConfigHome),
-                         .search = EmulatorSearch::standard(
-                             config.home, config.dataDir, config.executablePath, config.retroRunner,
-                             config.retroSystemDir,
-                             // Inside a Gamescope its window reaches that Gamescope's screen alone.
-                             hidden && !config.insideGamescope),
-                         .overrides = config.emulators,
-                         .shaders = ShaderPack::under(config.dataDir),
-                         .presets = VisualPresets::shipped(config.assetsDir, config.dataDir),
-                         .wiiControls = WiiControls::shipped(config.assetsDir),
-                         .standalone = standalone};
+    return EmulatorSetup{
+        .catalog =
+            EmulatorCatalog::shipped(config.assetsDir, config.home, config.sessionXdgConfigHome),
+        .search = EmulatorSearch::standard(config.home, config.dataDir, config.executablePath,
+                                           config.retroRunner, config.retroSystemDir,
+                                           !hidden                  ? RunnerMode::Player
+                                           : config.insideGamescope ? RunnerMode::Silent
+                                                                    : RunnerMode::Hidden),
+        .overrides = config.emulators,
+        .shaders = ShaderPack::under(config.dataDir),
+        .presets = VisualPresets::shipped(config.assetsDir, config.dataDir),
+        .wiiControls = WiiControls::shipped(config.assetsDir),
+        .standalone = standalone};
 }
 
 Emulators Emulators::discover(EmulatorCatalog catalog, const EmulatorSearch& search,

@@ -35,8 +35,11 @@ struct RunnerOptions {
     std::filesystem::path saves;
     /// The core's system directory (BIOS images).
     std::filesystem::path system;
-    /// An unmapped window drawing offscreen, no sound device and no pads: for tests and tools.
+    /// An unmapped window drawing offscreen, and silent: for tests and tools.
     bool hidden{false};
+    /// No sound device and no pads, the window drawn as usual: a hidden shell's game in its
+    /// Gamescope.
+    bool silent{false};
     bool fullscreen{false};
     int width{1280};
     int height{800};

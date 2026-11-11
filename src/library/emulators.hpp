@@ -32,6 +32,11 @@
 
 namespace opensu::library::roms {
 
+/// How a built-in emulator's runner runs: as the player's, or for a hidden shell's tool run with no
+/// sound device and no pads (`Silent`, its window drawn where it is) or also drawing offscreen
+/// (`Hidden`).
+enum class RunnerMode : std::uint8_t { Player, Silent, Hidden };
+
 /// Where emulators are looked for.
 struct EmulatorSearch {
     std::vector<std::filesystem::path> executablePath;
@@ -50,19 +55,18 @@ struct EmulatorSearch {
     std::filesystem::path runner;
     /// The runner's system folder, where cores look for their BIOS files.
     std::filesystem::path system;
-    /// Whether the runner starts hidden: an unmapped window, no sound, no pads.
-    bool hiddenRunner{false};
+    /// How the runner starts.
+    RunnerMode runnerMode{RunnerMode::Player};
 
     /// PATH, then openSU's downloads under `dataDir`, ~/Applications, ~/AppImages and
     /// ~/.local/bin for AppImages, then the user's and the system's Flatpak installations; cores
     /// as `CoreSearch::standard` looks for them, run by `runner` with BIOS files in `system`,
-    /// hidden when `hiddenRunner`; the shell names each launch's saves folder
+    /// as `runnerMode` says; the shell names each launch's saves folder
     /// (`prepareRetroLaunch`).
-    [[nodiscard]] static EmulatorSearch standard(const std::filesystem::path& home,
-                                                 const std::filesystem::path& dataDir,
-                                                 std::vector<std::filesystem::path> executablePath,
-                                                 std::filesystem::path runner,
-                                                 std::filesystem::path system, bool hiddenRunner);
+    [[nodiscard]] static EmulatorSearch
+    standard(const std::filesystem::path& home, const std::filesystem::path& dataDir,
+             std::vector<std::filesystem::path> executablePath, std::filesystem::path runner,
+             std::filesystem::path system, RunnerMode runnerMode);
 };
 
 /// How an emulator got onto this machine.
@@ -167,8 +171,9 @@ struct EmulatorSetup {
     /// built-in emulators are searched for.
     bool standalone{true};
 
-    /// The standard search for `config`, with the catalog shipped in its assets folder; a
-    /// `hidden` shell starts the runner hidden.
+    /// The standard search for `config`, with the catalog shipped in its assets folder. A `hidden`
+    /// shell starts the runner silent inside a Gamescope, whose screen alone its window reaches,
+    /// else hidden.
     [[nodiscard]] static EmulatorSetup standard(const config::Config& config, bool hidden,
                                                 bool standalone);
 

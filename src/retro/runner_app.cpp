@@ -88,8 +88,8 @@ std::unique_ptr<gamepad::PadSource> openPads() {
     }
 }
 
-std::unique_ptr<AudioOutput> openAudio(AudioSink& sink, bool hidden) {
-    if (hidden) {
+std::unique_ptr<AudioOutput> openAudio(AudioSink& sink, bool silent) {
+    if (silent) {
         return std::make_unique<ClockOutput>(sink);
     }
     try {
@@ -284,9 +284,9 @@ RunnerExit RunnerApp::run() {
     if (netplay) {
         netplay->attach(*core, environment);
     }
-    const std::unique_ptr<AudioOutput> audio = openAudio(sink, options_.hidden);
+    const std::unique_ptr<AudioOutput> audio = openAudio(sink, options_.silent);
     const std::unique_ptr<gamepad::PadSource> pads =
-        options_.hidden || options_.embedded ? nullptr : openPads();
+        options_.silent || options_.embedded ? nullptr : openPads();
     const std::unique_ptr<ControlServer> control = openControl(options_, *core, netplay.get());
     if (control) {
         control->reportResume(resumed);

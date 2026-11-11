@@ -160,7 +160,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/library/romset_convert.*` | That plan built at launch into a cached zip, checked by CRC-32. |
 | `src/library/emulator_choice.*` | The `emulator` key at the Game and System layers: game pick, romset, system pick, search; the layer keys a game reads its settings through |
 | `assets/emulators.json`, `src/library/emulator_catalog.*` | A built-in emulator is an entry with `"core": "<name>_libretro"` and no launchers or release; `"coreOptions"` the core options it starts with (a GPU core's Vulkan renderer) |
-| `src/library/emulators.*` | A built-in emulator is installed when its core is found and `opensu-retro` is beside `opensu` (`config::retroRunnerBeside`); it starts as `opensu-retro --core <core> [--option <key>=<value>]... <rom>`, with `--hidden` from a hidden shell |
+| `src/library/emulators.*` | A built-in emulator is installed when its core is found and `opensu-retro` is beside `opensu` (`config::retroRunnerBeside`); it starts as `opensu-retro --core <core> [--option <key>=<value>]... <rom>`; a hidden shell adds `--silent` inside a Gamescope and `--hidden` elsewhere (`RunnerMode`) |
 | `src/app/emulator_downloads.*`, `emulator_settings.*`, `details_controller.*` | Download, update check, update and removal of a core and of the shader pack, on the same paths as an AppImage; the Shader presets rows; the details page's video sources, Game settings button and Clear |
 | `src/library/linked_play.*`, `src/app/lan_netplay.*` | A game on a core that links its system (`"links"`): split screen and netplay commands (`linkable`, `splitScreenGame`, `netplayGame`, `sessionCore`); the shell's half of a session (Play with <name>, the question, saves, the session's file) |
 | `src/app/retro_session.*` | The shell's side of the control channel: each launch's control file, the port read from it, the requests (`setVideo` for `POST /video`), the load failure handed over and the file removed |
@@ -180,7 +180,7 @@ and `hardware_render` (and through it `core_environment`) include Vulkan, only t
 ## 4. Contracts
 
 **Command line.** `opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--settings
-<file>] [--option <key>=<value>]... [--players N] [--netplay <file>] [--arcade <buttons>:<ways>] [--hidden] [--touch <dp>] [--validate] [--frames N] [--frame-png <file>]
+<file>] [--option <key>=<value>]... [--players N] [--netplay <file>] [--arcade <buttons>:<ways>] [--hidden | --silent] [--touch <dp>] [--validate] [--frames N] [--frame-png <file>]
 <rom>`. `--arcade` says the game is an arcade machine and what its set's listing says of its controls (**Touch controls**). `--option` sets a core option for this run: the core's value for that key when it offers
 it, else (a warning logged) its default. `--settings` names a JSON
 object of resolved video settings (`{"video.aspect": "4:3", "video.integer": "off",
@@ -192,7 +192,12 @@ the active profile's system folder), `--system` to `<data>/opensu/system/`, both
 `--validate`, `--frames` and `--frame-png` are for tests and tools: `--hidden` is an unmapped SDL
 window (`SDL_WINDOW_HIDDEN`) whose Vulkan surface the core's device is made for (Dolphin builds its
 frontend swapchain from it) but never presented to, drawing into an offscreen image, no sound device (the sink is drained
-by the clock, so rate control still runs), no pads and no keyboard; `--touch <dp>` (hidden only) shows
+by the clock, so rate control still runs), no pads and no keyboard. `--silent` is a hidden shell's
+game inside its Gamescope: no sound device and no pads, as hidden, but the window is drawn and
+presented as the player's is, fullscreen on that Gamescope's surface. A window inside a Gamescope
+reaches that Gamescope's screen alone, so the hidden rule (nothing on the player's desktop) holds
+while a tool run takes the player's present path; the sound device and the pads are the player's
+in any session, so they stay off. `--touch <dp>` (hidden only) shows
 the touch controls at that many pixels per dp, as Android's window does, for `POST /touch`; `--validate` enables
 `VK_LAYER_KHRONOS_validation` when installed and counts its errors; `--frames` stops after N frames;
 `--frame-png` (hidden only) writes the last image shown, letterboxing included, at the window's

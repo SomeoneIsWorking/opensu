@@ -407,6 +407,36 @@ void installedCoresFirst(const Fixture& f) {
            "an installed core's listing is asked for first, the rest in the catalog's order");
 }
 
+/// A hidden shell's runner is silent in a Gamescope and hidden elsewhere; the player's is neither.
+void runnerModeWords(const Fixture& f) {
+    using opensu::library::roms::RunnerMode;
+    const fs::path cores = f.base / "mode-cores";
+    write(cores / ("mame2010_libretro" + std::string{coreTarget.librarySuffix}));
+    EmulatorSearch search;
+    search.cores = opensu::library::roms::CoreSearch{{}, {cores}, {}};
+    search.runner = cores / "opensu-retro";
+    writeExecutable(search.runner);
+    const auto words = [&search](RunnerMode mode) {
+        search.runnerMode = mode;
+        const Emulators emulators = Emulators::discover(shipped(), search, {});
+        const opensu::library::roms::EmulatorInstall* install =
+            emulators.installed("mame2010-core");
+        return install != nullptr ? install->command : std::vector<std::string>{};
+    };
+    const auto has = [](const std::vector<std::string>& command, std::string_view word) {
+        return std::ranges::find(command, word) != command.end();
+    };
+    const std::vector<std::string> player = words(RunnerMode::Player);
+    const std::vector<std::string> silent = words(RunnerMode::Silent);
+    const std::vector<std::string> hidden = words(RunnerMode::Hidden);
+    expect(!player.empty() && !has(player, "--silent") && !has(player, "--hidden"),
+           "the player's runner is started as it is");
+    expect(has(silent, "--silent") && !has(silent, "--hidden"),
+           "a hidden shell's runner in a Gamescope draws on its screen, silent");
+    expect(has(hidden, "--hidden") && !has(hidden, "--silent"),
+           "a hidden shell's runner elsewhere is hidden");
+}
+
 void biosIsNoGame(const Fixture& f) {
     const std::string program = "program rom";
     const std::string bios = "bios rom";
@@ -534,6 +564,7 @@ int main() try {
     providerLists(fixture);
     biosIsNoGame(fixture);
     installedCoresFirst(fixture);
+    runnerModeWords(fixture);
     downloadsMergeWithDetected(fixture);
     std::printf("roms: all checks passed\n");
     return 0;
