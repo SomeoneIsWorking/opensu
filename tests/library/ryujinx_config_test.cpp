@@ -94,12 +94,25 @@ void testPads() {
            "a file that is not Ryujinx's JSON is left alone");
 }
 
+void testFirstStart() {
+    const json run = json::parse(ryujinxLaunchSettings("", sdlGuid));
+    expect(run["version"] == 70, "a player without the file gets Ryujinx's first-start settings");
+    expect(run.contains("gui_columns") && run.contains("hotkeys") && run.contains("res_scale"),
+           "every field Ryujinx reads is there");
+    expect(run["update_checker_type"] == "Off", "its update check is off");
+    expect(run["input_config"].size() == 1 &&
+               run["input_config"][0]["id"] == ryujinxPadId(sdlGuid, 0) &&
+               run["input_config"][0]["backend"] == "GamepadSDL2",
+           "player 1 plays the first virtual pad, not the keyboard");
+}
+
 } // namespace
 
 int main() try {
     testPadId();
     testUpdateCheck();
     testPads();
+    testFirstStart();
     std::printf("ryujinx_config: all checks passed\n");
     return 0;
 } catch (...) {

@@ -5,7 +5,8 @@
 // virtual pad, its mappings kept. A player on the keyboard, or player 1 without an entry, gets a
 // Pro Controller in the standard layout on its virtual pad. SDL3 builds' enum names are written as
 // their SDL2 equivalents and a version 71 file migrated down to 70, which 1.3.3 reads and SDL3
-// builds still accept; a newer file stays the player's.
+// builds still accept; a newer file stays the player's. A player without the file gets the one
+// Ryujinx writes on its first start, whose player 1 would be on the keyboard.
 #pragma once
 
 #include <filesystem>
@@ -34,15 +35,14 @@ inline constexpr int ryujinxNewestRead{71};
 [[nodiscard]] std::string ryujinxPadId(std::string_view sdlGuid, int index);
 
 /// The settings `json` as a launch reads them with the virtual pads of `padGuid`, the update check
-/// off; with `padGuid` empty only the update check is changed. `json` as it was when it is not
-/// Ryujinx's settings.
+/// off; with `padGuid` empty only the update check is changed. An empty `json` is read as Ryujinx's
+/// first-start settings; `json` as it was when it is not Ryujinx's settings.
 [[nodiscard]] std::string ryujinxLaunchSettings(std::string_view json, std::string_view padGuid);
 
 /// The files the rule may set under the settings folder.
 [[nodiscard]] std::vector<std::filesystem::path> ryujinxFiles(const LaunchSetup& setup);
 
-/// `Config.json` as the launch reads it; nothing when the player has none, since Ryujinx writes
-/// its own on its first start.
+/// `Config.json` as the launch reads it; made when the player has none.
 [[nodiscard]] std::vector<RunFile> ryujinxRunFiles(const LaunchSetup& setup);
 
 } // namespace opensu::library
