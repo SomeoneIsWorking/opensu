@@ -107,10 +107,16 @@ keep the emulated layout only for players who have none.
 ## Proof
 
 - Steps 1 to 3: focused tests (`wii_remotes`, `dolphin_config`, `devices_controller`).
-- Step 2 in Dolphin: a hidden openSU with a fake bar under `<data>/hidden-hid` launching a Wii
-  game on a scratch copy of the player's Dolphin config writes `Source = 2` and continuous
-  scanning; without the fake it writes `Source = 1` and the note. A real remote reaching the game
-  needs the player.
+- Step 2 in Dolphin, proved on scratch copies of the player's config with DKC Returns, a hidden host
+  in headless Gamescope and a guest pressing Start and A (`scratch/dolphinbar/runs/`):
+  `wii-absent`, the player's real-remote slot 1, logged "Wiimote1 is an emulated remote set for
+  Donkey Kong Country Returns" and wrote `Source = 1`, `openSU/Real Remote = True` and the
+  sideways layout on `SDL/0/Xbox 360 Controller`; the presses reached the game ("Controls set to
+  horizontal position"). `wii-present`, that noted slot with a fake mode-4 bar under
+  `<data>/hidden-hid`, logged "Wiimote1 is a real remote again" and wrote `Source = 2`, the note
+  gone, `WiimoteContinuousScanning=True`; the game stayed on "Press any button on the Wii Remote",
+  since the pad no longer plays slot 1. The player's real files were untouched in both. A real
+  remote reaching the game needs the player.
 
 ## Player's check with the real bar
 
