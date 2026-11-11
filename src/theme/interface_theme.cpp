@@ -257,7 +257,7 @@ class Reader {
         const bool climbs = std::ranges::any_of(relative, [](const std::filesystem::path& part) {
             return part == "..";
         });
-        if (spelled.empty() || relative.is_absolute() || relative.has_root_name() || climbs ||
+        if (spelled.empty() || relative.has_root_path() || climbs ||
             spelled.find('\\') != std::string::npos) {
             return fail(name(key) + " is not a path inside the theme's folder");
         }
