@@ -85,7 +85,7 @@ void catalogPinIsRead() {
     std::string error;
     const EmulatorCatalog catalog =
         need(EmulatorCatalog::parse(R"({"emulators": )" + pinned + "}", "/home/p", error),
-             "a pinned core parses: " + error);
+             "a pinned core parses");
     expect(catalog.entries().front().systemFiles ==
                SystemFilesSource{"https://h/a.zip", std::string(64, 'a'), "dolphin-1/Data/Sys",
                                  "dolphin-emu/Sys"},
@@ -149,7 +149,7 @@ void installsReplacesAndRemoves(const fs::path& root) {
            "the record names the new pin");
 
     std::string error;
-    expect(files.remove("dolphin_libretro", error), "removal succeeds: " + error);
+    expect(files.remove("dolphin_libretro", error), "removal succeeds");
     expect(!fs::exists(sys / "codehandler.bin") && !fs::exists(sys / "GC/font_western.bin") &&
                read(sys / "GC/USA/IPL.bin") == "the player's BIOS",
            "removal takes openSU's files and leaves the player's");
