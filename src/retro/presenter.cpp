@@ -91,19 +91,23 @@ void Presenter::open() {
     pool.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     pool.queueFamilyIndex = device_->queueFamily();
     check(vkCreateCommandPool(vk_, &pool, nullptr, &commandPool_), "vkCreateCommandPool");
-    VkCommandBufferAllocateInfo allocate{};
-    allocate.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocate.commandPool = commandPool_;
-    allocate.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocate.commandBufferCount = 1;
-    check(vkAllocateCommandBuffers(vk_, &allocate, &commands_), "vkAllocateCommandBuffers");
-    VkFenceCreateInfo fence{};
-    fence.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fence.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-    check(vkCreateFence(vk_, &fence, nullptr, &done_), "vkCreateFence");
-    VkSemaphoreCreateInfo semaphore{};
-    semaphore.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    check(vkCreateSemaphore(vk_, &semaphore, nullptr, &acquired_), "vkCreateSemaphore");
+    slots_.resize(std::clamp<std::size_t>(options_.inFlight, 1, framesInFlight));
+    for (Slot& slot : slots_) {
+        VkCommandBufferAllocateInfo allocate{};
+        allocate.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocate.commandPool = commandPool_;
+        allocate.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocate.commandBufferCount = 1;
+        check(vkAllocateCommandBuffers(vk_, &allocate, &slot.commands), "vkAllocateCommandBuffers");
+        VkFenceCreateInfo fence{};
+        fence.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        fence.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+        check(vkCreateFence(vk_, &fence, nullptr, &slot.done), "vkCreateFence");
+        VkSemaphoreCreateInfo semaphore{};
+        semaphore.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        check(vkCreateSemaphore(vk_, &semaphore, nullptr, &slot.acquired), "vkCreateSemaphore");
+    }
+    lucent::info("retro", "the GPU draws up to {} frames at once", slots_.size());
 
     if (options_.hidden) {
         createOffscreen();
@@ -120,8 +124,11 @@ void Presenter::release() {
         if (swapchain_ != VK_NULL_HANDLE) {
             vkDestroySwapchainKHR(vk_, swapchain_, nullptr);
         }
-        vkDestroySemaphore(vk_, acquired_, nullptr);
-        vkDestroyFence(vk_, done_, nullptr);
+        for (const Slot& slot : slots_) {
+            vkDestroySemaphore(vk_, slot.acquired, nullptr);
+            vkDestroyFence(vk_, slot.done, nullptr);
+        }
+        slots_.clear();
         vkDestroyCommandPool(vk_, commandPool_, nullptr);
         overlay_.reset();
         compositor_.reset();
@@ -148,17 +155,19 @@ WindowInput Presenter::poll() {
 void Presenter::createOffscreen() {
     extent_ = {static_cast<std::uint32_t>(options_.width),
                static_cast<std::uint32_t>(options_.height)};
-    Target target;
     const VkImageCreateInfo create = imageInfo(
         format_, extent_, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
-    check(vkCreateImage(vk_, &create, nullptr, &target.image), "vkCreateImage");
-    targets_.push_back(target);
-    VkMemoryRequirements needs{};
-    vkGetImageMemoryRequirements(vk_, target.image, &needs);
-    offscreenMemory_ = device_->allocate(needs, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    check(vkBindImageMemory(vk_, target.image, offscreenMemory_, 0), "vkBindImageMemory");
-    targets_.back().view = device_->makeView(target.image, format_);
-    targets_.back().framebuffer = makeFramebuffer(targets_.back().view);
+    // One per slot, as a swapchain has an image for each frame in flight.
+    for (std::size_t made = 0; made < slots_.size(); ++made) {
+        Target& target = targets_.emplace_back();
+        check(vkCreateImage(vk_, &create, nullptr, &target.image), "vkCreateImage");
+        VkMemoryRequirements needs{};
+        vkGetImageMemoryRequirements(vk_, target.image, &needs);
+        target.memory = device_->allocate(needs, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        check(vkBindImageMemory(vk_, target.image, target.memory, 0), "vkBindImageMemory");
+        target.view = device_->makeView(target.image, format_);
+        target.framebuffer = makeFramebuffer(target.view);
+    }
 }
 
 VkFramebuffer Presenter::makeFramebuffer(VkImageView view) const {
@@ -277,10 +286,9 @@ void Presenter::destroyTargets() {
         if (options_.hidden) {
             vkDestroyImage(vk_, target.image, nullptr);
         }
+        vkFreeMemory(vk_, target.memory, nullptr);
     }
     targets_.clear();
-    vkFreeMemory(vk_, offscreenMemory_, nullptr);
-    offscreenMemory_ = VK_NULL_HANDLE;
 }
 
 void Presenter::dropSurface() {
@@ -350,7 +358,17 @@ void Presenter::reserve(std::uint32_t top, std::uint32_t bottom) noexcept {
 }
 
 VkResult Presenter::waitForFrame() {
-    return vkWaitForFences(vk_, 1, &done_, VK_TRUE, UINT64_MAX);
+    std::vector<VkFence> fences;
+    fences.reserve(slots_.size());
+    for (const Slot& slot : slots_) {
+        fences.push_back(slot.done);
+    }
+    return vkWaitForFences(vk_, static_cast<std::uint32_t>(fences.size()), fences.data(), VK_TRUE,
+                           UINT64_MAX);
+}
+
+void Presenter::waitAll() {
+    check(waitForFrame(), "vkWaitForFences");
 }
 
 void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
@@ -385,12 +403,14 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
         stages.add(stage, now - mark);
         mark = now;
     };
-    check(vkWaitForFences(vk_, 1, &done_, VK_TRUE, UINT64_MAX), "vkWaitForFences");
+    // The frame this slot held last, `slots_.size()` frames ago; the ones after it go on drawing.
+    const Slot& slot = slots_[slot_];
+    check(vkWaitForFences(vk_, 1, &slot.done, VK_TRUE, UINT64_MAX), "vkWaitForFences");
     step(Stage::Fence);
-    std::uint32_t index = 0;
+    auto index = static_cast<std::uint32_t>(slot_);
     if (!options_.hidden) {
-        const VkResult acquired =
-            vkAcquireNextImageKHR(vk_, swapchain_, UINT64_MAX, acquired_, VK_NULL_HANDLE, &index);
+        const VkResult acquired = vkAcquireNextImageKHR(vk_, swapchain_, UINT64_MAX, slot.acquired,
+                                                        VK_NULL_HANDLE, &index);
         step(Stage::Acquire);
         if (acquired == VK_ERROR_OUT_OF_DATE_KHR) {
             stale_ = true;
@@ -406,15 +426,16 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
             check(acquired, "vkAcquireNextImageKHR");
         }
     }
-    check(vkResetFences(vk_, 1, &done_), "vkResetFences");
-    check(vkResetCommandBuffer(commands_, 0), "vkResetCommandBuffer");
+    check(vkResetFences(vk_, 1, &slot.done), "vkResetFences");
+    const VkCommandBuffer commands = slot.commands;
+    check(vkResetCommandBuffer(commands, 0), "vkResetCommandBuffer");
     VkCommandBufferBeginInfo begin{};
     begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    check(vkBeginCommandBuffer(commands_, &begin), "vkBeginCommandBuffer");
-    if (compositor_->record(commands_, frame, uploadPending_,
+    check(vkBeginCommandBuffer(commands, &begin), "vkBeginCommandBuffer");
+    if (compositor_->record(commands, frame, uploadPending_,
                             DrawTarget{targets_[index].image, targets_[index].framebuffer}, extent_,
-                            stages)) {
+                            slot_, stages)) {
         uploadPending_ = false;
     }
     if (overlay != nullptr && overlay->width == extent_.width &&
@@ -426,19 +447,19 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
                                                               : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                                               VK_FILTER_NEAREST);
         }
-        overlay_->recordUpload(commands_, *overlay);
-        overlay_->recordDraw(commands_, targets_[index].framebuffer, extent_, {{0, 0}, extent_});
+        overlay_->recordUpload(commands, *overlay, slot_);
+        overlay_->recordDraw(commands, targets_[index].framebuffer, extent_, {{0, 0}, extent_});
     }
     if (capture_ != VK_NULL_HANDLE) {
-        recordCapture(targets_[index].image);
+        recordCapture(commands, targets_[index].image);
     }
-    check(vkEndCommandBuffer(commands_), "vkEndCommandBuffer");
+    check(vkEndCommandBuffer(commands), "vkEndCommandBuffer");
 
     std::vector<VkSemaphore> waits;
     std::vector<VkPipelineStageFlags> waitStages;
     std::vector<VkSemaphore> signals;
     if (!options_.hidden) {
-        waits.push_back(acquired_);
+        waits.push_back(slot.acquired);
         waitStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
         signals.push_back(targets_[index].drawn);
     }
@@ -450,7 +471,7 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
         signals.push_back(syncPending_.signal);
     }
     std::vector<VkCommandBuffer> buffers = std::move(syncPending_.commands);
-    buffers.push_back(commands_);
+    buffers.push_back(commands);
     syncPending_ = {};
     VkSubmitInfo submit{};
     submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -461,10 +482,11 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
     submit.pWaitDstStageMask = waitStages.data();
     submit.signalSemaphoreCount = static_cast<std::uint32_t>(signals.size());
     submit.pSignalSemaphores = signals.data();
-    check(device_->submit(submit, done_), "vkQueueSubmit");
+    check(device_->submit(submit, slot.done), "vkQueueSubmit");
+    slot_ = (slot_ + 1) % slots_.size();
     step(Stage::Record);
     if (options_.hidden) {
-        drawnOffscreen_ = true;
+        drawnOffscreen_ = index;
         shown_ = true;
         return;
     }
@@ -489,7 +511,7 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
     shown_ = shown_ || presented == VK_SUCCESS || presented == VK_SUBOPTIMAL_KHR;
 }
 
-void Presenter::recordCapture(VkImage image) {
+void Presenter::recordCapture(VkCommandBuffer commands, VkImage image) {
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
@@ -500,29 +522,29 @@ void Presenter::recordCapture(VkImage image) {
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = image;
     barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    vkCmdPipelineBarrier(commands_, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                          VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
     VkBufferImageCopy region{};
     region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
     region.imageExtent = {extent_.width, extent_.height, 1};
-    vkCmdCopyImageToBuffer(commands_, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, capture_, 1,
+    vkCmdCopyImageToBuffer(commands, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, capture_, 1,
                            &region);
     barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
     barrier.dstAccessMask = 0;
     barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    vkCmdPipelineBarrier(commands_, VK_PIPELINE_STAGE_TRANSFER_BIT,
+    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT,
                          VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1,
                          &barrier);
     captured_ = true;
 }
 
 Readback Presenter::readBack() {
-    if (options_.hidden ? !drawnOffscreen_
+    if (options_.hidden ? !drawnOffscreen_ || *drawnOffscreen_ >= targets_.size()
                         : !lastFrame_ || !readable_ || stale_ || targets_.empty()) {
         return {};
     }
-    check(vkWaitForFences(vk_, 1, &done_, VK_TRUE, UINT64_MAX), "vkWaitForFences");
+    waitAll();
     const VkDeviceSize size = static_cast<VkDeviceSize>(extent_.width) * extent_.height * 4;
     VkBufferCreateInfo create{};
     create.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -540,24 +562,25 @@ Readback Presenter::readBack() {
                                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         check(vkBindBufferMemory(vk_, buffer, memory, 0), "vkBindBufferMemory");
         if (options_.hidden) {
-            check(vkResetFences(vk_, 1, &done_), "vkResetFences");
-            check(vkResetCommandBuffer(commands_, 0), "vkResetCommandBuffer");
+            const Slot& slot = slots_[slot_];
+            check(vkResetFences(vk_, 1, &slot.done), "vkResetFences");
+            check(vkResetCommandBuffer(slot.commands, 0), "vkResetCommandBuffer");
             VkCommandBufferBeginInfo begin{};
             begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
             begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-            check(vkBeginCommandBuffer(commands_, &begin), "vkBeginCommandBuffer");
+            check(vkBeginCommandBuffer(slot.commands, &begin), "vkBeginCommandBuffer");
             VkBufferImageCopy region{};
             region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
             region.imageExtent = {extent_.width, extent_.height, 1};
-            vkCmdCopyImageToBuffer(commands_, targets_.front().image,
+            vkCmdCopyImageToBuffer(slot.commands, targets_[*drawnOffscreen_].image,
                                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer, 1, &region);
-            check(vkEndCommandBuffer(commands_), "vkEndCommandBuffer");
+            check(vkEndCommandBuffer(slot.commands), "vkEndCommandBuffer");
             VkSubmitInfo submit{};
             submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
             submit.commandBufferCount = 1;
-            submit.pCommandBuffers = &commands_;
-            check(device_->submit(submit, done_), "vkQueueSubmit");
-            check(vkWaitForFences(vk_, 1, &done_, VK_TRUE, UINT64_MAX), "vkWaitForFences");
+            submit.pCommandBuffers = &slot.commands;
+            check(device_->submit(submit, slot.done), "vkQueueSubmit");
+            waitAll();
         } else {
             // A swapchain image is out of reach once presented, so the frame is shown once more.
             capture_ = buffer;
@@ -565,7 +588,7 @@ Readback Presenter::readBack() {
             FrameStages unmeasured;
             present(*lastFrame_, false, {}, nullptr, unmeasured);
             capture_ = VK_NULL_HANDLE;
-            check(vkWaitForFences(vk_, 1, &done_, VK_TRUE, UINT64_MAX), "vkWaitForFences");
+            waitAll();
             if (!captured_) {
                 vkDestroyBuffer(vk_, buffer, nullptr);
                 vkFreeMemory(vk_, memory, nullptr);

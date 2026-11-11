@@ -18,6 +18,11 @@
 
 namespace opensu::retro {
 
+/// The most frames the presenter has submitted and not yet seen done; what is written per frame
+/// (command buffers, staging buffers, timestamps, descriptors rebound per frame) is made this many
+/// times, one per slot.
+inline constexpr std::size_t framesInFlight = 2;
+
 /// A Vulkan call or setup step that failed; the message names it.
 class VulkanError : public std::runtime_error {
   public:

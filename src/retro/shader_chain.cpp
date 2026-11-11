@@ -23,7 +23,7 @@ ShaderChain::ShaderChain(const std::filesystem::path& library, const std::filesy
     };
     filter_chain_vk_opt_t options{};
     options.version = LIBRASHADER_CURRENT_VERSION;
-    options.frames_in_flight = 1;
+    options.frames_in_flight = static_cast<std::uint32_t>(framesInFlight);
     options.use_dynamic_rendering = false;
     try {
         chain_ = library_.makeChain(loaded, handles, options);

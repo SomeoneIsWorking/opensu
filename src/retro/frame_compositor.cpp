@@ -236,10 +236,12 @@ void FrameCompositor::recordFrameArt(VkCommandBuffer commands, const DrawTarget&
         framePass_ =
             std::make_unique<OverlayPass>(device_, format_, finalLayout_, VK_FILTER_LINEAR);
     }
-    framePass_->recordUpload(commands, touch::OverlayImage{.rgba = art.rgba,
-                                                           .width = art.width,
-                                                           .height = art.height,
-                                                           .changed = uploadedArt_ != &art});
+    framePass_->recordUpload(commands,
+                             touch::OverlayImage{.rgba = art.rgba,
+                                                 .width = art.width,
+                                                 .height = art.height,
+                                                 .changed = uploadedArt_ != &art},
+                             slot_);
     uploadedArt_ = &art;
     framePass_->recordDraw(commands, target.framebuffer, extent, framed->second.art);
 }
@@ -261,7 +263,8 @@ void FrameCompositor::noteUntimed() const {
 
 void FrameCompositor::createPipeline() {
     input_ = std::make_unique<SampledInput>(
-        vk_, video_.sampling == settings::Sampling::Nearest ? VK_FILTER_NEAREST : VK_FILTER_LINEAR);
+        vk_, video_.sampling == settings::Sampling::Nearest ? VK_FILTER_NEAREST : VK_FILTER_LINEAR,
+        framesInFlight);
     const VkDescriptorSetLayout setLayout = input_->setLayout();
     const VkPushConstantRange push{VK_SHADER_STAGE_FRAGMENT_BIT, 0, framePushSize};
     VkPipelineLayoutCreateInfo layout{};
@@ -274,35 +277,36 @@ void FrameCompositor::createPipeline() {
           "vkCreatePipelineLayout");
     pipeline_ = makeFullscreenPipeline(vk_, renderPass_, pipelineLayout_, fragmentShader(video_),
                                        false, facing());
-    textureBound_ = false;
+    textureBound_.fill(false);
     if (texture_.ready()) {
-        bindTexture();
+        input_->bind(texture_.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        textureBound_.fill(true);
     }
 }
 
 void FrameCompositor::bindTexture() {
-    if (!textureBound_) {
-        input_->bind(texture_.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        textureBound_ = true;
+    if (!textureBound_.at(slot_)) {
+        input_->bind(slot_, texture_.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        textureBound_.at(slot_) = true;
     }
 }
 
 void FrameCompositor::ensureTexture(unsigned width, unsigned height) {
     if (texture_.ensure(width, height)) {
-        textureBound_ = false;
+        textureBound_.fill(false);
     }
 }
 
 void FrameCompositor::recordUpload(VkCommandBuffer commands, const FrameImage& frame) {
     ensureTexture(frame.width, frame.height);
-    texture_.recordUpload(commands, frame.rgba);
+    texture_.recordUpload(commands, frame.rgba, slot_);
     bindTexture();
 }
 
 void FrameCompositor::recordChain(VkCommandBuffer commands, const DrawTarget& target,
                                   VkExtent2D extent, const FrameImage& frame,
                                   const ChainImage& source) {
-    timer_.recordStart(commands);
+    timer_.recordStart(commands, slot_);
     const VkRect2D rect = placed(extent, frame);
     // librashader cannot turn its output, so a turned picture is drawn from the reduced image.
     if (scale_.scale() < 1.0F || turned_) {
@@ -310,12 +314,12 @@ void FrameCompositor::recordChain(VkCommandBuffer commands, const DrawTarget& ta
     } else {
         recordFullChain(commands, target, extent, frame, source, rect);
     }
-    timer_.recordEnd(commands);
+    timer_.recordEnd(commands, slot_);
 }
 
 void FrameCompositor::takeShaderTime(const FrameImage& frame, FrameStages& stages) {
-    // The presenter waited for the last frame's fence, so its times are in.
-    if (const std::optional<std::chrono::nanoseconds> spent = timer_.take()) {
+    // The presenter waited for this slot's fence, so the times of its last frame are in.
+    if (const std::optional<std::chrono::nanoseconds> spent = timer_.take(slot_)) {
         stages.add(FrameStages::Stage::Shader, *spent);
         scale_.add(*spent, frame.interval);
     }
@@ -384,7 +388,7 @@ void FrameCompositor::recordDraw(VkCommandBuffer commands, const DrawTarget& tar
         ready ? placeViewport(commands, placed(extent, frame), extent) : std::nullopt;
     if (viewport) {
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
-        const VkDescriptorSet set = input_->set();
+        const VkDescriptorSet set = input_->set(slot_);
         vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1,
                                 &set, 0, nullptr);
         const auto texelsWide = static_cast<float>(source.extent.width);
@@ -445,8 +449,8 @@ void FrameCompositor::recordCoreImage(VkCommandBuffer commands, const DrawTarget
     const VkExtent2D size{frame.width, frame.height};
     if (!chain_) {
         // Every frame: a view the core destroyed and made again can come back with the same handle.
-        input_->bind(image.view, image.layout);
-        textureBound_ = false;
+        input_->bind(slot_, image.view, image.layout);
+        textureBound_.at(slot_) = false;
         recordDraw(commands, target, extent, frame, ChainImage{image.image, image.format, size},
                    true);
     } else if (image.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
@@ -473,7 +477,9 @@ void FrameCompositor::recordCoreImage(VkCommandBuffer commands, const DrawTarget
 }
 
 bool FrameCompositor::record(VkCommandBuffer commands, const FrameImage& frame, bool upload,
-                             const DrawTarget& target, VkExtent2D extent, FrameStages& stages) {
+                             const DrawTarget& target, VkExtent2D extent, std::size_t slot,
+                             FrameStages& stages) {
+    slot_ = slot;
     takeShaderTime(frame, stages);
     if (frame.gpu) {
         recordCoreImage(commands, target, extent, frame, *frame.gpu);

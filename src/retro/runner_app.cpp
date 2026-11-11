@@ -269,6 +269,8 @@ RunnerExit RunnerApp::run() {
             .negotiation = hardware.requested() ? hardware.negotiation() : nullptr,
             .video = options_.video,
             .librashader = options_.librashader,
+            // A GPU core's images and sync index assume its frame is done before its next run.
+            .inFlight = hardware.requested() ? 1 : framesInFlight,
         });
     } catch (const std::exception& failure) {
         lucent::error("retro", "{}", failure.what());

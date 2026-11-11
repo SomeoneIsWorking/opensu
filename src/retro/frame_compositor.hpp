@@ -12,7 +12,9 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -116,12 +118,13 @@ class FrameCompositor {
         return renderPass_;
     }
 
-    /// Records drawing `frame` into `target` of `extent`, uploading it first when `upload` and the
-    /// frame is whole. Reports whether it uploaded. A core's image is read where it is, and the
-    /// core's next writes to it wait for that read. The GPU time of the last frame's shader preset
-    /// goes to `stages`. Throws VulkanError or ShaderError.
+    /// Records drawing `frame` into `target` of `extent` as frame slot `slot`, whose last frame
+    /// must be done, uploading it first when `upload` and the frame is whole. Reports whether it
+    /// uploaded. A core's image is read where it is, and the core's next writes to it wait for
+    /// that read. The GPU time of the shader preset in the slot's last frame goes to `stages`.
+    /// Throws VulkanError or ShaderError.
     bool record(VkCommandBuffer commands, const FrameImage& frame, bool upload,
-                const DrawTarget& target, VkExtent2D extent, FrameStages& stages);
+                const DrawTarget& target, VkExtent2D extent, std::size_t slot, FrameStages& stages);
 
   private:
     /// Everything the constructor made, in reverse; safe when partly made.
@@ -130,8 +133,7 @@ class FrameCompositor {
     void createPipeline();
     /// What `createPipeline` made, in reverse; safe when partly made.
     void destroyPipeline();
-    /// Points the input at the frame texture unless it already is; the previous frame's commands
-    /// must be done.
+    /// Points the slot's input at the frame texture unless it already is.
     void bindTexture();
     /// Makes the frame texture `width` by `height`; a remade texture needs binding again.
     void ensureTexture(unsigned width, unsigned height);
@@ -189,8 +191,11 @@ class FrameCompositor {
     VkPipelineLayout pipelineLayout_{VK_NULL_HANDLE};
     VkPipeline pipeline_{VK_NULL_HANDLE};
     StreamedTexture texture_;
-    /// Whether the input holds the texture's current view; a remade view can reuse the handle.
-    bool textureBound_{false};
+    /// Per frame slot, whether its input holds the texture's current view; a remade view can reuse
+    /// the handle.
+    std::array<bool, framesInFlight> textureBound_{};
+    /// The frame slot being recorded.
+    std::size_t slot_{0};
     FrameArtImages art_;
     /// Made when frame art is first drawn.
     std::unique_ptr<OverlayPass> framePass_;

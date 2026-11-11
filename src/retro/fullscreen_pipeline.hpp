@@ -3,32 +3,37 @@
 // caller's, reading one sampled image.
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
+#include <vector>
 
 #include <vulkan/vulkan.h>
 
 namespace opensu::retro {
 
 /// The one image a fullscreen fragment shader samples (set 0, binding 0) and the sampler it is
-/// read with.
+/// read with, in one descriptor set per frame slot, so a slot's set can be pointed elsewhere while
+/// another slot's frame still reads its own.
 class SampledInput {
   public:
-    /// Throws VulkanError.
-    SampledInput(VkDevice device, VkFilter filter);
+    /// `slots` descriptor sets. Throws VulkanError.
+    SampledInput(VkDevice device, VkFilter filter, std::size_t slots = 1);
     SampledInput(const SampledInput&) = delete;
     SampledInput& operator=(const SampledInput&) = delete;
     SampledInput(SampledInput&&) = delete;
     SampledInput& operator=(SampledInput&&) = delete;
     ~SampledInput();
 
-    /// Points the descriptor at `view` in `layout`; the commands reading the last one must be done.
+    /// Points every slot's set at `view` in `layout`; no commands reading any may be pending.
     void bind(VkImageView view, VkImageLayout layout);
+    /// Points `slot`'s set at `view` in `layout`; no commands reading it may be pending.
+    void bind(std::size_t slot, VkImageView view, VkImageLayout layout);
     [[nodiscard]] VkDescriptorSetLayout setLayout() const {
         return setLayout_;
     }
-    [[nodiscard]] VkDescriptorSet set() const {
-        return set_;
+    [[nodiscard]] VkDescriptorSet set(std::size_t slot = 0) const {
+        return sets_.at(slot);
     }
 
   private:
@@ -38,7 +43,7 @@ class SampledInput {
     VkDescriptorSetLayout setLayout_{VK_NULL_HANDLE};
     VkSampler sampler_{VK_NULL_HANDLE};
     VkDescriptorPool pool_{VK_NULL_HANDLE};
-    VkDescriptorSet set_{VK_NULL_HANDLE};
+    std::vector<VkDescriptorSet> sets_;
 };
 
 /// A render pass over one attachment of `format` entering in `initial` (UNDEFINED when `load` is

@@ -4,6 +4,7 @@
 // frame compositor's on the same framebuffer.
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 
@@ -27,8 +28,10 @@ class OverlayPass {
     OverlayPass& operator=(OverlayPass&&) = delete;
     ~OverlayPass();
 
-    /// Records uploading `overlay` when it changed or its size did; outside any render pass.
-    void recordUpload(VkCommandBuffer commands, const touch::OverlayImage& overlay);
+    /// Records uploading `overlay` through frame slot `slot` when it changed or its size did;
+    /// outside any render pass.
+    void recordUpload(VkCommandBuffer commands, const touch::OverlayImage& overlay,
+                      std::size_t slot);
     /// Records drawing the uploaded overlay into `destination` of `framebuffer` of `extent`,
     /// which the target's render pass made.
     void recordDraw(VkCommandBuffer commands, VkFramebuffer framebuffer, VkExtent2D extent,

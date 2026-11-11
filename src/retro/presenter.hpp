@@ -1,8 +1,10 @@
 // presenter — where the runner's frames go: its window (`RunnerWindow`) and events, the
-// Vulkan swapchain (or, hidden, an offscreen image that can be read back) and each frame's
-// submission. What is drawn into a target is `FrameCompositor`'s, with an overlay over it drawn by
-// `OverlayPass`. A surface lost with the window (Android in the background) is let go and made
-// again when the window has one.
+// Vulkan swapchain (or, hidden, offscreen images that can be read back) and each frame's
+// submission, up to `framesInFlight` of them on the GPU at once: each frame slot has its command
+// buffer, fence and acquire semaphore, and a slot is waited for only when it comes round again, so
+// the core runs the next frame while the GPU draws this one. What is drawn into a target is
+// `FrameCompositor`'s, with an overlay over it drawn by `OverlayPass`. A surface lost with the
+// window (Android in the background) is let go and made again when the window has one.
 #pragma once
 
 #include <cstddef>
@@ -41,6 +43,8 @@ struct PresenterOptions {
     settings::VideoSettings video;
     /// The librashader a shader preset runs on.
     std::filesystem::path librashader;
+    /// Frames submitted and not yet waited for, at most `framesInFlight`; a GPU core's take one.
+    std::size_t inFlight{framesInFlight};
 };
 
 /// What a Vulkan core hands over with its frames, each used once: semaphores the drawing waits
@@ -107,7 +111,7 @@ class Presenter {
     /// Keeps the picture off the target's top `top` and bottom `bottom` pixels.
     void reserve(std::uint32_t top, std::uint32_t bottom) noexcept;
 
-    /// Waits until the last frame submitted is done on the GPU (a core's wait_sync_index).
+    /// Waits until every frame submitted is done on the GPU (a core's wait_sync_index).
     [[nodiscard]] VkResult waitForFrame();
 
     /// The last image presented, opaque as the window shows it, shown again where it is a
@@ -131,6 +135,15 @@ class Presenter {
         VkFramebuffer framebuffer{VK_NULL_HANDLE};
         /// Signalled when drawing into this swapchain image is done.
         VkSemaphore drawn{VK_NULL_HANDLE};
+        /// A hidden target's own memory.
+        VkDeviceMemory memory{VK_NULL_HANDLE};
+    };
+    /// What one frame in flight holds until its fence passes.
+    struct Slot {
+        VkCommandBuffer commands{VK_NULL_HANDLE};
+        VkFence done{VK_NULL_HANDLE};
+        /// Signalled when the frame's swapchain image is acquired.
+        VkSemaphore acquired{VK_NULL_HANDLE};
     };
 
     void open();
@@ -141,7 +154,9 @@ class Presenter {
     [[nodiscard]] VkFramebuffer makeFramebuffer(VkImageView view) const;
     void destroyTargets();
     /// Records copying `image`, drawn and ready to present, into `capture_`.
-    void recordCapture(VkImage image);
+    void recordCapture(VkCommandBuffer commands, VkImage image);
+    /// Waits until every slot's frame is done. Throws VulkanError.
+    void waitAll();
     /// The swapchain, its targets and the window's surface let go, once the surface is lost.
     void dropSurface();
 
@@ -160,9 +175,9 @@ class Presenter {
     /// Made when the first overlay is drawn.
     std::unique_ptr<OverlayPass> overlay_;
     VkCommandPool commandPool_{VK_NULL_HANDLE};
-    VkCommandBuffer commands_{VK_NULL_HANDLE};
-    VkFence done_{VK_NULL_HANDLE};
-    VkSemaphore acquired_{VK_NULL_HANDLE};
+    std::vector<Slot> slots_;
+    /// The slot the next frame is recorded into.
+    std::size_t slot_{0};
 
     VkSwapchainKHR swapchain_{VK_NULL_HANDLE};
     bool stale_{false};
@@ -170,9 +185,8 @@ class Presenter {
     /// suboptimal reports mean only that.
     bool turnedBySystem_{false};
     std::vector<Target> targets_;
-    /// The hidden presenter's one target and its memory.
-    VkDeviceMemory offscreenMemory_{VK_NULL_HANDLE};
-    bool drawnOffscreen_{false};
+    /// The hidden target drawn last; there is one per slot.
+    std::optional<std::size_t> drawnOffscreen_;
     /// The swapchain's images can be copied from.
     bool readable_{false};
     /// The frame `readBack` shows again; its pixels are the core's until its next frame.

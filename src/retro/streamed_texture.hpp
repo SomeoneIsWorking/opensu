@@ -1,8 +1,11 @@
 // streamed_texture — an RGBA image the CPU writes each time it changes, through a staging buffer
-// kept mapped, and shaders sample. The frame compositor streams the core's frame through one; the
-// overlay pass streams the touch controls through another.
+// kept mapped per frame slot, so a frame still in flight keeps its own, and shaders sample. The
+// frame compositor streams the core's frame through one; the overlay pass streams the touch
+// controls and the frame art through others.
 #pragma once
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 
@@ -26,8 +29,10 @@ class StreamedTexture {
     /// Reports whether it was made, which changes `view`. Throws VulkanError.
     bool ensure(unsigned width, unsigned height);
 
-    /// Records copying `rgba` (whole rows of the image's size) into it, left ready to sample.
-    void recordUpload(VkCommandBuffer commands, std::span<const std::uint8_t> rgba);
+    /// Records copying `rgba` (whole rows of the image's size) into it through `slot`'s staging
+    /// buffer, whose last frame must be done, left ready to sample.
+    void recordUpload(VkCommandBuffer commands, std::span<const std::uint8_t> rgba,
+                      std::size_t slot);
     /// Records moving the image to TRANSFER_DST for a write the caller records, which must be
     /// followed by `endWrite`.
     void beginWrite(VkCommandBuffer commands) const;
@@ -63,9 +68,12 @@ class StreamedTexture {
     unsigned width_{0};
     unsigned height_{0};
     bool ready_{false};
-    VkBuffer staging_{VK_NULL_HANDLE};
-    VkDeviceMemory stagingMemory_{VK_NULL_HANDLE};
-    void* stagingMapped_{nullptr};
+    struct Staging {
+        VkBuffer buffer{VK_NULL_HANDLE};
+        VkDeviceMemory memory{VK_NULL_HANDLE};
+        void* mapped{nullptr};
+    };
+    std::array<Staging, framesInFlight> staging_{};
 };
 
 } // namespace opensu::retro

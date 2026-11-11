@@ -44,13 +44,14 @@ void OverlayPass::release() {
     pass_ = VK_NULL_HANDLE;
 }
 
-void OverlayPass::recordUpload(VkCommandBuffer commands, const touch::OverlayImage& overlay) {
+void OverlayPass::recordUpload(VkCommandBuffer commands, const touch::OverlayImage& overlay,
+                               std::size_t slot) {
     const bool remade = texture_.ensure(overlay.width, overlay.height);
     if (remade) {
         input_.bind(texture_.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
     if (remade || overlay.changed) {
-        texture_.recordUpload(commands, overlay.rgba);
+        texture_.recordUpload(commands, overlay.rgba, slot);
     }
 }
 

@@ -13,7 +13,7 @@ constexpr std::uint32_t vertexCode[] = {
 
 } // namespace
 
-SampledInput::SampledInput(VkDevice device, VkFilter filter) : device_{device} {
+SampledInput::SampledInput(VkDevice device, VkFilter filter, std::size_t slots) : device_{device} {
     try {
         VkDescriptorSetLayoutBinding binding{};
         binding.binding = 0;
@@ -35,19 +35,23 @@ SampledInput::SampledInput(VkDevice device, VkFilter filter) : device_{device} {
         sampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         sampler.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         check(vkCreateSampler(device_, &sampler, nullptr, &sampler_), "vkCreateSampler");
-        VkDescriptorPoolSize size{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1};
+        const auto count = static_cast<std::uint32_t>(slots);
+        VkDescriptorPoolSize size{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, count};
         VkDescriptorPoolCreateInfo pool{};
         pool.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        pool.maxSets = 1;
+        pool.maxSets = count;
         pool.poolSizeCount = 1;
         pool.pPoolSizes = &size;
         check(vkCreateDescriptorPool(device_, &pool, nullptr, &pool_), "vkCreateDescriptorPool");
+        const std::vector<VkDescriptorSetLayout> layouts(slots, setLayout_);
         VkDescriptorSetAllocateInfo allocate{};
         allocate.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         allocate.descriptorPool = pool_;
-        allocate.descriptorSetCount = 1;
-        allocate.pSetLayouts = &setLayout_;
-        check(vkAllocateDescriptorSets(device_, &allocate, &set_), "vkAllocateDescriptorSets");
+        allocate.descriptorSetCount = count;
+        allocate.pSetLayouts = layouts.data();
+        sets_.resize(slots);
+        check(vkAllocateDescriptorSets(device_, &allocate, sets_.data()),
+              "vkAllocateDescriptorSets");
     } catch (...) {
         release();
         throw;
@@ -63,16 +67,22 @@ void SampledInput::release() {
     vkDestroySampler(device_, sampler_, nullptr);
     vkDestroyDescriptorSetLayout(device_, setLayout_, nullptr);
     pool_ = VK_NULL_HANDLE;
-    set_ = VK_NULL_HANDLE;
+    sets_.clear();
     sampler_ = VK_NULL_HANDLE;
     setLayout_ = VK_NULL_HANDLE;
 }
 
 void SampledInput::bind(VkImageView view, VkImageLayout layout) {
+    for (std::size_t slot = 0; slot < sets_.size(); ++slot) {
+        bind(slot, view, layout);
+    }
+}
+
+void SampledInput::bind(std::size_t slot, VkImageView view, VkImageLayout layout) {
     VkDescriptorImageInfo image{sampler_, view, layout};
     VkWriteDescriptorSet write{};
     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstSet = set_;
+    write.dstSet = sets_.at(slot);
     write.dstBinding = 0;
     write.descriptorCount = 1;
     write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;

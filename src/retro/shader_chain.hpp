@@ -1,8 +1,8 @@
 // shader_chain — a libretro slang preset run by librashader on the runner's Vulkan device: the
 // preset read and built once, then each frame's passes recorded from the frame image into the
 // target image's placed rectangle. librashader keeps the history, feedback and LUT textures the
-// preset asks for. Built with render passes (the device has no dynamic rendering) and one frame in
-// flight, as the presenter waits for each frame before the next.
+// preset asks for. Built with render passes (the device has no dynamic rendering) for as many
+// frames in flight as the presenter keeps (`framesInFlight`).
 #pragma once
 
 #include <cstddef>

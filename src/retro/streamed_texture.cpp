@@ -35,13 +35,15 @@ bool StreamedTexture::ensure(unsigned width, unsigned height) {
         buffer.size = static_cast<VkDeviceSize>(width) * height * 4;
         buffer.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
         buffer.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        check(vkCreateBuffer(vk_, &buffer, nullptr, &staging_), "vkCreateBuffer");
-        vkGetBufferMemoryRequirements(vk_, staging_, &needs);
-        stagingMemory_ = device_.allocate(needs, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        check(vkBindBufferMemory(vk_, staging_, stagingMemory_, 0), "vkBindBufferMemory");
-        check(vkMapMemory(vk_, stagingMemory_, 0, VK_WHOLE_SIZE, 0, &stagingMapped_),
-              "vkMapMemory");
+        for (Staging& staging : staging_) {
+            check(vkCreateBuffer(vk_, &buffer, nullptr, &staging.buffer), "vkCreateBuffer");
+            vkGetBufferMemoryRequirements(vk_, staging.buffer, &needs);
+            staging.memory = device_.allocate(needs, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+            check(vkBindBufferMemory(vk_, staging.buffer, staging.memory, 0), "vkBindBufferMemory");
+            check(vkMapMemory(vk_, staging.memory, 0, VK_WHOLE_SIZE, 0, &staging.mapped),
+                  "vkMapMemory");
+        }
     } catch (...) {
         destroy();
         throw;
@@ -52,17 +54,17 @@ bool StreamedTexture::ensure(unsigned width, unsigned height) {
 }
 
 void StreamedTexture::destroy() {
-    if (stagingMapped_ != nullptr) {
-        vkUnmapMemory(vk_, stagingMemory_);
-        stagingMapped_ = nullptr;
+    for (Staging& staging : staging_) {
+        if (staging.mapped != nullptr) {
+            vkUnmapMemory(vk_, staging.memory);
+        }
+        vkDestroyBuffer(vk_, staging.buffer, nullptr);
+        vkFreeMemory(vk_, staging.memory, nullptr);
+        staging = {};
     }
-    vkDestroyBuffer(vk_, staging_, nullptr);
-    vkFreeMemory(vk_, stagingMemory_, nullptr);
     vkDestroyImageView(vk_, view_, nullptr);
     vkDestroyImage(vk_, image_, nullptr);
     vkFreeMemory(vk_, imageMemory_, nullptr);
-    staging_ = VK_NULL_HANDLE;
-    stagingMemory_ = VK_NULL_HANDLE;
     view_ = VK_NULL_HANDLE;
     image_ = VK_NULL_HANDLE;
     imageMemory_ = VK_NULL_HANDLE;
@@ -88,15 +90,17 @@ void StreamedTexture::endWrite(VkCommandBuffer commands) {
     ready_ = true;
 }
 
-void StreamedTexture::recordUpload(VkCommandBuffer commands, std::span<const std::uint8_t> rgba) {
+void StreamedTexture::recordUpload(VkCommandBuffer commands, std::span<const std::uint8_t> rgba,
+                                   std::size_t slot) {
+    const Staging& staging = staging_.at(slot);
     const std::size_t size = static_cast<std::size_t>(width_) * height_ * 4;
-    std::memcpy(stagingMapped_, rgba.data(), std::min(size, rgba.size()));
+    std::memcpy(staging.mapped, rgba.data(), std::min(size, rgba.size()));
     beginWrite(commands);
     VkBufferImageCopy region{};
     region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
     region.imageExtent = {width_, height_, 1};
-    vkCmdCopyBufferToImage(commands, staging_, image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
-                           &region);
+    vkCmdCopyBufferToImage(commands, staging.buffer, image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                           1, &region);
     endWrite(commands);
 }
 
