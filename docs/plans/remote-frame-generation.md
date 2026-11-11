@@ -194,7 +194,11 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   until the delay stops fitting 275 real frames later. No judder (content steps 16.7 ms each
   present) and content 6.6 ms newer than aligned, but no real frame shows. Retaking the aligned
   delay once it has held still for 15 real frames cuts that run's offset plans from 318 to 58 with
-  no more delay jumps (7 against 9) and leaves `h-pace` unchanged; a fork change, not made.
+  no more delay jumps (7 against 9) and leaves `h-pace` unchanged. That is now the fork's pacer
+  (Gamescope `aa53d77`, its replay test `framegen/tests/FramePacerReplay.cpp` on both runs'
+  arrivals). On the guest with the host stopped 50 ms every 5 s (`h-pin`), every gap is back at
+  t 0.50 within 15 to 23 real frames and the longest run of plans off the half step is 20,
+  against 308 real frames and a 276-plan run on the old pacer.
 
 ## Found while planning step 3
 
