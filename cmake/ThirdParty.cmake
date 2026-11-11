@@ -17,6 +17,8 @@ set(OPENSU_SDL_TTF_REPOSITORY "https://github.com/libsdl-org/SDL_ttf.git")
 set(OPENSU_SDL_TTF_COMMIT "a1ce3670aec736ecbf0936c43f2f0cc53aa61e5b")
 set(OPENSU_SDL_IMAGE_REPOSITORY "https://github.com/libsdl-org/SDL_image.git")
 set(OPENSU_SDL_IMAGE_COMMIT "0891fc30428b518e7d018677bd6fa95c1a50f4c6")
+set(OPENSU_LIBZT_REPOSITORY "https://github.com/SomeoneIsWorking/libzt.git")
+set(OPENSU_LIBZT_COMMIT "7c8378c972f9cbcd08e3b6bbffc8d27973f392f7")
 
 # Finds `package` (its variables set in the caller's scope); a prefix built from other pins is
 # refused rather than shipped.

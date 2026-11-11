@@ -97,6 +97,7 @@ endif()
 # vendored.
 set(LUCENT_ROOT "$ENV{HOME}/repo/lucent" CACHE PATH "Shared Lucent checkout")
 set(LUCENT_BUILD_ONLINE ON CACHE BOOL "openSU plays online over Lucent's transport" FORCE)
+include(ZeroTier)
 
 add_subdirectory("${LUCENT_ROOT}" "${CMAKE_BINARY_DIR}/lucent" EXCLUDE_FROM_ALL)
 

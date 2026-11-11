@@ -1189,6 +1189,7 @@ class ShellApp final {
         netplayRun_,
         keyboardPad_,
         preferences_,
+        environment_.dataDir / "zerotier",
         OnlinePlay::Hooks{.say =
                               [this](const std::string& text, bool isError) {
                                   shell_.setToast(text, isError);

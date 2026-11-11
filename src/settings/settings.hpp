@@ -138,6 +138,11 @@ struct Settings {
     std::string lanName;
     /// The STUN servers Play online asks, `host:port` and comma-separated; empty for the default.
     std::string onlineStunServers;
+    /// Play online also dials over the embedded ZeroTier node, which reaches ZeroTier's roots.
+    bool onlineZeroTier{true};
+    /// A file holding the ZeroTier root set Play online's node uses; empty for ZeroTier's own
+    /// roots.
+    std::filesystem::path onlineZeroTierRoots;
     std::filesystem::path saveShareFolder;
     /// The WebDAV folder's address and user.
     std::string saveShareUrl;

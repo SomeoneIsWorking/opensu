@@ -83,8 +83,8 @@ class StunServer {
 
 Network network(const std::string& stun) {
     Network network;
-    network.stun_servers = stun;
-    network.router = false;
+    network.direct.stun_servers = stun;
+    network.direct.router = false;
     // Loopback stands in for a LAN interface.
     lucent::net::Ipv4Interface loopback;
     loopback.name = "lo";
@@ -92,7 +92,7 @@ Network network(const std::string& stun) {
     loopback.netmask = 0xFF000000U;
     loopback.up = true;
     loopback.running = true;
-    network.interfaces = std::vector{loopback};
+    network.direct.interfaces = std::vector{loopback};
     return network;
 }
 

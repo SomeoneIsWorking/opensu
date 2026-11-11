@@ -5,6 +5,7 @@
 // starts through `NetplayRun`, and this holds the router's port mapping until the game ends.
 #pragma once
 
+#include <filesystem>
 #include <functional>
 #include <future>
 #include <memory>
@@ -19,6 +20,7 @@
 #include "library/game.hpp"
 #include "netplay_run.hpp"
 #include "online/meeting.hpp"
+#include "online/zero_tier.hpp"
 #include "preferences.hpp"
 #include "ui/setting_row.hpp"
 
@@ -48,7 +50,8 @@ class OnlinePlay {
     };
 
     OnlinePlay(gpu2d::ui::Navigator& navigator, audio::SdlSoundPlayer& sounds, NetplayRun& run,
-               KeyboardPad& keyboard, Preferences& preferences, Hooks hooks);
+               KeyboardPad& keyboard, Preferences& preferences,
+               std::filesystem::path zeroTierStorage, Hooks hooks);
 
     /// The Settings category's id, which its rows' ids start with.
     static constexpr std::string_view categoryId = "online";
@@ -61,7 +64,7 @@ class OnlinePlay {
     void join();
     /// Once a frame.
     void service();
-    /// The game ended: the router's mapping goes.
+    /// The game ended: the router's mapping and the ZeroTier bridge go.
     void ended();
 
     [[nodiscard]] Page shown() const;
@@ -105,6 +108,8 @@ class OnlinePlay {
     Hooks hooks_;
     /// The ROM's hash, off the loop, before the host's meeting starts.
     std::optional<std::future<std::string>> hashing_;
+    /// Started when Play online first opens, so it has reached its network by the code.
+    online::ZeroTier zeroTier_;
     std::unique_ptr<online::Meeting> meeting_;
     /// The game of this session: the host's, or the friend's own copy once found.
     std::optional<library::Game> game_;
@@ -116,6 +121,7 @@ class OnlinePlay {
     std::string replyDraft_;
     std::string replyProblem_;
     std::unique_ptr<lucent::p2p::PortLease> lease_;
+    std::unique_ptr<lucent::p2p::PathBridge> bridge_;
     online::Meeting::View view_;
 };
 

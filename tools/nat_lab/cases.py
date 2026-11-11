@@ -65,13 +65,41 @@ class Rig:
         gateway: str = "",
         lease: int = 120,
         any_core: bool = False,
+        embedded_zerotier: bool = False,
     ) -> None:
         if context.out.exists():
             shutil.rmtree(context.out)
         context.out.mkdir(parents=True)
         self.context = context
         self.codes: list[str] = []
-        self.lab: Lab = topology.build(host_nat, friend_nat, tailnet, zerotier, delay_ms)
+        self.lab: Lab = topology.build(
+            host_nat, friend_nat, tailnet, zerotier, embedded_zerotier, delay_ms
+        )
+        self.root: subprocess.Popen[bytes] | None = None
+        self.embedded_zerotier = embedded_zerotier
+        # openSU's own ZeroTier node, through the lab's root; every other case plays without it.
+        online: dict[str, object] = {"onlineZeroTier": False}
+        if embedded_zerotier:
+            roots = context.out / "zerotier-roots"
+            root_log = context.out / "zerotier-root.log"
+            assert self.lab.zerotier_root is not None
+            self.root = self.lab.zerotier_root.start(
+                [
+                    str(context.build / "tests" / "online" / "online_zero_tier_root"),
+                    str(context.out / "zerotier-root"),
+                    f"{topology.ZEROTIER_ROOT}/{topology.ZEROTIER_ROOT_PORT}",
+                    str(roots),
+                ],
+                root_log,
+            )
+            until = time.monotonic() + 10
+            while time.monotonic() < until and "root running" not in (
+                root_log.read_text() if root_log.exists() else ""
+            ):
+                time.sleep(0.05)
+            if not roots.exists():
+                raise RuntimeError(f"the lab's ZeroTier root did not start: {root_log}")
+            online = {"onlineZeroTierRoots": str(roots)}
         self.stun = self.lab.internet.start(
             [
                 sys.executable,
@@ -127,6 +155,7 @@ class Rig:
         made = []
         for at, name in ((self.lab.host, "Host"), (self.lab.friend, "Friend")):
             settings = {"integrations": {**LAN_ONLY, "lan": lan}, "lanName": name} if lan else {}
+            settings = {**settings, **online}
             bus = self.mdns[len(made)].address if lan else ""
             folder = context.out / name.lower()
             made.append(
@@ -144,7 +173,7 @@ class Rig:
     def close(self) -> None:
         self.host.quit()
         self.friend.quit()
-        for each in (self.stun, self.capture, self.zerotier_capture, self.gateway):
+        for each in (self.stun, self.capture, self.zerotier_capture, self.gateway, self.root):
             if each is not None:
                 each.kill()
                 each.wait()
@@ -183,6 +212,9 @@ class Rig:
     def logs_keep_secrets(self) -> None:
         """No log under the case's folder holds a code or the secret in one."""
         words = [*self.codes, *[invite_secret(code) for code in self.codes if code[:3] == "OSU"]]
+        # Each ZeroTier node's private key: identity.secret's last field.
+        for identity in self.context.out.rglob("identity.secret"):
+            words.append(identity.read_text().strip().split(":")[-1])
         for log in self.context.out.rglob("*.log"):
             text = log.read_text(errors="replace").lower()
             for word in words:
@@ -304,7 +336,11 @@ def play(rig: Rig) -> tuple[int, int]:
 
 
 def ends_cleanly(rig: Rig, stop: signal.Signals) -> None:
-    """The host's runner gets `stop`; both shells leave the game and hold no socket of it."""
+    """The host's runner gets `stop`; both shells leave the game and hold no socket of it.
+
+    An embedded ZeroTier node stays for the run, libzt being unable to start a second one in the
+    process; its sockets are bound to an interface (`address%device`), the game's to every one.
+    """
     rig.host.signal_runner(stop)
     for each in (rig.host, rig.friend):
         each.wait("out of the game", lambda state: not state["inGame"], seconds=40)
@@ -313,6 +349,8 @@ def ends_cleanly(rig: Rig, stop: signal.Signals) -> None:
     rig.shot(rig.friend, "8-after")
     for each in (rig.host, rig.friend):
         left = each.udp_ports() - each.ports_before
+        if rig.embedded_zerotier:
+            left = {port for port in left if "%" not in port}
         if left:
             raise RuntimeError(f"{each.name} still holds {left}")
     print("no port held after the session")
@@ -451,6 +489,19 @@ def zerotier(context: Context) -> None:
         print(zerotier_traffic(rig))
 
 
+def zerotier_embedded(context: Context) -> None:
+    """Symmetric NATs, and openSU's own ZeroTier node the only way between, through the lab's
+    root: nothing installed, no zt0."""
+    with Rig(context, "symmetric", "symmetric", embedded_zerotier=True) as rig:
+        code = host_offers(rig)
+        print(gathered_line(rig.host))
+        friend_enters(rig, code)
+        play(rig)
+        ends_cleanly(rig, signal.SIGTERM)
+        for who in (rig.host, rig.friend):
+            print(connected_line(who))
+
+
 def zerotier_lan(context: Context) -> None:
     """LAN pairing where the machines share only a ZeroTier network, which is no default route."""
     with Rig(context, "restricted", "restricted", zerotier=True, lan=True) as rig:
@@ -464,6 +515,14 @@ def zerotier_lan(context: Context) -> None:
 def gathered_line(who: Instance) -> str:
     lines = [line for line in who.log.read_text().splitlines() if "public addresses" in line]
     return lines[-1] if lines else f"{who.name}: no gathered line"
+
+
+def connected_line(who: Instance) -> str:
+    """The connector's own word for the backend it connected over; anything else fails."""
+    lines = [line for line in who.log.read_text().splitlines() if "[p2p] connected" in line]
+    if not lines or "over ZeroTier" not in lines[-1]:
+        raise RuntimeError(f"{who.name} did not connect over ZeroTier: {lines}")
+    return lines[-1]
 
 
 def found_line(who: Instance) -> str:
@@ -554,6 +613,7 @@ CASES: dict[str, Callable[[Context], None]] = {
     "tailscale": tailscale,
     "zerotier": zerotier,
     "zerotier-lan": zerotier_lan,
+    "zerotier-embedded": zerotier_embedded,
     "nat-pmp": nat_pmp,
     "upnp": upnp,
     "any-core": any_core,

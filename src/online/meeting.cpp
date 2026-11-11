@@ -112,7 +112,8 @@ std::string_view textOf(lucent::p2p::CodeProblem problem) noexcept {
 }
 
 lucent::p2p::ConnectorConfig Meeting::configOf(Network network, const Patience& patience) {
-    return {.direct = std::move(network),
+    return {.direct = std::move(network.direct),
+            .zerotier = network.zerotier,
             .patience = patience,
             .prefixes = codePrefixes,
             .label = std::string{keyLabel}};
@@ -391,6 +392,7 @@ void Meeting::meet(const std::stop_token& stop) {
     const lucent::p2p::SessionKeys& keys = connection->keys;
     auto agreement = std::make_unique<Agreement>();
     agreement->port = connection->path->port();
+    lucent::p2p::PathAddress peer;
     agreement->sendKey = keys.key(gamePurpose, own);
     agreement->receiveKey = keys.key(gamePurpose, other);
     {
@@ -413,12 +415,24 @@ void Meeting::meet(const std::stop_token& stop) {
         if (failed()) {
             return;
         }
-        const std::optional<lucent::net::Endpoint> peer = link.peer().endpoint();
-        if (!peer) {
-            fail(Failure::Dropped);
+        peer = link.peer();
+    }
+    if (connection->path->backend() == lucent::p2p::Backend::ZeroTier) {
+        std::string error;
+        agreement->bridge =
+            lucent::p2p::PathBridge::start(std::move(connection->path), peer, error);
+        if (!agreement->bridge) {
+            lucent::warn("online", "no bridge for the game: {}", error);
+            fail(Failure::NoNetwork);
             return;
         }
-        agreement->peer = *peer;
+        agreement->peer = agreement->bridge->local();
+        agreement->port = 0;
+    } else if (const std::optional<lucent::net::Endpoint> direct = peer.endpoint()) {
+        agreement->peer = *direct;
+    } else {
+        fail(Failure::Dropped);
+        return;
     }
     connection->path.reset();
     agreement->lease = std::move(connection->lease);

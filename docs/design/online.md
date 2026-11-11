@@ -33,13 +33,17 @@ gets two shells to agree on a game over it; the game itself then runs as a LAN s
 4. `Hello`, `Welcome`, and the first `PacketSeal` datagram spend the code. The friend is asked about
    the game found by hash, facts are compared as on the LAN, saves cross, and the host sends `Go`.
 5. The shell closes its socket and the runner binds the same port, so the NAT's mapping carries over.
+   A game found over ZeroTier keeps its path in the shell instead, as only the shell's node can carry
+   it: the runner plays to a Lucent `PathBridge` on loopback, which `OnlinePlay` holds with the lease.
    `OnlinePlay` holds the `PortLease` until the game ends, however the runner ended.
 
 ## Invariants
 
 - Nothing but a STUN answer is read unless it opens under a key from the code's secret, and a STUN
   answer must match its transaction id and come from the server asked.
-- A socket and a mapping exist only from Play online to the end of the game.
+- A socket and a mapping exist only from Play online to the end of the game. The ZeroTier node,
+  once Play online started it, stays until openSU quits: libzt cannot start a node again in the
+  same process.
 - No code, key or datagram is logged. A code is on the screen and the clipboard only.
 - Four kinds of message cross, each with a cap checked against its declared size before anything is
   allocated. None holds a path; the ROM is looked up by console, size and hash.
@@ -89,21 +93,30 @@ The lab proves the path with a stand-in interface; a real network is the player'
 6. With LAN on in both, Settings › LAN lists the other openSU found over ZeroTier (`[lan] found
    <name> at <zt address>`), and pairing works as on a LAN.
 
-### Embedded ZeroTier (being built in Lucent)
+### Embedded ZeroTier
 
-Asked for on 2026-11-11, so that the fallback needs no install and no account: Lucent's online
-transport (`lucent::p2p`, being built) gets backends behind one interface, direct UDP first and an
-embedded ZeroTier (libzt) on a controller-less ad-hoc network second, whose roots relay when no
-direct path works. This puts a third party in the path, which `docs/plans/wan-netplay.md` had ruled
-out; the reasons it is taken now are there. What stands:
+So that the fallback needs no install and no account, openSU carries a ZeroTier node of its own:
+Lucent's `lucent::zerotier` on libzt (`cmake/thirdparty/Libzt.cmake`, licences in
+`docs/prior-art.md`), owned by `online::ZeroTier` (`src/online/zero_tier.*`). This puts ZeroTier's
+roots in the path when no direct path works, which `docs/plans/wan-netplay.md` had ruled out; the
+reasons it is taken now are there. What stands:
 
-- The friend tries the direct paths first, then the ZeroTier one, before `Failure::Unreachable`.
-  The code is Lucent's descriptor (version 2), which carries each backend's candidates; a code from
-  an openSU before it is refused as from another version.
-- An ad-hoc network is open to anyone who knows its port, so nothing that arrives over it is taken
-  unless it opens under the code's secret: one handshake for every backend.
-- libzt is a library linked into openSU and its runner, not a runner, so G001's rule against
-  bundled runners does not apply to it. Its licence is in `docs/plans/wan-netplay.md`.
+- The node starts when the player first opens Play online (host or join), keeps its identity in
+  `<data>/zerotier/` (`identity.secret` is never logged), and joins openSU's one ad-hoc network,
+  `online::zeroTierPort`. A host waits up to Lucent's `Patience::zerotier` for it to be there, so
+  the code carries its node; with warm nodes a pasted code connects in about 2 s. A code that
+  carries a node does not warn of a strict router: a strict one cannot stop ZeroTier.
+- The friend dials both at once: the direct candidates and the host's node on that network. The
+  first handshake to finish wins; a friend behind a NAT that varies, against a host behind one,
+  keeps trying ZeroTier instead of failing.
+- An ad-hoc network is open to anyone who picks its port, so nothing that arrives over it is taken
+  unless it opens under the code's secret: one handshake for every backend (Lucent's ZeroTier test
+  runs a stranger with the host's node and network but not the code, which never connects).
+- `settings.json`'s `onlineZeroTier` (default on) turns it off; `onlineZeroTierRoots` names a root
+  set file in place of ZeroTier's roots (the lab's). Windows builds have none yet
+  (`OPENSU_BUILD_ZEROTIER` off: libzt's Windows build needs a fork fix) and say so in Settings.
+- libzt is a library linked into openSU, not a runner, so G001's rule against bundled runners does
+  not apply to it.
 
 ## Any core
 
@@ -132,6 +145,12 @@ generated Game Boy ROM on it at 120 ms of round trip and asks for frames run aga
 default route) between the machines and two idle bridges on the host (`docker0`, `virbr0`), and
 plays by one code; `zerotier-lan` gives each machine its own system bus and Avahi (`mdns.py`) and
 pairs the two over LAN discovery on `zt0`. Both capture `zt0` in `wire-zt0.log`.
+`zerotier-embedded` puts symmetric NATs on both sides and nothing between the machines but openSU's
+own node, through a lab root on a machine of its own past the internet node
+(`tests/online/zero_tier_root.cpp`; ZeroTier binds each address to its interface, so the root's
+address is on the link it is reached by); both logs must say `connected over ZeroTier`, no node's
+private key may be in a log, and the sockets left are only the node's, bound to an interface. Every other case plays with
+`onlineZeroTier` off, so the symmetric cases still prove the direct path alone fails.
 
 `settings.json`'s `onlineStunServers` (comma-separated `host:port`) replaces the default STUN
 servers. `/state` gives `onlineStep`, and in a hidden run `onlineCode`.

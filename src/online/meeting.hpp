@@ -2,7 +2,8 @@
 // `p2p::Connector` takes the code to an authenticated path, then over its `ReliableLink` the ask,
 // the friend's answer, both saves and the word to go. The owner looks at `view`, passes on what the
 // player does and takes the `Agreement` when it is `Ready`, by then with the socket closed so a
-// runner can bind its port. Every wait has a limit and ends in words that say what to do next.
+// runner can bind its port, or a ZeroTier path in a bridge. Every wait has a limit and ends in
+// words that say what to do next.
 #pragma once
 
 #include <chrono>
@@ -16,7 +17,9 @@
 
 #include "lan/wire.hpp"
 #include "lucent/p2p/connector.h"
+#include "lucent/p2p/path_bridge.h"
 #include "lucent/p2p/reliable_link.h"
+#include "lucent/p2p/zerotier_paths.h"
 
 namespace opensu::online {
 
@@ -28,7 +31,11 @@ inline constexpr std::string_view keyLabel = "opensu-online";
 [[nodiscard]] std::string_view textOf(lucent::p2p::CodeProblem problem) noexcept;
 
 /// Where a meeting looks for what it needs; a test or a lab points these elsewhere.
-using Network = lucent::p2p::DirectNetwork;
+struct Network {
+    lucent::p2p::DirectNetwork direct;
+    /// The shell's ZeroTier node, which outlives the meeting; none dials direct only.
+    const lucent::p2p::ZeroTierPaths* zerotier{nullptr};
+};
 
 /// How long each wait lasts: Lucent's to the connection, then the agreement's.
 struct Patience : lucent::p2p::Patience {
@@ -65,6 +72,9 @@ struct Agreement {
     unsigned ahead{0};
     /// The router's mapping, while the game runs.
     std::unique_ptr<lucent::p2p::PortLease> lease;
+    /// A ZeroTier game's path, which only the shell's node can carry, while the game runs; `peer`
+    /// is then its end on loopback.
+    std::unique_ptr<lucent::p2p::PathBridge> bridge;
 };
 
 class Meeting {

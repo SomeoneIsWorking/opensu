@@ -505,7 +505,7 @@ struct Rig {
                             .reloadCatalog = {},
                             .refresh = {}}};
     app::NetplayRun netplayRun{{}, {}};
-    app::OnlinePlay online{screens.navigator, sounds, netplayRun, pad, preferences, {}};
+    app::OnlinePlay online{screens.navigator, sounds, netplayRun, pad, preferences, {}, {}};
     app::LanProfiles lanProfiles{
         lan,
         profiles,

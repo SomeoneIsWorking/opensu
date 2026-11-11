@@ -476,7 +476,9 @@ Design: `docs/design/libretro.md`. `opensu_retro` and the `opensu-retro` executa
 | Path | Owns |
 | --- | --- |
 | `src/online/meeting.*` | One thread from Play online until two shells agree or fail: Lucent's `p2p::Connector` to a path, then Ask, Answer, Save and Go over its `ReliableLink`; what the screen shows (`View`), every limit (`Patience`), the failures and code problems in words, openSU's code prefixes (`OSU`, `OSR`) and key label |
+| `src/online/zero_tier.*` | Play online's embedded ZeroTier node (Lucent's `lucent::zerotier`): started when Play online first opens and kept for the run, on openSU's one ad-hoc network (`zeroTierPort`); `zero_tier_none.cpp` stands in when `OPENSU_BUILD_ZEROTIER` is off |
 | `tests/online/` | Two meetings over loopback with a stand-in STUN server: a code to a session, declined, lapsed, both strict, a friend and a host giving up, cancelling. The transport under them is tested in Lucent (`tests/p2p`) |
+| `tests/online/zero_tier_root.cpp` | `tools.nat_lab`'s ZeroTier root (`online_zero_tier_root`), a lab tool: a root identity, its signed root set for the shells, and the root node |
 
 ## Plugins
 

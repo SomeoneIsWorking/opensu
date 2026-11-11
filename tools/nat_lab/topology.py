@@ -25,6 +25,11 @@ FRIEND_TAILNET = "100.64.0.2"
 # ZeroTier's default pool, on an interface named as ZeroTier names its own.
 HOST_ZEROTIER = "10.147.17.1"
 FRIEND_ZEROTIER = "10.147.17.2"
+# The lab's own ZeroTier root, a machine of its own: ZeroTier binds each address to its interface,
+# so the root's address must be on the link its datagrams arrive by.
+ZEROTIER_ROOT = "192.0.2.10"
+ZEROTIER_ROOT_GATEWAY = "192.0.2.9"
+ZEROTIER_ROOT_PORT = 9993
 
 
 @dataclass
@@ -122,6 +127,7 @@ class Lab:
     friend_router: Node
     host: Node
     friend: Node
+    zerotier_root: Node | None
 
     def close(self) -> None:
         for each in (
@@ -131,8 +137,10 @@ class Lab:
             self.friend_router,
             self.transit,
             self.internet,
+            self.zerotier_root,
         ):
-            each.close()
+            if each is not None:
+                each.close()
 
 
 def bridge(at: Node, name: str, address: str) -> None:
@@ -146,7 +154,14 @@ def bridge(at: Node, name: str, address: str) -> None:
     at.ip(f"link del {name}-guest")
 
 
-def build(host_nat: Nat, friend_nat: Nat, tailnet: bool, zerotier: bool, delay_ms: int) -> Lab:
+def build(
+    host_nat: Nat,
+    friend_nat: Nat,
+    tailnet: bool,
+    zerotier: bool,
+    zerotier_root: bool,
+    delay_ms: int,
+) -> Lab:
     internet = node("internet")
     transit = node("transit")
     host_router = node("host-router")
@@ -155,6 +170,11 @@ def build(host_nat: Nat, friend_nat: Nat, tailnet: bool, zerotier: bool, delay_m
     friend = node("friend")
     for address in STUN_ADDRESSES:
         internet.ip(f"addr add {address}/32 dev lo")
+    root = node("zerotier-root") if zerotier_root else None
+    if root is not None:
+        gateway = f"{ZEROTIER_ROOT_GATEWAY}/30"
+        wire(internet, "to-root", gateway, root, "eth0", f"{ZEROTIER_ROOT}/30")
+        root.ip(f"route add default via {ZEROTIER_ROOT_GATEWAY}")
     # A hop past the internet node, so a datagram held near its sender dies before the far router.
     wire(internet, "to-host", "172.16.0.1/30", transit, "up0", "172.16.0.2/30")
     wire(transit, "down0", "203.0.113.1/24", host_router, "wan0", f"{HOST_PUBLIC}/24")
@@ -183,4 +203,4 @@ def build(host_nat: Nat, friend_nat: Nat, tailnet: bool, zerotier: bool, delay_m
         for link in ("to-host", "to-friend"):
             delay = f"{delay_ms}ms"
             internet.run("tc", "qdisc", "add", "dev", link, "root", "netem", "delay", delay)
-    return Lab(internet, transit, host_router, friend_router, host, friend)
+    return Lab(internet, transit, host_router, friend_router, host, friend, root)

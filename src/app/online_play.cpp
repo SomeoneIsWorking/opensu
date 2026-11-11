@@ -64,9 +64,10 @@ std::optional<library::Game> gameAsked(const std::vector<library::Game>& games,
 
 OnlinePlay::OnlinePlay(gpu2d::ui::Navigator& navigator, audio::SdlSoundPlayer& sounds,
                        NetplayRun& run, KeyboardPad& keyboard, Preferences& preferences,
-                       Hooks hooks)
+                       std::filesystem::path zeroTierStorage, Hooks hooks)
     : navigator_{navigator}, sounds_{sounds}, run_{run}, keyboard_{keyboard},
-      preferences_{preferences}, hooks_{std::move(hooks)} {
+      preferences_{preferences}, hooks_{std::move(hooks)},
+      zeroTier_{std::move(zeroTierStorage), preferences.values().onlineZeroTierRoots} {
 }
 
 ui::SettingsCategory OnlinePlay::page() const {
@@ -81,9 +82,14 @@ ui::SettingsCategory OnlinePlay::page() const {
     fallback.id = "online.fallback";
     fallback.kind = ui::RowKind::Info;
     fallback.label = "If you cannot connect";
-    fallback.note = "There is no relay server. When two routers will not let you through, install "
-                    "Tailscale or ZeroTier on both machines and join one network: the same codes "
-                    "then work over it.";
+    fallback.note =
+        online::ZeroTier::built()
+            ? "When two routers will not let you through, openSU tries again over ZeroTier, "
+              "which it brings along: nothing to install. If that fails too, install Tailscale "
+              "on both machines and join one network: the same codes then work over it."
+            : "There is no relay server. When two routers will not let you through, install "
+              "Tailscale or ZeroTier on both machines and join one network: the same codes "
+              "then work over it.";
     page.rows.push_back(std::move(fallback));
     return page;
 }
@@ -95,7 +101,10 @@ bool OnlinePlay::owns(const std::string& id) {
 online::Network OnlinePlay::network() const {
     online::Network network;
     if (const std::string& servers = preferences_.values().onlineStunServers; !servers.empty()) {
-        network.stun_servers = servers;
+        network.direct.stun_servers = servers;
+    }
+    if (preferences_.values().onlineZeroTier) {
+        network.zerotier = zeroTier_.paths();
     }
     return network;
 }
@@ -104,6 +113,9 @@ void OnlinePlay::host(const library::Game& game) {
     if (meeting_ || hashing_) {
         hooks_.say("A game online is already being set up", true);
         return;
+    }
+    if (preferences_.values().onlineZeroTier) {
+        zeroTier_.start();
     }
     sounds_.play(audio::Effect::Open);
     std::vector<gpu2d::ui::Dialog::Choice> choices;
@@ -161,6 +173,9 @@ void OnlinePlay::join() {
     if (meeting_ || hashing_) {
         hooks_.say("A game online is already being set up", true);
         return;
+    }
+    if (preferences_.values().onlineZeroTier) {
+        zeroTier_.start();
     }
     sounds_.play(audio::Effect::Open);
     std::vector<gpu2d::ui::Dialog::Choice> choices;
@@ -426,6 +441,7 @@ void OnlinePlay::begin(online::Agreement& agreement, const library::Game& game) 
         return;
     }
     lease_ = std::move(agreement.lease);
+    bridge_ = std::move(agreement.bridge);
 }
 
 void OnlinePlay::service() {
@@ -456,6 +472,7 @@ void OnlinePlay::service() {
 
 void OnlinePlay::ended() {
     lease_.reset();
+    bridge_.reset();
 }
 
 } // namespace opensu::app
