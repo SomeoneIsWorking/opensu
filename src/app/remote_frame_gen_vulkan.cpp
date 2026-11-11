@@ -5,16 +5,15 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
-#include <deque>
 #include <format>
 #include <span>
 #include <stdexcept>
 #include <utility>
 #include <vector>
 
-#include "framegen/Device.h"
+#include "frame_gen/generator_gpu.hpp"
+#include "frame_gen/interpolator.hpp"
 #include "framegen/FramePacer.h"
-#include "framegen/LosslessGenerator.h"
 #include "framegen/LosslessModules.h"
 #include "lucent/log.h"
 #include "stream/stream_wire.hpp"
@@ -91,519 +90,6 @@ std::optional<framegen::LosslessModules_t> unpack(std::string_view packed) {
     return modules;
 }
 
-void check(VkResult result, const char* what) {
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error{
-            std::format("{} failed: VkResult {}", what, static_cast<int>(result))};
-    }
-}
-
-/// A Vulkan instance, the first GPU with what the generator needs (a discrete one before others),
-/// a device on it with those features and a compute queue, its command buffers handed out and
-/// submitted in order, each submission numbered by a timeline semaphore.
-class GeneratorDevice final : public framegen::IQueue {
-  public:
-    GeneratorDevice() {
-        const VkApplicationInfo application{.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-                                            .pNext = nullptr,
-                                            .pApplicationName = "openSU frame generation",
-                                            .applicationVersion = 1,
-                                            .pEngineName = "openSU",
-                                            .engineVersion = 1,
-                                            .apiVersion = VK_API_VERSION_1_2};
-        const VkInstanceCreateInfo instanceInfo{.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-                                                .pNext = nullptr,
-                                                .flags = 0,
-                                                .pApplicationInfo = &application,
-                                                .enabledLayerCount = 0,
-                                                .ppEnabledLayerNames = nullptr,
-                                                .enabledExtensionCount = 0,
-                                                .ppEnabledExtensionNames = nullptr};
-        check(vkCreateInstance(&instanceInfo, nullptr, &instance_), "vkCreateInstance");
-        try {
-            choose();
-            makeDevice();
-        } catch (...) {
-            release();
-            throw;
-        }
-    }
-    ~GeneratorDevice() override {
-        release();
-    }
-    GeneratorDevice(const GeneratorDevice&) = delete;
-    GeneratorDevice& operator=(const GeneratorDevice&) = delete;
-    GeneratorDevice(GeneratorDevice&&) = delete;
-    GeneratorDevice& operator=(GeneratorDevice&&) = delete;
-
-    [[nodiscard]] framegen::DeviceDesc_t desc() {
-        return framegen::DeviceDesc_t{.pfnGetInstanceProcAddr = vkGetInstanceProcAddr,
-                                      .instance = instance_,
-                                      .physicalDevice = physical_,
-                                      .device = device_,
-                                      .bFloat16 = float16_,
-                                      .bStorageWriteWithoutFormat = true,
-                                      .bStorageExtendedFormats = true,
-                                      .pQueue = this,
-                                      .log = [](framegen::LogLevel level, const std::string& line) {
-                                          switch (level) {
-                                          case framegen::LogLevel::Error:
-                                              lucent::error("framegen", "{}", line);
-                                              break;
-                                          case framegen::LogLevel::Info:
-                                              lucent::info("framegen", "{}", line);
-                                              break;
-                                          case framegen::LogLevel::Debug:
-                                              lucent::debug("framegen", "{}", line);
-                                              break;
-                                          }
-                                      }};
-    }
-    [[nodiscard]] VkDevice device() const noexcept {
-        return device_;
-    }
-    [[nodiscard]] const std::string& name() const noexcept {
-        return name_;
-    }
-
-    /// Memory of `properties` for `requirements`, bound by the caller.
-    [[nodiscard]] VkDeviceMemory allocate(const VkMemoryRequirements& requirements,
-                                          VkMemoryPropertyFlags properties) const {
-        VkPhysicalDeviceMemoryProperties memory{};
-        vkGetPhysicalDeviceMemoryProperties(physical_, &memory);
-        for (std::uint32_t i = 0; i < memory.memoryTypeCount; ++i) {
-            if ((requirements.memoryTypeBits & (1U << i)) != 0 &&
-                (memory.memoryTypes[i].propertyFlags & properties) == properties) {
-                const VkMemoryAllocateInfo info{.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-                                                .pNext = nullptr,
-                                                .allocationSize = requirements.size,
-                                                .memoryTypeIndex = i};
-                VkDeviceMemory allocated = VK_NULL_HANDLE;
-                check(vkAllocateMemory(device_, &info, nullptr, &allocated), "vkAllocateMemory");
-                return allocated;
-            }
-        }
-        throw std::runtime_error{"the GPU has no memory of the kind needed"};
-    }
-
-    VkCommandBuffer Begin() override {
-        VkCommandBuffer buffer = VK_NULL_HANDLE;
-        if (!submitted_.empty() && submitted_.front().first <= Completed()) {
-            buffer = submitted_.front().second;
-            submitted_.pop_front();
-            if (vkResetCommandBuffer(buffer, 0) != VK_SUCCESS) {
-                return VK_NULL_HANDLE;
-            }
-        } else {
-            const VkCommandBufferAllocateInfo info{
-                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                .pNext = nullptr,
-                .commandPool = pool_,
-                .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-                .commandBufferCount = 1};
-            if (vkAllocateCommandBuffers(device_, &info, &buffer) != VK_SUCCESS) {
-                return VK_NULL_HANDLE;
-            }
-        }
-        const VkCommandBufferBeginInfo begin{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-                                             .pNext = nullptr,
-                                             .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-                                             .pInheritanceInfo = nullptr};
-        if (vkBeginCommandBuffer(buffer, &begin) != VK_SUCCESS) {
-            vkFreeCommandBuffers(device_, pool_, 1, &buffer);
-            return VK_NULL_HANDLE;
-        }
-        return buffer;
-    }
-
-    std::uint64_t Submit(VkCommandBuffer cmd) override {
-        check(vkEndCommandBuffer(cmd), "vkEndCommandBuffer");
-        const std::uint64_t number = submittedSeq_ + 1;
-        const VkTimelineSemaphoreSubmitInfo timeline{
-            .sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO,
-            .pNext = nullptr,
-            .waitSemaphoreValueCount = 0,
-            .pWaitSemaphoreValues = nullptr,
-            .signalSemaphoreValueCount = 1,
-            .pSignalSemaphoreValues = &number};
-        const VkSubmitInfo submit{.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-                                  .pNext = &timeline,
-                                  .waitSemaphoreCount = 0,
-                                  .pWaitSemaphores = nullptr,
-                                  .pWaitDstStageMask = nullptr,
-                                  .commandBufferCount = 1,
-                                  .pCommandBuffers = &cmd,
-                                  .signalSemaphoreCount = 1,
-                                  .pSignalSemaphores = &timeline_};
-        check(vkQueueSubmit(queue_, 1, &submit, VK_NULL_HANDLE), "vkQueueSubmit");
-        submittedSeq_ = number;
-        submitted_.emplace_back(number, cmd);
-        return number;
-    }
-
-    std::uint64_t Completed() override {
-        std::uint64_t value = 0;
-        check(vkGetSemaphoreCounterValue(device_, timeline_, &value), "vkGetSemaphoreCounterValue");
-        return value;
-    }
-
-    void Wait(std::uint64_t seqNo) override {
-        const VkSemaphoreWaitInfo wait{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
-                                       .pNext = nullptr,
-                                       .flags = 0,
-                                       .semaphoreCount = 1,
-                                       .pSemaphores = &timeline_,
-                                       .pValues = &seqNo};
-        check(vkWaitSemaphores(device_, &wait, UINT64_MAX), "vkWaitSemaphores");
-    }
-
-    /// Waits for everything submitted.
-    [[nodiscard]] VkResult idle() noexcept {
-        return vkDeviceWaitIdle(device_);
-    }
-
-  private:
-    /// Picks the GPU and its compute queue; throws when none has what the shaders need.
-    void choose() {
-        std::uint32_t count = 0;
-        check(vkEnumeratePhysicalDevices(instance_, &count, nullptr), "vkEnumeratePhysicalDevices");
-        std::vector<VkPhysicalDevice> devices(count);
-        check(vkEnumeratePhysicalDevices(instance_, &count, devices.data()),
-              "vkEnumeratePhysicalDevices");
-        std::stable_sort(devices.begin(), devices.end(),
-                         [](VkPhysicalDevice a, VkPhysicalDevice b) {
-                             VkPhysicalDeviceProperties pa{};
-                             VkPhysicalDeviceProperties pb{};
-                             vkGetPhysicalDeviceProperties(a, &pa);
-                             vkGetPhysicalDeviceProperties(b, &pb);
-                             return pa.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
-                                    pb.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
-                         });
-        std::string missing = "no GPU";
-        for (VkPhysicalDevice candidate : devices) {
-            VkPhysicalDeviceProperties properties{};
-            vkGetPhysicalDeviceProperties(candidate, &properties);
-            const std::string why = lacks(candidate, properties);
-            if (why.empty()) {
-                physical_ = candidate;
-                name_ = properties.deviceName;
-                return;
-            }
-            missing = std::format("{} lacks {}", properties.deviceName, why);
-        }
-        throw std::runtime_error{missing};
-    }
-
-    /// What `candidate` lacks of what the generator needs; empty for nothing, its features and
-    /// compute queue noted.
-    std::string lacks(VkPhysicalDevice candidate, const VkPhysicalDeviceProperties& properties) {
-        if (properties.apiVersion < VK_API_VERSION_1_2) {
-            return "Vulkan 1.2";
-        }
-        std::uint32_t extensionCount = 0;
-        vkEnumerateDeviceExtensionProperties(candidate, nullptr, &extensionCount, nullptr);
-        std::vector<VkExtensionProperties> extensions(extensionCount);
-        vkEnumerateDeviceExtensionProperties(candidate, nullptr, &extensionCount,
-                                             extensions.data());
-        if (std::ranges::none_of(extensions, [](const VkExtensionProperties& extension) {
-                return std::string_view{extension.extensionName} ==
-                       VK_EXT_ROBUSTNESS_2_EXTENSION_NAME;
-            })) {
-            return VK_EXT_ROBUSTNESS_2_EXTENSION_NAME;
-        }
-        VkPhysicalDeviceRobustness2FeaturesEXT robustness{
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT,
-            .pNext = nullptr,
-            .robustBufferAccess2 = VK_FALSE,
-            .robustImageAccess2 = VK_FALSE,
-            .nullDescriptor = VK_FALSE};
-        VkPhysicalDeviceVulkan12Features vulkan12{};
-        vulkan12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-        vulkan12.pNext = &robustness;
-        VkPhysicalDeviceFeatures2 features{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-                                           .pNext = &vulkan12,
-                                           .features = {}};
-        vkGetPhysicalDeviceFeatures2(candidate, &features);
-        if (robustness.nullDescriptor == VK_FALSE) {
-            return "null descriptors";
-        }
-        if (vulkan12.timelineSemaphore == VK_FALSE) {
-            return "timeline semaphores";
-        }
-        if (features.features.shaderStorageImageWriteWithoutFormat == VK_FALSE ||
-            features.features.shaderStorageImageExtendedFormats == VK_FALSE) {
-            return "storage images of any format";
-        }
-        std::uint32_t familyCount = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(candidate, &familyCount, nullptr);
-        std::vector<VkQueueFamilyProperties> families(familyCount);
-        vkGetPhysicalDeviceQueueFamilyProperties(candidate, &familyCount, families.data());
-        const auto compute = std::ranges::find_if(families, [](const VkQueueFamilyProperties& f) {
-            return (f.queueFlags & VK_QUEUE_COMPUTE_BIT) != 0;
-        });
-        if (compute == families.end()) {
-            return "a compute queue";
-        }
-        family_ = static_cast<std::uint32_t>(compute - families.begin());
-        float16_ = vulkan12.shaderFloat16 == VK_TRUE && features.features.shaderInt16 == VK_TRUE;
-        scalarLayout_ = vulkan12.scalarBlockLayout == VK_TRUE;
-        return {};
-    }
-
-    void makeDevice() {
-        const float priority = 1.0F;
-        const VkDeviceQueueCreateInfo queueInfo{.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                                                .pNext = nullptr,
-                                                .flags = 0,
-                                                .queueFamilyIndex = family_,
-                                                .queueCount = 1,
-                                                .pQueuePriorities = &priority};
-        VkPhysicalDeviceRobustness2FeaturesEXT robustness{
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT,
-            .pNext = nullptr,
-            .robustBufferAccess2 = VK_FALSE,
-            .robustImageAccess2 = VK_FALSE,
-            .nullDescriptor = VK_TRUE};
-        VkPhysicalDeviceVulkan12Features vulkan12{};
-        vulkan12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-        vulkan12.pNext = &robustness;
-        vulkan12.shaderFloat16 = float16_ ? VK_TRUE : VK_FALSE;
-        vulkan12.scalarBlockLayout = scalarLayout_ ? VK_TRUE : VK_FALSE;
-        vulkan12.timelineSemaphore = VK_TRUE;
-        VkPhysicalDeviceFeatures2 features{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-                                           .pNext = &vulkan12,
-                                           .features = {}};
-        features.features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
-        features.features.shaderStorageImageExtendedFormats = VK_TRUE;
-        features.features.shaderInt16 = float16_ ? VK_TRUE : VK_FALSE;
-        const std::array<const char*, 1> extensions{VK_EXT_ROBUSTNESS_2_EXTENSION_NAME};
-        const VkDeviceCreateInfo deviceInfo{.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-                                            .pNext = &features,
-                                            .flags = 0,
-                                            .queueCreateInfoCount = 1,
-                                            .pQueueCreateInfos = &queueInfo,
-                                            .enabledLayerCount = 0,
-                                            .ppEnabledLayerNames = nullptr,
-                                            .enabledExtensionCount =
-                                                static_cast<std::uint32_t>(extensions.size()),
-                                            .ppEnabledExtensionNames = extensions.data(),
-                                            .pEnabledFeatures = nullptr};
-        check(vkCreateDevice(physical_, &deviceInfo, nullptr, &device_), "vkCreateDevice");
-        vkGetDeviceQueue(device_, family_, 0, &queue_);
-        const VkCommandPoolCreateInfo poolInfo{.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-                                               .pNext = nullptr,
-                                               .flags =
-                                                   VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-                                               .queueFamilyIndex = family_};
-        check(vkCreateCommandPool(device_, &poolInfo, nullptr, &pool_), "vkCreateCommandPool");
-        const VkSemaphoreTypeCreateInfo type{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
-                                             .pNext = nullptr,
-                                             .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE,
-                                             .initialValue = 0};
-        const VkSemaphoreCreateInfo semaphoreInfo{
-            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, .pNext = &type, .flags = 0};
-        check(vkCreateSemaphore(device_, &semaphoreInfo, nullptr, &timeline_), "vkCreateSemaphore");
-    }
-
-    void release() noexcept {
-        if (device_ != VK_NULL_HANDLE) {
-            vkDeviceWaitIdle(device_);
-            if (timeline_ != VK_NULL_HANDLE) {
-                vkDestroySemaphore(device_, timeline_, nullptr);
-            }
-            if (pool_ != VK_NULL_HANDLE) {
-                vkDestroyCommandPool(device_, pool_, nullptr);
-            }
-            vkDestroyDevice(device_, nullptr);
-            device_ = VK_NULL_HANDLE;
-        }
-        if (instance_ != VK_NULL_HANDLE) {
-            vkDestroyInstance(instance_, nullptr);
-            instance_ = VK_NULL_HANDLE;
-        }
-    }
-
-    VkInstance instance_{VK_NULL_HANDLE};
-    VkPhysicalDevice physical_{VK_NULL_HANDLE};
-    std::string name_;
-    std::uint32_t family_{0};
-    bool float16_{false};
-    bool scalarLayout_{false};
-    VkDevice device_{VK_NULL_HANDLE};
-    VkQueue queue_{VK_NULL_HANDLE};
-    VkCommandPool pool_{VK_NULL_HANDLE};
-    VkSemaphore timeline_{VK_NULL_HANDLE};
-    std::uint64_t submittedSeq_{0};
-    /// Command buffers submitted, oldest first, each with its submission's number.
-    std::deque<std::pair<std::uint64_t, VkCommandBuffer>> submitted_;
-};
-
-/// An RGBA8 image the generator reads or writes, in GENERAL layout from its first use.
-class GeneratorImage {
-  public:
-    GeneratorImage(const GeneratorDevice& gpu, std::uint32_t width, std::uint32_t height)
-        : device_{gpu.device()}, width_{width}, height_{height} {
-        const VkImageCreateInfo info{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-            .pNext = nullptr,
-            .flags = 0,
-            .imageType = VK_IMAGE_TYPE_2D,
-            .format = VK_FORMAT_R8G8B8A8_UNORM,
-            .extent = {.width = width, .height = height, .depth = 1},
-            .mipLevels = 1,
-            .arrayLayers = 1,
-            .samples = VK_SAMPLE_COUNT_1_BIT,
-            .tiling = VK_IMAGE_TILING_OPTIMAL,
-            .usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
-                     VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-            .queueFamilyIndexCount = 0,
-            .pQueueFamilyIndices = nullptr,
-            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED};
-        check(vkCreateImage(device_, &info, nullptr, &image_), "vkCreateImage");
-        VkMemoryRequirements requirements{};
-        vkGetImageMemoryRequirements(device_, image_, &requirements);
-        memory_ = gpu.allocate(requirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        check(vkBindImageMemory(device_, image_, memory_, 0), "vkBindImageMemory");
-        const VkImageViewCreateInfo viewInfo{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .pNext = nullptr,
-            .flags = 0,
-            .image = image_,
-            .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = VK_FORMAT_R8G8B8A8_UNORM,
-            .components = {},
-            .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                                 .baseMipLevel = 0,
-                                 .levelCount = 1,
-                                 .baseArrayLayer = 0,
-                                 .layerCount = 1}};
-        check(vkCreateImageView(device_, &viewInfo, nullptr, &view_), "vkCreateImageView");
-    }
-    ~GeneratorImage() {
-        vkDestroyImageView(device_, view_, nullptr);
-        vkDestroyImage(device_, image_, nullptr);
-        vkFreeMemory(device_, memory_, nullptr);
-    }
-    GeneratorImage(const GeneratorImage&) = delete;
-    GeneratorImage& operator=(const GeneratorImage&) = delete;
-    GeneratorImage(GeneratorImage&&) = delete;
-    GeneratorImage& operator=(GeneratorImage&&) = delete;
-
-    [[nodiscard]] framegen::GeneratorImage_t view() const noexcept {
-        return framegen::GeneratorImage_t{.view = view_, .uWidth = width_, .uHeight = height_};
-    }
-    [[nodiscard]] VkImage image() const noexcept {
-        return image_;
-    }
-
-    /// Records the move into GENERAL, the contents left undefined.
-    void toGeneral(VkCommandBuffer cmd) const {
-        const VkImageMemoryBarrier barrier{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .pNext = nullptr,
-            .srcAccessMask = 0,
-            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT |
-                             VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
-            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .newLayout = VK_IMAGE_LAYOUT_GENERAL,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = image_,
-            .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                                 .baseMipLevel = 0,
-                                 .levelCount = 1,
-                                 .baseArrayLayer = 0,
-                                 .layerCount = 1}};
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1,
-                             &barrier);
-    }
-
-  private:
-    VkDevice device_;
-    std::uint32_t width_;
-    std::uint32_t height_;
-    VkImage image_{VK_NULL_HANDLE};
-    VkDeviceMemory memory_{VK_NULL_HANDLE};
-    VkImageView view_{VK_NULL_HANDLE};
-};
-
-/// A buffer the CPU writes a real frame into or reads a generated one from, mapped for its life.
-class HostBuffer {
-  public:
-    HostBuffer(const GeneratorDevice& gpu, VkDeviceSize bytes, VkBufferUsageFlags usage)
-        : device_{gpu.device()}, bytes_{bytes} {
-        const VkBufferCreateInfo info{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-                                      .pNext = nullptr,
-                                      .flags = 0,
-                                      .size = bytes,
-                                      .usage = usage,
-                                      .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-                                      .queueFamilyIndexCount = 0,
-                                      .pQueueFamilyIndices = nullptr};
-        check(vkCreateBuffer(device_, &info, nullptr, &buffer_), "vkCreateBuffer");
-        VkMemoryRequirements requirements{};
-        vkGetBufferMemoryRequirements(device_, buffer_, &requirements);
-        const VkMemoryPropertyFlags shared =
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-        // Reads from cached memory are many times quicker; writes need no cache.
-        try {
-            memory_ = gpu.allocate(requirements, (usage & VK_BUFFER_USAGE_TRANSFER_DST_BIT) != 0
-                                                     ? shared | VK_MEMORY_PROPERTY_HOST_CACHED_BIT
-                                                     : shared);
-        } catch (const std::runtime_error&) {
-            memory_ = gpu.allocate(requirements, shared);
-        }
-        check(vkBindBufferMemory(device_, buffer_, memory_, 0), "vkBindBufferMemory");
-        check(vkMapMemory(device_, memory_, 0, bytes, 0, &mapped_), "vkMapMemory");
-    }
-    ~HostBuffer() {
-        vkUnmapMemory(device_, memory_);
-        vkDestroyBuffer(device_, buffer_, nullptr);
-        vkFreeMemory(device_, memory_, nullptr);
-    }
-    HostBuffer(const HostBuffer&) = delete;
-    HostBuffer& operator=(const HostBuffer&) = delete;
-    HostBuffer(HostBuffer&&) = delete;
-    HostBuffer& operator=(HostBuffer&&) = delete;
-
-    [[nodiscard]] VkBuffer buffer() const noexcept {
-        return buffer_;
-    }
-    [[nodiscard]] std::span<std::uint8_t> bytes() const noexcept {
-        return {static_cast<std::uint8_t*>(mapped_), static_cast<std::size_t>(bytes_)};
-    }
-
-  private:
-    VkDevice device_;
-    VkDeviceSize bytes_;
-    VkBuffer buffer_{VK_NULL_HANDLE};
-    VkDeviceMemory memory_{VK_NULL_HANDLE};
-    void* mapped_{nullptr};
-};
-
-VkBufferImageCopy wholeImage(std::uint32_t width, std::uint32_t height) {
-    return VkBufferImageCopy{.bufferOffset = 0,
-                             .bufferRowLength = 0,
-                             .bufferImageHeight = 0,
-                             .imageSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                                                  .mipLevel = 0,
-                                                  .baseArrayLayer = 0,
-                                                  .layerCount = 1},
-                             .imageOffset = {.x = 0, .y = 0, .z = 0},
-                             .imageExtent = {.width = width, .height = height, .depth = 1}};
-}
-
-void memoryBarrier(VkCommandBuffer cmd, VkPipelineStageFlags from, VkAccessFlags written,
-                   VkPipelineStageFlags to, VkAccessFlags read) {
-    const VkMemoryBarrier barrier{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
-                                  .pNext = nullptr,
-                                  .srcAccessMask = written,
-                                  .dstAccessMask = read};
-    vkCmdPipelineBarrier(cmd, from, to, 0, 1, &barrier, 0, nullptr, 0, nullptr);
-}
-
 framegen::PacingSettings_t pacingOf(const settings::FrameGenSettings& settings) {
     constexpr double thousand = 1000.0;
     if (settings.mode == settings::FrameGenMode::Fixed) {
@@ -627,12 +113,8 @@ class VulkanFrameGen final : public RemoteFrameGen {
                    std::shared_ptr<const framegen::LosslessModules_t> modules) {
         pacer_.Configure(pacingOf(settings));
         std::string why;
-        device_ = framegen::CDevice::Create(gpu_.desc(), why);
-        if (!device_) {
-            throw std::runtime_error{why};
-        }
-        generator_ = framegen::CLosslessGenerator::Create(
-            device_,
+        generator_ = frame_gen::lossless(
+            gpu_,
             framegen::LosslessSettings_t{
                 .sDllPath = {},
                 .pModules = std::move(modules),
@@ -743,7 +225,7 @@ class VulkanFrameGen final : public RemoteFrameGen {
 
     /// A new session of `width` by `height`: every image and real frame before it forgotten.
     void begin(std::uint32_t width, std::uint32_t height) {
-        check(gpu_.idle(), "vkDeviceWaitIdle");
+        frame_gen::check(gpu_.idle(), "vkDeviceWaitIdle");
         sources_.clear();
         uploads_.clear();
         outputs_.clear();
@@ -753,15 +235,15 @@ class VulkanFrameGen final : public RemoteFrameGen {
         height_ = 0;
         const VkDeviceSize bytes = VkDeviceSize{width} * height * bytesPerPixel;
         for (std::uint64_t i = 0; i < bufferedFrames; ++i) {
-            sources_.push_back(std::make_unique<GeneratorImage>(gpu_, width, height));
-            uploads_.push_back(
-                std::make_unique<HostBuffer>(gpu_, bytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
+            sources_.push_back(std::make_unique<frame_gen::GeneratorImage>(gpu_, width, height));
+            uploads_.push_back(std::make_unique<frame_gen::HostBuffer>(
+                gpu_, bytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
         }
         const std::size_t outputs = bufferedFrames * pacer_.GetMaxGeneratedPerFrame();
         for (std::size_t i = 0; i < outputs; ++i) {
-            outputs_.push_back(std::make_unique<GeneratorImage>(gpu_, width, height));
-            readbacks_.push_back(
-                std::make_unique<HostBuffer>(gpu_, bytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT));
+            outputs_.push_back(std::make_unique<frame_gen::GeneratorImage>(gpu_, width, height));
+            readbacks_.push_back(std::make_unique<frame_gen::HostBuffer>(
+                gpu_, bytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT));
         }
         VkCommandBuffer cmd = gpu_.Begin();
         if (cmd == VK_NULL_HANDLE) {
@@ -791,8 +273,8 @@ class VulkanFrameGen final : public RemoteFrameGen {
             pacer_.DropOlderThan(oldest, oldest);
         }
         Real& slot = reals_[index % bufferedFrames];
-        const GeneratorImage& source = *sources_[index % bufferedFrames];
-        const HostBuffer& upload = *uploads_[index % bufferedFrames];
+        const frame_gen::GeneratorImage& source = *sources_[index % bufferedFrames];
+        const frame_gen::HostBuffer& upload = *uploads_[index % bufferedFrames];
         // Whatever still uses the slot's image or buffers finishes first.
         gpu_.Wait(slot.busy);
         const std::span<std::uint8_t> staged = upload.bytes();
@@ -802,9 +284,9 @@ class VulkanFrameGen final : public RemoteFrameGen {
             lucent::error("framegen", "no command buffer for frame {}", frame.number);
             return false;
         }
-        memoryBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_MEMORY_READ_BIT,
-                      VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
-        const VkBufferImageCopy region = wholeImage(width_, height_);
+        frame_gen::memoryBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_MEMORY_READ_BIT,
+                                 VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
+        const VkBufferImageCopy region = frame_gen::wholeImage(width_, height_);
         vkCmdCopyBufferToImage(cmd, upload.buffer(), source.image(), VK_IMAGE_LAYOUT_GENERAL, 1,
                                &region);
         slot.busy = gpu_.Submit(cmd);
@@ -818,13 +300,12 @@ class VulkanFrameGen final : public RemoteFrameGen {
             pacer_.OnRealFrame(index, readyNs, arrivalNs, refreshNs);
         if (plan.eState == framegen::PacingState::Generating) {
             const bool follows = lastAdded_ && *lastAdded_ + 1 == index;
-            if (!follows && !generator_->BeginSession(width_, height_)) {
+            if (!follows && !generator_->begin(width_, height_)) {
                 lucent::error("framegen", "the generator does not restart at frame {}",
                               slot.frame.number);
                 return false;
             }
-            const std::optional<framegen::Submission_t> added =
-                generator_->AddRealFrame(source.view());
+            const std::optional<framegen::Submission_t> added = generator_->add(source.view());
             if (!added || !added->bComplete) {
                 lucent::error("framegen", "frame {} did not go into the generator",
                               slot.frame.number);
@@ -841,22 +322,22 @@ class VulkanFrameGen final : public RemoteFrameGen {
         }
         for (std::size_t i = 0; i < plan.flTimestamps.size(); ++i) {
             const std::size_t at = slotOf(index, static_cast<std::uint32_t>(i));
-            const GeneratorImage& output = *outputs_[at];
-            const HostBuffer& readback = *readbacks_[at];
+            const frame_gen::GeneratorImage& output = *outputs_[at];
+            const frame_gen::HostBuffer& readback = *readbacks_[at];
             const framegen::OutputHooks_t hooks{
                 .before = {}, .after = [this, &output, &readback](VkCommandBuffer recording) {
-                    memoryBarrier(recording, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                                  VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                  VK_ACCESS_TRANSFER_READ_BIT);
-                    const VkBufferImageCopy copy = wholeImage(width_, height_);
+                    frame_gen::memoryBarrier(
+                        recording, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT);
+                    const VkBufferImageCopy copy = frame_gen::wholeImage(width_, height_);
                     vkCmdCopyImageToBuffer(recording, output.image(), VK_IMAGE_LAYOUT_GENERAL,
                                            readback.buffer(), 1, &copy);
-                    memoryBarrier(recording, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                  VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_HOST_BIT,
-                                  VK_ACCESS_HOST_READ_BIT);
+                    frame_gen::memoryBarrier(recording, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                             VK_ACCESS_TRANSFER_WRITE_BIT,
+                                             VK_PIPELINE_STAGE_HOST_BIT, VK_ACCESS_HOST_READ_BIT);
                 }};
             const std::optional<framegen::Submission_t> made =
-                generator_->Generate(plan.flTimestamps[i], output.view(), hooks);
+                generator_->generate(plan.flTimestamps[i], output.view(), hooks);
             if (!made || !made->bComplete) {
                 lucent::error("framegen", "no image generated before frame {}", slot.frame.number);
                 return false;
@@ -869,16 +350,15 @@ class VulkanFrameGen final : public RemoteFrameGen {
         return true;
     }
 
-    GeneratorDevice gpu_;
-    std::shared_ptr<framegen::CDevice> device_;
-    std::unique_ptr<framegen::CLosslessGenerator> generator_;
+    frame_gen::GeneratorDevice gpu_;
+    std::unique_ptr<frame_gen::Interpolator> generator_;
     framegen::CFramePacer pacer_;
     std::uint32_t width_{0};
     std::uint32_t height_{0};
-    std::vector<std::unique_ptr<GeneratorImage>> sources_;
-    std::vector<std::unique_ptr<HostBuffer>> uploads_;
-    std::vector<std::unique_ptr<GeneratorImage>> outputs_;
-    std::vector<std::unique_ptr<HostBuffer>> readbacks_;
+    std::vector<std::unique_ptr<frame_gen::GeneratorImage>> sources_;
+    std::vector<std::unique_ptr<frame_gen::HostBuffer>> uploads_;
+    std::vector<std::unique_ptr<frame_gen::GeneratorImage>> outputs_;
+    std::vector<std::unique_ptr<frame_gen::HostBuffer>> readbacks_;
     std::array<Real, bufferedFrames> reals_{};
     /// Real frames since the session began, the last of them the generator took, and its state.
     std::uint64_t frames_{0};

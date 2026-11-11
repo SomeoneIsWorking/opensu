@@ -23,7 +23,7 @@ endif()
 # Vulkan device of its own on Linux (docs/plans/remote-frame-generation.md); none elsewhere yet.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(opensu_app PRIVATE remote_frame_gen_vulkan.cpp)
-    target_link_libraries(opensu_app PRIVATE framegen::framegen opensu::vulkan)
+    target_link_libraries(opensu_app PRIVATE opensu::frame_gen)
 else()
     target_sources(opensu_app PRIVATE remote_frame_gen_none.cpp)
 endif()
