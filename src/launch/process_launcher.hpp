@@ -1,6 +1,7 @@
 // process_launcher — starts a program in a group of its own that owns everything it starts, and
-// ends the whole group. One backend per OS, picked in CMakeLists.txt: a transient systemd user
-// scope on Linux (`process_launcher_systemd_scope.cpp`), a Job Object on Windows
+// ends the whole group. On Linux `process_launcher_linux.cpp` dispatches to the backend for the
+// process's `Containment`: a transient systemd user scope (`process_launcher_systemd_scope.cpp`);
+// elsewhere one backend per OS, picked in CMakeLists.txt, a Job Object on Windows
 // (`process_launcher_job_object.cpp`), a process group on macOS
 // (`process_launcher_process_group.cpp`); on Android an intent from the shell's Activity, which
 // owns only openSU's own runner (`process_launcher_intent.cpp`).
@@ -11,6 +12,8 @@
 #include <mutex>
 #include <string>
 #include <vector>
+
+#include "containment.hpp"
 
 namespace opensu::launch {
 
@@ -23,7 +26,9 @@ namespace opensu::launch {
 /// waiting on.
 class ProcessLauncher {
   public:
-    ProcessLauncher();
+    /// Holds what it starts as `containment` says, the one its process chose at start-up
+    /// (`chooseContainment`).
+    explicit ProcessLauncher(Containment containment);
     ProcessLauncher(const ProcessLauncher&) = delete;
     /// Whether `program` names what this backend starts: an executable file, by path or on
     /// `executablePath`; on Android also another app's activity, which start() checks.

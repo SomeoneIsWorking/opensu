@@ -240,7 +240,8 @@ void theSwitchAppliesAChange(const fs::path& root) {
                                                 .session = "opensu-integration-test",
                                                 .steamRoots = {},
                                                 .mayStart = false,
-                                                .devToolsPort = 1}};
+                                                .devToolsPort = 1,
+                                                .containment = opensu::launch::chooseContainment()}};
     std::vector<library::CatalogStores> built;
     const auto catalogOf = [&built](const library::CatalogStores& stores) {
         built.push_back(stores);

@@ -38,7 +38,8 @@ int launchExitStatus() {
 
 } // namespace
 
-ProcessLauncher::ProcessLauncher() = default;
+ProcessLauncher::ProcessLauncher(Containment /*containment*/) {
+}
 
 // Launches.start says when an app is missing.
 bool ProcessLauncher::startable(const std::string& program,

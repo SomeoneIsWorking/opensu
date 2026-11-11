@@ -376,7 +376,8 @@ void testStartBlocksUntilTheGameIsOver() {
     const RunningGame child = runningGame(fixture, "blocking", 4);
     Shell shell;
     FakeSteam steam;
-    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games"};
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
 
     const Clock::time_point began = Clock::now();
     std::future<Outcome> pending = startOnWorker(handoff, child.game, shell);
@@ -417,7 +418,8 @@ void testEnvironmentReachesTheGame() {
     const Game entry = makeGame("environment", "/bin/sh", {script.string()}, marker);
     Shell shell;
     FakeSteam steam;
-    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games"};
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     std::future<Outcome> pending =
         startOnWorker(handoff, entry, shell, {"OPENSU_TEST_VALUE=from-the-shell"});
     const Outcome outcome = awaitStart(pending, "start() returns when the game exits");
@@ -438,7 +440,8 @@ void testExitStatusIsReported() {
         return makeGame(stem, "/bin/sh", {script.string()}, marker);
     };
     FakeSteam steam;
-    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games"};
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     const Game crashing = launchScript("segv", "ulimit -c 0\nsleep 1\nkill -SEGV $$\n");
     Shell crashed;
     std::future<Outcome> pending = startOnWorker(handoff, crashing, crashed);
@@ -503,7 +506,8 @@ void testStartWaitsAcrossAHandOff() {
 
     Shell shell;
     FakeSteam steam;
-    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games"};
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     const Clock::time_point began = Clock::now();
     std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
 
@@ -568,7 +572,8 @@ void testShellWaitsForTheWindow() {
     Shell shell;
     FakeSteam steam;
     FakeWindows windows;
-    Handoff handoff{searchPath(), fixture.session(), steam, &windows, fixture.base / "games"};
+    Handoff handoff{searchPath(), fixture.session(), steam, &windows, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     std::future<Outcome> pending = startOnWorker(handoff, child.game, shell);
 
     const pid_t pid = awaitRecordedPid(child.pidFile, "the game started");
@@ -602,7 +607,8 @@ void testFirstFrameEndsTheCard() {
     Shell shell;
     FakeSteam steam;
     FakeWindows windows;
-    Handoff handoff{searchPath(), fixture.session(), steam, &windows, fixture.base / "games"};
+    Handoff handoff{searchPath(), fixture.session(), steam, &windows, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     std::atomic<bool> drawn{false};
     std::future<Outcome> pending = startOnWorker(handoff, child.game, shell, {}, [&drawn] {
         return drawn.load();
@@ -636,7 +642,8 @@ void testGameLeavingBeforeAWindowFails() {
     Shell shell;
     FakeSteam steam;
     FakeWindows windows;
-    Handoff handoff{searchPath(), fixture.session(), steam, &windows, fixture.base / "games"};
+    Handoff handoff{searchPath(), fixture.session(), steam, &windows, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     std::future<Outcome> pending = startOnWorker(handoff, child.game, shell);
     const Outcome outcome =
         awaitStart(pending, "start() returns when the game leaves", std::chrono::seconds{20});
@@ -655,7 +662,8 @@ void testMissingProgramReportsFailurePromptly() {
 
     Shell shell;
     FakeSteam steam;
-    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games"};
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     const Clock::time_point began = Clock::now();
     std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
     const Outcome outcome =
@@ -675,7 +683,8 @@ void testForceCloseEndsTheRunPhase() {
     const RunningGame child = runningGame(fixture, "forced", 600);
     Shell shell;
     FakeSteam steam;
-    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games"};
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     std::future<Outcome> pending = startOnWorker(handoff, child.game, shell);
 
     const pid_t pid = awaitRecordedPid(child.pidFile, "the game started");
@@ -709,7 +718,8 @@ void testForceCloseReturnsWhileTheStopIsSlow() {
     const RunningGame child = runningGame(fixture, "slow-stop", 600);
     Shell shell;
     FakeSteam steam;
-    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games"};
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     std::future<Outcome> pending = startOnWorker(handoff, child.game, shell);
     const pid_t pid = awaitRecordedPid(child.pidFile, "the game started");
     expect(waitUntil(
@@ -736,7 +746,8 @@ void testForceCloseEndsTheStartPhase() {
     const Game entry = makeGame("never", "/bin/sleep", {"600"}, fixture.marker("never"));
     Shell shell;
     FakeSteam steam;
-    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games"};
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
 
     expect(!shell.returnedWithin(std::chrono::milliseconds{1500}),
@@ -756,7 +767,8 @@ void testInstanceExitEndsTheWait() {
     const Game entry = makeGame("quick", "/bin/sh", {"-c", "exit 3"}, fixture.marker("quick"));
     Shell shell;
     FakeSteam steam;
-    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games"};
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
     const Outcome outcome =
         awaitStart(pending, "start() returns when the instance exits", std::chrono::seconds{20});
@@ -823,7 +835,8 @@ void testSteamWaitsForReadiness() {
     const Fixture fixture;
     const FakeSteamProgram steamProgram{fixture, 3};
     FakeSteam steam{SteamState::Initializing};
-    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, nullptr, fixture.base / "games"};
+    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, nullptr, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     Shell shell;
     std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
 
@@ -860,7 +873,8 @@ void testDesktopSteamGameNeedsNoSessionWindow() {
     FakeSteam steam;
     steam.setInSession(false);
     FakeWindows windows;
-    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, &windows, fixture.base / "games"};
+    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, &windows, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     Shell shell;
     std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
     awaitRecordedPid(steamProgram.gamePid, "the desktop Steam started the game");
@@ -883,7 +897,8 @@ void testSteamUpdateKeepsTheShellUp() {
     fs::remove(steamProgram.gate);
     FakeSteam steam;
     steam.setUpdate(0.42);
-    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, nullptr, fixture.base / "games"};
+    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, nullptr, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     Shell shell;
     std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
 
@@ -927,7 +942,8 @@ void testSteamLaunchSpansSetupAndGap() {
     const FakeSteamProgram steamProgram{fixture, 3, 1, 2.0};
     FakeSteam steam;
     FakeWindows windows;
-    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, &windows, fixture.base / "games"};
+    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, &windows, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     Shell shell;
     std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
     expect(waitUntil(
@@ -977,7 +993,8 @@ void testSteamLaunchErrorIsTheFailure() {
     steam.setActivity(SteamAppActivity{
         .actionId = 4, .error = "Disk write failure", .actionEnded = true, .running = false});
     FakeWindows windows;
-    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, &windows, fixture.base / "games"};
+    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, &windows, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     Shell shell;
     std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
     expect(waitUntil(
@@ -1003,7 +1020,8 @@ void testSteamRunningGameIsReturnedTo() {
     const FakeSteamProgram steamProgram{fixture, 3};
     FakeSteam steam;
     steam.setActivity(SteamAppActivity{.actionId = 2, .actionEnded = true, .running = true});
-    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, nullptr, fixture.base / "games"};
+    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, nullptr, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     Shell shell;
     std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
     expect(waitUntil(
@@ -1027,7 +1045,8 @@ void testSteamBlockedAndFailedAreRefused() {
     {
         FakeSteam steam{SteamState::Blocked};
         Handoff handoff{
-            {steamProgram.bin}, fixture.session(), steam, nullptr, fixture.base / "games"};
+            {steamProgram.bin}, fixture.session(), steam, nullptr, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
         Shell shell;
         std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
         const Outcome outcome =
@@ -1041,7 +1060,8 @@ void testSteamBlockedAndFailedAreRefused() {
     {
         FakeSteam steam{SteamState::Failed};
         Handoff handoff{
-            {steamProgram.bin}, fixture.session(), steam, nullptr, fixture.base / "games"};
+            {steamProgram.bin}, fixture.session(), steam, nullptr, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
         Shell shell;
         std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
         const Outcome outcome =
@@ -1059,7 +1079,8 @@ void testSteamForceCloseKillsTheGameNotTheClient() {
     const Fixture fixture;
     const FakeSteamProgram steamProgram{fixture, 600};
     FakeSteam steam;
-    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, nullptr, fixture.base / "games"};
+    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, nullptr, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
 
     // Stands in for the client process: unrelated to the game's command line.
     const pid_t client = fork();
@@ -1112,7 +1133,8 @@ void testSteamForceCloseCancelsSteamsLaunch() {
     const FakeSteamProgram steamProgram{fixture, 600};
     fs::remove(steamProgram.gate);
     FakeSteam steam;
-    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, nullptr, fixture.base / "games"};
+    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, nullptr, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     Shell shell;
     std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
     expect(waitUntil(
@@ -1157,7 +1179,8 @@ void testSteamForceCloseCancelsTheWait() {
     const Fixture fixture;
     const FakeSteamProgram steamProgram{fixture, 3};
     FakeSteam steam{SteamState::Initializing};
-    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, nullptr, fixture.base / "games"};
+    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, nullptr, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     Shell shell;
     std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
 
@@ -1179,7 +1202,8 @@ void testEmptyHintIsRefusedPromptly() {
 
     Shell shell;
     FakeSteam steam;
-    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games"};
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr, fixture.base / "games",
+                    opensu::launch::chooseContainment()};
     const Clock::time_point began = Clock::now();
     std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
     const Outcome outcome =

@@ -39,9 +39,10 @@ fs::path logOf(const fs::path& logDir, const display::Output& output) {
 }
 
 CompositorSession::CompositorSession(std::string session, fs::path gamescope, fs::path logDir,
+                                     launch::Containment containment,
                                      host::DesktopRequest desktopRequest, RestartLimit restarts)
     : session_{std::move(session)}, gamescope_{std::move(gamescope)}, logDir_{std::move(logDir)},
-      desktopRequest_{std::move(desktopRequest)}, restarts_{restarts} {
+      containment_{containment}, desktopRequest_{std::move(desktopRequest)}, restarts_{restarts} {
 }
 
 void CompositorSession::stopLeftovers() const {
@@ -103,7 +104,7 @@ int CompositorSession::run(const display::Output& output, const std::vector<std:
 
 int CompositorSession::runOnce(const display::Output& output, const std::string& self,
                                const std::vector<std::string>& args, const sigset_t& signals) {
-    launch::ProcessLauncher compositor;
+    launch::ProcessLauncher compositor{containment_};
     std::string failure;
     std::vector<std::string> environment{std::string{sessionVariable} + "=" + session_,
                                          std::string{launch::gamescopeWsiOff} + "=1",

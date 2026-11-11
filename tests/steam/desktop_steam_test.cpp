@@ -62,7 +62,7 @@ int main() try {
     // A process in a real instance scope stands in for a Steam the instance started.
     const std::string unit = "opensu-steam-test-" + std::to_string(getpid()) + ".scope";
     const fs::path inside = home / "inside.pid";
-    opensu::launch::ProcessLauncher instance;
+    opensu::launch::ProcessLauncher instance{opensu::launch::chooseContainment()};
     std::string failure;
     expect(instance.start(unit, "/bin/sh",
                           {"-c", "echo $$ > \"$0\"; exec sleep 60", inside.string()}, failure),

@@ -70,6 +70,8 @@ class Client final : public launch::SteamGate {
         std::string desktopBus{};
         /// Where Isolated's Secret Service proxy listens.
         std::filesystem::path secretBusSocket{};
+        /// What holds the client and the proxy (`launch::chooseContainment`).
+        launch::Containment containment;
     };
 
     explicit Client(Options options);

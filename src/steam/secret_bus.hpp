@@ -18,6 +18,10 @@ inline constexpr std::chrono::seconds secretBusWait{5};
 
 class SecretBus {
   public:
+    /// `containment` holds the proxy (`launch::chooseContainment`).
+    explicit SecretBus(launch::Containment containment) : instance_{containment} {
+    }
+
     /// Starts `proxy` (xdg-dbus-proxy) in `unit`, relaying `desktopBus` (a D-Bus address) to a
     /// socket at `socket`, filtered to org.freedesktop.secrets; returns once the socket is there.
     /// False with `failure` set when it could not be started or did not listen in time.

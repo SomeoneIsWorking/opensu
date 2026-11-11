@@ -143,7 +143,8 @@ struct Fixture {
                                .executablePath = {bin},
                                .session = session,
                                .orphanFamily = orphanFamily(),
-                               .devToolsPort = 1};
+                               .devToolsPort = 1,
+                               .containment = opensu::launch::chooseContainment()};
     }
 
     std::string unit() const {

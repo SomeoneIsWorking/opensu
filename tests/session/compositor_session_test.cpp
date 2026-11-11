@@ -116,8 +116,12 @@ struct Fixture {
     Fixture& operator=(const Fixture&) = delete;
 
     [[nodiscard]] CompositorSession compositor(RestartLimit limit = {}) const {
-        return CompositorSession{session, bin / "gamescope", base / "state",
-                                 DesktopRequest{desktopNote}, limit};
+        return CompositorSession{session,
+                                 bin / "gamescope",
+                                 base / "state",
+                                 opensu::launch::chooseContainment(),
+                                 DesktopRequest{desktopNote},
+                                 limit};
     }
 };
 
@@ -126,7 +130,7 @@ struct Fixture {
 void testRunPassesArgumentsAndStopsLeftovers() {
     const Fixture fixture{"run", "exit 3\n"};
     const std::string steamUnit = fixture.session + "-steam.scope";
-    opensu::launch::ProcessLauncher leftover;
+    opensu::launch::ProcessLauncher leftover{opensu::launch::chooseContainment()};
     std::string failure;
     expect(leftover.start(steamUnit, "/bin/sleep", {"600"}, failure), "the leftover scope starts");
 
@@ -175,6 +179,7 @@ void testLoginSessionIsTopLevel() {
 void testMissingGamescope() {
     CompositorSession session{"opensu-test-missing-" + std::to_string(getpid()),
                               "/nonexistent/gamescope", "/nonexistent/state",
+                              opensu::launch::chooseContainment(),
                               DesktopRequest{"/nonexistent/desktop"}};
     expect(session.run(Output{1280, 720, 0}, {}) == 1, "a missing gamescope fails");
 }
@@ -183,7 +188,7 @@ void testMissingGamescope() {
 void testSignalStopsTheSession() {
     const Fixture fixture{"signal", crashing(0, "exec sleep 600\n")};
     const std::string steamUnit = fixture.session + "-steam.scope";
-    opensu::launch::ProcessLauncher leftover;
+    opensu::launch::ProcessLauncher leftover{opensu::launch::chooseContainment()};
     std::string failure;
     expect(leftover.start(steamUnit, "/bin/sleep", {"600"}, failure), "the leftover scope starts");
 
@@ -223,7 +228,7 @@ void testSignalStopsTheSession() {
 void testCrashedGamescopeRestarts() {
     const Fixture fixture{"restart", "echo start\n" + crashing(2, "exit 0\n")};
     const std::string steamUnit = fixture.session + "-steam.scope";
-    opensu::launch::ProcessLauncher leftover;
+    opensu::launch::ProcessLauncher leftover{opensu::launch::chooseContainment()};
     std::string failure;
     expect(leftover.start(steamUnit, "/bin/sleep", {"600"}, failure), "the leftover scope starts");
 

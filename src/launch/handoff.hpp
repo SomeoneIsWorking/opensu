@@ -42,9 +42,10 @@ class Handoff {
     /// `windows` tells when a game shows a window, or is null where there is no display to
     /// watch, and a game then counts as shown once it runs; `outputDir` holds each launch's
     /// output (`<session>-game-N.log`) where the launcher keeps none
-    /// (`ProcessLauncher::keepsOutput`).
+    /// (`ProcessLauncher::keepsOutput`); `containment` holds each game (`chooseContainment`).
     Handoff(std::vector<std::filesystem::path> executablePath, std::string session,
-            SteamGate& steam, GameWindows* windows, std::filesystem::path outputDir);
+            SteamGate& steam, GameWindows* windows, std::filesystem::path outputDir,
+            Containment containment);
 
     /// What a launch tells its caller, from the thread running start().
     struct Hooks {

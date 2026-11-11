@@ -31,9 +31,10 @@ std::string Error::message() const {
 }
 
 Handoff::Handoff(std::vector<std::filesystem::path> executablePath, std::string session,
-                 SteamGate& steam, GameWindows* windows, std::filesystem::path outputDir)
+                 SteamGate& steam, GameWindows* windows, std::filesystem::path outputDir,
+                 Containment containment)
     : executablePath_{std::move(executablePath)}, session_{std::move(session)},
-      outputDir_{std::move(outputDir)}, steam_{steam}, windows_{windows} {
+      outputDir_{std::move(outputDir)}, steam_{steam}, windows_{windows}, instance_{containment} {
 }
 
 void Handoff::pause(std::chrono::milliseconds interval) {

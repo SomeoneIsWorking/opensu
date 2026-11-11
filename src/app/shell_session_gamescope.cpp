@@ -66,6 +66,7 @@ std::optional<int> runInOwnSession(const config::Config& config, const config::A
     // Without a Gamescope of its own, opensu makes one and runs inside it, so that Steam and every
     // game share the one compositor that closing opensu ends.
     session::CompositorSession session{config.session, config.gamescope, config.stateDir,
+                                       launch::chooseContainment(),
                                        host::DesktopRequest{config.desktopRequest}};
     if (arguments.loginSession) {
         // No display yet: Gamescope takes the seat at the native mode.

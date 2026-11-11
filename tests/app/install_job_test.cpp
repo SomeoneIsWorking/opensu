@@ -462,7 +462,8 @@ void testGog(const fs::path& dir) {
 void testInstalls(const fs::path& dir) {
     const fs::path slow = writeStub(dir / "legendary-routed", "sleep 0.3\nexit 0\n");
     opensu::steam::Client steam{opensu::steam::Client::Options{
-        .home = dir / "home", .executablePath = {}, .session = "install-test", .steamRoots = {}}};
+        .home = dir / "home", .executablePath = {}, .session = "install-test", .steamRoots = {},
+        .containment = opensu::launch::chooseContainment()}};
     std::vector<Source> asked;
     Installs installs{steam, slow.string(), GogInstallJob::Options{.dataDir = dir / "data"},
                       [&asked](Source store) -> std::optional<fs::path> {
@@ -545,7 +546,8 @@ void testFolderRefusal(const fs::path& dir) {
     opensu::steam::Client steam{opensu::steam::Client::Options{.home = dir / "home",
                                                                .executablePath = {},
                                                                .session = "install-refusal",
-                                                               .steamRoots = {}}};
+                                                               .steamRoots = {},
+                                                               .containment = opensu::launch::chooseContainment()}};
     const fs::path good = dir / "good-games";
     fs::create_directories(good);
     std::optional<fs::path> chosen;

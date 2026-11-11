@@ -198,19 +198,19 @@ int runTest(const fs::path& self) {
     const std::string endpoint = labAddress() + "/" + std::to_string(rootPort);
     std::printf("lab root at %s\n", endpoint.c_str());
     std::string failure;
-    ProcessLauncher root;
+    ProcessLauncher root{opensu::launch::chooseContainment()};
     expect(root.start("opensu-zt-root", OPENSU_ZERO_TIER_ROOT,
                       {(dir / "root").string(), endpoint, (dir / "roots").string()}, failure, {},
                       {}, dir / "root.log"),
            "the lab root starts");
     expect(lineAfter(dir / "root.log", "root", 20s).has_value(), "the lab root runs");
-    ProcessLauncher host;
+    ProcessLauncher host{opensu::launch::chooseContainment()};
     expect(host.start("opensu-zt-host", self.string(), {"host", dir.string()}, failure, {}, {},
                       dir / "host.log"),
            "the host starts");
     const std::optional<std::string> shown = lineAfter(dir / "host.log", "code", 150s);
     const std::string& code = need(shown, "the host shows a code");
-    ProcessLauncher joiner;
+    ProcessLauncher joiner{opensu::launch::chooseContainment()};
     expect(joiner.start("opensu-zt-friend", self.string(), {"friend", dir.string(), code}, failure,
                         {}, {}, dir / "friend.log"),
            "the friend starts");

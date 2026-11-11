@@ -24,6 +24,7 @@ int main(int argc, char** argv) try {
         return 2;
     }
     opensu::session::CompositorSession session{args[0], args[1], opensu::config::read().stateDir,
+                                               opensu::launch::chooseContainment(),
                                                opensu::host::DesktopRequest{args[2]}};
     const opensu::display::Output output{std::stoi(args[3]), std::stoi(args[4]), 60};
     return session.run(output, {});

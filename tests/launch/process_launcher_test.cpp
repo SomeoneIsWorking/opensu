@@ -20,6 +20,7 @@ namespace {
 
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
+using opensu::launch::Containment;
 using opensu::launch::ProcessLauncher;
 
 void expect(bool condition, const char* what) {
@@ -87,7 +88,7 @@ int main() try {
     fs::create_directories(scratch);
 
     {
-        ProcessLauncher instance;
+        ProcessLauncher instance{Containment::systemdScope};
         std::string failure;
         expect(instance.start(unitName("plain"), "/bin/sleep", {"60"}, failure), "sleep starts");
         expect(instance.running(), "a started instance is running");
@@ -98,7 +99,7 @@ int main() try {
     }
 
     {
-        ProcessLauncher instance;
+        ProcessLauncher instance{Containment::systemdScope};
         const pid_t grandchild = startEscaper(instance, "stop", scratch / "stop.pid");
         instance.stop();
         expect(waitUntil(
@@ -110,7 +111,7 @@ int main() try {
     }
 
     {
-        ProcessLauncher instance;
+        ProcessLauncher instance{Containment::systemdScope};
         std::string failure;
         expect(!instance.start(unitName("missing"), "/no/such/program", {}, failure),
                "a missing program is refused");
@@ -120,7 +121,7 @@ int main() try {
     {
         pid_t grandchild = 0;
         {
-            ProcessLauncher instance;
+            ProcessLauncher instance{Containment::systemdScope};
             grandchild = startEscaper(instance, "dtor", scratch / "dtor.pid");
         }
         expect(waitUntil(
@@ -139,7 +140,7 @@ int main() try {
         sigset_t previous;
         pthread_sigmask(SIG_BLOCK, &term, &previous);
         const fs::path mask = scratch / "mask";
-        ProcessLauncher instance;
+        ProcessLauncher instance{Containment::systemdScope};
         std::string failure;
         expect(instance.start(unitName("mask"), "/bin/sh",
                               {"-c", "grep SigBlk /proc/self/status > " + mask.string()}, failure),
@@ -165,7 +166,7 @@ int main() try {
         // The shell's own Gamescope WSI switch stays with the shell; a game gets the layer.
         setenv("DISABLE_GAMESCOPE_WSI", "1", 1);
         const fs::path seen = scratch / "wsi";
-        ProcessLauncher instance;
+        ProcessLauncher instance{Containment::systemdScope};
         std::string failure;
         expect(instance.start(unitName("wsi"), "/bin/sh", {"-c", "env > " + seen.string()}, failure,
                               {"FROM_CALLER=given"}),
@@ -201,7 +202,7 @@ int main() try {
         }
         fs::permissions(program, fs::perms::owner_all);
         const std::vector<std::string> args{"$HOME", "${HOME}", "a$$b", "x${X}y", "$"};
-        ProcessLauncher instance;
+        ProcessLauncher instance{Containment::systemdScope};
         std::string failure;
         expect(instance.start(unitName("dollar"), program.string(), args, failure),
                "a program with $ in its path starts");

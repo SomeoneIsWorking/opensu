@@ -71,7 +71,8 @@ template <typename Jobs> InstallJob::Report finish(Jobs& jobs) {
 
 opensu::steam::Client stoppedSteam(const fs::path& dir) {
     return opensu::steam::Client{opensu::steam::Client::Options{
-        .home = dir / "home", .executablePath = {}, .session = "update-test", .steamRoots = {}}};
+        .home = dir / "home", .executablePath = {}, .session = "update-test", .steamRoots = {},
+        .containment = opensu::launch::chooseContainment()}};
 }
 
 Game updatable(Source source, const std::string& id, const std::string& title) {

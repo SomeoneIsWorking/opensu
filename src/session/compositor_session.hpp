@@ -14,6 +14,7 @@
 
 #include "gamescope.hpp"
 #include "host/desktop_request.hpp"
+#include "launch/containment.hpp"
 #include "restart_budget.hpp"
 
 namespace opensu::session {
@@ -30,10 +31,12 @@ class CompositorSession {
   public:
     /// `session` names every scope of the run; `gamescope` is the pinned fork's binary
     /// (`Config::gamescope`); Gamescope's output goes to a log in `logDir` (`Config::stateDir`);
+    /// `containment` holds it (`launch::chooseContainment`);
     /// `desktopRequest` is the note Switch to desktop leaves before it stops Gamescope;
     /// `restarts` bounds how often a crashed Gamescope is started again.
     CompositorSession(std::string session, std::filesystem::path gamescope,
-                      std::filesystem::path logDir, host::DesktopRequest desktopRequest,
+                      std::filesystem::path logDir, launch::Containment containment,
+                      host::DesktopRequest desktopRequest,
                       RestartLimit restarts = {});
 
     /// Runs `<this executable> <args>` in a Gamescope sized to `output` (top level when it is
@@ -68,6 +71,7 @@ class CompositorSession {
     std::string session_;
     std::filesystem::path gamescope_;
     std::filesystem::path logDir_;
+    launch::Containment containment_;
     host::DesktopRequest desktopRequest_;
     RestartLimit restarts_;
     bool stopRequested_{false};

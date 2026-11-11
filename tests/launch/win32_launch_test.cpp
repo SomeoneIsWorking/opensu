@@ -105,7 +105,7 @@ void table() {
 
 void exitCodeAndOutput(const std::filesystem::path& scratch) {
     const std::filesystem::path output = scratch / "output.txt";
-    launch::ProcessLauncher launcher;
+    launch::ProcessLauncher launcher{launch::Containment::platform};
     std::string failure;
     expect(launcher.start("opensu-test-exit", "cmd.exe",
                           {"/d", "/c", "echo %OPENSU_TEST_SET%& exit 7"}, failure,
@@ -124,7 +124,7 @@ void exitCodeAndOutput(const std::filesystem::path& scratch) {
 
 void jobOwnsGrandchild() {
     const std::string tag = "job-tree-" + std::to_string(launch::ownProcessId());
-    launch::ProcessLauncher launcher;
+    launch::ProcessLauncher launcher{launch::Containment::platform};
     std::string failure;
     expect(launcher.start("opensu-test-tree", ownPath(), {"spawn", tag}, failure),
            "the spawner starts in a job");

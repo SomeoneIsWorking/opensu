@@ -1586,6 +1586,8 @@ class ShellApp final {
     std::vector<library::SourceStatus> sources_;
     /// Home or the open folder. Main loop only.
     library::ShelfBrowser browser_;
+    /// What holds every program this process starts, decided once here.
+    const launch::Containment containment_{launch::chooseContainment()};
     /// Started in run(), before the loop, and shut down with the app.
     steam::Client steam_;
     /// The player's SteamGridDB key, handed to `steamGridDb_`; after the Steam client its sign-in

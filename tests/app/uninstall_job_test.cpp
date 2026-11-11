@@ -83,7 +83,8 @@ InstallJob::Report finish(Installs& installs) {
 
 opensu::steam::Client stoppedSteam(const fs::path& dir) {
     return opensu::steam::Client{opensu::steam::Client::Options{
-        .home = dir / "home", .executablePath = {}, .session = "uninstall-test", .steamRoots = {}}};
+        .home = dir / "home", .executablePath = {}, .session = "uninstall-test", .steamRoots = {},
+        .containment = opensu::launch::chooseContainment()}};
 }
 
 Game game(Source source, const std::string& id, const std::string& title) {

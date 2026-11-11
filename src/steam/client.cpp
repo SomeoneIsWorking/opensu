@@ -37,7 +37,8 @@ bool isLogonLine(const std::string& line) {
 Client::Client(Options options)
     : options_{std::move(options)}, desktop_{options_.home},
       orphans_{options_.home, options_.orphanFamily},
-      connectionLog_{options_.home / ".steam" / "steam" / "logs" / "connection_log.txt"} {
+      connectionLog_{options_.home / ".steam" / "steam" / "logs" / "connection_log.txt"},
+      instance_{options_.containment}, secretBus_{options_.containment} {
 }
 
 Client::~Client() {

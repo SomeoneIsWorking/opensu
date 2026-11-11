@@ -125,7 +125,8 @@ sleep 60
     steam::Client steamClient{steam::Client::Options{.home = root / "home",
                                                      .executablePath = {},
                                                      .session = "downloads-test",
-                                                     .steamRoots = {}}};
+                                                     .steamRoots = {},
+                                                     .containment = opensu::launch::chooseContainment()}};
     app::Installs installs{steamClient, legendary.string(),
                            app::GogInstallJob::Options{.dataDir = root / "data"},
                            [](library::Source) {

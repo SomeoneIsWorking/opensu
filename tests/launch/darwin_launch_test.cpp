@@ -63,7 +63,7 @@ bool alive(pid_t pid) {
 }
 
 void environmentFolderOutput(const fs::path& dir) {
-    launch::ProcessLauncher launcher;
+    launch::ProcessLauncher launcher{launch::Containment::platform};
     const fs::path output = dir / "output.log";
     std::string failure;
     expect(launcher.start("opensu-test-run", "/bin/sh",
@@ -83,7 +83,7 @@ void environmentFolderOutput(const fs::path& dir) {
 }
 
 void grandchildEndsWithGroup(const fs::path& dir) {
-    launch::ProcessLauncher launcher;
+    launch::ProcessLauncher launcher{launch::Containment::platform};
     const fs::path pidFile = dir / "grandchild.pid";
     std::string failure;
     expect(launcher.start("opensu-test-tree", "/bin/sh",
@@ -123,7 +123,7 @@ void grandchildEndsWithGroup(const fs::path& dir) {
 }
 
 void termIgnored() {
-    launch::ProcessLauncher launcher;
+    launch::ProcessLauncher launcher{launch::Containment::platform};
     std::string failure;
     expect(launcher.start("opensu-test-stubborn", "/bin/sh",
                           {"-c", "trap '' TERM; while :; do sleep 1; done"}, failure),

@@ -70,7 +70,8 @@ struct ProcessLauncher::Group {
     void end(int& exitStatus);
 };
 
-ProcessLauncher::ProcessLauncher() : group_{std::make_unique<Group>()} {
+ProcessLauncher::ProcessLauncher(Containment /*containment*/)
+    : group_{std::make_unique<Group>()} {
 }
 
 bool ProcessLauncher::keepsOutput() {
