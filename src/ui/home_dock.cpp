@@ -90,7 +90,7 @@ HomeDock::Geometry HomeDock::geometry() const {
     const std::vector<float> widths{plainItem, wideItem};
     const DockMetrics metrics{frame_.width / dp, frame_.height / dp, widths};
     return Geometry{metrics, layoutDock(metrics, frame_.width, frame_.height, dp),
-                    DockStyle{chromeDark(), dp, visibility_.progress(nowMs())}};
+                    DockStyle{frame_.dark, dp, visibility_.progress(nowMs())}};
 }
 
 std::optional<float> HomeDock::top() const {

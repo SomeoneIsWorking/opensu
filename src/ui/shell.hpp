@@ -10,6 +10,7 @@
 #include <chrono>
 #include <cstddef>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -40,6 +41,7 @@
 #include "on_screen_keyboard.hpp"
 #include "paint.hpp"
 #include "screen_stack.hpp"
+#include "theme/interface_theme.hpp"
 #include "top_bar_chrome.hpp"
 #include "vector_icon.hpp"
 #include "volume_osd.hpp"
@@ -91,6 +93,12 @@ class Shell {
     void setUiScale(float factor, float display);
     /// Pixels per dp of the display the window is on (SDL's display scale).
     void setDisplayDp(float displayDp);
+    /// Draws everything in `tokens` from now on: the toolkit's screens, the chrome, the tiles and
+    /// the face. Unchanged tokens change nothing.
+    void setTheme(std::shared_ptr<const theme::InterfaceTheme> tokens);
+    [[nodiscard]] const theme::InterfaceTheme& theme() const noexcept {
+        return *theme_;
+    }
     /// Pixels in from each window edge the interface keeps clear of: a display cutout, rounded
     /// corners. The ground and backdrops still fill the window.
     void setSafeArea(const gpu2d::ui::Insets& safe);
@@ -282,6 +290,9 @@ class Shell {
     /// Before the painters that read it.
     input::Prompts prompts_;
     input::ChordSet chords_{prompts_.shortcuts};
+    /// The interface theme everything is drawn in; the tokens' defaults until one is set.
+    std::shared_ptr<const theme::InterfaceTheme> theme_{
+        std::make_shared<const theme::InterfaceTheme>()};
     float uiScale_{1.0f};
     float uiDisplayScale_{1.0f};
     float displayDp_{1.0f};

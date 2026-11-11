@@ -138,6 +138,9 @@ struct Settings {
 
     /// The console art theme the home shows (`artwork::ConsoleThemes`); empty for the default.
     std::string consoleTheme;
+    /// The interface theme the shell is drawn and sounds in (`theme::InterfaceThemes`); empty for
+    /// the default.
+    std::string interfaceTheme;
     /// The name other openSUs on the LAN list this one by; empty for the machine's host name.
     std::string lanName;
     /// The STUN servers Play online asks, `host:port` and comma-separated; empty for the default.

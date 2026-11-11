@@ -37,6 +37,7 @@
 #include "rail_layout.hpp"
 #include "rail_painter.hpp"
 #include "section_view.hpp"
+#include "theme/interface_theme.hpp"
 #include "tile.hpp"
 #include "tile_artwork.hpp"
 #include "tile_motion.hpp"
@@ -76,6 +77,8 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
 
     /// Re-flows the grid in `frame`.
     void setFrame(const Frame& frame);
+    /// The interface theme the tiles and the page controls are drawn in.
+    void setTheme(const theme::InterfaceTheme& tokens);
 
     /// Replaces the grid's entries, releasing their artwork, focuses `focus` and plays the
     /// entrance.
@@ -270,6 +273,7 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
 
     config::HomeMode mode_;
     Frame frame_;
+    theme::InterfaceTheme tokens_;
     library::Section section_{library::Section::Home};
     library::LibraryMode libraryMode_{library::LibraryMode::Standard};
     int page_{};

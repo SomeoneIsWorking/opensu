@@ -14,7 +14,8 @@ openSU's default) writes `library-photos` beside the README set.
 throwaway home and writes one WebP per demo scene to scratch/screenshots/demo/. With --parity DIR,
 writes a raw PNG of every scene to DIR instead, with a fixed system volume, as references for
 `tools.screenshots.compare`; the Downloads scenes run again in a home of their own with a stand-in
-`legendary`.
+`legendary`. `--scenes NAME,...` keeps only those scenes of a parity run, and `--interface-theme
+ID` runs it in that interface theme (docs/design/interface-themes.md).
 """
 
 import argparse
@@ -75,6 +76,14 @@ def _parse(argv: list[str]) -> argparse.Namespace:
         default=real.DEFAULT_CONSOLE_THEME,
         help="real: the console art theme the run shows (photos, drawings, iisu or user/<name>); "
         "any but the default writes only Library in it, as library-<theme>",
+    )
+    parser.add_argument(
+        "--interface-theme",
+        default="",
+        help="demo: the interface theme the run shows (iisu, channels or user/<name>)",
+    )
+    parser.add_argument(
+        "--scenes", default="", help="demo --parity: only these scenes, comma-separated"
     )
     args = parser.parse_args(argv)
     if args.out is None:
@@ -190,8 +199,18 @@ def _capture(args: argparse.Namespace) -> int:
         )
         return 0
     tools = mixer.install(run / "tools")
-    profile = Profile(home=run / "home", steam_root=steam, rom_root=roms, tools=tools)
-    _run(args.opensu, profile, run / "opensu.log", SCENES, frames, None, args.out, _demo_loaded(0))
+    profile = Profile(
+        home=run / "home",
+        steam_root=steam,
+        rom_root=roms,
+        tools=tools,
+        interface_theme=args.interface_theme,
+    )
+    wanted = set(filter(None, args.scenes.split(",")))
+    scenes = tuple(scene for scene in SCENES if not wanted or scene.name in wanted)
+    _run(args.opensu, profile, run / "opensu.log", scenes, frames, None, args.out, _demo_loaded(0))
+    if wanted:
+        return 0
     store_tools = legendary.install(mixer.install(run / "store-tools"))
     store = Profile(home=run / "store-home", steam_root=steam, rom_root=roms, tools=store_tools)
     _run(
@@ -243,6 +262,10 @@ def _absolute(args: argparse.Namespace) -> list[str]:
     argv += ["--profile", args.profile]
     if args.parity:
         argv += ["--parity", str(args.parity.resolve())]
+    if args.interface_theme:
+        argv += ["--interface-theme", args.interface_theme]
+    if args.scenes:
+        argv += ["--scenes", args.scenes]
     return argv
 
 

@@ -8,10 +8,12 @@
 
 #include <nlohmann/json.hpp>
 
+#include "theme/theme_folders.hpp"
+
 namespace opensu::artwork {
 namespace {
 
-constexpr const char* manifestFile = "theme.json";
+using theme::manifestFile;
 constexpr std::array maskExtensions{".svg"};
 constexpr std::array pictureExtensions{".webp", ".png", ".jpg"};
 

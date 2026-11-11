@@ -20,6 +20,7 @@
 #include "device/battery.hpp"
 #include "glass.hpp"
 #include "gpu2d/ui/typesetter.hpp"
+#include "interface_theme.hpp"
 #include "launcher_badges.hpp"
 #include "library/game.hpp"
 #include "status_pill.hpp"
@@ -44,8 +45,8 @@ inline constexpr Colour chosen{0xE6, 0xE4, 0xEE, 255};
 inline constexpr Colour off{0xB7, 0xB2, 0xC0, 255};
 } // namespace palette
 
-/// Whether the home screen's chrome is dark for the palette's ground (iiSU ya0.e).
-[[nodiscard]] bool chromeDark() noexcept;
+/// Whether the home screen's chrome is dark for the theme's ground (iiSU ya0.e).
+[[nodiscard]] bool chromeDark(const theme::Palette& palette) noexcept;
 
 class Hud {
   public:
@@ -70,6 +71,10 @@ class Hud {
         gpu2d::ui::Insets safe;
     };
     void setSize(const Size& size) noexcept;
+    /// The interface theme the chrome is drawn in.
+    void setTheme(const theme::InterfaceTheme& tokens) {
+        tokens_ = tokens;
+    }
 
     /// Height the top bar takes from the grid, in pixels (iiSU dl3.i), the safe area's included.
     [[nodiscard]] float topInset() const noexcept;
@@ -214,6 +219,7 @@ class Hud {
     TouchButtonPainter touchButtonPainter_;
     TouchButtons touchButtons_;
     HintContext hints_;
+    theme::InterfaceTheme tokens_;
 };
 
 } // namespace opensu::ui

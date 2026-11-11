@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <limits>
 #include <stdexcept>
+#include <utility>
 
 #include "display/letterbox.hpp"
 #include "lucent/log.h"
@@ -72,9 +73,21 @@ void Shell::setSafeArea(const gpu2d::ui::Insets& safe) {
     }
 }
 
+void Shell::setTheme(std::shared_ptr<const theme::InterfaceTheme> tokens) {
+    if (*tokens == *theme_) {
+        return;
+    }
+    theme_ = std::move(tokens);
+    text_.useFace(theme_->type.face);
+    hud_.setTheme(*theme_);
+    grid_.setTheme(*theme_);
+    hud_.setSize(hudSize());
+    frameGrid();
+}
+
 void Shell::frameGrid() {
     const Density density{.dp = dp(), .display = displayDp_};
-    const gpu2d::ui::Theme theme = interfaceTheme(density);
+    const gpu2d::ui::Theme theme = interfaceTheme(density, *theme_);
     grid_.setFrame(HomeGrid::Frame{.width = width_,
                                    .height = height_,
                                    .dp = density.dp,
@@ -153,10 +166,11 @@ void Shell::tick(Clock::time_point now) {
                                    .now = now_,
                                    .shown = !inGame_ && !pages && !keyboard_.isOpen(),
                                    .live = !inGame_ && navigator.atRoot() && !keyboard_.isOpen() &&
-                                           !mapping_.isOpen()});
+                                           !mapping_.isOpen(),
+                                   .dark = chromeDark(theme_->palette)});
     // Overlays stand above the docked keyboard, so the field it types into shows.
     screens_.layout(now_, gpu2d::Rect{0.0f, 0.0f, width, height}, height - keyboardChrome_.top(),
-                    Density{.dp = dp(), .display = displayDp_},
+                    Density{.dp = dp(), .display = displayDp_}, *theme_,
                     Chrome{.top = hud_.barHeight(), .width = width - safe_.left - safe_.right},
                     prompts_.device.pointing(), safe_);
 }

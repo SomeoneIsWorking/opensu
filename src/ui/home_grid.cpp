@@ -89,6 +89,10 @@ void HomeGrid::setFrame(const Frame& frame) {
     relayout();
 }
 
+void HomeGrid::setTheme(const theme::InterfaceTheme& tokens) {
+    tokens_ = tokens;
+}
+
 HomeLayout HomeGrid::computeLayout() const {
     return HomeLayout{HomeLayoutInput{
         .width = static_cast<float>(frame_.width),
@@ -740,7 +744,7 @@ TileVisual HomeGrid::visualFor(std::size_t slot, const Rect& rect) const {
     visual.cell = grid ? std::min(layout_.cellWidth(), layout_.cellHeight())
                        : std::min(rect.width, rect.height);
     visual.placeholder = slot >= tiles_.size();
-    visual.dark = chromeDark();
+    visual.dark = chromeDark(tokens_.palette);
     // An empty grid's one slot is a placeholder tile and takes focus.
     visual.focused = slot == focus_.index();
     // iiSU w70: the focus scale is the grid's; an XMB holds its focused tile at 1.
@@ -856,7 +860,7 @@ void HomeGrid::drawRail(Canvas& canvas) {
     }
     const std::size_t focused = std::min(focus_.index(), tiles_.size() - 1);
     const std::string title = focusedTitle();
-    const RailStyle style{chromeDark(), railAlpha(1)};
+    const RailStyle style{chromeDark(tokens_.palette), railAlpha(1)};
     if (!xmb) {
         railPainter_.paintTitle(canvas, row, title, style);
         if (header_) {
@@ -894,8 +898,8 @@ void HomeGrid::paint(gpu2d::ui::Painter& painter, const gpu2d::Rect& /*frame*/) 
     }
     drawGrid(canvas);
     if (pageControls_) {
-        pillPainter_.paint(canvas, layout_.pagePill(page_), frame_.dp, chromeDark());
-        arrowPainter_.paint(canvas, layout_.pageArrows(page_), chromeDark());
+        pillPainter_.paint(canvas, layout_.pagePill(page_), frame_.dp, chromeDark(tokens_.palette));
+        arrowPainter_.paint(canvas, layout_.pageArrows(page_), chromeDark(tokens_.palette));
     }
 }
 

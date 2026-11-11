@@ -58,6 +58,7 @@
 #include "integration_switch.hpp"
 #include "integrations_in_force.hpp"
 #include "interface_sound_settings.hpp"
+#include "interface_theme_settings.hpp"
 #include "interface_sounds.hpp"
 #include "keyboard_pad.hpp"
 #include "lan/remote_library.hpp"
@@ -1280,6 +1281,13 @@ class ShellApp final {
                                                        applyLayout();
                                                        settingsScreen_.refresh();
                                                    }};
+    /// Settings › Appearance › Interface theme, and the theme in force.
+    InterfaceThemeSettings interfaceThemeSettings_{
+        preferences_, environment_.assetsDir / "interface-themes",
+        environment_.dataDir / "interface-themes", [this] {
+            applyLayout();
+            settingsScreen_.refresh();
+        }};
     /// The Settings screen, reached from the options panel.
     SettingsController settingsScreen_{
         shell_.screens().navigator(),
@@ -1298,6 +1306,7 @@ class ShellApp final {
                                      integrationSettings_,
                                      artworkSettings_,
                                      interfaceSoundSettings_,
+                                     interfaceThemeSettings_,
                                      lanSettings_,
                                      lanRoms_,
                                      lanProfiles_,

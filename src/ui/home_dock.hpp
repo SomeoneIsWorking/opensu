@@ -34,6 +34,8 @@ class HomeDock final : public gpu2d::ui::Screen {
         bool shown{false};
         /// Whether its tabs take the pointer and LB and RB: Home is the top screen.
         bool live{false};
+        /// Whether the theme's ground is dark, which darkens the glass.
+        bool dark{false};
     };
 
     HomeDock(const input::Prompts& prompts, gpu2d::ui::Typesetter& text, IconAtlas& icons);

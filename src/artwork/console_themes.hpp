@@ -12,6 +12,7 @@
 
 #include "console_theme.hpp"
 #include "iisu_install.hpp"
+#include "theme/theme_folders.hpp"
 
 namespace opensu::artwork {
 
@@ -19,14 +20,12 @@ namespace opensu::artwork {
 inline constexpr std::string_view defaultConsoleTheme = "photos";
 /// iiSU's theme, read from the iiSU file placed in the themes folder.
 inline constexpr std::string_view iisuConsoleTheme = "iisu";
-/// A player's own theme's id is this and its folder's name.
-inline constexpr std::string_view userThemePrefix = "user/";
 
 class ConsoleThemes {
   public:
     ConsoleThemes(std::filesystem::path shipped, std::filesystem::path user)
-        : shipped_{std::move(shipped)}, user_{std::move(user)},
-          iisu_{user_ / std::filesystem::path{iisuFolderName}} {
+        : folders_{std::move(shipped), std::move(user), defaultConsoleTheme},
+          iisu_{folders_.userRoot() / std::filesystem::path{iisuFolderName}} {
     }
 
     /// Every theme there is now: the shipped ones (the default first), iiSU's when its file is
@@ -40,7 +39,7 @@ class ConsoleThemes {
 
     /// Where the player's own themes go.
     [[nodiscard]] const std::filesystem::path& userFolder() const noexcept {
-        return user_;
+        return folders_.userRoot();
     }
     /// iiSU's file placed in the themes folder, which the interface sounds read too.
     [[nodiscard]] const IisuInstall& iisu() const noexcept {
@@ -51,8 +50,7 @@ class ConsoleThemes {
     [[nodiscard]] std::shared_ptr<const ConsoleTheme>
     openFolder(std::string id, const std::filesystem::path& folder, std::string& error) const;
 
-    std::filesystem::path shipped_;
-    std::filesystem::path user_;
+    theme::ThemeFolders folders_;
     IisuInstall iisu_;
 };
 

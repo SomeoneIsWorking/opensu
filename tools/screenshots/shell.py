@@ -46,6 +46,8 @@ class Profile:
     # Games launch in scopes of the player's systemd user manager, which systemd-run finds
     # through the player's runtime directory and session bus.
     user_session: bool = False
+    # The interface theme the run shows (docs/design/interface-themes.md); empty for the default.
+    interface_theme: str = ""
 
     def environment(self) -> dict[str, str]:
         kept = {"DISPLAY", "XAUTHORITY", "PATH", "LANG", "LC_ALL", "LC_TIME", "DISABLE_LSFG"}
@@ -77,7 +79,8 @@ class Profile:
         settings = self.home / ".config" / "opensu" / "settings.json"
         if not settings.exists():
             settings.parent.mkdir(parents=True, exist_ok=True)
-            settings.write_text(json.dumps(INTEGRATIONS))
+            chosen = {"interfaceTheme": self.interface_theme} if self.interface_theme else {}
+            settings.write_text(json.dumps(INTEGRATIONS | chosen))
 
 
 @dataclass(frozen=True)

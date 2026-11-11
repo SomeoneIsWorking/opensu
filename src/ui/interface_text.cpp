@@ -25,6 +25,17 @@ constexpr std::array<const char*, 3> facePaths{
 } // namespace
 
 void InterfaceText::load(SDL_GPUDevice& device) {
+    device_ = &device;
+    if (!themeFace_.empty()) {
+        try {
+            face_ = std::make_unique<gpu2d::Text>(device, themeFace_);
+            lucent::info("ui", "typeface loaded from {}", themeFace_.string());
+            return;
+        } catch (const gpu2d::GpuError& error) {
+            lucent::warn("ui", "typeface {}: {}; drawing with openSU's own", themeFace_.string(),
+                         error.what());
+        }
+    }
     for (const char* candidate : facePaths) {
         const std::filesystem::path path =
             candidate[0] == '/' ? std::filesystem::path{candidate} : assetsDir_ / candidate;
@@ -36,6 +47,16 @@ void InterfaceText::load(SDL_GPUDevice& device) {
         return;
     }
     throw gpu2d::GpuError{"no usable typeface under " + assetsDir_.string()};
+}
+
+void InterfaceText::useFace(const std::filesystem::path& face) {
+    if (face == themeFace_ && (face_ != nullptr || device_ == nullptr)) {
+        return;
+    }
+    themeFace_ = face;
+    if (device_ != nullptr) {
+        load(*device_);
+    }
 }
 
 gpu2d::Text& InterfaceText::face() {

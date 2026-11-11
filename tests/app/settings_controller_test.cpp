@@ -120,6 +120,12 @@ struct Rig {
                                      ++soundChanges;
                                      controller.refresh();
                                  }},
+          interfaceThemeSettings{preferences, fs::path{OPENSU_ASSETS_DIR} / "interface-themes",
+                                 config.home / "interface-themes",
+                                 [this] {
+                                     ++themeChanges;
+                                     controller.refresh();
+                                 }},
           volume{mixer ? std::unique_ptr<audio::VolumeBackend>{std::make_unique<FakeMixer>(
                              &mixerState, &mixerLog)}
                        : nullptr,
@@ -165,6 +171,7 @@ struct Rig {
                                                        integrationSettings,
                                                        artworkSettings,
                                                        interfaceSoundSettings,
+                                                       interfaceThemeSettings,
                                                        lanSettings,
                                                        lanRoms,
                                                        lanProfiles,
@@ -351,6 +358,7 @@ struct Rig {
     artwork::ConsoleThemes themes{config.home / "shipped-themes", config.home / "user-themes"};
     app::ArtworkSettings artworkSettings;
     app::InterfaceSoundSettings interfaceSoundSettings;
+    app::InterfaceThemeSettings interfaceThemeSettings;
     audio::VolumeState mixerState{40, false};
     std::vector<std::string> mixerLog;
     std::vector<audio::VolumeState> shown;
@@ -601,6 +609,7 @@ struct Rig {
     int artworkRequests{0};
     int consoleArtChanges{0};
     int soundChanges{0};
+    int themeChanges{0};
 };
 
 /// With an integration off its pages and rows are gone; turning it on in Settings > Integrations
@@ -739,7 +748,7 @@ void togglesChoicesAndSliderPersist(const fs::path& root) {
     Rig rig{root / "persist"};
     rig.controller.open();
     rig.act(Button::A);
-    expect(rig.focused() == "layout" && rig.applied == 0,
+    expect(rig.focused() == "appearance.interfacetheme" && rig.applied == 0,
            "A on a tab goes into its rows and changes nothing");
 
     rig.focus("pinDock");
@@ -1619,6 +1628,34 @@ void consoleThemeIsChosen(const fs::path& root) {
 }
 
 /// Settings > Audio: Interface sounds offer openSU's three sets, and iiSU's only once its release
+/// Settings > Appearance: Interface theme offers the shipped themes, the default first, then the
+/// player's own; one that breaks the format is left out, and the choice opens as the current theme.
+void interfaceThemeIsChosen(const fs::path& root) {
+    Rig rig{root};
+    const fs::path own = rig.config.home / "interface-themes";
+    fs::create_directories(own / "mine");
+    std::ofstream{own / "mine" / "theme.json"}
+        << R"({"format": 1, "name": "Mine", "note": "ours"})";
+    fs::create_directories(own / "broken");
+    std::ofstream{own / "broken" / "theme.json"} << R"({"format": 1, "name": "Broken", "x": 1})";
+    rig.controller.open();
+    rig.enter("Appearance");
+    const ui::SettingsRow themes = rig.rowOf("appearance.interfacetheme");
+    expect(!themes.choices.empty() && themes.choices.front() == "iiSU" &&
+               themes.choices.back() == "Mine" && themes.chosen == 0,
+           "iiSU's look leads and is chosen, the player's own theme is offered, a broken one not");
+    rig.focus("appearance.interfacetheme");
+    rig.act(Button::Left);
+    expect(rig.onDisk().interfaceTheme == "user/mine" && rig.themeChanges == 1 &&
+               rig.interfaceThemeSettings.current()->name == "Mine" &&
+               rig.rowOf("appearance.interfacetheme").note == "ours",
+           "Left wraps to the player's theme, which is the one in force");
+    rig.act(Button::Right);
+    expect(rig.onDisk().interfaceTheme.empty() &&
+               rig.interfaceThemeSettings.current()->id == "iisu",
+           "Right wraps back to the default, kept as no choice");
+}
+
 /// is placed; a starter pack holds no sounds, so it adds none.
 void interfaceSoundsAreChosen(const fs::path& root) {
     Rig rig{root};
@@ -1877,6 +1914,7 @@ int main() try {
     wineRunnerIsPicked(root / "wine");
     consoleThemeIsChosen(root / "console-art");
     interfaceSoundsAreChosen(root / "interface-sounds");
+    interfaceThemeIsChosen(root / "interface-theme");
     steamGridDbKeyIsEnteredAndForgotten(root / "steamgriddb");
     steamGridDbKeyIsReadBack(root / "steamgriddb-kept");
     steamGridDbWithoutSteamAsksForTheKey(root / "steamgriddb-no-steam");

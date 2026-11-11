@@ -14,16 +14,10 @@
 #include "round_shape.hpp"
 
 namespace opensu::ui {
-namespace {
 
-// iiSU res/drawable/bell_icon.png ink, which iiSU's hint glyphs and labels share.
-constexpr Colour hintInk{0x4D, 0x46, 0x55, 255};
-
-} // namespace
-
-bool chromeDark() noexcept {
+bool chromeDark(const theme::Palette& palette) noexcept {
     // iiSU gh3.q: the grid chrome is dark when the theme background's luminance is under half.
-    return luminance(palette::ground) < 0.5f;
+    return luminance(colourOf(palette.groundTop)) < 0.5f;
 }
 
 void Hud::setSize(const Size& size) noexcept {
@@ -68,13 +62,26 @@ void Hud::tick(Clock::time_point now) {
 }
 
 void Hud::drawGround(Canvas& canvas) const {
-    canvas.fillRect(
-        gpu2d::Rect{0.0f, 0.0f, static_cast<float>(width_), static_cast<float>(height_)},
-        palette::ground);
+    const theme::Palette& colours = tokens_.palette;
+    const auto height = static_cast<float>(height_);
+    const Rect whole{0.0f, 0.0f, static_cast<float>(width_), height};
+    if (colours.groundTop == colours.groundBottom) {
+        canvas.fillRect(onCanvas(whole), colourOf(colours.groundTop));
+    } else {
+        const Colour top = colourOf(colours.groundTop);
+        const Colour bottom = colourOf(colours.groundBottom);
+        fillRoundRect(canvas, RoundRect{whole, 0.0f}, [top, bottom, height](Point point, float) {
+            return mix(top, bottom, point.y / std::max(height, 1.0f));
+        });
+    }
+    if (!colours.groundDots) {
+        return;
+    }
     const float u = unit();
     const float spacing = std::max(u * 2.2f, 8.0f);
     const float radius = std::max(spacing * 0.09f, 1.0f);
-    const Colour dot{palette::ink.r, palette::ink.g, palette::ink.b, 24};
+    const Colour ink = colourOf(colours.ink);
+    const Colour dot{ink.r, ink.g, ink.b, 24};
     for (int row = 1; spacing * static_cast<float>(row) < static_cast<float>(height_); ++row) {
         for (int column = 1; spacing * static_cast<float>(column) < static_cast<float>(width_);
              ++column) {
@@ -218,7 +225,7 @@ void Hud::drawTitlePill(Canvas& canvas, const TopBarLayout& bar) const {
     glass_.paint(canvas, title->body);
     text_.drawCentred(canvas, text,
                       Point{title->body.centreX() - textWidth * 0.5f, title->body.centreY()}, size,
-                      hintInk);
+                      colourOf(tokens_.palette.chromeInk));
 }
 
 void Hud::drawHints(Canvas& canvas) const {
@@ -250,7 +257,8 @@ std::optional<Hud::PromptPanel> Hud::promptPanel(const std::vector<Prompt>& prom
     if (touchButtons_.prompts) {
         // Side by side, each a finger's height, so the panel grows across rather than up the
         // screen; iiSU stacks them for a pad.
-        const gpu2d::ui::Theme theme = interfaceTheme(Density{.dp = dp_, .display = displayDp_});
+        const gpu2d::ui::Theme theme =
+            interfaceTheme(Density{.dp = dp_, .display = displayDp_}, tokens_);
         const float tall = std::max(panel.height(dp) * dp, theme.px(theme.spacing.touchTarget));
         float x = 0.0f;
         for (const Prompt& prompt : prompts) {
@@ -301,17 +309,18 @@ void Hud::drawPromptPanel(Canvas& canvas, const std::vector<Prompt>& prompts, bo
         const float left = row.x + panel.paddingHorizontal * dp;
         const float centreY = row.centreY();
         glyphs_.paint(canvas, prompt.key, Point{left + placed->column * 0.5f, centreY}, glyph,
-                      hintInk);
+                      colourOf(tokens_.palette.chromeInk));
         text_.drawCentred(
             canvas, prompt.label,
             Point{left + placed->column + gap, centreY + panel.labelShift(prompt.key) * dp}, text,
-            hintInk);
+            colourOf(tokens_.palette.chromeInk));
     }
 }
 
 std::vector<Hud::PromptCell> Hud::promptCells() const {
     std::vector<PromptCell> cells;
-    const gpu2d::ui::Theme theme = interfaceTheme(Density{.dp = dp_, .display = displayDp_});
+    const gpu2d::ui::Theme theme =
+        interfaceTheme(Density{.dp = dp_, .display = displayDp_}, tokens_);
     const float least = theme.px(theme.spacing.touchTarget);
     for (const bool atEnd : {false, true}) {
         const std::optional<PromptPanel> placed =
@@ -333,7 +342,8 @@ void Hud::drawToast(Canvas& canvas, float floor) const {
         return;
     }
     // In dp like the rest of the interface, so it reads the same on a dense phone screen.
-    const gpu2d::ui::Theme theme = interfaceTheme(Density{.dp = dp_, .display = displayDp_});
+    const gpu2d::ui::Theme theme =
+        interfaceTheme(Density{.dp = dp_, .display = displayDp_}, tokens_);
     const float u = unit();
     const float size = theme.px(theme.type.toast);
     const float padding = theme.px(theme.spacing.pad);

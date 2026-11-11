@@ -231,6 +231,7 @@ void ShellApp::applyLayout() {
         grid.setIconSize(chosen.iconSize);
     }
     grid.setHomeMode(chosen.homeMode.value_or(settings_.homeMode));
+    shell_.setTheme(interfaceThemeSettings_.current());
     shell_.setUiScale(settings::uiScaleFactor(chosen.uiScale),
                       settings::uiDisplayFactor(chosen.uiScale));
     shell_.setKeyboardStyle(chosen.keyboardStyle);

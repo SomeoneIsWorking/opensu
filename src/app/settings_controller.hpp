@@ -28,6 +28,7 @@
 #include "integration_settings.hpp"
 #include "integrations_in_force.hpp"
 #include "interface_sound_settings.hpp"
+#include "interface_theme_settings.hpp"
 #include "lan_profiles.hpp"
 #include "lan_roms.hpp"
 #include "lan_settings.hpp"
@@ -90,6 +91,7 @@ class SettingsController final : public ui::RowActions {
         IntegrationSettings& integrations;
         ArtworkSettings& artwork;
         InterfaceSoundSettings& interfaceSounds;
+        InterfaceThemeSettings& interfaceThemes;
         LanSettings& lan;
         LanRoms& lanRoms;
         LanProfiles& lanProfiles;
@@ -112,11 +114,11 @@ class SettingsController final : public ui::RowActions {
           steamLibraries_{services.steamLibraries}, plugins_{services.plugins},
           chords_{services.chords}, mappings_{services.mappings}, wine_{services.wine},
           integrations_{services.integrations}, artwork_{services.artwork},
-          interfaceSounds_{services.interfaceSounds}, lan_{services.lan}, online_{services.online},
-          lanRoms_{services.lanRoms}, lanProfiles_{services.lanProfiles}, saves_{services.saves},
-          profiles_{services.profiles}, shelf_{services.shelf}, inForce_{services.inForce},
-          sounds_{sounds}, preferences_{preferences}, defaults_{defaults},
-          hooks_{std::move(hooks)} {
+          interfaceSounds_{services.interfaceSounds}, interfaceThemes_{services.interfaceThemes},
+          lan_{services.lan}, online_{services.online}, lanRoms_{services.lanRoms},
+          lanProfiles_{services.lanProfiles}, saves_{services.saves}, profiles_{services.profiles},
+          shelf_{services.shelf}, inForce_{services.inForce}, sounds_{sounds},
+          preferences_{preferences}, defaults_{defaults}, hooks_{std::move(hooks)} {
     }
 
     /// Opens the screen on its first category.
@@ -206,6 +208,7 @@ class SettingsController final : public ui::RowActions {
     IntegrationSettings& integrations_;
     ArtworkSettings& artwork_;
     InterfaceSoundSettings& interfaceSounds_;
+    InterfaceThemeSettings& interfaceThemes_;
     LanSettings& lan_;
     OnlinePlay& online_;
     LanRoms& lanRoms_;

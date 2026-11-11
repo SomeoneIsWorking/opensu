@@ -170,6 +170,7 @@ std::vector<ui::SettingsCategory> SettingsController::build() const {
 ui::SettingsCategory SettingsController::appearancePage() const {
     const settings::Settings& v = preferences_.values();
     ui::SettingsCategory page{"appearance", "Appearance", {}};
+    page.rows.push_back(interfaceThemes_.row());
     page.rows.push_back(shelf_.layout("How Library lays out its tiles"));
     page.rows.push_back(shelf_.iconSize("How large the shelf's tiles are"));
     const config::HomeMode mode = v.homeMode.value_or(defaults_.homeMode);
@@ -556,6 +557,11 @@ void SettingsController::run(const std::string& id, int step) {
     }
     if (ArtworkSettings::owns(id)) {
         artwork_.run(id, step);
+        refresh();
+        return;
+    }
+    if (InterfaceThemeSettings::owns(id)) {
+        interfaceThemes_.run(id, step);
         refresh();
         return;
     }

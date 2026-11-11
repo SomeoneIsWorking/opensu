@@ -1,0 +1,7 @@
+{
+  "format": 1,
+  "name": "iiSU",
+  "author": "openSU",
+  "note": "iiSU's look, openSU's default",
+  "sounds": { "set": "marimba" }
+}

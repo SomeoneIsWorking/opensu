@@ -2,64 +2,68 @@
 
 #include <algorithm>
 
-#include "hud.hpp"
-
 namespace opensu::ui {
 
 float fingerDp(Density density) noexcept {
     return std::max(density.dp, density.display);
 }
 
-gpu2d::ui::Theme interfaceTheme(Density density) noexcept {
-    gpu2d::ui::Theme theme;
-    gpu2d::ui::Palette& colours = theme.colours;
-    colours.ground = palette::ground;
-    colours.surface = Colour{0xF8, 0xF8, 0xFB, 255};
-    colours.control = palette::panel;
-    colours.controlFocused = palette::panel;
-    colours.selected = palette::chosen;
-    colours.ink = palette::ink;
-    colours.inkMuted = palette::inkSoft;
-    colours.inkFaint = Colour{0x93, 0x8C, 0xA1, 255};
-    colours.accent = palette::control;
-    colours.onAccent = palette::panel;
-    colours.track = palette::off;
-    colours.focusRing = palette::control;
-    colours.scrim = Colour{0x2B, 0x27, 0x33, 120};
-    colours.toast = Colour{0x2B, 0x27, 0x33, 240};
-    colours.toastError = Colour{0xB3, 0x26, 0x1E, 240};
-    colours.onToast = palette::panel;
-    colours.danger = Colour{0xB3, 0x26, 0x1E, 255};
+gpu2d::Colour colourOf(theme::Colour colour) noexcept {
+    return gpu2d::Colour{colour.r, colour.g, colour.b, colour.a};
+}
 
+gpu2d::ui::Theme interfaceTheme(Density density, const theme::InterfaceTheme& tokens) noexcept {
+    gpu2d::ui::Theme theme;
+    const theme::Palette& from = tokens.palette;
+    gpu2d::ui::Palette& colours = theme.colours;
+    colours.ground = colourOf(from.ground);
+    colours.surface = colourOf(from.surface);
+    colours.control = colourOf(from.control);
+    colours.controlFocused = colourOf(from.controlFocused);
+    colours.selected = colourOf(from.selected);
+    colours.ink = colourOf(from.ink);
+    colours.inkMuted = colourOf(from.inkMuted);
+    colours.inkFaint = colourOf(from.inkFaint);
+    colours.accent = colourOf(from.accent);
+    colours.onAccent = colourOf(from.onAccent);
+    colours.track = colourOf(from.track);
+    colours.focusRing = colourOf(from.focusRing);
+    colours.scrim = colourOf(from.scrim);
+    colours.toast = colourOf(from.toast);
+    colours.toastError = colourOf(from.toastError);
+    colours.onToast = colourOf(from.onToast);
+    colours.danger = colourOf(from.danger);
+
+    const theme::Spacing& lengths = tokens.spacing;
     gpu2d::ui::Spacing& spacing = theme.spacing;
-    spacing.gap = 5.0f;
-    spacing.pad = 14.0f;
-    spacing.section = 16.0f;
-    spacing.rowHeight = 50.0f;
-    spacing.compactRowHeight = 40.0f;
-    spacing.sidebarWidth = 210.0f;
-    spacing.contentWidth = 600.0f;
-    spacing.hintBarHeight = 34.0f;
-    spacing.dialogWidth = 380.0f;
+    spacing.gap = lengths.gap;
+    spacing.pad = lengths.pad;
+    spacing.section = lengths.section;
+    spacing.rowHeight = lengths.rowHeight;
+    spacing.compactRowHeight = lengths.compactRowHeight;
+    spacing.sidebarWidth = lengths.sidebarWidth;
+    spacing.contentWidth = lengths.contentWidth;
+    spacing.hintBarHeight = lengths.hintBarHeight;
+    spacing.dialogWidth = lengths.dialogWidth;
     const float finger = fingerDp(density) / density.dp;
     spacing.touchTarget *= finger;
     spacing.touchSlop *= finger;
 
     gpu2d::ui::Shape& shape = theme.shape;
-    shape.radius = 12.0f;
-    shape.smallRadius = 9.0f;
-    shape.outline = 1.8f;
-    shape.focusRing = 2.2f;
-    shape.focusGap = 2.0f;
+    shape.radius = tokens.shape.radius;
+    shape.smallRadius = tokens.shape.smallRadius;
+    shape.outline = tokens.shape.outline;
+    shape.focusRing = tokens.shape.focusRing;
+    shape.focusGap = tokens.shape.focusGap;
 
     gpu2d::ui::TypeScale& type = theme.type;
-    type.title = 22.0f;
-    type.heading = 11.5f;
-    type.body = 15.5f;
-    type.caption = 11.5f;
-    type.value = 14.0f;
-    type.hint = 13.0f;
-    type.toast = 14.0f;
+    type.title = tokens.type.title;
+    type.heading = tokens.type.heading;
+    type.body = tokens.type.body;
+    type.caption = tokens.type.caption;
+    type.value = tokens.type.value;
+    type.hint = tokens.type.hint;
+    type.toast = tokens.type.toast;
 
     theme.scale = density.dp;
     return theme;

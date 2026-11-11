@@ -1,5 +1,5 @@
-// interface_text — openSU's face (Cal Sans, hinted and kerned): what every painter and the
-// interface toolkit draw words with.
+// interface_text — the interface theme's face, else openSU's own (Cal Sans), hinted and kerned:
+// what every painter and the interface toolkit draw words with.
 #pragma once
 
 #include <filesystem>
@@ -23,8 +23,12 @@ class InterfaceText final : public gpu2d::ui::Typesetter {
     explicit InterfaceText(std::filesystem::path assetsDir) : assetsDir_{std::move(assetsDir)} {
     }
 
-    /// Loads the first face found onto `device`. Throws gpu2d::GpuError when none loads.
+    /// Loads the first face found onto `device`: the theme's, then openSU's own. Throws
+    /// gpu2d::GpuError when none loads.
     void load(SDL_GPUDevice& device);
+    /// Draws with `face` from now on (empty for openSU's own), loaded at once when a device is
+    /// attached; a face that does not load is logged and openSU's own stands in.
+    void useFace(const std::filesystem::path& face);
     /// Releases the labels the last frame did not draw. Once per frame, after it was submitted.
     void retire();
 
@@ -46,6 +50,9 @@ class InterfaceText final : public gpu2d::ui::Typesetter {
     [[nodiscard]] gpu2d::Text& face();
 
     std::filesystem::path assetsDir_;
+    /// The theme's face; empty for openSU's own.
+    std::filesystem::path themeFace_;
+    SDL_GPUDevice* device_{};
     std::unique_ptr<gpu2d::Text> face_;
 };
 
