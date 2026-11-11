@@ -25,10 +25,14 @@ int main(int argc, char** argv) {
         return 1;
     }
     std::ofstream{argv[3], std::ios::binary} << *roots;
-    const auto port = static_cast<std::uint16_t>(std::stoi(endpoint.substr(endpoint.rfind('/') + 1)));
-    const auto node = lucent::p2p::ZeroTierNode::start(
-        {.storage = storage, .roots = *roots, .port = port, .network_port = opensu::online::zeroTierPort},
-        error);
+    const auto port =
+        static_cast<std::uint16_t>(std::stoi(endpoint.substr(endpoint.rfind('/') + 1)));
+    const auto node =
+        lucent::p2p::ZeroTierNode::start({.storage = storage,
+                                          .roots = *roots,
+                                          .port = port,
+                                          .network_port = opensu::online::zeroTierPort},
+                                         error);
     if (!node) {
         std::fprintf(stderr, "no root node: %s\n", error.c_str());
         return 1;

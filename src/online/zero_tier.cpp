@@ -40,7 +40,8 @@ void ZeroTier::start() {
     std::string error;
     node_ = lucent::p2p::ZeroTierNode::start(config, error);
     if (!node_) {
-        lucent::log(lucent::Level::Warn, "online", "no ZeroTier: " + error + "; playing direct only");
+        lucent::log(lucent::Level::Warn, "online",
+                    "no ZeroTier: " + error + "; playing direct only");
     }
 }
 
