@@ -13,6 +13,7 @@
 #include "pcsx2_config.hpp"
 #include "rpcs3_config.hpp"
 #include "ryujinx_config.hpp"
+#include "shadps4_config.hpp"
 #include "xemu_config.hpp"
 #include "yuzu_config.hpp"
 
@@ -42,6 +43,7 @@ constexpr std::array rules{
     LaunchRule{.id = rpcs3Id, .files = rpcs3Files, .runFiles = rpcs3RunFiles},
     LaunchRule{.id = duckstationId, .files = duckstationFiles, .runFiles = duckstationRunFiles},
     LaunchRule{.id = xemuId, .files = xemuFiles, .runFiles = xemuRunFiles},
+    LaunchRule{.id = shadps4Id, .files = shadps4Files, .runFiles = shadps4RunFiles},
 };
 
 const LaunchRule* ruleOf(std::string_view id) {

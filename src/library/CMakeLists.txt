@@ -50,6 +50,7 @@ add_library(opensu_library STATIC
     sdl_pad_ini.cpp
     duckstation_config.cpp
     xemu_config.cpp
+    shadps4_config.cpp
     shell_link.cpp game_folder.cpp pe_resources.cpp steam_items.cpp
     emulator_choice.cpp linked_play.cpp
     text_fold.cpp

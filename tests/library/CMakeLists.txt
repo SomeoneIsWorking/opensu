@@ -221,6 +221,11 @@ target_link_libraries(xemu_config_test PRIVATE opensu::library)
 opensu_warnings(xemu_config_test)
 add_test(NAME xemu_config COMMAND xemu_config_test)
 
+add_executable(shadps4_config_test shadps4_config_test.cpp)
+target_link_libraries(shadps4_config_test PRIVATE opensu::library nlohmann_json::nlohmann_json)
+opensu_warnings(shadps4_config_test)
+add_test(NAME shadps4_config COMMAND shadps4_config_test)
+
 add_executable(visual_presets_test visual_presets_test.cpp)
 target_link_libraries(visual_presets_test PRIVATE opensu::library)
 target_compile_definitions(visual_presets_test PRIVATE OPENSU_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
