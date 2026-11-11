@@ -49,6 +49,8 @@ struct Event {
         Button,
         Connected,
         Disconnected,
+        /// A pad that points (a Wii Remote's camera) moved on or off the screen.
+        Pointer,
     };
 
     Kind kind{Kind::Button};
@@ -60,6 +62,10 @@ struct Event {
     std::string device;
     /// Which pad the event came from (`PadInfo::id`); empty for keys and the control channel.
     std::string source;
+    /// For Pointer: whether the pad points at the screen, and where, from 0 to 1 across and down.
+    bool onScreen{false};
+    float x{};
+    float y{};
 };
 
 } // namespace opensu::gamepad

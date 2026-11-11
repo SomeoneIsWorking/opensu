@@ -7,10 +7,14 @@
 // claim. The buttons of a bound chord never reach the game (`ChordGate`, through each pad's
 // `PadTranslator`), and the game's mapping (`ForwardMap`) applies to its virtual pads only. While
 // blocked, the virtual pads rest, so the Guide menu's input never reaches the game. Only gamepad
-// nodes are opened: a pad's separate motion sensor node and its hidraw node are never read or
-// grabbed. Virtual pads can be kept: they exist, at rest, until let go, and under Game the pads
-// drive them in connection order before any other is made, so a program given only their nodes up
-// front (Isolated Steam's sandbox) still gets the game's input.
+// nodes and a Wii Remote's parts are opened: a pad's separate motion sensor node and its hidraw
+// node are never read or grabbed. Virtual pads can be kept: they exist, at rest, until let go, and
+// under Game the pads drive them in connection order before any other is made, so a program given
+// only their nodes up front (Isolated Steam's sandbox) still gets the game's input. A Bluetooth Wii
+// Remote is one pad
+// (`WiiRemoteLayout`): its Nunchuk and its IR camera, devices of their own sharing the remote's
+// parent device, are read as part of it, each held until its remote is there; where the camera
+// says the remote points comes as Pointer events.
 #pragma once
 
 #include <condition_variable>
@@ -19,6 +23,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -89,7 +94,22 @@ class EvdevPads final : public PadSource {
     struct Pad {
         explicit Pad(EvdevDevice opened);
 
+        /// The translator started again from the devices' present state, as `layout` reads them.
+        void restart(const ChordTriggers& chords, const ForwardMap& map);
+        /// The events `read` from `part` (the device, or the extension) as the translator reads
+        /// them.
+        [[nodiscard]] std::vector<PadEvent> translatable(const std::vector<PadEvent>& read,
+                                                         bool fromExtension) const;
+        [[nodiscard]] PadCapabilities capabilities() const;
+
         EvdevDevice device;
+        /// A Wii Remote's Nunchuk, read as part of this pad.
+        std::optional<EvdevDevice> extension;
+        /// A Wii Remote's IR camera, and where it says the remote points.
+        std::optional<EvdevDevice> camera;
+        WiiPointer pointer;
+        /// How a Wii Remote's devices read as a pad; nothing for another pad.
+        std::optional<WiiRemoteLayout> layout;
         PadTranslator translator;
         /// The game's view of this pad, under Game and Away: a kept pad, or `made`.
         VirtualPad* output{nullptr};
@@ -122,6 +142,13 @@ class EvdevPads final : public PadSource {
     void request(std::unique_lock<std::mutex>& lock, Claim claim);
     void scan();
     void add(const std::filesystem::path& node);
+    /// Reads `part` (a Nunchuk or a camera) as part of the Wii Remote pad that shares its parent,
+    /// or holds it until that remote is there.
+    void addPart(EvdevDevice part);
+    /// Gives `pad` the part when it is its remote's and that place is free; false otherwise.
+    bool attach(Pad& pad, EvdevDevice& part);
+    /// Gives `pad` its Nunchuk, or takes it away when `nunchuk` is nothing.
+    void setExtension(Pad& pad, std::optional<EvdevDevice> nunchuk);
     /// Brings a pad to `wanted`; false when it could not be grabbed.
     bool apply(Pad& pad, const Wanted& wanted);
     /// Makes or ends kept virtual pads until `count` are kept; a pad whose kept one ends is left
@@ -139,6 +166,8 @@ class EvdevPads final : public PadSource {
 
     // Reading thread only.
     std::vector<std::unique_ptr<Pad>> pads_;
+    /// Nunchuks and cameras whose remote is not here yet.
+    std::vector<EvdevDevice> loose_;
     std::vector<std::shared_ptr<VirtualPad>> kept_;
     /// `kept_` for `seatPad`, under the mutex.
     std::vector<std::shared_ptr<VirtualPad>> seats_;

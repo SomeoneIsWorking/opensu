@@ -185,6 +185,51 @@ class FakePad {
     fs::path node_;
 };
 
+/// A Bluetooth Wii Remote's buttons as hid-wiimote makes them: keys only, Nintendo's ids. The
+/// fake has no parent device, so a Nunchuk is never paired with it.
+class FakeWiiRemote {
+  public:
+    FakeWiiRemote() {
+        fd_ = ::open("/dev/uinput", O_WRONLY | O_CLOEXEC);
+        expect(fd_ >= 0, "/dev/uinput opens");
+        ioctl(fd_, UI_SET_EVBIT, EV_KEY);
+        for (const int key : {KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN, KEY_NEXT, KEY_PREVIOUS, BTN_1,
+                              BTN_2, BTN_A, BTN_B, BTN_MODE}) {
+            ioctl(fd_, UI_SET_KEYBIT, key);
+        }
+        ioctl(fd_, UI_SET_PHYS, std::string{VirtualPad::phys}.c_str());
+        uinput_setup setup{};
+        setup.id.bustype = BUS_BLUETOOTH;
+        setup.id.vendor = 0x057e;
+        setup.id.product = 0x0306;
+        std::snprintf(setup.name, sizeof(setup.name), "%s", "Nintendo Wii Remote");
+        expect(ioctl(fd_, UI_DEV_SETUP, &setup) == 0, "the fake remote is set up");
+        expect(ioctl(fd_, UI_DEV_CREATE) == 0, "the fake remote is created");
+        node_ = nodeOf(fd_);
+    }
+    FakeWiiRemote(const FakeWiiRemote&) = delete;
+    FakeWiiRemote& operator=(const FakeWiiRemote&) = delete;
+    ~FakeWiiRemote() {
+        ioctl(fd_, UI_DEV_DESTROY);
+        ::close(fd_);
+    }
+
+    [[nodiscard]] const fs::path& node() const {
+        return node_;
+    }
+
+    void press(std::uint16_t key, std::int32_t value) const {
+        for (const input_event out :
+             {input_event{{}, EV_KEY, key, value}, input_event{{}, EV_SYN, SYN_REPORT, 0}}) {
+            expect(::write(fd_, &out, sizeof(out)) == sizeof(out), "the fake remote takes input");
+        }
+    }
+
+  private:
+    int fd_{-1};
+    fs::path node_;
+};
+
 /// A pad's motion sensor node as hid-playstation and hid-nintendo make it: accelerometer and gyro
 /// axes, the accelerometer property, no buttons.
 class FakeMotion {
@@ -606,6 +651,27 @@ int main() try {
                                     return info.id == testId;
                                 }),
            "and no longer listed");
+
+    {
+        // A Bluetooth Wii Remote alone is a pad held sideways: 2 is A, the d-pad's up is Left.
+        const FakeWiiRemote remote;
+        inputs.add(remote.node());
+        seen.clear();
+        expect(collect(pads, seen,
+                       [&] {
+                           return has(seen, Event::Kind::Connected, "Nintendo Wii Remote");
+                       }),
+               "a Wii Remote is a pad");
+        remote.press(BTN_2, 1);
+        remote.press(KEY_UP, 1);
+        expect(collect(pads, seen,
+                       [&] {
+                           return pressed(seen, Button::A) && pressed(seen, Button::Left);
+                       }),
+               "held sideways, its 2 is A and its d-pad turned");
+        remote.press(BTN_2, 0);
+        remote.press(KEY_UP, 0);
+    }
 
     std::printf("pads: all checks passed\n");
     return 0;

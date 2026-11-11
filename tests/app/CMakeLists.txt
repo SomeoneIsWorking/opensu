@@ -209,3 +209,8 @@ add_executable(import_picks_test import_picks_test.cpp)
 target_link_libraries(import_picks_test PRIVATE opensu::app)
 opensu_warnings(import_picks_test)
 add_test(NAME import_picks COMMAND import_picks_test)
+
+add_executable(pointing_pads_test pointing_pads_test.cpp)
+target_link_libraries(pointing_pads_test PRIVATE opensu::app)
+opensu_warnings(pointing_pads_test)
+add_test(NAME pointing_pads COMMAND pointing_pads_test)

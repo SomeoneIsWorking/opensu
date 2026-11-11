@@ -95,6 +95,7 @@
 #include "player_profiles.hpp"
 #include "plugin_service.hpp"
 #include "plugin_settings.hpp"
+#include "pointing_pads.hpp"
 #include "polkit_prompt_controller.hpp"
 #include "preferences.hpp"
 #include "profile_settings.hpp"
@@ -1379,6 +1380,19 @@ class ShellApp final {
     PadOwner padOwner_{*pads_, shell_.chords()};
     /// Where the real Wii Remotes are looked for, for the Devices page and a Wii game's launch.
     device::HidPlaces hidPlaces_{device::HidPlaces::of(environment_.dataDir, settings_.hidden)};
+    /// A Wii Remote pointing at the screen as the shell's pointer.
+    PointingPads pointingPads_{
+        PointingPads::Hooks{[this](float x, float y) {
+                                const gpu2d::PixelSize size = window_->size();
+                                window_->movePointer({x * static_cast<float>(size.width),
+                                                      y * static_cast<float>(size.height)});
+                            },
+                            [this](float x, float y, bool down) {
+                                const gpu2d::PixelSize size = window_->size();
+                                window_->pressPointer({x * static_cast<float>(size.width),
+                                                       y * static_cast<float>(size.height)},
+                                                      SDL_BUTTON_LEFT, down);
+                            }}};
     /// The pads as the Devices page lists them.
     ControllerRoster roster_{ControllerRoster::Sources{[this] {
                                                            return pads_->connected();

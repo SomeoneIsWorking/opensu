@@ -34,6 +34,19 @@ std::string readString(int fd, unsigned long request) {
     return std::string{buffer.data()};
 }
 
+/// The device the kernel made input node `node` for, from sysfs; empty when there is none.
+std::filesystem::path parentOf(const std::filesystem::path& node) {
+    std::error_code failed;
+    // A hidden run reads links to the nodes.
+    const std::filesystem::path real = std::filesystem::canonical(node, failed);
+    if (failed) {
+        return {};
+    }
+    const std::filesystem::path parent = std::filesystem::canonical(
+        std::filesystem::path{"/sys/class/input"} / real.filename() / "device" / "device", failed);
+    return failed ? std::filesystem::path{} : parent;
+}
+
 } // namespace
 
 EvdevDevice::EvdevDevice(const std::filesystem::path& node) : node_{node} {
@@ -49,6 +62,7 @@ EvdevDevice::EvdevDevice(const std::filesystem::path& node) : node_{node} {
         vendor_ = id.vendor;
         product_ = id.product;
     }
+    parent_ = parentOf(node);
 
     BitSet<KEY_CNT> keys{};
     BitSet<ABS_CNT> axes{};
@@ -70,7 +84,7 @@ EvdevDevice::EvdevDevice(const std::filesystem::path& node) : node_{node} {
 EvdevDevice::EvdevDevice(EvdevDevice&& other) noexcept
     : fd_{std::exchange(other.fd_, -1)}, node_{std::move(other.node_)},
       name_{std::move(other.name_)}, phys_{std::move(other.phys_)}, uniq_{std::move(other.uniq_)},
-      vendor_{other.vendor_}, product_{other.product_},
+      vendor_{other.vendor_}, product_{other.product_}, parent_{std::move(other.parent_)},
       capabilities_{std::move(other.capabilities_)} {
 }
 
@@ -86,6 +100,7 @@ EvdevDevice& EvdevDevice::operator=(EvdevDevice&& other) noexcept {
         uniq_ = std::move(other.uniq_);
         vendor_ = other.vendor_;
         product_ = other.product_;
+        parent_ = std::move(other.parent_);
         capabilities_ = std::move(other.capabilities_);
     }
     return *this;
@@ -101,9 +116,13 @@ bool EvdevDevice::isPad(OwnVirtualPads own) const {
     // Steam Input's virtual gamepad, which Steam feeds from a pad opensu already reads.
     constexpr std::uint16_t valve = 0x28de;
     constexpr std::uint16_t steamVirtualGamepad = 0x11ff;
-    return capabilities_.isGamepad() &&
+    return (capabilities_.isGamepad() || wiiRemotePart()) &&
            (own == OwnVirtualPads::Read || phys_ != VirtualPad::phys) &&
            !(vendor_ == valve && product_ == steamVirtualGamepad);
+}
+
+std::optional<WiiRemotePart> EvdevDevice::wiiRemotePart() const {
+    return wiiRemotePartOf(vendor_, product_, name_);
 }
 
 std::optional<EvdevDevice> EvdevDevice::openPad(const std::filesystem::path& node,

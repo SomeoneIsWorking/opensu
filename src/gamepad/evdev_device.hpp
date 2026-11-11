@@ -10,6 +10,7 @@
 
 #include "pad_source.hpp"
 #include "pad_translator.hpp"
+#include "wii_remote_layout.hpp"
 
 namespace opensu::gamepad {
 
@@ -28,8 +29,8 @@ class EvdevDevice {
     [[nodiscard]] static std::optional<EvdevDevice> openPad(const std::filesystem::path& node,
                                                             OwnVirtualPads own);
 
-    /// A controller opensu reads: a gamepad, and not a virtual pad Steam made from one; opensu's
-    /// own virtual pads count only when `own` reads them.
+    /// A controller opensu reads: a gamepad or a part of a Wii Remote, and not a virtual pad Steam
+    /// made from one; opensu's own virtual pads count only when `own` reads them.
     [[nodiscard]] bool isPad(OwnVirtualPads own) const;
 
     [[nodiscard]] int fd() const {
@@ -51,6 +52,13 @@ class EvdevDevice {
     [[nodiscard]] const PadCapabilities& capabilities() const {
         return capabilities_;
     }
+    /// The part of a Wii Remote this is (hid-wiimote's devices); nothing for another device.
+    [[nodiscard]] std::optional<WiiRemotePart> wiiRemotePart() const;
+    /// The device the kernel made this input device for (`/sys/class/input/<node>/device/device`,
+    /// resolved), which a Wii Remote's devices share; empty when it has none, as uinput's.
+    [[nodiscard]] const std::filesystem::path& parent() const {
+        return parent_;
+    }
 
     /// Makes opensu the device's only reader. False when another process holds it.
     [[nodiscard]] bool grab();
@@ -71,6 +79,7 @@ class EvdevDevice {
     std::string uniq_;
     std::uint16_t vendor_{0};
     std::uint16_t product_{0};
+    std::filesystem::path parent_;
     PadCapabilities capabilities_;
 };
 

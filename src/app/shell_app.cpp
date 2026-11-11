@@ -483,7 +483,13 @@ void ShellApp::handleEvents(const std::vector<gamepad::Event>& incoming) {
             event.button != gamepad::Button::Guide) {
             continue;
         }
+        // A remote pointing over a game in front points at the game, not the shell behind it.
+        if (!gameInFront() && pointingPads_.take(event)) {
+            continue;
+        }
         switch (event.kind) {
+        case gamepad::Event::Kind::Pointer:
+            break;
         case gamepad::Event::Kind::Connected:
             lucent::info("gamepad", "controller ready: {}", event.device);
             break;
