@@ -26,7 +26,9 @@ A core is found in `<data>/opensu/cores/` (openSU's own downloads), then on Linu
 `/usr/lib/x86_64-linux-gnu/libretro`. A missing core is downloaded from libretro's buildbot from the
 game's details page ("Download <core>") or Settings › Emulators › Emulators and cores: every hop
 stays on the buildbot's host and the library is checked against the CRC-32 the buildbot lists.
-Check for updates compares the listed CRC-32 with the one recorded; nothing updates by itself.
+Check for updates compares the listed CRC-32 with the one recorded; nothing updates by itself, but
+for one move: a buildbot core openSU downloaded for an emulator that now comes from openSU's own
+build (mGBA) is replaced by that build after the first check that reads it while no game plays.
 
 ## Arcade romsets
 

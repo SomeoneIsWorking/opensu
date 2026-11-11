@@ -146,8 +146,7 @@ std::optional<EmulatorInstall> locateCore(const EmulatorEntry& entry,
     const std::string file = core->file.string();
     const bool ours = core->downloaded.has_value();
     // A buildbot core downloaded before the catalog named a release stays the buildbot's.
-    const bool released =
-        ours && entry.release && core->downloaded->url.starts_with(entry.release->downloads);
+    const bool released = ours && entry.fromRelease(core->downloaded->url);
     const InstallSource source = released ? InstallSource::ReleasedCore
                                  : ours   ? InstallSource::DownloadedCore
                                           : InstallSource::Core;

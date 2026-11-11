@@ -95,6 +95,9 @@ struct Rig {
                                                   [] {
                                                   },
                                                   [] {
+                                                  },
+                                                  [] {
+                                                      return false;
                                                   }}},
           uninstall{app::UninstallPrompt::Hooks{[this](const library::Game&) {
                                                     return app::Removal{

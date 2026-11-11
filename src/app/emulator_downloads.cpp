@@ -80,7 +80,8 @@ std::string EmulatorDownloads::start(std::string_view id) {
     });
 }
 
-std::string EmulatorDownloads::launch(std::string_view id, Installer install) {
+std::string EmulatorDownloads::launch(std::string_view id, Installer install,
+                                      std::string installed) {
     {
         const std::lock_guard lock{mutex_};
         if (progress_) {
@@ -89,10 +90,10 @@ std::string EmulatorDownloads::launch(std::string_view id, Installer install) {
         progress_ = Progress{std::string{id}, 0, 0};
         shownPercent_.reset();
     }
-    downloader_ = std::jthread{
-        [this, id = std::string{id}, install = std::move(install)](const std::stop_token& stop) {
-            runDownload(stop, id, install);
-        }};
+    downloader_ = std::jthread{[this, id = std::string{id}, install = std::move(install),
+                                installed = std::move(installed)](const std::stop_token& stop) {
+        runDownload(stop, id, install, installed);
+    }};
     return {};
 }
 
@@ -206,7 +207,7 @@ EmulatorDownloads::installArt(const std::stop_token& stop,
 }
 
 void EmulatorDownloads::runDownload(const std::stop_token& stop, const std::string& id,
-                                    const Installer& install) {
+                                    const Installer& install, const std::string& installed) {
     const net::WebClient::Progress progress = [this, &stop](std::uint64_t received,
                                                             std::uint64_t total) {
         const std::lock_guard lock{mutex_};
@@ -216,16 +217,18 @@ void EmulatorDownloads::runDownload(const std::stop_token& stop, const std::stri
         }
         return !stop.stop_requested();
     };
-    const net::Result<Build> installed = install(stop, progress);
+    const net::Result<Build> build = install(stop, progress);
     const std::string name = nameOf(id);
     using Outcome = Finished::Outcome;
     Ended ended;
-    if (installed) {
-        ended = Ended{id, name + " " + installed->version + " is installed", Outcome::Installed};
-    } else if (installed.stopped()) {
+    if (build) {
+        ended =
+            Ended{id, installed.empty() ? name + " " + build->version + " is installed" : installed,
+                  Outcome::Installed};
+    } else if (build.stopped()) {
         ended = Ended{id, name + " download cancelled", Outcome::Cancelled};
     } else {
-        ended = Ended{id, name + " was not installed: " + installed.error(), Outcome::Failed};
+        ended = Ended{id, name + " was not installed: " + build.error(), Outcome::Failed};
         lucent::warn("emulators", "{}", ended.text);
     }
     const std::lock_guard lock{mutex_};
@@ -439,6 +442,35 @@ void EmulatorDownloads::checkWhenDue(Clock::time_point now) {
     }
 }
 
+bool EmulatorDownloads::moveToReleases() {
+    if (progress() || (hooks_.gameRunning && hooks_.gameRunning())) {
+        return false;
+    }
+    for (const EmulatorEntry& entry : setup_.catalog.entries()) {
+        if (!entry.builtIn() || !entry.release || moved_.contains(entry.id) || !latest(entry.id)) {
+            continue;
+        }
+        const std::optional<library::roms::DownloadedCore> core = cores_.find(entry.core);
+        if (!core || !core->url.starts_with(coreDownload_.base()) || entry.fromRelease(core->url)) {
+            continue;
+        }
+        moved_.insert(entry.id);
+        const std::string told = entry.name + " moved to openSU's build" +
+                                 (entry.links.empty() ? "" : ", which plays linked");
+        lucent::info("emulators", "{}: replacing the buildbot core {} by its release's", entry.name,
+                     core->date);
+        // The next waits for this one to end.
+        return !launch(
+                    entry.id,
+                    [this, moving = &entry](const std::stop_token& stop, const auto& progress) {
+                        return installCore(stop, *moving, progress);
+                    },
+                    told)
+                    .empty();
+    }
+    return true;
+}
+
 EmulatorDownloads::Check EmulatorDownloads::check() const {
     const std::lock_guard lock{mutex_};
     return check_;
@@ -539,6 +571,10 @@ void EmulatorDownloads::service() {
     const Clock::time_point now = Clock::now();
     if (checked || !ended.empty()) {
         listUpdates();
+    }
+    movePending_ = movePending_ || checked;
+    if (movePending_ && ended.empty()) {
+        movePending_ = !moveToReleases();
     }
     for (const Ended& one : ended) {
         if (downloader_.joinable()) {

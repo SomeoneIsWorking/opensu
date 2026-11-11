@@ -591,6 +591,9 @@ class ShellApp final {
                                  [this] {
                                      settingsScreen_.refresh();
                                      details_.refresh();
+                                 },
+                                 [this] {
+                                     return launches_.running();
                                  }}};
     /// The Settings screen's Emulators category.
     EmulatorSettings emulatorSettings_{

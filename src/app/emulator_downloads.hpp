@@ -4,7 +4,8 @@
 // (`shaderPackId`) and the visual presets' art (`overlayArtId`), one download at a time with its
 // progress and cancel, the update check (at start and daily while openSU downloaded something, and
 // when asked), and the news the loop hands to the screens (`service`). Nothing updates unless the
-// player asks.
+// player asks, but for one move: a buildbot core openSU downloaded for an emulator whose catalog
+// now names a release is replaced by the release's once a check reads it (`moveToReleases`).
 #pragma once
 
 #include <chrono>
@@ -13,6 +14,7 @@
 #include <map>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <stop_token>
 #include <string>
 #include <string_view>
@@ -39,6 +41,8 @@ class EmulatorDownloads {
         std::function<void()> installedChanged;
         /// Progress or an update check moved: the screens that show it refresh.
         std::function<void()> refresh;
+        /// Whether a game is playing, so no core is replaced under it.
+        std::function<bool()> gameRunning;
     };
 
     /// Where the running download stands.
@@ -162,8 +166,11 @@ class EmulatorDownloads {
         std::function<net::Result<Build>(const std::stop_token&, const net::WebClient::Progress&)>;
 
     /// Starts `install` on the download thread as the download of `id`; refused while one runs.
-    [[nodiscard]] std::string launch(std::string_view id, Installer install);
-    void runDownload(const std::stop_token& stop, const std::string& id, const Installer& install);
+    /// `installed` is what the player is told when it ends well, the name and version when empty.
+    [[nodiscard]] std::string launch(std::string_view id, Installer install,
+                                     std::string installed = {});
+    void runDownload(const std::stop_token& stop, const std::string& id, const Installer& install,
+                     const std::string& installed);
     /// Installs the latest release of `entry`.
     [[nodiscard]] net::Result<Build> installRelease(const std::stop_token& stop,
                                                     const library::roms::EmulatorEntry& entry,
@@ -199,6 +206,9 @@ class EmulatorDownloads {
     void listUpdates();
     /// Starts the update check once a day, the first at start, while something is downloaded.
     void checkWhenDue(Clock::time_point now);
+    /// Replaces each buildbot core openSU downloaded for an emulator with a release by the
+    /// release's, once per emulator and run, while no game plays. False while it has to wait.
+    [[nodiscard]] bool moveToReleases();
 
     library::roms::EmulatorSetup setup_;
     library::roms::DownloadedEmulators store_;
@@ -222,6 +232,10 @@ class EmulatorDownloads {
     /// When the next scheduled check is due; at the first service before any.
     std::optional<Clock::time_point> nextCheck_;
     std::vector<Update> updates_;
+    /// A check ended since the cores were last moved to their releases.
+    bool movePending_{false};
+    /// The emulators whose core was moved, or tried, this run.
+    std::set<std::string, std::less<>> moved_;
     /// Last, so they stop before what they use goes.
     std::jthread checker_;
     std::jthread downloader_;

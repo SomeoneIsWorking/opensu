@@ -376,6 +376,9 @@ struct Rig {
                                       [] {
                                       },
                                       [] {
+                                      },
+                                      [] {
+                                          return false;
                                       }}};
     app::GameSettings gameSettings{
         settings::GameSettingsStore{file.parent_path() / settings::gameSettingsFile}, file,

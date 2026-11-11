@@ -1,7 +1,8 @@
 // A built-in emulator's core downloaded from where the player meets its absence, through the
 // shipping job, screens and ROM listing, against a fake buildbot: the details page's Download
-// row, Play starting opensu-retro on the core, and Settings › Emulators showing the buildbot
-// as its source, the update check, an update and Remove, asked first.
+// row, Play starting opensu-retro on the core, Settings › Emulators showing the buildbot
+// as its source, the update check, an update and Remove, asked first, and a buildbot core moving
+// to the release the catalog names once a check reads it.
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -24,6 +25,7 @@
 #include "library/roms.hpp"
 #include "support/buildbot_server.hpp"
 #include "support/fake_interface_text.hpp"
+#include "support/release_server.hpp"
 #include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
@@ -118,6 +120,9 @@ struct Rig {
                                                },
                                                [this] {
                                                    details.refresh();
+                                               },
+                                               [] {
+                                                   return false;
                                                }}};
     app::EmulatorSettings emulators{
         downloads, preferences,
@@ -396,6 +401,69 @@ void settingsShowTheBios(const fs::path& root) {
            "the update check fetches the missing info");
 }
 
+void buildbotCoreMovesToItsRelease(const fs::path& root) {
+    Rig rig{root};
+    rig.emulators.run("emulators.run.gb-core", 0);
+    rig.settle();
+    test::ReleaseServer server;
+    const std::string file = "mgba_libretro" + std::string{library::roms::coreTarget.librarySuffix};
+    server.publish("mgba", "2026-11-10", 7, "mgba_libretro-linux.zip",
+                   test::zipfixture::buildZip({{file, "the fork's core", true, {}}}));
+    library::roms::EmulatorSetup named = rig.setup();
+    library::roms::EmulatorEntry entry = named.catalog.entries().front();
+    entry.release = library::roms::ReleaseSource{
+        server.base() + "/api/mgba", "^mgba_libretro-.+\\.zip$", server.base() + "/dl/"};
+    entry.links = {"gb"};
+    named.catalog = library::roms::EmulatorCatalog{{entry}};
+    std::vector<std::string> told;
+    bool playing = true;
+    app::EmulatorDownloads downloads{
+        named, app::EmulatorDownloads::Hooks{[&told](const std::string& text, bool error) {
+                                                 told.push_back(error ? "error: " + text : text);
+                                             },
+                                             [] {
+                                             },
+                                             [] {
+                                             },
+                                             [&playing] {
+                                                 return playing;
+                                             }}};
+    const auto serviceUntil = [&downloads](const std::function<bool()>& done) {
+        const auto until = std::chrono::steady_clock::now() + wait;
+        while (!done() && std::chrono::steady_clock::now() < until) {
+            std::this_thread::sleep_for(std::chrono::milliseconds{10});
+            downloads.service();
+        }
+        downloads.service();
+    };
+    const auto check = [&] {
+        downloads.checkUpdates();
+        serviceUntil([&downloads] {
+            return downloads.check().done && !downloads.check().running;
+        });
+    };
+    const fs::path rom = root / "ROM" / "gb" / "Tetris.gb";
+
+    check();
+    expect(told.empty() && downloads.updateAvailable("gb-core") &&
+               downloads.discover().installed("gb-core")->source ==
+                   library::roms::InstallSource::DownloadedCore,
+           "no core is replaced while a game plays; the release is an ordinary update meanwhile");
+    playing = false;
+    serviceUntil([&told] {
+        return !told.empty();
+    });
+    const library::roms::Emulators found = downloads.discover();
+    expect(told == std::vector<std::string>{"GB (built-in) moved to openSU's build, which plays "
+                                            "linked"} &&
+               found.installed("gb-core")->source == library::roms::InstallSource::ReleasedCore &&
+               found.installed("gb-core")->version == "2026-11-10" &&
+               found.options("gb", rom).front().links && !downloads.updateAvailable("gb-core"),
+           "once the game ends the buildbot core is replaced by the release's, which links");
+    check();
+    expect(told.size() == 1, "a core from the release is not moved again");
+}
+
 } // namespace
 
 int main() try {
@@ -405,6 +473,7 @@ int main() try {
         settingsUpdateAndRemove(scratch.path() / "settings");
         systemCoreIsNotOurs(scratch.path() / "system");
         settingsShowTheBios(scratch.path() / "bios");
+        buildbotCoreMovesToItsRelease(scratch.path() / "moved");
         std::puts("core_flow: ok");
         return 0;
     } catch (const std::exception& error) {

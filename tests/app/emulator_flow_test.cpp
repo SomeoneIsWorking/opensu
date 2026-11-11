@@ -112,6 +112,9 @@ struct Rig {
                                                },
                                                [this] {
                                                    details.refresh();
+                                               },
+                                               [] {
+                                                   return false;
                                                }}};
     app::EmulatorSettings emulators{
         downloads, preferences,

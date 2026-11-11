@@ -170,6 +170,10 @@ struct EmulatorEntry {
     /// Its name without the catalog's " (built-in)" mark, where the context says it is the core:
     /// "mGBA" for "mGBA (built-in)".
     [[nodiscard]] std::string_view shortName() const noexcept;
+    /// Whether a built-in emulator's core downloaded from `url` came from its release.
+    [[nodiscard]] bool fromRelease(std::string_view url) const noexcept {
+        return release && url.starts_with(release->downloads);
+    }
     /// Whether openSU can download it: an official AppImage, or a core from the buildbot or its
     /// release.
     [[nodiscard]] bool downloadable() const noexcept {

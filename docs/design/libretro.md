@@ -621,8 +621,12 @@ library, downloaded through `EmulatorRelease::fetch` and refused unless it match
 one the catalog pins for that build (`"sha256"`, by the same build names as `"assets"`; a release
 publishing another is refused), else the one the release publishes. Its info still comes from the
 buildbot, its record keeps the release's tag as its date and the asset's URL, which the update check
-compares. Settings › Emulators names its source "openSU build"; a buildbot core downloaded before
-the catalog named the release stays "libretro buildbot" and is offered as an update. MAME 2010 on
+compares. Settings › Emulators names its source "openSU build". A buildbot core openSU downloaded
+before the catalog named the release reads "libretro buildbot" and is offered as an update until
+the first update check that reads the release while no game plays: then
+`EmulatorDownloads::moveToReleases` installs the release's, once per emulator and run, and says
+"<name> moved to openSU's build, which plays linked". A failed move keeps the buildbot core and its
+update; a core the player installed (no record of openSU's) is never touched. MAME 2010 on
 Android (`docs/issues/more-libretro-cores.md`) and mGBA on every platform come this way.
 
 mGBA (built-in) is the `SomeoneIsWorking/mgba` fork, branch `opensu`: libretro/mgba master with

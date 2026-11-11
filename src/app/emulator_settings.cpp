@@ -120,10 +120,10 @@ ui::SettingsCategory EmulatorSettings::page(std::vector<ui::SettingsRow> layerRo
     }
     updates += downloads_.updateAvailable(shaderPackId) ? 1 : 0;
     page.rows.push_back(ui::makeHeading("Updates"));
-    page.rows.push_back(
-        ui::makeRow(std::string{checkId}, RowKind::Action, "Check for updates",
-                    "Reads each emulator's latest release; nothing updates by itself",
-                    checkValue(downloads_.check(), updates)));
+    page.rows.push_back(ui::makeRow(std::string{checkId}, RowKind::Action, "Check for updates",
+                                    "Reads each emulator's latest release; only a core moving to "
+                                    "openSU's build updates by itself",
+                                    checkValue(downloads_.check(), updates)));
     if (embedsGames()) {
         page.rows.push_back(ui::makeHeading("Playing"));
         page.rows.push_back(ui::makeToggle(std::string{embeddedId}, "Embedded",

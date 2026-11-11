@@ -270,6 +270,9 @@ void theSwitchAppliesAChange(const fs::path& root) {
                                                                    [] {
                                                                    },
                                                                    [] {
+                                                                   },
+                                                                   [] {
+                                                                       return false;
                                                                    }}};
     const input::Shortcuts shortcuts;
     input::ChordSet chords{shortcuts};

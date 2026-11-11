@@ -142,6 +142,9 @@ sleep 60
                                                [] {
                                                },
                                                [] {
+                                               },
+                                               [] {
+                                                   return false;
                                                }}};
     app::WineRunners runners{root / "data", "", false,
                              app::WineRunners::Hooks{.say =
