@@ -45,7 +45,8 @@ class Forwards:
     def __init__(self) -> None:
         self.lock = threading.Lock()
         self.held: dict[int, Forward] = {}
-        self.nft("table ip gateway { chain pre { type nat hook prerouting priority -110; } }")
+        # nft 1.1 wants a separator after a chain's closing brace.
+        self.nft("table ip gateway { chain pre { type nat hook prerouting priority -110; }; }")
 
     @staticmethod
     def nft(rules: str) -> None:
