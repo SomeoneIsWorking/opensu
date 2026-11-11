@@ -4,7 +4,6 @@
 #include <array>
 #include <cctype>
 #include <charconv>
-#include <cstring>
 #include <format>
 #include <vector>
 
@@ -74,12 +73,6 @@ std::string hostOf(std::string_view origin) {
     constexpr std::string_view scheme = "http://";
     const std::string_view host = origin.substr(scheme.size());
     return std::string{host.substr(0, host.find(':'))};
-}
-
-std::string dotted(std::uint32_t ip) {
-    std::array<std::uint8_t, 4> bytes{};
-    std::memcpy(bytes.data(), &ip, bytes.size());
-    return std::format("{}.{}.{}.{}", bytes[0], bytes[1], bytes[2], bytes[3]);
 }
 
 std::string searchFor(std::string_view target) {
@@ -155,7 +148,7 @@ std::unique_ptr<UpnpIgd> UpnpIgd::discover(const std::stop_token& stop, stream::
         }
         const std::optional<std::string> location = ssdpLocation({buffer.data(), *length});
         const std::optional<std::string> origin = location ? originOf(*location) : std::nullopt;
-        if (!origin || hostOf(*origin) != dotted(from.ip)) {
+        if (!origin || hostOf(*origin) != stream::dotted(from.ip)) {
             continue;
         }
         const net::WebClient::Guard guard{
@@ -169,7 +162,7 @@ std::unique_ptr<UpnpIgd> UpnpIgd::discover(const std::stop_token& stop, stream::
         std::optional<IgdService> service = igdServiceIn(answer->body, *origin);
         if (service) {
             return std::unique_ptr<UpnpIgd>{
-                new UpnpIgd{*origin, std::move(*service), dotted(localIp)}};
+                new UpnpIgd{*origin, std::move(*service), stream::dotted(localIp)}};
         }
     }
     return nullptr;

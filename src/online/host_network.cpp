@@ -4,9 +4,12 @@
 #include <array>
 #include <cstring>
 #include <iterator>
+#include <string_view>
 
 namespace opensu::online {
 namespace {
+
+using lucent::net::Ipv4Interface;
 
 std::array<std::uint8_t, 4> octets(std::uint32_t ip) noexcept {
     std::array<std::uint8_t, 4> bytes{};
@@ -25,25 +28,57 @@ bool shared(std::uint32_t ip) noexcept {
     return bytes[0] == 100 && (bytes[1] & 0xC0U) == 64;
 }
 
+/// `hostOrder` in network byte order.
+std::uint32_t networkOrder(std::uint32_t hostOrder) noexcept {
+    const std::array<std::uint8_t, 4> bytes{
+        static_cast<std::uint8_t>(hostOrder >> 24U), static_cast<std::uint8_t>(hostOrder >> 16U),
+        static_cast<std::uint8_t>(hostOrder >> 8U), static_cast<std::uint8_t>(hostOrder)};
+    std::uint32_t ip = 0;
+    std::memcpy(&ip, bytes.data(), sizeof ip);
+    return ip;
+}
+
+/// ZeroTier's names: `zt` and a hash of the network on Linux, `feth` pairs on macOS.
+constexpr std::array<std::string_view, 2> zeroTierNames{"zt", "feth"};
+/// Windows' adapter description, "ZeroTier Virtual Port".
+constexpr std::string_view zeroTierDriver = "ZeroTier";
+
 } // namespace
 
-std::vector<std::uint32_t> reachableLocals(const std::vector<Interface>& interfaces,
+std::uint32_t addressOf(const Ipv4Interface& interface) noexcept {
+    return networkOrder(interface.address);
+}
+
+bool onLinkWith(const Ipv4Interface& interface, std::optional<std::uint32_t> gateway) noexcept {
+    const std::uint32_t mask = networkOrder(interface.netmask);
+    return gateway && (*gateway & mask) == (addressOf(interface) & mask);
+}
+
+bool zeroTier(const Ipv4Interface& interface) noexcept {
+    return interface.description.find(zeroTierDriver) != std::string::npos ||
+           std::ranges::any_of(zeroTierNames, [&interface](std::string_view prefix) {
+               return interface.name.starts_with(prefix);
+           });
+}
+
+std::vector<std::uint32_t> reachableLocals(const std::vector<Ipv4Interface>& interfaces,
                                            std::optional<std::uint32_t> gateway) {
-    const auto rank = [gateway](const Interface& interface) {
-        if (shared(interface.ip)) {
+    const auto rank = [gateway](const Ipv4Interface& interface) {
+        if (shared(addressOf(interface)) || zeroTier(interface)) {
             return 0;
         }
-        return gateway && (*gateway & interface.mask) == (interface.ip & interface.mask) ? 1 : 2;
+        return onLinkWith(interface, gateway) ? 1 : 2;
     };
-    std::vector<Interface> kept;
-    std::ranges::copy_if(interfaces, std::back_inserter(kept), [](const Interface& interface) {
-        return !linkLocal(interface.ip);
+    std::vector<Ipv4Interface> kept;
+    std::ranges::copy_if(interfaces, std::back_inserter(kept), [](const Ipv4Interface& interface) {
+        return interface.up && interface.running && !interface.loopback &&
+               !linkLocal(addressOf(interface));
     });
     std::ranges::stable_sort(kept, {}, rank);
     std::vector<std::uint32_t> ordered;
     ordered.reserve(kept.size());
-    for (const Interface& interface : kept) {
-        ordered.push_back(interface.ip);
+    for (const Ipv4Interface& interface : kept) {
+        ordered.push_back(addressOf(interface));
     }
     return ordered;
 }

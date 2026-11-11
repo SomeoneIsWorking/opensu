@@ -6,6 +6,7 @@
 #include <cmath>
 #include <ranges>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <utility>
 
@@ -244,8 +245,8 @@ std::string Meeting::textOf(Failure failure) {
         return {};
     case Failure::Unreachable:
         return "Your two networks could not reach each other directly, and openSU uses no relay "
-               "server. Install Tailscale on both machines and join the same tailnet, then make a "
-               "new code: it finds the way over Tailscale by itself.";
+               "server. Install Tailscale or ZeroTier on both machines and join one network, then "
+               "make a new code: it finds the way over that network by itself.";
     case Failure::Lapsed:
         return "The code ran out before anyone joined. Make a new one.";
     case Failure::Dropped:
@@ -281,7 +282,16 @@ Meeting::Gathered Meeting::gather(const std::stop_token& stop,
                                   const stream::UdpSocket& socket) const {
     Gathered gathered;
     gathered.reach.port = socket.port();
-    const std::vector<Interface> found = network_.interfaces.value_or(interfaces());
+    std::optional<std::vector<lucent::net::Ipv4Interface>> listed = network_.interfaces;
+    if (!listed) {
+        std::string why;
+        listed = lucent::net::ipv4_interfaces(why);
+        if (!listed) {
+            lucent::warn("online", "this machine's interfaces are unknown: {}", why);
+            listed.emplace();
+        }
+    }
+    const std::vector<lucent::net::Ipv4Interface>& found = *listed;
     const std::optional<std::uint32_t> gateway = defaultGateway();
     std::vector<std::uint32_t> locals = reachableLocals(found, gateway);
     gathered.reach.locals = locals;
@@ -306,10 +316,8 @@ Meeting::Gathered Meeting::gather(const std::stop_token& stop,
     if (network_.router) {
         // A mapping points at the interface the router is on.
         std::erase_if(locals, [&found, gateway](std::uint32_t ip) {
-            return gateway &&
-                   std::ranges::none_of(found, [ip, gateway](const Interface& interface) {
-                       return interface.ip == ip &&
-                              (*gateway & interface.mask) == (ip & interface.mask);
+            return gateway && std::ranges::none_of(found, [ip, gateway](const auto& interface) {
+                       return addressOf(interface) == ip && onLinkWith(interface, gateway);
                    });
         });
         gathered.lease = mapPort(stop, network_, socket.port(), locals, gateway);
@@ -319,8 +327,12 @@ Meeting::Gathered Meeting::gather(const std::stop_token& stop,
         }
     }
     gathered.reach.varying = varying && !gathered.lease;
-    lucent::info("online", "{} public addresses, {} local, mapping {}",
-                 gathered.reach.publics.size(), gathered.reach.locals.size(),
+    std::string kept;
+    for (const std::uint32_t ip : gathered.reach.locals) {
+        kept += (kept.empty() ? "" : " ") + stream::dotted(ip);
+    }
+    lucent::info("online", "{} public addresses, {} local ({}), mapping {}",
+                 gathered.reach.publics.size(), gathered.reach.locals.size(), kept,
                  varying ? "varies by destination" : "steady");
     return gathered;
 }

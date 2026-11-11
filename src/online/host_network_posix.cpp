@@ -5,12 +5,11 @@
 #include <sstream>
 
 #include <arpa/inet.h>
-#include <ifaddrs.h>
-#include <net/if.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #ifdef __APPLE__
+#include <net/if.h>
 #include <net/route.h>
 #include <sys/sysctl.h>
 #include <vector>
@@ -24,12 +23,6 @@ namespace {
 struct FreeAddresses {
     void operator()(addrinfo* list) const noexcept {
         freeaddrinfo(list);
-    }
-};
-
-struct FreeInterfaces {
-    void operator()(ifaddrs* list) const noexcept {
-        freeifaddrs(list);
     }
 };
 
@@ -51,23 +44,6 @@ std::optional<stream::UdpAddress> resolve(const std::string& host, std::uint16_t
     }
     const std::unique_ptr<addrinfo, FreeAddresses> list{found};
     return stream::UdpAddress{.ip = ipOf(list->ai_addr), .port = port};
-}
-
-std::vector<Interface> interfaces() {
-    ifaddrs* found = nullptr;
-    if (getifaddrs(&found) != 0) {
-        return {};
-    }
-    const std::unique_ptr<ifaddrs, FreeInterfaces> list{found};
-    std::vector<Interface> all;
-    for (const ifaddrs* at = list.get(); at != nullptr; at = at->ifa_next) {
-        if (at->ifa_addr != nullptr && at->ifa_netmask != nullptr &&
-            at->ifa_addr->sa_family == AF_INET && (at->ifa_flags & IFF_UP) != 0 &&
-            (at->ifa_flags & IFF_LOOPBACK) == 0) {
-            all.push_back({.ip = ipOf(at->ifa_addr), .mask = ipOf(at->ifa_netmask)});
-        }
-    }
-    return all;
 }
 
 #ifdef __APPLE__

@@ -45,6 +45,15 @@ Each node announces `_opensu._tcp` on its listener's port with TXT `id` (its 32-
 Every backend keeps only IPv4 resolutions of the same protocol and skips its own id; an openSU on
 the same machine resolves on every interface, loopback included, and the first one is listed.
 
+Discovery and the listener are on every interface, not only the default route's: the listener binds
+`0.0.0.0`, and each daemon announces and browses on every multicast-capable interface it runs on.
+So two openSUs whose only shared path is a ZeroTier network find and pair with each other over it
+(`tools.nat_lab zerotier-lan`): ZeroTier carries multicast. Tailscale does not, so over a tailnet
+openSUs find nothing and play by code (`docs/design/online.md`). A link-local address a daemon
+resolves is kept as resolved: it reaches the peer on that link, which is where it was heard. On
+Windows a ZeroTier network is Public until the player makes it Private, and the firewall then
+blocks the listener on it.
+
 A peer is its id: pairings, saves, profile links and listings all go by it, and machines that share
 a default hostname stay apart. The DNS-SD service instance has to be unique on the LAN, so each
 backend renames it on a clash, and Windows' announces a unique one from the start; the TXT `name`, which is what peers list and pair under, stays the

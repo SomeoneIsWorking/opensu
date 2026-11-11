@@ -6,7 +6,7 @@
 # the game (`host_input`). Linux builds all of it; Windows, macOS and Android build the guest's end,
 # and their host's parts refuse (`remote_reach` says so to the owners that offer it).
 # Sealed datagrams on a UDP socket, apart so the runner's netplay takes them without the rest.
-add_library(opensu_datagram STATIC packet_seal.cpp)
+add_library(opensu_datagram STATIC packet_seal.cpp udp_address.cpp)
 add_library(opensu::datagram ALIAS opensu_datagram)
 target_include_directories(opensu_datagram PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/..")

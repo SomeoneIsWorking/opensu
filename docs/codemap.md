@@ -471,7 +471,7 @@ Design: `docs/design/libretro.md`. `opensu_retro` and the `opensu-retro` executa
 | Path | Owns |
 | --- | --- |
 | `src/online/meeting.*` | One thread from Play online until two shells agree or fail: gather, find, agree; what the screen shows (`View`), every limit (`Patience`), the failures in words |
-| `src/online/invite_code.*` | The invite (`OSU`) and reply (`OSR`) codes, written and read, Crockford base32, what is wrong with one; an invite's optional ZeroTier node (`ZeroTierReach`) |
+| `src/online/invite_code.*` | The invite (`OSU`) and reply (`OSR`) codes, written and read, Crockford base32, what is wrong with one |
 | `src/online/stun.*` | A STUN Binding request and its answer |
 | `src/online/port_mapper.hpp` | A router's mapping behind one interface (`PortMapper`) |
 | `src/online/nat_pmp.*` | `PortMapper` over NAT-PMP |

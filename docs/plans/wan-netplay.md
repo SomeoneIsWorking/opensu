@@ -21,7 +21,7 @@ know from a code it wrote before the friend looked. So **one code cannot work ev
 |---|---|---|
 | Router opened a port (UPnP, NAT-PMP) | anyone, at the mapped port | one |
 | Full-cone NAT, or no NAT | anyone, at the STUN address | one |
-| Same LAN, or both on Tailscale | anyone, at a local address | one |
+| Same LAN, or both on Tailscale or ZeroTier | anyone, at a local address | one |
 | Port-restricted NAT, the common case | only addresses it sent to | two: the host must learn the friend's address |
 | Symmetric on one side, restricted on the other | nothing without port guessing | fails |
 | Symmetric on both | nothing | fails |
@@ -33,7 +33,8 @@ Options weighed:
 2. **One code, no reply.** Simple, and fails for most home networks that have no UPnP.
 3. **A public rendezvous** (BitTorrent DHT, an MQTT broker, Nostr). One code everywhere, but a
    third party in the path that we neither run nor can answer for, a dependency that can vanish,
-   and it was agreed there is no lobby. Rejected.
+   and it was agreed there is no lobby. Rejected; but see [Embedded ZeroTier](#embedded-zerotier),
+   which takes a third party for the last resort only.
 4. **Invite, then a reply only if it is needed.** The chosen one.
 
 The friend pastes the invite. openSU tries the host at once. If that lands, which it does in the
@@ -59,10 +60,33 @@ invite and `OSR` a reply, so the wrong one is named as such.
 - Reply: version, the same flag, the local port, the addresses, 8 bytes of HMAC under the invite's
   secret. A reply to another invite is refused by name. It carries no secret.
 
-Every interface address goes in, so a Tailscale address does too. That is the whole fallback: with
-Tailscale on both machines the same code reaches the host at its `100.x` address, with no ports
-opened and nothing else to learn. A local address tells the friend the host's private address and
+Interface addresses go in, Tailscale's and ZeroTier's first (`docs/design/online.md`), so with
+either on both machines the same code reaches the host over it, with no ports opened and nothing
+else to learn. A local address tells the friend the host's private address and
 nothing more; the host is told that its address is shared before the code is made.
+
+## Embedded ZeroTier
+
+2026-11-11, at the player's request: ZeroTier should need no setup. That reverses option 3's "no
+third party in the path" for one case only, when no direct path works. Without it, two symmetric
+NATs, or a symmetric one against a restricted one, cannot play at all unless both people install
+and set up Tailscale or ZeroTier themselves; the player chose a relay they do not run over that.
+
+- Lucent's online transport (`lucent::p2p`) gets an embedded ZeroTier backend on libzt, which joins
+  a controller-less ad-hoc network (`ff` + the port twice + zeros, no account, no install); the
+  code becomes Lucent's descriptor, carrying the host's node id and that port.
+- The friend tries the direct paths first; ZeroTier's roots, which relay when ZeroTier's own
+  punching fails, are only on the path when nothing else worked.
+- The ad-hoc network is public. Its traffic is taken only after the same Hello and Welcome under
+  the code's secret, so anyone else on it gets nothing that opens.
+- It is a library linked into openSU and its runner (the process that plays owns the node), not a
+  runner, so G001's rule is not touched.
+
+Licence, read through `gh api` on 2026-11-11: libzt `main` at `a707ea6a` (2024-11-07) is under the
+Business Source License 1.1, Change Date 2026-01-01, Change License Apache 2.0; its ZeroTierOne
+submodule at `c53c6bd9` is BSL 1.1 (version 1.4.4's text), Change Date 2025-01-01, Apache 2.0. Both
+dates have passed, so that code is Apache 2.0 now; lwIP is BSD. Lucent's pinned revision is checked
+again against its own `LICENSE.txt` files before openSU consumes it.
 
 ## Why not libjuice
 
@@ -170,7 +194,7 @@ socket. Both varying, with no router mapping on either side, cannot work, and th
 its direct try; a host learns it from the reply code. A symmetric NAT against a restricted one looks fine to
 both until punching stops: the host gives up 15 s after a reply code goes in, and the friend 2
 minutes after the invite. All of it ends in the same message, which says there is no relay and
-names Tailscale. No waiting state is without a limit, and every one can be cancelled.
+names Tailscale and ZeroTier. No waiting state is without a limit, and every one can be cancelled.
 
 ## Security promises and where each is held
 

@@ -71,7 +71,14 @@ Network network(const std::string& stun) {
     Network network;
     network.stunServers = stun;
     network.router = false;
-    network.interfaces = std::vector<Interface>{{.ip = loopbackIp, .mask = 0x000000FFU}};
+    // Loopback stands in for a LAN interface.
+    lucent::net::Ipv4Interface loopback;
+    loopback.name = "lo";
+    loopback.address = 0x7F000001U;
+    loopback.netmask = 0xFF000000U;
+    loopback.up = true;
+    loopback.running = true;
+    network.interfaces = std::vector{loopback};
     return network;
 }
 

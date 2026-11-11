@@ -34,7 +34,7 @@ struct Network {
     /// `host:port`, comma-separated.
     std::string stunServers{defaultStunServers};
     /// Instead of the system's.
-    std::optional<std::vector<Interface>> interfaces;
+    std::optional<std::vector<lucent::net::Ipv4Interface>> interfaces;
     /// Whether to ask the router for a port at all.
     bool router{true};
     /// NAT-PMP's address; the default gateway when not set.

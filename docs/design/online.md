@@ -12,7 +12,8 @@ gets two shells to agree on a game; the game itself then runs as a LAN session d
 - `invite_code`: what a code holds, read and written. `stun`: a Binding request. `nat_pmp`,
   `upnp_igd`: a router's mapping behind `PortMapper`. `port_lease`: that mapping kept and taken down.
   `rendezvous`: the sealed Hello, Welcome and Knock. `reliable_link`: Ask, Answer, Save and Go.
-  `host_network`: interfaces, the default gateway, name lookups.
+  `host_network`: interfaces, which of them a code keeps (`reachableLocals`), the default gateway,
+  name lookups.
 - `app::OnlinePlay` and `app::OnlineScreen`: the shell's side, on its loop. `app::NetplayRun`: the
   session folder, the launch and the save put back, for LAN and online alike.
 
@@ -48,13 +49,58 @@ gets two shells to agree on a game; the game itself then runs as a LAN session d
 Symmetric NATs on both sides are named after the direct try. A symmetric NAT against a restricted one
 looks fine until punching stops: the host gives up 15 s after a reply goes in, the friend 2 minutes
 after the invite. All of it ends in `Failure::Unreachable`, which says there is no relay and names
-Tailscale.
+Tailscale and ZeroTier.
 
-### Tailscale
+### Tailscale and ZeroTier
 
-With Tailscale on both machines nothing changes in openSU. Every interface's address goes in the
-code, `100.64.0.0/10` first, so the same code reaches the host over the tailnet with no port opened.
-Both people install Tailscale and share a machine or a tailnet, then play by code as usual.
+With Tailscale or ZeroTier on both machines nothing changes in openSU, which neither ships nor
+installs either: it uses the interface the player's own install made. A code holds at most 3 local
+addresses (`mostAddresses`), and `reachableLocals` picks them:
+
+1. Interfaces without a carrier are left out: Docker's and libvirt's bridges sit up with none while
+   nothing runs on them, and would otherwise take the slots.
+2. Link-local addresses (`169.254.0.0/16`) are left out: they reach no one past the cable.
+3. Tailscale's (`100.64.0.0/10`) and ZeroTier's come first, as they are the fallback; then the
+   interface the default gateway is on; then the rest, in the system's order.
+
+ZeroTier is known by what it names its interface: `zt` and a hash of the network on Linux, `feth` on
+macOS, and the adapter description "ZeroTier Virtual Port" on Windows. A Linux interface the player
+renamed (`devicemap`) is not recognised and is ranked as any other, so it still goes in when the
+slots allow. The address itself says nothing: ZeroTier's pools are ordinary private ranges.
+
+Both people install Tailscale and share a machine or a tailnet, or install ZeroTier and join one
+network, then play by code as usual. On Windows, ZeroTier's network is a Public one until the player
+makes it Private, and Windows Defender Firewall then blocks openSU's port on it.
+
+#### Trying it over a real ZeroTier network
+
+The lab proves the path with a stand-in interface; a real network is the player's to make:
+
+1. Install ZeroTier on both machines (zerotier.com/download) and sign in at my.zerotier.com.
+2. Create a network, join it from both (`zerotier-cli join <network id>`), and authorise both
+   members in the network's page.
+3. Check each machine has an address on it (`ip -br addr` shows a `zt...` interface).
+4. On the host, Play online on a game: its log's `[online] ... local (...)` line names the `zt`
+   address first.
+5. The friend pastes the code: both connect with no reply code needed, as over a LAN.
+6. With LAN on in both, Settings › LAN lists the other openSU found over ZeroTier (`[lan] found
+   <name> at <zt address>`), and pairing works as on a LAN.
+
+### Embedded ZeroTier (being built in Lucent)
+
+Asked for on 2026-11-11, so that the fallback needs no install and no account: Lucent's online
+transport (`lucent::p2p`, being built) gets backends behind one interface, direct UDP first and an
+embedded ZeroTier (libzt) on a controller-less ad-hoc network second, whose roots relay when no
+direct path works. This puts a third party in the path, which `docs/plans/wan-netplay.md` had ruled
+out; the reasons it is taken now are there. What stands:
+
+- The friend tries the direct paths first, then the ZeroTier one, before `Failure::Unreachable`.
+  The code moves to Lucent's descriptor, which carries each backend's candidates, in one version
+  change when openSU takes it.
+- An ad-hoc network is open to anyone who knows its port, so nothing that arrives over it is taken
+  unless it opens under the code's secret: one handshake for every backend.
+- libzt is a library linked into openSU and its runner, not a runner, so G001's rule against
+  bundled runners does not apply to it. Its licence is in `docs/plans/wan-netplay.md`.
 
 ## Any core
 
@@ -77,6 +123,10 @@ frames and logs in `scratch/wan-netplay-proof/<case>/`. Each case that plays che
 held A on both screens' bands, and that no code is in a log and no socket is left. Pad B is the
 console's A: pads name buttons by place. `any-core` plays a generated Game Boy ROM on the real mGBA
 core this machine's openSU downloaded, at 120 ms of round trip, and asks for frames run again.
+`zerotier` puts symmetric NATs on both sides, a ZeroTier stand-in (`zt0`, `10.147.17.0/24`, not the
+default route) between the machines and two idle bridges on the host (`docker0`, `virbr0`), and
+plays by one code; `zerotier-lan` gives each machine its own system bus and Avahi (`mdns.py`) and
+pairs the two over LAN discovery on `zt0`. Both capture `zt0` in `wire-zt0.log`.
 
 `settings.json`'s `onlineStunServers` (comma-separated `host:port`) replaces the default STUN
 servers. `/state` gives `onlineStep`, and in a hidden run `onlineCode`.

@@ -78,11 +78,12 @@ ui::SettingsCategory OnlinePlay::page() const {
     join.note = "Paste the code your friend sent you. To host, open a game and pick Play online.";
     page.rows.push_back(std::move(join));
     ui::SettingsRow fallback;
-    fallback.id = "online.tailscale";
+    fallback.id = "online.fallback";
     fallback.kind = ui::RowKind::Info;
     fallback.label = "If you cannot connect";
     fallback.note = "There is no relay server. When two routers will not let you through, install "
-                    "Tailscale on both machines: the same codes then work over it.";
+                    "Tailscale or ZeroTier on both machines and join one network: the same codes "
+                    "then work over it.";
     page.rows.push_back(std::move(fallback));
     return page;
 }

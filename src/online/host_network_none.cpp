@@ -6,10 +6,6 @@ std::optional<stream::UdpAddress> resolve(const std::string& /*host*/, std::uint
     return std::nullopt;
 }
 
-std::vector<Interface> interfaces() {
-    return {};
-}
-
 std::optional<std::uint32_t> defaultGateway() {
     return std::nullopt;
 }

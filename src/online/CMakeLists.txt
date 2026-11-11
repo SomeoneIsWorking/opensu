@@ -8,8 +8,8 @@ add_library(opensu::online ALIAS opensu_online)
 target_include_directories(opensu_online PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_link_libraries(opensu_online
-    PUBLIC opensu::datagram opensu::secrets opensu::net opensu::lan
-    PRIVATE opensu::fileio lucent::lucent)
+    PUBLIC opensu::datagram opensu::secrets opensu::net opensu::lan lucent::lucent
+    PRIVATE opensu::fileio)
 target_compile_features(opensu_online PUBLIC cxx_std_20)
 opensu_warnings(opensu_online)
 if(ANDROID)

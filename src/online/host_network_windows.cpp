@@ -57,24 +57,6 @@ std::optional<stream::UdpAddress> resolve(const std::string& host, std::uint16_t
     return address;
 }
 
-std::vector<Interface> interfaces() {
-    std::vector<Interface> all;
-    const std::unique_ptr<char[]> list = adapters();
-    for (const auto* adapter = reinterpret_cast<const IP_ADAPTER_ADDRESSES*>(list.get());
-         adapter != nullptr; adapter = adapter->Next) {
-        if (adapter->OperStatus != IfOperStatusUp || adapter->IfType == IF_TYPE_SOFTWARE_LOOPBACK) {
-            continue;
-        }
-        for (const IP_ADAPTER_UNICAST_ADDRESS* unicast = adapter->FirstUnicastAddress;
-             unicast != nullptr; unicast = unicast->Next) {
-            ULONG mask = 0;
-            ConvertLengthToIpv4Mask(unicast->OnLinkPrefixLength, &mask);
-            all.push_back({.ip = ipOf(unicast->Address.lpSockaddr), .mask = mask});
-        }
-    }
-    return all;
-}
-
 std::optional<std::uint32_t> defaultGateway() {
     const std::unique_ptr<char[]> list = adapters();
     for (const auto* adapter = reinterpret_cast<const IP_ADAPTER_ADDRESSES*>(list.get());
