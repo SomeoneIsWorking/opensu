@@ -74,8 +74,8 @@ std::optional<LaunchSetup> launchSetupOf(const Game& game, const roms::EmulatorC
                        .config = entry->configOf(option->flatpak),
                        .data = entry->dataOf(option->flatpak),
                        .padGuid = std::string{padGuid},
-                       .wiiRemote = wiiGame ? std::optional{wii.remoteFor(game.titleId)}
-                                            : std::nullopt,
+                       .wiiRemote =
+                           wiiGame ? std::optional{wii.remoteFor(game.titleId)} : std::nullopt,
                        .realWiiRemotes = wiiGame && realWiiRemotes};
 }
 

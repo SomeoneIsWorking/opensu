@@ -38,11 +38,9 @@ inline constexpr std::string_view virtualPadSdlName{"Xbox 360 Controller"};
 
 /// What `game`'s launch sets up when it runs on an emulator with a rule, a Wii game's remote from
 /// `wii` by its disc id, played on `realWiiRemotes` when they are here; nothing otherwise.
-[[nodiscard]] std::optional<LaunchSetup> launchSetupOf(const Game& game,
-                                                       const roms::EmulatorCatalog& catalog,
-                                                       const WiiControls& wii,
-                                                       std::string_view padGuid,
-                                                       bool realWiiRemotes);
+[[nodiscard]] std::optional<LaunchSetup>
+launchSetupOf(const Game& game, const roms::EmulatorCatalog& catalog, const WiiControls& wii,
+              std::string_view padGuid, bool realWiiRemotes);
 
 /// A settings file a rule writes, and the bytes it writes there.
 struct SettingsWrite {
