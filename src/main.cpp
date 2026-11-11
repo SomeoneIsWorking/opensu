@@ -47,6 +47,7 @@ void printHelp() {
         "  OPENSU_EMULATORS    system=program arg {rom};system2=program\n"
         "  OPENSU_WIDTH        window width (default 1280)\n"
         "  OPENSU_HEIGHT       window height (default 800)\n"
+        "  OPENSU_DISPLAY_SCALE  pixels per dp a hidden window is laid out for (default 1)\n"
         "  OPENSU_HOME_MODE    home grid: standard (scrolling, default) or wiisu\n"
         "                      (pages with peeks and page dots)\n"
         "  OPENSU_ASSETS       directory holding the typeface (default ../share/opensu\n"
@@ -114,6 +115,7 @@ int main(int argc, char** argv) try {
     opensu::app::Settings settings{
         .width = config.width,
         .height = config.height,
+        .hiddenDp = config.hiddenDisplayScale,
         .controlPort = arguments.hidden ? std::uint16_t{0} : config.controlPort,
         .lanPort = arguments.hidden ? std::uint16_t{0} : config.lanPort,
         .controlChannel = config.controlChannel,

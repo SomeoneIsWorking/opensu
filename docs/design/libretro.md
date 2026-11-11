@@ -198,7 +198,8 @@ presented as the player's is, fullscreen on that Gamescope's surface. A window i
 reaches that Gamescope's screen alone, so the hidden rule (nothing on the player's desktop) holds
 while a tool run takes the player's present path; the sound device and the pads are the player's
 in any session, so they stay off. `--touch <dp>` (hidden only) shows
-the touch controls at that many pixels per dp, as Android's window does, for `POST /touch`; `--validate` enables
+the touch controls at that many pixels per dp, as Android's window does, for `POST /touch`
+(without it a hidden window's density is `OPENSU_DISPLAY_SCALE`, 1 unless told); `--validate` enables
 `VK_LAYER_KHRONOS_validation` when installed and counts its errors; `--frames` stops after N frames;
 `--frame-png` (hidden only) writes the last image shown, letterboxing included, at the window's
 size (`OPENSU_WIDTH` × `OPENSU_HEIGHT`, 1280 × 800 by default). Inside Gamescope the window is

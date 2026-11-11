@@ -195,6 +195,7 @@ int main(int argc, char** argv) try {
     }
     options->width = config.width;
     options->height = config.height;
+    options->hiddenDp = config.hiddenDisplayScale;
     options->fullscreen = config.insideGamescope && !options->hidden;
     options->control = config.retroControl;
     options->librashader = config.librashader;

@@ -73,6 +73,10 @@ through gpu2d.
 ## 4. Contracts kept
 
 - `--hidden`: an unmapped window on the player's session, no vsync, no sound device unless `--sound`, errors logged.
+  Its frames depend on no display: the window is `OPENSU_WIDTH` x `OPENSU_HEIGHT` pixels at
+  `OPENSU_DISPLAY_SCALE` pixels per dp (1 unless told), not the desktop's scale
+  (`ShellWindow::displayDp`), so the same command draws the same frame on any machine and a phone
+  or tablet screen is drawn by naming its size and density.
   It reads the player's files and writes none: `settings.json`, `game-settings.json`,
   `mappings.json`, `own-games.json`, the chosen covers and the built-in runner's saves are copied
   at start into `<runtime dir>/hidden-<pid>` and the run saves to the copies, removed at its end

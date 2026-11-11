@@ -59,6 +59,8 @@ class ShellWindow {
         int height{};
         /// Unmapped and without vsync, for maintainer runs and still renders.
         bool hidden{false};
+        /// Hidden only: pixels per dp of the display it stands for (`Config::hiddenDisplayScale`).
+        float hiddenDp{1.0F};
     };
 
     /// Records a frame into a target on the canvas.
@@ -209,6 +211,8 @@ class ShellWindow {
     /// The mouse's buttons held, as `PointerFrame::held`; kept across frames.
     std::uint8_t pointerHeld_{0};
     std::optional<gpu2d::PixelSize> resized_;
+    /// A hidden window's stated pixels per dp; none for a window on a display.
+    std::optional<float> hiddenDp_;
     /// SDL hands app lifecycle events only to watchers, on whichever thread sends them.
     static bool watchLifecycle(void* self, SDL_Event* event);
     std::atomic<bool> foreground_{false};

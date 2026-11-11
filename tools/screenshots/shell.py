@@ -51,6 +51,8 @@ class Profile:
 
     def environment(self) -> dict[str, str]:
         kept = {"DISPLAY", "XAUTHORITY", "PATH", "LANG", "LC_ALL", "LC_TIME", "DISABLE_LSFG"}
+        # The screen the run stands for: its size in pixels and its pixels per dp.
+        kept |= {"OPENSU_WIDTH", "OPENSU_HEIGHT", "OPENSU_DISPLAY_SCALE"}
         if self.user_session:
             kept |= {"DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR"}
         env = {key: value for key, value in os.environ.items() if key in kept}

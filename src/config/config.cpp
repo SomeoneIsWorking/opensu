@@ -13,6 +13,7 @@
 #include "locations.hpp"
 #include "lucent/config.h"
 #include "lucent/log.h"
+#include "lucent/text.h"
 
 namespace opensu::config {
 namespace {
@@ -31,6 +32,21 @@ int envInt(const char* name, int fallback) {
     const auto [end, error] = std::from_chars(raw.data(), raw.data() + raw.size(), value);
     if (error != std::errc{} || end != raw.data() + raw.size()) {
         lucent::warn("config", "{} is not a number; using {}", name, fallback);
+        return fallback;
+    }
+    return value;
+}
+
+float envScale(const char* name, float fallback) {
+    const std::string_view raw = env(name);
+    if (raw.empty()) {
+        return fallback;
+    }
+    float value = 0.0F;
+    const auto [end, error] =
+        lucent::text::from_chars_real(raw.data(), raw.data() + raw.size(), value);
+    if (error != std::errc{} || end != raw.data() + raw.size() || value <= 0.0F) {
+        lucent::warn("config", "{} is not pixels per dp; using {}", name, fallback);
         return fallback;
     }
     return value;
@@ -240,6 +256,7 @@ Config read() {
     value.clock24Hour = clock::localeClock24Hour();
     value.width = envInt("OPENSU_WIDTH", value.width);
     value.height = envInt("OPENSU_HEIGHT", value.height);
+    value.hiddenDisplayScale = envScale("OPENSU_DISPLAY_SCALE", value.hiddenDisplayScale);
     value.controlPort = envPort("OPENSU_CONTROL_PORT", value.controlPort);
     value.lanPort = envPort("OPENSU_LAN_PORT", value.lanPort);
     value.controlChannel = envBool("OPENSU_CONTROL_CHANNEL", value.controlChannel);

@@ -264,7 +264,7 @@ RunnerExit RunnerApp::run() {
             .hosted = options_.embedded && !options_.hidden,
             .width = options_.width,
             .height = options_.height,
-            .hiddenDp = options_.touchDp.value_or(1.0F),
+            .hiddenDp = options_.touchDp.value_or(options_.hiddenDp),
             .validation = options_.validation,
             .negotiation = hardware.requested() ? hardware.negotiation() : nullptr,
             .video = options_.video,

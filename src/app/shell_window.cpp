@@ -60,7 +60,8 @@ SDL_GPUCommandBuffer* acquireCommands(SDL_GPUDevice& device) {
 } // namespace
 
 ShellWindow::ShellWindow(const Options& options)
-    : window_{windowOptions(options)}, canvas_{window_.device()} {
+    : window_{windowOptions(options)}, canvas_{window_.device()},
+      hiddenDp_{options.hidden ? std::optional<float>{options.hiddenDp} : std::nullopt} {
     SDL_SetWindowMinimumSize(window_.window(), minimumWidth, minimumHeight);
     // The system's on-screen keyboard shows only when a field asks for it (`showScreenKeyboard`).
     SDL_SetHint(SDL_HINT_ENABLE_SCREEN_KEYBOARD, "0");
@@ -390,6 +391,10 @@ void ShellWindow::post(SDL_Event& event) {
 }
 
 float ShellWindow::displayDp() const noexcept {
+    // A hidden window is on no display; the desktop's scale must not change a tool's frames.
+    if (hiddenDp_) {
+        return *hiddenDp_;
+    }
     const float scale = SDL_GetWindowDisplayScale(window_.window());
     return scale > 0.0f ? scale : 1.0f;
 }

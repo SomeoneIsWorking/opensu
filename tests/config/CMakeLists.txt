@@ -23,6 +23,16 @@ add_test(NAME config_time_format COMMAND config_test time-format)
 
 add_test(NAME config_gamescope COMMAND config_test gamescope)
 
+add_test(NAME config_display_scale COMMAND config_test display-scale)
+add_test(NAME config_display_scale_default COMMAND config_test display-scale-default)
+add_test(NAME config_display_scale_invalid COMMAND config_test display-scale-default)
+set_tests_properties(config_display_scale PROPERTIES
+    ENVIRONMENT_MODIFICATION "OPENSU_DISPLAY_SCALE=set:2.625")
+set_tests_properties(config_display_scale_default PROPERTIES
+    ENVIRONMENT_MODIFICATION "OPENSU_DISPLAY_SCALE=unset:")
+set_tests_properties(config_display_scale_invalid PROPERTIES
+    ENVIRONMENT_MODIFICATION "OPENSU_DISPLAY_SCALE=set:0")
+
 add_test(NAME config_battery_stand_in COMMAND config_test battery-stand-in)
 set_tests_properties(config_battery_stand_in PROPERTIES
     ENVIRONMENT_MODIFICATION "OPENSU_BATTERY=set:37,charging")

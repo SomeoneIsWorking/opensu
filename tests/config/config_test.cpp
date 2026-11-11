@@ -39,6 +39,16 @@ int main(int argc, char** argv) try {
         std::printf("config: all checks passed\n");
         return 0;
     }
+    if (which == "display-scale") {
+        expect(config.hiddenDisplayScale == 2.625F, "OPENSU_DISPLAY_SCALE is read");
+        std::printf("config: all checks passed\n");
+        return 0;
+    }
+    if (which == "display-scale-default") {
+        expect(config.hiddenDisplayScale == 1.0F, "a hidden window is 1 pixel per dp unless told");
+        std::printf("config: all checks passed\n");
+        return 0;
+    }
     if (which == "battery-stand-in") {
         using opensu::config::batteryStandInOf;
         expect(config.batteryStandIn && config.batteryStandIn->percent == 37 &&
