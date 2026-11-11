@@ -200,6 +200,16 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   t 0.50 within 15 to 23 real frames and the longest run of plans off the half step is 20,
   against 308 real frames and a 276-plan run on the old pacer.
 
+## Left
+
+- The decode thread waking the generator, to remove the 4 to 13 ms a decoded frame waits for the
+  loop pass ("Pacing and latency"); proven by that wait gone, measured as in `h-pace`.
+- Generator settings against the Lossless streak: Custom's detail keys tried on `h-dump`'s scroll,
+  kept only if a setting removes the 8 streaked in-betweens without new artefacts.
+- Step 4, Linux stage B (zero copy).
+- Step 5, the Android guest through `AHardwareBuffer`, timed on the tablet's GPU.
+- Step 6, the Windows guest.
+
 ## Found while planning step 3
 
 - openSU's PyroWave decoder runs on a Vulkan device of its own (`pyrowave_create_default_device`)
