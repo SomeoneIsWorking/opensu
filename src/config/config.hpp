@@ -96,6 +96,9 @@ struct Config {
     std::filesystem::path xdgDataHome;
     std::filesystem::path xdgConfigHome;
     std::filesystem::path xdgStateHome;
+    /// `$XDG_CONFIG_HOME` as the session sets it, which every game openSU starts inherits; empty
+    /// when it is unset or not absolute.
+    std::filesystem::path sessionXdgConfigHome;
 
     /// opensu's logs and the state a run leaves that is no setting, the session's Gamescope logs
     /// among it (`Locations`): `$XDG_STATE_HOME/opensu` on Linux, `~/Library/Logs/openSU` on

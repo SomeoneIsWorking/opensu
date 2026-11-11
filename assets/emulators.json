@@ -140,6 +140,7 @@
       "name": "DuckStation",
       "systems": ["psx"],
       "config": "~/.local/share/duckstation",
+      "xdgConfig": "duckstation",
       "saves": {"layout": "duckstation", "folder": "~/.local/share/duckstation/memcards"},
       "launchers": [
         {"programs": ["duckstation-qt"], "appImage": "duckstation",

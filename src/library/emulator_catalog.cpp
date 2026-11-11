@@ -56,6 +56,15 @@ std::vector<std::string> words(const json& object, const char* key, const std::s
     return found->get<std::vector<std::string>>();
 }
 
+/// `path` moved from under `from` to under `to`; as it is when it is not under `from`.
+fs::path rebased(const fs::path& path, const fs::path& from, const fs::path& to) {
+    const fs::path rest = path.lexically_relative(from);
+    if (path.empty() || rest.empty() || *rest.begin() == "..") {
+        return path;
+    }
+    return rest == "." ? to : to / rest;
+}
+
 fs::path configPath(const std::string& raw, const fs::path& home) {
     if (raw.starts_with("~/")) {
         return home / raw.substr(2);
@@ -246,7 +255,7 @@ void checkCore(const json& object, const std::string& core, const std::string& w
 }
 
 EmulatorEntry entryOf(const json& object, const fs::path& home, std::string_view build,
-                      std::size_t index) {
+                      const fs::path& xdgConfigHome, std::size_t index) {
     std::string where = "emulator " + std::to_string(index);
     if (!object.is_object()) {
         throw Malformed{where + " is not an object"};
@@ -319,6 +328,25 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::string_view
             entry.saves->flatpakFolder = flatpakFolder(entry.saves->folder, home, flatpak->flatpak);
         }
     }
+    if (const std::string xdg = text(object, "xdgConfig", where, false); !xdg.empty()) {
+        // A Flatpak's sandbox always sets XDG_CONFIG_HOME, to its own config folder.
+        if (flatpak != entry.launchers.end()) {
+            const fs::path inside =
+                home / ".var" / "app" / flatpak->flatpak / "config" / fs::path{xdg};
+            if (entry.saves) {
+                entry.saves->flatpakFolder =
+                    rebased(entry.saves->folder, entry.config, inside);
+            }
+            entry.flatpakConfig = inside;
+        }
+        if (!xdgConfigHome.empty()) {
+            const fs::path chosen = xdgConfigHome / fs::path{xdg};
+            if (entry.saves) {
+                entry.saves->folder = rebased(entry.saves->folder, entry.config, chosen);
+            }
+            entry.config = chosen;
+        }
+    }
     return entry;
 }
 
@@ -349,7 +377,8 @@ bool EmulatorEntry::serves(std::string_view system) const {
 }
 
 std::optional<EmulatorCatalog> EmulatorCatalog::parse(std::string_view text, const fs::path& home,
-                                                      std::string& error, std::string_view build) {
+                                                      std::string& error, std::string_view build,
+                                                      const fs::path& xdgConfigHome) {
     const json root = json::parse(text, nullptr, false);
     if (root.is_discarded() || !root.is_object()) {
         error = "not a JSON object";
@@ -363,7 +392,7 @@ std::optional<EmulatorCatalog> EmulatorCatalog::parse(std::string_view text, con
     std::vector<EmulatorEntry> entries;
     try {
         for (const json& object : *list) {
-            EmulatorEntry entry = entryOf(object, home, build, entries.size());
+            EmulatorEntry entry = entryOf(object, home, build, xdgConfigHome, entries.size());
             if (std::ranges::find(entries, entry.id, &EmulatorEntry::id) != entries.end()) {
                 throw Malformed{entry.id + ": listed twice"};
             }
@@ -376,7 +405,8 @@ std::optional<EmulatorCatalog> EmulatorCatalog::parse(std::string_view text, con
     return EmulatorCatalog{std::move(entries)};
 }
 
-EmulatorCatalog EmulatorCatalog::shipped(const fs::path& assetsDir, const fs::path& home) {
+EmulatorCatalog EmulatorCatalog::shipped(const fs::path& assetsDir, const fs::path& home,
+                                         const fs::path& xdgConfigHome) {
     const fs::path file = assetsDir / catalogFile;
     std::ifstream in{file, std::ios::binary};
     if (!in) {
@@ -385,7 +415,7 @@ EmulatorCatalog EmulatorCatalog::shipped(const fs::path& assetsDir, const fs::pa
     }
     const std::string body{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
     std::string error;
-    std::optional<EmulatorCatalog> catalog = parse(body, home, error);
+    std::optional<EmulatorCatalog> catalog = parse(body, home, error, coreTarget.build, xdgConfigHome);
     if (!catalog) {
         lucent::error("emulators", "{}: {}; no emulator is known", file.string(), error);
         return {};

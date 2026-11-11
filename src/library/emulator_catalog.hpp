@@ -100,7 +100,9 @@ struct EmulatorEntry {
     std::string id;
     std::string name;
     std::vector<std::string> systems;
-    /// Where the emulator keeps its own settings; empty when not known.
+    /// Where the emulator keeps its own settings; empty when not known. For an emulator that
+    /// keeps them in `$XDG_CONFIG_HOME/<name>` whenever that is set (`"xdgConfig"`), that folder
+    /// when the session sets it, the catalog's `config` otherwise.
     std::filesystem::path config;
     /// Where its Flatpak keeps them; empty for an emulator without one.
     std::filesystem::path flatpakConfig;
@@ -160,15 +162,18 @@ class EmulatorCatalog {
     }
 
     /// The catalog in `json` for the core build `build` (which of a core release's assets it
-    /// takes), with `~` in a config path meaning `home`. Nothing, with `error` naming the entry
-    /// and field, when it is malformed.
+    /// takes), with `~` in a config path meaning `home` and `xdgConfigHome` the session's
+    /// `$XDG_CONFIG_HOME`, empty when unset. Nothing, with `error` naming the entry and field,
+    /// when it is malformed.
     [[nodiscard]] static std::optional<EmulatorCatalog>
     parse(std::string_view json, const std::filesystem::path& home, std::string& error,
-          std::string_view build = coreTarget.build);
+          std::string_view build = coreTarget.build,
+          const std::filesystem::path& xdgConfigHome = {});
 
     /// The catalog shipped in `assetsDir`; empty, with the reason logged, when it cannot be read.
     [[nodiscard]] static EmulatorCatalog shipped(const std::filesystem::path& assetsDir,
-                                                 const std::filesystem::path& home);
+                                                 const std::filesystem::path& home,
+                                                 const std::filesystem::path& xdgConfigHome = {});
 
     [[nodiscard]] const std::vector<EmulatorEntry>& entries() const noexcept {
         return entries_;

@@ -209,6 +209,9 @@ Config read() {
     value.xdgDataHome = base("XDG_DATA_HOME", ".local/share");
     value.xdgConfigHome = base("XDG_CONFIG_HOME", ".config");
     value.xdgStateHome = base("XDG_STATE_HOME", ".local/state");
+    if (const std::filesystem::path set{env("XDG_CONFIG_HOME")}; set.is_absolute()) {
+        value.sessionXdgConfigHome = set;
+    }
     const Locations locations = Locations::resolve({
         .home = env("HOME"),
         .xdg_config_home = env("XDG_CONFIG_HOME"),

@@ -279,7 +279,8 @@ EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& da
 }
 
 EmulatorSetup EmulatorSetup::standard(const config::Config& config, bool hidden, bool standalone) {
-    return EmulatorSetup{.catalog = EmulatorCatalog::shipped(config.assetsDir, config.home),
+    return EmulatorSetup{.catalog = EmulatorCatalog::shipped(config.assetsDir, config.home,
+                                                                  config.sessionXdgConfigHome),
                          .search = EmulatorSearch::standard(
                              config.home, config.dataDir, config.executablePath, config.retroRunner,
                              config.retroSystemDir,

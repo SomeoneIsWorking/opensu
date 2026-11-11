@@ -193,6 +193,28 @@ void coreEntries() {
            "an entry with neither is refused");
 }
 
+void xdgConfigFolder() {
+    const EmulatorCatalog plain = EmulatorCatalog::shipped(OPENSU_ASSETS_DIR, "/home/p");
+    const EmulatorEntry* duck = plain.find("duckstation");
+    expect(duck != nullptr && duck->config == "/home/p/.local/share/duckstation" &&
+               duck->saves && duck->saves->folder == "/home/p/.local/share/duckstation/memcards",
+           "without XDG_CONFIG_HOME DuckStation keeps its data under ~/.local/share");
+    expect(duck->configOf(true) ==
+                   "/home/p/.var/app/org.duckstation.DuckStation/config/duckstation" &&
+               duck->saves->flatpakFolder ==
+                   "/home/p/.var/app/org.duckstation.DuckStation/config/duckstation/memcards",
+           "its Flatpak, whose sandbox sets XDG_CONFIG_HOME, keeps it in the sandbox's config");
+    const EmulatorCatalog set =
+        EmulatorCatalog::shipped(OPENSU_ASSETS_DIR, "/home/p", "/home/p/.config");
+    const EmulatorEntry* duckSet = set.find("duckstation");
+    expect(duckSet != nullptr && duckSet->config == "/home/p/.config/duckstation" &&
+               duckSet->saves->folder == "/home/p/.config/duckstation/memcards",
+           "with XDG_CONFIG_HOME set DuckStation keeps it there, as the game started reads it");
+    const EmulatorEntry* pcsx2 = set.find("pcsx2");
+    expect(pcsx2 != nullptr && pcsx2->config == "/home/p/.config/PCSX2",
+           "an emulator without the rule keeps its catalog folder");
+}
+
 void malformedIsRefused() {
     std::string error;
     expect(!EmulatorCatalog::parse("[]", "/h", error), "not an object");
@@ -229,6 +251,7 @@ void malformedIsRefused() {
 
 int main() try {
     shippedCatalogParses();
+    xdgConfigFolder();
     coreReleasePerBuild();
     malformedIsRefused();
     coreEntries();
