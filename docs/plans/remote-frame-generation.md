@@ -1,0 +1,139 @@
+# Frame generation on the remote play guest
+
+Asked for 2026-11-11: the host streams at a lower rate (30 fps: half the bit rate and half the
+encode load) or at the game's own 60, and the guest generates the frames in between, up to its own
+screen's rate (60, 90 or 120 Hz on phones and tablets).
+
+## Target
+
+- A remote game on a guest shows motion-interpolated frames between the host's real ones, made by
+  the same LSFG 3 generator the Gamescope fork runs (`docs/issues/adaptive-lsfg-vk.md`), paced to
+  the guest's display: a 30 fps stream shows about 60 frames a second on a 60 Hz guest, every
+  generated one visibly between its two neighbours.
+- The host can stream at 30 fps instead of 60 when the guest asks for it.
+- Off by default, per game and global, through the frame generation settings the local game
+  already has.
+- First on a Linux guest with PyroWave; Android and Windows follow (see "Order").
+
+## Where the generator lives
+
+One library, `framegen/` at the top of the Gamescope fork (`SomeoneIsWorking/gamescope`, MIT
+inside the BSD-2 tree, as `src/FrameGen/` is now), built on its own by CMake or meson with no
+Gamescope header: the pacer (`CFramePacer`), the Lossless generator (shader loading and interface
+checks, `PeResources`, `SpirvInterface`, pipelines, images, the synthesizer) and a small device
+seam (`framegen::VulkanContext`: instance, physical device, device, `vkGetDeviceProcAddr`, the
+compute queue's command buffers, submit with a sequence number, wait for one). Images go in and
+out as raw Vulkan images and views in `GENERAL` layout.
+
+- Gamescope links it in-tree; what stays in `src/FrameGen/` is Gamescope's: capturing the focused
+  window's commits (`CFrameGenerator`), the linear-blend stand-in on Gamescope's compositor, and an
+  adapter from `CVulkanDevice` and `CVulkanTexture` to the seam.
+- openSU builds it from the fork at the commit `cmake/ThirdParty.cmake` already pins
+  (`OPENSU_GAMESCOPE_COMMIT`), into the shared third-party prefix, and finds it as
+  `OpensuFrameGen`. The guest and the host's Gamescope therefore always run one revision of one
+  generator; there is no second copy and no second pin.
+- Why not a repository of its own: it would add a pin that can drift from the fork's, and the
+  fork is the one third-party repository this work may push to. The cost is that a guest build
+  fetches the fork's tree (its own commit, no submodules) to build one directory; if that cost
+  matters for Android or Windows, the directory splits out with its history (`git subtree split`)
+  and both consumers move to the new pin in one change.
+- Why not Lucent or gpu2d: Lucent holds title-neutral helpers, gpu2d the SDL GPU 2D layer; this is
+  a raw Vulkan compute generator with its own licence note and its own consumers.
+
+## How the shaders reach the guest
+
+The LSFG 3 modules are the player's: read from their own `Lossless.dll` on their own host, sent
+only to their own paired guest, never written to the guest's disk, never packaged, committed or
+uploaded.
+
+- The host's LAN listener answers `/lan/framegen/modules`, a signed call with a sealed answer
+  (`docs/design/lan.md`) open to paired peers only: the DLL's FileVersion and the SPIR-V resources
+  303 to 400 (both size modes, FP16 and FP32), read in place with the library's `PeResources`.
+  Without a DLL on the host it answers why, and the guest's frame generation stays off with that
+  reason.
+- The guest fetches them once per remote session when frame generation is on, keeps them in
+  memory, and hands them to the library through the same loader that checks every module's
+  interface against `docs/design/frame-generation-spec.md`; a mismatch refuses with the same line
+  the fork logs.
+- The guest's own `Lossless.dll`, when it has one (a Linux guest with Lossless Scaling in Steam),
+  is not used: the host's copy is the one the player paired.
+
+## The guest's pipeline (Linux)
+
+Stage A (first):
+
+1. PyroWave decodes as now (its own device, read back into RGBA).
+2. `RemoteFrameGen` (new, `src/app/remote_frame_gen.*`) owns a Vulkan device of its own on the
+   same GPU, the library's synthesizer and pacer, three real-frame images and the generated
+   images. Each real frame's RGBA is uploaded and added (`AddRealFrame`); the pacer's plan
+   generates the in-between images; each output is read back to RGBA.
+3. `RemotePicture` shows whatever the pacer picks for the present about to happen, through its
+   existing RGBA upload.
+
+Stage B (after A is proven): no CPU copies. PyroWave decodes on the generator's device
+(`pyrowave_create_device`, `pyrowave_decoder_decode_gpu_buffer` into plane images), a compute pass
+turns BT.709 YCbCr into RGBA, and the outputs are exported as DMA-BUFs that the shell's SDL GPU
+device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-plane variant of
+`gpu2d::DmabufPicture`.
+
+## Pacing and latency
+
+- The library's `CFramePacer` paces, unchanged. A real frame's ready time is its host capture time
+  on the guest's clock (`GuestStream::timing`'s offset), so network jitter does not read as a rate
+  change; its arrival time is when its decode finished, which places it on the output timeline.
+- The vblank grid is the shell window's presents: each loop pass asks the pacer for the output of
+  the present it is about to make. A hidden run's 60 Hz tick stands in for the vblank.
+- `ShellWindow` presents at most 60 a second today; while a remote game generates, the cap follows
+  the display's refresh so a 90 or 120 Hz screen gets its rate.
+- Added latency, by the pacer's design: one real interval held back (33.3 ms at 30 fps, 16.7 ms at
+  60), the largest recent arrival lag, up to one refresh, and the generation itself (2.2 ms per
+  generated 720p frame balanced on an RX 6700 XT, more on a phone GPU, which must fit it inside
+  its refresh). Stage A adds an upload per real frame and a readback per shown frame.
+- Below 10 fps, while measuring, or within the tolerance of the target, real frames show as they
+  come, as in the fork.
+
+## The setting
+
+- The same keys as the local game (`settings/framegen_settings`: `framegen.preset`, Custom's
+  detail keys), on the setting layers at Global and Game; a remote game's Game layer is its own
+  id (`lan:<peer>:<game>`). Off by default.
+- A new key, `remote.stream-rate` ("Stream rate": the game's own, or 30 fps), at Global and
+  Game, default the game's own. It is shown beside frame generation for a remote game only.
+- `RemoteFrameGen` resolves the game's values through `resolveFrameGen` when the session starts
+  and when a value changes; `GamePresentation` keeps the local Gamescope atoms and does not see
+  remote games.
+- The rows show for a remote game where the guest can generate (a Vulkan device with the needed
+  features, PyroWave in use) and the host answered with modules; otherwise the heading says why.
+
+## The host's rate cap
+
+- The guest sends the rate it wants with its receive report (`wire::Report`), 0 for the game's
+  own. The host's `HostStream` keeps it.
+- `HostVideo` codes each frame once per codec and rate in use: a group at 30 takes a capture only
+  when at least 1/30 s (less half a 60 Hz frame) has passed since its last one, by capture time.
+  PyroWave is intra only, so any subset of frames decodes alone; a hardware codec's group at 30 is
+  an encoder of its own at 30 fps.
+- A frame's byte budget stays what it is at 60 (`frameBytes`), so the link's plan and the encode
+  work halve at 30; `LinkRate` plans in bits per second at the stream's rate.
+
+## Order
+
+1. This plan.
+2. The generator moved out of `src/FrameGen/` into the fork's `framegen/` library, behaviour
+   unchanged; proven by the fork's headless frame generation run before and after.
+3. Linux guest, stage A, behind the setting, with the host's 30 fps cap; proven with a hidden host
+   and a hidden guest on one machine on a light game: about 60 presented frames a second from a
+   30 fps stream, generated frames different from both neighbours, the added latency measured.
+4. Linux guest, stage B (zero copy).
+5. Android guest: MediaCodec's output as an `AHardwareBuffer` (an `AImageReader` surface instead
+   of ByteBuffers), imported into the generator's Vulkan device
+   (`VK_ANDROID_external_memory_android_hardware_buffer`, a YCbCr conversion sampler), the outputs
+   handed to the shell's SDL GPU device the same way (needs the SDL fork's import on Android), the
+   display's refresh from the window, the generation timed on the tablet's Mali or Kirin GPU to fit
+   its refresh. The modules come from the host exactly as on Linux.
+6. Windows guest: the same library on Vulkan with PyroWave; the hand-off to the shell through
+   `VK_KHR_external_memory_win32` into SDL GPU's Vulkan device (fork), or stage A's copies first.
+
+## Status
+
+- Step 1: this file (2026-11-11).
