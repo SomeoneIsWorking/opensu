@@ -1,5 +1,6 @@
 // The emulator catalog: the shipped file parses into entries the search can use, and a malformed
 // file is refused with where it is wrong.
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -49,6 +50,16 @@ void shippedCatalogParses() {
         expect(!entry.release || entry.release->downloads.starts_with("https://"),
                "every download is HTTPS from the project's own host");
     }
+    const EmulatorEntry* dolphinCore = catalog.find("dolphin-core");
+    expect(dolphinCore != nullptr && dolphinCore->systemFiles &&
+               dolphinCore->systemFiles->into == "dolphin-emu/Sys" &&
+               dolphinCore->systemFiles->folder.ends_with("/Data/Sys"),
+           "the built-in Dolphin pins its Sys folder");
+    const EmulatorEntry* lrps2 = catalog.find("pcsx2-core");
+    expect(lrps2 != nullptr && std::ranges::any_of(lrps2->coreOptions, [](const CoreOption& o) {
+               return o.key == "pcsx2_shared_memory_cards" && o.value == "disabled";
+           }),
+           "LRPS2 keeps a card per game in the saves folder");
     const EmulatorEntry* mgba = catalog.find("mgba-core");
     expect(mgba != nullptr && mgba->name == "mGBA (built-in)" && mgba->core == "mgba_libretro" &&
                mgba->serves("gb") && mgba->serves("gbc") && mgba->serves("gba") &&

@@ -36,6 +36,11 @@ inline constexpr std::string_view profilesFolder = "profiles";
 [[nodiscard]] std::filesystem::path saveStateFile(const std::filesystem::path& folder,
                                                   const std::filesystem::path& rom);
 
+/// LRPS2's memory card for the game once its `pcsx2_shared_memory_cards` is off:
+/// `<folder>/<rom stem>.ps2`.
+[[nodiscard]] std::filesystem::path lrps2CardFile(const std::filesystem::path& folder,
+                                                  const std::filesystem::path& rom);
+
 /// What Save and close leaves, apart from the state slot: `<folder>/<rom stem>.resume`.
 [[nodiscard]] std::filesystem::path resumeStateFile(const std::filesystem::path& folder,
                                                     const std::filesystem::path& rom);

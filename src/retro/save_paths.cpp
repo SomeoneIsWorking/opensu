@@ -41,6 +41,10 @@ fs::path saveStateFile(const fs::path& folder, const fs::path& rom) {
     return named(folder, rom, ".state");
 }
 
+fs::path lrps2CardFile(const fs::path& folder, const fs::path& rom) {
+    return named(folder, rom, ".ps2");
+}
+
 fs::path resumeStateFile(const fs::path& folder, const fs::path& rom) {
     return named(folder, rom, ".resume");
 }

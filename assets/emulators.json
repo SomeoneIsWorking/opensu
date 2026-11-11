@@ -393,7 +393,7 @@
       "systems": ["ps2"],
       "core": "pcsx2_libretro",
       "biosScan": "lrps2",
-      "coreOptions": {"pcsx2_renderer": "Vulkan"}
+      "coreOptions": {"pcsx2_renderer": "Vulkan", "pcsx2_shared_memory_cards": "disabled"}
     },
     {
       "id": "azahar-core",

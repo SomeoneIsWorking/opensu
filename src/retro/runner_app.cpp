@@ -25,6 +25,7 @@
 #include "hardware_render.hpp"
 #include "joypad.hpp"
 #include "librashader_library.hpp"
+#include "lrps2_card.hpp"
 #include "lucent/log.h"
 #include "presenter.hpp"
 #include "resume_state.hpp"
@@ -212,6 +213,9 @@ RunnerExit RunnerApp::run() {
     std::unique_ptr<Core> core;
     try {
         const PortInput& input = netplay ? static_cast<const PortInput&>(*netplay) : joypad;
+        if (coreName(options_.core) == lrps2Core) {
+            adoptLrps2SharedCard(options_.system, options_.saves, options_.rom);
+        }
         core = std::make_unique<Core>(options_.core, CoreHost{environment, video, sink, input});
         core->loadGame(options_.rom);
     } catch (const CoreError& failure) {
