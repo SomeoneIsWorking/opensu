@@ -66,7 +66,7 @@ template <class Check> bool waitFor(Check&& check, std::chrono::seconds most) {
     return false;
 }
 
-/// An address of this machine's own that is not loopback, which ZeroTier never uses.
+/// The address of the test's own interface; ZeroTier never uses loopback.
 std::string labAddress() {
     std::string error;
     const auto interfaces = lucent::net::ipv4_interfaces(error);

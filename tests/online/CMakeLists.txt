@@ -14,7 +14,8 @@ if(OPENSU_BUILD_ZEROTIER)
     target_include_directories(online_zero_tier_root PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
     opensu_warnings(online_zero_tier_root)
 
-    # Two openSUs meet over the embedded node alone, a root at this machine's own address.
+    # Two openSUs meet over the embedded node alone, a root on a network of the test's own: libzt
+    # binds no lo, tun or tap interface, so the container's (slirp4netns' tap0 in CI) cannot carry it.
     add_executable(online_zero_tier_meeting_test zero_tier_meeting_test.cpp)
     target_link_libraries(online_zero_tier_meeting_test
         PRIVATE opensu::online opensu::launch lucent::lucent)
@@ -25,6 +26,9 @@ if(OPENSU_BUILD_ZEROTIER)
         OPENSU_ZERO_TIER_ROOT="$<TARGET_FILE:online_zero_tier_root>")
     add_dependencies(online_zero_tier_meeting_test online_zero_tier_root)
     opensu_warnings(online_zero_tier_meeting_test)
-    add_test(NAME online_zero_tier_meeting COMMAND online_zero_tier_meeting_test)
+    add_test(NAME online_zero_tier_meeting
+        COMMAND unshare --map-root-user --net sh -c
+            "ip link set lo up && ip link add lab0 type dummy && ip addr add 10.77.0.1/24 dev lab0 && ip link set lab0 up && exec \"$0\""
+            $<TARGET_FILE:online_zero_tier_meeting_test>)
     set_tests_properties(online_zero_tier_meeting PROPERTIES TIMEOUT 400)
 endif()
