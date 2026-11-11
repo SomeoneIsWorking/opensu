@@ -107,7 +107,7 @@ void Presenter::open() {
         semaphore.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
         check(vkCreateSemaphore(vk_, &semaphore, nullptr, &slot.acquired), "vkCreateSemaphore");
     }
-    lucent::info("retro", "the GPU draws up to {} frames at once", slots_.size());
+    lucent::info("retro", "frame slots on the GPU: {}", slots_.size());
 
     if (options_.hidden) {
         createOffscreen();

@@ -121,11 +121,11 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/joypad.*` | The pads' controls (`gamepad::Button`) and the keyboard to `RETRO_DEVICE_JOYPAD` state, one fixed mapping; the pads' sticks (`gamepad::Sticks`) to `RETRO_DEVICE_ANALOG`; which port each pad plays on (**Input**) |
 | `src/retro/save_memory.*` | The core's save RAM: loaded before the first frame (a smaller file into its start; a larger or unreadable one refused and never written over), written atomically when it changes (checked once a second) and at exit |
 | `src/retro/audio_output.*` | Where the sink's frames go: the default playback device (SDL audio stream, pulled on SDL's thread), or, hidden, drained by the clock at the output rate with nothing played |
-| `src/retro/presenter.*` | The only owner of the SDL window and Vulkan presentation: window events, swapchain (recreated on resize or out-of-date), each frame's command buffer, submission (a GPU core's semaphores waited, its command buffers first, its signal semaphore signalled) and present; hidden, an offscreen image instead of a swapchain, read back for `--frame-png`; the last frame read back from either (`readBack`); whether Android's window still has a surface (`onScreen`); the wait on the last frame a core's `wait_sync_index` is |
+| `src/retro/presenter.*` | The only owner of the SDL window and Vulkan presentation: window events, swapchain (recreated on resize or out-of-date), up to two frames in flight (a slot each: command buffer, fence, acquire semaphore, and hidden an offscreen image), submission (a GPU core's semaphores waited, its command buffers first, its signal semaphore signalled) and present; hidden, offscreen images instead of a swapchain, the last one drawn read back for `--frame-png`; the last frame read back from either (`readBack`); whether Android's window still has a surface (`onScreen`); the wait on every frame in flight a core's `wait_sync_index` is |
 | `src/retro/frame_compositor.*` | What is drawn into a target (`change` swaps the video settings between frames, the new preset built before the old one goes): the render pass the targets' framebuffers are made for, the frame texture uploaded each fresh frame or a GPU core's own image sampled in its layout (queue family ownership taken and given back when it names another family, then a barrier so the core's next writes wait for the read), one pipeline drawing it where `placeFrame` puts it for the video settings (aspect, integer scale, overscale clipped to the target) with the chosen sampling and filter, black around it; with a shader preset its chain draws into that rectangle instead, from the texture or the core's image |
 | `src/retro/frame_filter.*` | The fragment shader for a sampling and filter, the built-in filters' parameters (`scanlineGrid`, `lcdGrid`, `crtLottes`) and the push block each draw hands the shader |
 | `src/retro/librashader_library.*` | librashader opened by its path (`Config::librashader`), ABI and API checked, its calls with their errors as `ShaderError`; a missing file refuses the preset |
-| `src/retro/shader_chain.*` | One slang preset built on the runner's device (render passes, one frame in flight) and recorded from the frame image into the placed rectangle; history (cleared on the first frame), feedback and LUTs are librashader's |
+| `src/retro/shader_chain.*` | One slang preset built on the runner's device (render passes, librashader's `frames_in_flight` 2) and recorded from the frame image into the placed rectangle; history (cleared on the first frame), feedback and LUTs are librashader's |
 | `src/retro/shader_scale.*`, `gpu_timer.*`, `reduced_output.*` | The Shader resolution setting at run time: the preset's GPU time per frame from two timestamps (logged as the `shader` stage), the scale it is drawn at (Full: always 100 %; Auto: 100/85/70/60/50 % against the core's frame interval, each step logged), and below 100 % the image the chain draws into and its bilinear draw into the placed rectangle |
 | `src/retro/vulkan_device.*` | The Vulkan instance (validation layer and its error count on request) and the one device and graphics queue, made through a GPU core's context negotiation when it has one (its `get_application_info`; `create_instance`, `create_device2` or `create_device` with the runner's extensions and layers added), `destroy_device` before the instance goes; the queue's lock, held for every submit, present and device wait |
 | `src/retro/png_encoder.*` | RGBA to PNG bytes through libpng |
@@ -492,9 +492,13 @@ version 2) the instance comes from its `create_instance` and the device from `cr
 the runner's chosen GPU (again with no GPU if it declines), else `create_device` (v1, a zeroed
 feature struct, the swapchain extension when there is a window); the runner's own extensions and
 layers (validation) are added in the wrappers. Then `context_reset`. `GET_HW_RENDER_INTERFACE`
-gives `retro_hw_render_interface_vulkan` version 5 with one frame in flight: `get_sync_index` is
-0, the mask 1, and `wait_sync_index` waits for the last frame the presenter submitted, which is
-also what the presenter waits for before recording the next. A `RETRO_HW_FRAME_BUFFER_VALID`
+gives `retro_hw_render_interface_vulkan` version 5 with one frame in flight (the presenter gets
+`inFlight` 1 for a GPU core): `get_sync_index` is 0, the mask 1, and `wait_sync_index` waits for
+the frame the presenter submitted, which is also what the presenter waits for before recording
+the next. Two sync indices were read in the cores' sources and not taken: Mupen64Plus-Next sizes
+its images from the mask once and never calls `wait_sync_index`, so the runner would have to wait
+the slot's fence before `retro_run` and never change the mask; Beetle PSX HW and ParaLLEl N64 keep
+an image per index and wait in `wait_sync_index`; the other GPU cores were not read. A `RETRO_HW_FRAME_BUFFER_VALID`
 refresh shows the image of the last `set_image` (`width` × `height`, the whole image), sampled in
 the layout the core gave, its semaphores waited once at the fragment stage; a null refresh shows
 the same image again without them; `set_command_buffers` are submitted once before the runner's,
@@ -530,10 +534,23 @@ a percent off. The device pulls from the ring on SDL's audio thread.
 
 Every 5 s the runner logs `N frames in X s (F/s), ms p50/p95/p99: frame …, core …, audio …, fence
 …, acquire …, record …, present …, sleep …, audio queued …` (`FrameStages`). A `fence` near the frame
-time means the GPU is the limit: one frame is in flight, so a preset slower than the core's interval
-halves the rate and drains the audio queue. On a Kirin T90A tablet at 2800x1840 with mGBA,
+time means the GPU is the limit. A software core's frames go two in flight: `Presenter::present`
+waits for the fence of the frame that last used its slot, two frames back, so the core runs and
+records frame N+1 while the GPU draws frame N, and a frame costs the longer of the
+CPU's part (core, record, present) and the GPU's rather than their sum. That adds no latency while
+the GPU keeps up; when it does not, frame N waits on the GPU behind at most one other frame, at
+most one interval (16.7 ms at 60/s) later than with one in flight. Each slot has its own command
+buffer, fence, acquire semaphore, staging buffers (`StreamedTexture`, per slot), timestamp pair
+(`GpuTimer`) and compositor descriptor set; librashader's chain is built with `frames_in_flight`
+2, though its per-pass uniform buffer is one, written while the frame before may still read it
+(upstream). Anything made again (a texture resized, the swapchain, the reduced output, new video
+settings) waits for the whole GPU first. On a Kirin T90A tablet at 2800x1840 with mGBA,
 crt-1tap-bloom (26 passes) runs at 33/s (frame p50 29 ms, fence 16-20 ms, audio queued 0), crt-1tap
-and None hold 59.7/s (frame 16.7/17.2/17.4 ms, fence 0, audio queued 40-50 ms).
+and None hold 59.7/s (frame 16.7/17.2/17.4 ms, fence 0, audio queued 40-50 ms); those numbers are from
+one frame in flight. On the RX 6700 XT with mGBA, crt-1tap-bloom at Full over a 16384x2200 target
+(shader 16.3 ms) ran 56.0/s with one frame in flight (frame 17.7, fence 15.9, record 1.3) and holds
+59.7/s with two (fence 0, sleep 14.8); `frame slots on the GPU: 2` is logged at start, 1 for a GPU
+core.
 
 **Shader resolution.** The `shader` stage is the preset's own GPU time (two timestamps around the
 chain, read after the next frame's fence). Under Auto, `ShaderScale` steps the chain to 85, 70, 60

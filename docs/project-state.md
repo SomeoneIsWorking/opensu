@@ -2402,6 +2402,11 @@ straight to Home with a Set up tile in Library for each integration that is off;
 one the build offers (`steam::clientModes`: Normal, Managed and Isolated on Linux, Normal elsewhere),
 without Normal under `--session`; the Steam mode row shows only when more than one is offered. `app::IntegrationSwitch` applies a
 change live: the catalog's providers are replaced, the plugins host is made or dropped, standalone
+A shader preset no longer pays the CPU's part of the frame on top of the GPU's: software cores keep
+two frames in flight (`docs/issues/retro-frame-waits-for-the-gpu.md`). On the PC, crt-1tap-bloom
+whose GPU time is 16.3 ms went from 56.0/s to 59.7/s; Crash Bandicoot on PCSX ReARMed and
+Mupen64Plus-Next (still one frame in flight) ran clean with validation. Unverified: the tablet.
+
 emulator discovery and downloads follow, and Steam is stopped and started in its new mode. Normal
 attaches to the desktop Steam (`~/.steam/steam.pid`, a live `steam` process) or starts one on the
 desktop outside openSU's scope; the shell then neither holds the pads against it nor closes Big
