@@ -294,13 +294,15 @@
           "linux-x86_64": "^mgba_libretro_linux-x86_64\\.zip$",
           "windows-x86_64": "^mgba_libretro_windows-x86_64\\.zip$",
           "android-arm64-v8a": "^mgba_libretro_android-arm64-v8a\\.zip$",
-          "android-x86_64": "^mgba_libretro_android-x86_64\\.zip$"
+          "android-x86_64": "^mgba_libretro_android-x86_64\\.zip$",
+          "macos-arm64": "^mgba_libretro_macos-arm64\\.zip$"
         },
         "sha256": {
           "linux-x86_64": "1aad00a3eb763eb6fbcbb2683574d764477687883f7f2a6f97d3b961c0288ab2",
           "windows-x86_64": "a97821326e1a21ffb8b06926e54e48835cd67a95d048aab9be3ed290b1bc2129",
           "android-arm64-v8a": "10db38942113f631c2c6fd5a88c595abaa92947e2d0d66d526b1f99fa112f856",
-          "android-x86_64": "90142faa5bf14bb23499f39528040fc371a38b6f9515e361154b16c919984e10"
+          "android-x86_64": "90142faa5bf14bb23499f39528040fc371a38b6f9515e361154b16c919984e10",
+          "macos-arm64": "f7ceaa64ff25991ee3d02b3f7786701f01c4f5fc39c0a9124799b746fa0f5d47"
         }
       }
     },

@@ -586,8 +586,7 @@ publishing another is refused), else the one the release publishes. Its info sti
 buildbot, its record keeps the release's tag as its date and the asset's URL, which the update check
 compares. Settings › Emulators names its source "openSU build"; a buildbot core downloaded before
 the catalog named the release stays "libretro buildbot" and is offered as an update. MAME 2010 on
-Android (`docs/issues/more-libretro-cores.md`) and mGBA on Linux, Windows and Android come this way;
-macOS takes the buildbot's mGBA until the fork's macOS build is pinned.
+Android (`docs/issues/more-libretro-cores.md`) and mGBA on every platform come this way.
 
 mGBA (built-in) is the `SomeoneIsWorking/mgba` fork, branch `opensu`: libretro/mgba master with
 the link-cable multiplayer of libretro/mgba PR #318, a netplay session's clock and the upstream MBC
