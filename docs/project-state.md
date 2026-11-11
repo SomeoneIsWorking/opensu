@@ -1359,6 +1359,19 @@ player's AppImage with a copy of their config (`scratch/launch-rules/runs/pcsx2`
 Crash Twinsanity from its attract reel to its title menu and New Game, `PCSX2.ini` comes back
 byte-identical). Gaps: a pad of another type (guitar, Jogcon) bound to the keyboard stays so; a
 second binding line for one input keeps its old SDL index.
+DuckStation binds a pad as PCSX2 does, `SDL-<device>/<input>`, the device a player index or a
+persistent identifier: while a launch runs `[PadN]`'s SDL bindings play `SDL-<N-1>`, a digital or
+analog controller bound only to the keyboard or to nothing gets DuckStation's own SDL layout, and
+its launcher-shortcut question, setup wizard and update check are off (`library/duckstation_config`;
+its folder is `$XDG_CONFIG_HOME/duckstation` when the session sets it, as the catalog's
+`"xdgConfig"` says); verified with the downloaded build on a copy of the player's data
+(`scratch/launch-rules3/runs/duckstation`: Start and A take Crash Bandicoot from its title to N.
+Sanity Beach, `settings.ini` comes back byte-identical). Gaps: a desktop file pointing at another
+DuckStation still asks to be updated, which no setting turns off.
+A game window that stays still from its first picture reaches a remote-play guest: the host sends
+the newest frame it held back while the game had not shown a window (`stream/host_video`), as
+Gamescope sends a window again only when it draws again; verified with Xenia Canary's menu-bar
+window (`scratch/stream-blank/runs/xenia-after`).
 melonDS reads one SDL joystick by index, `[Instance0] JoystickID`: while a launch runs the first
 instance plays joystick 0, the first virtual pad, with the player's joystick buttons or, when they
 have none, the virtual pad's raw SDL codes in the DS's positional layout (`library/melonds_config`);
