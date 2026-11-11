@@ -233,8 +233,7 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
             add(*file.system, rootFolder, file.node);
         }
         if (top->leftOut > 0) {
-            lucent::info("roms",
-                         "{}: {} loose files left out: their extension is more than one console's",
+            lucent::info("roms", "{}: {} loose files left out: no one console owns their extension",
                          root.string(), top->leftOut);
         }
     }
