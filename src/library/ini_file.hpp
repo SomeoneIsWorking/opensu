@@ -34,4 +34,7 @@ struct IniKey {
 [[nodiscard]] std::string withIniValue(std::string_view text, const IniKey& key,
                                        std::string_view value);
 
+/// `text` without `key`'s first line; `text` itself when the key is not there.
+[[nodiscard]] std::string withoutIniValue(std::string_view text, const IniKey& key);
+
 } // namespace opensu::library

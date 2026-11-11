@@ -145,4 +145,16 @@ std::string withIniValue(std::string_view text, const IniKey& key, std::string_v
     return out;
 }
 
+std::string withoutIniValue(std::string_view text, const IniKey& key) {
+    const Found found = find(text, key);
+    if (found.line == std::string_view::npos) {
+        return std::string{text};
+    }
+    std::string out{text.substr(0, found.line)};
+    if (found.lineEnd < text.size()) {
+        out.append(text.substr(found.lineEnd + 1));
+    }
+    return out;
+}
+
 } // namespace opensu::library

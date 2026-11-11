@@ -27,6 +27,9 @@ struct LaunchSetup {
     std::string padGuid;
     /// The emulated Wii Remote a Wii game is played with; none for another game.
     std::optional<WiiRemote> wiiRemote{};
+    /// Whether real Wii Remotes are here for a Wii game: a DolphinBar in its Wii Remote mode, or a
+    /// remote connected over Bluetooth (`device::WiiRemotes::present`).
+    bool realWiiRemotes{false};
 };
 
 /// The name SDL gives the virtual pads, from its own table for 045e:028e, which an emulator keying
@@ -34,11 +37,12 @@ struct LaunchSetup {
 inline constexpr std::string_view virtualPadSdlName{"Xbox 360 Controller"};
 
 /// What `game`'s launch sets up when it runs on an emulator with a rule, a Wii game's remote from
-/// `wii` by its disc id; nothing otherwise.
+/// `wii` by its disc id, played on `realWiiRemotes` when they are here; nothing otherwise.
 [[nodiscard]] std::optional<LaunchSetup> launchSetupOf(const Game& game,
                                                        const roms::EmulatorCatalog& catalog,
                                                        const WiiControls& wii,
-                                                       std::string_view padGuid);
+                                                       std::string_view padGuid,
+                                                       bool realWiiRemotes);
 
 /// A settings file a rule writes, and the bytes it writes there.
 struct SettingsWrite {

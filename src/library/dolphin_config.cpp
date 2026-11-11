@@ -58,6 +58,11 @@ constexpr std::string_view sourceKey{"Source"};
 // `[WiimoteN] Source`: none, emulated, a real remote.
 constexpr std::string_view noRemote{"0"};
 constexpr std::string_view emulatedRemote{"1"};
+constexpr std::string_view realRemote{"2"};
+// openSU's note on a real remote's slot it made emulated, which Dolphin does not read.
+constexpr std::string_view tookRealKey{"openSU/Real Remote"};
+// A remote turned on after the game started is still found.
+constexpr IniKey continuousScanning{.section = "Core", .key = "WiimoteContinuousScanning"};
 
 struct Mapping {
     std::string_view key;
@@ -214,6 +219,59 @@ std::vector<NamedProfile> namedProfiles(const LaunchSetup& setup) {
     return named;
 }
 
+/// `[WiimoteN] Source` of `slot`, with Dolphin's defaults: slot 1 emulated, the others none.
+std::string sourceOf(std::string_view run, const std::string& section, int slot) {
+    return iniValueIn(run, IniKey{.section = section, .key = sourceKey})
+        .value_or(std::string{slot == 1 ? emulatedRemote : noRemote});
+}
+
+bool tookReal(std::string_view run, const std::string& section) {
+    return iniValueIn(run, IniKey{.section = section, .key = tookRealKey}) == "True";
+}
+
+/// `WiimoteNew.ini` for a Wii game. With real remotes here every slot the player gave one keeps
+/// it, a slot openSU took from one gets it back, and slot 1 is one when no slot is. Without them
+/// slot 1 and every slot with a remote is emulated, a real remote's slot noted. An emulated slot
+/// plays `remote` on its virtual pad.
+std::string wiiSlots(std::string run, const ControllerFiles& files, const WiiRemote& remote,
+                     bool realRemotes) {
+    bool anyReal = false;
+    for (int slot = 1; slot <= dolphinSlots; ++slot) {
+        const std::string section = slotSection(files, slot);
+        anyReal = anyReal || sourceOf(run, section, slot) == realRemote || tookReal(run, section);
+    }
+    for (int slot = 1; slot <= dolphinSlots; ++slot) {
+        const std::string section = slotSection(files, slot);
+        const IniKey source{.section = section, .key = sourceKey};
+        const IniKey took{.section = section, .key = tookRealKey};
+        const std::string held = sourceOf(run, section, slot);
+        if (realRemotes) {
+            const bool noted = tookReal(run, section);
+            run = withoutIniValue(run, took);
+            if ((noted && held == emulatedRemote) || (!anyReal && slot == 1)) {
+                lucent::info("dolphin", "{} is a real remote again", section);
+                run = withIniValue(run, source, realRemote);
+                continue;
+            }
+            const bool emulated = held == emulatedRemote;
+            run = dolphinSlotSettings(run, section, DolphinController::WiiRemote, slot,
+                                      emulated ? &remote : nullptr);
+            continue;
+        }
+        if (slot != 1 && held == noRemote) {
+            run = dolphinSlotSettings(run, section, DolphinController::WiiRemote, slot, nullptr);
+            continue;
+        }
+        if (held == realRemote) {
+            run = withIniValue(run, took, "True");
+        }
+        lucent::info("dolphin", "{} is an emulated remote set for {}", section, remote.title);
+        run = withIniValue(run, source, emulatedRemote);
+        run = dolphinSlotSettings(run, section, DolphinController::WiiRemote, slot, &remote);
+    }
+    return run;
+}
+
 void addRun(std::vector<SettingsWrite>& files, const fs::path& file,
             const std::function<std::string(std::string_view)>& run) {
     if (std::optional<SettingsWrite> set = settingsWriteOf(file, run)) {
@@ -265,7 +323,8 @@ std::vector<SettingsWrite> dolphinWrites(const LaunchSetup& setup) {
     std::vector<SettingsWrite> files;
     const WiiRemote* remote =
         setup.padGuid.empty() || !setup.wiiRemote ? nullptr : &*setup.wiiRemote;
-    addRun(files, setup.config / mainFile, [remote](std::string_view settings) {
+    const bool realRemotes = setup.realWiiRemotes;
+    addRun(files, setup.config / mainFile, [remote, realRemotes](std::string_view settings) {
         std::string run{settings};
         for (const IniKey& prompt : promptsOff) {
             if (iniValueIn(run, prompt) != "True") {
@@ -275,6 +334,9 @@ std::vector<SettingsWrite> dolphinWrites(const LaunchSetup& setup) {
         if (remote != nullptr && iniValueIn(run, passthrough) == "True") {
             run = withIniValue(run, passthrough, "False");
         }
+        if (remote != nullptr && realRemotes && iniValueIn(run, continuousScanning) != "True") {
+            run = withIniValue(run, continuousScanning, "True");
+        }
         return run;
     });
     if (setup.padGuid.empty()) {
@@ -282,25 +344,14 @@ std::vector<SettingsWrite> dolphinWrites(const LaunchSetup& setup) {
     }
     for (const ControllerFiles& controller : controllers) {
         addRun(files, setup.config / controller.file,
-               [&controller, remote](std::string_view settings) {
+               [&controller, remote, realRemotes](std::string_view settings) {
+                   if (controller.controller == DolphinController::WiiRemote && remote != nullptr) {
+                       return wiiSlots(std::string{settings}, controller, *remote, realRemotes);
+                   }
                    std::string run{settings};
                    for (int slot = 1; slot <= dolphinSlots; ++slot) {
-                       const std::string section = slotSection(controller, slot);
-                       const WiiRemote* emulated = nullptr;
-                       if (controller.controller == DolphinController::WiiRemote &&
-                           remote != nullptr) {
-                           const IniKey source{.section = section, .key = sourceKey};
-                           const std::string held =
-                               iniValueIn(run, source).value_or(std::string{noRemote});
-                           if (slot == 1 || held != noRemote) {
-                               lucent::info("dolphin", "{} is an emulated remote set for {}",
-                                            section, remote->title);
-                               run = withIniValue(run, source, emulatedRemote);
-                               emulated = remote;
-                           }
-                       }
-                       run =
-                           dolphinSlotSettings(run, section, controller.controller, slot, emulated);
+                       run = dolphinSlotSettings(run, slotSection(controller, slot),
+                                                 controller.controller, slot, nullptr);
                    }
                    return run;
                });

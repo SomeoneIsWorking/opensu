@@ -4,10 +4,13 @@
 // `[Profile]` of a per-game profile (`GameSettings/<ID>.ini [Controls] PadProfileN` or
 // `WiimoteProfileN`, a name under `Profiles/GCPad` or `Profiles/Wiimote`, or a folder of them). A
 // slot or profile on an SDL pad is moved to the Nth virtual pad, its mappings kept; a GameCube one
-// on anything else (keyboard and mouse) gets a standard GameCube pad there. For a Wii game, slot
-// 1 and every real remote's slot are emulated and get the game's remote (`wii_controls`) at every
-// launch, since the slot is shared by every Wii game; a player's per-game profile, which Dolphin
-// reads instead, is only moved. Analytics' permission prompt, the NKit warning and Bluetooth
+// on anything else (keyboard and mouse) gets a standard GameCube pad there. For a Wii game with
+// real remotes here (`LaunchSetup::realWiiRemotes`) each real remote's slot is kept, one openSU
+// made emulated is real again (its `openSU/Real Remote` note) and slot 1 is real when none is,
+// with continuous scanning on. Without them slot 1 and every slot with a remote are emulated, a
+// real one noted. An emulated slot gets the game's remote (`wii_controls`) at every launch, since
+// the slot is shared by every Wii game; a player's per-game profile, which Dolphin reads instead,
+// is only moved. Analytics' permission prompt, the NKit warning and, for a Wii game, Bluetooth
 // passthrough are off.
 #pragma once
 

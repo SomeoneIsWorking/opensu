@@ -1,6 +1,7 @@
 // Dolphin's pad settings and per-game profiles written bound to the virtual pads, a keyboard
-// GameCube slot given a standard pad, each Wii game's remote emulated as the game wants it,
-// analytics' prompt marked asked; a second launch writes nothing.
+// GameCube slot given a standard pad, each Wii game's remote emulated as the game wants it while no
+// real remote is here and the player's real remotes kept or given back while one is, analytics'
+// prompt marked asked; a second launch writes nothing.
 #include "library/dolphin_config.hpp"
 
 #include <cstdio>
@@ -190,7 +191,9 @@ void testWiiGame() {
     const std::string run = read(config / "WiimoteNew.ini");
     expect(value(run, "Wiimote1", "Source") == "1" &&
                value(run, "Wiimote1", "Device") == "SDL/0/Xbox 360 Controller",
-           "a real remote's slot is emulated on the first virtual pad");
+           "with no real remote here, a real remote's slot is emulated on the first virtual pad");
+    expect(value(run, "Wiimote1", "openSU/Real Remote") == "True",
+           "and noted as the real remote's");
     expect(value(run, "Wiimote1", "Extension") == "None" &&
                value(run, "Wiimote1", "Options/Sideways Wiimote") == "True" &&
                value(run, "Wiimote1", "Buttons/2") == "`Button S`" &&
@@ -217,6 +220,59 @@ void testWiiGame() {
                value(other, "Wiimote1", "Options/Sideways Wiimote") == "False" &&
                value(other, "Wiimote1", "IR/Up") == "`Right Y+`",
            "the next Wii game gets its own remote on the slot the last one left");
+}
+
+void testRealRemotes() {
+    const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "dolphin-config-real"};
+    const fs::path config = scratch.path() / "config";
+    write(config / "WiimoteNew.ini", realRemote);
+    write(config / "Dolphin.ini", passthrough);
+    LaunchSetup setup{.emulatorId = "dolphin",
+                      .config = config,
+                      .data = {},
+                      .padGuid = guid,
+                      .wiiRemote = remoteOf("SF8E01")};
+    writeLaunchSettings(setup);
+    expect(value(read(config / "WiimoteNew.ini"), "Wiimote1", "Source") == "1",
+           "a Wii game played without the real remotes emulates their slot");
+
+    setup.realWiiRemotes = true;
+    writeLaunchSettings(setup);
+    const std::string back = read(config / "WiimoteNew.ini");
+    expect(value(back, "Wiimote1", "Source") == "2" &&
+               !value(back, "Wiimote1", "openSU/Real Remote"),
+           "once they are here again the slot is the real remote's, the note gone");
+    expect(value(back, "Wiimote2", "Source") == "0", "an empty slot stays empty");
+    const std::string settings = read(config / "Dolphin.ini");
+    expect(value(settings, "Core", "WiimoteContinuousScanning") == "True",
+           "a remote turned on after the game starts is found");
+    expect(value(settings, "BluetoothPassthrough", "Enabled") == "False",
+           "passthrough does not take the adapter from the real remotes");
+    expect(rewriteWritesNothing(setup), "a second launch with the real remotes writes nothing");
+
+    constexpr std::string_view mixed = "[Wiimote1]\n"
+                                       "Source = 2\n"
+                                       "[Wiimote2]\n"
+                                       "Device = SDL/0/DualSense Wireless Controller\n"
+                                       "Source = 1\n"
+                                       "[Wiimote3]\n"
+                                       "openSU/Real Remote = True\n"
+                                       "Source = 0\n";
+    write(config / "WiimoteNew.ini", mixed);
+    writeLaunchSettings(setup);
+    const std::string run = read(config / "WiimoteNew.ini");
+    expect(value(run, "Wiimote1", "Source") == "2", "the player's real remote keeps its slot");
+    expect(value(run, "Wiimote2", "Source") == "1" &&
+               value(run, "Wiimote2", "Device") == "SDL/1/Xbox 360 Controller" &&
+               value(run, "Wiimote2", "Options/Sideways Wiimote") == "True",
+           "a player with no real remote plays the game's emulated remote on their virtual pad");
+    expect(value(run, "Wiimote3", "Source") == "0" && !value(run, "Wiimote3", "openSU/Real Remote"),
+           "a noted slot the player emptied since stays empty, the note dropped");
+
+    write(config / "WiimoteNew.ini", wiimotes);
+    writeLaunchSettings(setup);
+    expect(value(read(config / "WiimoteNew.ini"), "Wiimote1", "Source") == "2",
+           "with real remotes here and no slot set for one, slot 1 takes the first");
 }
 
 void testUnlistedWiiGame() {
@@ -247,6 +303,7 @@ int main() try {
     testLaunch();
     testOwnPads();
     testWiiGame();
+    testRealRemotes();
     testUnlistedWiiGame();
     std::printf("dolphin_config: all checks passed\n");
     return 0;

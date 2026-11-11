@@ -894,7 +894,8 @@ bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> e
 
     gamepad::HeldPads held = padOwner_.hold(mappings_.forGame(game));
     std::optional<library::LaunchSetup> setup = library::launchSetupOf(
-        started, emulatorSettings_.catalog(), emulatorDownloads_.setup().wiiControls, held.padGuid);
+        started, emulatorSettings_.catalog(), emulatorDownloads_.setup().wiiControls, held.padGuid,
+        device::findWiiRemotes(hidPlaces_).present());
     std::vector<std::string> environment = std::move(held.environment);
     environment.push_back(std::move(control));
     environment.insert(environment.end(), wine.environment.begin(), wine.environment.end());
