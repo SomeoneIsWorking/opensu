@@ -91,6 +91,23 @@ def _close_settings(shell: HiddenShell) -> None:
     _close_guide(shell)
 
 
+def _devices(shell: HiddenShell) -> None:
+    # Guide menu rows: Home, Library, Search, Devices.
+    shell.press("guide", "down", "down", "down", "a")
+    shell.wait_until(
+        lambda state: str(state.get("breadcrumb", "")).startswith("Devices"), "the Devices page"
+    )
+
+
+def _close_devices(shell: HiddenShell) -> None:
+    shell.press("b")
+    shell.wait_until(
+        lambda state: not str(state.get("breadcrumb", "")).startswith("Devices"),
+        "the Devices page closed",
+    )
+    _close_guide(shell)
+
+
 def _settings_page(label: str) -> Callable[[HiddenShell], None]:
     """Settings, then RB through the category tabs, down the side or across the top, until the
     trail names `label`."""
@@ -481,6 +498,7 @@ SCENES: tuple[Scene, ...] = (
     Scene("details", "A game's details page", _details, _back_from_details, readme=True),
     Scene("guide", "Guide menu", _guide, _close_guide, readme=True),
     Scene("settings", "Settings", _settings, _close_settings, readme=True),
+    Scene("devices", "Devices", _devices, _close_devices),
     Scene("quick-menu", "Guide menu on Volume (Guide + A)", _quick, _close_quick),
     Scene("console-shelf", "A console's shelf in Library", _console_shelf, _leave_console_shelf),
     Scene("settings-library", "Settings: Library", _settings_page("Library"), _close_settings),

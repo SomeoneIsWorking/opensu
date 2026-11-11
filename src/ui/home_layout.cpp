@@ -22,6 +22,10 @@ constexpr int wiiSuMinColumns = 3;
 constexpr float setPageArrowGap = 0.5f;
 // Rounding slack when counting the rows that fit, so an exact fit is not lost to float error.
 constexpr float rowFitSlack = 0.001f;
+// A screen with room for more shows more tiles, not larger ones: past these a row or column joins.
+constexpr float mostCellDp = 220.0f;
+constexpr float mostSetCellDp = 360.0f;
+constexpr int mostSetColumns = 8;
 
 /// coerceIn, which is what iiSU's gk2.C is.
 float clampTo(float value, float low, float high) noexcept {
@@ -125,9 +129,13 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
     }
     const float content = std::max(height_ - top - bottom - p - tail, 1.0f);
 
-    rows_ = clampRows(input.rows);
     // A tall screen sizes its cells as a wide one of its width would, then fills its height.
     const float band = std::min(content, viewportWidth_);
+    rows_ = clampRows(input.rows);
+    if (!(paged && input.page)) {
+        const float rowsAtMost = std::ceil(band / (mostCellDp * dp_) - rowFitSlack);
+        rows_ = clampRows(std::max(rows_, static_cast<int>(rowsAtMost)));
+    }
     const float pageGap = paged ? wiiSuPageGapDp * dp_ : 0.0f;
     const float peek = paged ? wiiSuPeekDp * dp_ : 0.0f;
 
@@ -227,24 +235,30 @@ void HomeLayout::layoutSetPage(const SetPage& page, float content, float shortSi
     const Rect arrow = arrowRect(true);
     const float side = arrow.right() + arrow.width * setPageArrowGap;
     const float across = std::max(viewportWidth_ - 2.0f * side, 1.0f);
-    const auto columns = static_cast<float>(columns_);
     const auto fit = [&](float gap) {
+        const auto columns = static_cast<float>(columns_);
         const float wide = (across - (columns - 1.0f) * gap) / columns;
         const float high =
             (content - static_cast<float>(rows_ - 1) * gap) / static_cast<float>(rows_);
         return std::max(tall ? wide : std::min(wide, high * aspect), 1.0f);
     };
-    float gap = clampTo(shortSide * 0.018f, 10.0f, 28.0f);
-    for (int pass = 0; pass < 2; ++pass) {
-        gap = gapForCell(fit(gap) / aspect);
+    const auto size = [&] {
+        float gap = clampTo(shortSide * 0.018f, 10.0f, 28.0f);
+        for (int pass = 0; pass < 2; ++pass) {
+            gap = gapForCell(fit(gap) / aspect);
+        }
+        gap_ = gap;
+        cellWidth_ = fit(gap_);
+        cellHeight_ = cellWidth_ / aspect;
+    };
+    size();
+    while (!tall && cellWidth_ > mostSetCellDp * dp_ && columns_ < mostSetColumns) {
+        ++columns_;
+        size();
     }
-    gap_ = gap;
-    cellWidth_ = fit(gap_);
-    cellHeight_ = cellWidth_ / aspect;
-    if (tall) {
-        const float fits = (content + gap_) / (cellHeight_ + gap_);
-        rows_ = clampRows(static_cast<int>(fits + rowFitSlack));
-    }
+    const float fits = (content + gap_) / (cellHeight_ + gap_);
+    const int rowsFit = clampRows(static_cast<int>(fits + rowFitSlack));
+    rows_ = tall ? rowsFit : std::max(rows_, rowsFit);
 }
 
 std::size_t HomeLayout::perPage() const noexcept {

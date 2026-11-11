@@ -4,6 +4,7 @@
 // tall card over the dimmed screen (search, the folder chooser) has its own frame here.
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <functional>
 #include <memory>
@@ -18,6 +19,9 @@
 #include "screen_stack.hpp"
 
 namespace opensu::ui {
+
+/// The widest a page's body is, in dp.
+inline constexpr float pageMostDp = 1280.0f;
 
 template <typename Body> struct PageFrame {
     std::unique_ptr<gpu2d::ui::Backdrop> root;
@@ -37,8 +41,10 @@ pageFrame(const gpu2d::ui::Theme& theme, const Chrome& chrome,
     if constexpr (std::is_same_v<Body, gpu2d::ui::Row>) {
         body.align(gpu2d::ui::Align::Stretch);
     }
-    body.pad(gpu2d::ui::Insets{theme.spacing.pad * 2.0f, 0.0f, theme.spacing.pad * 2.0f, 0.0f})
-        .space(theme.spacing.pad);
+    // A wide screen centres the page instead of stretching its rows.
+    const float side =
+        std::max(theme.spacing.pad * 2.0f, (chrome.width / theme.scale - pageMostDp) * 0.5f);
+    body.pad(gpu2d::ui::Insets{side, 0.0f, side, 0.0f}).space(theme.spacing.pad);
     body.grow();
     frame.body = &body;
     frame.root->template add<gpu2d::ui::HintBar>();
