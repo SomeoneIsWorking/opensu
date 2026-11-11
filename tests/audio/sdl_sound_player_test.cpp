@@ -160,6 +160,8 @@ void playerWithoutDevice(const fs::path& wav, const fs::path& ogg) {
     player.setMuted(true);
     player.play(Effect::Open);
     expect(player.muted() && !player.playAsked(), "nothing plays muted");
+    expect(player.loop(need(decodeSound(ogg), "the OGG decodes")) == nullptr,
+           "nothing loops without a device");
 }
 
 } // namespace

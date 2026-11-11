@@ -259,6 +259,7 @@ ui::SettingsCategory SettingsController::audioPage() const {
     page.rows.push_back(ui::makeToggle(soundsId, "UI sounds", "The sounds menus and launches make",
                                        preferences_.values().uiSounds));
     page.rows.push_back(interfaceSounds_.row());
+    page.rows.push_back(interfaceSounds_.musicRow());
     page.rows.push_back(
         ui::makeRow("audio.volume", RowKind::Info, "Volume", "In the Guide menu", ""));
     return page;

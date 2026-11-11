@@ -7,8 +7,8 @@ target_compile_features(opensu_audio_model PUBLIC cxx_std_20)
 opensu_warnings(opensu_audio_model)
 
 # The UI sounds on SDL audio streams, WAV through SDL and OGG through libvorbisfile, and live sound
-# on the same device.
-add_library(opensu_audio STATIC sound_clip.cpp sdl_sound_player.cpp live_sound.cpp)
+# and a looped clip on the same device.
+add_library(opensu_audio STATIC sound_clip.cpp sdl_sound_player.cpp live_sound.cpp sound_loop.cpp)
 add_library(opensu::audio ALIAS opensu_audio)
 target_include_directories(opensu_audio PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_audio

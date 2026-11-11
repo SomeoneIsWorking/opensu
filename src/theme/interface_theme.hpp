@@ -176,4 +176,10 @@ inline constexpr std::uintmax_t musicLimit = std::uintmax_t{16} << 20U;
 [[nodiscard]] std::optional<InterfaceTheme> readTheme(const std::filesystem::path& folder,
                                                       std::string id, std::string& error);
 
+/// The theme's file for the effect file `name` (`audio::shippedFile`) in its sounds folder;
+/// nothing when it has none, or, with `error` saying why, when the file there leads out of the
+/// folder, is not a file or is larger than `soundLimit`.
+[[nodiscard]] std::optional<std::filesystem::path>
+soundFile(const InterfaceTheme& theme, std::string_view name, std::string& error);
+
 } // namespace opensu::theme

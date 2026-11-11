@@ -12,7 +12,7 @@ from tools.sounds.synth import Mode, modal, pluck, strike
 
 Voice = Callable[[float, float, float, float], np.ndarray]
 
-C5, E5, A4 = 523.25, 659.26, 440.0
+C5, E5, A4, D5 = 523.25, 659.26, 440.0, 587.33
 
 # A tuned marimba bar: fundamental, the 4:1 tuned overtone and the bar's tenth-ish mode.
 MARIMBA_MODES = (
@@ -33,6 +33,14 @@ GLASS_MODES = (
 )
 
 
+# A soft bell: a sine fundamental, a faint octave and a fainter twelfth, all quick to fade.
+BELL_MODES = (
+    Mode(1.0, 1.0, 0.2),
+    Mode(2.0, 0.14, 0.08, brightness=1.0),
+    Mode(3.0, 0.035, 0.035, brightness=1.5),
+)
+
+
 def marimba(frequency: float, velocity: float, ring: float, seconds: float) -> np.ndarray:
     bar = modal(frequency, velocity, ring, seconds, MARIMBA_MODES, C5)
     mallet = strike(velocity, seconds, cutoff=2_400.0, decay=0.0012, seed=MALLET_SEED)
@@ -41,6 +49,10 @@ def marimba(frequency: float, velocity: float, ring: float, seconds: float) -> n
 
 def glass(frequency: float, velocity: float, ring: float, seconds: float) -> np.ndarray:
     return modal(frequency, velocity, ring, seconds, GLASS_MODES, E5)
+
+
+def bell(frequency: float, velocity: float, ring: float, seconds: float) -> np.ndarray:
+    return modal(frequency, velocity, ring, seconds, BELL_MODES, D5)
 
 
 soft_pluck: Voice = partial(
@@ -54,6 +66,10 @@ class Timbre:
     tonic: float
     voice: Voice
     room: Room
+    # Where the set goes under the repository; empty for assets/sounds/<name>.
+    folder: str = ""
+    # Where its menu music goes under the repository (tools/sounds/music.py); empty for none.
+    music: str = ""
 
 
 TIMBRES = {
@@ -79,6 +95,16 @@ TIMBRES = {
             A4,
             soft_pluck,
             Room(decay=0.26, size=0.75, damping=0.4, wet=0.18, predelay=0.006),
+        ),
+        Timbre(
+            # A soft sine bell with a faint octave, D major pentatonic, a light airy room; the
+            # Channels interface theme's own sounds.
+            "channels",
+            D5,
+            bell,
+            Room(decay=0.3, size=0.9, damping=0.35, wet=0.22, predelay=0.01),
+            "assets/interface-themes/channels/sounds",
+            "assets/interface-themes/channels/music.ogg",
         ),
     )
 }

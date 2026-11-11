@@ -1,6 +1,8 @@
 // Interface themes: the shipped folders open in the format, a theme states only what it changes,
-// and a manifest that breaks the format is refused with why.
+// a manifest that breaks the format is refused with why, and a sound file is taken only from inside
+// the theme's sounds folder.
 #include "support/test_main.hpp"
+#include "theme/interface_theme.hpp"
 #include "theme/interface_themes.hpp"
 
 #include <cstdio>
@@ -167,6 +169,45 @@ void idsNameOnlyThemeFolders(const fs::path& root) {
     expect(broken != nullptr && broken->id == "iisu", "a broken choice falls back to the default");
 }
 
+void soundFilesStayInTheFolder(const fs::path& root) {
+    const fs::path folder = root / "sounding";
+    write(folder / "sounds" / "navigation.ogg", "a cue");
+    write(root / "outside.ogg", "not the theme's");
+    fs::create_symlink(fs::path{".."} / ".." / "outside.ogg", folder / "sounds" / "open.ogg");
+    fs::create_directories(folder / "sounds" / "close.ogg");
+    write(folder / "sounds" / "launch.ogg", "");
+    fs::resize_file(folder / "sounds" / "launch.ogg", opensu::theme::soundLimit + 1);
+    std::string error;
+    const std::optional<InterfaceTheme> theme = parseTheme(
+        R"({"format": 1, "name": "Sounding", "sounds": {"folder": "sounds"}})", folder, "t", error);
+    expect(theme.has_value(), "a theme with a sounds folder parses: " + error);
+    if (!theme) {
+        return;
+    }
+    const InterfaceTheme& sounding = *theme;
+    using opensu::theme::soundFile;
+    expect(soundFile(sounding, "navigation.ogg", error).has_value() && error.empty(),
+           "a cue in the folder is the theme's");
+    expect(!soundFile(sounding, "exit.ogg", error) && error.empty(),
+           "a cue the folder lacks is none, and no fault");
+    expect(!soundFile(sounding, "open.ogg", error) && error == "leads out of the theme's folder",
+           "a link out of the folder is refused");
+    expect(!soundFile(sounding, "close.ogg", error) && error == "is not a file",
+           "a folder in a cue's name is refused");
+    expect(!soundFile(sounding, "launch.ogg", error) && error == "is larger than 4 MiB",
+           "a cue past the limit is refused");
+    InterfaceTheme none;
+    expect(!soundFile(none, "navigation.ogg", error) && error.empty(),
+           "a theme without a sounds folder has no cues of its own");
+
+    const InterfaceThemes shipped{fs::path{OPENSU_ASSETS_DIR} / "interface-themes",
+                                  root / "no-user-themes"};
+    const std::shared_ptr<const InterfaceTheme> channels = shipped.open("channels", error);
+    expect(channels != nullptr && !channels->music.empty() &&
+               soundFile(*channels, "navigation.ogg", error).has_value(),
+           "Channels brings its own cues and its music: " + error);
+}
+
 } // namespace
 
 int main() try {
@@ -176,6 +217,7 @@ int main() try {
     aThemeStatesWhatItChanges(root / "small");
     brokenManifestsAreRefused(root / "broken");
     idsNameOnlyThemeFolders(root / "ids");
+    soundFilesStayInTheFolder(root / "sounds");
     fs::remove_all(root);
     return 0;
 } catch (...) {

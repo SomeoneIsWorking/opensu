@@ -140,4 +140,16 @@ std::unique_ptr<LiveSound> SdlSoundPlayer::live(int rate, int channels) {
     }
 }
 
+std::unique_ptr<SoundLoop> SdlSoundPlayer::loop(SoundClip clip) {
+    if (device_ == 0) {
+        return nullptr;
+    }
+    try {
+        return std::make_unique<SoundLoop>(device_, std::move(clip));
+    } catch (const std::runtime_error& failure) {
+        lucent::warn("audio", "{}", failure.what());
+        return nullptr;
+    }
+}
+
 } // namespace opensu::audio

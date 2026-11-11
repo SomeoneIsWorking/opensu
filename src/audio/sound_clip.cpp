@@ -33,6 +33,11 @@ std::optional<SoundClip> decodeWav(std::string_view bytes, std::string_view name
         return std::nullopt;
     }
     const std::unique_ptr<Uint8, SdlFree> owned{data};
+    if (length > decodedLimit) {
+        lucent::warn("audio", "cannot decode {}: longer than {} MiB of sound", name,
+                     decodedLimit >> 20U);
+        return std::nullopt;
+    }
     clip.pcm.assign(data, data + length);
     return clip;
 }
@@ -113,6 +118,11 @@ std::optional<SoundClip> decodeOgg(std::string_view bytes, std::string_view name
         }
         if (read < 0) {
             lucent::warn("audio", "cannot decode {}: corrupt stream", name);
+            return std::nullopt;
+        }
+        if (clip.pcm.size() + static_cast<std::size_t>(read) > decodedLimit) {
+            lucent::warn("audio", "cannot decode {}: longer than {} MiB of sound", name,
+                         decodedLimit >> 20U);
             return std::nullopt;
         }
         clip.pcm.insert(clip.pcm.end(), buffer.begin(), buffer.begin() + read);

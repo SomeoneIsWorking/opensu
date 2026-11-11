@@ -33,6 +33,22 @@ constexpr std::array soundExtensions{".ogg", ".wav"};
 constexpr std::array shippedSets{settings::SoundSet::Marimba, settings::SoundSet::Glass,
                                  settings::SoundSet::Pluck};
 
+/// `relative` under `folder` with links followed, when it stays inside `folder`.
+std::optional<std::filesystem::path> within(const std::filesystem::path& folder,
+                                            const std::filesystem::path& relative) {
+    std::error_code ec;
+    const std::filesystem::path root = std::filesystem::weakly_canonical(folder, ec);
+    if (ec) {
+        return std::nullopt;
+    }
+    std::filesystem::path resolved = std::filesystem::weakly_canonical(folder / relative, ec);
+    const auto [rootEnd, at] = std::ranges::mismatch(root, resolved);
+    if (ec || rootEnd != root.end()) {
+        return std::nullopt;
+    }
+    return resolved;
+}
+
 /// Reads one object of the manifest, naming each value by its path for an error.
 class Reader {
   public:
@@ -225,15 +241,10 @@ class Reader {
             spelled.find('\\') != std::string::npos) {
             return fail(name(key) + " is not a path inside the theme's folder");
         }
-        std::error_code ec;
-        const std::filesystem::path root = std::filesystem::weakly_canonical(folder_, ec);
-        const std::filesystem::path resolved =
-            std::filesystem::weakly_canonical(folder_ / relative, ec);
-        const auto [rootEnd, at] = std::ranges::mismatch(root, resolved);
-        if (ec || rootEnd != root.end()) {
+        out = within(folder_, relative);
+        if (!out) {
             return fail(name(key) + " leads out of the theme's folder");
         }
-        out = resolved;
         return true;
     }
 
@@ -441,6 +452,31 @@ std::optional<InterfaceTheme> readTheme(const std::filesystem::path& folder, std
         error = file.string() + ": " + error;
     }
     return theme;
+}
+
+std::optional<std::filesystem::path> soundFile(const InterfaceTheme& theme, std::string_view name,
+                                               std::string& error) {
+    error.clear();
+    std::error_code ec;
+    if (theme.sounds.folder.empty() ||
+        !std::filesystem::exists(std::filesystem::symlink_status(theme.sounds.folder / name, ec))) {
+        return std::nullopt;
+    }
+    std::optional<std::filesystem::path> file =
+        within(theme.sounds.folder, std::filesystem::path{name});
+    if (!file) {
+        error = "leads out of the theme's folder";
+        return std::nullopt;
+    }
+    if (!std::filesystem::is_regular_file(*file, ec)) {
+        error = "is not a file";
+        return std::nullopt;
+    }
+    if (std::filesystem::file_size(*file, ec) > soundLimit || ec) {
+        error = "is larger than " + std::to_string(soundLimit >> 20U) + " MiB";
+        return std::nullopt;
+    }
+    return file;
 }
 
 } // namespace opensu::theme

@@ -3,11 +3,10 @@
 An interface theme is a whole console-menu feel chosen by one setting, Settings › Appearance ›
 Interface theme: palette, type, shape, spacing, Home's layout options, the interface sounds and the
 menu music. A theme is a folder of data, so a new one is a folder, not code. Choosing a theme
-gives what it sets back to it: the scroll mode the player had picked (Settings › Appearance) goes
-back to the theme's.
+gives what it sets back to it: the scroll mode the player had picked (Settings › Appearance) and
+the interface sounds (Settings › Audio, back to Theme's) go back to the theme's.
 
-Status: the format, the setting, the palette, type, shape, spacing, `tiles` and `home` are built;
-`sounds` and `music` are read and played from the plan's step 4 (`docs/plans/channels-theme.md`).
+Status: built, every key below; `docs/plans/channels-theme.md` is the plan it came from.
 
 ## Where themes live
 
@@ -30,6 +29,8 @@ Status: the format, the setting, the palette, type, shape, spacing, `tiles` and 
 | `src/ui/interface_theme.*` | The tokens as the toolkit's `gpu2d::ui::Theme` |
 | `ui::Shell::setTheme` | The face (`InterfaceText::useFace`), the HUD's ground, ink and clock bar, the grid's tiles (`TilePainter::setTiles`, the focus grow), the screens' theme |
 | `InterfaceThemeSettings::homeMode` | The scroll mode: the player's, else `OPENSU_HOME_MODE`'s, else the theme's `home.scroll` |
+| `src/app/interface_sounds.*` | The interface sounds: the player's choice, else the theme's `sounds.set` with its folder's files over it (`theme::soundFile`) |
+| `src/app/menu_music.*` | The theme's `music`, looped while Settings › Audio › Menu music and the UI sounds are on and no game runs |
 
 ## `theme.json`
 
@@ -66,7 +67,8 @@ Sans's and Nunito's do.
 
 It is data: no scripts, no URLs, nothing fetched. Its files are opened only through the loaders
 openSU uses for its own (FreeType through gpu2d's `Text` for a face, `audio::decodeSound` for
-sounds), and only files inside its folder, links followed and checked.
+sounds, which refuses more than `audio::decodedLimit` of decoded sound), and only files inside its
+folder, links followed and checked: the sounds folder's files each time they are loaded.
 
 ## A minimal theme
 
@@ -91,7 +93,10 @@ sounds), and only files inside its folder, links followed and checked.
 
 ## Checking it
 
-`interface_theme_test` opens the shipped themes and refuses broken manifests;
-`settings_controller_test` (`interfaceThemeIsChosen`) steps the row. In the running product, a
-hidden openSU in its own home with `"interfaceTheme"` set in `settings.json` logs
-`interface theme <name> from <folder>` and its frames show the theme.
+`interface_theme_test` opens the shipped themes, refuses broken manifests and sound files outside
+the sounds folder; `settings_controller_test` (`interfaceThemeIsChosen`, `interfaceSoundsAreChosen`)
+steps the rows. In the running product, a hidden openSU in its own home with `"interfaceTheme"`
+set in `settings.json` logs `interface theme <name> from <folder>` and its frames show the theme;
+with the theme's sounds it logs `<n> of 12 UI sounds are <name>'s`, and with `--sound` and
+`"menuMusic": true`, `menu music <name>: <seconds> s from <file>` and `menu music plays`
+(`SDL_AUDIO_DRIVER=disk` writes what the device plays to a file).

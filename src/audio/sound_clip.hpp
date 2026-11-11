@@ -3,6 +3,7 @@
 // way a playing one does.
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <optional>
@@ -22,7 +23,12 @@ struct SoundClip {
     [[nodiscard]] std::size_t frames() const noexcept;
 };
 
-/// The WAV or OGG `bytes`, by the extension of `name`; nothing (logged) when unusable.
+/// The most PCM a clip decodes to, about six minutes of 48 kHz 16-bit stereo; a theme's files
+/// are the player's, so a small file cannot unpack into a large one.
+inline constexpr std::size_t decodedLimit = std::size_t{64} << 20U;
+
+/// The WAV or OGG `bytes`, by the extension of `name`; nothing (logged) when unusable or longer
+/// than `decodedLimit`.
 [[nodiscard]] std::optional<SoundClip> decodeSound(std::string_view bytes, std::string_view name);
 
 /// The WAV or OGG in `file`, by its extension; nothing (logged) when unreadable.

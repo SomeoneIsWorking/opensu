@@ -115,15 +115,15 @@ struct Rig {
                                                       [this] {
                                                           ++consoleArtChanges;
                                                       }}},
-          interfaceSoundSettings{preferences, themes.iisu(),
-                                 [this] {
-                                     ++soundChanges;
-                                     controller.refresh();
-                                 }},
           interfaceThemeSettings{preferences, fs::path{OPENSU_ASSETS_DIR} / "interface-themes",
                                  config.home / "interface-themes",
                                  [this] {
                                      ++themeChanges;
+                                     controller.refresh();
+                                 }},
+          interfaceSoundSettings{preferences, themes.iisu(), interfaceThemeSettings,
+                                 [this] {
+                                     ++soundChanges;
                                      controller.refresh();
                                  }},
           volume{mixer ? std::unique_ptr<audio::VolumeBackend>{std::make_unique<FakeMixer>(
@@ -357,8 +357,8 @@ struct Rig {
     /// Console art themes from folders a test fills in.
     artwork::ConsoleThemes themes{config.home / "shipped-themes", config.home / "user-themes"};
     app::ArtworkSettings artworkSettings;
-    app::InterfaceSoundSettings interfaceSoundSettings;
     app::InterfaceThemeSettings interfaceThemeSettings;
+    app::InterfaceSoundSettings interfaceSoundSettings;
     audio::VolumeState mixerState{40, false};
     std::vector<std::string> mixerLog;
     std::vector<audio::VolumeState> shown;
@@ -1627,7 +1627,6 @@ void consoleThemeIsChosen(const fs::path& root) {
            "and the default comes round again");
 }
 
-/// Settings > Audio: Interface sounds offer openSU's three sets, and iiSU's only once its release
 /// Settings > Appearance: Interface theme offers the shipped themes, the default first, then the
 /// player's own; one that breaks the format is left out, and the choice opens as the current theme.
 void interfaceThemeIsChosen(const fs::path& root) {
@@ -1644,8 +1643,10 @@ void interfaceThemeIsChosen(const fs::path& root) {
     expect(!themes.choices.empty() && themes.choices.front() == "iiSU" &&
                themes.choices.back() == "Mine" && themes.chosen == 0,
            "iiSU's look leads and is chosen, the player's own theme is offered, a broken one not");
+    rig.preferences.values().interfaceSounds = settings::SoundSet::Pluck;
     rig.focus("appearance.interfacetheme");
     rig.act(Button::Left);
+    expect(!rig.onDisk().interfaceSounds, "choosing a theme gives its sounds back to it");
     expect(rig.onDisk().interfaceTheme == "user/mine" && rig.themeChanges == 1 &&
                rig.interfaceThemeSettings.current()->name == "Mine" &&
                rig.rowOf("appearance.interfacetheme").note == "ours",
@@ -1656,7 +1657,8 @@ void interfaceThemeIsChosen(const fs::path& root) {
            "Right wraps back to the default, kept as no choice");
 }
 
-/// is placed; a starter pack holds no sounds, so it adds none.
+/// Settings > Audio: Interface sounds offer the theme's, openSU's three sets, and iiSU's only once
+/// its release is placed; a starter pack holds no sounds, so it adds none. Menu music is a switch.
 void interfaceSoundsAreChosen(const fs::path& root) {
     Rig rig{root};
     fs::create_directories(rig.config.home);
@@ -1664,13 +1666,15 @@ void interfaceSoundsAreChosen(const fs::path& root) {
     rig.controller.open();
     rig.enter("Audio");
     const ui::SettingsRow sounds = rig.rowOf("audio.interfacesounds");
-    expect(sounds.choices == std::vector<std::string>{"Marimba", "Glass", "Pluck"} &&
-               sounds.chosen == 0 && sounds.note == "openSU's own sounds",
-           "with no sounds placed openSU's sets are offered, Marimba chosen");
+    expect(sounds.choices == std::vector<std::string>{"Theme's", "Marimba", "Glass", "Pluck"} &&
+               sounds.chosen == 0 && sounds.note == "As iiSU brings them",
+           "with no sounds placed the theme's and openSU's sets are offered, the theme's chosen");
     rig.focus("audio.interfacesounds");
     rig.act(Button::Right);
-    expect(rig.onDisk().interfaceSounds == settings::SoundSet::Glass && rig.soundChanges == 1,
-           "Right takes Glass");
+    rig.act(Button::Right);
+    expect(rig.onDisk().interfaceSounds == settings::SoundSet::Glass && rig.soundChanges == 2 &&
+               rig.rowOf("audio.interfacesounds").note == "openSU's own sounds",
+           "Right takes Marimba, then Glass");
 
     placeIisu(rig, "iiSU-Alpha-7.4.apk", iisuRelease());
     rig.controller.refresh();
@@ -1679,16 +1683,24 @@ void interfaceSoundsAreChosen(const fs::path& root) {
     rig.act(Button::Right);
     rig.act(Button::Right);
     const ui::SettingsRow chosen = rig.rowOf("audio.interfacesounds");
-    expect(rig.onDisk().interfaceSounds == settings::SoundSet::Iisu && chosen.choices.size() == 4 &&
+    expect(rig.onDisk().interfaceSounds == settings::SoundSet::Iisu && chosen.choices.size() == 5 &&
                chosen.choices[chosen.chosen] == "iiSU" &&
-               chosen.note == "iiSU's, from iiSU-Alpha-7.4.apk" && rig.soundChanges == 3,
+               chosen.note == "iiSU's, from iiSU-Alpha-7.4.apk" && rig.soundChanges == 4,
            "the release placed offers iiSU's sounds after Pluck, which are taken");
     rig.act(Button::Right);
-    expect(rig.onDisk().interfaceSounds == settings::SoundSet::Marimba && rig.soundChanges == 4,
-           "the choice wraps to Marimba");
+    expect(!rig.onDisk().interfaceSounds && rig.soundChanges == 5,
+           "the choice wraps to the theme's");
     rig.act(Button::Left);
-    expect(rig.onDisk().interfaceSounds == settings::SoundSet::Iisu && rig.soundChanges == 5,
+    expect(rig.onDisk().interfaceSounds == settings::SoundSet::Iisu && rig.soundChanges == 6,
            "Left steps back to iiSU's");
+
+    const ui::SettingsRow music = rig.rowOf("audio.menumusic");
+    expect(music.kind == ui::RowKind::Toggle && !music.on && music.note == "iiSU brings no music",
+           "Menu music is off, and the default theme brings none");
+    rig.focus("audio.menumusic");
+    rig.act(Button::A);
+    expect(rig.onDisk().menuMusic && rig.rowOf("audio.menumusic").on && rig.soundChanges == 7,
+           "A turns the menu music on");
 }
 
 /// Settings > Profiles: one profile, played as; Add profile names a second, whose picture steps

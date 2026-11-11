@@ -241,7 +241,7 @@ void ShellApp::applyLayout() {
         screen_orientation::stand(chosen.portrait);
     }
     sounds_.setMuted(!chosen.uiSounds);
-    interfaceSounds_.apply(chosen);
+    interfaceSounds_.apply(chosen, interfaceThemeSettings_.current());
 }
 
 std::vector<SearchResult> ShellApp::searchResults() const {
@@ -365,7 +365,7 @@ void ShellApp::requestArtwork() {
     }
     shell_.grid().consoleArt().use(consoleTheme_, systems);
     // The iiSU file placed serves the sounds too.
-    interfaceSounds_.apply(chosen);
+    interfaceSounds_.apply(chosen, interfaceThemeSettings_.current());
     artworkFetcher_.request(games_);
     delivery_.restart();
 }
@@ -1711,6 +1711,8 @@ int ShellApp::run() {
         syncOverlay();
         syncChrome();
         sounds_.playAsked();
+        menuMusic_.service(interfaceThemeSettings_.current(),
+                           MenuMusic::wanted(preferences_.values(), shell_.inGame()));
         shell_.tick(std::chrono::steady_clock::now());
         publishSnapshot();
         // An unmapped window draws nothing, and its artwork still streams in.

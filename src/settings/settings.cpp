@@ -45,6 +45,7 @@ constexpr const char* saveShareFolderKey = "saveShareFolder";
 constexpr const char* saveShareUrlKey = "saveShareUrl";
 constexpr const char* saveShareUserKey = "saveShareUser";
 constexpr const char* interfaceSoundsKey = "interfaceSounds";
+constexpr const char* menuMusicKey = "menuMusic";
 constexpr const char* shortcutsKey = "shortcuts";
 constexpr const char* shortcutKeysKey = "keys";
 constexpr const char* shortcutPadsKey = "pads";
@@ -110,7 +111,7 @@ class Reader {
         }
     }
 
-    void soundSet(const char* name, SoundSet& out, const char* fallback) const {
+    void soundSet(const char* name, std::optional<SoundSet>& out, const char* fallback) const {
         const auto found = document_.find(name);
         if (found == document_.end()) {
             return;
@@ -118,7 +119,7 @@ class Reader {
         const std::optional<SoundSet> choice =
             found->is_string() ? soundSetOf(found->get<std::string>()) : std::nullopt;
         if (choice) {
-            out = *choice;
+            out = choice;
         } else {
             reject(name, *found, fallback);
         }
@@ -466,7 +467,8 @@ Settings Store::load() const {
     settings.saveShareFolder = shareFolder;
     read.text(saveShareUrlKey, settings.saveShareUrl, "no WebDAV share");
     read.text(saveShareUserKey, settings.saveShareUser, "no WebDAV user");
-    read.soundSet(interfaceSoundsKey, settings.interfaceSounds, "playing Marimba");
+    read.soundSet(interfaceSoundsKey, settings.interfaceSounds, "playing the theme's");
+    read.boolean(menuMusicKey, settings.menuMusic, "no menu music");
     std::string homeSpelling;
     read.text(homeModeKey, homeSpelling, "using the environment's");
     if (!homeSpelling.empty()) {
@@ -557,7 +559,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {saveShareFolderKey, settings.saveShareFolder.string()},
         {saveShareUrlKey, settings.saveShareUrl},
         {saveShareUserKey, settings.saveShareUser},
-        {interfaceSoundsKey, std::string{key(settings.interfaceSounds)}},
+        {menuMusicKey, settings.menuMusic},
         {wineRunnerKey, settings.wineRunner.string()},
         {ownWinePrefixKey, settings.ownWinePrefixes.ids()},
         {wineRunnerPinsKey, pins},
@@ -584,6 +586,9 @@ bool Store::save(const Settings& settings, std::string& error) const {
     document[integrationsKey] = integrations;
     if (settings.homeMode) {
         document[homeModeKey] = std::string{config::key(*settings.homeMode)};
+    }
+    if (settings.interfaceSounds) {
+        document[interfaceSoundsKey] = std::string{key(*settings.interfaceSounds)};
     }
     return fileio::writeWhole(file_, document.dump(2) + "\n", error);
 }

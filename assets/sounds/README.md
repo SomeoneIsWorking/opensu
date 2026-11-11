@@ -28,6 +28,12 @@ licensed under its MIT licence (`LICENSE` at the repository root).
   - `marimba`: tuned wooden bar (1 : 4 : 9.9) with a felt mallet thud, C major pentatonic.
   - `glass`: struck glass, a slowly beating fundamental with a fast rim tink, E major pentatonic.
   - `pluck`: two detuned saw tones through a closing low-pass, A major pentatonic.
+  - `channels`: a soft bell, a sine and its octave with a faint upper partial and a fast decay,
+    D major pentatonic. It is the Channels interface theme's own set, written into
+    `assets/interface-themes/channels/sounds/` with the theme's menu music beside it
+    (`music.ogg`, `tools/sounds/music.py`: ten bars of soft electric-piano chords over a pad at
+    75 bpm, a few bell notes above, 32 s, what rings past the end folded onto the start so it loops
+    without a seam; its loudest 400 ms at -27 LUFS, under the cues).
 - Loudness is matched by category on the loudest 400 ms window (BS.1770 momentary): navigation
   -29 LUFS, section cues -25, panels -21, enter and exit -20, launch -18. Decoded peaks must stay
   below -1 dBFS or the generator refuses the set.
@@ -37,6 +43,7 @@ All are 48 kHz mono Ogg Vorbis. Regenerate every set, or one, from the repositor
 ```
 uv run --frozen --group sounds python -m tools.sounds
 uv run --frozen --group sounds python -m tools.sounds --set glass
+uv run --frozen --group sounds python -m tools.sounds --set channels
 ```
 
 The audio is the same on every run; the files' bytes differ, as each Ogg stream gets a new serial

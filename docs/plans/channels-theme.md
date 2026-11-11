@@ -13,9 +13,10 @@ the player's, and no new code path.
   `<data dir>/interface-themes/`. Choosing one changes palette, type, shape, spacing, Home's layout
   options, the interface sounds and the menu music together.
 - A theme sets the defaults of the choices the player already makes on their own: the scroll mode
-  (Settings › Appearance) and the interface sounds (Settings › Audio). Those rows gain "Theme's"
-  as their first entry, which follows the theme. Choosing a theme puts both back to "Theme's", so a
-  theme always arrives whole; the player may override either after.
+  (Settings › Appearance) and the interface sounds (Settings › Audio). The scroll switch follows
+  the theme until the player flips it; the sounds row gains "Theme's" as its first entry. Choosing
+  a theme gives both back to it, so a theme always arrives whole; the player may override either
+  after.
 - Menu music: a calm loop the theme may ship, played on Home and the menus while no game runs.
   Off by default, behind its own switch (Settings › Audio › Menu music).
 - One owner of the current theme: `theme::InterfaceThemes` lists and opens the folders and
@@ -88,8 +89,9 @@ partials, a fast decay) in D major pentatonic, a short airy room.
 - `launch.ogg`: a run into a ringing chord;
 - `section-*.ogg`: one to five light taps.
 
-`music.ogg`: about 32 s, seamless, slow (72 bpm) soft electric-piano chords over a pad in the same
-key, at -30 LUFS integrated so it sits under the cues; the loop's end crossfades into its start.
+`music.ogg`: 32 s, seamless, slow (75 bpm, ten bars) soft electric-piano chords over a pad in the
+same key with a few bell notes above, its loudest 400 ms at -27 LUFS so it sits under the cues;
+what rings past the loop's end is folded onto its start.
 
 ## Steps, each its own commit
 

@@ -58,8 +58,8 @@
 #include "integration_switch.hpp"
 #include "integrations_in_force.hpp"
 #include "interface_sound_settings.hpp"
-#include "interface_theme_settings.hpp"
 #include "interface_sounds.hpp"
+#include "interface_theme_settings.hpp"
 #include "keyboard_pad.hpp"
 #include "lan/remote_library.hpp"
 #include "lan_netplay.hpp"
@@ -81,6 +81,7 @@
 #include "library_additions.hpp"
 #include "lucent/log.h"
 #include "mapping_editor.hpp"
+#include "menu_music.hpp"
 #include "netplay_run.hpp"
 #include "night_light.hpp"
 #include "offer_claim.hpp"
@@ -415,6 +416,8 @@ class ShellApp final {
     audio::SdlSoundPlayer sounds_;
     /// Whose sounds `sounds_` holds, as the preferences choose.
     InterfaceSounds interfaceSounds_{sounds_, environment_.assetsDir, consoleThemes_.iisu()};
+    /// The interface theme's loop behind the menus.
+    MenuMusic menuMusic_{sounds_};
     /// Opened by `run` or `renderToFile`; before the shell, whose textures live on its device.
     std::unique_ptr<ShellWindow> window_;
     /// What the control channel's threads and the loop hand each other.
@@ -1276,11 +1279,6 @@ class ShellApp final {
                                [this] {
                                    requestArtwork();
                                }}};
-    /// Settings › Audio › Interface sounds.
-    InterfaceSoundSettings interfaceSoundSettings_{preferences_, consoleThemes_.iisu(), [this] {
-                                                       applyLayout();
-                                                       settingsScreen_.refresh();
-                                                   }};
     /// Settings › Appearance › Interface theme, and the theme in force.
     InterfaceThemeSettings interfaceThemeSettings_{
         preferences_, environment_.assetsDir / "interface-themes",
@@ -1288,6 +1286,12 @@ class ShellApp final {
             applyLayout();
             settingsScreen_.refresh();
         }};
+    /// Settings › Audio › Interface sounds and Menu music.
+    InterfaceSoundSettings interfaceSoundSettings_{preferences_, consoleThemes_.iisu(),
+                                                   interfaceThemeSettings_, [this] {
+                                                       applyLayout();
+                                                       settingsScreen_.refresh();
+                                                   }};
     /// The Settings screen, reached from the options panel.
     SettingsController settingsScreen_{
         shell_.screens().navigator(),

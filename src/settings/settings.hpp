@@ -151,9 +151,11 @@ struct Settings {
     std::string saveShareUser;
     /// Where saves are shared beside the LAN; its passphrase and WebDAV password are secrets.
     SaveShareKind saveShare{SaveShareKind::Off};
-    /// Which interface sounds play: one of openSU's sets, or iiSU's from the file placed in the
-    /// iiSU folder (`artwork::IisuInstall`).
-    SoundSet interfaceSounds{SoundSet::Marimba};
+    /// Which interface sounds play, when the player chose: one of openSU's sets, or iiSU's from
+    /// the file placed in the iiSU folder (`artwork::IisuInstall`); else the interface theme's.
+    std::optional<SoundSet> interfaceSounds;
+    /// Whether the interface theme's menu music plays behind the menus.
+    bool menuMusic{false};
 
     /// The player's changes to the shortcut table.
     input::ShortcutOverrides shortcuts;

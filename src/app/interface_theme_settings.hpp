@@ -1,7 +1,7 @@
 // interface_theme_settings — the one owner of the interface theme in force: Settings › Appearance ›
 // Interface theme steps through the themes there are (`theme::InterfaceThemes`), and `current`
 // is the chosen one opened, or the default when it does not open. Choosing a theme gives back
-// what it sets to the theme: the scroll mode the player had picked.
+// what it sets to the theme: the scroll mode and the interface sounds the player had picked.
 #pragma once
 
 #include <filesystem>

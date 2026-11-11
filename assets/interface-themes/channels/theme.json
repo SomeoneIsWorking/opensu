@@ -33,5 +33,7 @@
     "well": "#E5E8EC",
     "focus": "#34B4E4"
   },
-  "home": { "scroll": "pages", "clockBar": true, "pillClock": false }
+  "home": { "scroll": "pages", "clockBar": true, "pillClock": false },
+  "sounds": { "set": "glass", "folder": "sounds" },
+  "music": "music.ogg"
 }

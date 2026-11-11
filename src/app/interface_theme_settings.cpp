@@ -45,6 +45,7 @@ void InterfaceThemeSettings::run(const std::string& /*id*/, int step) {
     settings::Settings& values = preferences_.values();
     values.interfaceTheme = ui::stepped(ids, values.interfaceTheme, step);
     values.homeMode.reset();
+    values.interfaceSounds.reset();
     preferences_.save();
     changed_();
 }

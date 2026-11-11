@@ -7,6 +7,7 @@ namespace opensu::app {
 namespace {
 
 constexpr const char* interfaceSoundsId = "audio.interfacesounds";
+constexpr const char* menuMusicId = "audio.menumusic";
 
 } // namespace
 
@@ -15,43 +16,58 @@ std::shared_ptr<const artwork::IisuPack> InterfaceSoundSettings::iisuSounds() co
     return pack != nullptr && pack->hasSounds() ? pack : nullptr;
 }
 
-std::vector<settings::SoundSet> InterfaceSoundSettings::offered() const {
+std::vector<std::optional<settings::SoundSet>> InterfaceSoundSettings::offered() const {
     const bool iisu = iisuSounds() != nullptr;
-    std::vector<settings::SoundSet> sets;
+    std::vector<std::optional<settings::SoundSet>> sets{std::nullopt};
     for (const settings::SoundSet set : settings::allSoundSets) {
         if (set != settings::SoundSet::Iisu || iisu) {
-            sets.push_back(set);
+            sets.emplace_back(set);
         }
     }
     return sets;
 }
 
-settings::SoundSet InterfaceSoundSettings::playing() const {
-    const settings::SoundSet chosen = preferences_.values().interfaceSounds;
-    return iisuSounds() == nullptr ? settings::shippedSet(chosen) : chosen;
+std::optional<settings::SoundSet> InterfaceSoundSettings::playing() const {
+    const std::optional<settings::SoundSet> chosen = preferences_.values().interfaceSounds;
+    return chosen && iisuSounds() == nullptr ? settings::shippedSet(*chosen) : chosen;
 }
 
 ui::SettingsRow InterfaceSoundSettings::row() const {
-    const settings::SoundSet now = playing();
+    const std::optional<settings::SoundSet> now = playing();
     ui::Options choices;
-    for (const settings::SoundSet set : offered()) {
+    for (const std::optional<settings::SoundSet>& set : offered()) {
         if (set == now) {
             choices.chosen = choices.labels.size();
         }
-        choices.labels.emplace_back(settings::label(set));
+        choices.labels.emplace_back(set ? settings::label(*set) : "Theme's");
     }
-    const std::string note = now == settings::SoundSet::Iisu
-                                 ? "iiSU's, from " + iisuSounds()->file().filename().string()
-                                 : "openSU's own sounds";
+    std::string note = "openSU's own sounds";
+    if (!now) {
+        note = "As " + themes_.current()->name + " brings them";
+    } else if (*now == settings::SoundSet::Iisu) {
+        note = "iiSU's, from " + iisuSounds()->file().filename().string();
+    }
     return ui::makeChoice(interfaceSoundsId, "Interface sounds", note, std::move(choices));
 }
 
-bool InterfaceSoundSettings::owns(const std::string& id) {
-    return id == interfaceSoundsId;
+ui::SettingsRow InterfaceSoundSettings::musicRow() const {
+    const std::shared_ptr<const theme::InterfaceTheme> theme = themes_.current();
+    const std::string note = theme->music.empty() ? theme->name + " brings no music"
+                                                  : theme->name + "'s loop behind the menus";
+    return ui::makeToggle(menuMusicId, "Menu music", note, preferences_.values().menuMusic);
 }
 
-void InterfaceSoundSettings::run(const std::string& /*id*/, int step) {
-    preferences_.values().interfaceSounds = ui::stepped(offered(), playing(), step);
+bool InterfaceSoundSettings::owns(const std::string& id) {
+    return id == interfaceSoundsId || id == menuMusicId;
+}
+
+void InterfaceSoundSettings::run(const std::string& id, int step) {
+    settings::Settings& values = preferences_.values();
+    if (id == menuMusicId) {
+        values.menuMusic = !values.menuMusic;
+    } else {
+        values.interfaceSounds = ui::stepped(offered(), playing(), step);
+    }
     preferences_.save();
     changed_();
 }
