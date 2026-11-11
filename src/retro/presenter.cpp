@@ -572,7 +572,7 @@ Readback Presenter::readBack() {
             VkBufferImageCopy region{};
             region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
             region.imageExtent = {extent_.width, extent_.height, 1};
-            vkCmdCopyImageToBuffer(slot.commands, targets_[*drawnOffscreen_].image,
+            vkCmdCopyImageToBuffer(slot.commands, targets_[drawnOffscreen_.value()].image,
                                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer, 1, &region);
             check(vkEndCommandBuffer(slot.commands), "vkEndCommandBuffer");
             VkSubmitInfo submit{};
@@ -586,7 +586,7 @@ Readback Presenter::readBack() {
             capture_ = buffer;
             captured_ = false;
             FrameStages unmeasured;
-            present(*lastFrame_, false, {}, nullptr, unmeasured);
+            present(lastFrame_.value(), false, {}, nullptr, unmeasured);
             capture_ = VK_NULL_HANDLE;
             waitAll();
             if (!captured_) {
