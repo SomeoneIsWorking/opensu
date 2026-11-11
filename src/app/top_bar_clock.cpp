@@ -18,6 +18,7 @@ void TopBarClock::service(Clock::time_point now) {
         std::chrono::duration_cast<std::chrono::milliseconds>(wall.time_since_epoch()).count() %
         1000);
     shell_.setClock(ui::ClockText::format(parts.tm_hour, parts.tm_min, hour24_));
+    shell_.setDate(ui::ClockText::date(parts.tm_wday, parts.tm_mday, parts.tm_mon));
     next_ = now + ui::ClockText::untilNextMinute(parts.tm_sec, millisecond);
     // STOPGAP: the battery is re-read on the clock's minute tick because opensu has no
     // power_supply uevent listener standing in for iiSU's ACTION_BATTERY_CHANGED receiver.

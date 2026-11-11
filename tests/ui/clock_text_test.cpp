@@ -32,12 +32,20 @@ void minuteBoundary() {
     expect(ClockText::untilNextMinute(60, 0).count() == 1000, "a leap second still waits one");
 }
 
+void dateLine() {
+    expect(ClockText::date(3, 11, 10) == "Wed 11 Nov", "weekday, day, month");
+    expect(ClockText::date(0, 1, 0) == "Sun 1 Jan", "the first day and month");
+    expect(ClockText::date(7, 1, 0).empty() && ClockText::date(1, 1, 12).empty(),
+           "out of range reads empty");
+}
+
 } // namespace
 
 int main() try {
     twentyFourHour();
     twelveHour();
     minuteBoundary();
+    dateLine();
     std::printf("clock_text: all checks passed\n");
     return 0;
 } catch (...) {

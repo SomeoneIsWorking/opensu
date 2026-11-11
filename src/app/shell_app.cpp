@@ -52,7 +52,8 @@ struct HeldLaunch {
 ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
     : environment_{environment}, settings_{settings},
       catalogLoader_{catalogOf(integrations_.catalogStores())},
-      shell_{settings_.width, settings_.height, settings_.homeMode, environment_.assetsDir},
+      shell_{settings_.width, settings_.height,
+             settings_.homeMode.value_or(config::HomeMode::Standard), environment_.assetsDir},
       steam_{steam::Client::Options{
           .home = resolved_.home,
           .executablePath = resolved_.executablePath,
@@ -230,8 +231,8 @@ void ShellApp::applyLayout() {
     if (grid.iconSize() != chosen.iconSize) {
         grid.setIconSize(chosen.iconSize);
     }
-    grid.setHomeMode(chosen.homeMode.value_or(settings_.homeMode));
     shell_.setTheme(interfaceThemeSettings_.current());
+    grid.setHomeMode(interfaceThemeSettings_.homeMode(settings_.homeMode));
     shell_.setUiScale(settings::uiScaleFactor(chosen.uiScale),
                       settings::uiDisplayFactor(chosen.uiScale));
     shell_.setKeyboardStyle(chosen.keyboardStyle);

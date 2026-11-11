@@ -53,16 +53,16 @@ bool envBool(const char* name, bool fallback) {
     return raw == "1" || raw == "true" || raw == "yes";
 }
 
-HomeMode envHomeMode(const char* name, HomeMode fallback) {
+std::optional<HomeMode> envHomeMode(const char* name) {
     const std::string_view raw = env(name);
     if (raw.empty()) {
-        return fallback;
+        return std::nullopt;
     }
     if (const std::optional<HomeMode> mode = homeModeOf(raw)) {
-        return *mode;
+        return mode;
     }
-    lucent::warn("config", "{} is not standard or wiisu; using standard", name);
-    return fallback;
+    lucent::warn("config", "{} is not standard or wiisu; the interface theme's stands", name);
+    return std::nullopt;
 }
 
 std::optional<device::BatteryStatus> envBattery(const char* name) {
@@ -236,7 +236,7 @@ Config read() {
     } else {
         value.legendaryConfigDir = value.configDir.parent_path() / "legendary";
     }
-    value.homeMode = envHomeMode("OPENSU_HOME_MODE", value.homeMode);
+    value.homeMode = envHomeMode("OPENSU_HOME_MODE");
     value.clock24Hour = clock::localeClock24Hour();
     value.width = envInt("OPENSU_WIDTH", value.width);
     value.height = envInt("OPENSU_HEIGHT", value.height);

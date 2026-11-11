@@ -14,6 +14,17 @@
 #include "round_shape.hpp"
 
 namespace opensu::ui {
+namespace {
+
+// The clock bar's row above the prompts, and its time and date, in dp.
+constexpr float clockRowDp = 50.0f;
+constexpr float clockTimeDp = 25.0f;
+constexpr float clockDateDp = 11.5f;
+// Where the time's and the date's centres stand in the row, as shares of it.
+constexpr float clockTimeAt = 0.46f;
+constexpr float clockDateAt = 0.9f;
+
+} // namespace
 
 bool chromeDark(const theme::Palette& palette) noexcept {
     // iiSU gh3.q: the grid chrome is dark when the theme background's luminance is under half.
@@ -45,7 +56,15 @@ float Hud::barHeight() const noexcept {
 }
 
 float Hud::bottomInset() const noexcept {
-    return metrics().gridBottomInset() * dp_ + safe_.bottom;
+    return metrics().gridBottomInset() * dp_ + clockRow() + safe_.bottom;
+}
+
+float Hud::clockRow() const noexcept {
+    return tokens_.home.clockBar ? clockRowDp * dp_ : 0.0f;
+}
+
+const std::string& Hud::pillClock() const noexcept {
+    return tokens_.home.pillClock ? clock_ : noClock_;
 }
 
 void Hud::setToast(std::string text, bool isError, Clock::time_point now) {
@@ -92,14 +111,53 @@ void Hud::drawGround(Canvas& canvas) const {
     }
 }
 
+void Hud::drawClockBar(Canvas& canvas) const {
+    if (!tokens_.home.clockBar) {
+        return;
+    }
+    const theme::Palette& colours = tokens_.palette;
+    const auto width = static_cast<float>(width_);
+    const auto height = static_cast<float>(height_);
+    const float top = height - bottomInset();
+    const Rect band{0.0f, top, width, height - top};
+    // A soft shadow over the ground above the band, then the band washed downwards.
+    const float shade = 6.0f * dp_;
+    const Colour dark = withAlpha(colourOf(colours.ink), 0.0f);
+    const Colour edge = withAlpha(colourOf(colours.ink), 0.08f);
+    fillRoundRect(canvas, RoundRect{Rect{0.0f, top - shade, width, shade}, 0.0f},
+                  [dark, edge, top, shade](Point point, float) {
+                      return mix(dark, edge,
+                                 std::clamp(1.0f - (top - point.y) / shade, 0.0f, 1.0f));
+                  });
+    const Colour upper = colourOf(colours.surface);
+    const Colour lower = colourOf(colours.ground);
+    fillRoundRect(canvas, RoundRect{band, 0.0f}, [upper, lower, band](Point point, float) {
+        return mix(upper, lower, (point.y - band.y) / std::max(band.height, 1.0f));
+    });
+    // A bright rim along its top.
+    canvas.fillRect(onCanvas(Rect{0.0f, top, width, std::max(1.5f * dp_, 1.0f)}), white);
+    const float row = clockRow();
+    const Colour ink = colourOf(colours.inkMuted);
+    const float timeSize = clockTimeDp * dp_;
+    const float dateSize = clockDateDp * dp_;
+    text_.drawCentred(
+        canvas, clock_,
+        Point{(width - text_.measure(clock_, timeSize)) * 0.5f, top + row * clockTimeAt}, timeSize,
+        ink);
+    text_.drawCentred(
+        canvas, date_,
+        Point{(width - text_.measure(date_, dateSize)) * 0.5f, top + row * clockDateAt}, dateSize,
+        colourOf(colours.inkFaint));
+}
+
 TopBarLayout Hud::topBarLayout() const {
     const auto visible =
         static_cast<std::size_t>(std::ranges::count_if(launchers_, [](const LauncherBadge& badge) {
             return badge.state != ServiceState::Hidden;
         }));
-    const bool letters = ClockText::hasLetters(clock_);
+    const bool letters = ClockText::hasLetters(pillClock());
     const float content =
-        statusPill_.rowWidth(metrics().statusPill(letters), dp_, clock_, battery_);
+        statusPill_.rowWidth(metrics().statusPill(letters), dp_, pillClock(), battery_);
     return layoutTopBar(metrics(),
                         TopBarFrame{static_cast<float>(width_), static_cast<float>(height_), dp_,
                                     letters, content, visible, safe_});
@@ -126,7 +184,7 @@ void Hud::drawTopBar(Canvas& canvas, const TopBarHover& hover) {
     // its launchers' badges stand in the status pill where iiSU has the bell.
     const TopBarLayout layout = topBarLayout();
     const double seconds = std::chrono::duration<double>(now_.time_since_epoch()).count();
-    statusPill_.paint(canvas, StatusPillView{layout.status, layout.pill, dp_, clock_, battery_,
+    statusPill_.paint(canvas, StatusPillView{layout.status, layout.pill, dp_, pillClock(), battery_,
                                              layout.launcherColumn, layout.divider, launchers_,
                                              BadgeRow{layout.launchers, hover.launcher, seconds}});
     // STOPGAP: jj2.w's glass strip behind the status pill is not drawn because its geometry is

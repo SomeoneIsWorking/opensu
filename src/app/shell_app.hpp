@@ -140,8 +140,8 @@ struct Settings {
     /// Whether the control channel runs. It is how an automated run drives the
     /// shell, so it is on unless configuration turns it off.
     bool controlChannel{true};
-    /// The home grid's dashboard mode.
-    config::HomeMode homeMode{config::HomeMode::Standard};
+    /// The home grid's dashboard mode the environment set, before the player's and the theme's.
+    std::optional<config::HomeMode> homeMode;
     /// The window is never mapped and no pad is read, for maintainer runs and tests.
     bool hidden{false};
     /// openSU is the login session (`--session`), not an app on a desktop.

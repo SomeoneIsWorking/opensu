@@ -128,8 +128,9 @@ struct Config {
     /// The files libretro cores look up by name, BIOS images among them: `<dataDir>/system`.
     std::filesystem::path retroSystemDir;
 
-    /// The home grid's dashboard mode, from OPENSU_HOME_MODE (`standard` or `wiisu`).
-    HomeMode homeMode{HomeMode::Standard};
+    /// The home grid's dashboard mode, from OPENSU_HOME_MODE (`standard` or `wiisu`); none
+    /// leaves it to the player's choice and then the interface theme.
+    std::optional<HomeMode> homeMode;
 
     /// Whether the clock reads 24-hour time, from the LC_TIME locale's time format.
     bool clock24Hour{true};

@@ -20,6 +20,9 @@ void focus() {
     near(motion::focusScale(205.0f), 1.0325f, "settling is ease-out cubic too");
     near(motion::focusScale(265.0f), 1.03f, "rests at 1.03 after 265 ms");
     near(motion::focusScale(400.0f), 1.03f, "holds 1.03");
+    near(motion::growScale(0.0f, 1.08f), 1.0f, "a theme's grow starts at 1");
+    near(motion::growScale(motion::growMs * 0.5f, 1.08f), 1.07f, "it eases out");
+    near(motion::growScale(1000.0f, 1.08f), 1.08f, "and holds at the theme's size");
 }
 
 void domino() {

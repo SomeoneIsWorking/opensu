@@ -173,7 +173,7 @@ ui::SettingsCategory SettingsController::appearancePage() const {
     page.rows.push_back(interfaceThemes_.row());
     page.rows.push_back(shelf_.layout("How Library lays out its tiles"));
     page.rows.push_back(shelf_.iconSize("How large the shelf's tiles are"));
-    const config::HomeMode mode = v.homeMode.value_or(defaults_.homeMode);
+    const config::HomeMode mode = interfaceThemes_.homeMode(defaults_.homeMode);
     page.rows.push_back(ui::makeChoice(
         scrollModeId, "Scroll mode", "How the home grid scrolls",
         ui::Options{{"Scrolling", "Pages"}, mode == config::HomeMode::WiiSu ? 1U : 0U}));
@@ -631,7 +631,7 @@ void SettingsController::run(const std::string& id, int step) {
 void SettingsController::runAppearance(const std::string& id, int step) {
     settings::Settings& v = preferences_.values();
     if (id == scrollModeId) {
-        v.homeMode = v.homeMode.value_or(defaults_.homeMode) == config::HomeMode::WiiSu
+        v.homeMode = interfaceThemes_.homeMode(defaults_.homeMode) == config::HomeMode::WiiSu
                          ? config::HomeMode::Standard
                          : config::HomeMode::WiiSu;
     } else if (id == nightLightId) {

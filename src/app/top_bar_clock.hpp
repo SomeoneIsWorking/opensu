@@ -1,5 +1,5 @@
-// top_bar_clock — the top bar's clock, set again on each minute boundary as iiSU's k42 re-renders
-// it, with the battery read on the same tick.
+// top_bar_clock — the shell's clock and date, set again on each minute boundary as iiSU's k42
+// re-renders its clock, with the battery read on the same tick.
 #pragma once
 
 #include <chrono>

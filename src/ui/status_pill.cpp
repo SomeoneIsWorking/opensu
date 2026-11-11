@@ -93,11 +93,16 @@ void StatusPillPainter::paint(Canvas& canvas, const StatusPillView& view) {
         percent = std::to_string(view.battery->percent) + "%";
     }
     float pen = body.x + view.launcherColumn + m.paddingHorizontal * dp;
-    text_.drawCentred(canvas, clock, Point{pen, centreY}, size, textInk);
-    pen += text_.measure(clock, size) + spacing;
+    // A theme may move the clock out of the pill; the battery then stands alone.
+    if (!clock.empty()) {
+        text_.drawCentred(canvas, clock, Point{pen, centreY}, size, textInk);
+        pen += text_.measure(clock, size) + spacing;
+    }
     if (view.battery) {
-        text_.drawCentred(canvas, separator, Point{pen, centreY}, size, textInk);
-        pen += text_.measure(separator, size) + spacing;
+        if (!clock.empty()) {
+            text_.drawCentred(canvas, separator, Point{pen, centreY}, size, textInk);
+            pen += text_.measure(separator, size) + spacing;
+        }
         text_.drawCentred(canvas, percent, Point{pen, centreY}, size, textInk);
         pen += text_.measure(percent, size) + spacing;
         paintBattery(canvas, pen, centreY, icon, *view.battery);
@@ -110,9 +115,12 @@ float StatusPillPainter::rowWidth(const StatusPillMetrics& metrics, float dp,
     const float size = metrics.fontSize * dp;
     float width = text_.measure(std::string{clock}, size);
     if (battery) {
-        width += metrics.textSpacing * dp * 3.0f + text_.measure(separator, size) +
+        width += metrics.textSpacing * dp +
                  text_.measure(std::to_string(battery->percent) + "%", size) +
                  metrics.batteryIcon * dp;
+        if (!clock.empty()) {
+            width += metrics.textSpacing * dp * 2.0f + text_.measure(separator, size);
+        }
     }
     return width;
 }

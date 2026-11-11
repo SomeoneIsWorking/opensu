@@ -1,6 +1,7 @@
 #include "clock_text.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cstdio>
 
@@ -15,6 +16,19 @@ std::string ClockText::format(int hour, int minute, bool twentyFourHour) {
     // "h:mm a": 12-hour without a leading zero, then the day half.
     const int twelve = hour % 12 == 0 ? 12 : hour % 12;
     std::snprintf(text, sizeof(text), "%d:%02d %s", twelve, minute, hour < 12 ? "AM" : "PM");
+    return text;
+}
+
+std::string ClockText::date(int weekday, int day, int month) {
+    constexpr std::array<const char*, 7> days{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+    constexpr std::array<const char*, 12> months{"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                                                 "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+    if (weekday < 0 || weekday >= 7 || month < 0 || month >= 12 || day < 1 || day > 31) {
+        return {};
+    }
+    char text[24]{};
+    std::snprintf(text, sizeof(text), "%s %d %s", days.at(static_cast<std::size_t>(weekday)), day,
+                  months.at(static_cast<std::size_t>(month)));
     return text;
 }
 

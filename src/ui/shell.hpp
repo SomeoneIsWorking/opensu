@@ -242,6 +242,10 @@ class Shell {
     void setClock(std::string text) {
         hud_.setClock(std::move(text));
     }
+    /// The date a theme's clock bar shows under the time.
+    void setDate(std::string text) {
+        hud_.setDate(std::move(text));
+    }
     void setToast(std::string text, bool isError = false) {
         hud_.setToast(std::move(text), isError, now_);
     }

@@ -145,7 +145,7 @@ int main(int argc, char** argv) try {
     }
     using opensu::config::HomeMode;
     if (which == "home-default" || which == "home-invalid") {
-        expect(config.homeMode == HomeMode::Standard, "an unset or unknown home mode is Standard");
+        expect(!config.homeMode, "an unset or unknown home mode is left to the theme");
     } else if (which == "home-standard") {
         expect(config.homeMode == HomeMode::Standard, "standard selects Standard");
     } else if (which == "home-wiisu") {

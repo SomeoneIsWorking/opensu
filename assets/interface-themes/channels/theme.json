@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "name": "Channels",
+  "author": "openSU",
+  "note": "Pages of rounded tiles, a soft light look; openSU's own, MIT; Nunito, OFL",
+  "palette": {
+    "ground": "#EEF1F4",
+    "surface": "#F7F9FB",
+    "control": "#FFFFFF",
+    "controlFocused": "#FFFFFF",
+    "selected": "#DCEFF8",
+    "ink": "#474C54",
+    "inkMuted": "#767C86",
+    "inkFaint": "#A2A8B1",
+    "accent": "#34B4E4",
+    "onAccent": "#FFFFFF",
+    "track": "#C9CED5",
+    "focusRing": "#34B4E4",
+    "scrim": "#3A3F4766",
+    "toast": "#474C54EE",
+    "groundTop": "#F8F9FB",
+    "groundBottom": "#E2E6EB",
+    "groundDots": false,
+    "chromeInk": "#6B717A"
+  },
+  "type": { "face": "Nunito-Bold.ttf" },
+  "shape": { "radius": 16, "smallRadius": 12, "focusRing": 2.6 },
+  "tiles": {
+    "style": "channel",
+    "grow": 1.08,
+    "body": "#FFFFFF",
+    "edge": "#C4CAD2",
+    "well": "#E5E8EC",
+    "focus": "#34B4E4"
+  },
+  "home": { "scroll": "pages", "clockBar": true, "pillClock": false }
+}

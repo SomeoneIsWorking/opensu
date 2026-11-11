@@ -11,6 +11,7 @@
 #include <string_view>
 #include <vector>
 
+#include "interface_theme.hpp"
 #include "progress_spinner.hpp"
 
 namespace opensu::ui {
@@ -173,6 +174,10 @@ void TilePainter::paint(Canvas& canvas, const TileVisual& tile) {
     const TileGeometry geometry = tileGeometry(tile.rect, tile.cell);
     // iiSU nx2.j: the canvas is scaled about the tile centre.
     const PanelScope scaled{canvas, Point{tile.rect.centreX(), tile.rect.centreY()}, tile.scale};
+    if (tiles_.style == theme::TileStyle::Channel) {
+        paintChannel(canvas, tile, geometry);
+        return;
+    }
     const ChromeVariant& variant = tile.dark ? darkChrome : lightChrome;
     const bool selected = tile.focused && tile.selectionRing;
     paintShadow(canvas, geometry, variant, tile.alpha);
@@ -186,6 +191,71 @@ void TilePainter::paint(Canvas& canvas, const TileVisual& tile) {
     if (selected) {
         paintRing(canvas, geometry, {ringOverInset, tile.ringDegrees, tile.alpha});
     }
+}
+
+void TilePainter::paintChannel(Canvas& canvas, const TileVisual& tile,
+                               const TileGeometry& geometry) {
+    const float alpha = tile.alpha;
+    const RoundRect body{geometry.outer, geometry.outerRadius};
+    const float stroke = std::max(geometry.outerStroke, 1.0f);
+    const RoundRect rim{body.rect, body.radius};
+    if (tile.placeholder) {
+        // An empty slot: a faint well, darker along its top as if pressed in.
+        const Colour well = withAlpha(colourOf(tiles_.well), alpha);
+        fillRoundRect(canvas, body, [well](Point, float) {
+            return well;
+        });
+        const Rect& r = body.rect;
+        const Colour shade = withAlpha(colourOf(tiles_.edge), 0.55f * alpha);
+        strokeSoft(canvas, rim.grown(-0.5f * stroke), stroke, stroke, rim,
+                   [shade, &r](Point point, float) {
+                       const float t =
+                           std::clamp((point.y - r.y) / std::max(r.height, 1.0f), 0.0f, 1.0f);
+                       return withAlpha(shade, 1.0f - 0.7f * t);
+                   });
+        return;
+    }
+    // A soft shadow under the body.
+    RoundRect shadow = body.grown(0.5f * stroke);
+    shadow.rect.y += 1.6f * stroke;
+    const Colour dark = alphaColour(0, 0, 0, 0.12f * alpha);
+    fillSoft(canvas, shadow, std::max(3.0f, 2.4f * stroke), [dark](Point, float) {
+        return dark;
+    });
+    // The body, white at the top and a touch greyer at its foot.
+    const Colour top = withAlpha(colourOf(tiles_.body), alpha);
+    const Colour foot = withAlpha(mix(colourOf(tiles_.body), colourOf(tiles_.edge), 0.25f), alpha);
+    const Rect& r = body.rect;
+    fillRoundRect(canvas, body, [top, foot, &r](Point point, float) {
+        return mix(top, foot, std::clamp((point.y - r.y) / std::max(r.height, 1.0f), 0.0f, 1.0f));
+    });
+    paintContent(canvas, tile, geometry);
+    // Gloss over the upper half: white fading out downwards.
+    const Colour gloss = alphaColour(255, 255, 255, 0.18f * alpha);
+    fillRoundRect(canvas, RoundRect{Rect{r.x, r.y, r.width, r.height * 0.5f}, body.radius},
+                  [gloss, &r](Point point, float) {
+                      const float t =
+                          std::clamp((point.y - r.y) / std::max(r.height * 0.5f, 1.0f), 0.0f, 1.0f);
+                      return withAlpha(gloss, 1.0f - t);
+                  });
+    const Colour edge = withAlpha(colourOf(tiles_.edge), alpha);
+    strokeSoft(canvas, rim.grown(-0.5f * stroke), stroke, 0.0f, rim, [edge](Point, float) {
+        return edge;
+    });
+    if (!tile.focused) {
+        return;
+    }
+    // Focus: an accent outline just outside the body, with a soft glow around it.
+    const float width = 1.8f * stroke;
+    const RoundRect ring = body.grown(1.2f * stroke + 0.5f * width);
+    const RoundRect reach = ring.grown(4.0f * width);
+    const Colour focus = withAlpha(colourOf(tiles_.focus), alpha);
+    strokeSoft(canvas, ring, 3.0f * width, 2.0f * width, reach, [focus](Point, float) {
+        return withAlpha(focus, 0.3f);
+    });
+    strokeSoft(canvas, ring, width, 0.0f, reach, [focus](Point, float) {
+        return focus;
+    });
 }
 
 void TilePainter::paintShadow(Canvas& canvas, const TileGeometry& geometry,

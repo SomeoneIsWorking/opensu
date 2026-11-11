@@ -2,11 +2,12 @@
 
 An interface theme is a whole console-menu feel chosen by one setting, Settings › Appearance ›
 Interface theme: palette, type, shape, spacing, Home's layout options, the interface sounds and the
-menu music. A theme is a folder of data, so a new one is a folder, not code.
+menu music. A theme is a folder of data, so a new one is a folder, not code. Choosing a theme
+gives what it sets back to it: the scroll mode the player had picked (Settings › Appearance) goes
+back to the theme's.
 
-Status: the format, the setting, the palette, type, shape and spacing are built. `tiles` and `home`
-are read but drawn from the plan's step 3, `sounds` and `music` played from its step 4
-(`docs/plans/channels-theme.md`).
+Status: the format, the setting, the palette, type, shape, spacing, `tiles` and `home` are built;
+`sounds` and `music` are read and played from the plan's step 4 (`docs/plans/channels-theme.md`).
 
 ## Where themes live
 
@@ -27,7 +28,8 @@ are read but drawn from the plan's step 3, `sounds` and `music` played from its 
 | `src/theme/theme_folders.*` | Shipped and player folders, ids, `user/` |
 | `src/app/interface_theme_settings.*` | The setting's row, and `current`: the one theme in force, which `ShellApp::applyLayout` hands to the shell |
 | `src/ui/interface_theme.*` | The tokens as the toolkit's `gpu2d::ui::Theme` |
-| `ui::Shell::setTheme` | The face (`InterfaceText::useFace`), the HUD's ground and ink, the grid's tiles, the screens' theme |
+| `ui::Shell::setTheme` | The face (`InterfaceText::useFace`), the HUD's ground, ink and clock bar, the grid's tiles (`TilePainter::setTiles`, the focus grow), the screens' theme |
+| `InterfaceThemeSettings::homeMode` | The scroll mode: the player's, else `OPENSU_HOME_MODE`'s, else the theme's `home.scroll` |
 
 ## `theme.json`
 

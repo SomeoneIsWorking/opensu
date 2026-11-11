@@ -43,6 +43,10 @@ struct RailEntrance {
 
 /// The focused tile's scale `sinceFocusMs` after focus arrived on it.
 [[nodiscard]] float focusScale(float sinceFocusMs) noexcept;
+/// How long a theme's focus grow takes to reach its size.
+inline constexpr float growMs = 180.0f;
+/// A theme's gentle grow in place of the focus pulse: from 1 up to `grow`, easing out.
+[[nodiscard]] float growScale(float sinceFocusMs, float grow) noexcept;
 /// When the focus scale stops changing.
 inline constexpr float focusSettleMs = 265.0f;
 

@@ -91,6 +91,7 @@ void HomeGrid::setFrame(const Frame& frame) {
 
 void HomeGrid::setTheme(const theme::InterfaceTheme& tokens) {
     tokens_ = tokens;
+    tilePainter_.setTiles(tokens.tiles);
 }
 
 HomeLayout HomeGrid::computeLayout() const {
@@ -749,7 +750,9 @@ TileVisual HomeGrid::visualFor(std::size_t slot, const Rect& rect) const {
     visual.focused = slot == focus_.index();
     // iiSU w70: the focus scale is the grid's; an XMB holds its focused tile at 1.
     if (visual.focused && grid) {
-        visual.scale = motion::focusScale(sinceMs(focusAt_));
+        visual.scale = tokens_.tiles.grow > 1.0f
+                           ? motion::growScale(sinceMs(focusAt_), tokens_.tiles.grow)
+                           : motion::focusScale(sinceMs(focusAt_));
     }
     if (pressAt_ && slot == pressIndex_) {
         visual.scale *= motion::pulseScale(sinceMs(*pressAt_));

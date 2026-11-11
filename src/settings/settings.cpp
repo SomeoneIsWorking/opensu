@@ -619,7 +619,7 @@ void Settings::addGameFolder(const std::filesystem::path& folder) {
 
 config::Config resolved(config::Config base, const Settings& settings) {
     if (settings.homeMode) {
-        base.homeMode = *settings.homeMode;
+        base.homeMode = settings.homeMode;
     }
     if (!settings.romFolders.empty()) {
         base.romRoots = settings.romFolders;

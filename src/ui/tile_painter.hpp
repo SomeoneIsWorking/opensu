@@ -11,7 +11,8 @@
 // with the store's logo or a library glyph above the name.
 // A store game that is owned in more than one store carries a row of store icons in its
 // bottom-right corner, and one its store has an update for a down arrow on the same disc in its
-// top-right corner (opensu's own).
+// top-right corner (opensu's own). An interface theme's `channel` style draws the tile instead as a
+// white glossy body with a thin edge, an empty slot as a faint well and focus as an accent outline.
 #pragma once
 
 #include <cstdint>
@@ -26,6 +27,7 @@
 #include "home_layout.hpp"
 #include "platform.hpp"
 #include "round_shape.hpp"
+#include "theme/interface_theme.hpp"
 #include "tile_geometry.hpp"
 #include "vector_icon.hpp"
 
@@ -98,9 +100,16 @@ class TilePainter {
         : icons_{icons}, consoleArt_{consoleArt}, text_{text} {
     }
 
+    /// The interface theme's tile style and colours.
+    void setTiles(const theme::Tiles& tiles) noexcept {
+        tiles_ = tiles;
+    }
+
     void paint(Canvas& canvas, const TileVisual& tile);
 
   private:
+    /// The `channel` style's body, well, edge and focus outline around the same content.
+    void paintChannel(Canvas& canvas, const TileVisual& tile, const TileGeometry& geometry);
     void paintShadow(Canvas& canvas, const TileGeometry& geometry, const ChromeVariant& variant,
                      float alpha) const;
     struct Ring {
@@ -130,6 +139,7 @@ class TilePainter {
     IconAtlas& icons_;
     ConsoleArt& consoleArt_;
     gpu2d::ui::Typesetter& text_;
+    theme::Tiles tiles_;
 };
 
 /// A cover crop of a `width` x `height` image for a `target` (iiSU e01.k, centred anchors).

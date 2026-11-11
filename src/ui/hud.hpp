@@ -89,6 +89,10 @@ class Hud {
     void setClock(std::string text) {
         clock_ = std::move(text);
     }
+    /// The date the clock bar shows under the time.
+    void setDate(std::string text) {
+        date_ = std::move(text);
+    }
     void setBattery(std::optional<device::BatteryStatus> battery) noexcept {
         battery_ = battery;
     }
@@ -162,6 +166,9 @@ class Hud {
     };
 
     void drawGround(Canvas& canvas) const;
+    /// The theme's clock bar along the bottom edge, the time large and the date under it; nothing
+    /// for a theme without one.
+    void drawClockBar(Canvas& canvas) const;
     void drawTopBar(Canvas& canvas, const TopBarHover& hover);
     void drawHints(Canvas& canvas) const;
     /// The toast, centred low on the screen and kept above `floor`, the top of what the shell
@@ -172,6 +179,11 @@ class Hud {
     /// One hundredth of the window's shorter side, the unit of opensu's own chrome.
     [[nodiscard]] float unit() const noexcept;
     [[nodiscard]] TopBarMetrics metrics() const noexcept;
+    /// The room the clock bar's time and date take above the prompt row, in pixels; none
+    /// without the bar.
+    [[nodiscard]] float clockRow() const noexcept;
+    /// The clock the status pill shows: none when the theme moves it to the clock bar.
+    [[nodiscard]] const std::string& pillClock() const noexcept;
     void drawTitlePill(Canvas& canvas, const TopBarLayout& bar) const;
     /// The title pill's body in the row and the width its text is fitted to.
     struct TitleCell {
@@ -203,6 +215,9 @@ class Hud {
     ButtonGlyphPainter glyphs_;
     std::string status_;
     std::string clock_;
+    std::string date_;
+    /// Stands for the pill's clock while the theme leaves it out.
+    std::string noClock_;
     std::vector<LauncherBadge> launchers_;
     std::string title_;
     Trail trail_;

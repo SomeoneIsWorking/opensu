@@ -100,6 +100,10 @@ float focusScale(float sinceFocusMs) noexcept {
     return focusRest;
 }
 
+float growScale(float sinceFocusMs, float grow) noexcept {
+    return lerp(1.0f, grow, easeOutCubic(std::clamp(sinceFocusMs / growMs, 0.0f, 1.0f)));
+}
+
 int dominoStep(const GridCell& cell) noexcept {
     return cell.left - (cell.top + (cell.bottom - cell.top + 1) - 1);
 }

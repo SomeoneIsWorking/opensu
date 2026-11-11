@@ -44,6 +44,7 @@ void InterfaceThemeSettings::run(const std::string& /*id*/, int step) {
     }
     settings::Settings& values = preferences_.values();
     values.interfaceTheme = ui::stepped(ids, values.interfaceTheme, step);
+    values.homeMode.reset();
     preferences_.save();
     changed_();
 }
@@ -55,6 +56,16 @@ std::shared_ptr<const theme::InterfaceTheme> InterfaceThemeSettings::current() {
         opened_ = chosen;
     }
     return current_;
+}
+
+config::HomeMode InterfaceThemeSettings::homeMode(std::optional<config::HomeMode> environment) {
+    if (const std::optional<config::HomeMode> chosen = preferences_.values().homeMode) {
+        return *chosen;
+    }
+    if (environment) {
+        return *environment;
+    }
+    return current()->home.pages ? config::HomeMode::WiiSu : config::HomeMode::Standard;
 }
 
 } // namespace opensu::app

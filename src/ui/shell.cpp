@@ -254,6 +254,7 @@ void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
     const gpu2d::RenderTarget& scene = sceneTarget();
     canvas.begin(scene.surface(), clear);
     hud_.drawGround(canvas);
+    hud_.drawClockBar(canvas);
     screens_.paintPages(canvas);
     navigator.paintChrome(canvas, topBar_);
     hud_.drawHints(canvas);
