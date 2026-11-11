@@ -13,6 +13,7 @@
 #include <string>
 #include <string_view>
 
+#include "gpu2d/image/png_encoder.hpp"
 #include "lucent/log.h"
 #include "lucent/text.h"
 
@@ -440,13 +441,21 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
             return refuse("GET only");
         }
         const FrameKind kind = path == "/frame.png" ? FrameKind::Shell : FrameKind::Remote;
-        FramePng frame;
+        FramePixels frame;
         if (!target_.captureFrame(kind, frame)) {
             return serverError(kind == FrameKind::Shell ? "could not render a frame"
                                                         : "no remote play picture");
         }
+        // On the server's thread, so the loop does not wait for the encode.
+        std::string error;
+        std::string png =
+            gpu2d::image::encodePng(frame.pixels.rgba, static_cast<unsigned>(frame.pixels.width),
+                                    static_cast<unsigned>(frame.pixels.height), error);
+        if (png.empty()) {
+            return serverError("could not encode the frame: " + error);
+        }
         lucent::http::Response response =
-            lucent::http::Response::binary(200, "OK", "image/png", std::move(frame.png));
+            lucent::http::Response::binary(200, "OK", "image/png", std::move(png));
         if (kind == FrameKind::Remote) {
             response.headers.push_back({"X-Opensu-Frame", std::to_string(frame.number)});
         }

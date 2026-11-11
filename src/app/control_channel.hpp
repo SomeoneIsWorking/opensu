@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "gamepad/event.hpp"
+#include "gpu2d/image/bitmap.hpp"
 #include "input/key_names.hpp"
 #include "input/last_device.hpp"
 #include "lucent/http.h"
@@ -162,9 +163,9 @@ enum class FrameKind : std::uint8_t {
     Shell,
     Remote,
 };
-/// A frame as PNG, and a remote picture's frame number (0 for the shell).
-struct FramePng {
-    std::string png;
+/// A frame's pixels, and a remote picture's frame number (0 for the shell).
+struct FramePixels {
+    gpu2d::image::Bitmap pixels;
     std::uint32_t number{0};
 };
 
@@ -219,9 +220,9 @@ class ControlTarget {
     /// would. Honoured in a hidden run only.
     virtual void capRemoteLink(std::uint64_t bitsPerSecond) = 0;
 
-    /// Renders the next frame of `kind` to a PNG and answers when it is written. Blocks
-    /// until the main loop has done it, or fails if it cannot.
-    [[nodiscard]] virtual bool captureFrame(FrameKind kind, FramePng& frame) = 0;
+    /// The next frame of `kind`'s pixels, which the caller encodes off the main loop. Blocks
+    /// until the main loop has drawn or read it, or fails if it cannot.
+    [[nodiscard]] virtual bool captureFrame(FrameKind kind, FramePixels& frame) = 0;
 
     /// Asks the main loop to shut down cleanly.
     virtual void requestClose() = 0;

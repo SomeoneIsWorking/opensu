@@ -1,28 +1,12 @@
 #include "remote_picture.hpp"
 
-#include <span>
-#include <string>
 #include <utility>
 
 #include "gpu2d/gpu_error.hpp"
-#include "gpu2d/image/png_encoder.hpp"
 #include "lucent/log.h"
 #include "stream/video_codec.hpp"
 
 namespace opensu::app {
-namespace {
-
-FramePng encoded(std::span<const std::uint8_t> rgba, int width, int height, std::uint32_t number) {
-    std::string error;
-    std::string png = gpu2d::image::encodePng(rgba, static_cast<unsigned>(width),
-                                              static_cast<unsigned>(height), error);
-    if (png.empty()) {
-        lucent::error("remote", "could not encode frame {}: {}", number, error);
-    }
-    return FramePng{.png = std::move(png), .number = number};
-}
-
-} // namespace
 
 RemotePicture::RemotePicture(SDL_GPUDevice& device, bool importing) : device_{&device} {
     if (importing) {
@@ -90,19 +74,20 @@ std::optional<std::uint32_t> RemotePicture::takeFresh() {
     return number_;
 }
 
-FramePng RemotePicture::png(const std::optional<stream::GuestVideo::Frame>& newest) const {
+FramePixels RemotePicture::pixels(const std::optional<stream::GuestVideo::Frame>& newest) const {
     if (!newest) {
         return {};
     }
     if (!newest->picture.dmabuf) {
-        return encoded(newest->picture.rgba, newest->picture.width, newest->picture.height,
-                       newest->number);
+        return FramePixels{.pixels = gpu2d::image::Bitmap{.width = newest->picture.width,
+                                                          .height = newest->picture.height,
+                                                          .rgba = newest->picture.rgba},
+                           .number = newest->number};
     }
     if (!imported_ || !showsImported_) {
         return {};
     }
-    const gpu2d::image::Bitmap shown = imported_->read();
-    return encoded(shown.rgba, shown.width, shown.height, number_);
+    return FramePixels{.pixels = imported_->read(), .number = number_};
 }
 
 } // namespace opensu::app

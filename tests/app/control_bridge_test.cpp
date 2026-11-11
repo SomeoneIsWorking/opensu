@@ -3,6 +3,7 @@
 #include "control_bridge.hpp"
 
 #include <chrono>
+#include <cstdint>
 #include <string>
 #include <thread>
 #include <utility>
@@ -16,7 +17,7 @@ namespace {
 
 using opensu::app::ControlBridge;
 using opensu::app::FrameKind;
-using opensu::app::FramePng;
+using opensu::app::FramePixels;
 using opensu::gamepad::Button;
 using opensu::input::Device;
 using opensu::test::expect;
@@ -111,23 +112,26 @@ void snapshotIsWhatWasPublished() {
 
 void frameIsHandedAcross() {
     ControlBridge bridge;
-    FramePng png;
+    FramePixels frame;
     bool got = false;
     std::thread caller{[&] {
-        got = bridge.captureFrame(FrameKind::Remote, png);
+        got = bridge.captureFrame(FrameKind::Remote, frame);
     }};
     while (!bridge.frameWanted()) {
         std::this_thread::sleep_for(std::chrono::milliseconds{1});
     }
     expect(bridge.frameWanted() == FrameKind::Remote, "the loop is asked for that kind of frame");
-    bridge.answerFrame(FramePng{.png = "PNG", .number = 4});
+    bridge.answerFrame(
+        FramePixels{.pixels = gpu2d::image::Bitmap{.width = 1, .height = 1, .rgba = {1, 2, 3, 4}},
+                    .number = 4});
     caller.join();
-    expect(got && png.png == "PNG" && png.number == 4, "the caller gets the frame the loop drew");
+    expect(got && frame.pixels.rgba == std::vector<std::uint8_t>{1, 2, 3, 4} && frame.number == 4,
+           "the caller gets the frame the loop drew");
     expect(!bridge.frameWanted(), "the request is settled");
 
     bool failed = true;
     std::thread second{[&] {
-        FramePng unused;
+        FramePixels unused;
         failed = !bridge.captureFrame(FrameKind::Shell, unused);
     }};
     while (!bridge.frameWanted()) {
@@ -142,8 +146,8 @@ void abandoningReleasesTheCaller() {
     ControlBridge bridge;
     bool got = true;
     std::thread caller{[&] {
-        FramePng png;
-        got = bridge.captureFrame(FrameKind::Shell, png);
+        FramePixels frame;
+        got = bridge.captureFrame(FrameKind::Shell, frame);
     }};
     while (!bridge.frameWanted()) {
         std::this_thread::sleep_for(std::chrono::milliseconds{1});

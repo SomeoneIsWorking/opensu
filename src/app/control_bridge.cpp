@@ -88,7 +88,7 @@ std::optional<std::string> ControlBridge::takeReload() {
     return std::exchange(reload_, std::nullopt);
 }
 
-bool ControlBridge::captureFrame(FrameKind kind, FramePng& frame) {
+bool ControlBridge::captureFrame(FrameKind kind, FramePixels& frame) {
     std::unique_lock lock{stateMutex_};
     if (framePending_) {
         // One frame request at a time: two callers racing for the context would
@@ -108,7 +108,7 @@ bool ControlBridge::captureFrame(FrameKind kind, FramePng& frame) {
         return false;
     }
     frame = std::exchange(frame_, {});
-    return !frame.png.empty();
+    return !frame.pixels.empty();
 }
 
 std::optional<FrameKind> ControlBridge::frameWanted() const {
@@ -116,7 +116,7 @@ std::optional<FrameKind> ControlBridge::frameWanted() const {
     return framePending_;
 }
 
-void ControlBridge::answerFrame(FramePng frame) {
+void ControlBridge::answerFrame(FramePixels frame) {
     const std::lock_guard lock{stateMutex_};
     frame_ = std::move(frame);
     framePending_.reset();

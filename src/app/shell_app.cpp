@@ -16,10 +16,10 @@
 #include <SDL3/SDL_mouse.h>
 
 #include "config/config.hpp"
-#include "frame_png.hpp"
 #include "game_end.hpp"
 #include "game_overlay.hpp"
 #include "gpu2d/gpu_error.hpp"
+#include "gpu2d/image/png_encoder.hpp"
 #include "input/chord_set.hpp"
 #include "input/key_names.hpp"
 #include "input/keyboard_bindings.hpp"
@@ -33,6 +33,7 @@
 #include "retro/save_paths.hpp"
 #include "retro_launch.hpp"
 #include "screen_orientation.hpp"
+#include "shell_frame.hpp"
 #include "stream/remote_reach.hpp"
 #include "ui/interface_input.hpp"
 #include "ui/section_view.hpp"
@@ -1417,13 +1418,10 @@ void ShellApp::serviceControlRequests() {
         return;
     }
     if (*wanted == FrameKind::Remote) {
-        bridge_.answerFrame(remotePicture_->png(remotePlay_.picture()));
+        bridge_.answerFrame(remotePicture_->pixels(remotePlay_.picture()));
         return;
     }
-    std::string png;
-    bridge_.answerFrame(
-        FramePng{.png = renderShellPng(*window_, shell_, png) ? std::move(png) : std::string{},
-                 .number = 0});
+    bridge_.answerFrame(FramePixels{.pixels = renderShell(*window_, shell_), .number = 0});
 }
 
 void ShellApp::postPointer(const PointerInjection& injected) {
@@ -1779,10 +1777,12 @@ bool ShellApp::renderToFile(const std::string& path, bool keyboardPrompts) {
     syncChrome();
     shell_.settle();
 
-    std::string png;
-    const bool ok = renderShellPng(*window_, shell_, png);
-    if (!ok) {
-        lucent::error("render", "could not render a frame");
+    const gpu2d::image::Bitmap frame = renderShell(*window_, shell_);
+    std::string error;
+    const std::string png = gpu2d::image::encodePng(frame.rgba, static_cast<unsigned>(frame.width),
+                                                    static_cast<unsigned>(frame.height), error);
+    if (png.empty()) {
+        lucent::error("render", "could not encode the frame: {}", error);
         return false;
     }
 

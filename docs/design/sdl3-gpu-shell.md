@@ -36,7 +36,7 @@ Non-goals: new visuals, a Windows build (SDL3 GPU keeps that possible), sharing 
 | --- | --- | --- |
 | Window | `InitWindow`, hidden and transparent flags, resize, monitor size and refresh, the X11 window id for the Gamescope overlay | `app/shell_app`, `app/game_screen`, `session/monitor` |
 | Drawing | rectangles, rounded rectangles and outlines, circles, rings, lines, triangles, textured quads, `rlgl` transforms and immediate quads, scissor, blend modes | the `ui/*_painter`, `ui/round_shape`, `ui/glass`, `ui/clip_stack`, `ui/vector_icon` |
-| Offscreen | render textures for the dock blur and `--render`/`/frame.png`, read back to PNG | `ui/backdrop_blur`, `app/frame_png` |
+| Offscreen | render textures for the dock blur and `--render`/`/frame.png`, read back, `/frame.png` encoded on the request's thread | `ui/backdrop_blur`, `app/shell_frame` |
 | Shaders | the blur's two GLSL 330 passes and the capsule mask | `ui/backdrop_blur` |
 | Text | `LoadFontEx` atlas of Cal Sans, `DrawTextCodepoint`, `MeasureTextCodepoints` | `ui/interface_text` |
 | Images | `LoadImage`, `ImageResize`, `ImageFormat`, textures from images (WebP through libwebp already) | `gpu2d::ImageLoader` (decoded on its workers, landed by `ui/shell`), `ui/tile_artwork`, `ui/screen_images` |

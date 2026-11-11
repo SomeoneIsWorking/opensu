@@ -167,12 +167,18 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   in-between belongs 4 px off it. Unattended, the guest's `framegen-pace` log (run `h-pace`) has
   412 of 457 in-betweens at t 0.50, the rest around the 5 of 458 capture gaps that were not two
   game frames, and presents every 16.7 ms on their vblank.
-- Grabbing the guest's frames (`/frame.png`) stalls its loop: `ShellApp::serviceControlRequests`
-  renders and encodes the PNG on the loop thread, presents fall to about 21 a second, and the
-  pacer times each in-between to those late vblanks (t 0.06 to 0.76, run `h-pace-grab`), so
-  grabbed frames lie all over the lattice (67 of 289 on it) and rates are measured with no grabs.
-  An off run's grabbed frames are all on the lattice and one clean band (280 of 280); on, 16 of
-  300 showed the band split or with faint ghost streaks, not yet traced.
+- Grabbing the guest's frames (`/frame.png`) stalled its loop while the loop encoded the PNG:
+  presents fell to about 21 a second and the pacer timed each in-between to those late vblanks
+  (t 0.06 to 0.76, run `h-pace-grab`, 67 of 289 frames on the lattice). The loop now hands over
+  pixels and the request's thread encodes; with grabs, presents stay at 60 a second, every
+  in-between is at t 0.50 and 264 of 284 grabbed frames are a real frame on the lattice (116) or
+  an in-between 4 px off it (148) (run `h-grab2`).
+- 5 of 300 grabbed frames show the band split, a half-bright edge or a faint curved streak
+  beside it. Not traced: each lies among regular two-frame captures at t 0.50, so neither the
+  pacing nor an uneven step; whether it is in the generator's output or the guest's copies is
+  next, from a generated image read back beside its two real frames.
+- Before the grabs in `h-grab2`, the pacer held a phase where every present is generated
+  (t 0.19 and 0.69) for 8 s, as Gamescope's runs did; it is the pacer's, unchanged.
 
 ## Found while planning step 3
 

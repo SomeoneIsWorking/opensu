@@ -40,9 +40,9 @@ class RemotePicture {
     }
     /// The host frame shown since the last call, once; nothing when no new one came.
     [[nodiscard]] std::optional<std::uint32_t> takeFresh();
-    /// `newest` (the session's newest picture) as PNG, its number with it; a picture left in
+    /// `newest` (the session's newest picture)'s pixels, its number with it; a picture left in
     /// DMA-BUFs is read back from the one shown, with that one's number. Empty for none.
-    [[nodiscard]] FramePng png(const std::optional<stream::GuestVideo::Frame>& newest) const;
+    [[nodiscard]] FramePixels pixels(const std::optional<stream::GuestVideo::Frame>& newest) const;
 
   private:
     SDL_GPUDevice* device_;

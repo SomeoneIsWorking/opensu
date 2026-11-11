@@ -21,7 +21,7 @@ using lucent::http::Response;
 using opensu::app::ControlChannel;
 using opensu::app::ControlTarget;
 using opensu::app::FrameKind;
-using opensu::app::FramePng;
+using opensu::app::FramePixels;
 using opensu::app::PointerInjection;
 using opensu::app::ShellSnapshot;
 using opensu::app::SignInResult;
@@ -67,7 +67,7 @@ class FakeShell final : public ControlTarget {
     void capRemoteLink(std::uint64_t bitsPerSecond) override {
         linkCaps.push_back(bitsPerSecond);
     }
-    [[nodiscard]] bool captureFrame(FrameKind /*kind*/, FramePng& /*frame*/) override {
+    [[nodiscard]] bool captureFrame(FrameKind /*kind*/, FramePixels& /*frame*/) override {
         return false;
     }
     void requestClose() override {
