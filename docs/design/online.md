@@ -113,8 +113,8 @@ reasons it is taken now are there. What stands:
   unless it opens under the code's secret: one handshake for every backend (Lucent's ZeroTier test
   runs a stranger with the host's node and network but not the code, which never connects).
 - `settings.json`'s `onlineZeroTier` (default on) turns it off; `onlineZeroTierRoots` names a root
-  set file in place of ZeroTier's roots (the lab's). Windows builds have none yet
-  (`OPENSU_BUILD_ZEROTIER` off: libzt's Windows build needs a fork fix) and say so in Settings.
+  set file in place of ZeroTier's roots (the lab's). `OPENSU_BUILD_ZEROTIER` (on) builds it on
+  every platform; a build without it says so in Settings.
 - libzt is a library linked into openSU, not a runner, so G001's rule against bundled runners does
   not apply to it.
 
@@ -151,6 +151,9 @@ own node, through a lab root on a machine of its own past the internet node
 address is on the link it is reached by); both logs must say `connected over ZeroTier`, no node's
 private key may be in a log, and the sockets left are only the node's, bound to an interface. Every other case plays with
 `onlineZeroTier` off, so the symmetric cases still prove the direct path alone fails.
+`online_zero_tier_meeting` (ctest, every platform with ZeroTier) runs openSU's lab root at one of
+the machine's own addresses and a host and a friend as processes of their own with no direct way:
+they meet over the embedded node alone and their stand-in runners hear each other through the bridges.
 
 `settings.json`'s `onlineStunServers` (comma-separated `host:port`) replaces the default STUN
 servers. `/state` gives `onlineStep`, and in a hidden run `onlineCode`.

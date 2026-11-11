@@ -1,6 +1,6 @@
 # The third-party code openSU builds against or ships, each from its pinned commit, installed into
 # one prefix outside every openSU build tree: PyroWave with Granite, librashader, Opus (Android),
-# the Gamescope fork and its framegen library (Linux), the SDL fork (Linux) and libzt (not Windows). tools/check
+# the Gamescope fork and its framegen library (Linux), the SDL fork (Linux) and libzt. tools/check
 # (`thirdparty.py`) configures this with the compilers or toolchain an openSU tree uses and installs
 # it under a directory named for those, the build image and these files, so each revision,
 # toolchain and image is built once. Each installs a CMake package:
@@ -23,7 +23,4 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     include("${CMAKE_CURRENT_SOURCE_DIR}/SDL.cmake")
 endif()
 include("${CMAKE_CURRENT_SOURCE_DIR}/Librashader.cmake")
-# libzt's Windows build links its system libraries from a misspelt SDK path variable (fork to fix).
-if(NOT WIN32)
-    include("${CMAKE_CURRENT_SOURCE_DIR}/Libzt.cmake")
-endif()
+include("${CMAKE_CURRENT_SOURCE_DIR}/Libzt.cmake")
