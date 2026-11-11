@@ -76,6 +76,7 @@ std::vector<SaveSlot> runnerSlots(const fs::path& saves, std::string_view profil
         files.emplace_back(SlotKind::Card, retro::lrps2CardFile(folder, game.file));
     }
     std::vector<SaveSlot> slots;
+    slots.reserve(files.size());
     for (const auto& [kind, file] : files) {
         slots.push_back(
             SaveSlot{.kind = kind,
