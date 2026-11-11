@@ -201,14 +201,14 @@ void xdgConfigFolder() {
            "without XDG_CONFIG_HOME DuckStation keeps its data under ~/.local/share");
     expect(duck->configOf(true) ==
                    "/home/p/.var/app/org.duckstation.DuckStation/config/duckstation" &&
-               duck->saves->flatpakFolder ==
+               duck->saves.value().flatpakFolder ==
                    "/home/p/.var/app/org.duckstation.DuckStation/config/duckstation/memcards",
            "its Flatpak, whose sandbox sets XDG_CONFIG_HOME, keeps it in the sandbox's config");
     const EmulatorCatalog set =
         EmulatorCatalog::shipped(OPENSU_ASSETS_DIR, "/home/p", "/home/p/.config");
     const EmulatorEntry* duckSet = set.find("duckstation");
     expect(duckSet != nullptr && duckSet->config == "/home/p/.config/duckstation" &&
-               duckSet->saves->folder == "/home/p/.config/duckstation/memcards",
+               duckSet->saves.value().folder == "/home/p/.config/duckstation/memcards",
            "with XDG_CONFIG_HOME set DuckStation keeps it there, as the game started reads it");
     const EmulatorEntry* pcsx2 = set.find("pcsx2");
     expect(pcsx2 != nullptr && pcsx2->config == "/home/p/.config/PCSX2",
