@@ -485,7 +485,7 @@ void ShellApp::handleEvents(const std::vector<gamepad::Event>& incoming) {
             continue;
         }
         // A remote pointing over a game in front points at the game, not the shell behind it.
-        if (!gameInFront() && pointingPads_.take(event)) {
+        if (!gameInFront() && (wiiRemoteSettings_.take(event) || pointingPads_.take(event))) {
             continue;
         }
         switch (event.kind) {
@@ -903,10 +903,16 @@ bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> e
     }
     recordLaunch(game);
 
-    gamepad::HeldPads held = padOwner_.hold(mappings_.forGame(game));
     std::optional<library::LaunchSetup> setup = library::launchSetupOf(
-        started, emulatorSettings_.catalog(), emulatorDownloads_.setup().wiiControls, held.padGuid,
-        device::findWiiRemotes(hidPlaces_).present());
+        started, emulatorSettings_.catalog(), emulatorDownloads_.setup().wiiControls,
+        wiiRemoteSettings_.realRemotes() && device::findWiiRemotes(hidPlaces_).present());
+    // A Wii game on real remotes plays them itself: openSU lets them go for it.
+    gamepad::HeldPads held = padOwner_.hold(
+        mappings_.forGame(game), setup && setup->realWiiRemotes ? gamepad::WiiRemoteHold::ToGame
+                                                                : gamepad::WiiRemoteHold::AsPads);
+    if (setup) {
+        setup->padGuid = held.padGuid;
+    }
     std::vector<std::string> environment = std::move(held.environment);
     environment.push_back(std::move(control));
     environment.insert(environment.end(), wine.environment.begin(), wine.environment.end());

@@ -6,9 +6,9 @@ namespace opensu::gamepad {
 std::unique_ptr<PadSource> openPadSource(const PadSourceOptions& options) {
     if (options.hiddenInputs) {
         std::filesystem::create_directories(*options.hiddenInputs);
-        return std::make_unique<EvdevPads>(*options.hiddenInputs, options.own);
+        return std::make_unique<EvdevPads>(*options.hiddenInputs, options.barSlots, options.own);
     }
-    return std::make_unique<EvdevPads>("/dev/input", options.own);
+    return std::make_unique<EvdevPads>("/dev/input", options.barSlots, options.own);
 }
 
 } // namespace opensu::gamepad

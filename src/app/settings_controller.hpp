@@ -50,6 +50,7 @@
 #include "ui/row_widgets.hpp"
 #include "ui/screen_stack.hpp"
 #include "ui/setting_row.hpp"
+#include "wii_remote_settings.hpp"
 #include "wine_settings.hpp"
 
 namespace opensu::app {
@@ -99,6 +100,7 @@ class SettingsController final : public ui::RowActions {
         SaveSettings& saves;
         ProfileSettings& profiles;
         ShelfOptions& shelf;
+        WiiRemoteSettings& wiiRemotes;
         /// Which pages and rows show: those of the integrations in force.
         const IntegrationsInForce& inForce;
     };
@@ -117,8 +119,9 @@ class SettingsController final : public ui::RowActions {
           interfaceSounds_{services.interfaceSounds}, interfaceThemes_{services.interfaceThemes},
           lan_{services.lan}, online_{services.online}, lanRoms_{services.lanRoms},
           lanProfiles_{services.lanProfiles}, saves_{services.saves}, profiles_{services.profiles},
-          shelf_{services.shelf}, inForce_{services.inForce}, sounds_{sounds},
-          preferences_{preferences}, defaults_{defaults}, hooks_{std::move(hooks)} {
+          shelf_{services.shelf}, wiiRemotes_{services.wiiRemotes}, inForce_{services.inForce},
+          sounds_{sounds}, preferences_{preferences}, defaults_{defaults},
+          hooks_{std::move(hooks)} {
     }
 
     /// Opens the screen on its first category.
@@ -216,6 +219,7 @@ class SettingsController final : public ui::RowActions {
     SaveSettings& saves_;
     ProfileSettings& profiles_;
     ShelfOptions& shelf_;
+    WiiRemoteSettings& wiiRemotes_;
     const IntegrationsInForce& inForce_;
     audio::SdlSoundPlayer& sounds_;
     Preferences& preferences_;

@@ -1,7 +1,8 @@
 // pad_source — every controller openSU reads, whatever reads them, and who else sees them. One
 // backend per OS, opened by `openPadSource` (picked in CMakeLists.txt): evdev on Linux
 // (`EvdevPads`), which can grab the pads and give a game virtual pads of them; SDL's gamepads
-// elsewhere (`SdlPads`), which only reads them, so its claims never take a pad from anyone.
+// elsewhere (`SdlPads`), which only reads them, so its claims never take a pad from anyone. A
+// game that plays real Wii Remotes itself (Dolphin on a Wii game) is held with them let go.
 #pragma once
 
 #include <cstdint>
@@ -14,9 +15,11 @@
 
 #include "chord_gate.hpp"
 #include "device/battery.hpp"
+#include "device/wii_remotes.hpp"
 #include "event.hpp"
 #include "forward_map.hpp"
 #include "pad_translator.hpp"
+#include "wii_pointer_range.hpp"
 
 namespace opensu::gamepad {
 
@@ -49,6 +52,15 @@ enum class Claim : std::uint8_t {
 enum class OwnVirtualPads : std::uint8_t {
     Skip,
     Read,
+};
+
+/// What a game's hold does with the real Wii Remotes read as pads.
+enum class WiiRemoteHold : std::uint8_t {
+    /// They are pads like any other.
+    AsPads,
+    /// The game plays them itself: they are closed, so nothing of openSU's reaches them or their
+    /// driver, and opened again when the hold ends.
+    ToGame,
 };
 
 class VirtualPad;
@@ -87,9 +99,10 @@ class PadSource {
     [[nodiscard]] virtual std::optional<device::BatteryStatus>
     battery(const PadInfo& pad) const = 0;
 
-    /// Claims every pad for a game (Game), its virtual pads sending what `map` says. Returns what
-    /// the game needs to read only the virtual pads and to know them.
-    virtual HeldPads hold(ForwardMap map) = 0;
+    /// Claims every pad for a game (Game), its virtual pads sending what `map` says, the real Wii
+    /// Remotes as `remotes` says. Returns what the game needs to read only the virtual pads and to
+    /// know them.
+    virtual HeldPads hold(ForwardMap map, WiiRemoteHold remotes) = 0;
     /// The game is over: the map is dropped and `after` (Free or Shell) applies.
     virtual void release(Claim after) = 0;
     /// Moves between claims of the same game state: Game and Away while a game runs, Shell and
@@ -99,6 +112,9 @@ class PadSource {
     virtual void setBlocked(bool blocked) = 0;
     /// The chords whose buttons never reach the game (`ChordGate`); returns once applied.
     virtual void setChords(ChordTriggers chords) = 0;
+    /// Where the screen is in the Wii Remotes' camera views (`WiiPointer::setRange`), for every
+    /// remote now and to come. Any thread.
+    virtual void setWiiPointerRange(const WiiPointerRange& range) = 0;
     /// Takes the first pad's virtual pad from it, for a player on another openSU to play the seat:
     /// it rests for the pad until `returnPad`. Null when no virtual pad serves a game. Returns once
     /// applied.
@@ -117,6 +133,9 @@ struct PadSourceOptions {
     /// A hidden run reads only pads linked into this directory (evdev, which creates it), or none
     /// (SDL); nothing for the system's pads.
     std::optional<std::filesystem::path> hiddenInputs{};
+    /// Where the DolphinBars whose slots are read as Wii Remotes are found (evdev); nothing reads
+    /// none, as a process that is not the shell, which reads them for every other.
+    std::optional<device::HidPlaces> barSlots{};
     OwnVirtualPads own{OwnVirtualPads::Skip};
 };
 

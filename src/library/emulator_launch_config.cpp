@@ -58,8 +58,7 @@ const LaunchRule* ruleOf(std::string_view id) {
 } // namespace
 
 std::optional<LaunchSetup> launchSetupOf(const Game& game, const roms::EmulatorCatalog& catalog,
-                                         const WiiControls& wii, std::string_view padGuid,
-                                         bool realWiiRemotes) {
+                                         const WiiControls& wii, bool realWiiRemotes) {
     const auto option =
         std::ranges::find(game.emulatorOptions, game.emulator, &EmulatorOption::name);
     if (option == game.emulatorOptions.end() || ruleOf(option->id) == nullptr) {
@@ -73,7 +72,6 @@ std::optional<LaunchSetup> launchSetupOf(const Game& game, const roms::EmulatorC
     return LaunchSetup{.emulatorId = option->id,
                        .config = entry->configOf(option->flatpak),
                        .data = entry->dataOf(option->flatpak),
-                       .padGuid = std::string{padGuid},
                        .wiiRemote =
                            wiiGame ? std::optional{wii.remoteFor(game.titleId)} : std::nullopt,
                        .realWiiRemotes = wiiGame && realWiiRemotes};

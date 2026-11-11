@@ -2,7 +2,8 @@
 // virtual pad a game would read. Every device is found by the uinput descriptor that made it, never
 // by name, and every EvdevPads reads a private directory linking only the test's own nodes, so a
 // second run or any other controller on the machine is never opened, read or grabbed. The fake
-// pads carry openSU's virtual pad mark, so a running openSU leaves them alone.
+// pads carry openSU's virtual pad mark, so a running openSU leaves them alone. A DolphinBar's slot
+// is a pseudo-terminal under a private bar tree, a stand-in remote on its far end.
 #include "evdev_pads.hpp"
 
 #include <algorithm>
@@ -17,12 +18,15 @@
 #include <thread>
 #include <vector>
 
+#include <cstdlib>
 #include <fcntl.h>
 #include <linux/uinput.h>
 #include <sys/ioctl.h>
+#include <termios.h>
 #include <unistd.h>
 
 #include "check.hpp"
+#include "fake_bar_remote.hpp"
 #include "support/test_main.hpp"
 
 namespace {
@@ -41,8 +45,10 @@ using opensu::gamepad::OwnVirtualPads;
 using opensu::gamepad::PadEvent;
 using opensu::gamepad::PadInfo;
 using opensu::gamepad::VirtualPad;
+using opensu::gamepad::WiiRemoteHold;
 using opensu::test::expect;
 using opensu::test::fail;
+using opensu::test::FakeBarRemote;
 namespace fs = std::filesystem;
 
 /// The event node of the uinput device made through `fd`, once it is open to this user. No node
@@ -282,6 +288,135 @@ class FakeWiiCamera {
     fs::path node_;
 };
 
+/// A Classic Controller plugged into the fake remote, as hid-wiimote makes its device: its buttons
+/// by their labels, both sticks and the triggers' travel at +-30; it shares the remote's phys.
+class FakeWiiClassic {
+  public:
+    FakeWiiClassic() {
+        fd_ = ::open("/dev/uinput", O_WRONLY | O_CLOEXEC);
+        expect(fd_ >= 0, "/dev/uinput opens");
+        ioctl(fd_, UI_SET_EVBIT, EV_KEY);
+        for (const int key :
+             {BTN_A, BTN_B, BTN_X, BTN_Y, BTN_TL, BTN_TR, BTN_TL2, BTN_TR2, KEY_NEXT, KEY_PREVIOUS,
+              BTN_MODE, KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT}) {
+            ioctl(fd_, UI_SET_KEYBIT, key);
+        }
+        ioctl(fd_, UI_SET_EVBIT, EV_ABS);
+        for (int axis = ABS_HAT1X; axis <= ABS_HAT3Y; ++axis) {
+            ioctl(fd_, UI_SET_ABSBIT, axis);
+            uinput_abs_setup setup{};
+            setup.code = static_cast<std::uint16_t>(axis);
+            setup.absinfo.minimum = -30;
+            setup.absinfo.maximum = 30;
+            ioctl(fd_, UI_ABS_SETUP, &setup);
+        }
+        ioctl(fd_, UI_SET_PHYS, std::string{VirtualPad::phys}.c_str());
+        uinput_setup setup{};
+        setup.id.bustype = BUS_BLUETOOTH;
+        setup.id.vendor = 0x057e;
+        setup.id.product = 0x0306;
+        std::snprintf(setup.name, sizeof(setup.name), "%s",
+                      "Nintendo Wii Remote Classic Controller");
+        expect(ioctl(fd_, UI_DEV_SETUP, &setup) == 0, "the fake Classic Controller is set up");
+        expect(ioctl(fd_, UI_DEV_CREATE) == 0, "the fake Classic Controller is created");
+        node_ = nodeOf(fd_);
+    }
+    FakeWiiClassic(const FakeWiiClassic&) = delete;
+    FakeWiiClassic& operator=(const FakeWiiClassic&) = delete;
+    ~FakeWiiClassic() {
+        ioctl(fd_, UI_DEV_DESTROY);
+        ::close(fd_);
+    }
+
+    [[nodiscard]] const fs::path& node() const {
+        return node_;
+    }
+
+    void press(std::uint16_t key, std::int32_t value) const {
+        for (const input_event out :
+             {input_event{{}, EV_KEY, key, value}, input_event{{}, EV_SYN, SYN_REPORT, 0}}) {
+            expect(::write(fd_, &out, sizeof(out)) == sizeof(out), "the fake Classic takes input");
+        }
+    }
+
+  private:
+    int fd_{-1};
+    fs::path node_;
+};
+
+/// A DolphinBar in Wii Remote mode with one slot, as `device::HidPlaces` shows it: the slot's HID
+/// folder and, for its hidraw node, a raw pseudo-terminal whose far end the test holds.
+class FakeBar {
+  public:
+    explicit FakeBar(std::string_view tag)
+        : root_{fs::path{OPENSU_TEST_SCRATCH} /
+                ("bar-" + std::string{tag} + "-" + std::to_string(::getpid()))} {
+        fs::remove_all(root_);
+        const fs::path slot = root_ / "devices" / "0003:057E:0306.0001";
+        fs::create_directories(slot / "hidraw" / "hidraw0");
+        fs::create_directories(root_ / "dev");
+        std::FILE* uevent = std::fopen((slot / "uevent").c_str(), "w");
+        expect(uevent != nullptr, "the bar's uevent is written");
+        std::fputs("DRIVER=hid-generic\nHID_ID=0003:0000057E:00000306\n"
+                   "HID_PHYS=usb-test-1/input0\n",
+                   uevent);
+        std::fclose(uevent);
+        far_ = ::posix_openpt(O_RDWR | O_NOCTTY | O_NONBLOCK | O_CLOEXEC);
+        expect(far_ >= 0 && ::grantpt(far_) == 0 && ::unlockpt(far_) == 0,
+               "a pseudo-terminal stands in for the slot");
+        node_ = ::ptsname(far_);
+        // Held open, so the far end stays while openSU closes the slot.
+        near_ = ::open(node_.c_str(), O_RDWR | O_NOCTTY | O_CLOEXEC);
+        termios raw{};
+        expect(near_ >= 0 && ::tcgetattr(near_, &raw) == 0, "the slot's end opens");
+        ::cfmakeraw(&raw);
+        expect(::tcsetattr(near_, TCSANOW, &raw) == 0, "and carries bytes as they are");
+        fs::create_symlink(node_, root_ / "dev" / "hidraw0");
+    }
+    FakeBar(const FakeBar&) = delete;
+    FakeBar& operator=(const FakeBar&) = delete;
+    ~FakeBar() {
+        ::close(near_);
+        ::close(far_);
+        std::error_code ignored;
+        fs::remove_all(root_, ignored);
+    }
+
+    [[nodiscard]] opensu::device::HidPlaces places() const {
+        return {.devices = root_ / "devices", .dev = root_ / "dev"};
+    }
+    /// The slot's node, as the pads name its remote.
+    [[nodiscard]] fs::path slotNode() const {
+        return root_ / "dev" / "hidraw0";
+    }
+    /// The terminal behind it.
+    [[nodiscard]] const fs::path& terminal() const {
+        return node_;
+    }
+    [[nodiscard]] int far() const {
+        return far_;
+    }
+
+  private:
+    fs::path root_;
+    fs::path node_;
+    int far_{-1};
+    int near_{-1};
+};
+
+/// How many times this process holds `node` open (through any link to it).
+std::size_t opened(const fs::path& node) {
+    std::error_code error;
+    const fs::path real = fs::canonical(node, error);
+    std::size_t count = 0;
+    for (const auto& entry : fs::directory_iterator{"/proc/self/fd"}) {
+        if (fs::read_symlink(entry.path(), error) == real) {
+            ++count;
+        }
+    }
+    return count;
+}
+
 /// A pad's motion sensor node as hid-playstation and hid-nintendo make it: accelerometer and gyro
 /// axes, the accelerometer property, no buttons.
 class FakeMotion {
@@ -381,7 +516,7 @@ int main() try {
     }
     const InputDir inputs{"shell"};
     // Reads the fakes, which carry the virtual pad mark; the directory holds no virtual pad.
-    EvdevPads pads{inputs.path(), OwnVirtualPads::Read};
+    EvdevPads pads{inputs.path(), std::nullopt, OwnVirtualPads::Read};
     std::vector<Event> seen;
 
     // Connected after the reader started, as a pad switched on mid-session is.
@@ -456,7 +591,7 @@ int main() try {
     inputs.add(motion.node());
     std::optional<EvdevDevice> motionNode{std::in_place, motion.node()};
     const std::vector<fs::path> fakes{physical->node(), motion.node()};
-    const HeldPads held = pads.hold({});
+    const HeldPads held = pads.hold({}, WiiRemoteHold::AsPads);
     expect(!held.environment.empty(), "the game is told to read only the virtual pads");
     expect(held.padGuid == VirtualPad::sdlGuid(), "the game is told the virtual pads' GUID");
     std::vector<EvdevDevice> virtualPads = openAll(ownUinputNodes(fakes));
@@ -507,7 +642,7 @@ int main() try {
         for (const fs::path& node : ownUinputNodes(fakes)) {
             fs::create_symlink(node, gameInputs.path() / node.filename());
         }
-        EvdevPads reader{gameInputs.path(), OwnVirtualPads::Read};
+        EvdevPads reader{gameInputs.path(), std::nullopt, OwnVirtualPads::Read};
         std::vector<Event> heard;
         const std::string virtualName{VirtualPad::name};
         expect(collect(reader, heard,
@@ -660,7 +795,8 @@ int main() try {
     physical->send({{EV_KEY, BTN_MODE, 0}});
 
     // The game's mapping: A reaches the virtual pad as B, the shell still hears A.
-    expect(!pads.hold(ForwardMap{{{Button::A, {Button::B}}}, {}}).environment.empty(),
+    expect(!pads.hold(ForwardMap{{{Button::A, {Button::B}}}, {}}, WiiRemoteHold::AsPads)
+                .environment.empty(),
            "the pads are held with a mapping");
     std::vector<EvdevDevice> mappedPads = openAll(ownUinputNodes(fakes));
     expect(!mappedPads.empty(), "the mapped hold gives the pad a virtual pad");
@@ -774,6 +910,128 @@ int main() try {
                                         return info.name == "Nintendo Wii Remote IR";
                                     }),
                "and is no pad of its own");
+
+        {
+            // A Classic Controller plugged in is read as the pad, its buttons by place: B is A.
+            const FakeWiiClassic classic;
+            inputs.add(classic.node());
+            seen.clear();
+            const auto classicDeadline = std::chrono::steady_clock::now() + 2s;
+            while (!pressed(seen, Button::A) &&
+                   std::chrono::steady_clock::now() < classicDeadline) {
+                classic.press(BTN_B, 1);
+                classic.press(BTN_B, 0);
+                std::this_thread::sleep_for(20ms);
+                for (Event& event : pads.takeEvents()) {
+                    seen.push_back(std::move(event));
+                }
+            }
+            expect(pressed(seen, Button::A), "the Classic Controller's B is A");
+            seen.clear();
+            remote.press(BTN_2, 1);
+            std::this_thread::sleep_for(100ms);
+            for (Event& event : pads.takeEvents()) {
+                seen.push_back(std::move(event));
+            }
+            expect(!pressed(seen, Button::A), "and the remote hanging off it is not read");
+            remote.press(BTN_2, 0);
+        }
+
+        // A game that plays the real remotes itself gets them: openSU closes every part.
+        seen.clear();
+        static_cast<void>(pads.hold({}, WiiRemoteHold::ToGame));
+        expect(collect(pads, seen,
+                       [&] {
+                           return has(seen, Event::Kind::Disconnected, "Nintendo Wii Remote");
+                       }),
+               "a Wii game on real remotes has them let go");
+        expect(opened(remote.node()) == 0 && opened(camera.node()) == 0,
+               "and openSU holds none of their nodes");
+        {
+            // A part plugged in meanwhile is told from sysfs and never opened.
+            const FakeWiiClassic late;
+            inputs.add(late.node());
+            // Each claim waits for a pass of the reader; the second starts after the pass that
+            // took the link's notice.
+            pads.claim(Claim::Game);
+            pads.claim(Claim::Game);
+            expect(opened(late.node()) == 0, "a part plugged in during the game is not opened");
+        }
+        seen.clear();
+        pads.release(Claim::Free);
+        expect(collect(pads, seen,
+                       [&] {
+                           return has(seen, Event::Kind::Connected, "Nintendo Wii Remote");
+                       }),
+               "the game over, the remote is a pad again");
+        expect(opened(remote.node()) == 1 && opened(camera.node()) == 1, "with its camera");
+    }
+
+    {
+        // A DolphinBar slot's remote is a pad, sideways as a Bluetooth one is: 2 is A.
+        const FakeBar bar{"slot"};
+        const InputDir none{"bar"};
+        EvdevPads barPads{none.path(), bar.places(), OwnVirtualPads::Read};
+        FakeBarRemote remote{bar.far()};
+        std::vector<Event> heard;
+        const auto serveUntil = [&](const std::function<bool()>& done) {
+            const auto deadline = std::chrono::steady_clock::now() + 3s;
+            while (std::chrono::steady_clock::now() < deadline) {
+                remote.serve();
+                for (Event& event : barPads.takeEvents()) {
+                    heard.push_back(std::move(event));
+                }
+                if (done()) {
+                    return true;
+                }
+                std::this_thread::sleep_for(10ms);
+            }
+            return false;
+        };
+        const std::string slotId = bar.slotNode().string();
+        const auto came = [&] {
+            return std::ranges::any_of(heard, [&](const Event& event) {
+                return event.kind == Event::Kind::Connected && event.source == slotId;
+            });
+        };
+        expect(serveUntil(came), "the remote answering in the slot is a pad");
+        expect(remote.lights() == 0x10 && remote.mode() == 0x30,
+               "its player light is lit and its buttons asked for");
+        std::this_thread::sleep_for(50ms);
+        remote.report(0x00, 0x01);
+        expect(serveUntil([&] {
+                   return pressed(heard, Button::A);
+               }),
+               "its 2 is A");
+        remote.report(0x00, 0x00);
+
+        // Its Classic Controller is read as the pad: X is Y.
+        remote.plug(FakeBarRemote::Extension::Classic);
+        expect(serveUntil([&] {
+                   return remote.mode() == 0x32;
+               }),
+               "a Classic Controller plugged into it is set up");
+        std::this_thread::sleep_for(50ms);
+        std::array<std::uint8_t, 6> bytes = FakeBarRemote::classicIdle();
+        bytes[5] = static_cast<std::uint8_t>(bytes[5] & ~0x08);
+        remote.report(0x00, 0x00, bytes);
+        expect(serveUntil([&] {
+                   return pressed(heard, Button::Y);
+               }),
+               "the Classic's X is Y");
+        remote.report(0x00, 0x00, FakeBarRemote::classicIdle());
+
+        // Left to a Wii game: the slot is closed, and opened again after.
+        heard.clear();
+        static_cast<void>(barPads.hold({}, WiiRemoteHold::ToGame));
+        expect(serveUntil([&] {
+                   return has(heard, Event::Kind::Disconnected, "Nintendo Wii Remote");
+               }),
+               "the slot's remote is let go for a Wii game");
+        expect(opened(bar.terminal()) == 1, "and the slot's node closed, the test's own end left");
+        heard.clear();
+        barPads.release(Claim::Free);
+        expect(serveUntil(came), "the game over, the slot's remote is a pad again");
     }
 
     std::printf("pads: all checks passed\n");

@@ -52,8 +52,9 @@ class PadOwner {
         bool grabs{true};
     };
 
-    /// Which pads a run reads: the system's, or in a hidden run only what is linked into
-    /// `<dataDir>/hidden-pads`, which nothing is unless a maintainer tool puts a test pad there.
+    /// Which pads a run reads: the system's and its DolphinBars' slots, or in a hidden run only
+    /// what is linked into `<dataDir>/hidden-pads` and the bars `<dataDir>/hidden-hid` shows,
+    /// which nothing is unless a maintainer tool puts a test pad or bar there.
     [[nodiscard]] static gamepad::PadSourceOptions padsFor(const std::filesystem::path& dataDir,
                                                            bool hidden);
     /// The claim for `situation`.
@@ -66,9 +67,9 @@ class PadOwner {
         situation_.grabs = pads.grabs();
     }
 
-    /// Holds the pads for a game playing with `map`; returns what the game is given
-    /// (`gamepad::PadSource::hold`).
-    gamepad::HeldPads hold(const input::ButtonMap& map);
+    /// Holds the pads for a game playing with `map`, the real Wii Remotes as `remotes` says;
+    /// returns what the game is given (`gamepad::PadSource::hold`).
+    gamepad::HeldPads hold(const input::ButtonMap& map, gamepad::WiiRemoteHold remotes);
     /// What the pads forward for a game playing with `map`, the shell's chords kept for openSU:
     /// what `hold` gives the local pads and remote play sends the host.
     [[nodiscard]] gamepad::ForwardMap forwarding(const input::ButtonMap& map) const;
@@ -98,7 +99,8 @@ class PadOwner {
 
   private:
     /// Holds the pads with `map` for the window `serves`.
-    gamepad::HeldPads take(const input::ButtonMap& map, display::FocusHolder serves);
+    gamepad::HeldPads take(const input::ButtonMap& map, display::FocusHolder serves,
+                           gamepad::WiiRemoteHold remotes);
     /// Lent to Steam: the virtual pads rest unless Big Picture is in front.
     void restOutsideBigPicture();
 

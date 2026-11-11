@@ -67,6 +67,9 @@ void testDolphinBar() {
     expect(found.dolphinBars == 1 && found.barsReachable && found.bluetoothRemotes == 0,
            "a DolphinBar in Wii Remote mode is one bar of four slots");
     expect(found.present(), "and Wii games play real remotes on it");
+    expect(found.barSlots.size() == 4 && found.barSlots[2].index == 2 &&
+               found.barSlots[2].node == places.dev / "hidraw2",
+           "its slots are its hidraw nodes in slot order");
 }
 
 void testOtherMode() {

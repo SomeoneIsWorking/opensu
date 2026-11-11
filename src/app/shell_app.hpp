@@ -1325,6 +1325,7 @@ class ShellApp final {
                                      saveSettings_,
                                      profileSettings_,
                                      shelfOptions_,
+                                     wiiRemoteSettings_,
                                      integrations_},
         sounds_,
         preferences_,
@@ -1384,6 +1385,10 @@ class ShellApp final {
     PadOwner padOwner_{*pads_, shell_.chords()};
     /// Where the real Wii Remotes are looked for, for the Devices page and a Wii game's launch.
     device::HidPlaces hidPlaces_{device::HidPlaces::of(environment_.dataDir, settings_.hidden)};
+    /// Settings › Controls › Wii Remotes, which sets the remotes' pointer range on the pads.
+    WiiRemoteSettings wiiRemoteSettings_{preferences_, *pads_, [this] {
+                                             settingsScreen_.refresh();
+                                         }};
     /// A Wii Remote pointing at the screen as the shell's pointer.
     PointingPads pointingPads_{
         PointingPads::Hooks{[this](float x, float y) {

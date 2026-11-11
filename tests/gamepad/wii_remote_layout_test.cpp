@@ -1,6 +1,6 @@
 // A Wii Remote through hid-wiimote as an ordinary pad: alone held sideways, with its Nunchuk held
-// upright, as the translator and opensu's controls then see it; its camera's dots as where it
-// points.
+// upright, with a Classic Controller read as it, as the translator and opensu's controls then see
+// it; its camera's dots as where it points, in the range fitted from two of the screen's corners.
 #include "wii_remote_layout.hpp"
 
 #include <chrono>
@@ -22,8 +22,10 @@ using opensu::gamepad::Event;
 using opensu::gamepad::PadCapabilities;
 using opensu::gamepad::PadEvent;
 using opensu::gamepad::PadTranslator;
+using opensu::gamepad::SensorBarPlace;
 using opensu::gamepad::WiiAim;
 using opensu::gamepad::WiiPointer;
+using opensu::gamepad::WiiPointerRange;
 using opensu::gamepad::WiiRemoteLayout;
 using opensu::gamepad::WiiRemotePart;
 using opensu::gamepad::wiiRemotePartOf;
@@ -68,7 +70,7 @@ void testParts() {
 
 void testSideways() {
     const WiiRemoteLayout layout;
-    expect(!layout.withNunchuk(), "alone, the remote is held sideways");
+    expect(!layout.extension(), "alone, the remote is held sideways");
     const auto press = [&layout](std::uint16_t code) {
         return controlsOf(layout, WiiRemotePart::Remote, {EV_KEY, code, 1});
     };
@@ -86,8 +88,8 @@ void testSideways() {
 }
 
 void testUpright() {
-    const WiiRemoteLayout layout{nunchuk()};
-    expect(layout.withNunchuk() && layout.capabilities().isGamepad(),
+    const WiiRemoteLayout layout{WiiRemotePart::Nunchuk, nunchuk()};
+    expect(layout.extension() == WiiRemotePart::Nunchuk && layout.capabilities().isGamepad(),
            "with its Nunchuk the remote is a pad with a stick");
     const auto press = [&layout](WiiRemotePart part, std::uint16_t code) {
         return controlsOf(layout, part, {EV_KEY, code, 1});
@@ -137,6 +139,86 @@ void testPointer() {
     expect(!pointer.press(true) && !pointer.press(false), "pointed away, A is the pad's");
 }
 
+/// hid-wiimote's Classic Controller device: both sticks and the triggers' travel at +-30.
+PadCapabilities classic() {
+    PadCapabilities caps;
+    caps.keys = {BTN_A,    BTN_B,        BTN_X,    BTN_Y,  BTN_TL,   BTN_TR,   BTN_TL2,  BTN_TR2,
+                 KEY_NEXT, KEY_PREVIOUS, BTN_MODE, KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT};
+    for (std::uint16_t axis = ABS_HAT1X; axis <= ABS_HAT3Y; ++axis) {
+        caps.axes[axis] = {-30, 30};
+    }
+    return caps;
+}
+
+void testClassic() {
+    expect(wiiRemotePartOf(0x057e, 0x0306, "Nintendo Wii Remote Classic Controller") ==
+               WiiRemotePart::Classic,
+           "the Classic Controller is part of its remote");
+    const WiiRemoteLayout layout{WiiRemotePart::Classic, classic()};
+    expect(layout.capabilities().isGamepad(), "with a Classic Controller the remote is a pad");
+    const auto press = [&layout](std::uint16_t code) {
+        return controlsOf(layout, WiiRemotePart::Classic, {EV_KEY, code, 1});
+    };
+    expect(presses(press(BTN_B), Button::A) && presses(press(BTN_A), Button::B) &&
+               presses(press(BTN_Y), Button::X) && presses(press(BTN_X), Button::Y),
+           "its buttons by place: B south, A east, Y west, X north");
+    expect(presses(press(BTN_TL2), Button::L1) && presses(press(BTN_TR2), Button::R1) &&
+               presses(press(BTN_TL), Button::L2) && presses(press(BTN_TR), Button::R2),
+           "ZL and ZR are the shoulders, L and R the triggers");
+    expect(presses(press(KEY_UP), Button::Up) && presses(press(KEY_NEXT), Button::Start) &&
+               presses(press(BTN_MODE), Button::Guide),
+           "its d-pad, plus and Home");
+    expect(layout.map(WiiRemotePart::Classic, {EV_ABS, ABS_HAT1Y, 30}) ==
+               PadEvent{EV_ABS, ABS_Y, -30},
+           "the left stick up is the left stick up");
+    expect(layout.map(WiiRemotePart::Classic, {EV_ABS, ABS_HAT2X, 30}) ==
+               PadEvent{EV_ABS, ABS_RX, 30},
+           "the right stick is the right stick");
+    expect(!layout.map(WiiRemotePart::Classic, {EV_ABS, ABS_HAT3X, 40}),
+           "the triggers' travel is not read");
+    expect(!layout.map(WiiRemotePart::Remote, {EV_KEY, BTN_A, 1}),
+           "the remote hanging off it is not read");
+}
+
+void testRange() {
+    // The camera's aims at the corners, the bar above the screen: the screen is the lower part.
+    const std::optional<WiiPointerRange> range =
+        WiiPointerRange::fromCorners(0.2f, 0.6f, 0.8f, 0.9f);
+    const auto near = [](float value, float wanted) {
+        return value > wanted - 0.001f && value < wanted + 0.001f;
+    };
+    expect(range && near(range->across(0.5f), 0.5f) && near(range->down(0.75f), 0.5f),
+           "the corners' aims are the screen's edges");
+    expect(range->barPlace() == SensorBarPlace::Above, "the camera's middle is above the screen");
+    expect(WiiPointerRange::fromCorners(0.2f, 0.1f, 0.8f, 0.4f)->barPlace() ==
+               SensorBarPlace::Below,
+           "and below it, the other way");
+    expect(near(WiiPointerRange::fromCorners(0.8f, 0.9f, 0.2f, 0.3f)->across(0.2f), 1.0f),
+           "a camera that reads across the other way is fitted too");
+    expect(!WiiPointerRange::fromCorners(0.5f, 0.5f, 0.51f, 0.9f),
+           "one spot pointed at twice fits nothing");
+
+    WiiPointer pointer;
+    pointer.setRange(*range);
+    const PadEvent report{EV_SYN, SYN_REPORT, 0};
+    // The bar's two ends 200 dots apart about 512 across, 576 down: the camera's 0.5, 0.75.
+    for (const PadEvent dot :
+         {PadEvent{EV_ABS, ABS_HAT0X, 412}, PadEvent{EV_ABS, ABS_HAT0Y, 575},
+          PadEvent{EV_ABS, ABS_HAT1X, 611}, PadEvent{EV_ABS, ABS_HAT1Y, 575}}) {
+        static_cast<void>(pointer.feed(dot));
+    }
+    const std::optional<WiiAim> middle = pointer.feed(report);
+    expect(middle && middle->onScreen && middle->x > 0.49f && middle->x < 0.51f &&
+               middle->y > 0.49f && middle->y < 0.51f,
+           "the screen's middle, in the range");
+    for (const PadEvent dot :
+         {PadEvent{EV_ABS, ABS_HAT0Y, 200}, PadEvent{EV_ABS, ABS_HAT1Y, 200}}) {
+        static_cast<void>(pointer.feed(dot));
+    }
+    const std::optional<WiiAim> above = pointer.feed(report);
+    expect(above && !above->onScreen, "past the top edge it points off the screen");
+}
+
 } // namespace
 
 int main() try {
@@ -144,6 +226,8 @@ int main() try {
     testSideways();
     testUpright();
     testPointer();
+    testClassic();
+    testRange();
     std::printf("wii_remote_layout: all checks passed\n");
     return 0;
 } catch (...) {

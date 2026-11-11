@@ -1,6 +1,7 @@
 #include "settings.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <fstream>
 #include <iterator>
@@ -34,6 +35,9 @@ constexpr const char* steamRootsKey = "steamRoots";
 constexpr const char* uiScaleKey = "uiScale";
 constexpr const char* portraitKey = "portrait";
 constexpr const char* keyboardStyleKey = "keyboard";
+constexpr const char* realWiiRemotesKey = "realWiiRemotes";
+constexpr const char* wiiPointerKey = "wiiPointer";
+constexpr std::array<const char*, 4> wiiPointerEdges{"left", "right", "top", "bottom"};
 constexpr const char* nightLightKey = "nightLight";
 constexpr const char* consoleThemeKey = "consoleTheme";
 constexpr const char* interfaceThemeKey = "interfaceTheme";
@@ -85,6 +89,27 @@ class Reader {
         } else {
             reject(name, *found, fallback);
         }
+    }
+
+    /// A Wii Remote's pointer range: an object of its four edges, each a number.
+    void pointerRange(const char* name, std::optional<gamepad::WiiPointerRange>& out,
+                      const char* fallback) const {
+        const auto found = document_.find(name);
+        if (found == document_.end()) {
+            return;
+        }
+        const bool numbers =
+            found->is_object() && std::ranges::all_of(wiiPointerEdges, [&](const char* edge) {
+                return found->contains(edge) && found->at(edge).is_number();
+            });
+        if (!numbers) {
+            reject(name, *found, fallback);
+            return;
+        }
+        out = gamepad::WiiPointerRange{.left = found->at("left").get<float>(),
+                                       .right = found->at("right").get<float>(),
+                                       .top = found->at("top").get<float>(),
+                                       .bottom = found->at("bottom").get<float>()};
     }
 
     void integer(const char* name, int low, int high, int& out, const char* fallback) const {
@@ -382,6 +407,8 @@ Settings Store::load() const {
                         "every store installs where it chooses");
     read.integer(uiScaleKey, minUiScale, maxUiScale, settings.uiScale, "using 100%");
     read.boolean(portraitKey, settings.portrait, "standing in landscape");
+    read.boolean(realWiiRemotesKey, settings.realWiiRemotes, "Wii games play real remotes");
+    read.pointerRange(wiiPointerKey, settings.wiiPointer, "the camera's whole view is the screen");
     std::string runner;
     read.text(wineRunnerKey, runner, "using the newest GE-Proton");
     settings.wineRunner = runner;
@@ -539,6 +566,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {uiScaleKey, settings.uiScale},
         {portraitKey, settings.portrait},
         {keyboardStyleKey, std::string{input::key(settings.keyboardStyle)}},
+        {realWiiRemotesKey, settings.realWiiRemotes},
         {nightLightKey, std::string{key(settings.nightLight)}},
         {consoleThemeKey, settings.consoleTheme},
         {interfaceThemeKey, settings.interfaceTheme},
@@ -577,6 +605,12 @@ bool Store::save(const Settings& settings, std::string& error) const {
     document[integrationsKey] = integrations;
     if (settings.homeMode) {
         document[homeModeKey] = std::string{config::key(*settings.homeMode)};
+    }
+    if (const std::optional<gamepad::WiiPointerRange>& range = settings.wiiPointer) {
+        document[wiiPointerKey] = {{"left", range->left},
+                                   {"right", range->right},
+                                   {"top", range->top},
+                                   {"bottom", range->bottom}};
     }
     if (settings.interfaceSounds) {
         document[interfaceSoundsKey] = std::string{key(*settings.interfaceSounds)};

@@ -15,6 +15,7 @@ constexpr std::uint16_t wiiRemote = 0x0306;
 constexpr std::uint16_t wiiRemotePlus = 0x0330;
 constexpr std::string_view remoteName{"Nintendo Wii Remote"};
 constexpr std::string_view nunchukName{"Nintendo Wii Remote Nunchuk"};
+constexpr std::string_view classicName{"Nintendo Wii Remote Classic Controller"};
 constexpr std::string_view cameraName{"Nintendo Wii Remote IR"};
 // The camera's picture, in dots.
 constexpr float cameraWidth = 1023.0f;
@@ -46,6 +47,39 @@ constexpr std::array nunchukKeys{
     KeyMap{BTN_Z, BTN_TL2},
 };
 
+// hid-wiimote names the Classic's buttons for their labels: BTN_B is its B, at the bottom; L and
+// R fully in are BTN_TL and BTN_TR, ZL and ZR are BTN_TL2 and BTN_TR2.
+constexpr std::array classicKeys{
+    KeyMap{KEY_UP, BTN_DPAD_UP},     KeyMap{KEY_DOWN, BTN_DPAD_DOWN},
+    KeyMap{KEY_LEFT, BTN_DPAD_LEFT}, KeyMap{KEY_RIGHT, BTN_DPAD_RIGHT},
+    KeyMap{BTN_B, BTN_SOUTH},        KeyMap{BTN_A, BTN_EAST},
+    KeyMap{BTN_Y, BTN_WEST},         KeyMap{BTN_X, BTN_NORTH},
+    KeyMap{BTN_TL2, BTN_TL},         KeyMap{BTN_TR2, BTN_TR},
+    KeyMap{BTN_TL, BTN_TL2},         KeyMap{BTN_TR, BTN_TR2},
+    KeyMap{KEY_NEXT, BTN_START},     KeyMap{KEY_PREVIOUS, BTN_SELECT},
+    KeyMap{BTN_MODE, BTN_MODE},
+};
+
+/// An extension's axis and the pad's it becomes; `flip` for one that grows upwards.
+struct AxisMap {
+    std::uint16_t from;
+    std::uint16_t to;
+    bool flip;
+};
+
+constexpr std::array nunchukAxes{
+    AxisMap{ABS_HAT0X, ABS_X, false},
+    AxisMap{ABS_HAT0Y, ABS_Y, true},
+};
+
+// The triggers' travel (ABS_HAT3) is left out: L and R are read fully in.
+constexpr std::array classicAxes{
+    AxisMap{ABS_HAT1X, ABS_X, false},
+    AxisMap{ABS_HAT1Y, ABS_Y, true},
+    AxisMap{ABS_HAT2X, ABS_RX, false},
+    AxisMap{ABS_HAT2Y, ABS_RY, true},
+};
+
 template <std::size_t N>
 std::optional<std::uint16_t> keyIn(const std::array<KeyMap, N>& keys, std::uint16_t code) {
     const auto found = std::ranges::find(keys, code, &KeyMap::first);
@@ -68,32 +102,70 @@ std::optional<WiiRemotePart> wiiRemotePartOf(std::uint16_t vendor, std::uint16_t
     if (name == nunchukName) {
         return WiiRemotePart::Nunchuk;
     }
+    if (name == classicName) {
+        return WiiRemotePart::Classic;
+    }
     if (name == cameraName) {
         return WiiRemotePart::Camera;
     }
     return std::nullopt;
 }
 
-WiiRemoteLayout::WiiRemoteLayout(const PadCapabilities& nunchuk) {
-    const auto range = [&nunchuk](std::uint16_t code) {
-        const auto found = nunchuk.axes.find(code);
-        return found != nunchuk.axes.end() ? found->second : AxisRange{-1, 1};
-    };
-    stick_ = Stick{.x = range(ABS_HAT0X), .y = range(ABS_HAT0Y)};
+WiiRemoteLayout::WiiRemoteLayout(WiiRemotePart extension, const PadCapabilities& reports)
+    : extension_{extension} {
+    for (const auto& [code, range] : reports.axes) {
+        ranges_[code] = range;
+    }
 }
+
+namespace {
+
+template <std::size_t N> void addKeys(PadCapabilities& pad, const std::array<KeyMap, N>& keys) {
+    for (const KeyMap& key : keys) {
+        pad.keys.insert(key.second);
+    }
+}
+
+template <std::size_t N>
+std::optional<PadEvent> axisIn(const std::array<AxisMap, N>& axes,
+                               const std::map<std::uint16_t, AxisRange>& ranges,
+                               const PadEvent& in) {
+    const auto found = std::ranges::find(axes, in.code, &AxisMap::from);
+    if (found == axes.end()) {
+        return std::nullopt;
+    }
+    const auto range = ranges.find(in.code);
+    const AxisRange span = range != ranges.end() ? range->second : AxisRange{-1, 1};
+    // A gamepad's y grows downwards.
+    const std::int32_t value = found->flip ? span.min + span.max - in.value : in.value;
+    return PadEvent{.type = EV_ABS, .code = found->to, .value = value};
+}
+
+template <std::size_t N>
+void addAxes(PadCapabilities& pad, const std::array<AxisMap, N>& axes,
+             const std::map<std::uint16_t, AxisRange>& ranges) {
+    for (const AxisMap& axis : axes) {
+        const auto range = ranges.find(axis.from);
+        pad.axes[axis.to] = range != ranges.end() ? range->second : AxisRange{-1, 1};
+    }
+}
+
+} // namespace
 
 PadCapabilities WiiRemoteLayout::capabilities() const {
     PadCapabilities pad;
-    for (const KeyMap& key : withNunchuk() ? upright : sideways) {
-        pad.keys.insert(key.second);
+    if (extension_ == WiiRemotePart::Classic) {
+        addKeys(pad, classicKeys);
+        addAxes(pad, classicAxes, ranges_);
+        return pad;
     }
-    if (stick_) {
-        for (const KeyMap& key : nunchukKeys) {
-            pad.keys.insert(key.second);
-        }
-        pad.axes[ABS_X] = stick_->x;
-        pad.axes[ABS_Y] = stick_->y;
+    if (extension_ == WiiRemotePart::Nunchuk) {
+        addKeys(pad, upright);
+        addKeys(pad, nunchukKeys);
+        addAxes(pad, nunchukAxes, ranges_);
+        return pad;
     }
+    addKeys(pad, sideways);
     return pad;
 }
 
@@ -101,43 +173,29 @@ std::optional<PadEvent> WiiRemoteLayout::map(WiiRemotePart part, const PadEvent&
     if (in.type == EV_SYN) {
         return in;
     }
-    if (part == WiiRemotePart::Camera) {
-        return std::nullopt;
-    }
-    if (part == WiiRemotePart::Remote) {
-        if (in.type != EV_KEY) {
+    std::optional<std::uint16_t> key;
+    if (part == WiiRemotePart::Remote && in.type == EV_KEY) {
+        if (extension_ == WiiRemotePart::Classic) {
+            // The remote hangs off the Classic Controller.
             return std::nullopt;
         }
-        const std::optional<std::uint16_t> code =
-            withNunchuk() ? keyIn(upright, in.code) : keyIn(sideways, in.code);
-        if (!code) {
-            return std::nullopt;
-        }
-        return PadEvent{.type = EV_KEY, .code = *code, .value = in.value};
+        key = extension_ == WiiRemotePart::Nunchuk ? keyIn(upright, in.code)
+                                                   : keyIn(sideways, in.code);
+    } else if (part != extension_) {
+        // The camera, the accelerometer, or an extension the layout is not for.
+        return std::nullopt;
+    } else if (in.type == EV_KEY) {
+        key = part == WiiRemotePart::Classic ? keyIn(classicKeys, in.code)
+                                             : keyIn(nunchukKeys, in.code);
+    } else if (in.type == EV_ABS) {
+        // The Nunchuk's accelerometer is not a stick.
+        return part == WiiRemotePart::Classic ? axisIn(classicAxes, ranges_, in)
+                                              : axisIn(nunchukAxes, ranges_, in);
     }
-    if (!stick_) {
+    if (!key) {
         return std::nullopt;
     }
-    if (in.type == EV_KEY) {
-        const std::optional<std::uint16_t> code = keyIn(nunchukKeys, in.code);
-        if (!code) {
-            return std::nullopt;
-        }
-        return PadEvent{.type = EV_KEY, .code = *code, .value = in.value};
-    }
-    if (in.type != EV_ABS) {
-        return std::nullopt;
-    }
-    if (in.code == ABS_HAT0X) {
-        return PadEvent{.type = EV_ABS, .code = ABS_X, .value = in.value};
-    }
-    if (in.code == ABS_HAT0Y) {
-        // The Nunchuk reports up as positive; a gamepad's y grows downwards.
-        return PadEvent{
-            .type = EV_ABS, .code = ABS_Y, .value = stick_->y.min + stick_->y.max - in.value};
-    }
-    // The accelerometer is not a stick.
-    return std::nullopt;
+    return PadEvent{.type = EV_KEY, .code = *key, .value = in.value};
 }
 
 std::optional<WiiAim> WiiPointer::feed(const PadEvent& in) {
@@ -163,9 +221,11 @@ std::optional<WiiAim> WiiPointer::feed(const PadEvent& in) {
     if (seen > 0) {
         const auto count = static_cast<float>(seen);
         // The camera sees the bar mirrored across: pointing right moves the dots left.
-        aim = WiiAim{.onScreen = true,
-                     .x = std::clamp(1.0f - sumX / count / cameraWidth, 0.0f, 1.0f),
-                     .y = std::clamp(sumY / count / cameraHeight, 0.0f, 1.0f)};
+        const float x = range_.across(1.0f - sumX / count / cameraWidth);
+        const float y = range_.down(sumY / count / cameraHeight);
+        if (x >= 0.0f && x <= 1.0f && y >= 0.0f && y <= 1.0f) {
+            aim = WiiAim{.onScreen = true, .x = x, .y = y};
+        }
     }
     if (aim == last_) {
         return std::nullopt;

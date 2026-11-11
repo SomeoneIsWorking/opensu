@@ -9,9 +9,10 @@ using gamepad::Claim;
 
 gamepad::PadSourceOptions PadOwner::padsFor(const std::filesystem::path& dataDir, bool hidden) {
     if (!hidden) {
-        return {};
+        return {.barSlots = device::HidPlaces{}};
     }
-    return {.hiddenInputs = dataDir / "hidden-pads"};
+    return {.hiddenInputs = dataDir / "hidden-pads",
+            .barSlots = device::HidPlaces::of(dataDir, hidden)};
 }
 
 bool PadOwner::listens(const Situation& situation) {
@@ -31,20 +32,21 @@ Claim PadOwner::claimFor(const Situation& situation) {
     return ours && situation.followsFocus && situation.guardsSteam ? Claim::Shell : Claim::Free;
 }
 
-gamepad::HeldPads PadOwner::hold(const input::ButtonMap& map) {
+gamepad::HeldPads PadOwner::hold(const input::ButtonMap& map, gamepad::WiiRemoteHold remotes) {
     if (situation_.game) {
         // A game's launch takes the pads back from Steam.
         release();
     }
-    return take(map, FocusHolder::Game);
+    return take(map, FocusHolder::Game, remotes);
 }
 
-gamepad::HeldPads PadOwner::take(const input::ButtonMap& map, FocusHolder serves) {
+gamepad::HeldPads PadOwner::take(const input::ButtonMap& map, FocusHolder serves,
+                                 gamepad::WiiRemoteHold remotes) {
     chords_.setGame(map.chords());
     syncChords();
     situation_.game = true;
     situation_.serves = serves;
-    gamepad::HeldPads held = pads_.hold(forwarding(map));
+    gamepad::HeldPads held = pads_.hold(forwarding(map), remotes);
     claim_ = Claim::Game;
     follow(situation_.followsFocus, situation_.holder, situation_.menuOver);
     return held;
@@ -61,7 +63,8 @@ void PadOwner::lendToSteam(bool lend) {
         return;
     }
     if (wanted) {
-        static_cast<void>(take(input::ButtonMap{}, FocusHolder::BigPicture));
+        static_cast<void>(
+            take(input::ButtonMap{}, FocusHolder::BigPicture, gamepad::WiiRemoteHold::AsPads));
         return;
     }
     release();

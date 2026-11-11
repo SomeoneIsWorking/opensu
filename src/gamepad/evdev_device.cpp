@@ -2,7 +2,9 @@
 
 #include <array>
 #include <cerrno>
+#include <charconv>
 #include <climits>
+#include <fstream>
 #include <system_error>
 #include <utility>
 
@@ -47,7 +49,33 @@ std::filesystem::path parentOf(const std::filesystem::path& node) {
     return failed ? std::filesystem::path{} : parent;
 }
 
+/// The first line of the sysfs file `file`, or empty.
+std::string firstLine(const std::filesystem::path& file) {
+    std::ifstream in{file};
+    std::string line;
+    std::getline(in, line);
+    return line;
+}
+
+std::uint16_t hexOf(const std::string& text) {
+    std::uint16_t value = 0;
+    std::from_chars(text.data(), text.data() + text.size(), value, 16);
+    return value;
+}
+
 } // namespace
+
+std::optional<WiiRemotePart> EvdevDevice::wiiRemotePartAt(const std::filesystem::path& node) {
+    std::error_code failed;
+    const std::filesystem::path real = std::filesystem::canonical(node, failed);
+    if (failed) {
+        return std::nullopt;
+    }
+    const std::filesystem::path device =
+        std::filesystem::path{"/sys/class/input"} / real.filename() / "device";
+    return wiiRemotePartOf(hexOf(firstLine(device / "id" / "vendor")),
+                           hexOf(firstLine(device / "id" / "product")), firstLine(device / "name"));
+}
 
 EvdevDevice::EvdevDevice(const std::filesystem::path& node) : node_{node} {
     fd_ = ::open(node.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);

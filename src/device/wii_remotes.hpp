@@ -6,6 +6,7 @@
 #pragma once
 
 #include <filesystem>
+#include <vector>
 
 namespace opensu::device {
 
@@ -27,6 +28,16 @@ struct HidPlaces {
     }
 };
 
+/// One slot of a DolphinBar in Wii Remote mode.
+struct BarSlot {
+    /// Its hidraw node, under `HidPlaces::dev`.
+    std::filesystem::path node;
+    /// Which of its bar's four slots it is, from 0, by the USB interface.
+    int index{0};
+
+    bool operator==(const BarSlot&) const = default;
+};
+
 /// The real Wii Remotes there are now.
 struct WiiRemotes {
     /// DolphinBars in Wii Remote mode.
@@ -37,6 +48,8 @@ struct WiiRemotes {
     int otherModeBars{0};
     /// Remotes connected over Bluetooth.
     int bluetoothRemotes{0};
+    /// The slots of the bars in Wii Remote mode, bar by bar in slot order.
+    std::vector<BarSlot> barSlots;
 
     /// Whether a Wii game plays real remotes: a bar in Wii Remote mode, or a Bluetooth remote.
     [[nodiscard]] bool present() const noexcept {

@@ -1,5 +1,6 @@
 #include "wii_remotes.hpp"
 
+#include <algorithm>
 #include <charconv>
 #include <cstdint>
 #include <fstream>
@@ -8,6 +9,9 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 #include <unistd.h>
 
@@ -83,6 +87,17 @@ std::string usbDeviceOf(const std::string& phys) {
     return phys.substr(0, phys.rfind("/input"));
 }
 
+/// The slot a bar's HID interface is: the `N` of its phys's `/inputN`.
+int slotOf(const std::string& phys) {
+    const std::size_t at = phys.rfind("/input");
+    int slot = 0;
+    if (at != std::string::npos) {
+        const std::string_view number = std::string_view{phys}.substr(at + 6);
+        std::from_chars(number.data(), number.data() + number.size(), slot);
+    }
+    return slot;
+}
+
 /// Whether this user can read and write each hidraw node the HID device at `folder` has.
 bool reachable(const fs::path& folder, const fs::path& dev) {
     std::error_code failed;
@@ -102,6 +117,7 @@ WiiRemotes findWiiRemotes(const HidPlaces& places) {
     WiiRemotes found;
     std::set<std::string> bars;
     std::set<std::string> otherBars;
+    std::vector<std::pair<std::string, BarSlot>> slots;
     std::error_code failed;
     for (const fs::directory_entry& entry : fs::directory_iterator{places.devices, failed}) {
         const std::optional<HidDevice> device = deviceOf(entry.path());
@@ -115,10 +131,22 @@ WiiRemotes findWiiRemotes(const HidPlaces& places) {
         } else if (remote && device->bus == usbBus) {
             bars.insert(usbDeviceOf(device->phys));
             found.barsReachable = found.barsReachable && reachable(entry.path(), places.dev);
+            for (const fs::directory_entry& node :
+                 fs::directory_iterator{entry.path() / "hidraw", failed}) {
+                slots.push_back(
+                    {usbDeviceOf(device->phys), BarSlot{.node = places.dev / node.path().filename(),
+                                                        .index = slotOf(device->phys)}});
+            }
         } else if (device->bus == usbBus && device->vendor == dragonRise &&
                    device->product == dolphinBarGamepad) {
             otherBars.insert(usbDeviceOf(device->phys));
         }
+    }
+    std::ranges::sort(slots, [](const auto& one, const auto& other) {
+        return std::tie(one.first, one.second.index) < std::tie(other.first, other.second.index);
+    });
+    for (auto& [bar, slot] : slots) {
+        found.barSlots.push_back(std::move(slot));
     }
     found.dolphinBars = static_cast<int>(bars.size());
     found.otherModeBars = static_cast<int>(otherBars.size());

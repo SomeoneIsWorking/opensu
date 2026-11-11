@@ -54,6 +54,10 @@ class EvdevDevice {
     }
     /// The part of a Wii Remote this is (hid-wiimote's devices); nothing for another device.
     [[nodiscard]] std::optional<WiiRemotePart> wiiRemotePart() const;
+    /// The part of a Wii Remote `node` is, from sysfs without opening it: opening one turns its
+    /// camera on or changes the remote's report mode.
+    [[nodiscard]] static std::optional<WiiRemotePart>
+    wiiRemotePartAt(const std::filesystem::path& node);
     /// What a Wii Remote's parts share: the device the kernel made this input device for
     /// (`/sys/class/input/<node>/device/device`, resolved), or for a uinput device, which has
     /// none, its phys; empty when there is neither.

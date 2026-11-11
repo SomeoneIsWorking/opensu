@@ -21,6 +21,10 @@ namespace {
 
 /// Owners of a kept pad nobody sits at: `kept_` and `seats_`.
 constexpr long unseated = 2;
+/// How often the bars' slots are asked whether a remote is there.
+constexpr std::chrono::seconds askEvery{1};
+/// What a bar's remote is called, as hid-wiimote calls a Bluetooth one.
+const std::string slotRemoteName{"Nintendo Wii Remote"};
 
 std::system_error lastError(const char* what) {
     return std::system_error{errno, std::generic_category(), what};
@@ -29,30 +33,61 @@ std::system_error lastError(const char* what) {
 } // namespace
 
 EvdevPads::Pad::Pad(EvdevDevice opened)
-    : device{std::move(opened)},
-      layout{device.wiiRemotePart() ? std::optional{WiiRemoteLayout{}} : std::nullopt},
-      translator{capabilities()} {
+    : device{std::move(opened)}, layout{layoutNow()}, translator{capabilities()} {
     // The translator starts from the pad's present state, so the first resume is right.
-    std::vector<PadEvent> ignored;
-    std::vector<Event> controls;
-    for (const PadEvent& event : translatable(device.state(), false)) {
-        translator.translate(event, ignored, controls, ChordGate::Clock::now());
+    restart({}, {});
+}
+
+EvdevPads::Pad::Pad(WiiSlot& remote)
+    : slot{&remote}, layout{layoutNow()}, translator{capabilities()} {
+    restart({}, {});
+}
+
+std::string EvdevPads::Pad::id() const {
+    return (device ? device->node() : slot->node()).string();
+}
+
+const std::string& EvdevPads::Pad::name() const {
+    return device ? device->name() : slotRemoteName;
+}
+
+std::optional<WiiRemoteLayout> EvdevPads::Pad::layoutNow() const {
+    if (slot != nullptr) {
+        const std::optional<WiiRemotePart> plugged = slot->extension();
+        return plugged ? WiiRemoteLayout{*plugged, WiiSlot::capabilitiesOf(*plugged)}
+                       : WiiRemoteLayout{};
     }
+    if (!device->wiiRemotePart()) {
+        return std::nullopt;
+    }
+    if (extension) {
+        return WiiRemoteLayout{*extension->wiiRemotePart(), extension->capabilities()};
+    }
+    return WiiRemoteLayout{};
 }
 
 PadCapabilities EvdevPads::Pad::capabilities() const {
-    return layout ? layout->capabilities() : device.capabilities();
+    return layout ? layout->capabilities() : device->capabilities();
 }
 
 std::vector<PadEvent> EvdevPads::Pad::translatable(const std::vector<PadEvent>& read,
-                                                   bool fromExtension) const {
+                                                   WiiRemotePart part) const {
     if (!layout) {
         return read;
     }
     std::vector<PadEvent> mapped;
-    const WiiRemotePart part = fromExtension ? WiiRemotePart::Nunchuk : WiiRemotePart::Remote;
     for (const PadEvent& event : read) {
         if (const std::optional<PadEvent> to = layout->map(part, event)) {
+            mapped.push_back(*to);
+        }
+    }
+    return mapped;
+}
+
+std::vector<PadEvent> EvdevPads::Pad::translatable(const std::vector<WiiPartEvent>& read) const {
+    std::vector<PadEvent> mapped;
+    for (const WiiPartEvent& event : read) {
+        if (const std::optional<PadEvent> to = layout->map(event.part, event.event)) {
             mapped.push_back(*to);
         }
     }
@@ -70,14 +105,19 @@ void EvdevPads::Pad::restart(const ChordTriggers& chords, const ForwardMap& map)
             translator.translate(event, ignored, controls, ChordGate::Clock::now());
         }
     };
-    feed(translatable(device.state(), false));
+    if (slot != nullptr) {
+        feed(translatable(slot->state()));
+        return;
+    }
+    feed(translatable(device->state(), WiiRemotePart::Remote));
     if (extension) {
-        feed(translatable(extension->state(), true));
+        feed(translatable(extension->state(), *extension->wiiRemotePart()));
     }
 }
 
-EvdevPads::EvdevPads(std::filesystem::path inputDir, OwnVirtualPads own)
-    : inputDir_{std::move(inputDir)}, own_{own} {
+EvdevPads::EvdevPads(std::filesystem::path inputDir, std::optional<device::HidPlaces> barSlots,
+                     OwnVirtualPads own)
+    : inputDir_{std::move(inputDir)}, barSlots_{std::move(barSlots)}, own_{own} {
     wake_ = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
     if (wake_ < 0) {
         throw lastError("eventfd");
@@ -89,13 +129,22 @@ EvdevPads::EvdevPads(std::filesystem::path inputDir, OwnVirtualPads own)
     }
     // udev creates a node, then grants access to it: a pad becomes readable on the attribute
     // change, not the creation.
-    if (inotify_add_watch(watch_, inputDir_.c_str(), IN_CREATE | IN_ATTRIB) < 0) {
+    inputWatch_ = inotify_add_watch(watch_, inputDir_.c_str(), IN_CREATE | IN_ATTRIB);
+    if (inputWatch_ < 0) {
         const std::system_error failure = lastError("inotify_add_watch");
         ::close(watch_);
         ::close(wake_);
         throw failure;
     }
+    if (barSlots_) {
+        hidWatch_ = inotify_add_watch(watch_, barSlots_->dev.c_str(), IN_CREATE | IN_ATTRIB);
+        if (hidWatch_ < 0) {
+            lucent::info("gamepad", "DolphinBars plugged in later are not seen: {} is not watched",
+                         barSlots_->dev.string());
+        }
+    }
     scan();
+    openSlots();
     thread_ = std::jthread{[this](const std::stop_token& stop) {
         run(stop);
     }};
@@ -128,9 +177,10 @@ std::optional<device::BatteryStatus> EvdevPads::battery(const PadInfo& pad) cons
     return batteries_.read(pad.uniq);
 }
 
-HeldPads EvdevPads::hold(ForwardMap map) {
+HeldPads EvdevPads::hold(ForwardMap map, WiiRemoteHold remotes) {
     std::unique_lock lock{mutex_};
     wanted_.map = std::move(map);
+    wanted_.remotes = remotes;
     wanted_.blocked = false;
     request(lock, Claim::Game);
     if (appliedMissed_) {
@@ -143,6 +193,7 @@ HeldPads EvdevPads::hold(ForwardMap map) {
 void EvdevPads::release(Claim after) {
     std::unique_lock lock{mutex_};
     wanted_.map = {};
+    wanted_.remotes = WiiRemoteHold::AsPads;
     wanted_.blocked = false;
     request(lock, after);
 }
@@ -175,6 +226,13 @@ void EvdevPads::setChords(ChordTriggers chords) {
     std::unique_lock lock{mutex_};
     wanted_.chords = std::move(chords);
     awaitApplied(lock, ++wanted_.serial);
+}
+
+void EvdevPads::setWiiPointerRange(const WiiPointerRange& range) {
+    const std::lock_guard lock{mutex_};
+    wanted_.pointer = range;
+    ++wanted_.serial;
+    wake();
 }
 
 std::shared_ptr<VirtualPad> EvdevPads::lendPad() {
@@ -269,7 +327,8 @@ void EvdevPads::add(const std::filesystem::path& node) {
         return;
     }
     for (const auto& pad : pads_) {
-        if (pad->device.node() == node || (pad->extension && pad->extension->node() == node) ||
+        if ((pad->device && pad->device->node() == node) ||
+            (pad->extension && pad->extension->node() == node) ||
             (pad->camera && pad->camera->node() == node)) {
             return;
         }
@@ -277,6 +336,9 @@ void EvdevPads::add(const std::filesystem::path& node) {
     if (std::ranges::any_of(loose_, [&node](const EvdevDevice& held) {
             return held.node() == node;
         })) {
+        return;
+    }
+    if (applied_.remotes == WiiRemoteHold::ToGame && EvdevDevice::wiiRemotePartAt(node)) {
         return;
     }
     std::optional<EvdevDevice> device = EvdevDevice::openPad(node, own_);
@@ -288,17 +350,21 @@ void EvdevPads::add(const std::filesystem::path& node) {
         addPart(std::move(*device));
         return;
     }
-    auto pad = std::make_unique<Pad>(std::move(*device));
+    connect(std::make_unique<Pad>(std::move(*device)));
+}
+
+void EvdevPads::connect(std::unique_ptr<Pad> pad) {
     pad->translator.setChords(applied_.chords);
     pad->translator.setForwardMap(applied_.map);
-    lucent::info("gamepad", "controller connected: {} ({})", pad->device.name(), node.string());
+    pad->pointer.setRange(applied_.pointer);
+    lucent::info("gamepad", "controller connected: {} ({})", pad->name(), pad->id());
     if (!apply(*pad, applied_)) {
         missed_ = true;
     }
     std::erase_if(loose_, [this, &pad](EvdevDevice& part) {
         return attach(*pad, part);
     });
-    const PadInfo info{node.string(), pad->device.name(), pad->device.uniq()};
+    const PadInfo info{pad->id(), pad->name(), pad->device ? pad->device->uniq() : ""};
     std::vector<Event> events{
         Event{.kind = Event::Kind::Connected, .device = info.name, .source = info.id}};
     {
@@ -321,16 +387,17 @@ void EvdevPads::addPart(EvdevDevice part) {
 }
 
 bool EvdevPads::attach(Pad& pad, EvdevDevice& part) {
-    if (!pad.layout || part.parent().empty() || pad.device.parent() != part.parent()) {
+    if (!pad.layout || !pad.device || part.parent().empty() ||
+        pad.device->parent() != part.parent()) {
         return false;
     }
-    if (part.wiiRemotePart() == WiiRemotePart::Nunchuk && !pad.extension) {
+    const std::optional<WiiRemotePart> kind = part.wiiRemotePart();
+    if ((kind == WiiRemotePart::Nunchuk || kind == WiiRemotePart::Classic) && !pad.extension) {
         setExtension(pad, std::move(part));
         return true;
     }
-    if (part.wiiRemotePart() == WiiRemotePart::Camera && !pad.camera) {
-        lucent::info("gamepad", "{} ({}) points with its camera", pad.device.name(),
-                     pad.device.node().string());
+    if (kind == WiiRemotePart::Camera && !pad.camera) {
+        lucent::info("gamepad", "{} ({}) points with its camera", pad.name(), pad.id());
         pad.camera = std::move(part);
         // Dots that hold still after the open are never reported again; the camera's next report
         // says where it points.
@@ -347,23 +414,114 @@ bool EvdevPads::attach(Pad& pad, EvdevDevice& part) {
     return false;
 }
 
-void EvdevPads::setExtension(Pad& pad, std::optional<EvdevDevice> nunchuk) {
-    if (pad.live) {
-        write(pad, pad.translator.rest());
-    }
-    pad.extension = std::move(nunchuk);
-    pad.layout = pad.extension ? WiiRemoteLayout{pad.extension->capabilities()} : WiiRemoteLayout{};
+void EvdevPads::setExtension(Pad& pad, std::optional<EvdevDevice> extension) {
+    pad.extension = std::move(extension);
     if (pad.extension && pad.grabbed) {
         static_cast<void>(pad.extension->grab());
     }
+    relayout(pad);
+}
+
+void EvdevPads::relayout(Pad& pad) {
+    if (pad.live) {
+        write(pad, pad.translator.rest());
+    }
+    pad.layout = pad.layoutNow();
     pad.restart(applied_.chords, applied_.map);
     if (pad.live) {
         write(pad, pad.translator.resume());
     }
-    lucent::info("gamepad", "{} ({}) {}", pad.device.name(), pad.device.node().string(),
-                 pad.extension ? "held upright with its Nunchuk" : "held sideways");
+    const std::optional<WiiRemotePart> extension = pad.layout->extension();
+    lucent::info("gamepad", "{} ({}) {}", pad.name(), pad.id(),
+                 extension == WiiRemotePart::Classic   ? "read as its Classic Controller"
+                 : extension == WiiRemotePart::Nunchuk ? "held upright with its Nunchuk"
+                                                       : "held sideways");
     const std::lock_guard lock{mutex_};
-    axes_[pad.device.node().string()] = pad.translator.axes();
+    axes_[pad.id()] = pad.translator.axes();
+}
+
+void EvdevPads::openSlots() {
+    if (!barSlots_ || applied_.remotes == WiiRemoteHold::ToGame) {
+        return;
+    }
+    for (const device::BarSlot& found : device::findWiiRemotes(*barSlots_).barSlots) {
+        if (std::ranges::any_of(slots_, [&found](const auto& open) {
+                return open->node() == found.node;
+            })) {
+            continue;
+        }
+        try {
+            slots_.push_back(std::make_unique<WiiSlot>(found.node, found.index));
+        } catch (const std::system_error& failure) {
+            if (refusedSlots_.insert(found.node).second) {
+                lucent::info("gamepad", "DolphinBar slot {} is not read: {}", found.index + 1,
+                             failure.what());
+            }
+            continue;
+        }
+        refusedSlots_.erase(found.node);
+        lucent::info("gamepad", "DolphinBar slot {} ({}) opened", found.index + 1,
+                     found.node.string());
+        static_cast<void>(slots_.back()->ask());
+    }
+}
+
+void EvdevPads::askSlots(std::vector<Event>& events) {
+    asked_ = std::chrono::steady_clock::now();
+    for (const auto& slot : slots_) {
+        const bool had = slot->remote();
+        if (slot->ask() || !had) {
+            continue;
+        }
+        const auto pad = std::ranges::find(pads_, slot.get(), &Pad::slot);
+        if (pad != pads_.end()) {
+            drop(static_cast<std::size_t>(pad - pads_.begin()), events);
+        }
+    }
+}
+
+EvdevPads::Pad* EvdevPads::padOf(const WiiSlot& slot) const {
+    const auto pad = std::ranges::find(pads_, &slot, &Pad::slot);
+    return pad != pads_.end() ? pad->get() : nullptr;
+}
+
+void EvdevPads::drop(std::size_t index, std::vector<Event>& events) {
+    Pad& pad = *pads_[index];
+    lucent::info("gamepad", "controller disconnected: {}", pad.name());
+    if (pad.live) {
+        write(pad, pad.translator.rest());
+    }
+    const std::string id = pad.id();
+    if (pad.camera) {
+        events.push_back(Event{
+            .kind = Event::Kind::Pointer, .device = pad.name(), .source = id, .onScreen = false});
+    }
+    events.push_back(Event{.kind = Event::Kind::Disconnected, .device = pad.name(), .source = id});
+    {
+        const std::lock_guard lock{mutex_};
+        std::erase_if(connected_, [&id](const PadInfo& info) {
+            return info.id == id;
+        });
+        axes_.erase(id);
+    }
+    pads_.erase(pads_.begin() + static_cast<std::ptrdiff_t>(index));
+}
+
+void EvdevPads::letGoOfWiiRemotes() {
+    std::vector<Event> events;
+    for (std::size_t i = pads_.size(); i-- > 0;) {
+        if (pads_[i]->layout) {
+            lucent::info("gamepad", "{} ({}) is left to the game", pads_[i]->name(),
+                         pads_[i]->id());
+            drop(i, events);
+        }
+    }
+    loose_.clear();
+    if (!slots_.empty()) {
+        lucent::info("gamepad", "{} DolphinBar slots are left to the game", slots_.size());
+    }
+    slots_.clear();
+    publish(events);
 }
 
 bool EvdevPads::apply(Pad& pad, const Wanted& wanted) {
@@ -371,7 +529,8 @@ bool EvdevPads::apply(Pad& pad, const Wanted& wanted) {
     const bool virtualPad = wanted.claim == Claim::Game || wanted.claim == Claim::Away;
     bool held = true;
     if (grab && !pad.grabbed) {
-        pad.grabbed = pad.device.grab();
+        // Nothing grabs a hidraw node; the bar's slot is openSU's while it is open.
+        pad.grabbed = !pad.device || pad.device->grab();
         held = pad.grabbed;
         for (std::optional<EvdevDevice>* part : {&pad.extension, &pad.camera}) {
             if (pad.grabbed && *part) {
@@ -379,8 +538,7 @@ bool EvdevPads::apply(Pad& pad, const Wanted& wanted) {
             }
         }
     } else if (!grab && pad.grabbed) {
-        pad.device.ungrab();
-        for (std::optional<EvdevDevice>* part : {&pad.extension, &pad.camera}) {
+        for (std::optional<EvdevDevice>* part : {&pad.device, &pad.extension, &pad.camera}) {
             if (*part) {
                 (*part)->ungrab();
             }
@@ -401,14 +559,14 @@ bool EvdevPads::apply(Pad& pad, const Wanted& wanted) {
             try {
                 pad.made = std::make_unique<VirtualPad>();
             } catch (const std::system_error& failure) {
-                lucent::error("gamepad", "cannot give {} a virtual pad: {}", pad.device.name(),
+                lucent::error("gamepad", "cannot give {} a virtual pad: {}", pad.name(),
                               failure.what());
                 return false;
             }
             pad.output = pad.made.get();
         }
     }
-    const bool lent = wanted.lent && &pad == pads_.front().get();
+    const bool lent = wanted.lent && !pads_.empty() && &pad == pads_.front().get();
     if (lent && pad.output != nullptr) {
         const auto kept = std::ranges::find(kept_, pad.output, &std::shared_ptr<VirtualPad>::get);
         const std::lock_guard lock{mutex_};
@@ -419,7 +577,7 @@ bool EvdevPads::apply(Pad& pad, const Wanted& wanted) {
         write(pad, live ? pad.translator.resume() : pad.translator.rest());
         pad.live = live;
     }
-    lucent::debug("gamepad", "{}: grabbed {}, virtual pad {}", pad.device.name(), pad.grabbed,
+    lucent::debug("gamepad", "{}: grabbed {}, virtual pad {}", pad.name(), pad.grabbed,
                   pad.output != nullptr);
     return held;
 }
@@ -433,7 +591,7 @@ void EvdevPads::write(Pad& pad, const std::vector<PadEvent>& events) {
     try {
         pad.output->write(events);
     } catch (const std::system_error& failure) {
-        lucent::error("gamepad", "{}: {}", pad.device.name(), failure.what());
+        lucent::error("gamepad", "{}: {}", pad.name(), failure.what());
     }
 }
 
@@ -451,16 +609,18 @@ void EvdevPads::run(const std::stop_token& stop) {
         std::vector<pollfd> fds;
         fds.push_back(pollfd{wake_, POLLIN, 0});
         fds.push_back(pollfd{watch_, POLLIN, 0});
-        // What each polled descriptor after the first two is: a pad's device, Nunchuk or camera,
-        // or a part waiting for its remote.
+        // What each polled descriptor after the first two is: a pad's device, extension or
+        // camera, a part waiting for its remote, or a bar's slot.
         struct Polled {
             std::size_t index;
-            enum class Kind : std::uint8_t { Device, Extension, Camera, Loose } kind;
+            enum class Kind : std::uint8_t { Device, Extension, Camera, Loose, Slot } kind;
         };
         std::vector<Polled> polled;
         for (std::size_t i = 0; i < pads_.size(); ++i) {
-            fds.push_back(pollfd{pads_[i]->device.fd(), POLLIN, 0});
-            polled.push_back({i, Polled::Kind::Device});
+            if (pads_[i]->device) {
+                fds.push_back(pollfd{pads_[i]->device->fd(), POLLIN, 0});
+                polled.push_back({i, Polled::Kind::Device});
+            }
             if (pads_[i]->extension) {
                 fds.push_back(pollfd{pads_[i]->extension->fd(), POLLIN, 0});
                 polled.push_back({i, Polled::Kind::Extension});
@@ -474,7 +634,17 @@ void EvdevPads::run(const std::stop_token& stop) {
             fds.push_back(pollfd{loose_[i].fd(), POLLIN, 0});
             polled.push_back({i, Polled::Kind::Loose});
         }
-        if (::poll(fds.data(), fds.size(), -1) < 0 && errno != EINTR) {
+        for (std::size_t i = 0; i < slots_.size(); ++i) {
+            fds.push_back(pollfd{slots_[i]->fd(), POLLIN, 0});
+            polled.push_back({i, Polled::Kind::Slot});
+        }
+        int timeout = -1;
+        if (!slots_.empty()) {
+            const auto due = asked_ + askEvery - std::chrono::steady_clock::now();
+            timeout = static_cast<int>(std::max<std::chrono::milliseconds::rep>(
+                0, std::chrono::duration_cast<std::chrono::milliseconds>(due).count()));
+        }
+        if (::poll(fds.data(), fds.size(), timeout) < 0 && errno != EINTR) {
             lucent::error("gamepad", "poll: {}", std::generic_category().message(errno));
             // Nothing is read from here on; a waiting hold() is answered with nothing held.
             const std::lock_guard lock{mutex_};
@@ -491,6 +661,12 @@ void EvdevPads::run(const std::stop_token& stop) {
             const std::lock_guard lock{mutex_};
             wanted = wanted_;
         }
+        const bool remotesChanged = wanted.remotes != applied_.remotes;
+        if (remotesChanged && wanted.remotes == WiiRemoteHold::ToGame) {
+            // Before the claim, so no remote is grabbed or given a virtual pad for the game.
+            letGoOfWiiRemotes();
+            polled.clear();
+        }
         if (wanted.chords != applied_.chords) {
             for (const auto& pad : pads_) {
                 pad->translator.setChords(wanted.chords);
@@ -500,6 +676,11 @@ void EvdevPads::run(const std::stop_token& stop) {
             // Before a hold, so a new virtual pad resumes from the mapped state.
             for (const auto& pad : pads_) {
                 pad->translator.setForwardMap(wanted.map);
+            }
+        }
+        if (wanted.pointer != applied_.pointer) {
+            for (const auto& pad : pads_) {
+                pad->pointer.setRange(wanted.pointer);
             }
         }
         const bool keepChanged = wanted.keep != applied_.keep;
@@ -516,6 +697,12 @@ void EvdevPads::run(const std::stop_token& stop) {
             }
         }
         applied_ = wanted;
+        if (remotesChanged && wanted.remotes == WiiRemoteHold::AsPads) {
+            // The game is over: the remotes are pads again, under the claim now in force.
+            scan();
+            openSlots();
+            polled.clear();
+        }
         {
             const std::lock_guard lock{mutex_};
             appliedSerial_ = wanted.serial;
@@ -525,12 +712,13 @@ void EvdevPads::run(const std::stop_token& stop) {
 
         std::vector<Event> events;
         const ChordGate::Clock::time_point now = ChordGate::Clock::now();
-        // Pads first: `polled` indexes pads_ and loose_ as they were polled, before any is added
-        // or removed.
+        // Pads first: `polled` indexes pads_, loose_ and slots_ as they were polled, before any
+        // is removed; pads made meanwhile go at the end.
         std::vector<std::size_t> gone;
         std::vector<std::size_t> extensionGone;
         std::vector<std::size_t> cameraGone;
         std::vector<std::size_t> looseGone;
+        std::vector<std::size_t> slotsGone;
         for (std::size_t at = 0; at < polled.size(); ++at) {
             const pollfd& fd = fds[at + 2];
             if (fd.revents == 0) {
@@ -546,6 +734,43 @@ void EvdevPads::run(const std::stop_token& stop) {
                 }
                 continue;
             }
+            if (source.kind == Polled::Kind::Slot) {
+                WiiSlot& slot = *slots_[source.index];
+                const std::optional<WiiRemotePart> plugged = slot.extension();
+                std::vector<WiiPartEvent> reports;
+                if (!slot.read(reports) || hungUp) {
+                    slotsGone.push_back(source.index);
+                    continue;
+                }
+                Pad* pad = padOf(slot);
+                if (pad == nullptr) {
+                    if (slot.remote()) {
+                        // Made from the slot's state, which these reports already are.
+                        connect(std::make_unique<Pad>(slot));
+                    }
+                    continue;
+                }
+                if (slot.extension() != plugged) {
+                    relayout(*pad);
+                    continue;
+                }
+                std::vector<PadEvent> forward;
+                const std::size_t before = events.size();
+                for (const PadEvent& event : pad->translatable(reports)) {
+                    pad->translator.translate(event, forward, events, now);
+                }
+                for (std::size_t i = before; i < events.size(); ++i) {
+                    events[i].source = pad->id();
+                }
+                {
+                    const std::lock_guard lock{mutex_};
+                    axes_[pad->id()] = pad->translator.axes();
+                }
+                if (pad->live) {
+                    write(*pad, forward);
+                }
+                continue;
+            }
             Pad& pad = *pads_[source.index];
             if (source.kind == Polled::Kind::Camera) {
                 if (!pad.camera->read(read) || hungUp) {
@@ -555,8 +780,8 @@ void EvdevPads::run(const std::stop_token& stop) {
                 for (const PadEvent& event : read) {
                     if (const std::optional<WiiAim> aim = pad.pointer.feed(event)) {
                         events.push_back(Event{.kind = Event::Kind::Pointer,
-                                               .device = pad.device.name(),
-                                               .source = pad.device.node().string(),
+                                               .device = pad.name(),
+                                               .source = pad.id(),
                                                .onScreen = aim->onScreen,
                                                .x = aim->x,
                                                .y = aim->y});
@@ -565,7 +790,7 @@ void EvdevPads::run(const std::stop_token& stop) {
                 continue;
             }
             const bool fromExtension = source.kind == Polled::Kind::Extension;
-            EvdevDevice& device = fromExtension ? *pad.extension : pad.device;
+            EvdevDevice& device = fromExtension ? *pad.extension : *pad.device;
             if (!device.read(read) || hungUp) {
                 (fromExtension ? extensionGone : gone).push_back(source.index);
                 continue;
@@ -584,23 +809,25 @@ void EvdevPads::run(const std::stop_token& stop) {
                     if (pointer) {
                         events.push_back(Event{.kind = Event::Kind::PointerButton,
                                                .pressed = event.value == 1,
-                                               .device = pad.device.name(),
-                                               .source = pad.device.node().string()});
+                                               .device = pad.name(),
+                                               .source = pad.id()});
                     }
                     return pointer;
                 });
             }
             std::vector<PadEvent> forward;
             const std::size_t before = events.size();
-            for (const PadEvent& event : pad.translatable(read, fromExtension)) {
+            const WiiRemotePart part =
+                fromExtension ? *pad.extension->wiiRemotePart() : WiiRemotePart::Remote;
+            for (const PadEvent& event : pad.translatable(read, part)) {
                 pad.translator.translate(event, forward, events, now);
             }
             for (std::size_t i = before; i < events.size(); ++i) {
-                events[i].source = pad.device.node().string();
+                events[i].source = pad.id();
             }
             {
                 const std::lock_guard lock{mutex_};
-                axes_[pad.device.node().string()] = pad.translator.axes();
+                axes_[pad.id()] = pad.translator.axes();
             }
             if (pad.live) {
                 write(pad, forward);
@@ -608,7 +835,7 @@ void EvdevPads::run(const std::stop_token& stop) {
         }
         for (const std::size_t i : extensionGone) {
             if (std::ranges::find(gone, i) == gone.end()) {
-                lucent::info("gamepad", "Nunchuk unplugged from {}", pads_[i]->device.name());
+                lucent::info("gamepad", "extension unplugged from {}", pads_[i]->name());
                 setExtension(*pads_[i], std::nullopt);
             }
         }
@@ -616,37 +843,29 @@ void EvdevPads::run(const std::stop_token& stop) {
             Pad& pad = *pads_[i];
             pad.camera.reset();
             pad.pointer = WiiPointer{};
+            pad.pointer.setRange(applied_.pointer);
             events.push_back(Event{.kind = Event::Kind::Pointer,
-                                   .device = pad.device.name(),
-                                   .source = pad.device.node().string(),
+                                   .device = pad.name(),
+                                   .source = pad.id(),
                                    .onScreen = false});
         }
         for (const std::size_t i : std::views::reverse(looseGone)) {
             loose_.erase(loose_.begin() + static_cast<std::ptrdiff_t>(i));
         }
         for (const std::size_t i : std::views::reverse(gone)) {
-            Pad& pad = *pads_[i];
-            lucent::info("gamepad", "controller disconnected: {}", pad.device.name());
-            if (pad.live) {
-                write(pad, pad.translator.rest());
+            drop(i, events);
+        }
+        for (const std::size_t i : std::views::reverse(slotsGone)) {
+            const WiiSlot* slot = slots_[i].get();
+            const auto pad = std::ranges::find(pads_, slot, &Pad::slot);
+            if (pad != pads_.end()) {
+                drop(static_cast<std::size_t>(pad - pads_.begin()), events);
             }
-            const std::string id = pad.device.node().string();
-            if (pad.camera) {
-                events.push_back(Event{.kind = Event::Kind::Pointer,
-                                       .device = pad.device.name(),
-                                       .source = id,
-                                       .onScreen = false});
-            }
-            events.push_back(Event{
-                .kind = Event::Kind::Disconnected, .device = pad.device.name(), .source = id});
-            {
-                const std::lock_guard lock{mutex_};
-                std::erase_if(connected_, [&id](const PadInfo& info) {
-                    return info.id == id;
-                });
-                axes_.erase(id);
-            }
-            pads_.erase(pads_.begin() + static_cast<std::ptrdiff_t>(i));
+            lucent::info("gamepad", "DolphinBar slot {} is gone", slot->node().string());
+            slots_.erase(slots_.begin() + static_cast<std::ptrdiff_t>(i));
+        }
+        if (!slots_.empty() && std::chrono::steady_clock::now() >= asked_ + askEvery) {
+            askSlots(events);
         }
         // A batch is forwarded before its controls are reported.
         publish(events);
@@ -654,12 +873,19 @@ void EvdevPads::run(const std::stop_token& stop) {
         if ((fds[1].revents & POLLIN) != 0) {
             std::array<char, 4096> buffer{};
             const ssize_t got = ::read(watch_, buffer.data(), buffer.size());
+            bool hidrawChanged = false;
             for (ssize_t at = 0; at < got;) {
                 const auto* change = reinterpret_cast<const inotify_event*>(buffer.data() + at);
-                if (change->len > 0) {
+                if (change->len > 0 && change->wd == hidWatch_) {
+                    hidrawChanged =
+                        hidrawChanged || std::string_view{change->name}.starts_with("hidraw");
+                } else if (change->len > 0) {
                     add(inputDir_ / change->name);
                 }
                 at += static_cast<ssize_t>(sizeof(inotify_event) + change->len);
+            }
+            if (hidrawChanged) {
+                openSlots();
             }
         }
     }

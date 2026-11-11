@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "config/config.hpp"
+#include "gamepad/wii_pointer_range.hpp"
 #include "input/keyboard_style.hpp"
 #include "input/shortcuts.hpp"
 #include "install_folders.hpp"
@@ -125,6 +126,13 @@ struct Settings {
 
     /// Which on-screen keyboard openSU's fields open.
     input::KeyboardStyle keyboardStyle{input::KeyboardStyle::DaisyWheel};
+
+    /// Whether Wii games on Dolphin play the real Wii Remotes when they are here; off, they always
+    /// play the emulated remote on a pad.
+    bool realWiiRemotes{true};
+    /// Where the screen is in a Wii Remote's camera view, from pointing at its corners; the
+    /// camera's whole view until then.
+    std::optional<gamepad::WiiPointerRange> wiiPointer;
 
     /// The night light in session mode.
     NightLightChoice nightLight{NightLightChoice::Desktop};

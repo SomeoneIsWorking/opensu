@@ -282,8 +282,9 @@ std::map<std::string, PadAxes> SdlPads::axes() const {
     return axes;
 }
 
-// Nothing is grabbed or forwarded: the game reads the pads itself, so it needs nothing.
-HeldPads SdlPads::hold(ForwardMap /*map*/) {
+// Nothing is grabbed or forwarded, and no Wii Remote read: the game reads the pads itself, so it
+// needs nothing.
+HeldPads SdlPads::hold(ForwardMap /*map*/, WiiRemoteHold /*remotes*/) {
     return {};
 }
 
@@ -297,6 +298,9 @@ void SdlPads::setBlocked(bool /*blocked*/) {
 }
 
 void SdlPads::setChords(ChordTriggers /*chords*/) {
+}
+
+void SdlPads::setWiiPointerRange(const WiiPointerRange& /*range*/) {
 }
 
 std::shared_ptr<VirtualPad> SdlPads::lendPad() {
