@@ -116,7 +116,7 @@ net::Result<std::size_t> CoreSystemFiles::install(const std::stop_token& stop,
     std::optional<std::string> bytes =
         digest ? fileio::readWhole(part, error) : std::optional<std::string>{};
     removeQuietly(part);
-    if (!bytes) {
+    if (!digest || !bytes) {
         return net::Failure{std::move(error)};
     }
     if (const std::string seen = lucent::content::sha256_hex(*digest); seen != source.sha256) {
@@ -178,10 +178,10 @@ net::Result<std::size_t> CoreSystemFiles::install(const std::stop_token& stop,
         if (stop.stop_requested()) {
             return net::Stopped{};
         }
-        const std::string member = prefix + relative;
+        std::string member = prefix + relative;
         const std::optional<std::string> file = archive->read(member, error);
         if (!file) {
-            return net::Failure{member + " cannot be taken out of the zip: " + error};
+            return net::Failure{member.append(" cannot be taken out of the zip: ").append(error)};
         }
         if (!fileio::writeWhole(root / relative, *file, error)) {
             return net::Failure{std::move(error)};
