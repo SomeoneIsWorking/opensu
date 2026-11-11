@@ -161,73 +161,81 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
     };
     romsets_.begin(RomsetMatcher::Clock::now());
     switch_.begin();
+    // One entry of `system`'s in `here`, which is its system folder or, for a loose file, the root.
+    const auto add = [&](const RomSystem& system, const RomFolder& here, const RomNode& entry) {
+        const std::optional<fs::path> file = gameFile(*tree_, system, entry);
+        if (!file) {
+            return;
+        }
+        Game game;
+        game.id = "rom:" + entry.location.string();
+        game.source = Source::Rom;
+        game.sourceId = std::string{system.key};
+        const std::string name = entryName(entry);
+        const std::string listed = listedName(name, system.key == "arcade" ? &arcade : nullptr);
+        // A game's own data is read where it opens as a file; a picked folder's are not.
+        std::optional<DumpInfo> dump;
+        if (entry.local) {
+            dump =
+                system.key == "switch" ? switch_.read(*file) : readDumpInfo(system, entry.location);
+        }
+        const bool titled = dump && !dump->title.empty();
+        game.title = titled ? dump->title : cleanTitle(listed);
+        game.artworkKey = titled ? dump->title : listed;
+        if (dump) {
+            game.artwork = dump->icon;
+            game.titleId = dump->titleId;
+            game.switchSaveData = dump->saveData;
+        }
+        game.file = *file;
+        // The file itself is what makes the entry playable.
+        game.installed = true;
+        // The emulator's command line carries the game's file.
+        game.processHint = entry.folder ? file->filename().string() : entry.name;
+        game.emulatorOptions = emulators.options(system.key, *file);
+        if (std::optional<LaunchSpec> spec = emulators.launch(system.key, *file)) {
+            game.launch = std::move(*spec);
+            game.emulator = emulators.chosenName(system.key);
+        } else {
+            game.unavailable = missingEmulator(system, emulators);
+        }
+        bool isGame = true;
+        if (system.key == "arcade" && !entry.folder) {
+            isGame = byRomset(game, here, entry);
+        } else if (system.key == "arcade") {
+            const std::vector<RomNode> own =
+                tree_->children(entry.location).value_or(std::vector<RomNode>{});
+            const auto zip = std::ranges::find(own, *file, &RomNode::location);
+            if (zip != own.end()) {
+                isGame = byRomset(game, RomFolder{*tree_, entry.location, own}, *zip);
+            }
+        }
+        if (isGame) {
+            games.push_back(std::move(game));
+        }
+    };
     for (const fs::path& root : roots_) {
-        const std::optional<std::vector<RomNode>> folders = tree_->children(root);
-        if (!folders) {
+        const std::optional<RootTop> top = readRoot(*tree_, root);
+        if (!top) {
             lucent::warn("roms", "{}: not a folder openSU can read", root.string());
             continue;
         }
-        for (const RomNode& folder : *folders) {
-            const RomSystem* system = systemForFolder(folder.name);
-            if (system == nullptr || !folder.folder) {
-                continue;
-            }
+        for (const RootEntry& folder : top->folders) {
             const std::vector<RomNode> entries =
-                tree_->children(folder.location).value_or(std::vector<RomNode>{});
-            const RomFolder here{*tree_, folder.location, entries};
+                tree_->children(folder.node.location).value_or(std::vector<RomNode>{});
+            const RomFolder here{*tree_, folder.node.location, entries};
             for (const RomNode& entry : entries) {
-                const std::optional<fs::path> file = gameFile(*tree_, *system, entry);
-                if (!file) {
-                    continue;
-                }
-                Game game;
-                game.id = "rom:" + entry.location.string();
-                game.source = Source::Rom;
-                game.sourceId = std::string{system->key};
-                const std::string name = entryName(entry);
-                const std::string listed =
-                    listedName(name, system->key == "arcade" ? &arcade : nullptr);
-                // A game's own data is read where it opens as a file; a picked folder's are not.
-                std::optional<DumpInfo> dump;
-                if (entry.local) {
-                    dump = system->key == "switch" ? switch_.read(*file)
-                                                   : readDumpInfo(*system, entry.location);
-                }
-                const bool titled = dump && !dump->title.empty();
-                game.title = titled ? dump->title : cleanTitle(listed);
-                game.artworkKey = titled ? dump->title : listed;
-                if (dump) {
-                    game.artwork = dump->icon;
-                    game.titleId = dump->titleId;
-                    game.switchSaveData = dump->saveData;
-                }
-                game.file = *file;
-                // The file itself is what makes the entry playable.
-                game.installed = true;
-                // The emulator's command line carries the game's file.
-                game.processHint = entry.folder ? file->filename().string() : entry.name;
-                game.emulatorOptions = emulators.options(system->key, *file);
-                if (std::optional<LaunchSpec> spec = emulators.launch(system->key, *file)) {
-                    game.launch = std::move(*spec);
-                    game.emulator = emulators.chosenName(system->key);
-                } else {
-                    game.unavailable = missingEmulator(*system, emulators);
-                }
-                bool isGame = true;
-                if (system->key == "arcade" && !entry.folder) {
-                    isGame = byRomset(game, here, entry);
-                } else if (system->key == "arcade") {
-                    const std::vector<RomNode> own =
-                        tree_->children(entry.location).value_or(std::vector<RomNode>{});
-                    const auto zip = std::ranges::find(own, *file, &RomNode::location);
-                    if (zip != own.end()) {
-                        isGame = byRomset(game, RomFolder{*tree_, entry.location, own}, *zip);
-                    }
-                }
-                if (isGame) {
-                    games.push_back(std::move(game));
-                }
+                add(*folder.system, here, entry);
             }
+        }
+        const RomFolder rootFolder{*tree_, root, top->children};
+        for (const RootEntry& file : top->loose) {
+            add(*file.system, rootFolder, file.node);
+        }
+        if (top->leftOut > 0) {
+            lucent::info("roms",
+                         "{}: {} loose files left out: their extension is more than one console's",
+                         root.string(), top->leftOut);
         }
     }
     romsets_.save();

@@ -1,5 +1,6 @@
 // rom_systems — the consoles opensu knows: what a system's folder may be called, which files
-// are its games, and which file in a game's folder is the one to start.
+// are its games, which file in a game's folder is the one to start, and what a ROM root holds at
+// its top: the system folders and the loose files an extension of one console's alone places.
 #pragma once
 
 #include <filesystem>
@@ -27,6 +28,27 @@ struct RomSystem {
     /// A game folder's file to start when no file of `extensions` names it: a path relative to
     /// the folder, matched case-insensitively, with `*` standing for one name ("code/*.rpx").
     NameList markers;
+    /// The extensions no other console's games use, so a loose file in a ROM root with one is
+    /// this system's game; empty where every extension is shared (.iso, .chd, .cue, .zip).
+    NameList loose;
+};
+
+/// A system's folder, or a loose game file, at the top of a ROM root.
+struct RootEntry {
+    const RomSystem* system;
+    RomNode node;
+};
+
+/// What a ROM root holds at its top.
+struct RootTop {
+    /// The root's own entries, sorted by name.
+    std::vector<RomNode> children;
+    /// The folders named for a system.
+    std::vector<RootEntry> folders;
+    /// The files placed by an extension of one system's alone.
+    std::vector<RootEntry> loose;
+    /// The files with a game extension that more than one system shares, which are not guessed.
+    std::size_t leftOut{0};
 };
 
 /// Every known system.
@@ -34,6 +56,17 @@ struct RomSystem {
 
 /// The system a ROM root's subfolder holds, or null.
 [[nodiscard]] const RomSystem* systemForFolder(std::string_view folderName);
+
+/// The system a loose file named `fileName` belongs to by its extension, or null when no system
+/// owns that extension alone.
+[[nodiscard]] const RomSystem* systemForFile(std::string_view fileName);
+
+/// What `root` holds at its top; nothing when it is no folder the tree can read.
+[[nodiscard]] std::optional<RootTop> readRoot(const RomTree& tree,
+                                              const std::filesystem::path& root);
+
+/// Whether `top` holds a game the scan lists: stops at the first system folder that has one.
+[[nodiscard]] bool holdsGames(const RomTree& tree, const RootTop& top);
 
 /// The system with ES-DE name `key`, or null.
 [[nodiscard]] const RomSystem* systemByKey(std::string_view key);

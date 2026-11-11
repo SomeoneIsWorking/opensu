@@ -1,5 +1,6 @@
 // roms — the games in ROM folders: one folder per system under a ROM root, each holding game
-// files or game folders, started by the emulator found for the system.
+// files or game folders, and loose files in the root placed by an extension of one system's alone,
+// started by the emulator found for the system.
 #pragma once
 
 #include <filesystem>
@@ -40,7 +41,8 @@ class Provider final : public library::Provider {
         return Source::Rom;
     }
 
-    /// Every game in every known system's folder under the roots, titled from its name with the
+    /// Every game in every known system's folder under the roots and every loose file a root holds
+    /// with an extension of one system's alone (`readRoot`), titled from its name with the
     /// dump tags cleaned off, and an arcade game from the kept listing when it has its short name.
     /// A PS4 dump or a Switch game file that names itself is titled and shown by what it says.
     /// A game whose system has no emulator is listed, with `unavailable` naming what to install.

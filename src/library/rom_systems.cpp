@@ -130,92 +130,124 @@ constexpr auto systems = std::to_array<RomSystem>({
      "Nintendo - Nintendo Entertainment System",
      {"nes", "famicom", "nintendoentertainmentsystem"},
      {".nes", ".fds"},
-     {}},
+     {},
+     {".nes", ".fds"}},
     {"snes",
      "Super Nintendo",
      "Nintendo - Super Nintendo Entertainment System",
      {"snes", "superfamicom", "supernintendo", "sfc"},
      {".sfc", ".smc"},
-     {}},
-    {"gb", "Game Boy", "Nintendo - Game Boy", {"gb", "gameboy"}, {".gb"}, {}},
-    {"gbc", "Game Boy Color", "Nintendo - Game Boy Color", {"gbc", "gameboycolor"}, {".gbc"}, {}},
+     {},
+     {".sfc", ".smc"}},
+    {"gb", "Game Boy", "Nintendo - Game Boy", {"gb", "gameboy"}, {".gb"}, {}, {".gb"}},
+    {"gbc",
+     "Game Boy Color",
+     "Nintendo - Game Boy Color",
+     {"gbc", "gameboycolor"},
+     {".gbc"},
+     {},
+     {".gbc"}},
     {"gba",
      "Game Boy Advance",
      "Nintendo - Game Boy Advance",
      {"gba", "gameboyadvance"},
      {".gba"},
-     {}},
+     {},
+     {".gba"}},
     {"n64",
      "Nintendo 64",
      "Nintendo - Nintendo 64",
      {"n64", "nintendo64"},
      {".z64", ".n64", ".v64"},
-     {}},
-    {"nds", "Nintendo DS", "Nintendo - Nintendo DS", {"nds", "ds", "nintendods"}, {".nds"}, {}},
+     {},
+     {".z64", ".n64", ".v64"}},
+    {"nds",
+     "Nintendo DS",
+     "Nintendo - Nintendo DS",
+     {"nds", "ds", "nintendods"},
+     {".nds"},
+     {},
+     {".nds"}},
     {"n3ds",
      "Nintendo 3DS",
      "Nintendo - Nintendo 3DS",
      {"3ds", "n3ds", "nintendo3ds"},
      {".3ds", ".cci", ".cxi"},
-     {}},
+     {},
+     {".3ds", ".cci", ".cxi"}},
     {"gc",
      "GameCube",
      "Nintendo - GameCube",
      {"gc", "gamecube", "ngc"},
      {".rvz", ".iso", ".gcm", ".gcz", ".ciso"},
-     {}},
-    {"wii", "Wii", "Nintendo - Wii", {"wii"}, {".rvz", ".iso", ".wbfs", ".wia"}, {}},
+     {},
+     {".gcm"}},
+    {"wii", "Wii", "Nintendo - Wii", {"wii"}, {".rvz", ".iso", ".wbfs", ".wia"}, {}, {".wbfs"}},
     {"wiiu",
      "Wii U",
      "Nintendo - Wii U",
      {"wiiu"},
      {".wux", ".wud", ".wua", ".rpx"},
-     {"code/*.rpx"}},
+     {"code/*.rpx"},
+     {".wux", ".wud", ".wua"}},
     {"switch",
      "Nintendo Switch",
      "",
      {"switch", "nintendoswitch", "ns"},
      {".nsp", ".xci", ".nsz", ".xcz"},
-     {}},
+     {},
+     {".nsp", ".xci", ".nsz", ".xcz"}},
     {"psx",
      "PlayStation",
      "Sony - PlayStation",
      {"psx", "ps1", "playstation", "psxchd", "ps1chd"},
      {".chd", ".cue", ".pbp", ".m3u"},
+     {},
      {}},
     {"ps2",
      "PlayStation 2",
      "Sony - PlayStation 2",
      {"ps2", "playstation2"},
      {".chd", ".iso", ".cso"},
+     {},
      {}},
     {"ps3",
      "PlayStation 3",
      "Sony - PlayStation 3",
      {"ps3", "playstation3"},
      {".iso"},
-     {"ps3_game/usrdir/eboot.bin"}},
-    {"ps4", "PlayStation 4", "Sony - PlayStation 4", {"ps4", "playstation4"}, {}, {"eboot.bin"}},
+     {"ps3_game/usrdir/eboot.bin"},
+     {}},
+    {"ps4",
+     "PlayStation 4",
+     "Sony - PlayStation 4",
+     {"ps4", "playstation4"},
+     {},
+     {"eboot.bin"},
+     {}},
     {"psp",
      "PSP",
      "Sony - PlayStation Portable",
      {"psp", "playstationportable"},
      {".iso", ".cso"},
+     {},
      {}},
     {"dreamcast",
      "Dreamcast",
      "Sega - Dreamcast",
      {"dreamcast", "dc"},
      {".chd", ".gdi", ".cdi"},
-     {}},
-    {"xbox", "Xbox", "Microsoft - Xbox", {"xbox"}, {".iso"}, {}},
+     {},
+     {".gdi"}},
+    {"xbox", "Xbox", "Microsoft - Xbox", {"xbox"}, {".iso"}, {}, {}},
     {"xbox360",
      "Xbox 360",
      "Microsoft - Xbox 360",
      {"xbox360", "x360"},
      {".iso", ".xex", ".zar"},
-     {}},
-    {"arcade", "Arcade", "MAME", {"arcade", "mame", "fbneo"}, {".zip"}, {}},
+     {},
+     {".zar"}},
+    {"arcade", "Arcade", "MAME", {"arcade", "mame", "fbneo"}, {".zip"}, {}, {}},
 });
 
 } // namespace
@@ -232,6 +264,52 @@ const RomSystem* systemForFolder(std::string_view folderName) {
         }
     }
     return nullptr;
+}
+
+const RomSystem* systemForFile(std::string_view fileName) {
+    const std::string extension = lower(fs::path{fileName}.extension().string());
+    for (const RomSystem& system : romSystems()) {
+        if (std::ranges::find(system.loose, extension) != system.loose.end()) {
+            return &system;
+        }
+    }
+    return nullptr;
+}
+
+std::optional<RootTop> readRoot(const RomTree& tree, const fs::path& root) {
+    std::optional<std::vector<RomNode>> children = tree.children(root);
+    if (!children) {
+        return std::nullopt;
+    }
+    RootTop top;
+    top.children = std::move(*children);
+    for (const RomNode& child : top.children) {
+        if (child.folder) {
+            if (const RomSystem* system = systemForFolder(child.name)) {
+                top.folders.push_back({system, child});
+            }
+        } else if (const RomSystem* system = systemForFile(child.name)) {
+            top.loose.push_back({system, child});
+        } else if (std::ranges::any_of(romSystems(), [&child](const RomSystem& any) {
+                       return isGameFile(any, child.name);
+                   })) {
+            ++top.leftOut;
+        }
+    }
+    return top;
+}
+
+bool holdsGames(const RomTree& tree, const RootTop& top) {
+    if (!top.loose.empty()) {
+        return true;
+    }
+    return std::ranges::any_of(top.folders, [&tree](const RootEntry& folder) {
+        const std::vector<RomNode> entries =
+            tree.children(folder.node.location).value_or(std::vector<RomNode>{});
+        return std::ranges::any_of(entries, [&](const RomNode& entry) {
+            return gameFile(tree, *folder.system, entry).has_value();
+        });
+    });
 }
 
 const RomSystem* systemByKey(std::string_view key) {

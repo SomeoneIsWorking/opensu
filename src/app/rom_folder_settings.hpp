@@ -1,7 +1,8 @@
 // rom_folder_settings — the ROM folders section of Settings › Library: each folder the player added
-// with Remove, which asks first, Add a ROM folder (the controller's chooser) and Find ROM folders
-// automatically. Forgetting a folder touches no file and keeps everything tied to its games by id;
-// the OS's grant on a picked folder goes back once no setting names that folder.
+// with Remove, which asks first, Add a ROM folder (the controller's chooser; what the picked folder
+// holds is said as it is added) and Find ROM folders automatically. Forgetting a folder touches no
+// file and keeps everything tied to its games by id; the OS's grant on a picked folder goes back
+// once no setting names that folder.
 #pragma once
 
 #include <filesystem>
@@ -47,6 +48,9 @@ class RomFolderSettings {
     [[nodiscard]] static bool owns(const std::string& id);
     /// Acts on row `id`: Remove asks first, Find ROM folders automatically forgets them all.
     void run(const std::string& id, int step);
+    /// Adds the picked `folder` and says what it holds: no games and where they go, or the loose
+    /// files left out because their extension is more than one console's.
+    void add(const std::filesystem::path& folder);
 
   private:
     void ask(const std::filesystem::path& folder);

@@ -1,10 +1,14 @@
 #include "rom_folder_settings.hpp"
 
 #include <algorithm>
+#include <format>
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include "gpu2d/ui/screen.hpp"
+
+#include "library/rom_systems.hpp"
 
 namespace opensu::app {
 namespace {
@@ -58,6 +62,24 @@ void RomFolderSettings::run(const std::string& id, int step) {
         return;
     }
     ask(id.substr(removePrefix.size()));
+}
+
+void RomFolderSettings::add(const fs::path& folder) {
+    preferences_.values().addRomFolder(folder);
+    hooks_.changed();
+    const std::optional<library::roms::RootTop> top = library::roms::readRoot(*tree_, folder);
+    const std::size_t leftOut = top ? top->leftOut : 0;
+    const std::string waiting =
+        std::format("{} {} a folder named for {} console, like ps2/", leftOut,
+                    leftOut == 1 ? "file needs" : "files need", leftOut == 1 ? "its" : "their");
+    if (!top || !library::roms::holdsGames(*tree_, *top)) {
+        hooks_.say(std::format("No games found in {}: {}", tree_->label(folder),
+                               leftOut > 0 ? waiting
+                                           : "put each console's games in a folder named for it, "
+                                             "like gba/"));
+        return;
+    }
+    hooks_.say(leftOut > 0 ? "ROM folder added; " + waiting : "ROM folder added");
 }
 
 void RomFolderSettings::ask(const fs::path& folder) {

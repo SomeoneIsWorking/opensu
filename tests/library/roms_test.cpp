@@ -41,13 +41,16 @@ using opensu::library::roms::Emulators;
 using opensu::library::roms::EmulatorSearch;
 using opensu::library::roms::EmulatorSetup;
 using opensu::library::roms::gameFile;
+using opensu::library::roms::holdsGames;
 using opensu::library::roms::NameDb;
 using opensu::library::roms::NameMap;
 using opensu::library::roms::noRomsetMatch;
 using opensu::library::roms::Provider;
+using opensu::library::roms::readRoot;
 using opensu::library::roms::RomsetDat;
 using opensu::library::roms::RomsetDats;
 using opensu::library::roms::RomsetLists;
+using opensu::library::roms::systemForFile;
 using opensu::library::roms::systemForFolder;
 using opensu::test::zipfixture::buildZip;
 using opensu::test::zipfixture::crcOf;
@@ -354,6 +357,55 @@ void providerLists(const Fixture& f) {
            "artwork is looked up by the file or folder name, tags kept");
 }
 
+void looseFilesArePlaced(const Fixture& f) {
+    const fs::path loose = f.base / "loose";
+    write(loose / "Link Clock.gba");
+    write(loose / "Super Metroid (Europe).sfc");
+    write(loose / "Some Disc (USA).iso");
+    write(loose / "Other Disc (USA).chd");
+    write(loose / "sf2.zip");
+    write(loose / "notes.txt");
+    write(loose / "GBA" / "Minish Cap.gba");
+    const fs::path empty = f.base / "empty";
+    write(empty / "notes.txt");
+    write(empty / "gba" / "readme.txt");
+
+    for (const auto& system : opensu::library::roms::romSystems()) {
+        for (const std::string_view extension : system.loose) {
+            expect(std::ranges::find(system.extensions, extension) != system.extensions.end(),
+                   "a loose extension is one of the system's game extensions");
+            expect(systemForFile(std::string{"a"} + std::string{extension}) == &system,
+                   "no two systems place a loose file by the same extension");
+        }
+    }
+    expect(systemForFile("a.ISO") == nullptr && systemForFile("a.zip") == nullptr &&
+               systemForFile("a.rvz") == nullptr,
+           "an extension more than one console uses places nothing");
+
+    const opensu::library::roms::FileTree files;
+    const auto top = need(readRoot(files, loose), "the loose root reads");
+    expect(top.loose.size() == 2 && top.folders.size() == 1 && top.leftOut == 3,
+           "two loose games placed, one console folder, the iso, chd and zip left out");
+    const auto bare = need(readRoot(files, empty), "the empty root reads");
+    expect(!holdsGames(files, bare) && bare.leftOut == 0,
+           "a root with an empty console folder and no game files holds no games");
+    expect(holdsGames(files, top), "a root with loose games holds games");
+
+    Provider provider{{loose},
+                      EmulatorSetup{shipped(), EmulatorSearch{}, {}},
+                      NameDb::under(f.base / "cache-loose"),
+                      {},
+                      {}};
+    const std::vector<Game> games = provider.list(std::stop_token{});
+    expect(games.size() == 3, "the loose games and the console folder's game are listed");
+    const Game* clock = find(games, "Link Clock");
+    expect(clock != nullptr && clock->sourceId == "gba" && clock->file == loose / "Link Clock.gba",
+           "a loose .gba is a Game Boy Advance game");
+    expect(find(games, "Super Metroid")->sourceId == "snes",
+           "a loose .sfc is a Super Nintendo game");
+    expect(find(games, "Minish Cap")->sourceId == "gba", "a console folder still works");
+}
+
 /// `value` as `size` little-endian bytes at `at`.
 void putLittleEndian(std::string& bytes, std::size_t at, std::uint64_t value, std::size_t size) {
     for (std::size_t i = 0; i < size; ++i) {
@@ -562,6 +614,7 @@ int main() try {
     rootsAreDiscovered(fixture);
     emulatorsAreFound(fixture);
     providerLists(fixture);
+    looseFilesArePlaced(fixture);
     biosIsNoGame(fixture);
     installedCoresFirst(fixture);
     runnerModeWords(fixture);

@@ -712,15 +712,15 @@ void SettingsController::addRoot(const std::string& id) {
         if (!folder) {
             return;
         }
-        if (!steam) {
-            if (games) {
-                preferences_.values().addGameFolder(*folder);
-            } else {
-                preferences_.values().addRomFolder(*folder);
-            }
+        if (!steam && !games) {
+            romFolders_.add(*folder);
+            return;
+        }
+        if (games) {
+            preferences_.values().addGameFolder(*folder);
             changed();
             hooks_.libraryFoldersChanged();
-            hooks_.say(games ? "Game folder added" : "ROM folder added", false);
+            hooks_.say("Game folder added", false);
             return;
         }
         std::vector<fs::path>& roots = preferences_.values().steamRoots;
