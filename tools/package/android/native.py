@@ -67,7 +67,7 @@ def build(layout: config.Layout, sources: Deps, abi: str, env: Mapping[str, str]
             # The NDK's toolchain finds packages under these roots only.
             f"-DCMAKE_FIND_ROOT_PATH={prefix};{shared}",
             "-DPKG_CONFIG_ARGN=--static",
-            # std::jthread and std::stop_token are experimental in the NDK's libc++.
+            # openSU's own std::jthread and std::stop_token are experimental in the NDK's libc++.
             "-DCMAKE_CXX_FLAGS=-fexperimental-library",
             f"-DLUCENT_ROOT={sources.lucent}",
             f"-DGPU2D_ROOT={sources.gpu2d}",

@@ -85,7 +85,7 @@ class Rig:
             assert self.lab.zerotier_root is not None
             self.root = self.lab.zerotier_root.start(
                 [
-                    str(context.build / "tests" / "online" / "online_zero_tier_root"),
+                    str(context.build / "lucent" / "lucent_zerotier_root"),
                     str(context.out / "zerotier-root"),
                     f"{topology.ZEROTIER_ROOT}/{topology.ZEROTIER_ROOT_PORT}",
                     str(roots),

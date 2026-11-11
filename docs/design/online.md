@@ -147,12 +147,13 @@ plays by one code; `zerotier-lan` gives each machine its own system bus and Avah
 pairs the two over LAN discovery on `zt0`. Both capture `zt0` in `wire-zt0.log`.
 `zerotier-embedded` puts symmetric NATs on both sides and nothing between the machines but openSU's
 own node, through a lab root on a machine of its own past the internet node
-(`tests/online/zero_tier_root.cpp`; ZeroTier binds each address to its interface, so the root's
+(Lucent's `lucent_zerotier_root`; ZeroTier binds each address to its interface, so the root's
 address is on the link it is reached by); both logs must say `connected over ZeroTier`, no node's
 private key may be in a log, and the sockets left are only the node's, bound to an interface. Every other case plays with
 `onlineZeroTier` off, so the symmetric cases still prove the direct path alone fails.
-`online_zero_tier_meeting` (ctest, every platform with ZeroTier) runs openSU's lab root at one of
-the machine's own addresses and a host and a friend as processes of their own with no direct way:
+`online_zero_tier_meeting` (ctest, every platform with ZeroTier) runs `lucent_zerotier_root` at
+one of the machine's own addresses (on Linux a dummy `lab0` in a network namespace of the test's
+own) and a host and a friend as processes of their own with no direct way:
 they meet over the embedded node alone and their stand-in runners hear each other through the bridges.
 
 `settings.json`'s `onlineStunServers` (comma-separated `host:port`) replaces the default STUN
