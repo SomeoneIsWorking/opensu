@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <format>
 #include <stdexcept>
@@ -15,33 +16,30 @@ namespace {
 
 constexpr std::uint32_t bytesPerPixel = 4;
 
-/// The pacer's settings for a game's frame generation by a generator needing `lead`.
-framegen::PacingSettings_t pacingOf(const settings::FrameGenSettings& settings,
-                                    std::uint32_t lead) {
+/// The pacer's settings for a game's frame generation.
+framegen::PacingSettings_t pacingOf(const settings::FrameGenSettings& settings) {
     constexpr double thousand = 1000.0;
     if (settings.mode == settings::FrameGenMode::Fixed) {
         return framegen::PacingSettings_t{.eMode = framegen::PacingMode::Fixed,
                                           .flRatio = settings.ratioThousandths / thousand,
                                           .flTargetFps = 0.0,
                                           .uMaxGenerated = 3,
-                                          .flToleranceFps = 0.0,
-                                          .uFirstOutputLead = lead};
+                                          .flToleranceFps = 0.0};
     }
     return framegen::PacingSettings_t{
         .eMode = framegen::PacingMode::Adaptive,
         .flRatio = 1.0,
         .flTargetFps = settings.targetThousandths / thousand,
         .uMaxGenerated = std::clamp(settings.maxGenerated, 1U, framegen::k_uMaxGeneratedLimit),
-        .flToleranceFps = settings.toleranceThousandths / thousand,
-        .uFirstOutputLead = lead};
+        .flToleranceFps = settings.toleranceThousandths / thousand};
 }
 
 } // namespace
 
 PacedFrames::PacedFrames(GeneratorDevice& gpu, std::unique_ptr<Interpolator> generator,
                          const settings::FrameGenSettings& settings, SourcePixel pixel)
-    : gpu_{gpu}, generator_{std::move(generator)}, pixel_{pixel} {
-    pacer_.Configure(pacingOf(settings, generator_->firstOutputLead()));
+    : gpu_{gpu}, generator_{std::move(generator)}, pixel_{pixel}, watch_{gpu} {
+    pacer_.Configure(pacingOf(settings));
 }
 
 PacedFrames::~PacedFrames() {
@@ -96,6 +94,8 @@ void PacedFrames::begin(std::uint32_t width, std::uint32_t height) {
     }
     gpu_.Wait(gpu_.Submit(cmd));
     pacer_.Reset();
+    static_cast<void>(watch_.take());
+    need_.reset();
     frames_ = 0;
     lastAdded_.reset();
     width_ = width;
@@ -106,6 +106,7 @@ void PacedFrames::begin(std::uint32_t width, std::uint32_t height) {
 std::uint64_t PacedFrames::add(std::span<const std::uint8_t> rgba, std::uint32_t width,
                                std::uint32_t height, std::uint64_t readyNs, std::uint64_t arrivalNs,
                                std::uint64_t refreshNs) {
+    const auto came = std::chrono::steady_clock::now();
     if (rgba.size() != std::size_t{width} * height * bytesPerPixel) {
         throw std::runtime_error{"a real frame is not in RGBA of its size"};
     }
@@ -137,6 +138,11 @@ std::uint64_t PacedFrames::add(std::span<const std::uint8_t> rgba, std::uint32_t
     slot.busy = gpu_.Submit(cmd);
     slot.generated.clear();
 
+    for (const std::uint64_t took : watch_.take()) {
+        need_.add(took, refreshNs);
+    }
+    needNs_ = need_.needNs(refreshNs);
+    pacer_.SetReadyNeededNs(needNs_);
     const framegen::IntervalPlan_t plan = pacer_.OnRealFrame(index, readyNs, arrivalNs, refreshNs);
     if (plan.eState == framegen::PacingState::Generating) {
         const bool follows = lastAdded_ && *lastAdded_ + 1 == index;
@@ -180,15 +186,18 @@ std::uint64_t PacedFrames::add(std::span<const std::uint8_t> rgba, std::uint32_t
         slot.generated.push_back(made->ulSeqNo);
         slot.busy = made->ulSeqNo;
     }
+    if (!slot.generated.empty()) {
+        watch_.watch(slot.generated.front(), came);
+    }
     ++frames_;
     ++realIn_;
     return index;
 }
 
 std::string PacedFrames::summary() const {
-    return std::format("framegen real={} shown={} generated={} dropped={} state={}", realIn_,
-                       shown_, shownGenerated_, dropped(),
-                       state_ ? framegen::PacingStateName(*state_) : "none");
+    return std::format("framegen real={} shown={} generated={} dropped={} state={} ready-need={}us",
+                       realIn_, shown_, shownGenerated_, dropped(),
+                       state_ ? framegen::PacingStateName(*state_) : "none", needNs_ / 1000);
 }
 
 std::optional<Shown> PacedFrames::vblank(std::uint64_t nowNs, std::uint64_t refreshNs) {

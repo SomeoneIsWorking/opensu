@@ -15,6 +15,8 @@
 
 #include "frame_gen/generator_gpu.hpp"
 #include "frame_gen/interpolator.hpp"
+#include "frame_gen/ready_need.hpp"
+#include "frame_gen/ready_watch.hpp"
 #include "framegen/FramePacer.h"
 #include "settings/framegen_settings.hpp"
 
@@ -33,7 +35,8 @@ struct Shown {
 class PacedFrames {
   public:
     /// Frames between real ones made by `generator` on `gpu`, the content's pixels `pixel`, paced
-    /// by the game's `settings` and the generator's own first-output lead.
+    /// by the game's `settings`, each real frame's first generated frame planned at least as late
+    /// as the generator's recent frames took to be ready (`ReadyNeed`).
     PacedFrames(GeneratorDevice& gpu, std::unique_ptr<Interpolator> generator,
                 const settings::FrameGenSettings& settings, SourcePixel pixel);
     ~PacedFrames();
@@ -75,7 +78,7 @@ class PacedFrames {
         return state_;
     }
     /// The counts in one line: real frames in, presents and generated frames shown, outputs
-    /// dropped and the pacer's state.
+    /// dropped, the pacer's state and the ready time it plans for.
     [[nodiscard]] std::string summary() const;
 
   private:
@@ -106,6 +109,9 @@ class PacedFrames {
     std::uint64_t frames_{0};
     std::optional<std::uint64_t> lastAdded_;
     std::optional<framegen::PacingState> state_;
+    ReadyNeed need_;
+    std::uint64_t needNs_{0};
+    ReadyWatch watch_;
     std::uint64_t realIn_{0};
     std::uint64_t shown_{0};
     std::uint64_t shownGenerated_{0};

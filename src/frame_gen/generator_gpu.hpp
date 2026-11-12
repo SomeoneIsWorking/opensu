@@ -51,6 +51,9 @@ class GeneratorDevice final : public framegen::IQueue {
     std::uint64_t Submit(VkCommandBuffer cmd) override;
     std::uint64_t Completed() override;
     void Wait(std::uint64_t seqNo) override;
+    /// Whether submission `seqNo` finished within `timeoutNs`; safe from any thread, as it reads
+    /// no spans.
+    [[nodiscard]] bool reached(std::uint64_t seqNo, std::uint64_t timeoutNs);
 
     /// Waits for everything submitted.
     [[nodiscard]] VkResult idle() noexcept;

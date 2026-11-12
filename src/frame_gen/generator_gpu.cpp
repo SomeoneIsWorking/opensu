@@ -165,6 +165,21 @@ void GeneratorDevice::Wait(std::uint64_t seqNo) {
     }
 }
 
+bool GeneratorDevice::reached(std::uint64_t seqNo, std::uint64_t timeoutNs) {
+    const VkSemaphoreWaitInfo wait{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
+                                   .pNext = nullptr,
+                                   .flags = 0,
+                                   .semaphoreCount = 1,
+                                   .pSemaphores = &timeline_,
+                                   .pValues = &seqNo};
+    const VkResult result = vkWaitSemaphores(device_, &wait, timeoutNs);
+    if (result == VK_TIMEOUT) {
+        return false;
+    }
+    check(result, "vkWaitSemaphores");
+    return true;
+}
+
 void GeneratorDevice::measure() {
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(physical_, &properties);

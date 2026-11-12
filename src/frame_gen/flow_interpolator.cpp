@@ -254,10 +254,6 @@ class FlowInterpolator final : public Interpolator {
     FlowInterpolator(FlowInterpolator&&) = delete;
     FlowInterpolator& operator=(FlowInterpolator&&) = delete;
 
-    [[nodiscard]] std::uint32_t firstOutputLead() const noexcept override {
-        return flowFirstOutputLead;
-    }
-
     bool begin(std::uint32_t width, std::uint32_t height, SourcePixel pixel) override {
         if (gpu_.idle() != VK_SUCCESS || pixel.width < 1.0F || pixel.height < 1.0F) {
             return false;

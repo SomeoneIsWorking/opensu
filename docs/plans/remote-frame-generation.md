@@ -86,12 +86,15 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
 - `ShellWindow` presents at most 60 a second today; while a remote game generates, the cap follows
   the display's refresh so a 90 or 120 Hz screen gets its rate.
 - Added latency, by the pacer's design: one real interval held back (33.3 ms at 30 fps, 16.7 ms at
-  60), the largest recent arrival lag, the generator's first-output lead less up to a refresh
-  (`Interpolator::firstOutputLead`, 1 for Lossless and 2 for `flow`; the first generated frame
-  after a real one gets at least the lead less one refresh of GPU time, and at a lead of 1 as
-  little as 3.4 ms at 50 fps to 60 by the arrival's phase, `pacer_first_output`; replayed with
-  `flow`'s measured ready times at a lead of 1, 45 fps to 60 misses up to 22% of its generated
-  frames at the worst phase), and the generation itself (2.2 ms per generated 720p frame balanced on an RX 6700 XT, more on a phone GPU, which
+  60), the largest recent arrival lag, the generator's ready need and up to a refresh, and the
+  generation itself. The ready need (`frame_gen::ReadyNeed`) is how long after a real frame
+  arrives the generator has its first frame between ready, measured on the timeline semaphore
+  (`ReadyWatch`) over the last 64 real frames: their slowest and 1 ms, raised at once by a slower
+  frame, lowered by at most 2 ms after a whole window under it, a refresh until the window is
+  full. The pacer plans the first generated frame at least that long after its real frame
+  (`SetReadyNeededNs`); with a need of 0, as Gamescope's own generator runs, the first is due as
+  little as 3.4 ms after it at 50 fps to 60 by the arrival's phase (`pacer_first_output`). The
+  generation itself (2.2 ms per generated 720p frame balanced on an RX 6700 XT, more on a phone GPU, which
   must fit it inside its refresh). Stage A adds an upload per real frame and a readback per shown frame.
 - Below 10 fps, while measuring, or within the tolerance of the target, real frames show as they
   come, as in the fork.
@@ -345,15 +348,22 @@ at the display's refresh shows the real frame or a generated one through the com
 player's shaders. With `--frame-pngs` the pacer runs on the core's own clock and waits for each
 generated frame, so writing the PNGs moves no times. Super Metroid (PAL, 50 fps) on a 60 Hz
 display: 4560 core frames gave 5468 presents, 3851 of them generated. In a 30 s real-time hidden
-walk 1500 core frames gave 1794 presents (59.8 a second), 1186 generated and 1 dropped; a real
-frame shows on average 41.5 to 48.1 ms after the core drew it: one core frame (20 ms) and `flow`'s
-lead of two refreshes less up to one. A real frame's ingest and first generated frame
-are done 5.2 ms after it arrives (p50; p90 6.2, max 7.0) at the GPU's idle clock. Without frame
-generation it shows right away. On the remote play guest, Lossless and openSU's generator each
-show 60.0 frames a second from the host's 30 with none dropped (19 s, TwoPlayers ROM, a hidden
-host in headless Gamescope); capture to submit settles within a refresh set by the arrival phase,
-34 to 50 ms with Lossless (40.5, 49.0, 34.0 and 46.4 in four runs) and 55 to 60 ms with openSU's
-generator.
+walk 1500 core frames gave 1795 presents (59.8 a second), 1187 generated and 1 dropped; `flow`'s
+ready need settles at 6.5 to 7.7 ms (its ingest and first generated frame are done 5.2 ms after
+a real frame arrives, p50; p90 6.2, max 7.0, at the GPU's idle clock), and the held delay steps 4
+times, all in the first 16 real frames. A real frame shows on average 41.0 to 42.5 ms after the
+core drew it: the delay held from the start, under a refresh's need, stays while it fits. Without
+frame generation it shows right away. On the remote play guest, Lossless and openSU's generator
+each show 60.0 frames a second from the host's 30 with none dropped (19 s, TwoPlayers ROM, a
+hidden host in headless Gamescope); their needs settle at 3.1 and 2.0 ms and capture to submit
+falls with them, from 56.9 to 40.6 ms and from 55.3 to 38.9 ms.
+
+`tests/frame_gen`'s replay runs the fork's pacer with `ReadyNeed` over 64 arrival phases of eight
+paces, each real frame's first generated frame ready after one of `flow`'s 2844 measured times
+(and twice them): no generated frame misses in any phase, the held delay steps at most once a
+minute more than with a refresh's need, and real frames show 4.4 to 7.7 ms sooner (1.2 to 2.0 at
+twice the times). With a need of 0 instead, 45 fps to 60 missed up to 22% of its generated frames
+at the worst phase.
 
 ### GPU cost
 
@@ -419,6 +429,10 @@ Lossless's at every size.
   candidates' windows, often the same vector for neighbouring blocks, shared between blocks; the
   finer levels' blocks packed several to a workgroup so no thread idles. The generated frame's 100
   texels per pixel.
+- The delay held from a session's start: once the ready need falls, the delay chosen under a
+  refresh's need stays while it fits, so a single run's latency falls only when the pacer steps it
+  (the runner's 30 s walk kept it). Taking one step down once the need settles would cost one
+  visible step for up to a refresh less latency.
 - `flow` in Gamescope: Gamescope's generator is Lossless's; a game outside the built-in runner
   with openSU chosen gets no frame generation (the summary's note says where openSU's runs).
 - The source pixel on remote play: `RemoteFrameGen` runs `flow` at scale 1 with a 1 x 1 pixel
