@@ -86,9 +86,10 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
 - `ShellWindow` presents at most 60 a second today; while a remote game generates, the cap follows
   the display's refresh so a 90 or 120 Hz screen gets its rate.
 - Added latency, by the pacer's design: one real interval held back (33.3 ms at 30 fps, 16.7 ms at
-  60), the largest recent arrival lag, up to one refresh, and the generation itself (2.2 ms per
-  generated 720p frame balanced on an RX 6700 XT, more on a phone GPU, which must fit it inside
-  its refresh). Stage A adds an upload per real frame and a readback per shown frame.
+  60), the largest recent arrival lag, one to two refreshes (the first generated frame after a
+  real one gets at least a refresh of GPU time, whatever the arrival's phase), and the generation
+  itself (2.2 ms per generated 720p frame balanced on an RX 6700 XT, more on a phone GPU, which
+  must fit it inside its refresh). Stage A adds an upload per real frame and a readback per shown frame.
 - Below 10 fps, while measuring, or within the tolerance of the target, real frames show as they
   come, as in the fork.
 - Planned: a decoded frame waits for the shell loop's next pass before it reaches the generator,
@@ -340,12 +341,12 @@ Gamescope. In the runner the core's frame goes to `flow` before the compositor, 
 at the display's refresh shows the real frame or a generated one through the compositor and the
 player's shaders. With `--frame-pngs` the pacer runs on the core's own clock and waits for each
 generated frame, so writing the PNGs moves no times. Super Metroid (PAL, 50 fps) on a 60 Hz
-display: 4560 core frames gave 5468 presents, 3851 of them generated. A real frame shows on average
-23.9 ms after the core drew it, at most 27.9 ms (30 s real-time hidden walk; 33.2 and 37.5 ms in a
-12 s one): one core frame (20 ms) and up to a refresh. Without frame generation it shows right
-away. On the remote play guest, Lossless and openSU's generator each show 60.0 frames a second
-from the host's 30 (19 s, TwoPlayers ROM, a hidden host in headless Gamescope), the same as the
-build before `PacedFrames` (59.96 shown, 29.93 real a second).
+display: 4560 core frames gave 5468 presents, 3851 of them generated. In a 30 s real-time hidden
+walk 1500 core frames gave 1795 presents (59.8 a second), 1417 generated and 1 dropped; a real
+frame shows on average 42.4 ms after the core drew it, at most 46.6 ms: one core frame (20 ms) and
+one to two refreshes. Without frame generation it shows right away. On the remote play guest,
+Lossless and openSU's generator each show 60.0 frames a second from the host's 30 (19 s,
+TwoPlayers ROM, a hidden host in headless Gamescope), capture to submit 55.4 ms.
 
 ### GPU cost
 
@@ -406,9 +407,8 @@ Lossless's at every size.
 - The source pixel on remote play: `RemoteFrameGen` runs `flow` at scale 1 with a 1 x 1 pixel
   because the stream does not say how its picture was scaled; the host has to send the core's
   frame or its scale.
-- Generated frames dropped in the runner: a generated frame not finished at its refresh is
-  dropped and that refresh shows nothing new (236 of 1561 presents in a 30 s walk on Super
-  Metroid, 1 in a 12 s one), so the picture there runs at about 52 rather than 60 a second.
+- `flow`'s work per real frame (ingest and the first generated frame, 11 to 15 ms at the GPU's
+  idle clock): it is what the pacer's second refresh of delay pays for.
 - Layers moving different ways in one block (rain over the cave's rock): one vector per block
   follows the busier layer. Settling each pixel's vector with its neighbours' (a cost per
   disagreeing neighbour) changed no score by more than 1%; carrying untaken pixels along a vector
