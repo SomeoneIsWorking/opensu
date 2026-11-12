@@ -8,10 +8,13 @@
 
 #include <cstdint>
 #include <deque>
+#include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
 
+#include "frame_gen/gpu_spans.hpp"
 #include "framegen/Device.h"
 #include "framegen/LosslessGenerator.h"
 
@@ -52,6 +55,16 @@ class GeneratorDevice final : public framegen::IQueue {
     /// Waits for everything submitted.
     [[nodiscard]] VkResult idle() noexcept;
 
+    /// Times the generators' recorded work from here on (`spans`).
+    void measure();
+    /// The spans measured, or nothing when not measuring.
+    [[nodiscard]] GpuSpans* spans() const noexcept {
+        return spans_.get();
+    }
+    std::optional<std::uint32_t> BeginTiming(VkCommandBuffer cmd) override;
+    void EndTiming(VkCommandBuffer cmd, std::uint32_t slot, const std::string& key) override;
+    void TimingSubmitted(std::uint64_t seqNo) override;
+
   private:
     void choose();
     std::string lacks(VkPhysicalDevice candidate, const VkPhysicalDeviceProperties& properties);
@@ -71,6 +84,7 @@ class GeneratorDevice final : public framegen::IQueue {
     std::uint64_t submittedSeq_{0};
     /// Command buffers submitted, oldest first, each with its submission's number.
     std::deque<std::pair<std::uint64_t, VkCommandBuffer>> submitted_;
+    std::unique_ptr<GpuSpans> spans_;
 };
 
 /// An image a generator reads or writes, RGBA8 unless a generator's own intermediate, in GENERAL
@@ -91,6 +105,10 @@ class GeneratorImage {
     [[nodiscard]] VkImage image() const noexcept {
         return image_;
     }
+    /// The image's size in memory, its texels packed.
+    [[nodiscard]] std::uint64_t bytes() const noexcept {
+        return bytes_;
+    }
 
     /// Records the move into GENERAL, the contents left undefined.
     void toGeneral(VkCommandBuffer cmd) const;
@@ -99,6 +117,7 @@ class GeneratorImage {
     VkDevice device_;
     std::uint32_t width_;
     std::uint32_t height_;
+    std::uint64_t bytes_;
     VkImage image_{VK_NULL_HANDLE};
     VkDeviceMemory memory_{VK_NULL_HANDLE};
     VkImageView view_{VK_NULL_HANDLE};

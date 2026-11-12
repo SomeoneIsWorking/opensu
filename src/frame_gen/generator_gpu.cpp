@@ -160,6 +160,36 @@ void GeneratorDevice::Wait(std::uint64_t seqNo) {
                                    .pSemaphores = &timeline_,
                                    .pValues = &seqNo};
     check(vkWaitSemaphores(device_, &wait, UINT64_MAX), "vkWaitSemaphores");
+    if (spans_) {
+        spans_->drain(seqNo);
+    }
+}
+
+void GeneratorDevice::measure() {
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(physical_, &properties);
+    std::uint32_t familyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(physical_, &familyCount, nullptr);
+    std::vector<VkQueueFamilyProperties> families(familyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(physical_, &familyCount, families.data());
+    spans_ = std::make_unique<GpuSpans>(device_, properties.limits.timestampPeriod,
+                                        families.at(family_).timestampValidBits);
+}
+
+std::optional<std::uint32_t> GeneratorDevice::BeginTiming(VkCommandBuffer cmd) {
+    return spans_ ? spans_->begin(cmd) : std::nullopt;
+}
+
+void GeneratorDevice::EndTiming(VkCommandBuffer cmd, std::uint32_t slot, const std::string& key) {
+    if (spans_) {
+        spans_->end(cmd, slot, key);
+    }
+}
+
+void GeneratorDevice::TimingSubmitted(std::uint64_t seqNo) {
+    if (spans_) {
+        spans_->submitted(seqNo);
+    }
 }
 
 VkResult GeneratorDevice::idle() noexcept {
@@ -305,6 +335,7 @@ void GeneratorDevice::makeDevice() {
 void GeneratorDevice::release() noexcept {
     if (device_ != VK_NULL_HANDLE) {
         vkDeviceWaitIdle(device_);
+        spans_.reset();
         if (timeline_ != VK_NULL_HANDLE) {
             vkDestroySemaphore(device_, timeline_, nullptr);
         }
@@ -320,9 +351,29 @@ void GeneratorDevice::release() noexcept {
     }
 }
 
+namespace {
+
+std::uint64_t texelBytes(VkFormat format) {
+    switch (format) {
+    case VK_FORMAT_R8G8B8A8_UNORM:
+    case VK_FORMAT_R32_SFLOAT:
+    case VK_FORMAT_R32_UINT:
+        return 4;
+    case VK_FORMAT_R32G32_SFLOAT:
+    case VK_FORMAT_R16G16B16A16_SFLOAT:
+        return 8;
+    default:
+        throw std::runtime_error{
+            std::format("no texel size for image format {}", static_cast<int>(format))};
+    }
+}
+
+} // namespace
+
 GeneratorImage::GeneratorImage(const GeneratorDevice& gpu, std::uint32_t width,
                                std::uint32_t height, VkFormat format)
-    : device_{gpu.device()}, width_{width}, height_{height} {
+    : device_{gpu.device()}, width_{width}, height_{height},
+      bytes_{std::uint64_t{width} * height * texelBytes(format)} {
     const VkImageCreateInfo info{.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
                                  .pNext = nullptr,
                                  .flags = 0,

@@ -3,8 +3,10 @@
 #include <format>
 #include <map>
 #include <memory>
+#include <optional>
 #include <span>
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -231,11 +233,14 @@ class FlowInterpolator final : public Interpolator {
         if (cmd == VK_NULL_HANDLE) {
             return std::nullopt;
         }
+        const std::optional<std::uint32_t> timed = gpu_.BeginTiming(cmd);
         memoryBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_MEMORY_WRITE_BIT,
                       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                       VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
         const std::array<VkDescriptorSet, 2> takeSets{source, takeSets_[slot]};
-        dispatch(cmd, take_, takeSets, pushOf(width_, height_), groups(width_), groups(height_));
+        dispatch(cmd, take_, takeSets, pushOf(width_, height_), groups(width_), groups(height_),
+                 {.read = frames_[slot]->bytes(),
+                  .written = frames_[slot]->bytes() + lumas_[slot][0]->bytes()});
         std::uint32_t levelWidth = width_;
         std::uint32_t levelHeight = height_;
         for (std::size_t level = 1; level < levels; ++level) {
@@ -244,7 +249,9 @@ class FlowInterpolator final : public Interpolator {
             computeBarrier(cmd);
             const std::array<VkDescriptorSet, 1> sets{reduceSets_[slot][level]};
             dispatch(cmd, reduce_, sets, pushOf(levelWidth, levelHeight), groups(levelWidth),
-                     groups(levelHeight));
+                     groups(levelHeight),
+                     {.read = lumas_[slot][level - 1]->bytes(),
+                      .written = lumas_[slot][level]->bytes()});
         }
         if (added_ >= 1) {
             for (std::size_t level = levels; level-- > 0;) {
@@ -256,12 +263,15 @@ class FlowInterpolator final : public Interpolator {
                 push.pixelWidth = 1.0F;
                 push.pixelHeight = 1.0F;
                 const std::array<VkDescriptorSet, 1> sets{searchSets_[slot][level]};
+                const std::uint64_t parent = push.hasParent != 0 ? fields_[level + 1]->bytes() : 0;
                 dispatch(cmd, search_, sets, push, groups(static_cast<std::uint32_t>(push.blocksX)),
-                         groups(static_cast<std::uint32_t>(push.blocksY)));
+                         groups(static_cast<std::uint32_t>(push.blocksY)),
+                         {.read = (2 * lumas_[slot][level]->bytes()) + parent,
+                          .written = fields_[level]->bytes()});
             }
         }
         ++added_;
-        return framegen::Submission_t{.ulSeqNo = gpu_.Submit(cmd), .bComplete = true};
+        return framegen::Submission_t{.ulSeqNo = submit(cmd, timed, ingestKey_), .bComplete = true};
     }
 
     std::optional<framegen::Submission_t> generate(float t,
@@ -278,6 +288,7 @@ class FlowInterpolator final : public Interpolator {
         if (cmd == VK_NULL_HANDLE) {
             return std::nullopt;
         }
+        const std::optional<std::uint32_t> timed = gpu_.BeginTiming(cmd);
         if (hooks.before) {
             hooks.before(cmd);
         }
@@ -294,18 +305,25 @@ class FlowInterpolator final : public Interpolator {
                                             .baseArrayLayer = 0,
                                             .layerCount = 1};
         vkCmdClearColorImage(cmd, used_->image(), VK_IMAGE_LAYOUT_GENERAL, &none, 1, &whole);
+        work_.bytesWritten += used_->bytes();
         memoryBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
                       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                       VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
         const std::array<VkDescriptorSet, 2> chooseSets{chooseSets_[slot], choiceSet_};
-        dispatch(cmd, choose_, chooseSets, push, groups(width_), groups(height_));
+        const std::uint64_t frame = frames_[0]->bytes();
+        // The used marks are read and written.
+        dispatch(cmd, choose_, chooseSets, push, groups(width_), groups(height_),
+                 {.read = (2 * frame) + fields_[0]->bytes() + used_->bytes(),
+                  .written = choice_->bytes() + used_->bytes()});
         computeBarrier(cmd);
         const std::array<VkDescriptorSet, 2> makeSets{makeSets_[slot], out};
-        dispatch(cmd, make_, makeSets, push, groups(width_), groups(height_));
+        dispatch(cmd, make_, makeSets, push, groups(width_), groups(height_),
+                 {.read = (2 * frame) + choice_->bytes() + used_->bytes(), .written = frame});
         if (hooks.after) {
             hooks.after(cmd);
         }
-        return framegen::Submission_t{.ulSeqNo = gpu_.Submit(cmd), .bComplete = true};
+        return framegen::Submission_t{.ulSeqNo = submit(cmd, timed, generateKey_),
+                                      .bComplete = true};
     }
 
   private:
@@ -321,9 +339,35 @@ class FlowInterpolator final : public Interpolator {
                         .pixelHeight = pixel_.height};
     }
 
-    static void dispatch(VkCommandBuffer cmd, const Pass& pass,
-                         std::span<const VkDescriptorSet> sets, const FlowPush& push,
-                         std::uint32_t x, std::uint32_t y) {
+    /// Submits `cmd`, closing its span when timed, with what it dispatched.
+    std::uint64_t submit(VkCommandBuffer cmd, std::optional<std::uint32_t> timed,
+                         const std::string& key) {
+        if (timed) {
+            gpu_.EndTiming(cmd, *timed, key);
+        }
+        const std::uint64_t seqNo = gpu_.Submit(cmd);
+        if (timed) {
+            gpu_.TimingSubmitted(seqNo);
+        }
+        if (GpuSpans* spans = gpu_.spans()) {
+            spans->work(key, work_);
+        }
+        work_ = {};
+        return seqNo;
+    }
+
+    /// The bytes of images a dispatch reads and writes, each image once.
+    struct ImageBytes {
+        std::uint64_t read;
+        std::uint64_t written;
+    };
+
+    void dispatch(VkCommandBuffer cmd, const Pass& pass, std::span<const VkDescriptorSet> sets,
+                  const FlowPush& push, std::uint32_t x, std::uint32_t y, ImageBytes bytes) {
+        ++work_.dispatches;
+        work_.invocations += std::uint64_t{x} * y * groupSize * groupSize;
+        work_.bytesRead += bytes.read;
+        work_.bytesWritten += bytes.written;
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass.pipeline.get());
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass.layout.get(), 0,
                                 static_cast<std::uint32_t>(sets.size()), sets.data(), 0, nullptr);
@@ -497,6 +541,9 @@ class FlowInterpolator final : public Interpolator {
         gpu_.Wait(gpu_.Submit(cmd));
         width_ = width;
         height_ = height;
+        // Named as the Lossless generator names its spans, so runs of both compare.
+        ingestKey_ = std::format("ingest {}x{}", width, height);
+        generateKey_ = std::format("generate {}x{}", width, height);
     }
 
     GeneratorDevice& gpu_;
@@ -514,6 +561,9 @@ class FlowInterpolator final : public Interpolator {
     std::uint32_t height_{0};
     std::uint64_t added_{0};
     SourcePixel pixel_;
+    std::string ingestKey_;
+    std::string generateKey_;
+    GpuWork work_;
     std::array<std::pair<std::uint32_t, std::uint32_t>, levels> sizes_{};
     std::array<std::unique_ptr<GeneratorImage>, 2> frames_;
     std::array<std::array<std::unique_ptr<GeneratorImage>, levels>, 2> lumas_;

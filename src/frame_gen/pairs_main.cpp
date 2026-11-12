@@ -13,6 +13,8 @@
 //
 // Without --dll, the player's Lossless.dll is the one the shell finds in their Steam libraries.
 //
+// At the end, the GPU time of each real frame's ingest and each generated frame (`[perf]` lines).
+//
 // Exit status: 0 when every frame between two real ones was written, 1 otherwise.
 #include <algorithm>
 #include <array>
@@ -293,6 +295,7 @@ int run(const Options& options) {
         return 1;
     }
     GeneratorDevice gpu;
+    gpu.measure();
     std::unique_ptr<opensu::frame_gen::Interpolator> generator = generatorOf(options, gpu);
     if (!generator) {
         return 1;
@@ -333,6 +336,7 @@ int run(const Options& options) {
     }
     lucent::info("framegen", "{} generated {} frames on {} into {}", options.generator, written,
                  gpu.name(), options.out.string());
+    gpu.spans()->report();
     return 0;
 }
 

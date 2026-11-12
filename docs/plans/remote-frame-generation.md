@@ -310,11 +310,41 @@ Tried and dropped for content-pixel shares: moving a block rigidly only where al
 vectors agree lost most of the gain (intro FLIP 0.037); gating on how gradually the vectors
 differ left seams on the Chrono zoom.
 
+### GPU cost
+
+`opensu-framegen-pairs` ends with `[perf]` lines (`frame_gen::GpuSpans`, compared with
+`perf_compare.py`): per real frame (`ingest`) and per generated frame (`generate`), `flow`'s
+dispatches, shader invocations and the bytes of the images each dispatch reads and writes (each
+image once, counted as recorded, so they repeat exactly), and both generators' GPU time from
+timestamps through the fork's `IQueue` timing hooks. The image bytes are a footprint, not traffic:
+the search reads each luma texel many times over. Lossless's dispatches are recorded inside the
+fork, so only its GPU time is seen.
+
+Super Metroid's demo, 60 generated frames, RX 6700 XT, two runs each:
+
+| size | flow generate: dispatches, invocations, read / written | flow ingest: dispatches, invocations, read / written | GPU time generate, flow / Lossless | GPU time ingest, flow / Lossless |
+|---|---|---|---|---|
+| 256x224 | 2, 115 K, 1.8 / 1.1 MB | 8, 78 K, 1.1 / 0.5 MB | 0.06-0.08 / 0.44-1.21 ms | 7.8-14.8 / 0.16-0.47 ms |
+| 1280x720 | 2, 1.84 M, 29.6 / 18.4 MB | 8, 1.25 M, 18.4 / 8.7 MB | 0.60-0.62 / 1.28-2.65 ms | 17.0-28.0 / 0.44-0.99 ms |
+| 3840x2160 | 2, 16.6 M, 266 / 166 MB | 8, 11.2 M, 165 / 79 MB | 5.4-5.5 / 6.0-10.1 ms | 58.7-66.6 / 5.6-5.6 ms |
+
+Timestamps (p50, the two runs' range) move with clocks and desktop load: Lossless's differ by up
+to 2.7x between runs, flow's ingest by 1.9x at 256x224. Within that, `flow`'s generated frame
+costs less than Lossless's at every size, but its search on each real frame costs 15 to 40 times
+Lossless's ingest, about 18 ms at 1280x720 and 60 ms at 4K, more than a 30 fps frame's 33 ms. It
+barely shrinks at 256x224 (8 to 15 ms for 78 K invocations), so it is not throughput but the
+length of each invocation: one thread per block runs every candidate vector over a 12 x 12
+window with a 144-float private array, 290 candidates (83 K texel loads) at the coarsest level
+and 35 (10 K) at the finer ones, and the coarsest level is one workgroup. Every dispatch is
+bounded (fixed loops, fixed candidate counts), at 4K too.
+
 ### Left
 
+- The search's cost: candidates spread over a workgroup's threads with the block's window in
+  shared memory, so no invocation runs hundreds of candidates in turn.
 - `flow` in the product: a generator choice beside Lossless in `settings::framegen_settings`, taken
   by `RemoteFrameGen` (it already holds an `Interpolator`), and by the fork's Gamescope generator;
-  until then it runs only in the harness. Its GPU time per generated frame is not measured yet.
+  until then it runs only in the harness.
 - The source pixel in the product: `RemoteFrameGen` passes 1 x 1 because the stream does not say
   how its picture was scaled; the host has to send it, and the runner pass the core's base
   geometry against its output rectangle. The runner's later option is generating at the core's
