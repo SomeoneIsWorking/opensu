@@ -260,34 +260,40 @@ block either frame is flat over (a fade from white) keeps no motion. For each fr
 `flow_choose` gives each pixel, of its block's and the 8 neighbours' vectors, the one whose two
 real pixels agree best over 3x3, and marks the real pixels it takes; `flow_make` mixes the two
 frames there by t, bilinearly. Real pixels no chosen motion took are what no vector fits (an
-animating sprite, rain, a cut): they are shown in place, lit for the fade, a shape of them (18 of
-a 5x5) whole from the nearer real frame and a speck from both weighted by t.
+animating sprite, rain, a cut) or what only one frame shows (uncovered or about to be covered): a
+shape of them (18 of a 5x5) in the nearer frame is shown in place and whole, lit for the fade; a
+pixel that matched badly elsewhere takes, of its own and 8 neighbouring choices 4 pixels away, the
+vector landing on untaken pixels of one frame, from that frame alone; specks both frames have
+(rain) come from each weighted by t.
 
-Run `f9`, the same recorded frames for both, 119 frames left out per scene, moving frames:
+Runs `f9` (Lossless) and `o1` (`flow`), the same recorded frames for both, 119 frames left out per scene, moving frames:
 
 | scene | PSNR L / flow (dB) | worst 5% | FLIP L / flow | worst 5% | FLIP repeat / blend | detail lost L / flow | flicker L / flow |
 |---|---|---|---|---|---|---|---|
-| Super Metroid, rain over the ship | 26.58 / 25.94 | 22.24 / 21.42 | 0.0671 / 0.0722 | 0.173 / 0.178 | 0.0844 / 0.0821 | 0.292 / 0.274 | 0.0344 / 0.0010 |
-| Super Metroid, cave scroll | 26.12 / 25.41 | 23.09 / 21.62 | 0.0693 / 0.0740 | 0.111 / 0.126 | 0.0967 / 0.0897 | 0.230 / 0.184 | 0.0181 / 0.0006 |
-| Super Metroid, gameplay demo | 27.13 / 26.44 | 22.67 / 21.73 | 0.0513 / 0.0530 | 0.113 / 0.117 | 0.0872 / 0.0860 | 0.074 / 0.048 | 0.0103 / 0.0024 |
-| Super Metroid, intro text and fades | 29.64 / 29.03 | 24.44 / 23.76 | 0.0381 / 0.0395 | 0.075 / 0.076 | 0.0934 / 0.0857 | 0.185 / 0.150 | 0.0170 / 0.0073 |
-| Chrono Trigger, title | 44.10 / 43.40 | 38.85 / 38.32 | 0.0017 / 0.0018 | 0.003 / 0.004 | 0.0035 / 0.0029 | 0.013 / 0.009 | 0.0008 / 0.0001 |
-| Killer Instinct, title loop | 50.38 / 52.07 | 33.65 / 33.51 | 0.0080 / 0.0084 | 0.034 / 0.033 | 0.0132 / 0.0084 | 0.018 / 0.015 | 0.0001 / 0.0000 |
-| Kirby & the Amazing Mirror, title fade | 36.78 / 36.56 | 25.62 / 24.73 | 0.0333 / 0.0327 | 0.082 / 0.082 | 0.0344 / 0.0329 | 0.027 / 0.015 | 0.0002 / 0.0000 |
-| Monster in My Pocket, title | 45.17 / 44.96 | 40.92 / 41.48 | 0.0010 / 0.0010 | 0.002 / 0.002 | 0.0015 / 0.0009 | 0.018 / 0.012 | 0.0006 / 0.0000 |
-| scroll test ROM (moves every other frame) | 23.07 / 24.06 | 22.93 / 22.95 | 0.0120 / 0.0128 | 0.012 / 0.014 | 0 / 0.0139 | 0.702 / 0.605 | 0 / 0 |
+| Super Metroid, rain over the ship | 26.58 / 25.77 | 22.24 / 21.37 | 0.0671 / 0.0724 | 0.173 / 0.175 | 0.0844 / 0.0821 | 0.292 / 0.275 | 0.0344 / 0.0017 |
+| Super Metroid, cave scroll | 26.12 / 25.11 | 23.09 / 21.68 | 0.0693 / 0.0751 | 0.111 / 0.125 | 0.0967 / 0.0897 | 0.230 / 0.187 | 0.0181 / 0.0013 |
+| Super Metroid, gameplay demo | 27.13 / 26.36 | 22.67 / 21.70 | 0.0513 / 0.0519 | 0.113 / 0.116 | 0.0872 / 0.0860 | 0.073 / 0.054 | 0.0103 / 0.0049 |
+| Super Metroid, intro text and fades | 29.64 / 29.33 | 24.44 / 23.83 | 0.0381 / 0.0373 | 0.075 / 0.074 | 0.0934 / 0.0857 | 0.185 / 0.162 | 0.0170 / 0.0103 |
+| Chrono Trigger, title | 44.10 / 43.42 | 38.85 / 38.42 | 0.0017 / 0.0017 | 0.003 / 0.003 | 0.0035 / 0.0029 | 0.013 / 0.009 | 0.0008 / 0.0002 |
+| Killer Instinct, title loop | 50.38 / 52.00 | 33.65 / 33.46 | 0.0080 / 0.0084 | 0.034 / 0.033 | 0.0132 / 0.0084 | 0.018 / 0.015 | 0.0001 / 0.0000 |
+| Kirby & the Amazing Mirror, title fade | 36.78 / 36.50 | 25.62 / 24.61 | 0.0333 / 0.0327 | 0.082 / 0.082 | 0.0344 / 0.0329 | 0.027 / 0.014 | 0.0002 / 0.0000 |
+| Monster in My Pocket, title | 45.17 / 44.75 | 40.92 / 41.39 | 0.0010 / 0.0010 | 0.002 / 0.002 | 0.0015 / 0.0009 | 0.017 / 0.012 | 0.0006 / 0.0000 |
+| scroll test ROM (moves every other frame) | 23.07 / 24.06 | 22.93 / 22.95 | 0.0120 / 0.0128 | 0.012 / 0.014 | 0 / 0.0139 | 0.701 / 0.605 | 0 / 0 |
 
 `repeat` and `blend` beside them are the placement check: `repeat` has no flicker by construction
 and `blend` keeps both frames' detail, so a generator counts as placing moving content only where
 its FLIP is below theirs, which both are by a wide margin on the Super Metroid scenes and neither is on the
-title screens, where little moves. What it shows: `flow` keeps more of the real frame (detail lost lower on every scene) and does not
-flicker (Lossless's flicker on the rain and cave scenes is its smeared raindrops), but by PSNR and
-FLIP it is behind Lossless on the Super Metroid scenes (FLIP 3 to 8% higher, worst 5% PSNR up to
-1.5 dB lower) and level elsewhere. In its worst frames (`f9/worst/`) a sprite that animated
-between the real frames is shown whole in the nearer frame's pose where Lossless draws a ghost of
-both, and straight edges of a scrolling background break into steps where neighbouring blocks
-chose different vectors. On the Kirby fade from white `flow` draws the logo and text clean where
-Lossless garbles the small print. It is not yet better than Lossless.
+title screens, where little moves.
+
+What it shows: `flow` keeps more of the real frame (detail lost lower on every scene) and flickers
+less (Lossless's flicker on the rain and cave scenes is its smeared raindrops). By FLIP it is ahead
+of Lossless on the intro (2% lower), level on the demo and the title screens, and behind on the
+rain and cave scenes (8%), with worst 5% PSNR up to 1.4 dB lower there. In its worst frames
+(`o1/worst/`) a sprite that animated between the real frames is shown whole in the nearer frame's
+pose where Lossless draws a ghost of both, and in the cave the foreground rock, behind the rain
+layer that moves the other way, is matched by the rain and held at the earlier frame's place. On
+the Kirby fade from white `flow` draws the logo and text clean where Lossless garbles the small
+print. It is not yet better than Lossless.
 
 ### Left
 
@@ -297,18 +303,14 @@ Lossless garbles the small print. It is not yet better than Lossless.
 - Odd displacements: a background that moves 1 pixel over two game frames is, in the truth, one
   of the two real frames; both generators draw the half step (detail lost 0.6 to 0.7 on the scroll
   ROM). The recorded frames are the runner's 1280x720 output, scaled 3.75 x 3.21 for the SNES, so
-  rounding the shares to whole output pixels changes nothing measurable; the half step has to be
-  rounded in source pixels, which needs the content's scale (the runner and the remote host know
-  it) or generating before scaling.
-- Ghosts at parallax edges: a layer's edge uncovered between the real frames is untaken in one
-  frame and shown as a speck at half weight; it belongs to that frame alone, at the background's
-  vector. Settling each pixel's vector with its neighbours' (a cost per disagreeing neighbour)
-  changed no score by more than 1%.
-- Stepped edges where neighbouring blocks' vectors differ; a sprite's own motion (carrying the
-  untaken pixels along a vector of their own tore sprites apart, because the untaken set of an
-  animating sprite is itself patchy).
-- Occlusion: a pixel uncovered between the two real frames takes the best-agreeing vector, not the
-  background's from the side it is visible in.
+  rounding the shares to whole output pixels changes nothing measurable. Next: `Interpolator::begin`
+  takes the content's source-pixel scale, which the runner and the remote host pass, and shares
+  round in source pixels. The runner's later option is generating at the core's native size before
+  scaling, which is also far cheaper.
+- Layers moving different ways in one block (rain over the cave's rock): one vector per block
+  follows the busier layer. Settling each pixel's vector with its neighbours' (a cost per
+  disagreeing neighbour) changed no score by more than 1%; carrying untaken pixels along a vector
+  of their own tore sprites apart, because the untaken set of an animating sprite is itself patchy.
 - (b) and (c) on top of `flow`; the shell's own animated screens as scenes (they have no per-frame
   dump yet).
 
