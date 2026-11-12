@@ -348,21 +348,31 @@ at the display's refresh shows the real frame or a generated one through the com
 player's shaders. With `--frame-pngs` the pacer runs on the core's own clock and waits for each
 generated frame, so writing the PNGs moves no times. Super Metroid (PAL, 50 fps) on a 60 Hz
 display: 4560 core frames gave 5468 presents, 3851 of them generated. In a 30 s real-time hidden
-walk 1500 core frames gave 1795 presents (59.8 a second), 1187 generated and 1 dropped; `flow`'s
+walk 1500 core frames gave 1794 presents (59.8 a second), 1248 generated and 1 dropped; `flow`'s
 ready need settles at 6.5 to 7.7 ms (its ingest and first generated frame are done 5.2 ms after
-a real frame arrives, p50; p90 6.2, max 7.0, at the GPU's idle clock), and the held delay steps 4
-times, all in the first 16 real frames. A real frame shows on average 41.0 to 42.5 ms after the
-core drew it: the delay held from the start, under a refresh's need, stays while it fits. Without
-frame generation it shows right away. On the remote play guest, Lossless and openSU's generator
-each show 60.0 frames a second from the host's 30 with none dropped (19 s, TwoPlayers ROM, a
-hidden host in headless Gamescope); their needs settle at 3.1 and 2.0 ms and capture to submit
-falls with them, from 56.9 to 40.6 ms and from 55.3 to 38.9 ms.
+a real frame arrives, p50; p90 6.2, max 7.0, at the GPU's idle clock). Once the window of ready
+times fills, a need that fell steps the held delay down once, where that saves at least half a
+refresh and keeps a quarter refresh above the need (`k_flNeedFallStepRefreshes`,
+`k_flNeedFallMarginRefreshes`). A real frame shows on average 38.4 ms after the core drew it over
+the walk (42.5 with the delay held from the start). The delays that land real frames on vblanks
+are a few ms apart (R/5 at 50 fps, R/3 at 45), so a run settles in whichever one its arrival phase
+gives: over 64 phases of the same walk the replay puts the walk's average at 36.1 to 43.4 ms, and
+the settled delay at 33.3 to 43.0. Without frame generation it shows right away. On the remote
+play guest, Lossless and openSU's generator each show 60.0 frames a second from the host's 30
+(19 s, TwoPlayers ROM, a hidden host in headless Gamescope); their needs settle at 3.1 and 1.9 ms
+and capture to submit falls with them, from 50.5 to 34.2 ms and from 51.0 to 34.6 ms. On a busy desktop the Lossless
+guest drops 0 to 52 generated frames a run with or without the need-fall step; the drops come from
+stalls in the real frames' arrival (gaps of 50 to 117 ms), not from the pacer: the same runs'
+arrivals and ready times replayed through either pacer over 64 phases drop the same or fewer with
+the step, and miss no generated frame.
 
 `tests/frame_gen`'s replay runs the fork's pacer with `ReadyNeed` over 64 arrival phases of eight
 paces, each real frame's first generated frame ready after one of `flow`'s 2844 measured times
 (and twice them): no generated frame misses in any phase, the held delay steps at most once a
-minute more than with a refresh's need, and real frames show 4.4 to 7.7 ms sooner (1.2 to 2.0 at
-twice the times). With a need of 0 instead, 45 fps to 60 missed up to 22% of its generated frames
+minute more than with a refresh's need, real frames show 7.1 to 8.4 ms sooner (2.0 to 3.2 at
+twice the times), and in every phase the settled delay is the one a run planned for the settled
+need from the start holds, less than half a refresh above it, or that run's delay sits inside
+the quarter refresh a step keeps above the need and the arrival lag. With a need of 0 instead, 45 fps to 60 missed up to 22% of its generated frames
 at the worst phase.
 
 ### GPU cost
@@ -429,10 +439,6 @@ Lossless's at every size.
   candidates' windows, often the same vector for neighbouring blocks, shared between blocks; the
   finer levels' blocks packed several to a workgroup so no thread idles. The generated frame's 100
   texels per pixel.
-- The delay held from a session's start: once the ready need falls, the delay chosen under a
-  refresh's need stays while it fits, so a single run's latency falls only when the pacer steps it
-  (the runner's 30 s walk kept it). Taking one step down once the need settles would cost one
-  visible step for up to a refresh less latency.
 - `flow` in Gamescope: Gamescope's generator is Lossless's; a game outside the built-in runner
   with openSU chosen gets no frame generation (the summary's note says where openSU's runs).
 - The source pixel on remote play: `RemoteFrameGen` runs `flow` at scale 1 with a 1 x 1 pixel

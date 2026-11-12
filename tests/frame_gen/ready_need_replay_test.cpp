@@ -1,7 +1,10 @@
 // The fork's pacer fed the ready time `ReadyNeed` plans for, over 64 arrival phases of eight paces,
 // each real frame's first generated frame ready after a time drawn from flow's measured ones (and
 // twice them, a slower GPU), each further one 1.2 ms after it: no generated frame misses its
-// vblank, and the held delay steps at most once a minute more than with a fixed need of a refresh.
+// vblank, the held delay steps at most once a minute more than with a fixed need of a refresh, and
+// in the last third the held delay is the one a run planned for the settled need from the start
+// holds, short of the saving that steps it down, unless that run's delay sits within the margin a
+// step keeps above the need.
 //
 //   frame_gen_ready_need_replay_test <ready times, ns per line>
 #include <algorithm>
@@ -26,9 +29,10 @@ using opensu::test::expect;
 
 constexpr std::uint64_t refreshNs = 16'666'667;
 constexpr int phases = 64;
-constexpr int realFrames = 1800;
+constexpr int realFrames = 3600;
 constexpr std::uint64_t generateNs = 1'200'000;
 constexpr std::uint64_t startNs = 1'000'000'000;
+constexpr int settledFrom = realFrames * 2 / 3;
 
 struct Pace {
     const char* name;
@@ -43,12 +47,15 @@ struct Run {
     std::uint64_t steps{0};
     std::uint64_t real{0};
     double realDelayNs{0.0};
+    std::uint64_t settled{0};
+    double settledDelayNs{0.0};
+    std::uint64_t needNs{0};
     double minutes{0.0};
 };
 
-/// One phase: `need` plans every real frame, or a fixed refresh when it is empty.
+/// One phase, every real frame planned for `ReadyNeed`'s need, or for `fixedNs` when it holds one.
 Run replay(const Pace& pace, std::uint64_t phaseNs, const std::vector<std::uint64_t>& times,
-           std::uint32_t scale, bool measured, std::uint32_t seed) {
+           std::uint32_t scale, std::optional<std::uint64_t> fixedNs, std::uint32_t seed) {
     framegen::CFramePacer pacer;
     pacer.Configure(pace.settings);
     ReadyNeed need;
@@ -94,6 +101,10 @@ Run replay(const Pace& pace, std::uint64_t phaseNs, const std::vector<std::uint6
             }
             ++run.real;
             run.realDelayNs += static_cast<double>(delay);
+            if (shown->ulRealFrame >= static_cast<std::uint64_t>(settledFrom)) {
+                ++run.settled;
+                run.settledDelayNs += static_cast<double>(delay);
+            }
             lastRealDelay = delay;
         }
     };
@@ -116,7 +127,7 @@ Run replay(const Pace& pace, std::uint64_t phaseNs, const std::vector<std::uint6
             need.add(sample.second, refreshNs);
             return true;
         });
-        pacer.SetReadyNeededNs(measured ? need.needNs(refreshNs) : refreshNs);
+        pacer.SetReadyNeededNs(fixedNs.value_or(need.needNs(refreshNs)));
         arrivals.push_back(arrival);
         ready.push_back(times[pick(draw)] * scale);
         const framegen::IntervalPlan_t plan =
@@ -127,6 +138,7 @@ Run replay(const Pace& pace, std::uint64_t phaseNs, const std::vector<std::uint6
     }
     vblanksUntil(arrivals.back() + (4 * refreshNs));
     run.minutes = static_cast<double>(arrivals.back() - startNs) / 60.0e9;
+    run.needNs = fixedNs.value_or(need.needNs(refreshNs));
     return run;
 }
 
@@ -170,12 +182,33 @@ int main(int argc, char** argv) try {
             double minutes = 0.0;
             double delay = 0.0;
             double fixedDelay = 0.0;
+            double settledDelay = 0.0;
+            double atSettledDelay = 0.0;
+            int unstepped = 0;
             for (int phase = 0; phase < phases; ++phase) {
                 const std::uint64_t phaseNs =
                     static_cast<std::uint64_t>(phase) * refreshNs / phases;
                 const auto seed = static_cast<std::uint32_t>(777 + phase);
-                const Run measured = replay(pace, phaseNs, times, scale, true, seed);
-                const Run fixed = replay(pace, phaseNs, times, scale, false, seed);
+                const Run measured = replay(pace, phaseNs, times, scale, std::nullopt, seed);
+                const Run fixed = replay(pace, phaseNs, times, scale, refreshNs, seed);
+                const Run atSettled = replay(pace, phaseNs, times, scale, measured.needNs, seed);
+                const double settledNs =
+                    measured.settledDelayNs / static_cast<double>(measured.settled);
+                const double atSettledNs =
+                    atSettled.settledDelayNs / static_cast<double>(atSettled.settled);
+                settledDelay += settledNs / phases;
+                atSettledDelay += atSettledNs / phases;
+                // A real frame shows an interval after the held delay, above the need and arrival
+                // lag. The pacer keeps that lag private, so the pace's jitter, its bound, stands
+                // in.
+                const double heldAboveNeedNs = atSettledNs - (1.0e9 / pace.baseFps) -
+                                               static_cast<double>(measured.needNs) -
+                                               static_cast<double>(pace.jitterNs);
+                const bool stepped = settledNs - atSettledNs < framegen::k_flNeedFallStepRefreshes *
+                                                                   static_cast<double>(refreshNs) ||
+                                     heldAboveNeedNs < framegen::k_flNeedFallMarginRefreshes *
+                                                           static_cast<double>(refreshNs);
+                unstepped += stepped ? 0 : 1;
                 generated += measured.generated;
                 worstMissed = std::max(worstMissed, measured.missed);
                 steps += static_cast<double>(measured.steps);
@@ -185,14 +218,17 @@ int main(int argc, char** argv) try {
                 fixedDelay += fixed.realDelayNs / static_cast<double>(fixed.real) / phases;
             }
             // A measured need may take one more step a minute than a fixed one, on its way down.
-            const bool ok = generated > 0 && worstMissed == 0 && steps <= fixedSteps + minutes;
+            const bool ok = generated > 0 && worstMissed == 0 && steps <= fixedSteps + minutes &&
+                            unstepped == 0;
             std::printf(
                 "ready times x%u, %s: %llu generated over %d phases, at most %llu missed in "
                 "a phase; held delay steps %.2f a minute (%.2f with a refresh's need); real "
-                "frames shown %.1f ms after arriving (%.1f)%s\n",
+                "frames shown %.1f ms after arriving (%.1f), settled %.2f (%.2f planned for the "
+                "settled need from the start), %d phases a step down was owed%s\n",
                 scale, pace.name, static_cast<unsigned long long>(generated), phases,
                 static_cast<unsigned long long>(worstMissed), steps / minutes, fixedSteps / minutes,
-                delay / 1.0e6, fixedDelay / 1.0e6, ok ? "" : "  FAIL");
+                delay / 1.0e6, fixedDelay / 1.0e6, settledDelay / 1.0e6, atSettledDelay / 1.0e6,
+                unstepped, ok ? "" : "  FAIL");
             passed = passed && ok;
         }
     }
