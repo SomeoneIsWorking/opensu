@@ -69,8 +69,11 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
           .secretBusSocket = environment_.runtimeDir / (resolved_.session + "-secret-bus"),
           .containment = containment_}},
       session_{openShellSession(environment_)},
-      handoff_{environment_.executablePath, environment_.session, steam_,
-               session_ ? session_->gameWindows() : nullptr, environment_.gameOutputDir,
+      handoff_{environment_.executablePath,
+               environment_.session,
+               steam_,
+               session_ ? session_->gameWindows() : nullptr,
+               environment_.gameOutputDir,
                containment_},
       signIn_{StoreSignIn::Options{.dataDir = environment_.dataDir}} {
     shell_.shortcuts() = input::Shortcuts{preferences_.values().shortcuts};
