@@ -461,11 +461,12 @@ class RemotePlay {
     std::shared_ptr<std::mutex> modulesMutex_{std::make_shared<std::mutex>()};
     std::shared_ptr<std::optional<std::pair<std::optional<std::string>, std::string>>> modules_{
         std::make_shared<std::optional<std::pair<std::optional<std::string>, std::string>>>()};
-    std::unique_ptr<RemoteFrameGen> frameGen_;
     std::string frameGenOff_;
-    /// Before the stream, whose thread feeds them; the speaker before the sound that plays on it.
+    /// Before the stream, whose thread feeds them; the speaker before the sound that plays on it;
+    /// the generator after the video it takes frames from.
     std::unique_ptr<stream::LinkHold> link_;
     std::unique_ptr<stream::GuestVideo> video_;
+    std::unique_ptr<RemoteFrameGen> frameGen_;
     std::unique_ptr<audio::LiveSound> speaker_;
     std::unique_ptr<stream::GuestAudio> audio_;
     std::unique_ptr<stream::GuestStream> guest_;
