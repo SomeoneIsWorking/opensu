@@ -441,9 +441,22 @@ Lossless's at every size.
   texels per pixel.
 - `flow` in Gamescope: Gamescope's generator is Lossless's; a game outside the built-in runner
   with openSU chosen gets no frame generation (the summary's note says where openSU's runs).
-- The source pixel on remote play: `RemoteFrameGen` runs `flow` at scale 1 with a 1 x 1 pixel
-  because the stream does not say how its picture was scaled; the host has to send the core's
-  frame or its scale.
+- The source pixel on remote play: `RemoteFrameGen` runs `flow` at scale 1 with a 1 x 1 pixel.
+  Tried and not in: a datagram kind of its own (older guests drop an unknown kind unopened)
+  carrying a versioned core frame size, a later version's fields skipped; the host sending it only
+  for a built-in runner's frame streamed at its own size with no filter or shader preset; the
+  guest taking it only for frames of that size (frames still on the way at the window's size
+  ignore it) and running `flow` at `flowContentScale` there. On the guest's own decoded frames,
+  every other one made again, moving frames only, two step offsets: Super Metroid's intro and
+  title (1542 frames) gained 0.8 to 1.0 dB on PSNR p5 against a spread of 0.66 between the
+  offsets, FLIP p95 0.0017 against a spread of 0.0025, worst frames equal (FLIP max 0.194 and
+  0.162 either way) and the mean 0.02 to 0.05 dB lower; the NES test ROM (803 frames) lost 0.34
+  dB and broke a growing 1-pixel bar's tip. Looked at: on the cut from black text to the machine
+  both fail, scale 1 smearing black over the machine and scale 4 laying the text over it; on red
+  text over black scale 4 keeps the letters whole; on the title the two differ below what shows at
+  2x. It costs the ready need 4.4 ms (6.3 against 1.9 on the NES stream) and capture to submit
+  about 7 ms (42.0 against 34.6). Worth trying again with a cheaper ingest at scale 4, or on
+  content where p5 and the worst frames clear the spread clearly.
 - Layers moving different ways in one block (rain over the cave's rock): one vector per block
   follows the busier layer. Settling each pixel's vector with its neighbours' (a cost per
   disagreeing neighbour) changed no score by more than 1%; carrying untaken pixels along a vector
