@@ -98,9 +98,10 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   must fit it inside its refresh). Stage A adds an upload per real frame and a readback per shown frame.
 - Below 10 fps, while measuring, or within the tolerance of the target, real frames show as they
   come, as in the fork.
-- Planned: a decoded frame waits for the shell loop's next pass before it reaches the generator,
-  4 to 13 ms after its decode (`h-pace`, `h-grab2`); the decode thread waking the generator
-  removes that wait from the added latency.
+- The decode thread wakes the generator, so a decoded frame reaches it without waiting for the
+  shell loop's next pass: 0.03 ms after its decode at the median, 6.47 ms at most, against
+  14.90 ms and 15.06 ms when it waited (`w-after`, `w-before`, 760 and 758 real frames). The
+  start-up frames a newer one supersedes before they are shown now count as the pacer's drops.
 
 ## The setting
 
@@ -201,16 +202,28 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   until the delay stops fitting 275 real frames later. No judder (content steps 16.7 ms each
   present) and content 6.6 ms newer than aligned, but no real frame shows. Retaking the aligned
   delay once it has held still for 15 real frames cuts that run's offset plans from 318 to 58 with
-  no more delay jumps (7 against 9) and leaves `h-pace` unchanged. That is now the fork's pacer
-  (Gamescope `aa53d77`, its replay test `framegen/tests/FramePacerReplay.cpp` on both runs'
-  arrivals). On the guest with the host stopped 50 ms every 5 s (`h-pin`), every gap is back at
-  t 0.50 within 15 to 23 real frames and the longest run of plans off the half step is 20,
-  against 308 real frames and a 276-plan run on the old pacer.
+  no more delay jumps (7 against 9) and leaves `h-pace` unchanged. The fork's pacer took that
+  rule in `aa53d77` (its replay test `framegen/tests/FramePacerReplay.cpp` on both runs'
+  arrivals); its whole rule is `CFramePacer`'s comment in
+  [FramePacer.h](https://github.com/SomeoneIsWorking/gamescope/blob/1aebb6316848f0db3d12793e1086d01d86d35be1/framegen/include/framegen/FramePacer.h).
+  On the guest with the host stopped 50 ms every 5 s (`h-pin`), every gap was back at t 0.50
+  within 15 to 23 real frames on `aa53d77`. The pacer now runs its timeline on ready times and
+  takes a lasting step at once (`a0f6ecaa`), with the re-align planned on the rate history
+  without the step's interval (`c8fc9cc0`): a skipped host capture costs the two real frames
+  before the step is taken (t 0.41 and 0.34) and nothing after. Over 740 generated frames of
+  `p-pin2` 7 are off t 0.5 by more than 0.01 and the longest run off is 4, against 38 to 58 and
+  23 to 38 on the previous pin `d0a28489` (`p-after1` to `p-after3`); Gamescope's own (`gs-pin3`) has 3 of 346
+  off, the first three after start, against 61 of 375 (`gs-record`). A present the shell makes
+  late still leaves later in-betweens up to 0.25 ms (t 0.507) off until the pacer gets real
+  vblank times (`remote-vblank-times.md`).
 
 ## Left
 
-- The decode thread waking the generator, to remove the 4 to 13 ms a decoded frame waits for the
-  loop pass ("Pacing and latency"); proven by that wait gone, measured as in `h-pace`.
+- The generator's ready need per real frame in the probe's log, so a remote run replays through
+  `CFramePacer` exactly: the product shows about 62% of `p-after3`'s presents one vblank later
+  than its replay, and the per-frame need is the input the replay lacks.
+- Real vblank times for `PacedFrames` (`remote-vblank-times.md`): a present the shell loop makes
+  late moves the pacer's vblank grid, which leaves the in-betweens a fraction of a refresh off.
 - Generator settings against the Lossless streak: Custom's detail keys tried on `h-dump`'s scroll,
   kept only if a setting removes the 8 streaked in-betweens without new artefacts.
 - Step 4, Linux stage B (zero copy).

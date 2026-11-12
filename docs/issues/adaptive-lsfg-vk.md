@@ -55,14 +55,10 @@ Gamescope's device, queue, timestamps and textures (`docs/plans/remote-frame-gen
     rate reaches `target - tolerance` and restarts only below `target - 1.5 * tolerance`, and
     either change needs the base rate past its threshold for 15 real frames in a row. Below
     10 fps (`base_framerate_threshold`) only real frames show, in both modes.
-  - Presentation: outputs go on the vblank grid. An interval's content shows one real interval
-    late on a timeline of the real frames smoothed by 0.1 of each arrival's error, later by the
-    largest arrival lag of the last 15 frames and one refresh (the GPU time the first image after a
-    real frame gets), then earlier by under a refresh so the real frame lands on a vblank. That
-    delay is kept while it stays within the refresh, so arrival jitter moves nothing and content
-    time steps evenly at any ratio; a delay within the real-frame tolerance of the aligned one takes
-    it, so integer ratios keep showing real frames. Each output shows the scene at its own
-    vblank's time. One output per vblank, also when the vblank timer wakes twice for one vblank; a
+  - Presentation: outputs go on the vblank grid by the rule in `framegen::CFramePacer`'s comment
+    in the fork's
+    [FramePacer.h](https://github.com/SomeoneIsWorking/gamescope/blob/1aebb6316848f0db3d12793e1086d01d86d35be1/framegen/include/framegen/FramePacer.h).
+    One output per vblank, also when the vblank timer wakes twice for one vblank; a
     late output gives way once the next is due and ready. Without generation each real frame
     shows at the next vblank.
 - `FrameGenerator`: copies each new commit of the focused window (8-bit SDR only) into one of
