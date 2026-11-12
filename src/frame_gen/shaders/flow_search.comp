@@ -8,12 +8,14 @@
 // neighbourhood's vectors, doubled, and then every vector within 2 pixels of the best. A block
 // either frame is flat over (a fade from white) shows no motion, so it keeps none. Of equal costs
 // the earlier candidate wins, the zero vector before all.
-// One workgroup per block, its threads trying the candidates side by side. The windows a set of
+// One workgroup per block, its `threads` trying the candidates side by side (64 at the coarsest
+// level's 289, 32 at the finer levels' 9 and 25). The windows a set of
 // candidates reads in each frame are loaded once into shared memory; the parent's candidates, which
 // lie anywhere, are read from the frames. A candidate already tried, or the zero vector, is not
 // costed again. The loops over a window are unrolled so its reads go out together; each sum keeps
 // its order.
-layout(local_size_x = 64) in;
+layout(local_size_x_id = 1) in;
+layout(constant_id = 1) const uint threads = 64;
 layout(set = 0, binding = 0, r32f) uniform readonly image2D earlier;
 layout(set = 0, binding = 1, r32f) uniform readonly image2D later;
 layout(set = 0, binding = 2, rg32f) uniform readonly image2D parent;
@@ -28,8 +30,11 @@ const float lengthCost = 1.0 / 4096.0;
 const float flatBelow = 1.0 / 255.0;
 
 const int side = blockSize + 2 * margin;
-// The widest window: the coarsest range's vectors move each frame's by up to 4 pixels either way.
-const int tileSide = side + 8;
+// How far past the block's window the tiles reach: the coarsest range's vectors move each frame's
+// by up to 4 pixels either way, the finer levels' within 2 of the centre by up to 1 (`tileReach`
+// in flow_interpolator.cpp).
+layout(constant_id = 2) const int tileReach = 4;
+const int tileSide = side + 2 * tileReach;
 shared float earlierTile[tileSide * tileSide];
 shared float laterTile[tileSide * tileSide];
 // Each tile's top left pixel in its frame.
@@ -45,7 +50,7 @@ void loadTiles(ivec2 origin, ivec2 low, ivec2 high) {
                               earlierShare(vec2(low), 0.5);
     const ivec2 laterSize = ivec2(side) + (high - earlierShare(vec2(high), 0.5)) -
                             (low - earlierShare(vec2(low), 0.5));
-    for (int k = int(gl_LocalInvocationIndex); k < tileSide * tileSide; k += 64) {
+    for (int k = int(gl_LocalInvocationIndex); k < tileSide * tileSide; k += int(threads)) {
         const ivec2 q = ivec2(k % tileSide, k / tileSide);
         if (all(lessThan(q, earlierSize))) {
             earlierTile[k] = READ(earlier, clamp(earlierCorner + q, ivec2(0), last)).r;
@@ -132,7 +137,6 @@ float cost(ivec2 origin, ivec2 d) {
     return sum + lengthCost * float(side * side) * float(abs(d.x) + abs(d.y));
 }
 
-const uint threads = 64;
 shared float bestCosts[threads];
 shared int bestIndices[threads];
 shared float zeroCost;

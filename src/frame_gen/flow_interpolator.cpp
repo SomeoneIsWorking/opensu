@@ -1,4 +1,5 @@
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <format>
@@ -156,10 +157,31 @@ SetLayout countLayout(VkDevice device) {
     return SetLayout{device, layout};
 }
 
-/// `own` sets, the sets up to `countSet` empty, then the count's; texels counted when `counting`.
+/// The shaders' specialization constants: texels counted, and a search pass's threads to a block
+/// and how far past a block's window its tiles reach.
+struct Specialized {
+    VkBool32 countReads;
+    std::uint32_t threads;
+    std::int32_t tileReach;
+};
+
+/// A search pass's shape (`flow_search.comp`).
+struct SearchShape {
+    std::uint32_t threads{64};
+    std::int32_t tileReach{0};
+};
+/// The coarsest level's: 64 threads for its 289 candidates, and tiles for the range's 4 pixels
+/// each way.
+constexpr SearchShape coarsestShape{.threads = 64, .tileReach = coarsestRange / 2};
+/// The finer levels': their 9 and 25 candidates fit 32 threads, and their windows lie within a
+/// pixel of the centre's.
+constexpr SearchShape finerShape{.threads = 32, .tileReach = 2};
+
+/// `own` sets, the sets up to `countSet` empty, then the count's; texels counted when `counting`;
+/// a search pass shaped by `shape`.
 Pass passOf(VkDevice device, std::span<const std::uint32_t> code,
             std::span<const VkDescriptorSetLayout> own, VkDescriptorSetLayout empty,
-            VkDescriptorSetLayout count, bool counting) {
+            VkDescriptorSetLayout count, bool counting, SearchShape shape) {
     std::vector<VkDescriptorSetLayout> sets(own.begin(), own.end());
     sets.resize(countSet, empty);
     sets.push_back(count);
@@ -183,12 +205,24 @@ Pass passOf(VkDevice device, std::span<const std::uint32_t> code,
                                               .pCode = code.data()};
     VkShaderModule module = VK_NULL_HANDLE;
     check(vkCreateShaderModule(device, &moduleInfo, nullptr, &module), "vkCreateShaderModule");
-    const VkBool32 countReads = counting ? VK_TRUE : VK_FALSE;
-    const VkSpecializationMapEntry entry{.constantID = 0, .offset = 0, .size = sizeof(countReads)};
-    const VkSpecializationInfo specialization{.mapEntryCount = 1,
-                                              .pMapEntries = &entry,
-                                              .dataSize = sizeof(countReads),
-                                              .pData = &countReads};
+    const Specialized constants{.countReads = counting ? VK_TRUE : VK_FALSE,
+                                .threads = shape.threads,
+                                .tileReach = shape.tileReach};
+    const std::array<VkSpecializationMapEntry, 3> entries{
+        VkSpecializationMapEntry{.constantID = 0,
+                                 .offset = offsetof(Specialized, countReads),
+                                 .size = sizeof(constants.countReads)},
+        VkSpecializationMapEntry{.constantID = 1,
+                                 .offset = offsetof(Specialized, threads),
+                                 .size = sizeof(constants.threads)},
+        VkSpecializationMapEntry{.constantID = 2,
+                                 .offset = offsetof(Specialized, tileReach),
+                                 .size = sizeof(constants.tileReach)}};
+    const VkSpecializationInfo specialization{.mapEntryCount =
+                                                  static_cast<std::uint32_t>(entries.size()),
+                                              .pMapEntries = entries.data(),
+                                              .dataSize = sizeof(constants),
+                                              .pData = &constants};
     const VkComputePipelineCreateInfo pipelineInfo{
         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
         .pNext = nullptr,
@@ -231,8 +265,9 @@ class FlowInterpolator final : public Interpolator {
           countLayout_{countLayout(device_)}, counting_{gpu.spans() != nullptr},
           texels_{gpu, sizeof(Reads), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT} {
         const auto pass = [this](std::span<const std::uint32_t> code,
-                                 std::span<const VkDescriptorSetLayout> own) {
-            return passOf(device_, code, own, empty_.get(), countLayout_.get(), counting_);
+                                 std::span<const VkDescriptorSetLayout> own,
+                                 SearchShape shape = coarsestShape) {
+            return passOf(device_, code, own, empty_.get(), countLayout_.get(), counting_, shape);
         };
         const std::array<VkDescriptorSetLayout, 2> takeSets{one_.get(), two_.get()};
         take_ = pass(takeCode, takeSets);
@@ -240,6 +275,7 @@ class FlowInterpolator final : public Interpolator {
         reduce_ = pass(reduceCode, reduceSets);
         const std::array<VkDescriptorSetLayout, 1> searchSets{four_.get()};
         search_ = pass(searchCode, searchSets);
+        searchFiner_ = pass(searchCode, searchSets, finerShape);
         const std::array<VkDescriptorSetLayout, 2> chooseSets{three_.get(), two_.get()};
         choose_ = pass(chooseCode, chooseSets);
         const std::array<VkDescriptorSetLayout, 2> makeSets{four_.get(), one_.get()};
@@ -314,7 +350,8 @@ class FlowInterpolator final : public Interpolator {
                 const std::array<VkDescriptorSet, 1> sets{searchSets_[slot][level]};
                 const std::uint64_t parent = push.hasParent != 0 ? fields_[level + 1]->bytes() : 0;
                 // One workgroup per block.
-                dispatch(cmd, search_, sets, push, static_cast<std::uint32_t>(push.blocksX),
+                dispatch(cmd, push.hasParent != 0 ? searchFiner_ : search_, sets, push,
+                         static_cast<std::uint32_t>(push.blocksX),
                          static_cast<std::uint32_t>(push.blocksY),
                          {.read = (2 * lumas_[slot][level]->bytes()) + parent,
                           .written = fields_[level]->bytes()});
@@ -671,6 +708,8 @@ class FlowInterpolator final : public Interpolator {
     Pass take_;
     Pass reduce_;
     Pass search_;
+    /// The finer levels' search (`finerShape`).
+    Pass searchFiner_;
     Pass choose_;
     Pass make_;
     std::uint32_t width_{0};

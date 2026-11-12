@@ -410,6 +410,14 @@ are again the same. At 1280x720 that leaves 21 texels per frame pixel, most of t
 candidates left, which lie anywhere and are read from the frames. The loops over a window are
 unrolled, each sum in its order, so a thread's reads go out together rather than one at a time:
 the frames are bit for bit the same, and the search shader takes 168 VGPRs, 6 subgroups per SIMD.
+The finer levels, with 9 and then 25 candidates, give each block 32 threads (one subgroup) and
+tiles reaching 2 pixels past its window: 192 VGPRs and 5 blocks per SIMD against 3 at 64 threads,
+the frames bit for bit the same. In the runner (Super Metroid from boot, 1500 frames at 1280x720,
+three runs each, interleaved) the first frame between is ready 3.91 ms after its real frame at p50
+(spread 0.04) and 4.47 at p90 (0.04), against 5.11 (0.14) and 6.33 (0.76) at 64 threads; the
+smaller tiles alone at 64 threads gave 4.73 (0.09) and 5.63 (0.18). Two blocks to a 64-thread
+workgroup took 256 VGPRs and 4 subgroups per SIMD; keeping a block's slot uniform for the compiler
+needs a subgroup broadcast, which needs SPIR-V 1.3.
 On the core frames at 4x, 60 frames at the GPU's idle clock, the search's levels take 3.7, 1.0,
 0.28 and 0.13 ms, finest first (9.7, 2.9, 1.0 and 0.83 with the loops rolled); at the finest, its
 phases (tiles, the flat and zero checks on 3 threads, the 9 parent candidates, the 25 around the
@@ -437,8 +445,8 @@ Lossless's at every size.
 
 - The search's cost (19 M texels per real frame at 1280x720, 155 M at 4K): the parent
   candidates' windows, often the same vector for neighbouring blocks, shared between blocks; the
-  finer levels' blocks packed several to a workgroup so no thread idles. The generated frame's 100
-  texels per pixel.
+  finest level's phases still leave most of its 32 threads idle. The generated frame's 100 texels
+  per pixel.
 - `flow` in Gamescope: Gamescope's generator is Lossless's; a game outside the built-in runner
   with openSU chosen gets no frame generation (the summary's note says where openSU's runs).
 - The source pixel on remote play: `RemoteFrameGen` runs `flow` at scale 1 with a 1 x 1 pixel.

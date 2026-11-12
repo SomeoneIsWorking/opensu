@@ -54,11 +54,12 @@ void ReadyWatch::run(const std::stop_token& stop) {
                     return;
                 }
             }
-            const auto took = std::chrono::steady_clock::now() - next.from;
+            const auto took = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::steady_clock::now() - next.from);
+            lucent::debug("framegen", "ready {} us after its real frame came", took.count() / 1000);
             const std::scoped_lock lock{mutex_};
             ++timed_;
-            finished_.push_back(static_cast<std::uint64_t>(
-                std::chrono::duration_cast<std::chrono::nanoseconds>(took).count()));
+            finished_.push_back(static_cast<std::uint64_t>(took.count()));
         }
     } catch (const std::runtime_error& error) {
         // A lost device times nothing more; the pacer keeps the need it has.
