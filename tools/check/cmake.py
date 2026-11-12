@@ -99,6 +99,7 @@ class Plan:
             str(self.cmake_dir),
             "-G",
             "Ninja",
+            "-DCMAKE_C_COMPILER=clang",
             "-DCMAKE_CXX_COMPILER=clang++",
             f"-DCMAKE_BUILD_TYPE={self.build_type}",
             f"-DCMAKE_INSTALL_PREFIX={self.install_prefix}",
