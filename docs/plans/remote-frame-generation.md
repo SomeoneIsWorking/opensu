@@ -350,7 +350,7 @@ tools.framegen_quality.core_frames --frames DIR` checks the writing back loses n
 Metroid's demo at 256x224 (`opensu-framegen-pairs --core-frames`) all 60 generated frames equal,
 bit for bit, the centres of what `flow` makes from the same frames scaled up 4x beforehand. A
 generated frame then costs 975 K invocations and 159 M texels read, against 1.84 M and 187 M for
-the 4x frame it equals; the real frame's ingest is the 4x one's, 2.44 M invocations.
+the 4x frame it equals; the real frame's ingest is the 4x one's, 1.84 M invocations.
 
 ### In the product
 
@@ -391,13 +391,13 @@ at the worst phase.
 ### GPU cost
 
 `opensu-framegen-pairs` ends with `[perf]` lines (`frame_gen::GpuSpans`, compared with
-`perf_compare.py`), per real frame (`ingest`) and per generated frame (`generate`). For `flow`:
-dispatches, shader invocations, the bytes of the images each dispatch binds (a footprint, each
+`perf_compare.py`), per real frame (`ingest`) and per generated frame (`generate`), and for `flow`
+per dispatch too (`ingest 256x224 search 0`, `generate 256x224 choose`, ...): dispatches, shader
+invocations (each workgroup at its own threads), the bytes of the images each dispatch binds (a footprint, each
 image once) and the texels its shaders read, counted by the shaders themselves while measuring
 (an atomic per read behind a specialization constant, off in the product), and apart from them
 the values they read from shared memory, so a read moved there is not counted as free. These
-repeat exactly
-and are the cost verdict. Both generators' GPU time comes from timestamps through the fork's
+repeat exactly and are the cost verdict. Both generators' GPU time comes from timestamps through the fork's
 `IQueue` timing hooks; Lossless records its dispatches inside the fork, so only its time is
 seen.
 
@@ -405,10 +405,20 @@ Super Metroid's demo, 60 generated frames:
 
 | size | generate: invocations, texels read | ingest: invocations, texels read, shared values read |
 |---|---|---|
-| 256x224 | 115 K, 11.9 M | 153 K, 1.38 M, 9.95 M |
-| 256x224 core frames, at 4x (the runner) | 975 K, 159 M | 2.44 M, 21.5 M, 147 M |
-| 1280x720 | 1.84 M, 188 M | 2.45 M, 19.1 M, 117 M |
-| 3840x2160 | 16.6 M, 1.68 G | 22.0 M, 155 M, 805 M |
+| 256x224 | 115 K, 11.9 M | 115 K, 1.38 M, 9.95 M |
+| 256x224 core frames, at 4x (the runner) | 975 K, 159 M | 1.84 M, 21.5 M, 147 M |
+| 1280x720 | 1.84 M, 188 M | 1.85 M, 19.1 M, 117 M |
+| 3840x2160 | 16.6 M, 1.68 G | 16.6 M, 155 M, 805 M |
+
+On the core frames at 4x, `flow_choose` over every pixel of the 1024x896 frame is 917 K of a
+generated frame's 975 K invocations and 157 M of its 159 M texels (171 a pixel), `flow_make` at the
+content's 256x224 centres 57 K and 1.78 M; of a real frame's, the finest search is 459 K
+invocations, 14.0 M texels and 96.5 M shared values, the take 918 K invocations writing the 4x
+frame and its luma (two runs, every count the same). On the CPU,
+`opensu-retro --perf` counts frame generation's own work on the runner's thread: Super Metroid
+from boot, 1500 frames, 133 K instructions per real frame and 511 per present at p50, the same at
+1280x720 and 1920x1080, and the meter itself is under the 0.008% spread of the whole run's
+instructions.
 
 The search gives each block a workgroup of 64 threads that try its candidates side by side, each
 candidate's cost summed by one thread in the same order, and a reduction in shared memory picks
