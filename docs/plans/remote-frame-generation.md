@@ -469,6 +469,19 @@ Lossless's at every size.
   follows the busier layer. Settling each pixel's vector with its neighbours' (a cost per
   disagreeing neighbour) changed no score by more than 1%; carrying untaken pixels along a vector
   of their own tore sprites apart, because the untaken set of an animating sprite is itself patchy.
+  A second vector per block, chosen by the residual the pair leaves, is not built: offline, on
+  the finest fields of the rain, cave, demo and intro scenes at both step offsets (40 pairs each),
+  each pixel reconstructed as the mean of its two moved pixels at t 0.5 and scored against the
+  recorded frame between, adding the pair's 3 strongest global translations to `flow_choose`'s 9
+  candidates lowered PSNR p5 on rain (-0.77 and -0.12 dB) and cave (-0.11 and -0.17) and the mean
+  on both by 0.4 to 0.5 dB; the controls' p5 moved by 0.05 dB at most and their mean by 0.16 at
+  most. On rain and cave, picked against the true frame, the same candidates gain 1.1 to 3.3 dB p5
+  over the best of the 9, and the best of the 9 is 1.5 to 3.0 dB above what the agreement test
+  picks. So the vectors are there and the selection loses them:
+  the next cause to trace is `flow_choose.comp`'s 3 x 3 mean-free agreement test, which takes a
+  vector that matches the two real frames where it does not match the frame between. The test
+  stood in global translations for per-block second vectors, which fits rain's near-global fall;
+  it does not show per-block seconds cannot help once the selection is right.
 - (b) and (c) on top of `flow`; the shell's own animated screens as scenes (they have no per-frame
   dump yet).
 
