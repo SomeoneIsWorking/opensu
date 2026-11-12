@@ -332,6 +332,21 @@ bit for bit, the centres of what `flow` makes from the same frames scaled up 4x 
 generated frame then costs 975 K invocations and 159 M texels read, against 1.84 M and 187 M for
 the 4x frame it equals; the real frame's ingest is the 4x one's, 2.44 M invocations.
 
+### In the product
+
+`framegen.generator` picks Lossless Scaling (the default) or openSU. openSU's runs in the built-in
+runner (`retro/frame_generation`) and on the remote play guest (`RemoteFrameGen`), never in
+Gamescope. In the runner the core's frame goes to `flow` before the compositor, and each present
+at the display's refresh shows the real frame or a generated one through the compositor and the
+player's shaders. With `--frame-pngs` the pacer runs on the core's own clock and waits for each
+generated frame, so writing the PNGs moves no times. Super Metroid (PAL, 50 fps) on a 60 Hz
+display: 4560 core frames gave 5468 presents, 3851 of them generated. A real frame shows on average
+23.9 ms after the core drew it, at most 27.9 ms (30 s real-time hidden walk; 33.2 and 37.5 ms in a
+12 s one): one core frame (20 ms) and up to a refresh. Without frame generation it shows right
+away. On the remote play guest, Lossless and openSU's generator each show 60.0 frames a second
+from the host's 30 (19 s, TwoPlayers ROM, a hidden host in headless Gamescope), the same as the
+build before `PacedFrames` (59.96 shown, 29.93 real a second).
+
 ### GPU cost
 
 `opensu-framegen-pairs` ends with `[perf]` lines (`frame_gen::GpuSpans`, compared with
@@ -386,13 +401,14 @@ Lossless's at every size.
   candidates' windows, often the same vector for neighbouring blocks, shared between blocks; the
   finer levels' blocks packed several to a workgroup so no thread idles. The generated frame's 100
   texels per pixel.
-- `flow` in the product: a generator choice beside Lossless in `settings::framegen_settings`, taken
-  by `RemoteFrameGen` (it already holds an `Interpolator`), and by the fork's Gamescope generator;
-  until then it runs only in the harness.
-- The source pixel in the product: `RemoteFrameGen` passes 1 x 1 because the stream does not say
-  how its picture was scaled; the host has to send it, and the runner pass the core's base
-  geometry against its output rectangle. The runner's later option is generating at the core's
-  native size before scaling, which is also far cheaper.
+- `flow` in Gamescope: Gamescope's generator is Lossless's; a game outside the built-in runner
+  with openSU chosen gets no frame generation (the summary's note says where openSU's runs).
+- The source pixel on remote play: `RemoteFrameGen` runs `flow` at scale 1 with a 1 x 1 pixel
+  because the stream does not say how its picture was scaled; the host has to send the core's
+  frame or its scale.
+- Generated frames dropped in the runner: a generated frame not finished at its refresh is
+  dropped and that refresh shows nothing new (236 of 1561 presents in a 30 s walk on Super
+  Metroid, 1 in a 12 s one), so the picture there runs at about 52 rather than 60 a second.
 - Layers moving different ways in one block (rain over the cave's rock): one vector per block
   follows the busier layer. Settling each pixel's vector with its neighbours' (a cost per
   disagreeing neighbour) changed no score by more than 1%; carrying untaken pixels along a vector

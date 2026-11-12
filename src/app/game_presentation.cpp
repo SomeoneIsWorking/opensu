@@ -75,7 +75,9 @@ std::optional<FrameGenRequest> GamePresentation::wantedFrameGen() const {
     }
     const settings::FrameGenSettings resolved =
         settings::resolveFrameGen(gameSettings_.layers(), library::layerKeysOf(*front));
-    if (resolved.mode == settings::FrameGenMode::Off) {
+    // Gamescope's generator is Lossless Scaling's; openSU's runs in the built-in runner.
+    if (resolved.mode == settings::FrameGenMode::Off ||
+        resolved.generator == settings::FrameGenGenerator::OpenSU) {
         return std::nullopt;
     }
     return FrameGenRequest{resolved, *dll_};
@@ -141,9 +143,15 @@ std::string GamePresentation::noted(std::string text) const {
 
 PresentationSummary GamePresentation::frameGenSummary(const settings::SettingLookup& applies,
                                                       const std::string& where) const {
+    const settings::FrameGenSettings resolved = settings::resolveFrameGen(applies, where);
+    if (resolved.generator == settings::FrameGenGenerator::OpenSU) {
+        return PresentationSummary{.id = "framegen.summary",
+                                   .line = settings::frameGenSummary(resolved),
+                                   .note = "openSU's own, for games the built-in runner plays"};
+    }
     return PresentationSummary{
         .id = "framegen.summary",
-        .line = settings::frameGenSummary(settings::resolveFrameGen(applies, where)),
+        .line = settings::frameGenSummary(resolved),
         .note = noted(dll_ ? "Lossless Scaling's shaders, from your Steam install"
                            : "Needs Lossless Scaling, installed through Steam")};
 }

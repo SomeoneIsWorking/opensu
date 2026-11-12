@@ -310,6 +310,10 @@ bool Presenter::onScreen() const {
     return window_->hasSurface();
 }
 
+std::chrono::nanoseconds Presenter::refresh() const {
+    return window_->refresh();
+}
+
 touch::WindowSurface Presenter::surface() const {
     if (placed_) {
         touch::WindowSurface surface = *placed_;

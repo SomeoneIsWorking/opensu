@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <string>
 #include <vector>
 
 #include "frame_gen/generator_gpu.hpp"
@@ -75,6 +76,9 @@ class PacedFrames {
     [[nodiscard]] std::optional<framegen::PacingState> state() const noexcept {
         return state_;
     }
+    /// The counts in one line: real frames in, presents and generated frames shown, outputs
+    /// dropped and the pacer's state.
+    [[nodiscard]] std::string summary() const;
 
   private:
     /// The submissions of a real frame's interval's generated images, and the last submission

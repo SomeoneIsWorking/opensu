@@ -3,6 +3,7 @@
 // window (`hosted_runner_window`). The presenter draws through this and knows neither.
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include <span>
 
@@ -36,6 +37,8 @@ class RunnerWindow {
     [[nodiscard]] virtual bool hasSurface() const = 0;
     /// Its size in pixels, for a surface that leaves the swapchain's size to the application.
     [[nodiscard]] virtual VkExtent2D pixels() const = 0;
+    /// How often the display it is on refreshes; zero when that is not known.
+    [[nodiscard]] virtual std::chrono::nanoseconds refresh() const = 0;
     /// Leaves the full screen for a window of `width` x `height` pixels, where windows can change.
     virtual void resize(unsigned width, unsigned height) = 0;
     /// What an overlay on a `width` x `height` target is drawn for.

@@ -1,9 +1,9 @@
 // remote_frame_gen — frame generation on the remote play guest: the host's decoded frames in, a
-// picture for each present out, the frames between two real ones made by the Gamescope fork's
-// framegen library (the LSFG 3 shaders of the player's Lossless.dll, which their host sends,
-// `pack`) and chosen for each present by its pacer (`framegen::CFramePacer`). Stage A of
-// docs/plans/remote-frame-generation.md: a Vulkan device of its own, each real frame's RGBA
-// uploaded and each generated one read back. Built where framegen is (Linux); elsewhere `open`
+// picture for each present out, the frames between two real ones made by openSU's generator or
+// the Gamescope fork's framegen library (the LSFG 3 shaders of the player's Lossless.dll, which
+// their host sends, `pack`) and chosen for each present by its pacer (`framegen::CFramePacer`).
+// Stage A of docs/plans/remote-frame-generation.md: a Vulkan device of its own, each real frame's
+// RGBA uploaded and each generated one read back. Built where framegen is (Linux); elsewhere `open`
 // says why not.
 #pragma once
 
@@ -25,8 +25,8 @@ class RemoteFrameGen {
     /// its guest; nothing with why when it cannot be read or this build has no frame generation.
     [[nodiscard]] static std::optional<std::string> pack(const std::filesystem::path& dll,
                                                          std::string& why);
-    /// A generator for `settings` from the modules `packed`; nothing with why when this build, the
-    /// GPU or the modules cannot generate.
+    /// A generator for `settings`: openSU's, or Lossless's from the modules `packed`; nothing
+    /// with why when this build, the GPU or the modules cannot generate.
     [[nodiscard]] static std::unique_ptr<RemoteFrameGen>
     open(const settings::FrameGenSettings& settings, std::string_view packed, std::string& why);
 

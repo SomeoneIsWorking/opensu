@@ -7,6 +7,7 @@
 // window (Android in the background) is let go and made again when the window has one.
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -79,6 +80,8 @@ class Presenter {
 
     /// What an overlay is drawn for: the target's size, its safe area and pixels per dp.
     [[nodiscard]] touch::WindowSurface surface() const;
+    /// How often the window's display refreshes; zero when that is not known.
+    [[nodiscard]] std::chrono::nanoseconds refresh() const;
     /// Shrinks the window to `width` x `height`, the size of the picture it shows.
     void fitWindow(unsigned width, unsigned height);
     /// Where `frame` is drawn on the target.

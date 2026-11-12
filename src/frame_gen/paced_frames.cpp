@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <format>
 #include <stdexcept>
 #include <utility>
 
@@ -178,6 +179,12 @@ std::uint64_t PacedFrames::add(std::span<const std::uint8_t> rgba, std::uint32_t
     ++frames_;
     ++realIn_;
     return index;
+}
+
+std::string PacedFrames::summary() const {
+    return std::format("framegen real={} shown={} generated={} dropped={} state={}", realIn_,
+                       shown_, shownGenerated_, dropped(),
+                       state_ ? framegen::PacingStateName(*state_) : "none");
 }
 
 std::optional<Shown> PacedFrames::vblank(std::uint64_t nowNs, std::uint64_t refreshNs) {

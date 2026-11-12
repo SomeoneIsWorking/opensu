@@ -146,6 +146,33 @@ void launchFile() {
     expect(!parseVideoJson(R"({"video.art.portrait": {"image": "a.png", "picture": [0, 0, 0, 1]}})",
                            error),
            "art with an empty picture rect is refused");
+    VideoSettings generating;
+    generating.frameGen = FrameGenSettings{.mode = FrameGenMode::Adaptive,
+                                           .generator = FrameGenGenerator::OpenSU,
+                                           .targetThousandths = 60000,
+                                           .maxGenerated = 2,
+                                           .toleranceThousandths = 5000};
+    expect(parseVideoJson(videoJson(generating), error) == generating,
+           "openSU's frame generation round trips");
+    expect(!parseVideoJson(R"({"framegen": {"mode": "fixed"}})", error),
+           "frame generation without its pacing is refused");
+}
+
+void frameGenGoesToTheRunnerForOpenSUOnly() {
+    SettingLayers layers;
+    const LayerKeys game{.game = "metroid", .system = "snes", .emulator = "snes9x-core"};
+    const Layer own{Kind::Game, "metroid"};
+    layers.set(own, "framegen.preset", "smooth-60");
+    expect(!resolveVideo(layers, game, {}).frameGen,
+           "Lossless Scaling's frame generation is not the runner's");
+    layers.set(own, "framegen.generator", "opensu");
+    const std::optional<FrameGenSettings> generated = resolveVideo(layers, game, {}).frameGen;
+    expect(generated && generated->mode == FrameGenMode::Adaptive &&
+               generated->targetThousandths == 60000 &&
+               generated->generator == FrameGenGenerator::OpenSU,
+           "openSU's is, with the preset's pacing");
+    layers.set(own, "framegen.preset", "off");
+    expect(!resolveVideo(layers, game, {}).frameGen, "and off is off");
 }
 
 } // namespace
@@ -157,6 +184,7 @@ int main() try {
         roundTripAndDamage(scratch.path());
         picksMoveOnce(scratch.path());
         launchFile();
+        frameGenGoesToTheRunnerForOpenSUOnly();
         std::printf("game_settings_store: all checks passed\n");
         return 0;
     } catch (const std::exception& error) {

@@ -401,6 +401,9 @@ class RemotePlay {
     void serviceGuest();
     /// Opens frame generation once the host's shaders came.
     void serviceFrameGen();
+    /// Frame generation for this game by `by`, from the host's modules `packed` for Lossless;
+    /// off with `why` when it cannot start.
+    void startFrameGen(std::optional<std::string> packed, std::string why, const std::string& by);
     /// Ends the guest's session here, the stream first.
     void drop();
 

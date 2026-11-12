@@ -34,6 +34,13 @@ if(ANDROID)
 else()
     target_sources(opensu_retro PRIVATE shell_handoff_none.cpp hosted_runner_window_none.cpp)
 endif()
+# openSU's own frame generation on a Vulkan device of its own where frame_gen is built.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_sources(opensu_retro PRIVATE frame_generation_vulkan.cpp)
+    target_link_libraries(opensu_retro PRIVATE opensu::frame_gen)
+else()
+    target_sources(opensu_retro PRIVATE frame_generation_none.cpp)
+endif()
 target_compile_features(opensu_retro PUBLIC cxx_std_20)
 opensu_warnings(opensu_retro)
 

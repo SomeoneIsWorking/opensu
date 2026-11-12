@@ -1,6 +1,7 @@
 #include "hosted_runner_window.hpp"
 
 #include <array>
+#include <chrono>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -94,6 +95,10 @@ class HostedRunnerWindow final : public RunnerWindow {
     void resize(unsigned /*width*/, unsigned /*height*/) override {
     }
 
+    [[nodiscard]] std::chrono::nanoseconds refresh() const override {
+        // The runner generates no frames on Android.
+        return std::chrono::nanoseconds{0};
+    }
     [[nodiscard]] VkExtent2D pixels() const override {
         if (native_ == nullptr) {
             return {};

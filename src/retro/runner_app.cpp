@@ -22,6 +22,7 @@
 #include "core.hpp"
 #include "core_environment.hpp"
 #include "fileio/atomic_write.hpp"
+#include "frame_generation.hpp"
 #include "gamepad/pad_source.hpp"
 #include "hardware_render.hpp"
 #include "joypad.hpp"
@@ -181,6 +182,12 @@ RunnerExit stoppedDrawing(ControlServer* control, const std::exception& failure)
     return RunnerExit::PresenterFailed;
 }
 
+/// `at` in nanoseconds of the steady clock, the time frame generation paces by.
+std::uint64_t nanosOf(Clock::time_point at) {
+    return static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(at.time_since_epoch()).count());
+}
+
 bool writeFramePng(Presenter& presenter, const std::filesystem::path& file) {
     std::string error;
     const std::string png = framePng(presenter, error);
@@ -338,6 +345,14 @@ RunnerExit RunnerApp::run() {
 
     RunnerExit exit = RunnerExit::Quit;
     std::uint64_t frame = 0;
+    /// openSU's frame generation, the settings it runs under, and the next present it paces.
+    std::unique_ptr<FrameGeneration> generation;
+    std::optional<settings::FrameGenSettings> generatingWith;
+    Clock::time_point nextShown = Clock::now();
+    std::uint64_t presents = 0;
+    /// --frame-pngs paces generation by the core's frames, so writing them moves no times.
+    const bool recording = options_.framePngs.has_value();
+    Clock::time_point recordedAt = nextShown;
     /// Whether the last frame came as the core's Vulkan image rather than pixels.
     bool showingCoreImage = false;
     Clock::time_point next = Clock::now();
@@ -547,21 +562,77 @@ RunnerExit RunnerApp::run() {
         if (touchShown) {
             overlay = touch->image();
         }
-        try {
-            presenter->present(shown, coreImageFresh || pixelsFresh, hardware.takeSync(),
-                               overlay ? &*overlay : nullptr, stages);
-        } catch (const VulkanError& failure) {
-            exit = stoppedDrawing(control.get(), failure);
-            break;
-        } catch (const ShaderError& failure) {
-            exit = stoppedDrawing(control.get(), failure);
+        if (presenter->video().frameGen != generatingWith) {
+            generatingWith = presenter->video().frameGen;
+            generation.reset();
+            if (generatingWith) {
+                std::string why;
+                generation = FrameGeneration::open(*generatingWith, why);
+                lucent::info("framegen", "openSU's frame generation {}{}",
+                             generation ? "starts" : "cannot start: ", why);
+            }
+        }
+        const std::chrono::nanoseconds refresh = presenter->refresh();
+        if (generation && (showingCoreImage || refresh.count() == 0)) {
+            lucent::warn("framegen", "frame generation stops: {}",
+                         showingCoreImage ? "the core draws on the GPU"
+                                          : "the display's refresh is not known");
+            generation.reset();
+        }
+        const Clock::time_point pacedNow = recording ? recordedAt : Clock::now();
+        if (generation && pixelsFresh && !holding &&
+            !generation->real(shown, nanosOf(pacedNow),
+                              static_cast<std::uint64_t>(refresh.count()))) {
+            generation.reset();
+        }
+        if (generation && recording) {
+            generation->settle();
+        }
+        /// Draws `picture`, written out under `name` for --frame-pngs; the exit when it cannot.
+        const auto draw = [&](const FrameImage& picture, bool fresh, CoreSync sync,
+                              const std::string& name) -> std::optional<RunnerExit> {
+            try {
+                presenter->present(picture, fresh, std::move(sync), overlay ? &*overlay : nullptr,
+                                   stages);
+            } catch (const VulkanError& failure) {
+                return stoppedDrawing(control.get(), failure);
+            } catch (const ShaderError& failure) {
+                return stoppedDrawing(control.get(), failure);
+            }
+            ++presents;
+            if (options_.framePngs && !holding &&
+                !writeFramePng(*presenter, *options_.framePngs / name)) {
+                return RunnerExit::PresenterFailed;
+            }
+            return std::nullopt;
+        };
+        std::optional<RunnerExit> stopped;
+        if (generation) {
+            // Every refresh until the core's next frame, each showing what the pacer gives it.
+            const Clock::time_point due = (recording ? recordedAt : next) + interval;
+            if (nextShown < pacedNow - refresh) {
+                nextShown = pacedNow;
+            }
+            while (!stopped && nextShown < due) {
+                if (!recording) {
+                    std::this_thread::sleep_until(nextShown);
+                }
+                if (const std::optional<FrameImage> paced =
+                        generation->present(nanosOf(recording ? nextShown : Clock::now()),
+                                            static_cast<std::uint64_t>(refresh.count()))) {
+                    stopped = draw(*paced, true, {}, std::format("{:06}.png", presents));
+                }
+                nextShown += refresh;
+            }
+        } else {
+            stopped = draw(shown, coreImageFresh || pixelsFresh, hardware.takeSync(),
+                           std::format("{:06}.png", frame));
+        }
+        if (stopped) {
+            exit = *stopped;
             break;
         }
-        if (options_.framePngs && !holding &&
-            !writeFramePng(*presenter, *options_.framePngs / std::format("{:06}.png", frame))) {
-            exit = RunnerExit::PresenterFailed;
-            break;
-        }
+        recordedAt += interval;
         if (control && !announcedShown && presenter->shown()) {
             announcedShown = true;
             control->reportShown();
@@ -592,6 +663,9 @@ RunnerExit RunnerApp::run() {
                      "checks matched",
                      endOf(netplay->ended()), frame, netplay->stalls(), netplay->replayed(),
                      netplay->matched());
+    }
+    if (generation) {
+        lucent::info("framegen", "{}", generation->summary());
     }
     lucent::info("retro", "ran {} frames; sound: {} ms played as silence, {} ms dropped", frame,
                  millisecondsOf(sink.underrunFrames()), millisecondsOf(sink.overrunFrames()));

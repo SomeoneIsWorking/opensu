@@ -12,7 +12,6 @@
 #include "frame_gen/generator_gpu.hpp"
 #include "frame_gen/interpolator.hpp"
 #include "frame_gen/paced_frames.hpp"
-#include "framegen/FramePacer.h"
 #include "framegen/LosslessModules.h"
 #include "lucent/log.h"
 #include "stream/stream_wire.hpp"
@@ -109,16 +108,36 @@ losslessOf(frame_gen::GeneratorDevice& gpu, const settings::FrameGenSettings& se
     return generator;
 }
 
+/// openSU's generator when `settings` name it, else Lossless's on the host's `modules`; throws
+/// when it cannot run.
+std::unique_ptr<frame_gen::Interpolator>
+generatorOf(frame_gen::GeneratorDevice& gpu, const settings::FrameGenSettings& settings,
+            std::shared_ptr<const framegen::LosslessModules_t> modules) {
+    if (settings.generator != settings::FrameGenGenerator::OpenSU) {
+        return losslessOf(gpu, settings, std::move(modules));
+    }
+    std::string why;
+    // The stream's picture is the host's screen, not the core's frame.
+    std::unique_ptr<frame_gen::Interpolator> generator = frame_gen::flow(gpu, 1, why);
+    if (!generator) {
+        throw std::runtime_error{why};
+    }
+    return generator;
+}
+
 class VulkanFrameGen final : public RemoteFrameGen {
   public:
     // The stream does not say how its picture was scaled yet.
     VulkanFrameGen(const settings::FrameGenSettings& settings,
                    std::shared_ptr<const framegen::LosslessModules_t> modules)
-        : frames_{gpu_, losslessOf(gpu_, settings, std::move(modules)),
+        : frames_{gpu_, generatorOf(gpu_, settings, std::move(modules)),
                   frame_gen::pacingOf(settings), frame_gen::SourcePixel{}} {
-        lucent::info("framegen", "generating on {}, {} size mode, up to {} per real frame",
-                     gpu_.name(), settings.performance ? "performance" : "balanced",
-                     frames_.maxGenerated());
+        lucent::info("framegen", "generating with {} on {}, up to {} per real frame",
+                     settings.generator == settings::FrameGenGenerator::OpenSU
+                         ? std::string{"openSU's generator"}
+                         : std::format("Lossless, {} size mode",
+                                       settings.performance ? "performance" : "balanced"),
+                     gpu_.name(), frames_.maxGenerated());
     }
     ~VulkanFrameGen() override = default;
     VulkanFrameGen(const VulkanFrameGen&) = delete;
@@ -172,10 +191,7 @@ class VulkanFrameGen final : public RemoteFrameGen {
     }
 
     std::string summary() const override {
-        const std::optional<framegen::PacingState> state = frames_.state();
-        return std::format("framegen real={} shown={} generated={} dropped={} state={}",
-                           frames_.realIn(), frames_.shown(), frames_.shownGenerated(),
-                           frames_.dropped(), state ? framegen::PacingStateName(*state) : "none");
+        return frames_.summary();
     }
 
   private:
@@ -213,14 +229,17 @@ std::optional<std::string> RemoteFrameGen::pack(const std::filesystem::path& dll
 
 std::unique_ptr<RemoteFrameGen> RemoteFrameGen::open(const settings::FrameGenSettings& settings,
                                                      std::string_view packed, std::string& why) {
-    std::optional<framegen::LosslessModules_t> modules = unpack(packed);
-    if (!modules) {
-        why = "the host's shaders did not arrive whole";
-        return nullptr;
+    std::shared_ptr<const framegen::LosslessModules_t> shared;
+    if (settings.generator != settings::FrameGenGenerator::OpenSU) {
+        std::optional<framegen::LosslessModules_t> modules = unpack(packed);
+        if (!modules) {
+            why = "the host's shaders did not arrive whole";
+            return nullptr;
+        }
+        shared = std::make_shared<const framegen::LosslessModules_t>(std::move(*modules));
     }
     try {
-        return std::make_unique<VulkanFrameGen>(
-            settings, std::make_shared<const framegen::LosslessModules_t>(std::move(*modules)));
+        return std::make_unique<VulkanFrameGen>(settings, std::move(shared));
     } catch (const std::runtime_error& failure) {
         why = failure.what();
         return nullptr;

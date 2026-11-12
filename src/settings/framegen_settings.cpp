@@ -9,7 +9,16 @@
 namespace opensu::settings {
 namespace {
 
-enum class Key : std::uint8_t { Preset, Mode, Ratio, Target, Max, Tolerance, Performance };
+enum class Key : std::uint8_t {
+    Preset,
+    Generator,
+    Mode,
+    Ratio,
+    Target,
+    Max,
+    Tolerance,
+    Performance
+};
 enum class Preset : std::uint8_t { Off, Smooth60, MatchDisplay, Custom };
 
 const ChoiceKey& keyOf(Key key) {
@@ -69,6 +78,12 @@ std::function<bool(const SettingLookup&)> customIn(std::string_view mode) {
     };
 }
 
+/// Shown when Custom's values apply to Lossless Scaling's generator, whose own settings these are.
+bool customLossless(const SettingLookup& applies) {
+    return customIn({})(applies) &&
+           applies(keyOf(Key::Generator).key) != frameGenGeneratorChoices[1].key;
+}
+
 std::string fps(std::uint32_t thousandthsOfFps) {
     return std::to_string(thousandthsOfFps / 1000) + " fps";
 }
@@ -79,6 +94,14 @@ void declareFrameGen(Schema& schema) {
     schema.add(choiceSetting(
         Key::Preset, "Smooth 60 fills a game up to 60 fps; Match display up to the screen's rate",
         SettingType::Preset));
+    Setting generator = choiceSetting(
+        Key::Generator, "openSU's own frame generation, no Lossless Scaling needed. Works in the "
+                        "built-in runner and for games streamed from another openSU");
+    generator.shownWhen = [](const SettingLookup& applies) {
+        const std::string preset = applies(keyOf(Key::Preset).key);
+        return !preset.empty() && preset != spellingOf(Preset::Off);
+    };
+    schema.add(std::move(generator));
     Setting mode = choiceSetting(
         Key::Mode, "Fixed shows a set number of frames per real one; Adaptive only what it takes");
     mode.shownWhen = customIn({});
@@ -99,7 +122,7 @@ void declareFrameGen(Schema& schema) {
     Setting performance = choiceSetting(
         Key::Performance, "A lighter generator: faster on a weak GPU, a little softer",
         SettingType::Toggle);
-    performance.shownWhen = customIn({});
+    performance.shownWhen = customLossless;
     schema.add(std::move(performance));
     Setting flow;
     flow.key = std::string{frameGenFlowScaleKey};
@@ -110,7 +133,7 @@ void declareFrameGen(Schema& schema) {
     flow.range = frameGenFlowScaleRange;
     flow.unit = "%";
     flow.fallback = std::to_string(frameGenFlowScaleDefault);
-    flow.shownWhen = customIn({});
+    flow.shownWhen = customLossless;
     schema.add(std::move(flow));
 }
 
@@ -152,11 +175,15 @@ FrameGenSettings resolveFrameGen(const SettingLookup& applies, std::string_view 
     if (preset == spellingOf(Preset::Off)) {
         return FrameGenSettings{};
     }
+    const FrameGenGenerator generator = spelling(Key::Generator) == frameGenGeneratorChoices[1].key
+                                            ? FrameGenGenerator::OpenSU
+                                            : FrameGenGenerator::Lossless;
     if (preset != spellingOf(Preset::Custom)) {
         const PresetValues named = valuesOf(
             preset == spellingOf(Preset::Smooth60) ? Preset::Smooth60 : Preset::MatchDisplay);
         return FrameGenSettings{
             .mode = FrameGenMode::Adaptive,
+            .generator = generator,
             .targetThousandths = named.target == "display" ? 0 : thousandths(named.target),
             .maxGenerated = thousandths(named.max) / 1000,
             .toleranceThousandths = thousandths(presetTolerance),
@@ -175,6 +202,7 @@ FrameGenSettings resolveFrameGen(const SettingLookup& applies, std::string_view 
     }
     return FrameGenSettings{
         .mode = spelling(Key::Mode) == fixedMode() ? FrameGenMode::Fixed : FrameGenMode::Adaptive,
+        .generator = generator,
         .ratioThousandths = thousandths(spelling(Key::Ratio)),
         .targetThousandths = target == keyOf(Key::Target).defaultKey() ? 0 : thousandths(target),
         .maxGenerated = thousandths(spelling(Key::Max)) / 1000,
@@ -212,6 +240,9 @@ std::string frameGenSummary(const FrameGenSettings& settings) {
             text += " · tolerance " + fps(settings.toleranceThousandths);
         }
         break;
+    }
+    if (settings.generator == FrameGenGenerator::OpenSU) {
+        return text + " · openSU";
     }
     if (settings.performance) {
         text += " · performance";

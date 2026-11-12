@@ -17,6 +17,62 @@ bool withoutVisualPreset(const SettingLookup& applies) {
     return preset.empty() || preset == noPreset;
 }
 
+constexpr std::string_view frameGenKey = "framegen";
+
+/// `settings` when openSU's generator makes them, which the runner does.
+std::optional<FrameGenSettings> ownFrameGen(const FrameGenSettings& settings) {
+    if (settings.mode == FrameGenMode::Off || settings.generator != FrameGenGenerator::OpenSU) {
+        return std::nullopt;
+    }
+    return settings;
+}
+
+nlohmann::json frameGenJson(const std::optional<FrameGenSettings>& settings) {
+    if (!settings) {
+        return nullptr;
+    }
+    return nlohmann::json{{"mode", settings->mode == FrameGenMode::Fixed ? "fixed" : "adaptive"},
+                          {"ratio", settings->ratioThousandths},
+                          {"target", settings->targetThousandths},
+                          {"max", settings->maxGenerated},
+                          {"tolerance", settings->toleranceThousandths}};
+}
+
+bool parseFrameGen(const nlohmann::json& found, std::optional<FrameGenSettings>& settings,
+                   std::string& error) {
+    if (found.is_null()) {
+        return true;
+    }
+    const auto refused = [&found, &error] {
+        error = found.dump() + " is not a " + std::string{frameGenKey};
+        return false;
+    };
+    if (!found.is_object()) {
+        return refused();
+    }
+    const auto mode = found.find("mode");
+    if (mode == found.end() || !mode->is_string() || (*mode != "fixed" && *mode != "adaptive")) {
+        return refused();
+    }
+    std::array<std::uint32_t, 4> numbers{};
+    for (std::size_t at = 0; const char* key : {"ratio", "target", "max", "tolerance"}) {
+        const auto value = found.find(key);
+        if (value == found.end() || !value->is_number_unsigned()) {
+            return refused();
+        }
+        numbers[at++] = value->get<std::uint32_t>();
+    }
+    settings = FrameGenSettings{
+        .mode = *mode == "fixed" ? FrameGenMode::Fixed : FrameGenMode::Adaptive,
+        .generator = FrameGenGenerator::OpenSU,
+        .ratioThousandths = numbers[0],
+        .targetThousandths = numbers[1],
+        .maxGenerated = numbers[2],
+        .toleranceThousandths = numbers[3],
+    };
+    return true;
+}
+
 nlohmann::json artJson(const std::optional<FrameArt>& art) {
     if (!art) {
         return nullptr;
@@ -187,6 +243,7 @@ VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
         .touchShow = static_cast<TouchShow>(index(touchShowKey())),
         .touchSize = resolveTouchSize(layers, keys),
         .turned = index(turnedKey()) == 1,
+        .frameGen = ownFrameGen(resolveFrameGen(layers, keys)),
     };
 }
 
@@ -207,6 +264,7 @@ std::string videoJson(const VideoSettings& video) {
         {std::string{turnedKey().key}, turnedValue(video.turned)},
         {std::string{landscapeArtKey}, artJson(video.landscapeArt)},
         {std::string{portraitArtKey}, artJson(video.portraitArt)},
+        {std::string{frameGenKey}, frameGenJson(video.frameGen)},
     };
     return document.dump();
 }
@@ -257,6 +315,12 @@ std::optional<VideoSettings> parseVideoJson(std::string_view text, std::string& 
         }
         ++at;
     }
+    std::optional<FrameGenSettings> frameGen;
+    if (const auto found = document.find(std::string{frameGenKey}); found != document.end()) {
+        if (!parseFrameGen(*found, frameGen, error)) {
+            return std::nullopt;
+        }
+    }
     return VideoSettings{
         .aspect = static_cast<Aspect>(chosen[0]),
         .integer = static_cast<IntegerScale>(chosen[1]),
@@ -269,6 +333,7 @@ std::optional<VideoSettings> parseVideoJson(std::string_view text, std::string& 
         .turned = chosen[5] == 1,
         .landscapeArt = std::move(art[0]),
         .portraitArt = std::move(art[1]),
+        .frameGen = frameGen,
     };
 }
 

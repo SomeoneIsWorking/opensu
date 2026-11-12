@@ -1,6 +1,7 @@
 #include "sdl_runner_window.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -133,6 +134,15 @@ VkExtent2D SdlRunnerWindow::pixels() const {
     SDL_GetWindowSizeInPixels(window_, &width, &height);
     return {static_cast<std::uint32_t>(std::max(width, 0)),
             static_cast<std::uint32_t>(std::max(height, 0))};
+}
+
+std::chrono::nanoseconds SdlRunnerWindow::refresh() const {
+    const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(window_));
+    if (mode == nullptr || mode->refresh_rate <= 0.0F) {
+        return std::chrono::nanoseconds{0};
+    }
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::duration<double>{1.0 / mode->refresh_rate});
 }
 
 touch::WindowSurface SdlRunnerWindow::surface(unsigned width, unsigned height) const {

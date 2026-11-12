@@ -160,6 +160,9 @@ settings::Schema LayeredSettings::schemaOf(const EditorContext& context) const {
     } else if (GamePresentation::supported()) {
         settings::declareFrameGen(schema);
         settings::declareScaling(schema, presentation_.screen());
+    } else if (video && RemoteFrameGen::built()) {
+        // Outside Gamescope only the runner's own generator runs.
+        settings::declareFrameGen(schema);
     }
     // Above the core options: the core picked here decides which of them show.
     if (std::optional<settings::Setting> pick = emulatorPickOf(context)) {
@@ -214,11 +217,14 @@ LayeredSettings::summaryOf(std::string_view section, const EditorContext& contex
     if (section == settings::frameGenSection) {
         if (const std::optional<library::Game> game = gameOf(context);
             game && !game->hostId.empty()) {
+            const settings::FrameGenSettings resolved = settings::resolveFrameGen(applies, where);
             return PresentationSummary{
                 .id = "framegen.summary",
-                .line = settings::frameGenSummary(settings::resolveFrameGen(applies, where)),
-                .note = "Generated here, with the Lossless Scaling shaders of " + game->hostName +
-                        "'s Steam install"};
+                .line = settings::frameGenSummary(resolved),
+                .note = resolved.generator == settings::FrameGenGenerator::OpenSU
+                            ? std::string{"Generated here, by openSU"}
+                            : "Generated here, with the Lossless Scaling shaders of " +
+                                  game->hostName + "'s Steam install"};
         }
         return presentation_.frameGenSummary(applies, where);
     }

@@ -1,7 +1,8 @@
 // video_settings — how opensu-retro shows a game's frame: its aspect, integer scaling, sampling,
 // filter, shader preset and the resolution the preset is drawn at, whether the player rotated the
 // screen, the size of the touch controls over it, and the art framed around the picture per
-// orientation, which the shell fills in from a visual preset (`library/visual_presets`).
+// orientation, which the shell fills in from a visual preset (`library/visual_presets`), and the
+// frames it generates between the core's when the game's frame generation is openSU's.
 // The keys and choices the setting layers keep them under, a game's values resolved from those
 // layers, and their JSON: the per-launch file the shell writes and `opensu-retro --settings`
 // reads, and the body of the runner's `POST /video`. A shader
@@ -15,6 +16,7 @@
 #include <string>
 #include <string_view>
 
+#include "framegen_settings.hpp"
 #include "setting_choices.hpp"
 #include "setting_layers.hpp"
 #include "setting_schema.hpp"
@@ -106,6 +108,8 @@ struct VideoSettings {
     /// The frame around the picture on a screen wider than tall, and on one taller than wide.
     std::optional<FrameArt> landscapeArt{};
     std::optional<FrameArt> portraitArt{};
+    /// Frame generation by openSU's generator; nothing when it generates nothing.
+    std::optional<FrameGenSettings> frameGen{};
 
     bool operator==(const VideoSettings&) const = default;
 };
