@@ -15,6 +15,10 @@ target_include_directories(online_lobbies_test
 opensu_warnings(online_lobbies_test)
 add_test(NAME online_lobbies COMMAND online_lobbies_test)
 set_tests_properties(online_lobbies PROPERTIES TIMEOUT 120)
+if(TARGET lucent_nostr_relay)
+    # Lucent's lab relay, which tools.nat_lab runs.
+    add_dependencies(online_lobbies_test lucent_nostr_relay)
+endif()
 
 # Lucent's lab root is a host tool, so Android builds have no meeting test.
 if(OPENSU_BUILD_ZEROTIER AND TARGET lucent_zerotier_root)
