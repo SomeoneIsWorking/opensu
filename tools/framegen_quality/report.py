@@ -18,15 +18,16 @@ from tools.framegen_quality.score import FrameScore, Summary, summarize
 def table(results: dict[str, dict[str, list[FrameScore]]]) -> str:
     lines = [
         "| scene | generator | frames | moving | PSNR mean (dB) | PSNR worst 5% | SSIM mean "
-        "| FLIP mean | FLIP worst 5% |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| FLIP mean | FLIP worst 5% | detail lost | flicker mean | flicker worst 5% |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for scene, generators in results.items():
         for generator, scores in generators.items():
             s: Summary = summarize(scores)
             lines.append(
                 f"| {scene} | {generator} | {s.frames} | {s.moving} | {s.psnr_mean:.2f} "
-                f"| {s.psnr_p5:.2f} | {s.ssim_mean:.4f} | {s.flip_mean:.4f} | {s.flip_p95:.4f} |"
+                f"| {s.psnr_p5:.2f} | {s.ssim_mean:.4f} | {s.flip_mean:.4f} | {s.flip_p95:.4f} "
+                f"| {s.detail_lost_mean:.4f} | {s.flicker_mean:.4f} | {s.flicker_p95:.4f} |"
             )
     return "\n".join(lines) + "\n"
 

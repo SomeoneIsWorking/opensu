@@ -41,3 +41,20 @@ def test_left_out_frames_sit_between_their_real_ones(tmp_path: Path) -> None:
         ("000003", "000004", "000006", 1 / 3),
         ("000003", "000005", "000006", 2 / 3),
     ]
+
+
+def _dots(places: list[tuple[int, int]]) -> np.ndarray:
+    picture = np.full((64, 64, 3), 80.0)
+    for y, x in places:
+        picture[y : y + 3, x : x + 3] = 220.0
+    return picture
+
+
+def test_a_missing_shape_loses_detail_and_flickers() -> None:
+    before, truth, after = _dots([(20, 20)]), _dots([(20, 22)]), _dots([(20, 24)])
+    erased = _dots([])
+    assert metrics.detail_lost(truth, truth) == 0.0
+    assert metrics.detail_lost(truth, erased) == 1.0
+    assert metrics.flicker(before, after, truth) < 0.05
+    assert metrics.flicker(before, after, before) < 0.05
+    assert metrics.flicker(before, after, erased) > 0.9

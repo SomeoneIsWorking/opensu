@@ -27,22 +27,27 @@ class FrameScore:
     psnr: float
     ssim: float
     flip: float
+    detail_lost: float
+    flicker: float
 
 
 def _one(place: tuple[Path, Path, Path, float], made: Path) -> FrameScore:
     before, between, after, t = place
     truth = load_rgb(between)
     picture = load_rgb(made / between.name)
+    earlier, later = load_rgb(before), load_rgb(after)
     if picture.shape != truth.shape:
         raise SystemExit(f"{made / between.name} is not the size of {between}")
     flip_mean, _ = metrics.flip(truth, picture)
     return FrameScore(
         frame=between.name,
         t=t,
-        moving=not np.array_equal(load_rgb(before), load_rgb(after)),
+        moving=not np.array_equal(earlier, later),
         psnr=min(metrics.psnr(truth, picture), PSNR_CAP),
         ssim=metrics.ssim(truth, picture),
         flip=flip_mean,
+        detail_lost=metrics.detail_lost(truth, picture),
+        flicker=metrics.flicker(earlier, later, picture),
     )
 
 
@@ -69,13 +74,16 @@ class Summary:
     ssim_mean: float
     flip_mean: float
     flip_p95: float
+    detail_lost_mean: float
+    flicker_mean: float
+    flicker_p95: float
 
 
 def summarize(scores: list[FrameScore]) -> Summary:
     moving = [s for s in scores if s.moving]
     if not moving:
         nan = math.nan
-        return Summary(len(scores), 0, nan, nan, nan, nan, nan)
+        return Summary(len(scores), 0, nan, nan, nan, nan, nan, nan, nan, nan)
     psnr = np.array([s.psnr for s in moving])
     flip = np.array([s.flip for s in moving])
     return Summary(
@@ -86,4 +94,7 @@ def summarize(scores: list[FrameScore]) -> Summary:
         ssim_mean=float(np.mean([s.ssim for s in moving])),
         flip_mean=float(flip.mean()),
         flip_p95=float(np.percentile(flip, 95)),
+        detail_lost_mean=float(np.mean([s.detail_lost for s in moving])),
+        flicker_mean=float(np.mean([s.flicker for s in moving])),
+        flicker_p95=float(np.percentile([s.flicker for s in moving], 95)),
     )

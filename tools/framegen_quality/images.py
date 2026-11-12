@@ -8,7 +8,7 @@ from PIL import Image
 
 def load_rgb(path: Path) -> np.ndarray:
     with Image.open(path) as image:
-        return np.asarray(image.convert("RGB"), dtype=np.float64)
+        return np.asarray(image.convert("RGB"), dtype=np.float32)
 
 
 def save_rgb(picture: np.ndarray, path: Path) -> None:

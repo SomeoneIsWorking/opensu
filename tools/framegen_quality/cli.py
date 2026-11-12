@@ -52,6 +52,9 @@ def main() -> None:
     parser.add_argument("--build", type=Path, default=REPO / "build" / "agent" / "cmake")
     parser.add_argument("--record", action="store_true", help="record the scenes again")
     parser.add_argument("--worst", type=int, default=3, help="worst frames saved per scene")
+    parser.add_argument(
+        "--rescore", action="store_true", help="score the frames the run already made again"
+    )
     args = parser.parse_args()
 
     generators = [g for g in args.generators.split(",") if g]
@@ -74,7 +77,8 @@ def main() -> None:
             folder = run / "made" / scene.name / generator
             log = run / "logs" / f"{scene.name}-{generator}.log"
             log.parent.mkdir(parents=True, exist_ok=True)
-            generate.generate(generator, frames, folder, args.step, pairs, args.dll, log)
+            if not args.rescore:
+                generate.generate(generator, frames, folder, args.step, pairs, args.dll, log)
             scores = score.score(frames, folder, args.step)
             (run / "scores").mkdir(parents=True, exist_ok=True)
             score.save(scores, run / "scores" / f"{scene.name}-{generator}.json")
