@@ -1,5 +1,6 @@
 // A public game through a lab relay on loopback: listed by its name alone, its code handed sealed
-// to the friend who asks, then taken down; and the settings' relay list as the places read it.
+// to the friend who asks, then taken down; a second hosting unlinkable to the first; and the
+// settings' relay list as the places read it.
 #include "online/lobbies.hpp"
 
 #include <chrono>
@@ -32,6 +33,25 @@ bool within(std::chrono::seconds seconds, const std::function<bool()>& done) {
     return done();
 }
 
+/// The listing event of the game named `title`, as a reader of the relay sees it.
+lucent::p2p::nostr::Event listingOf(lucent::p2p::nostr::RelayStore& store,
+                                    const std::string& title) {
+    for (lucent::p2p::nostr::Event& event :
+         store.query(lucent::json::Array{lucent::json::Value{lucent::json::Object{}}})) {
+        if (event.content.find("\"title\":\"" + title + "\"") != std::string::npos) {
+            return event;
+        }
+    }
+    opensu::test::fail("the game's listing is on the relay");
+}
+
+/// The contact key a listing's content carries.
+std::string contactOf(const lucent::p2p::nostr::Event& listing) {
+    const std::size_t at = listing.content.find("\"contact\":\"");
+    expect(at != std::string::npos, "a listing carries a contact key");
+    return listing.content.substr(at + 11, 64);
+}
+
 void placesReadTheSettings() {
     const LobbyPlaces both = LobbyPlaces::of(" wss://a.example , ,wss://b.example", " ");
     expect(both.relays.size() == 2 && both.relays[0] == "wss://a.example" &&
@@ -58,6 +78,7 @@ void aFriendIsSeatedFromTheList() {
     expect(server.start(), "the lab relay starts");
     const LobbyPlaces places =
         LobbyPlaces::of("ws://127.0.0.1:" + std::to_string(server.port()), "");
+    lucent::p2p::nostr::Event first;
     {
         PublicLobby lobby{places, "Saturday night", "OSU-THE-CODE"};
         expect(within(10s,
@@ -65,6 +86,7 @@ void aFriendIsSeatedFromTheList() {
                           return lobby.view().listed;
                       }),
                "the game is listed");
+        first = listingOf(store, "Saturday night");
         for (const lucent::p2p::nostr::Event& event :
              store.query(lucent::json::Array{lucent::json::Value{lucent::json::Object{}}})) {
             expect(event.content.find("OSU-THE-CODE") == std::string::npos,
@@ -100,6 +122,17 @@ void aFriendIsSeatedFromTheList() {
                   }),
            "the list comes back after");
     expect(after.view().games.empty(), "a seated game is no longer listed");
+    {
+        PublicLobby again{places, "Sunday", "OSU-ANOTHER-CODE"};
+        expect(within(10s,
+                      [&] {
+                          return again.view().listed;
+                      }),
+               "a second hosting is listed");
+        const lucent::p2p::nostr::Event second = listingOf(store, "Sunday");
+        expect(second.pubkey != first.pubkey, "each hosting signs with a key of its own");
+        expect(contactOf(second) != contactOf(first), "each hosting has a contact key of its own");
+    }
     server.stop();
 }
 

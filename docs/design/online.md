@@ -135,7 +135,8 @@ name, the seats, `online::lobbyVersion` and a contact key made for this listing,
 address. The first player who asks gets the code sealed to their own key; later ones hear the game
 is full. The listing comes down when the code goes to someone, when the meeting leaves Inviting
 (someone joined by the pasted code) or when the host cancels, and lapses within 300 s if openSU
-dies. Listing again makes a new contact key.
+dies. Listing again makes a new contact key and signs with a new Nostr key, so two hostings by
+one player are not linked by either.
 
 Settings › Play online › Find a public game says what the host will see, then
 `online::LobbyFinder` lists the games of this version that have a seat. Picking one asks its host
