@@ -690,6 +690,7 @@ def host_lists(rig: Rig) -> None:
     host.press("a")
     host.wait("warned", lambda state: state["screen"] == "dialog")
     rig.shot(host, "3-list-warning")
+    host.focus("dialog/1", "right", 3)
     host.press("a")
     host.wait("at the name card", lambda state: state["screenFocus"] == "entry/field")
     rig.shot(host, "4-name")
