@@ -7,6 +7,15 @@ target_include_directories(online_meeting_test
 opensu_warnings(online_meeting_test)
 add_test(NAME online_meeting COMMAND online_meeting_test)
 
+# A public game listed, asked for and taken down through Lucent's lab relay on loopback.
+add_executable(online_lobbies_test lobbies_test.cpp)
+target_link_libraries(online_lobbies_test PRIVATE opensu::online lucent::lucent)
+target_include_directories(online_lobbies_test
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../ui" "${CMAKE_CURRENT_SOURCE_DIR}/..")
+opensu_warnings(online_lobbies_test)
+add_test(NAME online_lobbies COMMAND online_lobbies_test)
+set_tests_properties(online_lobbies PROPERTIES TIMEOUT 120)
+
 # Lucent's lab root is a host tool, so Android builds have no meeting test.
 if(OPENSU_BUILD_ZEROTIER AND TARGET lucent_zerotier_root)
     # Two openSUs meet over the embedded node alone through a lab root at an address of their own.
