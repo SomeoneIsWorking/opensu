@@ -181,6 +181,7 @@ own node, through a lab root on a machine of its own past the internet node
 address is on the link it is reached by); both logs must say `connected over ZeroTier`, no node's
 private key may be in a log, and the sockets left are only the node's, bound to an interface. Every other case plays with
 `onlineZeroTier` off, so the symmetric cases still prove the direct path alone fails.
+`android --avd <name> [--apk <file>]` boots that AVD (from `ANDROID_AVD_HOME`, 2 GiB) and runs openSU's APK there, joining a hidden openSU on this machine over the lab's ZeroTier root on the machine's LAN address, with no STUN server. The desktop hosts because only a `--hidden` shell hands its code to tools; the device types it into its own code card. It checks both players' held A on both runners' frames, keeps the device's logcat, and stops itself and the AVD when available memory falls under 1.5 GiB. It needs `DISPLAY` (the emulator runs `-gpu host`) and the app's mGBA download or one already on the device. The device as host was proven by hand (an Android host's code read off its frame, a desktop joining, both presses crossing) and comes back to the lab once codes are drawn in a face a reader cannot misread (`docs/issues/invite-code-legibility.md`).
 `online_zero_tier_meeting` (ctest, every platform with ZeroTier) runs `lucent_zerotier_root` at
 one of the machine's own addresses (on Linux a dummy `lab0` in a network namespace of the test's
 own) and a host and a friend as processes of their own with no direct way:

@@ -304,12 +304,7 @@ class Rig:
 def host_offers(rig: Rig) -> str:
     """Play online on the link ROM's page: the warning read, the code made and returned."""
     host = rig.host
-    host.wait("in the library", lambda state: state["games"] > 0)
-    host.press("a", "a")
-    host.wait("on the details page", lambda state: state["detailsOpen"])
-    host.focus("details.playOnline")
-    host.press("a")
-    host.wait("asked first", lambda state: state["screen"] == "dialog")
+    host.ask_to_host()
     rig.shot(host, "1-warning")
     host.press("a")
     state = host.wait_step("inviting", "failed", seconds=15)
@@ -326,17 +321,7 @@ def host_offers(rig: Rig) -> str:
 def friend_enters(rig: Rig, code: str) -> None:
     """Settings › Play online › Join, the warning read, the code entered."""
     friend = rig.friend
-    friend.wait("up", lambda state: state["screen"] == "" and state["games"] >= 0)
-    friend.press("guide")
-    friend.wait("in the Guide menu", lambda state: state["guideMenuOpen"])
-    friend.focus("guide.settings")
-    friend.press("a")
-    friend.wait("in Settings", lambda state: state["settingsOpen"])
-    friend.focus("categories/online")
-    friend.press("a")
-    friend.focus("online.join")
-    friend.press("a")
-    friend.wait("asked first", lambda state: state["screen"] == "dialog")
+    friend.ask_to_join()
     rig.shot(friend, "1-warning")
     friend.press("a")
     friend.wait("at the code card", lambda state: state["screenFocus"] == "entry/field")

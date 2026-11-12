@@ -65,6 +65,20 @@ class Node:
         self.holder.wait()
 
 
+@dataclass
+class Host:
+    """This machine's own network, where a device reached over adb meets a shell beside it."""
+
+    name: str = "host"
+
+    def run(self, *command: str) -> str:
+        return subprocess.run(command, check=True, capture_output=True, text=True).stdout
+
+    def start(self, command: list[str], log: Path) -> subprocess.Popen[bytes]:
+        output = log.open("ab")
+        return subprocess.Popen(command, stdout=output, stderr=subprocess.STDOUT)
+
+
 def node(name: str) -> Node:
     holder = subprocess.Popen(
         ["unshare", "--net", "sleep", "infinity"],

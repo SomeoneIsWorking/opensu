@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from tools.nat_lab.topology import Node
+from tools.nat_lab.topology import Host, Node
 
 
 @dataclass
@@ -18,7 +18,7 @@ class Instance:
     """A hidden shell, its files all under `home`, never the player's."""
 
     name: str
-    node: Node
+    node: Node | Host
     home: Path
     binary: Path
     roms: Path
@@ -129,6 +129,47 @@ class Instance:
                 return
             self.press(button)
         raise RuntimeError(f"{self.name}: never focused {target}: {summary(self.state())}")
+
+    def walk(self, target: str, most: int = 80) -> None:
+        self.focus(target, "down", most)
+
+    def settings_page(self, trail: str) -> None:
+        """Settings from the Guide menu, then R1 to the page whose breadcrumb is `trail`."""
+        self.press("guide")
+        self.wait("in the Guide menu", lambda state: state["guideMenuOpen"])
+        self.focus("guide.settings")
+        self.press("a")
+        self.wait("in Settings", lambda state: state["settingsOpen"])
+        seen: set[object] = set()
+        while (shown := self.state().get("breadcrumb")) not in seen:
+            if shown == trail:
+                return
+            seen.add(shown)
+            self.press("r1")
+        raise RuntimeError(f"{self.name}: no settings page {trail}")
+
+    def ask_to_host(self) -> None:
+        """Play online on the first game's details page, up to its warning."""
+        self.wait("in the library", lambda state: state["games"] > 0, seconds=30)
+        self.press("a", "a")
+        self.wait("on the details page", lambda state: state["detailsOpen"])
+        self.focus("details.playOnline")
+        self.press("a")
+        self.wait("asked first", lambda state: state["screen"] == "dialog")
+
+    def ask_to_join(self) -> None:
+        """Settings › Play online › Join, up to its warning."""
+        self.wait("up", lambda state: state["screen"] == "" and state["games"] >= 0, seconds=30)
+        self.press("guide")
+        self.wait("in the Guide menu", lambda state: state["guideMenuOpen"])
+        self.focus("guide.settings")
+        self.press("a")
+        self.wait("in Settings", lambda state: state["settingsOpen"])
+        self.focus("categories/online")
+        self.press("a")
+        self.focus("online.join")
+        self.press("a")
+        self.wait("asked first", lambda state: state["screen"] == "dialog")
 
     def control_file(self) -> Path:
         assert self.process is not None
