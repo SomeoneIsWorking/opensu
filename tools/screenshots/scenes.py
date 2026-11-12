@@ -53,6 +53,19 @@ def _home(shell: HiddenShell) -> None:
     shell.wait_for("section", "home")
 
 
+# The most pages stacked over a details page and the page itself: a question, More or Game
+# settings.
+DETAILS_DEPTH = 4
+
+
+def _down_to(shell: HiddenShell, row: str) -> None:
+    """Down a page's rows until the focused one is `row` (a copy's own row ends with it)."""
+    while not str(focus := shell.state().get("screenFocus", "")).endswith(row):
+        shell.press("down")
+        if shell.state().get("screenFocus") == focus:
+            raise RuntimeError(f"no {row} row on the page: {shell.state()}")
+
+
 def _details(shell: HiddenShell) -> None:
     """The focused game's details. A on a console's card (Home leads with them) opens its shelf
     instead, and A again opens its first game."""
@@ -303,22 +316,33 @@ def _details_update(shell: HiddenShell) -> None:
     """The installed stand-in game's details with Update focused."""
     _epic_game(shell, legendary.INSTALLED_APP_NAME)
     _details(shell)
-    # Its rows: Play, Update, Hide game, Uninstall, Choose artwork, Controls, Back.
-    shell.press("down")
+    _down_to(shell, "details.update")
 
 
 def _arm_uninstall(shell: HiddenShell) -> None:
-    """The installed stand-in game's details, and Uninstall's question."""
+    """The installed stand-in game's details, More, and Uninstall's question."""
     _epic_game(shell, legendary.INSTALLED_APP_NAME)
     _details(shell)
-    # Its rows: Play, Update, Hide game, Uninstall, Choose artwork, Controls, Back.
-    shell.press("down", "down", "down", "a")
+    _down_to(shell, "details.more")
+    shell.press("a")
+    shell.wait_for("screen", "details.more")
+    _down_to(shell, "details.uninstall")
+    shell.press("a")
     shell.wait_for("screen", "dialog")
 
 
-def _leave_store_details(shell: HiddenShell) -> None:
-    shell.press("b")
+def _close_details(shell: HiddenShell) -> None:
+    """B back through the pages over the details page (a question, More, Game settings), then
+    the page itself."""
+    for _ in range(DETAILS_DEPTH):
+        if shell.state().get("detailsOpen") is not True:
+            return
+        shell.press("b")
     shell.wait_for("detailsOpen", False)
+
+
+def _leave_store_details(shell: HiddenShell) -> None:
+    _close_details(shell)
     _leave_console_shelf(shell)
 
 
@@ -374,24 +398,20 @@ def _downloads_uninstalling(shell: HiddenShell) -> None:
         _download_state(f"epic:{legendary.INSTALLED_APP_NAME}", "uninstalling"),
         "the stand-in game uninstalling",
     )
-    shell.press("b")
-    shell.wait_for("detailsOpen", False)
-    _leave_console_shelf(shell)
+    _leave_store_details(shell)
     # Its "uninstalling" toast would be caught mid-fade.
     shell.wait_for("toast", "", timeout=10.0)
     _open_downloads(shell)
 
 
-# The most rows a details page has: Play, Update, Download, Emulator, Game settings, Wine prefix,
-# Hide game, Uninstall, Choose artwork, Controls, Back.
-LONGEST_DETAILS = 11
-
-
 def _game_mapping(shell: HiddenShell) -> None:
-    """The focused game's details, then Controls, the button before Back; the board opens on A."""
+    """The focused game's details, Game settings, then its Controls row; the board opens on A."""
     _details(shell)
-    # Focus stops at the last button, so enough Downs reach Back.
-    shell.press(*(["down"] * LONGEST_DETAILS), "up", "a")
+    _down_to(shell, "details.settings")
+    shell.press("a")
+    shell.wait_for("screen", "layered")
+    _down_to(shell, "details.controls")
+    shell.press("a")
     shell.wait_for("mapping", "board")
     shell.wait_for("mappingFocus", "button.a")
 
@@ -399,6 +419,9 @@ def _game_mapping(shell: HiddenShell) -> None:
 def _leave_game_mapping(shell: HiddenShell) -> None:
     shell.press("b")
     shell.wait_for("mapping", "")
+    shell.wait_for("screen", "layered")
+    shell.press("b")
+    shell.wait_for("screen", "details")
     _back_from_details(shell)
 
 
