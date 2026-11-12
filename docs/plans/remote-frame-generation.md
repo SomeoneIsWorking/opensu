@@ -265,19 +265,22 @@ a 5x5) whole from the nearer real frame and a speck from both weighted by t.
 
 Run `f9`, the same recorded frames for both, 119 frames left out per scene, moving frames:
 
-| scene | PSNR L / flow (dB) | worst 5% | FLIP L / flow | worst 5% | detail lost L / flow | flicker L / flow |
-|---|---|---|---|---|---|---|
-| Super Metroid, rain over the ship | 26.58 / 25.94 | 22.24 / 21.42 | 0.0671 / 0.0722 | 0.173 / 0.178 | 0.292 / 0.274 | 0.0344 / 0.0010 |
-| Super Metroid, cave scroll | 26.12 / 25.41 | 23.09 / 21.62 | 0.0693 / 0.0740 | 0.111 / 0.126 | 0.230 / 0.184 | 0.0181 / 0.0006 |
-| Super Metroid, gameplay demo | 27.13 / 26.44 | 22.67 / 21.73 | 0.0513 / 0.0530 | 0.113 / 0.117 | 0.074 / 0.048 | 0.0103 / 0.0024 |
-| Super Metroid, intro text and fades | 29.64 / 29.03 | 24.44 / 23.76 | 0.0381 / 0.0395 | 0.075 / 0.076 | 0.185 / 0.150 | 0.0170 / 0.0073 |
-| Chrono Trigger, title | 44.10 / 43.40 | 38.85 / 38.32 | 0.0017 / 0.0018 | 0.003 / 0.004 | 0.013 / 0.009 | 0.0008 / 0.0001 |
-| Killer Instinct, title loop | 50.38 / 52.07 | 33.65 / 33.51 | 0.0080 / 0.0084 | 0.034 / 0.033 | 0.018 / 0.015 | 0.0001 / 0.0000 |
-| Kirby & the Amazing Mirror, title fade | 36.78 / 36.56 | 25.62 / 24.73 | 0.0333 / 0.0327 | 0.082 / 0.082 | 0.027 / 0.015 | 0.0002 / 0.0000 |
-| Monster in My Pocket, title | 45.17 / 44.96 | 40.92 / 41.48 | 0.0010 / 0.0010 | 0.002 / 0.002 | 0.018 / 0.012 | 0.0006 / 0.0000 |
-| scroll test ROM (moves every other frame) | 23.07 / 24.06 | 22.93 / 22.95 | 0.0120 / 0.0128 | 0.012 / 0.014 | 0.702 / 0.605 | 0 / 0 |
+| scene | PSNR L / flow (dB) | worst 5% | FLIP L / flow | worst 5% | FLIP repeat / blend | detail lost L / flow | flicker L / flow |
+|---|---|---|---|---|---|---|---|
+| Super Metroid, rain over the ship | 26.58 / 25.94 | 22.24 / 21.42 | 0.0671 / 0.0722 | 0.173 / 0.178 | 0.0844 / 0.0821 | 0.292 / 0.274 | 0.0344 / 0.0010 |
+| Super Metroid, cave scroll | 26.12 / 25.41 | 23.09 / 21.62 | 0.0693 / 0.0740 | 0.111 / 0.126 | 0.0967 / 0.0897 | 0.230 / 0.184 | 0.0181 / 0.0006 |
+| Super Metroid, gameplay demo | 27.13 / 26.44 | 22.67 / 21.73 | 0.0513 / 0.0530 | 0.113 / 0.117 | 0.0872 / 0.0860 | 0.074 / 0.048 | 0.0103 / 0.0024 |
+| Super Metroid, intro text and fades | 29.64 / 29.03 | 24.44 / 23.76 | 0.0381 / 0.0395 | 0.075 / 0.076 | 0.0934 / 0.0857 | 0.185 / 0.150 | 0.0170 / 0.0073 |
+| Chrono Trigger, title | 44.10 / 43.40 | 38.85 / 38.32 | 0.0017 / 0.0018 | 0.003 / 0.004 | 0.0035 / 0.0029 | 0.013 / 0.009 | 0.0008 / 0.0001 |
+| Killer Instinct, title loop | 50.38 / 52.07 | 33.65 / 33.51 | 0.0080 / 0.0084 | 0.034 / 0.033 | 0.0132 / 0.0084 | 0.018 / 0.015 | 0.0001 / 0.0000 |
+| Kirby & the Amazing Mirror, title fade | 36.78 / 36.56 | 25.62 / 24.73 | 0.0333 / 0.0327 | 0.082 / 0.082 | 0.0344 / 0.0329 | 0.027 / 0.015 | 0.0002 / 0.0000 |
+| Monster in My Pocket, title | 45.17 / 44.96 | 40.92 / 41.48 | 0.0010 / 0.0010 | 0.002 / 0.002 | 0.0015 / 0.0009 | 0.018 / 0.012 | 0.0006 / 0.0000 |
+| scroll test ROM (moves every other frame) | 23.07 / 24.06 | 22.93 / 22.95 | 0.0120 / 0.0128 | 0.012 / 0.014 | 0 / 0.0139 | 0.702 / 0.605 | 0 / 0 |
 
-What it shows: `flow` keeps more of the real frame (detail lost lower on every scene) and does not
+`repeat` and `blend` beside them are the placement check: `repeat` has no flicker by construction
+and `blend` keeps both frames' detail, so a generator counts as placing moving content only where
+its FLIP is below theirs, which both are by a wide margin on the Super Metroid scenes and neither is on the
+title screens, where little moves. What it shows: `flow` keeps more of the real frame (detail lost lower on every scene) and does not
 flicker (Lossless's flicker on the rain and cave scenes is its smeared raindrops), but by PSNR and
 FLIP it is behind Lossless on the Super Metroid scenes (FLIP 3 to 8% higher, worst 5% PSNR up to
 1.5 dB lower) and level elsewhere. In its worst frames (`f9/worst/`) a sprite that animated
@@ -293,7 +296,14 @@ Lossless garbles the small print. It is not yet better than Lossless.
   until then it runs only in the harness. Its GPU time per generated frame is not measured yet.
 - Odd displacements: a background that moves 1 pixel over two game frames is, in the truth, one
   of the two real frames; both generators draw the half step (detail lost 0.6 to 0.7 on the scroll
-  ROM).
+  ROM). The recorded frames are the runner's 1280x720 output, scaled 3.75 x 3.21 for the SNES, so
+  rounding the shares to whole output pixels changes nothing measurable; the half step has to be
+  rounded in source pixels, which needs the content's scale (the runner and the remote host know
+  it) or generating before scaling.
+- Ghosts at parallax edges: a layer's edge uncovered between the real frames is untaken in one
+  frame and shown as a speck at half weight; it belongs to that frame alone, at the background's
+  vector. Settling each pixel's vector with its neighbours' (a cost per disagreeing neighbour)
+  changed no score by more than 1%.
 - Stepped edges where neighbouring blocks' vectors differ; a sprite's own motion (carrying the
   untaken pixels along a vector of their own tore sprites apart, because the untaken set of an
   animating sprite is itself patchy).
