@@ -12,7 +12,8 @@ pinned Fedora 44 with systemd, as the CI workflow does. `install`
 menu entry it installed on the desktop too (tools/check/shortcut.py); `--destdir` stages it instead.
 `--platform windows` builds on a Windows host with clang-cl and vcpkg (tools/check/windows.py),
 `--platform macos` on an Apple silicon Mac with Homebrew's LLVM and vcpkg (tools/check/macos.py).
-`--jobs` caps the compilers and clang-tidy processes that run at once.
+`--jobs` caps the compilers and clang-tidy processes that run at once. On Linux the tree links with
+lld and keeps line tables only (`--debug-info full` for a debugger's build).
 """
 
 import argparse
@@ -35,6 +36,8 @@ def plan_from(args: argparse.Namespace) -> cmake.Plan:
         jobs=args.jobs,
         platform=args.platform,
         gamescope=args.gamescope,
+        debug_info=args.debug_info,
+        lld=args.platform == "linux",
     )
 
 
@@ -75,6 +78,12 @@ def main(argv: list[str] | None = None) -> int:
         choices=cmake.GAMESCOPE_MODES,
         default="on",
         help="on stages the shared prefix's Gamescope fork in the tree (default), off omits it",
+    )
+    parser.add_argument(
+        "--debug-info",
+        choices=cmake.DEBUG_INFO,
+        default="lines",
+        help="Linux: lines keeps compressed line tables (default), full the debugger's -g",
     )
     parser.add_argument(
         "--prefix",
@@ -134,7 +143,8 @@ def main(argv: list[str] | None = None) -> int:
     destdir = Path(args.destdir).resolve() if args.destdir else None
     base = (args.base or lint.DEFAULT_BASE) if args.changed else None
     actions = step_actions(plan, prefix, destdir, base)
-    options = ["--gamescope", plan.gamescope, "--jobs", str(plan.jobs), "--prefix", str(prefix)]
+    options = ["--gamescope", plan.gamescope, "--jobs", str(plan.jobs), "--prefix", str(prefix),
+               "--debug-info", plan.debug_info]  # fmt: skip
     if destdir is not None:
         options += ["--destdir", str(destdir)]
     if base is not None:

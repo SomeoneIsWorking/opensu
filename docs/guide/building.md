@@ -48,7 +48,11 @@ the fork out of the tree). Each step also runs on its own (`deps`, `configure`, 
 `--build-dir` names another tree (`build/agent`, `build/player`). `--platform windows` builds on a
 Windows host with clang-cl and vcpkg, `--platform macos` on an Apple silicon Mac with Homebrew's
 LLVM and vcpkg. `--jobs N` caps the compilers and clang-tidy processes that run at once, the fork's
-ninja included (one per core by default).
+ninja included (one per core by default). A Linux tree links with lld, which the build image has
+(missing, configure is refused with the install command), and its RelWithDebInfo objects keep line
+tables only, zstd-compressed (`-gline-tables-only -gz=zstd`), enough for backtraces and profiles at
+a fraction of the disk and link memory; `--debug-info full` builds a tree for a debugger with
+CMake's own `-g`. Packages keep their own flags and linker.
 
 One build, lint, test or package run goes at a time on a machine, across every agent, always at full
 width: a run takes 4 to 5 GB, and several at once run the machine out of memory. Work in parallel is
@@ -58,7 +62,12 @@ the one shared checkout and tree when no other run is going:
 ```
 git -C build/agent-src switch --detach <commit>
 uv run --directory build/agent-src --frozen python -m tools.check build --build-dir ../agent
+uv run --directory build/agent-src --frozen python -m tools.package.android build --build-dir ../android
 ```
+
+Each tool builds under its own checkout's `build/` unless `--build-dir` says otherwise, so a run in
+the clone without it nests a second tree inside the clone; both refuse a tree configured from
+another checkout.
 
 Hidden proof runs use the same tree's binaries. Whoever coordinates the agents gives out the turns;
 no `--jobs` cap, memory guard or queue stands in for that.

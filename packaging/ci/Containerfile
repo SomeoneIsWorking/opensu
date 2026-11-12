@@ -6,12 +6,13 @@
 # Fedora's SDL3_image opens libpng, libjpeg-turbo and libwebp at run time, so they are named here.
 # The SDL fork, SDL_ttf and SDL_image are built with Fedora's build dependencies for each, so they
 # have the backends Fedora's have.
+# lld links the trees tools.check builds.
 # iproute gives the ZeroTier meeting test the dummy interface its private network namespace binds.
 ARG BASE=registry.fedoraproject.org/fedora:44@sha256:959833699a2fb5da1bc70b4db659ab229252c2ba1ed8e2fa29d4b30a704c0f63
 FROM ${BASE}
 
 RUN dnf -y install --setopt=install_weak_deps=False \
-        systemd systemd-pam dbus sudo iproute git clang clang-tools-extra cmake ninja-build meson glslang uv cargo \
+        systemd systemd-pam dbus sudo iproute git clang clang-tools-extra lld cmake ninja-build meson glslang uv cargo \
         dnf-plugins-core libcurl-devel openssl-devel zlib-ng-compat-devel libwebp-devel nanosvg-devel json-devel \
         libX11-devel libXi-devel libXtst-devel pipewire-devel opus-devel sqlite-devel systemd-devel \
         libavcodec-free-devel libavutil-free-devel libva-devel \

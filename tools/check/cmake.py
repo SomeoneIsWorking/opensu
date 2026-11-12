@@ -3,6 +3,7 @@
 import os
 import platform
 import re
+import shutil
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -13,6 +14,13 @@ from tools.checkout import REPO
 
 GAMESCOPE_MODES = ("on", "off")
 PLATFORMS = ("linux", "windows", "macos")
+# lines: line tables only, zstd-compressed, for backtraces and profiles; full: CMake's own -g.
+DEBUG_INFO = ("lines", "full")
+LINE_TABLES_FLAGS = "-O2 -DNDEBUG -gline-tables-only -gz=zstd"
+LLD_INSTALL = (
+    "the build image (packaging/ci) installs it; by hand: Fedora `sudo dnf install lld`, Debian "
+    "and Ubuntu `sudo apt install lld`, Arch `sudo pacman -S lld`"
+)
 DEFAULT_JOBS = os.cpu_count() or 1
 
 
@@ -20,7 +28,8 @@ DEFAULT_JOBS = os.cpu_count() or 1
 class Plan:
     """One build tree: where it lives, the OS it builds for, what it builds against, whether it
     stages the Gamescope fork and with which extra meson options the prefix builds it (Linux only),
-    and how many compilers or clang-tidy processes run at once."""
+    how many compilers or clang-tidy processes run at once, and, on Linux, how much debug info a
+    RelWithDebInfo build keeps and whether it links with lld."""
 
     build_dir: Path
     deps: Deps
@@ -31,6 +40,8 @@ class Plan:
     install_prefix: str = "/usr/local"
     defines: Sequence[str] = field(default_factory=tuple)
     jobs: int = DEFAULT_JOBS
+    debug_info: str = "full"
+    lld: bool = False
 
     @property
     def cmake_dir(self) -> Path:
@@ -109,7 +120,27 @@ class Plan:
             found,
         ]
         args.append(f"-DOPENSU_BUILD_GAMESCOPE={'ON' if self.gamescope == 'on' else 'OFF'}")
+        args += self.linux_footprint_args(env)
         args += list(self.defines)
+        return args
+
+    def linux_footprint_args(self, env: Mapping[str, str]) -> list[str]:
+        """The debug info and linker defines of a Linux tree; lld is refused when missing rather
+        than replaced, so a tree's link never changes with the machine."""
+        if self.debug_info not in DEBUG_INFO:
+            raise ValueError(f"debug_info must be one of {DEBUG_INFO}, not {self.debug_info}")
+        args = []
+        if self.debug_info == "lines":
+            args += [
+                f"-DCMAKE_C_FLAGS_RELWITHDEBINFO={LINE_TABLES_FLAGS}",
+                f"-DCMAKE_CXX_FLAGS_RELWITHDEBINFO={LINE_TABLES_FLAGS}",
+                *(f"-DCMAKE_{kind}_LINKER_FLAGS_RELWITHDEBINFO=-gz=zstd"
+                  for kind in ("EXE", "SHARED", "MODULE")),
+            ]  # fmt: skip
+        if self.lld:
+            if shutil.which("ld.lld", path=env.get("PATH")) is None:
+                raise SystemExit(f"openSU links with lld, and ld.lld is not on PATH; {LLD_INSTALL}")
+            args.append("-DCMAKE_LINKER_TYPE=LLD")
         return args
 
 
