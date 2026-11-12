@@ -130,8 +130,8 @@ class VulkanFrameGen final : public RemoteFrameGen {
     // The stream does not say how its picture was scaled yet.
     VulkanFrameGen(const settings::FrameGenSettings& settings,
                    std::shared_ptr<const framegen::LosslessModules_t> modules)
-        : frames_{gpu_, generatorOf(gpu_, settings, std::move(modules)),
-                  frame_gen::pacingOf(settings), frame_gen::SourcePixel{}} {
+        : frames_{gpu_, generatorOf(gpu_, settings, std::move(modules)), settings,
+                  frame_gen::SourcePixel{}} {
         lucent::info("framegen", "generating with {} on {}, up to {} per real frame",
                      settings.generator == settings::FrameGenGenerator::OpenSU
                          ? std::string{"openSU's generator"}

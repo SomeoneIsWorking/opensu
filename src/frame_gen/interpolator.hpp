@@ -42,7 +42,13 @@ class Interpolator {
     [[nodiscard]] virtual std::optional<framegen::Submission_t>
     generate(float t, const framegen::GeneratorImage_t& output,
              const framegen::OutputHooks_t& hooks) = 0;
+    /// Refreshes the pacer shows the scene after a real frame's arrival, so that the first frame
+    /// generated after it gets one fewer refresh of GPU time (`framegen::PacingSettings_t`).
+    [[nodiscard]] virtual std::uint32_t firstOutputLead() const noexcept = 0;
 };
+
+/// Lossless's ingest and first generated frame fit well inside the refresh they are given.
+inline constexpr std::uint32_t losslessFirstOutputLead = 1;
 
 /// The LSFG 3 shaders of the player's Lossless.dll (`settings.pModules` or `settings.sDllPath`)
 /// through the Gamescope fork's `framegen::CLosslessGenerator`; nothing with why when the device or
@@ -54,6 +60,8 @@ lossless(GeneratorDevice& gpu, const framegen::LosslessSettings_t& settings, std
 inline constexpr std::uint32_t flowBlockPixels = 8;
 /// What flow scales a core's own frame by: its finest blocks then cover about 2 content pixels.
 inline constexpr std::uint32_t flowContentScale = flowBlockPixels / 2;
+/// Flow's ingest and first generated frame take more than a refresh at the GPU's idle clocks.
+inline constexpr std::uint32_t flowFirstOutputLead = 2;
 
 /// openSU's own generator (`flow_interpolator.cpp`), working on each real frame scaled up nearest
 /// by `scale` and writing each made frame back at the centres of the scaled pixels; nothing with

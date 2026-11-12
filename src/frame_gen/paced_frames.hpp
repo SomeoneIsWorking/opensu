@@ -23,9 +23,6 @@ namespace opensu::frame_gen {
 /// Real frames whose images and outputs are kept: the interval shown, the one after, and the next.
 inline constexpr std::uint64_t bufferedFrames = 3;
 
-/// The pacer's settings for a game's frame generation.
-[[nodiscard]] framegen::PacingSettings_t pacingOf(const settings::FrameGenSettings& settings);
-
 /// What a present shows: real frame `real`, or, when `generated` holds its RGBA, a frame
 /// generated before it.
 struct Shown {
@@ -35,9 +32,10 @@ struct Shown {
 
 class PacedFrames {
   public:
-    /// Frames between real ones made by `generator` on `gpu`, the content's pixels `pixel`.
+    /// Frames between real ones made by `generator` on `gpu`, the content's pixels `pixel`, paced
+    /// by the game's `settings` and the generator's own first-output lead.
     PacedFrames(GeneratorDevice& gpu, std::unique_ptr<Interpolator> generator,
-                const framegen::PacingSettings_t& pacing, SourcePixel pixel);
+                const settings::FrameGenSettings& settings, SourcePixel pixel);
     ~PacedFrames();
     PacedFrames(const PacedFrames&) = delete;
     PacedFrames& operator=(const PacedFrames&) = delete;

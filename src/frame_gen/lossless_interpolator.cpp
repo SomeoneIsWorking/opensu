@@ -23,6 +23,9 @@ class LosslessInterpolator final : public Interpolator {
                                                    const framegen::OutputHooks_t& hooks) override {
         return generator_->Generate(t, output, hooks);
     }
+    [[nodiscard]] std::uint32_t firstOutputLead() const noexcept override {
+        return losslessFirstOutputLead;
+    }
 
   private:
     std::shared_ptr<framegen::CDevice> device_;

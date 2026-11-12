@@ -32,7 +32,7 @@ class FlowGeneration final : public FrameGeneration {
   public:
     // The core's frame is the content's own pixels.
     explicit FlowGeneration(const settings::FrameGenSettings& settings)
-        : frames_{gpu_, flowOf(gpu_), frame_gen::pacingOf(settings), frame_gen::SourcePixel{}} {
+        : frames_{gpu_, flowOf(gpu_), settings, frame_gen::SourcePixel{}} {
         lucent::info("framegen",
                      "openSU's generator on {}, the core's frames scaled up by {}, up to {} per "
                      "real frame",

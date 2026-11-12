@@ -15,29 +15,33 @@ namespace {
 
 constexpr std::uint32_t bytesPerPixel = 4;
 
-} // namespace
-
-framegen::PacingSettings_t pacingOf(const settings::FrameGenSettings& settings) {
+/// The pacer's settings for a game's frame generation by a generator needing `lead`.
+framegen::PacingSettings_t pacingOf(const settings::FrameGenSettings& settings,
+                                    std::uint32_t lead) {
     constexpr double thousand = 1000.0;
     if (settings.mode == settings::FrameGenMode::Fixed) {
         return framegen::PacingSettings_t{.eMode = framegen::PacingMode::Fixed,
                                           .flRatio = settings.ratioThousandths / thousand,
                                           .flTargetFps = 0.0,
                                           .uMaxGenerated = 3,
-                                          .flToleranceFps = 0.0};
+                                          .flToleranceFps = 0.0,
+                                          .uFirstOutputLead = lead};
     }
     return framegen::PacingSettings_t{
         .eMode = framegen::PacingMode::Adaptive,
         .flRatio = 1.0,
         .flTargetFps = settings.targetThousandths / thousand,
         .uMaxGenerated = std::clamp(settings.maxGenerated, 1U, framegen::k_uMaxGeneratedLimit),
-        .flToleranceFps = settings.toleranceThousandths / thousand};
+        .flToleranceFps = settings.toleranceThousandths / thousand,
+        .uFirstOutputLead = lead};
 }
 
+} // namespace
+
 PacedFrames::PacedFrames(GeneratorDevice& gpu, std::unique_ptr<Interpolator> generator,
-                         const framegen::PacingSettings_t& pacing, SourcePixel pixel)
+                         const settings::FrameGenSettings& settings, SourcePixel pixel)
     : gpu_{gpu}, generator_{std::move(generator)}, pixel_{pixel} {
-    pacer_.Configure(pacing);
+    pacer_.Configure(pacingOf(settings, generator_->firstOutputLead()));
 }
 
 PacedFrames::~PacedFrames() {
