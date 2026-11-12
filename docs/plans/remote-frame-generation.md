@@ -482,6 +482,20 @@ Lossless's at every size.
   vector that matches the two real frames where it does not match the frame between. The test
   stood in global translations for per-block second vectors, which fits rain's near-global fall;
   it does not show per-block seconds cannot help once the selection is right.
+  Traced: the offline copy of `flow_choose`'s rule matches the product's choice image on every
+  pixel of rain and cave to float32 rounding (1.5 to 1.7% of pixels are ties, nearly all at zero
+  cost, and the copy breaks them its own way). On the worst 5% of pixels against the best of the
+  9, the picked vector makes the two real frames agree exactly on the 3 x 3 once its mean is
+  removed on 61 to 78%, and the right vector ties with it at zero on 19 to 31%: the test sees only
+  the pixel's patch, so a flat patch or one off by a constant cannot tell vectors apart, and the
+  right vector pays where another layer differs along it. Tried on the same 9 candidates and not
+  in, PSNR p5 against the copy of today's rule at both step offsets: the 3 x 3 without its mean
+  +0.28 and +0.24 dB on rain (offset spread 0.71), +0.24 and +0.06 on cave (0.19), -0.54 and
+  -0.04 on the demo (0.91); the mean over the block's 12 x 12 window in place of the patch's +0.27
+  and +0.02 on rain, -0.01 and 0.00 on cave; ties broken by the lowest difference over that
+  window +0.12 and -0.05 on rain, -0.04 and -0.07 on cave; the two together as the block mean.
+  None clears the spread on rain and cave, so the gain left to the selection (the best of the 9
+  is 1.5 to 3.0 dB p5 above it) is not in flat-patch ties alone.
 - (b) and (c) on top of `flow`; the shell's own animated screens as scenes (they have no per-frame
   dump yet).
 
