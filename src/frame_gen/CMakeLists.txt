@@ -1,6 +1,7 @@
 # Frame generation on a Vulkan device of its own (docs/plans/remote-frame-generation.md): the device,
-# images and buffers (`generator_gpu`), the GPU time of their work (`gpu_spans`) and the generators behind one interface (`interpolator`):
-# the Gamescope fork's Lossless generator and openSU's own (`flow`, shaders/flow_*.comp);
+# images and buffers (`generator_gpu`), the GPU time of their work (`gpu_spans`) and the generators
+# behind one interface (`interpolator`): the Gamescope fork's Lossless generator and openSU's own
+# (`flow`, shaders/flow_*.comp);
 # `opensu-framegen-pairs` runs them on PNG frames for tools/framegen_quality. Linux only, where
 # framegen is built.
 add_library(opensu_frame_gen STATIC generator_gpu.cpp gpu_spans.cpp lossless_interpolator.cpp

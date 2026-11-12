@@ -28,13 +28,13 @@ bool featureless(ivec2 origin, bool isLater) {
     float mean = 0.0;
     for (int i = 0; i < side * side; ++i) {
         const ivec2 p = clamp(origin + ivec2(i % side - margin, i / side - margin), ivec2(0), last);
-        mean += isLater ? imageLoad(later, p).r : imageLoad(earlier, p).r;
+        mean += isLater ? READ(later, p).r : READ(earlier, p).r;
     }
     mean /= float(side * side);
     float deviation = 0.0;
     for (int i = 0; i < side * side; ++i) {
         const ivec2 p = clamp(origin + ivec2(i % side - margin, i / side - margin), ivec2(0), last);
-        deviation += abs((isLater ? imageLoad(later, p).r : imageLoad(earlier, p).r) - mean);
+        deviation += abs((isLater ? READ(later, p).r : READ(earlier, p).r) - mean);
     }
     return deviation < flatBelow * float(side * side);
 }
@@ -49,8 +49,8 @@ float cost(ivec2 origin, ivec2 d) {
     for (int y = 0; y < side; ++y) {
         for (int x = 0; x < side; ++x) {
             const ivec2 p = origin + ivec2(x - margin, y - margin);
-            const float difference = imageLoad(earlier, clamp(p - back, ivec2(0), last)).r -
-                                     imageLoad(later, clamp(p + ahead, ivec2(0), last)).r;
+            const float difference = READ(earlier, clamp(p - back, ivec2(0), last)).r -
+                                     READ(later, clamp(p + ahead, ivec2(0), last)).r;
             differences[y * side + x] = difference;
             mean += difference;
         }
@@ -130,13 +130,13 @@ void main() {
         ivec2 d = ivec2(0);
         if (i < 9) {
             const ivec2 at = clamp(block / 2 + ivec2(i % 3 - 1, i / 3 - 1), ivec2(0), parentLast);
-            d = ivec2(imageLoad(parent, at).rg) * 2;
+            d = ivec2(READ(parent, at).rg) * 2;
             mine = cost(origin, d);
         }
         const int k = lowest(mine, i < 9 ? i : 9);
         if (bestCosts[0] < bestCost) {
             const ivec2 at = clamp(block / 2 + ivec2(k % 3 - 1, k / 3 - 1), ivec2(0), parentLast);
-            best = ivec2(imageLoad(parent, at).rg) * 2;
+            best = ivec2(READ(parent, at).rg) * 2;
             bestCost = bestCosts[0];
         }
         barrier();

@@ -1,5 +1,6 @@
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <format>
 #include <map>
 #include <memory>
@@ -49,6 +50,8 @@ struct FlowPush {
 constexpr std::size_t levels = 4;
 constexpr std::int32_t coarsestRange = 8;
 constexpr std::uint32_t blockSize = 8;
+/// The descriptor set every pass's texel count is in (`flow_push.glsl`).
+constexpr std::uint32_t countSet = 3;
 constexpr std::uint32_t groupSize = 8;
 /// Descriptor sets for the caller's views (frames in, frames out) a session can name.
 constexpr std::uint32_t viewSets = 32;
@@ -126,8 +129,32 @@ struct Pass {
     Pipeline pipeline;
 };
 
+/// The texel count's set: one storage buffer.
+SetLayout countLayout(VkDevice device) {
+    const VkDescriptorSetLayoutBinding binding{.binding = 0,
+                                               .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                                               .descriptorCount = 1,
+                                               .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+                                               .pImmutableSamplers = nullptr};
+    const VkDescriptorSetLayoutCreateInfo info{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .bindingCount = 1,
+        .pBindings = &binding};
+    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
+    check(vkCreateDescriptorSetLayout(device, &info, nullptr, &layout),
+          "vkCreateDescriptorSetLayout");
+    return SetLayout{device, layout};
+}
+
+/// `own` sets, the sets up to `countSet` empty, then the count's; texels counted when `counting`.
 Pass passOf(VkDevice device, std::span<const std::uint32_t> code,
-            std::span<const VkDescriptorSetLayout> sets) {
+            std::span<const VkDescriptorSetLayout> own, VkDescriptorSetLayout empty,
+            VkDescriptorSetLayout count, bool counting) {
+    std::vector<VkDescriptorSetLayout> sets(own.begin(), own.end());
+    sets.resize(countSet, empty);
+    sets.push_back(count);
     const VkPushConstantRange push{
         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT, .offset = 0, .size = sizeof(FlowPush)};
     const VkPipelineLayoutCreateInfo layoutInfo{
@@ -148,6 +175,12 @@ Pass passOf(VkDevice device, std::span<const std::uint32_t> code,
                                               .pCode = code.data()};
     VkShaderModule module = VK_NULL_HANDLE;
     check(vkCreateShaderModule(device, &moduleInfo, nullptr, &module), "vkCreateShaderModule");
+    const VkBool32 countReads = counting ? VK_TRUE : VK_FALSE;
+    const VkSpecializationMapEntry entry{.constantID = 0, .offset = 0, .size = sizeof(countReads)};
+    const VkSpecializationInfo specialization{.mapEntryCount = 1,
+                                              .pMapEntries = &entry,
+                                              .dataSize = sizeof(countReads),
+                                              .pData = &countReads};
     const VkComputePipelineCreateInfo pipelineInfo{
         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
         .pNext = nullptr,
@@ -158,7 +191,7 @@ Pass passOf(VkDevice device, std::span<const std::uint32_t> code,
                   .stage = VK_SHADER_STAGE_COMPUTE_BIT,
                   .module = module,
                   .pName = "main",
-                  .pSpecializationInfo = nullptr},
+                  .pSpecializationInfo = &specialization},
         .layout = layout,
         .basePipelineHandle = VK_NULL_HANDLE,
         .basePipelineIndex = -1};
@@ -186,17 +219,24 @@ class FlowInterpolator final : public Interpolator {
     explicit FlowInterpolator(GeneratorDevice& gpu)
         : gpu_{gpu}, device_{gpu.device()}, one_{storageImages(device_, 1)},
           two_{storageImages(device_, 2)}, three_{storageImages(device_, 3)},
-          four_{storageImages(device_, 4)} {
+          four_{storageImages(device_, 4)}, empty_{storageImages(device_, 0)},
+          countLayout_{countLayout(device_)}, counting_{gpu.spans() != nullptr},
+          texels_{gpu, sizeof(std::uint32_t), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT} {
+        const auto pass = [this](std::span<const std::uint32_t> code,
+                                 std::span<const VkDescriptorSetLayout> own) {
+            return passOf(device_, code, own, empty_.get(), countLayout_.get(), counting_);
+        };
         const std::array<VkDescriptorSetLayout, 2> takeSets{one_.get(), two_.get()};
-        take_ = passOf(device_, takeCode, takeSets);
+        take_ = pass(takeCode, takeSets);
         const std::array<VkDescriptorSetLayout, 1> reduceSets{two_.get()};
-        reduce_ = passOf(device_, reduceCode, reduceSets);
+        reduce_ = pass(reduceCode, reduceSets);
         const std::array<VkDescriptorSetLayout, 1> searchSets{four_.get()};
-        search_ = passOf(device_, searchCode, searchSets);
+        search_ = pass(searchCode, searchSets);
         const std::array<VkDescriptorSetLayout, 2> chooseSets{three_.get(), two_.get()};
-        choose_ = passOf(device_, chooseCode, chooseSets);
+        choose_ = pass(chooseCode, chooseSets);
         const std::array<VkDescriptorSetLayout, 2> makeSets{four_.get(), one_.get()};
-        make_ = passOf(device_, makeCode, makeSets);
+        make_ = pass(makeCode, makeSets);
+        makeCountSet();
     }
     ~FlowInterpolator() override {
         static_cast<void>(gpu_.idle());
@@ -340,7 +380,8 @@ class FlowInterpolator final : public Interpolator {
                         .pixelHeight = pixel_.height};
     }
 
-    /// Submits `cmd`, closing its span when timed, with what it dispatched.
+    /// Submits `cmd`, closing its span when timed, with what it dispatched; while measuring, waits
+    /// for it to read the texels it counted.
     std::uint64_t submit(VkCommandBuffer cmd, std::optional<std::uint32_t> timed,
                          const std::string& key) {
         if (timed) {
@@ -349,6 +390,13 @@ class FlowInterpolator final : public Interpolator {
         const std::uint64_t seqNo = gpu_.Submit(cmd);
         if (timed) {
             gpu_.TimingSubmitted(seqNo);
+        }
+        if (counting_) {
+            gpu_.Wait(seqNo);
+            std::uint32_t texels = 0;
+            std::memcpy(&texels, texels_.bytes().data(), sizeof(texels));
+            work_.texelReads = texels;
+            std::memset(texels_.bytes().data(), 0, sizeof(texels));
         }
         if (GpuSpans* spans = gpu_.spans()) {
             spans->work(key, work_);
@@ -372,6 +420,8 @@ class FlowInterpolator final : public Interpolator {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass.pipeline.get());
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass.layout.get(), 0,
                                 static_cast<std::uint32_t>(sets.size()), sets.data(), 0, nullptr);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass.layout.get(), countSet, 1,
+                                &countSet_, 0, nullptr);
         vkCmdPushConstants(cmd, pass.layout.get(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push),
                            &push);
         vkCmdDispatch(cmd, x, y, 1);
@@ -444,6 +494,44 @@ class FlowInterpolator final : public Interpolator {
             views_.emplace(view, set);
         }
         return set;
+    }
+
+    /// The texel count's buffer, zeroed, in its own set.
+    void makeCountSet() {
+        const VkDescriptorPoolSize size{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                                        .descriptorCount = 1};
+        const VkDescriptorPoolCreateInfo poolInfo{.sType =
+                                                      VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+                                                  .pNext = nullptr,
+                                                  .flags = 0,
+                                                  .maxSets = 1,
+                                                  .poolSizeCount = 1,
+                                                  .pPoolSizes = &size};
+        VkDescriptorPool pool = VK_NULL_HANDLE;
+        check(vkCreateDescriptorPool(device_, &poolInfo, nullptr, &pool), "vkCreateDescriptorPool");
+        countPool_ = Pool{device_, pool};
+        const VkDescriptorSetLayout layout = countLayout_.get();
+        const VkDescriptorSetAllocateInfo info{.sType =
+                                                   VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+                                               .pNext = nullptr,
+                                               .descriptorPool = pool,
+                                               .descriptorSetCount = 1,
+                                               .pSetLayouts = &layout};
+        check(vkAllocateDescriptorSets(device_, &info, &countSet_), "vkAllocateDescriptorSets");
+        const VkDescriptorBufferInfo buffer{
+            .buffer = texels_.buffer(), .offset = 0, .range = sizeof(std::uint32_t)};
+        const VkWriteDescriptorSet write{.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                                         .pNext = nullptr,
+                                         .dstSet = countSet_,
+                                         .dstBinding = 0,
+                                         .dstArrayElement = 0,
+                                         .descriptorCount = 1,
+                                         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                                         .pImageInfo = nullptr,
+                                         .pBufferInfo = &buffer,
+                                         .pTexelBufferView = nullptr};
+        vkUpdateDescriptorSets(device_, 1, &write, 0, nullptr);
+        std::memset(texels_.bytes().data(), 0, sizeof(std::uint32_t));
     }
 
     [[nodiscard]] static VkImageView viewOf(const std::unique_ptr<GeneratorImage>& image) {
@@ -553,6 +641,12 @@ class FlowInterpolator final : public Interpolator {
     SetLayout two_;
     SetLayout three_;
     SetLayout four_;
+    SetLayout empty_;
+    SetLayout countLayout_;
+    bool counting_;
+    HostBuffer texels_;
+    Pool countPool_;
+    VkDescriptorSet countSet_{VK_NULL_HANDLE};
     Pass take_;
     Pass reduce_;
     Pass search_;

@@ -310,46 +310,63 @@ Tried and dropped for content-pixel shares: moving a block rigidly only where al
 vectors agree lost most of the gain (intro FLIP 0.037); gating on how gradually the vectors
 differ left seams on the Chrono zoom.
 
+### Where `flow` sits
+
+Today `flow` runs only in the harness, on the runner's `--frame-pngs` output scaled to 1280x720.
+Lossless runs locally in the Gamescope fork on the composited game window, after the runner's
+shader presets, and on remote play on the guest, on the decoded stream, after the host's shaders
+and the encoder. Taking the luma at each content pixel's centre is right for a frame scaled by
+nearest neighbour, but a player's preset (CRT, scanlines, smoothing) changes what the output
+pixels hold, so in the runner frame generation is to take the core's frame before shaders and the
+remote host to send that frame.
+
 ### GPU cost
 
 `opensu-framegen-pairs` ends with `[perf]` lines (`frame_gen::GpuSpans`, compared with
-`perf_compare.py`): per real frame (`ingest`) and per generated frame (`generate`), `flow`'s
-dispatches, shader invocations and the bytes of the images each dispatch reads and writes (each
-image once, counted as recorded, so they repeat exactly), and both generators' GPU time from
-timestamps through the fork's `IQueue` timing hooks. The image bytes are a footprint, not traffic:
-the search reads each luma texel many times over. Lossless's dispatches are recorded inside the
-fork, so only its GPU time is seen.
+`perf_compare.py`), per real frame (`ingest`) and per generated frame (`generate`). For `flow`:
+dispatches, shader invocations, the bytes of the images each dispatch binds (a footprint, each
+image once) and the texels its shaders read, counted by the shaders themselves while measuring
+(an atomic per read behind a specialization constant, off in the product). These repeat exactly
+and are the cost verdict. Both generators' GPU time comes from timestamps through the fork's
+`IQueue` timing hooks; Lossless records its dispatches inside the fork, so only its time is
+seen.
 
-Super Metroid's demo, 60 generated frames, RX 6700 XT, two runs each:
+Super Metroid's demo, 60 generated frames, the search as it is now:
 
-| size | flow generate: dispatches, invocations, read / written | flow ingest: dispatches, invocations, read / written | GPU time generate, flow / Lossless | GPU time ingest, flow / Lossless |
-|---|---|---|---|---|
-| 256x224 | 2, 115 K, 1.8 / 1.1 MB | 8, 78 K, 1.1 / 0.5 MB | 0.06-0.08 / 0.44-1.21 ms | 7.8-14.8 / 0.16-0.47 ms |
-| 1280x720 | 2, 1.84 M, 29.6 / 18.4 MB | 8, 1.25 M, 18.4 / 8.7 MB | 0.60-0.62 / 1.28-2.65 ms | 17.0-28.0 / 0.44-0.99 ms |
-| 3840x2160 | 2, 16.6 M, 266 / 166 MB | 8, 11.2 M, 165 / 79 MB | 5.4-5.5 / 6.0-10.1 ms | 58.7-66.6 / 5.6-5.6 ms |
+| size | generate: invocations, texels read | ingest: invocations, texels read |
+|---|---|---|
+| 256x224 | 115 K, 11.9 M | 153 K, 13.4 M |
+| 1280x720 | 1.84 M, 189 M | 2.45 M, 158 M |
+| 3840x2160 | 16.6 M, 1.68 G | 22.0 M, 1.09-1.19 G |
 
-Timestamps (p50, the two runs' range) move with clocks and desktop load: Lossless's differ by up
-to 2.7x between runs. Within that, `flow`'s generated frame costs less than Lossless's at every
-size; its search on each real frame cost 15 to 40 times Lossless's ingest when one thread per
-block tried every candidate in turn.
+The search gives each block a workgroup of 64 threads that try its candidates side by side, each
+candidate's cost summed by one thread in the same order, and a reduction in shared memory picks
+the lowest, the earlier candidate of equal costs and the zero vector before all, as the loop did
+when one thread per block tried them in turn; its frames are bit for bit the loop's on every
+scene (`--same-as`). The generated frame reads about 100 texels per pixel (each pixel's 9
+candidate vectors over 3 x 3 in both frames, and the counts of untaken pixels around it), so at
+4K it costs more than the search.
 
-The search now gives each block a workgroup of 64 threads that try its candidates side by side,
-each candidate's cost summed by one thread in the same order, and a reduction in shared memory
-picks the lowest, the earlier candidate of equal costs and the zero vector before all, as the
-loop did. Its frames are bit for bit the earlier search's on every scene (`--same-as`). Ingest
-GPU time, p50 of two runs against the earlier search's: 256x224 0.92-1.06 ms (7.8-14.8), 1280x720
-5.8-6.7 ms (17.0-28.0, 74% less over the run, beyond both spreads), 3840x2160 41.4 ms (58.7-66.6);
-invocations per ingest double (idle threads in the finer levels' 9 and 25 candidates). That is
-still 6 to 15 times Lossless's ingest at 1280x720 and more than a 30 fps frame at 4K. Keeping
-each candidate's differences in registers instead of reading them twice moved the unchanged
-generate pass's time as much as the ingest's between runs, so timestamps could not judge it, and
-it is not in.
+Searching on the content's own grid (the luma at each content pixel's centre, the pyramid and
+search at the core's size, vectors scaled back for the frames between) cut the search to 23 M
+texels at 1280x720 and 30 M at 4K, but lost on the worst frames: with 8 or 4 content pixel
+blocks (30 or 15 frame pixels) the field is too coarse for the edges of the ship and sprites,
+which break into scattered pixels (rain 125, demo 127), a dark smear sits over the Nintendo logo
+(intro 55), and flicker on the rain, cave and intro scenes is 2 to 3 times higher, though FLIP
+was lower on five scenes. It is not in.
+
+Timestamps, a footnote: they move with the GPU's clocks, which drop for light work the tool waits
+on, by up to 2.7x between runs and 3x for an unchanged pass. They put the loop's search at 17 to
+28 ms per real frame at 1280x720 and 59 to 67 ms at 4K, the side-by-side search at 5.8 to 6.7 and
+41 ms, Lossless's ingest at 0.44 to 0.99 and 5.6 ms, and `flow`'s generated frame under
+Lossless's at every size.
 
 ### Left
 
-- The search's cost, still 6 to 15 times Lossless's ingest at 1280x720: the finer levels' blocks
-  packed several to a workgroup so no thread idles, the block's window in shared memory, and a
-  load-independent count of texel reads, since timestamps here move as much as the change.
+- The search's cost (158 M texels per real frame at 1280x720, 1.1 G at 4K): the finer levels'
+  blocks packed several to a workgroup so no thread idles, and the block's window in shared
+  memory so each texel is read once per block rather than once per candidate. The generated
+  frame's 100 texels per pixel likewise.
 - `flow` in the product: a generator choice beside Lossless in `settings::framegen_settings`, taken
   by `RemoteFrameGen` (it already holds an `Interpolator`), and by the fork's Gamescope generator;
   until then it runs only in the harness.

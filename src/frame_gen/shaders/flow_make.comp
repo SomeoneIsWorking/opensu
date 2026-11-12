@@ -29,14 +29,14 @@ int untaken(ivec2 q, uint mark) {
     int count = 0;
     for (int i = 0; i < 9; ++i) {
         const ivec2 r = clamp(q + ivec2(i % 3 - 1, i / 3 - 1), ivec2(0), last);
-        count += (imageLoad(used, r).r & mark) == 0u ? 1 : 0;
+        count += (READ(used, r).r & mark) == 0u ? 1 : 0;
     }
     return count;
 }
 
 vec3 at(ivec2 p, bool isLater) {
     const ivec2 q = clamp(p, ivec2(0), push.size - 1);
-    return isLater ? imageLoad(later, q).rgb : imageLoad(earlier, q).rgb;
+    return isLater ? READ(later, q).rgb : READ(earlier, q).rgb;
 }
 
 void main() {
@@ -45,15 +45,15 @@ void main() {
         return;
     }
     const ivec2 last = push.size - 1;
-    const vec4 chosen = imageLoad(choice, p);
+    const vec4 chosen = READ(choice, p);
     const vec2 d = chosen.rg;
     const float disagreement = chosen.b;
-    const uint here = imageLoad(used, p).r;
+    const uint here = READ(used, p).r;
     int lostEarlier = 0;
     int lostLater = 0;
     for (int y = -2; y <= 2; ++y) {
         for (int x = -2; x <= 2; ++x) {
-            const uint u = imageLoad(used, clamp(p + ivec2(x, y), ivec2(0), last)).r;
+            const uint u = READ(used, clamp(p + ivec2(x, y), ivec2(0), last)).r;
             lostEarlier += (u & 1u) == 0u ? 1 : 0;
             lostLater += (u & 2u) == 0u ? 1 : 0;
         }
@@ -75,7 +75,7 @@ void main() {
         for (int n = 0; n < 9; ++n) {
             // Its own first, then the nearer frame, which keep ties.
             const ivec2 offset = ivec2((n % 3 + 1) % 3 - 1, (n / 3 + 1) % 3 - 1) * reach;
-            const vec2 other = imageLoad(choice, clamp(p + offset, ivec2(0), last)).rg;
+            const vec2 other = READ(choice, clamp(p + offset, ivec2(0), last)).rg;
             const ivec2 otherBack = earlierShare(other, push.t);
             const ivec2 fromE = p - otherBack;
             const ivec2 fromL = p + ivec2(other) - otherBack;

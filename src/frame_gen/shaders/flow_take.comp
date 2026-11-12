@@ -12,7 +12,7 @@ void main() {
     if (any(greaterThanEqual(p, push.size))) {
         return;
     }
-    const vec4 colour = imageLoad(source, p);
+    const vec4 colour = READ(source, p);
     imageStore(copy, p, vec4(colour.rgb, 1.0));
     imageStore(luma, p, vec4(dot(colour.rgb, vec3(0.299, 0.587, 0.114))));
 }

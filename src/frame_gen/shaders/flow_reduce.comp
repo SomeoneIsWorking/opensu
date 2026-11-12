@@ -15,7 +15,7 @@ void main() {
     float sum = 0.0;
     for (int y = 0; y < 2; ++y) {
         for (int x = 0; x < 2; ++x) {
-            sum += imageLoad(fine, min(p * 2 + ivec2(x, y), last)).r;
+            sum += READ(fine, min(p * 2 + ivec2(x, y), last)).r;
         }
     }
     imageStore(coarse, p, vec4(sum * 0.25));

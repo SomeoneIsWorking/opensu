@@ -15,7 +15,7 @@ layout(set = 1, binding = 1, r32ui) uniform uimage2D used;
 
 vec3 at(ivec2 p, bool isLater) {
     const ivec2 q = clamp(p, ivec2(0), push.size - 1);
-    return isLater ? imageLoad(later, q).rgb : imageLoad(earlier, q).rgb;
+    return isLater ? READ(later, q).rgb : READ(earlier, q).rgb;
 }
 
 void main() {
@@ -32,7 +32,7 @@ void main() {
         for (int x = -1; x <= 1; ++x) {
             // (0, 0) first, then the eight neighbours.
             const ivec2 n = ivec2((x + 2) % 3 - 1, (y + 2) % 3 - 1);
-            const vec2 d = imageLoad(field, clamp(block + n, ivec2(0), fieldLast)).rg;
+            const vec2 d = READ(field, clamp(block + n, ivec2(0), fieldLast)).rg;
             const ivec2 back = earlierShare(d, push.t);
             const ivec2 ahead = ivec2(d) - back;
             vec3 diffs[9];
