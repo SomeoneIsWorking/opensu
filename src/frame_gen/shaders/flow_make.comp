@@ -1,12 +1,13 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 // The frame at time t between two real ones: the two mixed by t at each pixel's chosen motion,
-// bilinearly where it falls between pixels. Untaken real pixels (no chosen motion took them) are
-// shown lit as the frame between is: a shape of them in the nearer frame where it is and whole, so
-// a shape no vector fits does not vanish or break up. Elsewhere a pixel that matched badly is one
-// frame's alone, uncovered or about to be covered: of its own and 8 neighbouring choices `reach`
-// pixels away, the vector landing on the most untaken pixels of one frame gives it from that
-// frame. Specks both frames have (rain) left over come from each weighted by time.
+// split in the content's whole pixels (`earlierShare`).
+// Untaken real pixels (no chosen motion took them) are shown lit as the frame between is: a shape
+// of them in the nearer frame where it is and whole, so a shape no vector fits does not vanish or
+// break up. Elsewhere a pixel that matched badly is one frame's alone, uncovered or about to be
+// covered: of its own and 8 neighbouring choices `reach` pixels away, the vector landing on the
+// most untaken pixels of one frame gives it from that frame. Specks both frames have (rain) left
+// over come from each weighted by time.
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(set = 0, binding = 0, rgba8) uniform readonly image2D earlier;
 layout(set = 0, binding = 1, rgba8) uniform readonly image2D later;
@@ -38,14 +39,6 @@ vec3 at(ivec2 p, bool isLater) {
     return isLater ? imageLoad(later, q).rgb : imageLoad(earlier, q).rgb;
 }
 
-vec3 between(vec2 place, bool isLater) {
-    const vec2 corner = floor(place);
-    const vec2 f = place - corner;
-    const ivec2 c = ivec2(corner);
-    return mix(mix(at(c, isLater), at(c + ivec2(1, 0), isLater), f.x),
-               mix(at(c + ivec2(0, 1), isLater), at(c + ivec2(1, 1), isLater), f.x), f.y);
-}
-
 void main() {
     const ivec2 p = ivec2(gl_GlobalInvocationID.xy);
     if (any(greaterThanEqual(p, push.size))) {
@@ -54,6 +47,7 @@ void main() {
     const ivec2 last = push.size - 1;
     const vec4 chosen = imageLoad(choice, p);
     const vec2 d = chosen.rg;
+    const float disagreement = chosen.b;
     const uint here = imageLoad(used, p).r;
     int lostEarlier = 0;
     int lostLater = 0;
@@ -73,18 +67,18 @@ void main() {
     const vec3 earlierLit = clamp(at(p, false) + fromEarlier, 0.0, 1.0);
     const vec3 laterLit = clamp(at(p, true) - toLater, 0.0, 1.0);
     const bool nearerIsLater = push.t > 0.5;
-    vec3 colour = mix(between(vec2(p) - push.t * d, false),
-                      between(vec2(p) + (1.0 - push.t) * d, true), push.t);
+    const ivec2 back = earlierShare(d, push.t);
+    vec3 colour = mix(at(p - back, false), at(p + ivec2(d) - back, true), push.t);
     const bool hold = nearerIsLater ? laterShape : earlierShape;
     int oneFrame = oneFrameAt - 1;
-    if (!hold && chosen.b > trusted) {
+    if (!hold && disagreement > trusted) {
         for (int n = 0; n < 9; ++n) {
             // Its own first, then the nearer frame, which keep ties.
             const ivec2 offset = ivec2((n % 3 + 1) % 3 - 1, (n / 3 + 1) % 3 - 1) * reach;
             const vec2 other = imageLoad(choice, clamp(p + offset, ivec2(0), last)).rg;
-            const ivec2 back = earlierShare(other, push.t);
-            const ivec2 fromE = p - back;
-            const ivec2 fromL = p + ivec2(other) - back;
+            const ivec2 otherBack = earlierShare(other, push.t);
+            const ivec2 fromE = p - otherBack;
+            const ivec2 fromL = p + ivec2(other) - otherBack;
             const int countE = untaken(fromE, 1u);
             const int countL = untaken(fromL, 2u);
             const bool laterFirst = nearerIsLater;

@@ -2,9 +2,9 @@
 #extension GL_GOOGLE_include_directive : require
 // Each pixel's motion for the frame at time t: of its block's vector and the 8 around it (its own
 // first, which keeps ties), the one whose earlier and later pixels agree best over a 3 x 3
-// neighbourhood less their mean difference, with that disagreement and the mean luma change from the
-// earlier to the later there (a fade or a flash); the real pixels it takes are
-// marked used (bit 0 the earlier frame's, bit 1 the later's).
+// neighbourhood less their mean difference, with that disagreement and the mean luma change from
+// the earlier to the later there (a fade or a flash); the real pixels it takes are marked used
+// (bit 0 the earlier frame's, bit 1 the later's).
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(set = 0, binding = 0, rgba8) uniform readonly image2D earlier;
 layout(set = 0, binding = 1, rgba8) uniform readonly image2D later;

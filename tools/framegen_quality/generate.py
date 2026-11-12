@@ -41,6 +41,7 @@ def generate(
     pairs: Path | None,
     dll: Path | None,
     log: Path,
+    pixel: tuple[float, float] = (1.0, 1.0),
 ) -> None:
     into.mkdir(parents=True, exist_ok=True)
     if generator in OPENSU:
@@ -57,6 +58,8 @@ def generate(
             "--out",
             str(into),
         ]
+        if generator == "flow":
+            command += ["--source-pixel", f"{pixel[0]:g}x{pixel[1]:g}"]
         if generator == "lossless" and dll is not None:
             command += ["--dll", str(dll)]
         with log.open("wb") as out:

@@ -300,7 +300,8 @@ class VulkanFrameGen final : public RemoteFrameGen {
             pacer_.OnRealFrame(index, readyNs, arrivalNs, refreshNs);
         if (plan.eState == framegen::PacingState::Generating) {
             const bool follows = lastAdded_ && *lastAdded_ + 1 == index;
-            if (!follows && !generator_->begin(width_, height_)) {
+            // The stream does not say how its picture was scaled yet.
+            if (!follows && !generator_->begin(width_, height_, frame_gen::SourcePixel{})) {
                 lucent::error("framegen", "the generator does not restart at frame {}",
                               slot.frame.number);
                 return false;

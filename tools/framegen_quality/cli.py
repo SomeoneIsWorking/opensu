@@ -2,14 +2,15 @@
 
 Records each scene once (`scratch/framegen-quality/scenes/<scene>/frames`, again with --record),
 then for the run (`scratch/framegen-quality/runs/<run>/`) generates the left-out frames with each
-generator, scores them, and writes `report.md`, `scores/<scene>-<generator>.json` and the worst
-frames side by side in `worst/`."""
+generator, scores them, and writes `report.md`, `scores/<scene>-<generator>.json`, the worst
+frames side by side in `worst/` and the build that made them in `build.json`
+(`provenance`)."""
 
 import argparse
 from pathlib import Path
 
 from tools.checkout import REPO, require_own_environment
-from tools.framegen_quality import generate, record, report, scenes, score
+from tools.framegen_quality import generate, provenance, record, report, scenes, score
 
 SCRATCH = REPO / "scratch" / "framegen-quality"
 
@@ -61,6 +62,8 @@ def main() -> None:
     runner = _binary(args.build, "opensu-retro")
     pairs = _binary(args.build, "opensu-framegen-pairs")
     run = SCRATCH / "runs" / args.run
+    if not args.rescore and pairs is not None:
+        provenance.save(provenance.check(args.build, pairs), run)
     results: dict[str, dict[str, list[score.FrameScore]]] = {}
     for scene in scenes.read(args.scenes):
         if args.only and scene.name not in args.only:
@@ -78,7 +81,9 @@ def main() -> None:
             log = run / "logs" / f"{scene.name}-{generator}.log"
             log.parent.mkdir(parents=True, exist_ok=True)
             if not args.rescore:
-                generate.generate(generator, frames, folder, args.step, pairs, args.dll, log)
+                generate.generate(
+                    generator, frames, folder, args.step, pairs, args.dll, log, scene.pixel
+                )
             scores = score.score(frames, folder, args.step)
             (run / "scores").mkdir(parents=True, exist_ok=True)
             score.save(scores, run / "scores" / f"{scene.name}-{generator}.json")

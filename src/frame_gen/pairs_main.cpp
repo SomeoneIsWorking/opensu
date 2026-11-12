@@ -5,7 +5,11 @@
 //
 //   opensu-framegen-pairs --generator lossless [--dll <Lossless.dll>] [--performance]
 //                         [--flow-scale <percent>] [--step N] --in <dir> --out <dir>
-//   opensu-framegen-pairs --generator flow [--step N] --in <dir> --out <dir>
+//   opensu-framegen-pairs --generator flow [--source-pixel <w>x<h>] [--step N]
+//                         --in <dir> --out <dir>
+//
+// --source-pixel is how many frame pixels one of the content's takes (a core's frame scaled to
+// the window), 1x1 by default.
 //
 // Without --dll, the player's Lossless.dll is the one the shell finds in their Steam libraries.
 //
@@ -51,6 +55,7 @@ struct Options {
     bool performance{false};
     unsigned flowScale{100};
     unsigned step{2};
+    opensu::frame_gen::SourcePixel pixel;
     std::filesystem::path in;
     std::filesystem::path out;
 };
@@ -62,6 +67,27 @@ std::optional<unsigned> number(std::string_view text) {
         return std::nullopt;
     }
     return value;
+}
+
+/// `<w>x<h>`, each at least 1.
+std::optional<opensu::frame_gen::SourcePixel> pixelOf(std::string_view text) {
+    const std::size_t x = text.find('x');
+    if (x == std::string_view::npos) {
+        return std::nullopt;
+    }
+    opensu::frame_gen::SourcePixel pixel;
+    const std::string_view width = text.substr(0, x);
+    const std::string_view height = text.substr(x + 1);
+    const auto [widthEnd, widthError] =
+        std::from_chars(width.data(), width.data() + width.size(), pixel.width);
+    const auto [heightEnd, heightError] =
+        std::from_chars(height.data(), height.data() + height.size(), pixel.height);
+    if (widthError != std::errc{} || widthEnd != width.data() + width.size() ||
+        heightError != std::errc{} || heightEnd != height.data() + height.size() ||
+        pixel.width < 1.0F || pixel.height < 1.0F) {
+        return std::nullopt;
+    }
+    return pixel;
 }
 
 std::optional<Options> parse(std::span<const std::string> args) {
@@ -85,6 +111,14 @@ std::optional<Options> parse(std::span<const std::string> args) {
             options.in = value;
         } else if (arg == "--out") {
             options.out = value;
+        } else if (arg == "--source-pixel") {
+            const std::optional<opensu::frame_gen::SourcePixel> pixel = pixelOf(value);
+            if (!pixel) {
+                lucent::error("framegen", "--source-pixel takes <w>x<h>, each 1 or more, not {}",
+                              value);
+                return std::nullopt;
+            }
+            options.pixel = *pixel;
         } else if (arg == "--flow-scale" || arg == "--step") {
             const std::optional<unsigned> given = number(value);
             if (!given || *given == 0) {
@@ -101,7 +135,8 @@ std::optional<Options> parse(std::span<const std::string> args) {
         options.out.empty() || options.step < 2) {
         lucent::error("framegen", "usage: opensu-framegen-pairs --generator lossless|flow "
                                   "[--dll <dll>] [--performance] [--flow-scale <percent>] "
-                                  "[--step N] --in <dir> --out <dir> (--step 2 or more)");
+                                  "[--source-pixel <w>x<h>] [--step N] --in <dir> --out <dir> "
+                                  "(--step 2 or more)");
         return std::nullopt;
     }
     return options;
@@ -151,7 +186,7 @@ std::unique_ptr<opensu::frame_gen::Interpolator> generatorOf(Options options,
 class Pairs {
   public:
     Pairs(GeneratorDevice& gpu, opensu::frame_gen::Interpolator& generator, std::uint32_t width,
-          std::uint32_t height)
+          std::uint32_t height, opensu::frame_gen::SourcePixel pixel)
         : gpu_{gpu}, generator_{generator}, width_{width}, height_{height},
           output_{gpu, width, height}, readback_{gpu, VkDeviceSize{width} * height * bytesPerPixel,
                                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT} {
@@ -170,7 +205,7 @@ class Pairs {
         }
         output_.toGeneral(cmd);
         gpu_.Wait(gpu_.Submit(cmd));
-        if (!generator_.begin(width, height)) {
+        if (!generator_.begin(width, height, pixel)) {
             throw std::runtime_error{"the generator does not begin a session"};
         }
     }
@@ -268,7 +303,7 @@ int run(const Options& options) {
     }
     const auto width = static_cast<std::uint32_t>(first->width);
     const auto height = static_cast<std::uint32_t>(first->height);
-    Pairs pairs{gpu, *generator, width, height};
+    Pairs pairs{gpu, *generator, width, height, options.pixel};
     pairs.add(first->rgba);
     std::filesystem::create_directories(options.out);
     std::size_t written = 0;

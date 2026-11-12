@@ -1,8 +1,8 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 // One level's motion field, from the earlier real frame to the later, one vector per block of the
-// frame between them: the block's pixels matched symmetrically (earlier at -t d, later at
-// +(1-t) d, t 0.5) by the sum of absolute luma differences over the block and a 2 pixel margin, less their mean.
+// frame between them: the block's pixels matched at t 0.5 (`earlierShare` in the level's pixels)
+// by the sum of absolute luma differences over the block and a 2 pixel margin, less their mean.
 // The coarsest level tries every vector within `range`; each finer one its parent's 3 x 3
 // neighbourhood's vectors, doubled, and then every vector within 2 pixels of the best. A block
 // either frame is flat over (a fade from white) shows no motion, so it keeps none.

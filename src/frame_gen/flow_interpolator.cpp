@@ -38,7 +38,8 @@ struct FlowPush {
     std::int32_t range;
     std::int32_t hasParent;
     float t;
-    float unused;
+    float pixelWidth;
+    float pixelHeight;
 };
 
 /// Pyramid levels: the frame and three halvings, so the coarsest search's radius reaches
@@ -203,10 +204,11 @@ class FlowInterpolator final : public Interpolator {
     FlowInterpolator(FlowInterpolator&&) = delete;
     FlowInterpolator& operator=(FlowInterpolator&&) = delete;
 
-    bool begin(std::uint32_t width, std::uint32_t height) override {
-        if (gpu_.idle() != VK_SUCCESS) {
+    bool begin(std::uint32_t width, std::uint32_t height, SourcePixel pixel) override {
+        if (gpu_.idle() != VK_SUCCESS || pixel.width < 1.0F || pixel.height < 1.0F) {
             return false;
         }
+        pixel_ = pixel;
         try {
             make(width, height);
         } catch (const std::runtime_error&) {
@@ -250,6 +252,9 @@ class FlowInterpolator final : public Interpolator {
                 const auto [w, h] = sizes_[level];
                 FlowPush push = pushOf(w, h);
                 push.hasParent = level + 1 < levels ? 1 : 0;
+                // The search matches in the level's own pixels.
+                push.pixelWidth = 1.0F;
+                push.pixelHeight = 1.0F;
                 const std::array<VkDescriptorSet, 1> sets{searchSets_[slot][level]};
                 dispatch(cmd, search_, sets, push, groups(static_cast<std::uint32_t>(push.blocksX)),
                          groups(static_cast<std::uint32_t>(push.blocksY)));
@@ -304,7 +309,7 @@ class FlowInterpolator final : public Interpolator {
     }
 
   private:
-    [[nodiscard]] static FlowPush pushOf(std::uint32_t width, std::uint32_t height) {
+    [[nodiscard]] FlowPush pushOf(std::uint32_t width, std::uint32_t height) const {
         return FlowPush{.width = static_cast<std::int32_t>(width),
                         .height = static_cast<std::int32_t>(height),
                         .blocksX = static_cast<std::int32_t>((width + blockSize - 1) / blockSize),
@@ -312,7 +317,8 @@ class FlowInterpolator final : public Interpolator {
                         .range = coarsestRange,
                         .hasParent = 0,
                         .t = 0.5F,
-                        .unused = 0.0F};
+                        .pixelWidth = pixel_.width,
+                        .pixelHeight = pixel_.height};
     }
 
     static void dispatch(VkCommandBuffer cmd, const Pass& pass,
@@ -507,6 +513,7 @@ class FlowInterpolator final : public Interpolator {
     std::uint32_t width_{0};
     std::uint32_t height_{0};
     std::uint64_t added_{0};
+    SourcePixel pixel_;
     std::array<std::pair<std::uint32_t, std::uint32_t>, levels> sizes_{};
     std::array<std::unique_ptr<GeneratorImage>, 2> frames_;
     std::array<std::array<std::unique_ptr<GeneratorImage>, levels>, 2> lumas_;

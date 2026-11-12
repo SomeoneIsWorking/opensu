@@ -14,6 +14,13 @@
 
 namespace opensu::frame_gen {
 
+/// How many of a session's pixels one pixel of the content takes (a core's frame scaled to the
+/// screen), 1 by 1 when the content is not known to be scaled.
+struct SourcePixel {
+    float width{1.0F};
+    float height{1.0F};
+};
+
 class Interpolator {
   public:
     Interpolator() = default;
@@ -23,8 +30,10 @@ class Interpolator {
     Interpolator(Interpolator&&) = delete;
     Interpolator& operator=(Interpolator&&) = delete;
 
-    /// A session of `width` by `height`: every real frame before it forgotten.
-    [[nodiscard]] virtual bool begin(std::uint32_t width, std::uint32_t height) = 0;
+    /// A session of `width` by `height` whose content's pixels are `pixel`: every real frame
+    /// before it forgotten.
+    [[nodiscard]] virtual bool begin(std::uint32_t width, std::uint32_t height,
+                                     SourcePixel pixel) = 0;
     /// The session's next real frame; its submission, or nothing when none was made.
     [[nodiscard]] virtual std::optional<framegen::Submission_t>
     add(const framegen::GeneratorImage_t& frame) = 0;

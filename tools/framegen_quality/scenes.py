@@ -5,7 +5,8 @@ games are the player's own):
       "skip": 600, "frames": 240, "presses": [{"at": 300, "buttons": ["start"], "for": 4}]}]
 
 `skip` frames run before recording starts, `frames` are recorded, and each press holds its buttons
-from frame `at` for `for` frames (default 4)."""
+from frame `at` for `for` frames (default 4). `pixel` is how many recorded pixels one of the
+core's takes across and down (default [1, 1]), as the runner scaled its frame to the window."""
 
 import json
 from dataclasses import dataclass, field
@@ -28,6 +29,12 @@ class Scene:
     frames: int
     presses: tuple[Press, ...] = field(default_factory=tuple)
     options: tuple[str, ...] = field(default_factory=tuple)
+    pixel: tuple[float, float] = (1.0, 1.0)
+
+
+def _pixel(given: list[float]) -> tuple[float, float]:
+    across, down = (float(v) for v in given)
+    return across, down
 
 
 def read(path: Path) -> list[Scene]:
@@ -45,6 +52,7 @@ def read(path: Path) -> list[Scene]:
                     for p in entry.get("presses", [])
                 ),
                 options=tuple(entry.get("options", [])),
+                pixel=_pixel(entry.get("pixel", [1, 1])),
             )
         )
     names = [scene.name for scene in scenes]

@@ -12,7 +12,7 @@ class LosslessInterpolator final : public Interpolator {
         : device_{std::move(device)}, generator_{std::move(generator)} {
     }
 
-    bool begin(std::uint32_t width, std::uint32_t height) override {
+    bool begin(std::uint32_t width, std::uint32_t height, SourcePixel /*pixel*/) override {
         return generator_->BeginSession(width, height);
     }
     std::optional<framegen::Submission_t> add(const framegen::GeneratorImage_t& frame) override {

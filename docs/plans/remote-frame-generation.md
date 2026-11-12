@@ -227,8 +227,11 @@ misplaced one, so a generator that erases what it cannot match scores well while
 flickers at half the rate on screen; two more scores see it: detail lost (the real frame's luma
 edge energy the made one lacks) and flicker (the edge energy both real neighbours have around a
 place, spread 6 pixels, that the made frame lacks; `repeat` is 0 by construction and pays in FLIP).
-`blend` (the two real frames mixed) and `repeat` (the earlier one) are references. `--rescore`
-scores a run's made frames again. Tables are over moving frames (the real frames on either side differ); runs,
+`blend` (the two real frames mixed) and `repeat` (the earlier one) are references. A scene's
+`pixel` is the output pixels one source pixel covers, measured from its recording and passed as
+`--source-pixel`. Each run's `build.json` names the generator binary's sha256, the source tree,
+commit and a hash of its diff; the run is refused when the binary is older than any file under
+`src/frame_gen`. `--rescore` scores a run's made frames again. Tables are over moving frames (the real frames on either side differ); runs,
 scores and the worst frames side by side (real before, left out, after; each generator's frame
 over its FLIP map) are in `scratch/framegen-quality/runs/<run>/`. Scenes are the player's own
 cores and games, named in a JSON file outside the tree.
@@ -259,54 +262,63 @@ coarsest level (64 in the frame) and each finer level's parents' 3x3 doubled and
 block either frame is flat over (a fade from white) keeps no motion. For each frame between,
 `flow_choose` gives each pixel, of its block's and the 8 neighbours' vectors, the one whose two
 real pixels agree best over 3x3, and marks the real pixels it takes; `flow_make` mixes the two
-frames there by t, bilinearly. Real pixels no chosen motion took are what no vector fits (an
+frames there by t. The share of a vector each frame moves is counted in the content's own pixels
+(`SourcePixel`, the output pixels one source pixel covers) and rounded toward zero, so a scaled
+picture moves in whole source pixels and stays sharp; a zoom or turn smaller than a source pixel
+shows the earlier frame's scale until it reaches one. Real pixels no chosen motion took are what no vector fits (an
 animating sprite, rain, a cut) or what only one frame shows (uncovered or about to be covered): a
 shape of them (18 of a 5x5) in the nearer frame is shown in place and whole, lit for the fade; a
 pixel that matched badly elsewhere takes, of its own and 8 neighbouring choices 4 pixels away, the
 vector landing on untaken pixels of one frame, from that frame alone; specks both frames have
 (rain) come from each weighted by t.
 
-Runs `f9` (Lossless) and `o1` (`flow`), the same recorded frames for both, 119 frames left out per scene, moving frames:
+Runs `f9` (Lossless) and `p5` (`flow`), the same recorded frames for both, 119 frames left out per scene, moving frames:
 
 | scene | PSNR L / flow (dB) | worst 5% | FLIP L / flow | worst 5% | FLIP repeat / blend | detail lost L / flow | flicker L / flow |
 |---|---|---|---|---|---|---|---|
-| Super Metroid, rain over the ship | 26.58 / 25.77 | 22.24 / 21.37 | 0.0671 / 0.0724 | 0.173 / 0.175 | 0.0844 / 0.0821 | 0.292 / 0.275 | 0.0344 / 0.0017 |
-| Super Metroid, cave scroll | 26.12 / 25.11 | 23.09 / 21.68 | 0.0693 / 0.0751 | 0.111 / 0.125 | 0.0967 / 0.0897 | 0.230 / 0.187 | 0.0181 / 0.0013 |
-| Super Metroid, gameplay demo | 27.13 / 26.36 | 22.67 / 21.70 | 0.0513 / 0.0519 | 0.113 / 0.116 | 0.0872 / 0.0860 | 0.073 / 0.054 | 0.0103 / 0.0049 |
-| Super Metroid, intro text and fades | 29.64 / 29.33 | 24.44 / 23.83 | 0.0381 / 0.0373 | 0.075 / 0.074 | 0.0934 / 0.0857 | 0.185 / 0.162 | 0.0170 / 0.0103 |
-| Chrono Trigger, title | 44.10 / 43.42 | 38.85 / 38.42 | 0.0017 / 0.0017 | 0.003 / 0.003 | 0.0035 / 0.0029 | 0.013 / 0.009 | 0.0008 / 0.0002 |
-| Killer Instinct, title loop | 50.38 / 52.00 | 33.65 / 33.46 | 0.0080 / 0.0084 | 0.034 / 0.033 | 0.0132 / 0.0084 | 0.018 / 0.015 | 0.0001 / 0.0000 |
-| Kirby & the Amazing Mirror, title fade | 36.78 / 36.50 | 25.62 / 24.61 | 0.0333 / 0.0327 | 0.082 / 0.082 | 0.0344 / 0.0329 | 0.027 / 0.014 | 0.0002 / 0.0000 |
-| Monster in My Pocket, title | 45.17 / 44.75 | 40.92 / 41.39 | 0.0010 / 0.0010 | 0.002 / 0.002 | 0.0015 / 0.0009 | 0.017 / 0.012 | 0.0006 / 0.0000 |
-| scroll test ROM (moves every other frame) | 23.07 / 24.06 | 22.93 / 22.95 | 0.0120 / 0.0128 | 0.012 / 0.014 | 0 / 0.0139 | 0.701 / 0.605 | 0 / 0 |
+| Super Metroid, rain over the ship | 26.58 / 25.84 | 22.24 / 20.91 | 0.0671 / 0.0702 | 0.173 / 0.177 | 0.0844 / 0.0821 | 0.292 / 0.274 | 0.0344 / 0.0021 |
+| Super Metroid, cave scroll | 26.12 / 25.04 | 23.09 / 20.89 | 0.0693 / 0.0739 | 0.111 / 0.123 | 0.0967 / 0.0897 | 0.230 / 0.192 | 0.0181 / 0.0017 |
+| Super Metroid, gameplay demo | 27.13 / 26.50 | 22.67 / 21.25 | 0.0513 / 0.0435 | 0.113 / 0.129 | 0.0872 / 0.0860 | 0.073 / 0.045 | 0.0103 / 0.0044 |
+| Super Metroid, intro text and fades | 29.64 / 29.19 | 24.44 / 25.46 | 0.0381 / 0.0285 | 0.075 / 0.052 | 0.0934 / 0.0857 | 0.185 / 0.119 | 0.0170 / 0.0090 |
+| Chrono Trigger, title | 44.10 / 41.94 | 38.85 / 35.69 | 0.0017 / 0.0020 | 0.003 / 0.005 | 0.0035 / 0.0029 | 0.013 / 0.013 | 0.0008 / 0.0002 |
+| Killer Instinct, title loop | 50.38 / 51.69 | 33.65 / 33.28 | 0.0080 / 0.0085 | 0.034 / 0.033 | 0.0132 / 0.0084 | 0.018 / 0.016 | 0.0001 / 0.0000 |
+| Kirby & the Amazing Mirror, title fade | 36.78 / 36.43 | 25.62 / 24.64 | 0.0333 / 0.0328 | 0.082 / 0.083 | 0.0344 / 0.0329 | 0.027 / 0.014 | 0.0002 / 0.0000 |
+| Monster in My Pocket, title | 45.17 / 44.43 | 40.92 / 41.55 | 0.0010 / 0.0011 | 0.002 / 0.002 | 0.0015 / 0.0009 | 0.017 / 0.012 | 0.0006 / 0.0000 |
+| scroll test ROM (moves every other frame) | 23.07 / 23.45 | 22.93 / 22.05 | 0.0120 / 0.0133 | 0.012 / 0.015 | 0 / 0.0139 | 0.701 / 0.635 | 0 / 0 |
 
 `repeat` and `blend` beside them are the placement check: `repeat` has no flicker by construction
 and `blend` keeps both frames' detail, so a generator counts as placing moving content only where
 its FLIP is below theirs, which both are by a wide margin on the Super Metroid scenes and neither is on the
 title screens, where little moves.
 
-What it shows: `flow` keeps more of the real frame (detail lost lower on every scene) and flickers
-less (Lossless's flicker on the rain and cave scenes is its smeared raindrops). By FLIP it is ahead
-of Lossless on the intro (2% lower), level on the demo and the title screens, and behind on the
-rain and cave scenes (8%), with worst 5% PSNR up to 1.4 dB lower there. In its worst frames
-(`o1/worst/`) a sprite that animated between the real frames is shown whole in the nearer frame's
-pose where Lossless draws a ghost of both, and in the cave the foreground rock, behind the rain
-layer that moves the other way, is matched by the rain and held at the earlier frame's place. On
-the Kirby fade from white `flow` draws the logo and text clean where Lossless garbles the small
-print. It is not yet better than Lossless.
+What it shows: `flow` keeps more of the real frame (detail lost lower on every scene but Chrono Trigger's title, where it is level) and
+flickers less (Lossless's flicker on the rain and cave scenes is its smeared raindrops). By FLIP
+it is ahead of Lossless on the intro (25% lower, worst 5% PSNR 1 dB higher) and the demo (15%),
+where the scrolling background lands sharp on the real frame's place while Lossless blurs it over
+a half step; level on Kirby and within 0.0005 on Killer Instinct and Monster in My Pocket; behind on the rain and cave
+scenes (5% and 7%: the foreground rock, behind the rain layer that moves the other way, is matched
+by the rain and held at the earlier frame's place), on Chrono Trigger's title (its logo zooms by
+less than a source pixel per frame and is drawn at the earlier scale, worst 5% PSNR 2.7 dB lower)
+and on the scroll ROM, where the truth is the later real frame and rounding toward zero picks the
+earlier one; which of the two a game shows is not in its 30 fps frames (Super Metroid's matches
+the earlier). In its worst frames (`p5/worst/`) a sprite that animated between the real frames is
+shown whole in the nearer frame's pose where Lossless draws a ghost of both. On the Kirby fade
+from white `flow` draws the logo and text clean where Lossless garbles the small print. It is not
+yet better than Lossless on every scene.
+
+Tried and dropped for content-pixel shares: moving a block rigidly only where all 9 neighbouring
+vectors agree lost most of the gain (intro FLIP 0.037); gating on how gradually the vectors
+differ left seams on the Chrono zoom.
 
 ### Left
 
 - `flow` in the product: a generator choice beside Lossless in `settings::framegen_settings`, taken
   by `RemoteFrameGen` (it already holds an `Interpolator`), and by the fork's Gamescope generator;
   until then it runs only in the harness. Its GPU time per generated frame is not measured yet.
-- Odd displacements: a background that moves 1 pixel over two game frames is, in the truth, one
-  of the two real frames; both generators draw the half step (detail lost 0.6 to 0.7 on the scroll
-  ROM). The recorded frames are the runner's 1280x720 output, scaled 3.75 x 3.21 for the SNES, so
-  rounding the shares to whole output pixels changes nothing measurable. Next: `Interpolator::begin`
-  takes the content's source-pixel scale, which the runner and the remote host pass, and shares
-  round in source pixels. The runner's later option is generating at the core's native size before
-  scaling, which is also far cheaper.
+- The source pixel in the product: `RemoteFrameGen` passes 1 x 1 because the stream does not say
+  how its picture was scaled; the host has to send it, and the runner pass the core's base
+  geometry against its output rectangle. The runner's later option is generating at the core's
+  native size before scaling, which is also far cheaper.
 - Layers moving different ways in one block (rain over the cave's rock): one vector per block
   follows the busier layer. Settling each pixel's vector with its neighbours' (a cost per
   disagreeing neighbour) changed no score by more than 1%; carrying untaken pixels along a vector
