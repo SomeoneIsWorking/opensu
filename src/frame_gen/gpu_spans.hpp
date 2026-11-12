@@ -17,13 +17,15 @@ namespace opensu::frame_gen {
 
 /// What a span dispatched, counted as it is recorded: compute dispatches, shader invocations and
 /// the bytes of the images its dispatches read and write, each image once per dispatch; and the
-/// texels its shaders read, counted by the shaders.
+/// texels its shaders read from images and the values they read from shared memory, counted by
+/// the shaders.
 struct GpuWork {
     std::uint64_t dispatches{0};
     std::uint64_t invocations{0};
     std::uint64_t bytesRead{0};
     std::uint64_t bytesWritten{0};
     std::uint64_t texelReads{0};
+    std::uint64_t sharedReads{0};
 };
 
 class GpuSpans {
@@ -73,6 +75,7 @@ class GpuSpans {
         lucent::perf::CountHistogram bytesRead;
         lucent::perf::CountHistogram bytesWritten;
         lucent::perf::CountHistogram texelReads;
+        lucent::perf::CountHistogram sharedReads;
     };
     std::map<std::string, Counts> work_;
 };

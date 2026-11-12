@@ -13,10 +13,12 @@ layout(push_constant) uniform Push {
 // Motion blocks are this many pixels square at every level.
 const int blockSize = 8;
 
-// While measuring, every texel a pass reads is counted (`FlowInterpolator::submit` reads it).
+// While measuring, every texel a pass reads from an image and every value it reads from shared
+// memory is counted (`FlowInterpolator::submit` reads them).
 layout(constant_id = 0) const bool countReads = false;
 layout(set = 3, binding = 0) buffer Reads {
     uint texels;
+    uint sharedReads;
 } reads;
 
 void countRead() {
@@ -25,7 +27,14 @@ void countRead() {
     }
 }
 
+void countShared() {
+    if (countReads) {
+        atomicAdd(reads.sharedReads, 1u);
+    }
+}
+
 #define READ(image, p) (countRead(), imageLoad(image, p))
+#define SHARED(value) (countShared(), value)
 
 // Where a frame between two real ones takes the earlier one's pixel for a motion d from the
 // earlier to the later, at time t: pixel art moves by whole content pixels, so the share counts d

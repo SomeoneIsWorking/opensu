@@ -48,10 +48,17 @@ struct FlowPush {
 /// Pyramid levels: the frame and three halvings, so the coarsest search's radius reaches
 /// `coarsestRange` << 3 pixels of the frame.
 constexpr std::size_t levels = 4;
+/// At most 8: the search's shared tiles hold the windows of vectors that long (`flow_search.comp`).
 constexpr std::int32_t coarsestRange = 8;
 constexpr std::uint32_t blockSize = 8;
-/// The descriptor set every pass's texel count is in (`flow_push.glsl`).
+/// The descriptor set every pass's read counts are in (`flow_push.glsl`).
 constexpr std::uint32_t countSet = 3;
+
+/// The read counts' buffer (`Reads` in `flow_push.glsl`).
+struct Reads {
+    std::uint32_t texels;
+    std::uint32_t shared;
+};
 constexpr std::uint32_t groupSize = 8;
 /// Descriptor sets for the caller's views (frames in, frames out) a session can name.
 constexpr std::uint32_t viewSets = 32;
@@ -221,7 +228,7 @@ class FlowInterpolator final : public Interpolator {
           two_{storageImages(device_, 2)}, three_{storageImages(device_, 3)},
           four_{storageImages(device_, 4)}, empty_{storageImages(device_, 0)},
           countLayout_{countLayout(device_)}, counting_{gpu.spans() != nullptr},
-          texels_{gpu, sizeof(std::uint32_t), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT} {
+          texels_{gpu, sizeof(Reads), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT} {
         const auto pass = [this](std::span<const std::uint32_t> code,
                                  std::span<const VkDescriptorSetLayout> own) {
             return passOf(device_, code, own, empty_.get(), countLayout_.get(), counting_);
@@ -393,10 +400,11 @@ class FlowInterpolator final : public Interpolator {
         }
         if (counting_) {
             gpu_.Wait(seqNo);
-            std::uint32_t texels = 0;
-            std::memcpy(&texels, texels_.bytes().data(), sizeof(texels));
-            work_.texelReads = texels;
-            std::memset(texels_.bytes().data(), 0, sizeof(texels));
+            Reads reads{};
+            std::memcpy(&reads, texels_.bytes().data(), sizeof(reads));
+            work_.texelReads = reads.texels;
+            work_.sharedReads = reads.shared;
+            std::memset(texels_.bytes().data(), 0, sizeof(reads));
         }
         if (GpuSpans* spans = gpu_.spans()) {
             spans->work(key, work_);
@@ -519,7 +527,7 @@ class FlowInterpolator final : public Interpolator {
                                                .pSetLayouts = &layout};
         check(vkAllocateDescriptorSets(device_, &info, &countSet_), "vkAllocateDescriptorSets");
         const VkDescriptorBufferInfo buffer{
-            .buffer = texels_.buffer(), .offset = 0, .range = sizeof(std::uint32_t)};
+            .buffer = texels_.buffer(), .offset = 0, .range = sizeof(Reads)};
         const VkWriteDescriptorSet write{.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                                          .pNext = nullptr,
                                          .dstSet = countSet_,
@@ -531,7 +539,7 @@ class FlowInterpolator final : public Interpolator {
                                          .pBufferInfo = &buffer,
                                          .pTexelBufferView = nullptr};
         vkUpdateDescriptorSets(device_, 1, &write, 0, nullptr);
-        std::memset(texels_.bytes().data(), 0, sizeof(std::uint32_t));
+        std::memset(texels_.bytes().data(), 0, sizeof(Reads));
     }
 
     [[nodiscard]] static VkImageView viewOf(const std::unique_ptr<GeneratorImage>& image) {

@@ -326,24 +326,31 @@ remote host to send that frame.
 `perf_compare.py`), per real frame (`ingest`) and per generated frame (`generate`). For `flow`:
 dispatches, shader invocations, the bytes of the images each dispatch binds (a footprint, each
 image once) and the texels its shaders read, counted by the shaders themselves while measuring
-(an atomic per read behind a specialization constant, off in the product). These repeat exactly
+(an atomic per read behind a specialization constant, off in the product), and apart from them
+the values they read from shared memory, so a read moved there is not counted as free. These
+repeat exactly
 and are the cost verdict. Both generators' GPU time comes from timestamps through the fork's
 `IQueue` timing hooks; Lossless records its dispatches inside the fork, so only its time is
 seen.
 
 Super Metroid's demo, 60 generated frames, the search as it is now:
 
-| size | generate: invocations, texels read | ingest: invocations, texels read |
+| size | generate: invocations, texels read | ingest: invocations, texels read (before the tiles), shared values read |
 |---|---|---|
-| 256x224 | 115 K, 11.9 M | 153 K, 13.4 M |
-| 1280x720 | 1.84 M, 189 M | 2.45 M, 158 M |
-| 3840x2160 | 16.6 M, 1.68 G | 22.0 M, 1.09-1.19 G |
+| 256x224 | 115 K, 11.9 M | 153 K, 3.9 M (13.4 M), 10.3 M |
+| 1280x720 | 1.84 M, 189 M | 2.45 M, 46.6 M (158 M), 123 M |
+| 3840x2160 | 16.6 M, 1.68 G | 22.0 M, 352 M (1.09-1.19 G), 927 M |
 
 The search gives each block a workgroup of 64 threads that try its candidates side by side, each
 candidate's cost summed by one thread in the same order, and a reduction in shared memory picks
 the lowest, the earlier candidate of equal costs and the zero vector before all, as the loop did
 when one thread per block tried them in turn; its frames are bit for bit the loop's on every
-scene (`--same-as`). The generated frame reads about 100 texels per pixel (each pixel's 9
+scene (`--same-as`). The windows each set of candidates reads (the coarsest level's 289 vectors,
+a finer level's 25 around its best parent, and the zero vector's) are loaded once per block into
+a shared tile of at most 20 x 20 per frame, and the costs read them there, the frames again bit
+for bit the same. At 1280x720 that leaves 51 texels per frame pixel, most of them the finer
+levels' 9 parent candidates, which lie anywhere and are read from the frames (2.6 K texels per
+block). The generated frame reads about 100 texels per pixel (each pixel's 9
 candidate vectors over 3 x 3 in both frames, and the counts of untaken pixels around it), so at
 4K it costs more than the search.
 
@@ -363,10 +370,10 @@ Lossless's at every size.
 
 ### Left
 
-- The search's cost (158 M texels per real frame at 1280x720, 1.1 G at 4K): the finer levels'
-  blocks packed several to a workgroup so no thread idles, and the block's window in shared
-  memory so each texel is read once per block rather than once per candidate. The generated
-  frame's 100 texels per pixel likewise.
+- The search's cost (47 M texels per real frame at 1280x720, 352 M at 4K): the parent
+  candidates' windows, often the same vector for neighbouring blocks, shared between blocks; the
+  finer levels' blocks packed several to a workgroup so no thread idles. The generated frame's 100
+  texels per pixel.
 - `flow` in the product: a generator choice beside Lossless in `settings::framegen_settings`, taken
   by `RemoteFrameGen` (it already holds an `Interpolator`), and by the fork's Gamescope generator;
   until then it runs only in the harness.

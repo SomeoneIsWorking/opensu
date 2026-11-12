@@ -75,6 +75,7 @@ void GpuSpans::work(const std::string& key, const GpuWork& work) {
     counts.bytesRead.add(work.bytesRead);
     counts.bytesWritten.add(work.bytesWritten);
     counts.texelReads.add(work.texelReads);
+    counts.sharedReads.add(work.sharedReads);
 }
 
 namespace {
@@ -101,6 +102,7 @@ void GpuSpans::report() const {
         line(key + " read", counts.bytesRead, "bytes");
         line(key + " written", counts.bytesWritten, "bytes");
         line(key + " texel reads", counts.texelReads, "texels");
+        line(key + " shared reads", counts.sharedReads, "values");
     }
     for (const auto& [key, histogram] : nanoseconds_) {
         line(key + " GPU time", histogram, "ns");
