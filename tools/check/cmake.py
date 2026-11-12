@@ -113,10 +113,11 @@ class Plan:
         return args
 
 
-def compiler_id(cmake_dir: Path) -> str:
-    """CMAKE_CXX_COMPILER_ID of a configured tree."""
-    for path in (cmake_dir / "CMakeFiles").glob("*/CMakeCXXCompiler.cmake"):
-        match = re.search(r'set\(CMAKE_CXX_COMPILER_ID "([^"]*)"\)', path.read_text())
+def compiler_id(cmake_dir: Path, language: str = "CXX") -> str:
+    """CMAKE_<language>_COMPILER_ID of a configured tree."""
+    for path in (cmake_dir / "CMakeFiles").glob(f"*/CMake{language}Compiler.cmake"):
+        pattern = rf'set\(CMAKE_{language}_COMPILER_ID "([^"]*)"\)'
+        match = re.search(pattern, path.read_text())
         if match:
             return match.group(1)
     return ""
@@ -146,12 +147,19 @@ def prepare(plan: Plan, env: Mapping[str, str]) -> None:
 
 
 def configure(plan: Plan, env: Mapping[str, str]) -> None:
-    process.run(plan.configure_args(env), env)
-    found = compiler_id(plan.cmake_dir)
-    if found != "Clang":
-        raise RuntimeError(
-            f"{plan.cmake_dir} is configured with {found or 'no'} C++ compiler, not Clang"
-        )
+    languages = ("C", "CXX") if plan.platform == "linux" else ("CXX",)
+    args = plan.configure_args(env)
+    # CMake drops the -D arguments when it resets a cache whose compiler changed.
+    if any(compiler_id(plan.cmake_dir, lang) not in ("", "Clang") for lang in languages):
+        args.append("--fresh")
+    process.run(args, env)
+    for language in languages:
+        found = compiler_id(plan.cmake_dir, language)
+        if found != "Clang":
+            raise RuntimeError(
+                f"{plan.cmake_dir} is configured with {found or 'no'} {language} compiler, "
+                "not Clang"
+            )
 
 
 def build(plan: Plan, env: Mapping[str, str]) -> None:
