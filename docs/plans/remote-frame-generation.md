@@ -87,9 +87,9 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   the display's refresh so a 90 or 120 Hz screen gets its rate.
 - Added latency, by the pacer's design: one real interval held back (33.3 ms at 30 fps, 16.7 ms at
   60), the largest recent arrival lag, the generator's first-output lead less up to a refresh
-  (`Interpolator::firstOutputLead`: 1 refresh for Lossless, 2 for `flow`, whose ingest and first
-  generated frame take more than a refresh at idle clocks; the first generated frame after a real
-  one gets at least the lead less one refresh of GPU time), and the generation itself (2.2 ms per generated 720p frame balanced on an RX 6700 XT, more on a phone GPU, which
+  (`Interpolator::firstOutputLead`, 1 for Lossless and `flow`; the first generated frame after a
+  real one gets at least the lead less one refresh of GPU time, and at a lead of 1 as little as
+  3.4 ms at 50 fps to 60 by the arrival's phase, `pacer_first_output`), and the generation itself (2.2 ms per generated 720p frame balanced on an RX 6700 XT, more on a phone GPU, which
   must fit it inside its refresh). Stage A adds an upload per real frame and a readback per shown frame.
 - Below 10 fps, while measuring, or within the tolerance of the target, real frames show as they
   come, as in the fork.
@@ -343,13 +343,14 @@ at the display's refresh shows the real frame or a generated one through the com
 player's shaders. With `--frame-pngs` the pacer runs on the core's own clock and waits for each
 generated frame, so writing the PNGs moves no times. Super Metroid (PAL, 50 fps) on a 60 Hz
 display: 4560 core frames gave 5468 presents, 3851 of them generated. In a 30 s real-time hidden
-walk 1500 core frames gave 1795 presents (59.8 a second), 1417 generated and 1 dropped; a real
-frame shows on average 42.4 ms after the core drew it, at most 46.6 ms: one core frame (20 ms) and
-`flow`'s lead of two refreshes less up to one. Without frame generation it shows right away. On
-the remote play guest, Lossless and openSU's generator each show 60.0 frames a second from the
-host's 30 with none dropped (19 s, TwoPlayers ROM, a hidden host in headless Gamescope); capture
-to submit settles within a refresh set by the arrival phase, 34 to 50 ms with Lossless and 55 to
-60 ms with openSU's generator.
+walk 1500 core frames gave 1796 presents (59.9 a second), 1188 generated and 1 dropped; a real
+frame shows on average 26.3 ms after the core drew it, at most 30.4 ms (30.2 and 34.5 ms in a 12 s
+one): one core frame (20 ms) and up to a refresh. A real frame's ingest and first generated frame
+are done 5.2 ms after it arrives (p50; p90 6.2, max 7.0) at the GPU's idle clock. Without frame
+generation it shows right away. On the remote play guest, Lossless and openSU's generator each
+show 60.0 frames a second from the host's 30 with none dropped (19 s, TwoPlayers ROM, a hidden
+host in headless Gamescope); capture to submit settles within a refresh set by the arrival phase,
+34 to 50 ms (Lossless 40.5, 49.0, 34.0 and 46.4 in four runs, openSU's generator 45.7).
 
 ### GPU cost
 
@@ -364,13 +365,14 @@ and are the cost verdict. Both generators' GPU time comes from timestamps throug
 `IQueue` timing hooks; Lossless records its dispatches inside the fork, so only its time is
 seen.
 
-Super Metroid's demo, 60 generated frames, the search as it is now:
+Super Metroid's demo, 60 generated frames:
 
-| size | generate: invocations, texels read | ingest: invocations, texels read (before the tiles), shared values read |
+| size | generate: invocations, texels read | ingest: invocations, texels read, shared values read |
 |---|---|---|
-| 256x224 | 115 K, 11.9 M | 153 K, 3.9 M (13.4 M), 10.3 M |
-| 1280x720 | 1.84 M, 189 M | 2.45 M, 46.6 M (158 M), 123 M |
-| 3840x2160 | 16.6 M, 1.68 G | 22.0 M, 352 M (1.09-1.19 G), 927 M |
+| 256x224 | 115 K, 11.9 M | 153 K, 1.38 M, 9.95 M |
+| 256x224 core frames, at 4x (the runner) | 975 K, 159 M | 2.44 M, 21.5 M, 147 M |
+| 1280x720 | 1.84 M, 188 M | 2.45 M, 19.1 M, 117 M |
+| 3840x2160 | 16.6 M, 1.68 G | 22.0 M, 155 M, 805 M |
 
 The search gives each block a workgroup of 64 threads that try its candidates side by side, each
 candidate's cost summed by one thread in the same order, and a reduction in shared memory picks
@@ -379,9 +381,18 @@ when one thread per block tried them in turn; its frames are bit for bit the loo
 scene (`--same-as`). The windows each set of candidates reads (the coarsest level's 289 vectors,
 a finer level's 25 around its best parent, and the zero vector's) are loaded once per block into
 a shared tile of at most 20 x 20 per frame, and the costs read them there, the frames again bit
-for bit the same. At 1280x720 that leaves 51 texels per frame pixel, most of them the finer
-levels' 9 parent candidates, which lie anywhere and are read from the frames (2.6 K texels per
-block). The generated frame reads about 100 texels per pixel (each pixel's 9
+for bit the same. A parent candidate equal to an earlier one or to the zero vector, and a finer
+candidate equal to any of them, is not costed: of equal costs the earlier is kept, so the frames
+are again the same. At 1280x720 that leaves 21 texels per frame pixel, most of them the parent
+candidates left, which lie anywhere and are read from the frames. The loops over a window are
+unrolled, each sum in its order, so a thread's reads go out together rather than one at a time:
+the frames are bit for bit the same, and the search shader takes 168 VGPRs, 6 subgroups per SIMD.
+On the core frames at 4x, 60 frames at the GPU's idle clock, the search's levels take 3.7, 1.0,
+0.28 and 0.13 ms, finest first (9.7, 2.9, 1.0 and 0.83 with the loops rolled); at the finest, its
+phases (tiles, the flat and zero checks on 3 threads, the 9 parent candidates, the 25 around the
+best) each keep most of the workgroup's 64 threads idle. Frames at 4x hold one content pixel per
+4 x 4, but no two candidates read the same values in the same order, so none of the finest
+level's costs repeat. The generated frame reads about 100 texels per pixel (each pixel's 9
 candidate vectors over 3 x 3 in both frames, and the counts of untaken pixels around it), so at
 4K it costs more than the search.
 
@@ -401,7 +412,7 @@ Lossless's at every size.
 
 ### Left
 
-- The search's cost (47 M texels per real frame at 1280x720, 352 M at 4K): the parent
+- The search's cost (19 M texels per real frame at 1280x720, 155 M at 4K): the parent
   candidates' windows, often the same vector for neighbouring blocks, shared between blocks; the
   finer levels' blocks packed several to a workgroup so no thread idles. The generated frame's 100
   texels per pixel.
@@ -410,9 +421,6 @@ Lossless's at every size.
 - The source pixel on remote play: `RemoteFrameGen` runs `flow` at scale 1 with a 1 x 1 pixel
   because the stream does not say how its picture was scaled; the host has to send the core's
   frame or its scale.
-- `flow`'s work per real frame (ingest and the first generated frame, 11 to 15 ms at the GPU's
-  idle clock): made to fit a refresh, `flowFirstOutputLead` drops to 1 and the runner's frames
-  show a refresh sooner.
 - Layers moving different ways in one block (rain over the cave's rock): one vector per block
   follows the busier layer. Settling each pixel's vector with its neighbours' (a cost per
   disagreeing neighbour) changed no score by more than 1%; carrying untaken pixels along a vector
