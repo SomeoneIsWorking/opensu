@@ -12,6 +12,8 @@ Maybes the player has raised but not decided. Nothing here is planned; a decided
   never flip between the two: a swipe moves the mouse, since a right stick turns worse (Risk of
   Rain 2), and each on-screen control is a key or mouse button. Needs a virtual keyboard and mouse
   on the host, and a key for each control per game.
+- A QR code beside the Play online invite and reply codes, so a friend can take a code off a photo
+  or another screen without reading it (`docs/issues/invite-code-legibility.md`).
 
 ## Libretro ports of standalone emulators
 
