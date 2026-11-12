@@ -281,7 +281,8 @@ differences less their mean (so a fade moves nothing), every vector within 8 pix
 coarsest level (64 in the frame) and each finer level's parents' 3x3 doubled and refined by 2; a
 block either frame is flat over (a fade from white) keeps no motion. For each frame between,
 `flow_choose` gives each pixel, of its block's and the 8 neighbours' vectors, the one whose two
-real pixels agree best over 3x3, and marks the real pixels it takes; `flow_make` mixes the two
+real pixels agree best over 3x3 (its own first, stopping at an exact match, which no later one can
+beat), and marks the real pixels it takes; `flow_make` mixes the two
 frames there by t. The share of a vector each frame moves is counted in the content's own pixels
 (`SourcePixel`, the output pixels one source pixel covers) and rounded toward zero, so a scaled
 picture moves in whole source pixels and stays sharp; a zoom or turn smaller than a source pixel
@@ -405,13 +406,15 @@ Super Metroid's demo, 60 generated frames:
 
 | size | generate: invocations, texels read | ingest: invocations, texels read, shared values read |
 |---|---|---|
-| 256x224 | 115 K, 11.9 M | 115 K, 1.38 M, 9.95 M |
-| 256x224 core frames, at 4x (the runner) | 975 K, 159 M | 1.84 M, 21.5 M, 147 M |
-| 1280x720 | 1.84 M, 188 M | 1.85 M, 19.1 M, 117 M |
-| 3840x2160 | 16.6 M, 1.68 G | 16.6 M, 155 M, 805 M |
+| 256x224 | 115 K, 4.19 M | 115 K, 1.38 M, 9.95 M |
+| 256x224 core frames, at 4x (the runner) | 975 K, 25.2 M | 1.84 M, 21.5 M, 147 M |
+| 1280x720 | 1.84 M, 55.6 M | 1.85 M, 19.1 M, 117 M |
+| 3840x2160 | 16.6 M, 516 M | 16.6 M, 155 M, 805 M |
 
 On the core frames at 4x, `flow_choose` over every pixel of the 1024x896 frame is 917 K of a
-generated frame's 975 K invocations and 157 M of its 159 M texels (171 a pixel), `flow_make` at the
+generated frame's 975 K invocations and 23.3 M of its 25.2 M texels at p50 (19 a candidate tried,
+1.31 candidates a pixel over the run, against all 9 and 157 M before it stopped at an exact match;
+on the quality scenes 1.00 on Monster Pocket to 2.30 on the Metroid cave), `flow_make` at the
 content's 256x224 centres 57 K and 1.78 M; of a real frame's, the finest search is 459 K
 invocations, 14.0 M texels and 96.5 M shared values, the take 918 K invocations writing the 4x
 frame and its luma (two runs, every count the same). On the CPU,
