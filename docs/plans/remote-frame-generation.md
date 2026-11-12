@@ -272,8 +272,12 @@ recorded frames for both generators, 119 frames left out each:
 What it shows: on the busy scenes `flow` is ahead by FLIP (18%, 10%, 3% and 9% lower on the four
 Super Metroid scenes) and by SSIM on three of them; elsewhere the two are within a few percent
 either way, and `flow`'s worst 5% PSNR is below Lossless's on seven scenes, by up to 1.1 dB
-(a PSNR mean counts a frame equal to the real one as 100 dB, which moves Monster in My Pocket's). It is better,
-not by much, and only shown on 16-bit content. The first `flow` (pixels rounded to whole places,
+(a PSNR mean counts a frame equal to the real one as 100 dB, which moves Monster in My Pocket's).
+Part of that lead is erasure, not better motion: where no vector fits (Samus animating, the rain's
+drops) `flow` picks one that maps background to background through the shape, so on rain 000149
+Samus and every drop are gone and on 000125 Samus is in fragments, where Lossless draws both
+smeared. Played back that is the shape flickering at 30 Hz. PSNR, SSIM and FLIP score each frame
+alone and charge a missing dot less than a misplaced one, so they reward it. The first `flow` (pixels rounded to whole places,
 search not mean-free) lost on the Kirby fade (worst 5% FLIP 0.103 against 0.082), which the
 mean-free search fixed. In the worst frames of both (`v2/worst/`) most error is a background that
 moved one pixel over two game frames: the left-out frame equals one real neighbour exactly, and
