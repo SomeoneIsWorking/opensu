@@ -7,7 +7,7 @@ from pathlib import Path
 from types import ModuleType
 
 from tools.check import process, thirdparty
-from tools.check.cmake import DEFAULT_JOBS
+from tools.check.cmake import DEFAULT_JOBS, require_own_tree
 from tools.check.deps import Deps
 from tools.checkout import REPO
 from tools.package.android import config
@@ -40,6 +40,7 @@ def build(layout: config.Layout, sources: Deps, abi: str, env: Mapping[str, str]
     """Configure and build both libraries for `abi`; returns the build directory."""
     prefix = layout.prefix(abi)
     build_dir = layout.native_dir(abi)
+    require_own_tree(build_dir)
     toolchain = [
         f"-DCMAKE_TOOLCHAIN_FILE={layout.ndk / 'build' / 'cmake' / 'android.toolchain.cmake'}",
         f"-DANDROID_ABI={abi}",

@@ -7,7 +7,7 @@ from pathlib import Path
 from tools.checkout import REPO
 
 SOURCE = REPO / "packaging" / "android"
-BUILD = REPO / "build" / "android"
+DEFAULT_BUILD = REPO / "build" / "android"
 
 NDK_VERSION = "28.2.13676358"
 BUILD_TOOLS = "35.0.0"
@@ -32,10 +32,11 @@ SIGNING_ENV = (
 
 @dataclass(frozen=True)
 class Layout:
-    """The SDK, NDK and shared native prefix this build uses."""
+    """The SDK, NDK and shared native prefix this build uses, and the directory it builds in."""
 
     sdk: Path
     deps_root: Path
+    root: Path = DEFAULT_BUILD
 
     @property
     def ndk(self) -> Path:
@@ -44,7 +45,7 @@ class Layout:
     @property
     def sources(self) -> Path:
         """Pinned checkouts: Lucent, gpu2d and android-port."""
-        return BUILD / "sources"
+        return self.root / "sources"
 
     @property
     def android_port(self) -> Path:
@@ -52,22 +53,22 @@ class Layout:
 
     @property
     def project(self) -> Path:
-        return BUILD / "project"
+        return self.root / "project"
 
     @property
     def out(self) -> Path:
-        return BUILD / "out"
+        return self.root / "out"
 
     @property
     def scratch(self) -> Path:
-        return BUILD / "tmp"
+        return self.root / "tmp"
 
     def native_dir(self, abi: str) -> Path:
-        return BUILD / abi
+        return self.root / abi
 
     def deps_link(self, abi: str) -> Path:
         """The profile's prefix path, a link to the shared prefix."""
-        return BUILD / "deps" / abi
+        return self.root / "deps" / abi
 
     def prefix(self, abi: str) -> Path:
         return self.deps_root / abi
@@ -80,8 +81,9 @@ def refuse(message: str) -> SystemExit:
     return SystemExit(f"tools.package.android: {message}")
 
 
-def layout_from_environment() -> Layout:
-    """ANDROID_HOME (or ANDROID_SDK_ROOT) and OPENSU_ANDROID_DEPS, the shared prefix's root."""
+def layout_from_environment(root: Path = DEFAULT_BUILD) -> Layout:
+    """ANDROID_HOME (or ANDROID_SDK_ROOT) and OPENSU_ANDROID_DEPS, the shared prefix's root, for
+    a build in `root`."""
     sdk_value = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT")
     if not sdk_value or not Path(sdk_value).is_dir():
         raise refuse(
@@ -95,4 +97,4 @@ def layout_from_environment() -> Layout:
     deps = os.environ.get("OPENSU_ANDROID_DEPS") or str(
         home / ".local/share/android-port-deps" / f"ndk-{NDK_VERSION}" / f"android-{PREFIX_API}"
     )
-    return Layout(sdk=sdk, deps_root=Path(deps).resolve())
+    return Layout(sdk=sdk, deps_root=Path(deps).resolve(), root=root.resolve())

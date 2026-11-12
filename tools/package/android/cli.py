@@ -1,10 +1,10 @@
-"""Command line: `uv run --frozen python -m tools.package.android build`.
+"""Command line: `uv run --frozen python -m tools.package.android build [--build-dir D]`.
 
 Builds openSU for arm64-v8a and x86_64 against the shared android-port prefix (built once when
 missing), stages the Gradle project, assembles and signs the release APK with the key in
 OPENSU_ANDROID_KEYSTORE (base64) or OPENSU_ANDROID_KEYSTORE_FILE, with
 OPENSU_ANDROID_KEYSTORE_PASSWORD, OPENSU_ANDROID_KEY_ALIAS and OPENSU_ANDROID_KEY_PASSWORD, checks
-it and writes build/android/out/openSU-<version>-android.apk and its .sha256. `--debuggable`
+it and writes D/out/openSU-<version>-android.apk and its .sha256 (D: build/android). `--debuggable`
 makes the same release-signed APK debuggable (openSU-<version>-android-debuggable.apk), so it
 installs over a player's without wiping its data and `run-as` reads its log; it is never published.
 """
@@ -12,13 +12,14 @@ installs over a player's without wiping its data and `run-as` reads its log; it 
 import argparse
 import hashlib
 import shutil
+from pathlib import Path
 
 from tools.check import deps, process
 from tools.package.android import apk, config, native, port, project, signing, version
 
 
-def build(debuggable: bool) -> int:
-    layout = config.layout_from_environment()
+def build(debuggable: bool, build_dir: Path) -> int:
+    layout = config.layout_from_environment(build_dir)
     env = process.build_environment(layout.scratch)
     sources = deps.Deps(layout.sources)
     deps.fetch(sources, env)
@@ -68,5 +69,10 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="a debuggable APK under the release key, not published",
     )
+    parser.add_argument(
+        "--build-dir",
+        default=str(config.DEFAULT_BUILD),
+        help="where it builds (default build/android; ../android from build/agent-src)",
+    )
     arguments = parser.parse_args(argv)
-    return build(arguments.debuggable)
+    return build(arguments.debuggable, Path(arguments.build_dir))
