@@ -60,9 +60,9 @@ lossless(GeneratorDevice& gpu, const framegen::LosslessSettings_t& settings, std
 inline constexpr std::uint32_t flowBlockPixels = 8;
 /// What flow scales a core's own frame by: its finest blocks then cover about 2 content pixels.
 inline constexpr std::uint32_t flowContentScale = flowBlockPixels / 2;
-/// Flow's ingest and first generated frame, 5 to 7 ms at the GPU's idle clocks, are done by the
-/// first output's vblank in the runner.
-inline constexpr std::uint32_t flowFirstOutputLead = 1;
+/// Flow's ingest and first generated frame, 5 to 7 ms at the GPU's idle clocks, miss a first
+/// output due under that after its real frame (45 fps to 60 at some arrival phases).
+inline constexpr std::uint32_t flowFirstOutputLead = 2;
 
 /// openSU's own generator (`flow_interpolator.cpp`), working on each real frame scaled up nearest
 /// by `scale` and writing each made frame back at the centres of the scaled pixels; nothing with

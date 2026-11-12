@@ -87,9 +87,11 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   the display's refresh so a 90 or 120 Hz screen gets its rate.
 - Added latency, by the pacer's design: one real interval held back (33.3 ms at 30 fps, 16.7 ms at
   60), the largest recent arrival lag, the generator's first-output lead less up to a refresh
-  (`Interpolator::firstOutputLead`, 1 for Lossless and `flow`; the first generated frame after a
-  real one gets at least the lead less one refresh of GPU time, and at a lead of 1 as little as
-  3.4 ms at 50 fps to 60 by the arrival's phase, `pacer_first_output`), and the generation itself (2.2 ms per generated 720p frame balanced on an RX 6700 XT, more on a phone GPU, which
+  (`Interpolator::firstOutputLead`, 1 for Lossless and 2 for `flow`; the first generated frame
+  after a real one gets at least the lead less one refresh of GPU time, and at a lead of 1 as
+  little as 3.4 ms at 50 fps to 60 by the arrival's phase, `pacer_first_output`; replayed with
+  `flow`'s measured ready times at a lead of 1, 45 fps to 60 misses up to 22% of its generated
+  frames at the worst phase), and the generation itself (2.2 ms per generated 720p frame balanced on an RX 6700 XT, more on a phone GPU, which
   must fit it inside its refresh). Stage A adds an upload per real frame and a readback per shown frame.
 - Below 10 fps, while measuring, or within the tolerance of the target, real frames show as they
   come, as in the fork.
@@ -343,14 +345,15 @@ at the display's refresh shows the real frame or a generated one through the com
 player's shaders. With `--frame-pngs` the pacer runs on the core's own clock and waits for each
 generated frame, so writing the PNGs moves no times. Super Metroid (PAL, 50 fps) on a 60 Hz
 display: 4560 core frames gave 5468 presents, 3851 of them generated. In a 30 s real-time hidden
-walk 1500 core frames gave 1796 presents (59.9 a second), 1188 generated and 1 dropped; a real
-frame shows on average 26.3 ms after the core drew it, at most 30.4 ms (30.2 and 34.5 ms in a 12 s
-one): one core frame (20 ms) and up to a refresh. A real frame's ingest and first generated frame
+walk 1500 core frames gave 1794 presents (59.8 a second), 1186 generated and 1 dropped; a real
+frame shows on average 41.5 to 48.1 ms after the core drew it: one core frame (20 ms) and `flow`'s
+lead of two refreshes less up to one. A real frame's ingest and first generated frame
 are done 5.2 ms after it arrives (p50; p90 6.2, max 7.0) at the GPU's idle clock. Without frame
 generation it shows right away. On the remote play guest, Lossless and openSU's generator each
 show 60.0 frames a second from the host's 30 with none dropped (19 s, TwoPlayers ROM, a hidden
 host in headless Gamescope); capture to submit settles within a refresh set by the arrival phase,
-34 to 50 ms (Lossless 40.5, 49.0, 34.0 and 46.4 in four runs, openSU's generator 45.7).
+34 to 50 ms with Lossless (40.5, 49.0, 34.0 and 46.4 in four runs) and 55 to 60 ms with openSU's
+generator.
 
 ### GPU cost
 
