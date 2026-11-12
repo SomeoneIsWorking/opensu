@@ -215,12 +215,14 @@ std::optional<Shown> PacedFrames::vblank(std::uint64_t nowNs, std::uint64_t refr
     }
     ++shown_;
     if (!output->oGenerated) {
-        return Shown{.real = output->ulRealFrame, .generated = std::nullopt};
+        return Shown{.real = output->ulRealFrame, .generated = std::nullopt, .t = 1.0F};
     }
     ++shownGenerated_;
     return Shown{.real = output->ulInterval,
-                 .generated = std::span<const std::uint8_t>{
-                     readbacks_[slotOf(output->ulInterval, *output->oGenerated)]->bytes()}};
+                 .generated =
+                     std::span<const std::uint8_t>{
+                         readbacks_[slotOf(output->ulInterval, *output->oGenerated)]->bytes()},
+                 .t = output->flTimestamp};
 }
 
 } // namespace opensu::frame_gen

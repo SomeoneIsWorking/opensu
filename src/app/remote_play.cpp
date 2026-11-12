@@ -890,7 +890,7 @@ void RemotePlay::serviceFrameGen() {
 void RemotePlay::startFrameGen(std::optional<std::string> packed, std::string why,
                                const std::string& by) {
     if (packed) {
-        frameGen_ = RemoteFrameGen::open(generation_, *packed, why);
+        frameGen_ = RemoteFrameGen::open(generation_, *packed, *video_, why);
     }
     if (!frameGen_) {
         frameGenOff_ = why;
@@ -994,18 +994,16 @@ std::optional<stream::GuestVideo::Frame> RemotePlay::takePicture(std::uint64_t n
     if (!video_) {
         return std::nullopt;
     }
-    std::optional<stream::GuestVideo::Frame> frame = video_->takeFrame();
-    pictured_ = pictured_ || frame.has_value();
-    if (!frameGen_) {
-        return frame;
-    }
-    if (frame && !frameGen_->real(std::move(*frame), refreshNs)) {
+    if (frameGen_ && frameGen_->failed()) {
         frameGen_.reset();
         frameGenOff_ = "it failed; see the log";
         hooks_.say("Frame generation stopped", true);
-        return std::nullopt;
     }
-    return frameGen_->present(nowUs, refreshNs);
+    // The generator takes the frames itself as they are decoded.
+    std::optional<stream::GuestVideo::Frame> frame =
+        frameGen_ ? frameGen_->present(nowUs, refreshNs) : video_->takeFrame();
+    pictured_ = pictured_ || frame.has_value();
+    return frame;
 }
 
 void RemotePlay::presented(std::uint32_t number, std::uint64_t submittedUs, bool drawn) {

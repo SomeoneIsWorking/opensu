@@ -183,22 +183,35 @@ void GuestVideo::finish(VideoCodec codec, Picture picture, std::uint32_t number)
                 .picture = std::move(picture),
                 .capturedUs = static_cast<std::uint64_t>(std::max(times.capturedUs, 0.0)),
                 .decodedUs = static_cast<std::uint64_t>(times.decodedUs)};
-    const std::lock_guard lock{mutex_};
-    ++decoded_;
-    if (nameOf(codec) != codec_) {
-        switches_ += codec_ != "none" ? 1 : 0;
-        codec_ = nameOf(codec);
+    {
+        const std::lock_guard lock{mutex_};
+        ++decoded_;
+        if (nameOf(codec) != codec_) {
+            switches_ += codec_ != "none" ? 1 : 0;
+            codec_ = nameOf(codec);
+        }
+        last_ = frame;
+        fresh_ = std::move(frame);
+        waiting_.push_back(times);
+        if (waiting_.size() > waitingKept) {
+            waiting_.pop_front();
+        }
     }
-    last_ = frame;
-    fresh_ = std::move(frame);
-    waiting_.push_back(times);
-    if (waiting_.size() > waitingKept) {
-        waiting_.pop_front();
-    }
+    decodedOne_.notify_all();
 }
 
 std::optional<GuestVideo::Frame> GuestVideo::takeFrame() {
     const std::lock_guard lock{mutex_};
+    return std::exchange(fresh_, std::nullopt);
+}
+
+std::optional<GuestVideo::Frame> GuestVideo::waitFrame(const std::stop_token& stop) {
+    std::unique_lock lock{mutex_};
+    if (!decodedOne_.wait(lock, stop, [this] {
+            return fresh_.has_value();
+        })) {
+        return std::nullopt;
+    }
     return std::exchange(fresh_, std::nullopt);
 }
 

@@ -1,10 +1,11 @@
 // guest_video — the guest's pictures for one session: the host's packets queued as they come and
 // fed to the decoder of their codec on a thread of its own, so a slow decode never holds up the
-// stream's receiving; each frame is decoded once all of its packets are in and handed to the loop
-// newest first. A frame still missing packets when the next one starts is dropped; for a codec
-// whose frames build on each other the guest then wants a key frame, and on PyroWave a whole frame
-// the decoder reaches only after two newer ones began arriving is skipped (late). Each shown
-// frame's way from the host's capture to this screen is timed by stage, on this clock
+// stream's receiving; each frame is decoded once all of its packets are in and handed to the loop,
+// or to a thread waiting for it, newest first. A frame still missing packets when the next one
+// starts is dropped; for a codec whose frames build on each other the guest then wants a key frame,
+// and on PyroWave a whole frame the decoder reaches only after two newer ones began arriving is
+// skipped (late). Each shown frame's way from the host's capture to this screen is timed by stage,
+// on this clock
 // (`hostAheadUs` moves the host's times over). A hardware codec's pictures stay in the decoder's
 // DMA-BUFs while the screen can sample them, and are read back once it says it cannot.
 #pragma once
@@ -53,6 +54,9 @@ class GuestVideo {
         std::uint64_t decodedUs{0};
     };
     [[nodiscard]] std::optional<Frame> takeFrame();
+    /// As `takeFrame`, waiting for a frame to be decoded; nothing once `stop` is asked. Any
+    /// thread.
+    [[nodiscard]] std::optional<Frame> waitFrame(const std::stop_token& stop);
     /// The frame showing frame `number` was submitted at `submittedUs`, into the window when
     /// `drawn` (a hidden window has no surface). Any thread.
     void presented(std::uint32_t number, std::uint64_t submittedUs, bool drawn);
@@ -118,6 +122,8 @@ class GuestVideo {
     std::vector<Queued> queue_;
 
     mutable std::mutex mutex_;
+    /// Notified when `fresh_` gets a frame.
+    std::condition_variable_any decodedOne_;
     std::optional<Frame> fresh_;
     std::optional<Frame> last_;
     /// Decoded frames not shown yet, oldest first.

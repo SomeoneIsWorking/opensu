@@ -26,10 +26,11 @@ namespace opensu::frame_gen {
 inline constexpr std::uint64_t bufferedFrames = 3;
 
 /// What a present shows: real frame `real`, or, when `generated` holds its RGBA, a frame
-/// generated before it.
+/// generated before it at `t` between the one before and it.
 struct Shown {
     std::uint64_t real{0};
     std::optional<std::span<const std::uint8_t>> generated;
+    float t{1.0F};
 };
 
 class PacedFrames {

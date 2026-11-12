@@ -4,8 +4,12 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <format>
+#include <mutex>
 #include <stdexcept>
+#include <stop_token>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -129,15 +133,20 @@ class VulkanFrameGen final : public RemoteFrameGen {
   public:
     // The stream does not say how its picture was scaled yet.
     VulkanFrameGen(const settings::FrameGenSettings& settings,
-                   std::shared_ptr<const framegen::LosslessModules_t> modules)
+                   std::shared_ptr<const framegen::LosslessModules_t> modules,
+                   stream::GuestVideo& video)
         : frames_{gpu_, generatorOf(gpu_, settings, std::move(modules)), settings,
-                  frame_gen::SourcePixel{}} {
+                  frame_gen::SourcePixel{}},
+          video_{video} {
         lucent::info("framegen", "generating with {} on {}, up to {} per real frame",
                      settings.generator == settings::FrameGenGenerator::OpenSU
                          ? std::string{"openSU's generator"}
                          : std::format("Lossless, {} size mode",
                                        settings.performance ? "performance" : "balanced"),
                      gpu_.name(), frames_.maxGenerated());
+        feeding_ = std::jthread{[this](const std::stop_token& stop) {
+            feed(stop);
+        }};
     }
     ~VulkanFrameGen() override = default;
     VulkanFrameGen(const VulkanFrameGen&) = delete;
@@ -145,40 +154,23 @@ class VulkanFrameGen final : public RemoteFrameGen {
     VulkanFrameGen(VulkanFrameGen&&) = delete;
     VulkanFrameGen& operator=(VulkanFrameGen&&) = delete;
 
-    bool real(stream::GuestVideo::Frame frame, std::uint64_t refreshNs) override {
-        const stream::Picture& picture = frame.picture;
-        const auto width = static_cast<std::uint32_t>(picture.width);
-        const auto height = static_cast<std::uint32_t>(picture.height);
-        if (picture.rgba.size() != std::size_t{width} * height * bytesPerPixel) {
-            lucent::warn("framegen", "frame {} is not in CPU RGBA", frame.number);
-            return false;
-        }
-        try {
-            const std::uint64_t readyNs = frame.capturedUs * nanosPerMicro;
-            // When it reached frame generation, which places it on the output timeline.
-            const std::uint64_t arrivalNs = stream::wire::nowMicros() * nanosPerMicro;
-            const std::uint64_t index =
-                frames_.add(picture.rgba, width, height, readyNs, arrivalNs, refreshNs);
-            reals_[index % frame_gen::bufferedFrames] = std::move(frame);
-            return true;
-        } catch (const std::runtime_error& failure) {
-            lucent::error("framegen", "frame generation stops at frame {}: {}", frame.number,
-                          failure.what());
-            return false;
-        }
-    }
-
     std::optional<stream::GuestVideo::Frame> present(std::uint64_t nowUs,
                                                      std::uint64_t refreshNs) override {
+        refreshNs_ = refreshNs;
+        const std::scoped_lock lock{mutex_};
         const std::optional<frame_gen::Shown> shown =
             frames_.vblank(nowUs * nanosPerMicro, refreshNs);
         if (!shown) {
             return std::nullopt;
         }
+        lucent::debug("framegen", "present at {} us shows {} of real frame {} at t {:.3f}", nowUs,
+                      shown->generated ? "a generated frame" : "the real frame", shown->real,
+                      shown->t);
         const stream::GuestVideo::Frame& real = reals_[shown->real % frame_gen::bufferedFrames];
         if (!shown->generated) {
             return real;
         }
+        // Copied before the lock goes: a later real frame can reuse the readback.
         return stream::GuestVideo::Frame{
             .number = real.number,
             .picture = stream::Picture{.width = static_cast<int>(frames_.width()),
@@ -190,15 +182,70 @@ class VulkanFrameGen final : public RemoteFrameGen {
             .decodedUs = real.decodedUs};
     }
 
+    bool failed() const override {
+        return failed_;
+    }
+
     std::string summary() const override {
+        const std::scoped_lock lock{mutex_};
         return frames_.summary();
     }
 
   private:
+    /// Each frame into the generator as it is decoded, until stopped or generation fails.
+    void feed(const std::stop_token& stop) {
+        while (std::optional<stream::GuestVideo::Frame> frame = video_.waitFrame(stop)) {
+            const std::uint64_t refreshNs = refreshNs_;
+            // The display's refresh comes with the first present.
+            if (refreshNs == 0) {
+                continue;
+            }
+            if (!real(std::move(*frame), refreshNs)) {
+                failed_ = true;
+                return;
+            }
+        }
+    }
+
+    /// A real frame in CPU RGBA; false, with why logged, when generation failed.
+    bool real(stream::GuestVideo::Frame frame, std::uint64_t refreshNs) {
+        const stream::Picture& picture = frame.picture;
+        const auto width = static_cast<std::uint32_t>(picture.width);
+        const auto height = static_cast<std::uint32_t>(picture.height);
+        if (picture.rgba.size() != std::size_t{width} * height * bytesPerPixel) {
+            lucent::warn("framegen", "frame {} is not in CPU RGBA", frame.number);
+            return false;
+        }
+        try {
+            const std::uint64_t readyNs = frame.capturedUs * nanosPerMicro;
+            // When it reached frame generation, which places it on the output timeline.
+            const std::uint64_t arrivalNs = stream::wire::nowMicros() * nanosPerMicro;
+            lucent::debug("framegen", "frame {} reached the generator {} us after it decoded",
+                          frame.number, arrivalNs / nanosPerMicro - frame.decodedUs);
+            const std::scoped_lock lock{mutex_};
+            const std::uint64_t index =
+                frames_.add(picture.rgba, width, height, readyNs, arrivalNs, refreshNs);
+            reals_[index % frame_gen::bufferedFrames] = std::move(frame);
+            return true;
+        } catch (const std::runtime_error& failure) {
+            lucent::error("framegen", "frame generation stops at frame {}: {}", frame.number,
+                          failure.what());
+            return false;
+        }
+    }
+
     frame_gen::GeneratorDevice gpu_;
+    /// The generator, its device and the real frames' details are used by the feeding thread and
+    /// the loop's presents, one at a time.
+    mutable std::mutex mutex_;
     frame_gen::PacedFrames frames_;
     /// The real frames the kept intervals show, by their index.
     std::array<stream::GuestVideo::Frame, frame_gen::bufferedFrames> reals_{};
+    stream::GuestVideo& video_;
+    std::atomic<std::uint64_t> refreshNs_{0};
+    std::atomic<bool> failed_{false};
+    /// Last, so it stops before what it uses goes.
+    std::jthread feeding_;
 };
 
 } // namespace
@@ -228,7 +275,8 @@ std::optional<std::string> RemoteFrameGen::pack(const std::filesystem::path& dll
 }
 
 std::unique_ptr<RemoteFrameGen> RemoteFrameGen::open(const settings::FrameGenSettings& settings,
-                                                     std::string_view packed, std::string& why) {
+                                                     std::string_view packed,
+                                                     stream::GuestVideo& video, std::string& why) {
     std::shared_ptr<const framegen::LosslessModules_t> shared;
     if (settings.generator != settings::FrameGenGenerator::OpenSU) {
         std::optional<framegen::LosslessModules_t> modules = unpack(packed);
@@ -239,7 +287,7 @@ std::unique_ptr<RemoteFrameGen> RemoteFrameGen::open(const settings::FrameGenSet
         shared = std::make_shared<const framegen::LosslessModules_t>(std::move(*modules));
     }
     try {
-        return std::make_unique<VulkanFrameGen>(settings, std::move(shared));
+        return std::make_unique<VulkanFrameGen>(settings, std::move(shared), video);
     } catch (const std::runtime_error& failure) {
         why = failure.what();
         return nullptr;
