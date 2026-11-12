@@ -4,13 +4,22 @@ Records each scene once (`scratch/framegen-quality/scenes/<scene>/frames`, again
 then for the run (`scratch/framegen-quality/runs/<run>/`) generates the left-out frames with each
 generator, scores them, and writes `report.md`, `scores/<scene>-<generator>.json`, the worst
 frames side by side in `worst/` and the build that made them in `build.json`
-(`provenance`)."""
+(`provenance`). With --same-as, each generator's frames must equal that run's bit for bit
+(`identical`)."""
 
 import argparse
 from pathlib import Path
 
 from tools.checkout import REPO, require_own_environment
-from tools.framegen_quality import generate, provenance, record, report, scenes, score
+from tools.framegen_quality import (
+    generate,
+    identical,
+    provenance,
+    record,
+    report,
+    scenes,
+    score,
+)
 
 SCRATCH = REPO / "scratch" / "framegen-quality"
 
@@ -56,6 +65,10 @@ def main() -> None:
     parser.add_argument(
         "--rescore", action="store_true", help="score the frames the run already made again"
     )
+    parser.add_argument(
+        "--same-as",
+        help="a run whose made frames this run's must equal bit for bit; exits 1 on any difference",
+    )
     args = parser.parse_args()
 
     generators = [g for g in args.generators.split(",") if g]
@@ -65,6 +78,7 @@ def main() -> None:
     if not args.rescore and pairs is not None:
         provenance.save(provenance.check(args.build, pairs), run)
     results: dict[str, dict[str, list[score.FrameScore]]] = {}
+    unequal: list[str] = []
     for scene in scenes.read(args.scenes):
         if args.only and scene.name not in args.only:
             continue
@@ -90,9 +104,29 @@ def main() -> None:
             results[scene.name][generator] = scores
             made[generator] = folder
             print(f"{scene.name}: {generator} scored", flush=True)
+            if args.same_as:
+                same = identical.compare(
+                    folder, SCRATCH / "runs" / args.same_as / "made" / scene.name / generator
+                )
+                verdict = (
+                    "identical"
+                    if not same.differing and not same.missing and same.frames
+                    else f"{len(same.differing)} differ, {len(same.missing)} missing"
+                )
+                print(
+                    f"{scene.name}: {generator} against {args.same_as}: {same.frames} frames,"
+                    f" {verdict}",
+                    flush=True,
+                )
+                if verdict != "identical":
+                    unequal.append(
+                        f"{scene.name} {generator}: {verdict}, first {same.differing[:3]}"
+                    )
         report.worst(
             scene.name, frames, made, results[scene.name], args.step, run / "worst", args.worst
         )
     text = report.table(results)
     (run / "report.md").write_text(text)
     print(text)
+    if unequal:
+        raise SystemExit("not the same frames as " + args.same_as + ":\n" + "\n".join(unequal))

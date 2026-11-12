@@ -5,8 +5,10 @@
 // by the sum of absolute luma differences over the block and a 2 pixel margin, less their mean.
 // The coarsest level tries every vector within `range`; each finer one its parent's 3 x 3
 // neighbourhood's vectors, doubled, and then every vector within 2 pixels of the best. A block
-// either frame is flat over (a fade from white) shows no motion, so it keeps none.
-layout(local_size_x = 8, local_size_y = 8) in;
+// either frame is flat over (a fade from white) shows no motion, so it keeps none. Of equal costs
+// the earlier candidate wins, the zero vector before all.
+// One workgroup per block, its threads trying the candidates side by side.
+layout(local_size_x = 64) in;
 layout(set = 0, binding = 0, r32f) uniform readonly image2D earlier;
 layout(set = 0, binding = 1, r32f) uniform readonly image2D later;
 layout(set = 0, binding = 2, rg32f) uniform readonly image2D parent;
@@ -62,50 +64,94 @@ float cost(ivec2 origin, ivec2 d) {
     return sum + lengthCost * float(side * side) * float(abs(d.x) + abs(d.y));
 }
 
+const uint threads = 64;
+shared float bestCosts[threads];
+shared int bestIndices[threads];
+shared float zeroCost;
+shared bool featurelessBlock;
+
+// Of each thread's (cost, index), the lowest cost, the lower index of equal ones.
+int lowest(float c, int index) {
+    const uint i = gl_LocalInvocationIndex;
+    bestCosts[i] = c;
+    bestIndices[i] = index;
+    barrier();
+    for (uint stride = threads / 2; stride > 0; stride /= 2) {
+        if (i < stride) {
+            const float other = bestCosts[i + stride];
+            const int otherIndex = bestIndices[i + stride];
+            if (other < bestCosts[i] || (other == bestCosts[i] && otherIndex < bestIndices[i])) {
+                bestCosts[i] = other;
+                bestIndices[i] = otherIndex;
+            }
+        }
+        barrier();
+    }
+    return bestIndices[0];
+}
+
 void main() {
-    const ivec2 block = ivec2(gl_GlobalInvocationID.xy);
-    if (any(greaterThanEqual(block, push.blocks))) {
+    const ivec2 block = ivec2(gl_WorkGroupID.xy);
+    const ivec2 origin = block * blockSize;
+    const int i = int(gl_LocalInvocationIndex);
+    if (i == 0) {
+        zeroCost = cost(origin, ivec2(0));
+        featurelessBlock = featureless(origin, false) || featureless(origin, true);
+    }
+    barrier();
+    if (featurelessBlock) {
+        if (i == 0) {
+            imageStore(field, block, vec4(0.0));
+        }
         return;
     }
-    const ivec2 origin = block * blockSize;
     ivec2 best = ivec2(0);
-    float bestCost = cost(origin, best);
-    if (featureless(origin, false) || featureless(origin, true)) {
-        // Nothing to match: no motion.
-    } else if (push.hasParent == 0) {
-        for (int y = -push.range; y <= push.range; ++y) {
-            for (int x = -push.range; x <= push.range; ++x) {
-                const float c = cost(origin, ivec2(x, y));
-                if (c < bestCost) {
-                    bestCost = c;
-                    best = ivec2(x, y);
-                }
+    float bestCost = zeroCost;
+    const float none = 1.0 / 0.0;
+    if (push.hasParent == 0) {
+        const int side = 2 * push.range + 1;
+        float mine = none;
+        int mineIndex = side * side;
+        for (int k = i; k < side * side; k += int(threads)) {
+            const float c = cost(origin, ivec2(k % side - push.range, k / side - push.range));
+            if (c < mine) {
+                mine = c;
+                mineIndex = k;
             }
+        }
+        const int k = lowest(mine, mineIndex);
+        if (bestCosts[0] < bestCost) {
+            best = ivec2(k % side - push.range, k / side - push.range);
+            bestCost = bestCosts[0];
         }
     } else {
         const ivec2 parentLast = imageSize(parent) - 1;
-        for (int y = -1; y <= 1; ++y) {
-            for (int x = -1; x <= 1; ++x) {
-                const ivec2 at = clamp(block / 2 + ivec2(x, y), ivec2(0), parentLast);
-                const ivec2 d = ivec2(imageLoad(parent, at).rg) * 2;
-                const float c = cost(origin, d);
-                if (c < bestCost) {
-                    bestCost = c;
-                    best = d;
-                }
-            }
+        float mine = none;
+        ivec2 d = ivec2(0);
+        if (i < 9) {
+            const ivec2 at = clamp(block / 2 + ivec2(i % 3 - 1, i / 3 - 1), ivec2(0), parentLast);
+            d = ivec2(imageLoad(parent, at).rg) * 2;
+            mine = cost(origin, d);
         }
+        const int k = lowest(mine, i < 9 ? i : 9);
+        if (bestCosts[0] < bestCost) {
+            const ivec2 at = clamp(block / 2 + ivec2(k % 3 - 1, k / 3 - 1), ivec2(0), parentLast);
+            best = ivec2(imageLoad(parent, at).rg) * 2;
+            bestCost = bestCosts[0];
+        }
+        barrier();
         const ivec2 centre = best;
-        for (int y = -2; y <= 2; ++y) {
-            for (int x = -2; x <= 2; ++x) {
-                const ivec2 d = centre + ivec2(x, y);
-                const float c = cost(origin, d);
-                if (c < bestCost) {
-                    bestCost = c;
-                    best = d;
-                }
-            }
+        mine = none;
+        if (i < 25) {
+            mine = cost(origin, centre + ivec2(i % 5 - 2, i / 5 - 2));
+        }
+        const int n = lowest(mine, i < 25 ? i : 25);
+        if (bestCosts[0] < bestCost) {
+            best = centre + ivec2(n % 5 - 2, n / 5 - 2);
+            bestCost = bestCosts[0];
         }
     }
-    imageStore(field, block, vec4(vec2(best), 0.0, 0.0));
+    if (i == 0) {
+        imageStore(field, block, vec4(vec2(best), 0.0, 0.0));
+    }
 }

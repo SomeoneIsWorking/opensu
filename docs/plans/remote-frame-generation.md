@@ -329,19 +329,27 @@ Super Metroid's demo, 60 generated frames, RX 6700 XT, two runs each:
 | 3840x2160 | 2, 16.6 M, 266 / 166 MB | 8, 11.2 M, 165 / 79 MB | 5.4-5.5 / 6.0-10.1 ms | 58.7-66.6 / 5.6-5.6 ms |
 
 Timestamps (p50, the two runs' range) move with clocks and desktop load: Lossless's differ by up
-to 2.7x between runs, flow's ingest by 1.9x at 256x224. Within that, `flow`'s generated frame
-costs less than Lossless's at every size, but its search on each real frame costs 15 to 40 times
-Lossless's ingest, about 18 ms at 1280x720 and 60 ms at 4K, more than a 30 fps frame's 33 ms. It
-barely shrinks at 256x224 (8 to 15 ms for 78 K invocations), so it is not throughput but the
-length of each invocation: one thread per block runs every candidate vector over a 12 x 12
-window with a 144-float private array, 290 candidates (83 K texel loads) at the coarsest level
-and 35 (10 K) at the finer ones, and the coarsest level is one workgroup. Every dispatch is
-bounded (fixed loops, fixed candidate counts), at 4K too.
+to 2.7x between runs. Within that, `flow`'s generated frame costs less than Lossless's at every
+size; its search on each real frame cost 15 to 40 times Lossless's ingest when one thread per
+block tried every candidate in turn.
+
+The search now gives each block a workgroup of 64 threads that try its candidates side by side,
+each candidate's cost summed by one thread in the same order, and a reduction in shared memory
+picks the lowest, the earlier candidate of equal costs and the zero vector before all, as the
+loop did. Its frames are bit for bit the earlier search's on every scene (`--same-as`). Ingest
+GPU time, p50 of two runs against the earlier search's: 256x224 0.92-1.06 ms (7.8-14.8), 1280x720
+5.8-6.7 ms (17.0-28.0, 74% less over the run, beyond both spreads), 3840x2160 41.4 ms (58.7-66.6);
+invocations per ingest double (idle threads in the finer levels' 9 and 25 candidates). That is
+still 6 to 15 times Lossless's ingest at 1280x720 and more than a 30 fps frame at 4K. Keeping
+each candidate's differences in registers instead of reading them twice moved the unchanged
+generate pass's time as much as the ingest's between runs, so timestamps could not judge it, and
+it is not in.
 
 ### Left
 
-- The search's cost: candidates spread over a workgroup's threads with the block's window in
-  shared memory, so no invocation runs hundreds of candidates in turn.
+- The search's cost, still 6 to 15 times Lossless's ingest at 1280x720: the finer levels' blocks
+  packed several to a workgroup so no thread idles, the block's window in shared memory, and a
+  load-independent count of texel reads, since timestamps here move as much as the change.
 - `flow` in the product: a generator choice beside Lossless in `settings::framegen_settings`, taken
   by `RemoteFrameGen` (it already holds an `Interpolator`), and by the fork's Gamescope generator;
   until then it runs only in the harness.

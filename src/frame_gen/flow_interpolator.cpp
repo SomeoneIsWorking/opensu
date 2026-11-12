@@ -264,8 +264,9 @@ class FlowInterpolator final : public Interpolator {
                 push.pixelHeight = 1.0F;
                 const std::array<VkDescriptorSet, 1> sets{searchSets_[slot][level]};
                 const std::uint64_t parent = push.hasParent != 0 ? fields_[level + 1]->bytes() : 0;
-                dispatch(cmd, search_, sets, push, groups(static_cast<std::uint32_t>(push.blocksX)),
-                         groups(static_cast<std::uint32_t>(push.blocksY)),
+                // One workgroup per block.
+                dispatch(cmd, search_, sets, push, static_cast<std::uint32_t>(push.blocksX),
+                         static_cast<std::uint32_t>(push.blocksY),
                          {.read = (2 * lumas_[slot][level]->bytes()) + parent,
                           .written = fields_[level]->bytes()});
             }
