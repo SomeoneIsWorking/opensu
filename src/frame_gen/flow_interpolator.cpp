@@ -22,6 +22,9 @@ constexpr std::uint32_t reduceCode[] = {
 constexpr std::uint32_t searchCode[] = {
 #include "flow_search.comp.inc"
 };
+constexpr std::uint32_t chooseCode[] = {
+#include "flow_choose.comp.inc"
+};
 constexpr std::uint32_t makeCode[] = {
 #include "flow_make.comp.inc"
 };
@@ -174,7 +177,7 @@ void computeBarrier(VkCommandBuffer cmd) {
 
 /// openSU's own generator: block motion between the two real frames, searched coarse to fine on
 /// a luma pyramid when a real frame comes, and each frame between made from it by the pixels that
-/// agree best (`shaders/flow_*.comp`).
+/// agree best, the real pixels no motion takes shown in place (`shaders/flow_*.comp`).
 class FlowInterpolator final : public Interpolator {
   public:
     explicit FlowInterpolator(GeneratorDevice& gpu)
@@ -187,7 +190,9 @@ class FlowInterpolator final : public Interpolator {
         reduce_ = passOf(device_, reduceCode, reduceSets);
         const std::array<VkDescriptorSetLayout, 1> searchSets{four_.get()};
         search_ = passOf(device_, searchCode, searchSets);
-        const std::array<VkDescriptorSetLayout, 2> makeSets{three_.get(), one_.get()};
+        const std::array<VkDescriptorSetLayout, 2> chooseSets{three_.get(), two_.get()};
+        choose_ = passOf(device_, chooseCode, chooseSets);
+        const std::array<VkDescriptorSetLayout, 2> makeSets{four_.get(), one_.get()};
         make_ = passOf(device_, makeCode, makeSets);
     }
     ~FlowInterpolator() override {
@@ -276,8 +281,22 @@ class FlowInterpolator final : public Interpolator {
                       VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
         FlowPush push = pushOf(width_, height_);
         push.t = t;
-        const std::array<VkDescriptorSet, 2> sets{makeSets_[(added_ - 1) % 2], out};
-        dispatch(cmd, make_, sets, push, groups(width_), groups(height_));
+        const std::size_t slot = (added_ - 1) % 2;
+        const VkClearColorValue none{.uint32 = {0, 0, 0, 0}};
+        const VkImageSubresourceRange whole{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                            .baseMipLevel = 0,
+                                            .levelCount = 1,
+                                            .baseArrayLayer = 0,
+                                            .layerCount = 1};
+        vkCmdClearColorImage(cmd, used_->image(), VK_IMAGE_LAYOUT_GENERAL, &none, 1, &whole);
+        memoryBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+                      VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                      VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+        const std::array<VkDescriptorSet, 2> chooseSets{chooseSets_[slot], choiceSet_};
+        dispatch(cmd, choose_, chooseSets, push, groups(width_), groups(height_));
+        computeBarrier(cmd);
+        const std::array<VkDescriptorSet, 2> makeSets{makeSets_[slot], out};
+        dispatch(cmd, make_, makeSets, push, groups(width_), groups(height_));
         if (hooks.after) {
             hooks.after(cmd);
         }
@@ -385,6 +404,8 @@ class FlowInterpolator final : public Interpolator {
         frames_ = {};
         lumas_ = {};
         fields_ = {};
+        choice_.reset();
+        used_.reset();
         pool_ = Pool{};
         width_ = 0;
         height_ = 0;
@@ -407,7 +428,10 @@ class FlowInterpolator final : public Interpolator {
         for (auto& frame : frames_) {
             frame = std::make_unique<GeneratorImage>(gpu_, width, height);
         }
-        const std::uint32_t fixedSets = 2 + 2 * levels + 2 * levels + 2;
+        choice_ =
+            std::make_unique<GeneratorImage>(gpu_, width, height, VK_FORMAT_R16G16B16A16_SFLOAT);
+        used_ = std::make_unique<GeneratorImage>(gpu_, width, height, VK_FORMAT_R32_UINT);
+        const std::uint32_t fixedSets = 2 + 2 * levels + 2 * levels + 2 + 2 + 1;
         const VkDescriptorPoolSize size{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                                         .descriptorCount = (fixedSets + viewSets) * 4};
         const VkDescriptorPoolCreateInfo poolInfo{.sType =
@@ -438,10 +462,15 @@ class FlowInterpolator final : public Interpolator {
                                                         viewOf(fields_[level])};
                 searchSets_[slot][level] = fixedSet(four_.get(), search);
             }
-            const std::array<VkImageView, 3> made{viewOf(frames_[other]), viewOf(frames_[slot]),
-                                                  viewOf(fields_[0])};
-            makeSets_[slot] = fixedSet(three_.get(), made);
+            const std::array<VkImageView, 3> chose{viewOf(frames_[other]), viewOf(frames_[slot]),
+                                                   viewOf(fields_[0])};
+            chooseSets_[slot] = fixedSet(three_.get(), chose);
+            const std::array<VkImageView, 4> made{viewOf(frames_[other]), viewOf(frames_[slot]),
+                                                  viewOf(choice_), viewOf(used_)};
+            makeSets_[slot] = fixedSet(four_.get(), made);
         }
+        const std::array<VkImageView, 2> choice{viewOf(choice_), viewOf(used_)};
+        choiceSet_ = fixedSet(two_.get(), choice);
         VkCommandBuffer cmd = gpu_.Begin();
         if (cmd == VK_NULL_HANDLE) {
             throw std::runtime_error{"no command buffer for the flow images"};
@@ -457,6 +486,8 @@ class FlowInterpolator final : public Interpolator {
         for (const auto& field : fields_) {
             field->toGeneral(cmd);
         }
+        choice_->toGeneral(cmd);
+        used_->toGeneral(cmd);
         gpu_.Wait(gpu_.Submit(cmd));
         width_ = width;
         height_ = height;
@@ -471,6 +502,7 @@ class FlowInterpolator final : public Interpolator {
     Pass take_;
     Pass reduce_;
     Pass search_;
+    Pass choose_;
     Pass make_;
     std::uint32_t width_{0};
     std::uint32_t height_{0};
@@ -479,10 +511,16 @@ class FlowInterpolator final : public Interpolator {
     std::array<std::unique_ptr<GeneratorImage>, 2> frames_;
     std::array<std::array<std::unique_ptr<GeneratorImage>, levels>, 2> lumas_;
     std::array<std::unique_ptr<GeneratorImage>, levels> fields_;
+    /// Each pixel's chosen motion and how badly it matched, for the frame being made.
+    std::unique_ptr<GeneratorImage> choice_;
+    /// Which real pixels the chosen motion takes: bit 0 the earlier frame's, bit 1 the later's.
+    std::unique_ptr<GeneratorImage> used_;
     Pool pool_;
     std::array<VkDescriptorSet, 2> takeSets_{};
     std::array<std::array<VkDescriptorSet, levels>, 2> reduceSets_{};
     std::array<std::array<VkDescriptorSet, levels>, 2> searchSets_{};
+    std::array<VkDescriptorSet, 2> chooseSets_{};
+    VkDescriptorSet choiceSet_{VK_NULL_HANDLE};
     std::array<VkDescriptorSet, 2> makeSets_{};
     std::map<VkImageView, VkDescriptorSet> views_;
 };

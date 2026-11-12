@@ -4,7 +4,8 @@
 // frame between them: the block's pixels matched symmetrically (earlier at -t d, later at
 // +(1-t) d, t 0.5) by the sum of absolute luma differences over the block and a 2 pixel margin, less their mean.
 // The coarsest level tries every vector within `range`; each finer one its parent's 3 x 3
-// neighbourhood's vectors, doubled, and then every vector within 2 pixels of the best.
+// neighbourhood's vectors, doubled, and then every vector within 2 pixels of the best. A block
+// either frame is flat over (a fade from white) shows no motion, so it keeps none.
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(set = 0, binding = 0, r32f) uniform readonly image2D earlier;
 layout(set = 0, binding = 1, r32f) uniform readonly image2D later;
@@ -15,6 +16,26 @@ layout(set = 0, binding = 3, rg32f) uniform writeonly image2D field;
 const int margin = 2;
 // Per pixel and pixel of vector length: between equal matches the shorter vector wins.
 const float lengthCost = 1.0 / 4096.0;
+
+// Mean absolute deviation of luma per pixel below which a window counts as flat.
+const float flatBelow = 1.0 / 255.0;
+
+bool featureless(ivec2 origin, bool isLater) {
+    const ivec2 last = push.size - 1;
+    const int side = blockSize + 2 * margin;
+    float mean = 0.0;
+    for (int i = 0; i < side * side; ++i) {
+        const ivec2 p = clamp(origin + ivec2(i % side - margin, i / side - margin), ivec2(0), last);
+        mean += isLater ? imageLoad(later, p).r : imageLoad(earlier, p).r;
+    }
+    mean /= float(side * side);
+    float deviation = 0.0;
+    for (int i = 0; i < side * side; ++i) {
+        const ivec2 p = clamp(origin + ivec2(i % side - margin, i / side - margin), ivec2(0), last);
+        deviation += abs((isLater ? imageLoad(later, p).r : imageLoad(earlier, p).r) - mean);
+    }
+    return deviation < flatBelow * float(side * side);
+}
 
 float cost(ivec2 origin, ivec2 d) {
     const ivec2 back = earlierShare(vec2(d), 0.5);
@@ -49,7 +70,9 @@ void main() {
     const ivec2 origin = block * blockSize;
     ivec2 best = ivec2(0);
     float bestCost = cost(origin, best);
-    if (push.hasParent == 0) {
+    if (featureless(origin, false) || featureless(origin, true)) {
+        // Nothing to match: no motion.
+    } else if (push.hasParent == 0) {
         for (int y = -push.range; y <= push.range; ++y) {
             for (int x = -push.range; x <= push.range; ++x) {
                 const float c = cost(origin, ivec2(x, y));

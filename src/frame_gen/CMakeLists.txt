@@ -6,7 +6,7 @@
 add_library(opensu_frame_gen STATIC generator_gpu.cpp lossless_interpolator.cpp
     flow_interpolator.cpp)
 gpu2d_compile_shaders(opensu_frame_gen shaders/flow_take.comp shaders/flow_reduce.comp
-    shaders/flow_search.comp shaders/flow_make.comp)
+    shaders/flow_search.comp shaders/flow_choose.comp shaders/flow_make.comp)
 add_library(opensu::frame_gen ALIAS opensu_frame_gen)
 target_include_directories(opensu_frame_gen PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_link_libraries(opensu_frame_gen PUBLIC framegen::framegen opensu::vulkan

@@ -1,0 +1,63 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+// Each pixel's motion for the frame at time t: of its block's vector and the 8 around it (its own
+// first, which keeps ties), the one whose earlier and later pixels agree best over a 3 x 3
+// neighbourhood less their mean difference, with that disagreement and the mean luma change from the
+// earlier to the later there (a fade or a flash); the real pixels it takes are
+// marked used (bit 0 the earlier frame's, bit 1 the later's).
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(set = 0, binding = 0, rgba8) uniform readonly image2D earlier;
+layout(set = 0, binding = 1, rgba8) uniform readonly image2D later;
+layout(set = 0, binding = 2, rg32f) uniform readonly image2D field;
+layout(set = 1, binding = 0, rgba16f) uniform writeonly image2D choice;
+layout(set = 1, binding = 1, r32ui) uniform uimage2D used;
+#include "flow_push.glsl"
+
+vec3 at(ivec2 p, bool isLater) {
+    const ivec2 q = clamp(p, ivec2(0), push.size - 1);
+    return isLater ? imageLoad(later, q).rgb : imageLoad(earlier, q).rgb;
+}
+
+void main() {
+    const ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(p, push.size))) {
+        return;
+    }
+    const ivec2 block = p / blockSize;
+    const ivec2 fieldLast = push.blocks - 1;
+    vec2 bestD = vec2(0.0);
+    float bestError = 1e30;
+    float bestChange = 0.0;
+    for (int y = -1; y <= 1; ++y) {
+        for (int x = -1; x <= 1; ++x) {
+            // (0, 0) first, then the eight neighbours.
+            const ivec2 n = ivec2((x + 2) % 3 - 1, (y + 2) % 3 - 1);
+            const vec2 d = imageLoad(field, clamp(block + n, ivec2(0), fieldLast)).rg;
+            const ivec2 back = earlierShare(d, push.t);
+            const ivec2 ahead = ivec2(d) - back;
+            vec3 diffs[9];
+            vec3 mean = vec3(0.0);
+            for (int i = 0; i < 9; ++i) {
+                const ivec2 o = ivec2(i % 3 - 1, i / 3 - 1);
+                diffs[i] = at(p + o - back, false) - at(p + o + ahead, true);
+                mean += diffs[i];
+            }
+            mean /= 9.0;
+            float error = 0.0;
+            for (int i = 0; i < 9; ++i) {
+                const vec3 e = abs(diffs[i] - mean);
+                error += e.r + e.g + e.b;
+            }
+            if (error < bestError) {
+                bestError = error;
+                bestD = d;
+                bestChange = -dot(mean, vec3(0.299, 0.587, 0.114));
+            }
+        }
+    }
+    imageStore(choice, p, vec4(bestD, bestError, bestChange));
+    const ivec2 back = earlierShare(bestD, push.t);
+    const ivec2 last = push.size - 1;
+    imageAtomicOr(used, clamp(p - back, ivec2(0), last), 1u);
+    imageAtomicOr(used, clamp(p + ivec2(bestD) - back, ivec2(0), last), 2u);
+}

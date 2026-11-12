@@ -1,15 +1,19 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-// The frame at time t between two real ones: each pixel tries the vectors of its block and the 8
-// around it (its own first, which keeps ties), keeps the one whose earlier and later pixels agree
-// best over a 3 x 3 neighbourhood less their mean difference, and mixes the two frames by t at
-// that vector's places, bilinearly where they fall between pixels.
+// The frame at time t between two real ones: the two mixed by t at each pixel's chosen motion,
+// bilinearly where it falls between pixels. Real pixels no chosen motion took are shown where they
+// are, lit as the frame between is: a shape of them only from the nearer frame and whole, so a
+// shape no vector fits does not vanish or break up, a speck from each frame weighted by time.
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(set = 0, binding = 0, rgba8) uniform readonly image2D earlier;
 layout(set = 0, binding = 1, rgba8) uniform readonly image2D later;
-layout(set = 0, binding = 2, rg32f) uniform readonly image2D field;
+layout(set = 0, binding = 2, rgba16f) uniform readonly image2D choice;
+layout(set = 0, binding = 3, r32ui) uniform readonly uimage2D used;
 layout(set = 1, binding = 0, rgba8) uniform writeonly image2D made;
 #include "flow_push.glsl"
+
+// Of a pixel's 5 x 5, how many must be untaken for it to be part of a shape rather than a speck.
+const int shapeAt = 18;
 
 vec3 at(ivec2 p, bool isLater) {
     const ivec2 q = clamp(p, ivec2(0), push.size - 1);
@@ -29,37 +33,39 @@ void main() {
     if (any(greaterThanEqual(p, push.size))) {
         return;
     }
-    const ivec2 block = p / blockSize;
-    const ivec2 fieldLast = push.blocks - 1;
-    vec2 bestD = vec2(0.0);
-    float bestError = 1e30;
-    for (int y = -1; y <= 1; ++y) {
-        for (int x = -1; x <= 1; ++x) {
-            // (0, 0) first, then the eight neighbours.
-            const ivec2 n = ivec2((x + 2) % 3 - 1, (y + 2) % 3 - 1);
-            const vec2 d = imageLoad(field, clamp(block + n, ivec2(0), fieldLast)).rg;
-            const ivec2 back = earlierShare(d, push.t);
-            const ivec2 ahead = ivec2(d) - back;
-            vec3 diffs[9];
-            vec3 mean = vec3(0.0);
-            for (int i = 0; i < 9; ++i) {
-                const ivec2 o = ivec2(i % 3 - 1, i / 3 - 1);
-                diffs[i] = at(p + o - back, false) - at(p + o + ahead, true);
-                mean += diffs[i];
-            }
-            mean /= 9.0;
-            float error = 0.0;
-            for (int i = 0; i < 9; ++i) {
-                const vec3 e = abs(diffs[i] - mean);
-                error += e.r + e.g + e.b;
-            }
-            if (error < bestError) {
-                bestError = error;
-                bestD = d;
-            }
+    const ivec2 last = push.size - 1;
+    const vec4 chosen = imageLoad(choice, p);
+    const vec2 d = chosen.rg;
+    const uint here = imageLoad(used, p).r;
+    int lostEarlier = 0;
+    int lostLater = 0;
+    for (int y = -2; y <= 2; ++y) {
+        for (int x = -2; x <= 2; ++x) {
+            const uint u = imageLoad(used, clamp(p + ivec2(x, y), ivec2(0), last)).r;
+            lostEarlier += (u & 1u) == 0u ? 1 : 0;
+            lostLater += (u & 2u) == 0u ? 1 : 0;
         }
     }
-    const vec3 colour = mix(between(vec2(p) - push.t * bestD, false),
-                            between(vec2(p) + (1.0 - push.t) * bestD, true), push.t);
+    const bool earlierLost = (here & 1u) == 0u;
+    const bool laterLost = (here & 2u) == 0u;
+    const bool earlierShape = earlierLost && lostEarlier >= shapeAt;
+    const bool laterShape = laterLost && lostLater >= shapeAt;
+    const float toLater = (1.0 - push.t) * chosen.a;
+    const float fromEarlier = push.t * chosen.a;
+    const vec3 earlierLit = clamp(at(p, false) + fromEarlier, 0.0, 1.0);
+    const vec3 laterLit = clamp(at(p, true) - toLater, 0.0, 1.0);
+    const bool nearerIsLater = push.t > 0.5;
+    vec3 colour = mix(between(vec2(p) - push.t * d, false),
+                      between(vec2(p) + (1.0 - push.t) * d, true), push.t);
+    if (nearerIsLater ? laterShape : earlierShape) {
+        colour = nearerIsLater ? laterLit : earlierLit;
+    } else {
+        if (earlierLost && !earlierShape) {
+            colour = mix(colour, earlierLit, 1.0 - push.t);
+        }
+        if (laterLost && !laterShape) {
+            colour = mix(colour, laterLit, push.t);
+        }
+    }
     imageStore(made, p, vec4(colour, 1.0));
 }
