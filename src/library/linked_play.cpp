@@ -53,6 +53,20 @@ std::filesystem::path sessionCore(const Game& game) {
     return netplayCore(game);
 }
 
+std::string sessionCoreId(const Game& game) {
+    if (const EmulatorOption* core = linkable(game) ? linkCoreOf(game) : nullptr) {
+        return core->id;
+    }
+    if (netplayCore(game).empty()) {
+        return {};
+    }
+    const auto found =
+        std::ranges::find_if(game.emulatorOptions, [&game](const EmulatorOption& option) {
+            return option.builtIn && option.installed && option.name == game.emulator;
+        });
+    return found == game.emulatorOptions.end() ? std::string{} : found->id;
+}
+
 bool netplayable(const Game& game) {
     return linkable(game) || !netplayCore(game).empty();
 }

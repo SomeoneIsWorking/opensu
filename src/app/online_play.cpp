@@ -12,8 +12,8 @@
 
 #include "lan/netplay_asks.hpp"
 #include "library/linked_play.hpp"
-#include "lucent/log.h"
 #include "lobby_screen.hpp"
+#include "lucent/log.h"
 #include "online_screen.hpp"
 #include "secrets/secret.hpp"
 #include "ui/entry_screen.hpp"
@@ -326,9 +326,8 @@ void OnlinePlay::findGames() {
                            },
                        .kind = gpu2d::ui::ButtonKind::Primary,
                        .exits = true});
-    navigator_.push(std::make_unique<gpu2d::ui::Dialog>("Join a public game?",
-                                                        std::string{seesYou}, std::move(choices),
-                                                        1));
+    navigator_.push(std::make_unique<gpu2d::ui::Dialog>("Join a public game?", std::string{seesYou},
+                                                        std::move(choices), 1));
 }
 
 OnlinePlay::Lobbies OnlinePlay::lobbies() const {
@@ -340,8 +339,8 @@ OnlinePlay::Lobbies OnlinePlay::lobbies() const {
     const online::LobbyFinder::View view = finder_->view();
     shown.step = view.step;
     shown.games = view.games;
-    shown.pickable = view.step != Step::Listing && view.step != Step::Asking &&
-                     view.step != Step::Invited;
+    shown.pickable =
+        view.step != Step::Listing && view.step != Step::Asking && view.step != Step::Invited;
     switch (view.step) {
     case Step::Listing:
         shown.note = "Looking for public games...";
@@ -538,9 +537,7 @@ OnlinePlay::Page OnlinePlay::shown() const {
         break;
     case Step::Failed:
         page.title = "No game";
-        page.note = view_.refusal.empty()
-                        ? online::Meeting::textOf(view_.failure)
-                        : online::Meeting::textOf(view_.failure) + " " + view_.refusal + ".";
+        page.note = online::Meeting::sentenceOf(view_.failure, view_.refusal);
         page.over = true;
         break;
     }
@@ -549,10 +546,10 @@ OnlinePlay::Page OnlinePlay::shown() const {
     }
     if (publicLobby_) {
         const online::PublicLobby::View listed = publicLobby_->view();
-        page.listing = listed.seated   ? "A player from the public list has your code."
-                       : listed.listed ? "Listed publicly as \"" + lobbyNameDraft_ +
-                                             "\". Anyone who asks gets your code and your "
-                                             "public IP address."
+        page.listing = listed.seated            ? "A player from the public list has your code."
+                       : listed.listed          ? "Listed publicly as \"" + lobbyNameDraft_ +
+                                                      "\". Anyone who asks gets your code and your "
+                                                      "public IP address."
                        : listed.problem.empty() ? "Listing publicly..."
                                                 : listed.problem;
     }

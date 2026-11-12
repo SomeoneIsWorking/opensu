@@ -142,8 +142,8 @@ EmulatorDownloads::installCore(const std::stop_token& stop, const EmulatorEntry&
             return asset.as<Build>();
         }
         remember(entry.id, Build{asset->version, keyOf(entry, *asset)});
-        const net::Result<library::roms::DownloadedCore> installed =
-            coreDownload_.installRelease(stop, entry.core, *asset, release_, cores_, progress);
+        const net::Result<library::roms::DownloadedCore> installed = coreDownload_.installRelease(
+            stop, entry.core, *asset, entry.release->library, release_, cores_, progress);
         if (!installed) {
             return installed.as<Build>();
         }

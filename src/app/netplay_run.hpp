@@ -11,9 +11,11 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "lan/wire.hpp"
+#include "library/emulator_catalog.hpp"
 #include "library/game.hpp"
 #include "secrets/crypto.hpp"
 
@@ -40,6 +42,8 @@ class NetplayRun {
         std::function<std::filesystem::path()> biosFolder;
         /// The BIOS files in that folder `game`'s built-in core boots from.
         std::function<std::vector<std::filesystem::path>(const library::Game& game)> coreBios;
+        /// The catalog's emulator `id`; null for none.
+        std::function<const library::roms::EmulatorEntry*(std::string_view id)> catalogEntry;
     };
 
     /// A session both sides agreed to.

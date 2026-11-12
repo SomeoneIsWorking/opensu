@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <span>
 #include <stop_token>
 #include <string>
 #include <string_view>
@@ -15,6 +16,7 @@
 #include "library/core_target.hpp"
 #include "library/emulators.hpp"
 #include "library/libretro_cores.hpp"
+#include "lucent/content.h"
 #include "support/buildbot_server.hpp"
 #include "support/release_server.hpp"
 #include "support/scratch_dir.hpp"
@@ -31,6 +33,10 @@ using opensu::test::expect;
 using opensu::test::need;
 
 /// `core`'s library file on this OS: `mgba_libretro.so`, `.dll` or `.dylib`.
+std::string sha256Of(std::string_view bytes) {
+    return lucent::content::sha256_hex(lucent::content::sha256(std::as_bytes(std::span{bytes})));
+}
+
 std::string lib(const std::string& core) {
     return core + std::string{coreTarget.librarySuffix};
 }
@@ -207,22 +213,30 @@ void releasedCoreIsChecked(const fs::path& root) {
     server.publish("mame2010", "2026-11-07", 1, "mame2010_libretro-x.zip", zipped("ours"));
     const ReleaseAsset asset = need(release.latest(std::stop_token{}, source), "read");
     const DownloadedCore installed =
-        need(download.installRelease(std::stop_token{}, core, asset, release, store, anyProgress),
-             "a released core whose digest matches installs");
+        need(download.installRelease(std::stop_token{}, core, asset, sha256Of("ours"), release,
+                                     store, anyProgress),
+             "a released core whose digests match installs");
     expect(read(installed.file) == "ours" && installed.date == "2026-11-07" &&
                installed.url == asset.url && read(store.info(core)) == info,
            "it is the release's core, dated by its tag, with the buildbot's info");
 
+    server.publish("mame2010", "2026-11-08", 4, "mame2010_libretro-x.zip", zipped("rebuilt"));
+    const ReleaseAsset rebuilt = need(release.latest(std::stop_token{}, source), "read");
+    expect(download.installRelease(std::stop_token{}, core, rebuilt, sha256Of("ours"), release,
+                                   store, anyProgress)
+                   .error()
+                   .find("not the catalog's") != std::string::npos,
+           "a library that is not the one the catalog pins is refused");
     server.publish("mame2010", "2026-11-08", 2, "mame2010_libretro-x.zip", zipped("tampered"),
                    std::string(64, '0'));
     const ReleaseAsset bad = need(release.latest(std::stop_token{}, source), "read");
-    expect(download.installRelease(std::stop_token{}, core, bad, release, store, anyProgress)
+    expect(download.installRelease(std::stop_token{}, core, bad, {}, release, store, anyProgress)
                    .error()
                    .find("SHA-256") != std::string::npos,
            "a digest mismatch is refused");
     server.publish("mame2010", "2026-11-09", 3, "mame2010_libretro-x.zip", zipped("unsigned"), "");
     const ReleaseAsset plain = need(release.latest(std::stop_token{}, source), "read");
-    expect(download.installRelease(std::stop_token{}, core, plain, release, store, anyProgress)
+    expect(download.installRelease(std::stop_token{}, core, plain, {}, release, store, anyProgress)
                    .error()
                    .find("no SHA-256") != std::string::npos,
            "a release without a digest is refused");

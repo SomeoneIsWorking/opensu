@@ -304,6 +304,13 @@
           "android-arm64-v8a": "10db38942113f631c2c6fd5a88c595abaa92947e2d0d66d526b1f99fa112f856",
           "android-x86_64": "90142faa5bf14bb23499f39528040fc371a38b6f9515e361154b16c919984e10",
           "macos-arm64": "f7ceaa64ff25991ee3d02b3f7786701f01c4f5fc39c0a9124799b746fa0f5d47"
+        },
+        "library": {
+          "linux-x86_64": "06f61ce5e4b0626b28ffdecefbbc49d5b7619888084dcfe3c897c2648d241a29",
+          "windows-x86_64": "a93407d623cf8730d824ac08362c296a74efaebe099805cf7b60b20c3e276a2e",
+          "android-arm64-v8a": "4a477d28eb4fc553981ec1dc11551ef6c9f366e6bfcb60eb37d5b0f0cf303917",
+          "android-x86_64": "b24d42d85df0a0f5c6faeb4016d46ab70e5ad76c751aa3e66ae12dce9d1e9a18",
+          "macos-arm64": "c7cf6c27253a68d889f1f4239b8adaef58bc65e74090204c4cdc5c2bd94f41f6"
         }
       }
     },

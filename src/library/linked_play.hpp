@@ -27,6 +27,9 @@ inline constexpr std::string_view linkCoreBios = "gba_bios.bin";
 /// The library a netplay session of `game` runs: the link core, else `netplayCore`.
 [[nodiscard]] std::filesystem::path sessionCore(const Game& game);
 
+/// The catalog id of the emulator whose core `sessionCore` names; empty for a configured one.
+[[nodiscard]] std::string sessionCoreId(const Game& game);
+
 /// `game` on the link core, both players side by side; nothing when it is not `linkable`.
 [[nodiscard]] std::optional<Game> splitScreenGame(const Game& game);
 

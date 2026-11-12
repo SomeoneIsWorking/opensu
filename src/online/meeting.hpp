@@ -13,6 +13,7 @@
 #include <optional>
 #include <stop_token>
 #include <string>
+#include <string_view>
 #include <thread>
 
 #include "lan/wire.hpp"
@@ -149,6 +150,9 @@ class Meeting {
 
     /// `failure` in words for the player.
     [[nodiscard]] static std::string textOf(Failure failure);
+    /// What the player reads of `failure`: `textOf`, and the other side's `refusal` after it
+    /// when there is one ("The game did not start: <refusal>.").
+    [[nodiscard]] static std::string sentenceOf(Failure failure, std::string_view refusal);
     /// What a host with a core that may roll back asks for, from the frames `delayFor` gives: the
     /// least delay, and at least the rest as frames to run ahead.
     [[nodiscard]] static unsigned aheadFor(unsigned delay) noexcept;

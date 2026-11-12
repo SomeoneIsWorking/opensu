@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <format>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -176,7 +177,7 @@ void Meeting::fail(Failure failure, std::string refusal) {
     view_.failure = failure;
     view_.refusal = std::move(refusal);
     view_.code.clear();
-    lucent::info("online", "no game: {}", textOf(failure));
+    lucent::info("online", "no game: {}", sentenceOf(failure, view_.refusal));
 }
 
 bool Meeting::failed() const {
@@ -207,6 +208,17 @@ std::string Meeting::textOf(Failure failure) {
         return "This machine has no network to play over.";
     }
     return {};
+}
+
+std::string Meeting::sentenceOf(Failure failure, std::string_view refusal) {
+    std::string text = textOf(failure);
+    if (refusal.empty()) {
+        return text;
+    }
+    if (text.ends_with('.')) {
+        text.pop_back();
+    }
+    return std::format("{}: {}.", text, refusal);
 }
 
 unsigned Meeting::delayFor(std::chrono::milliseconds roundTrip) noexcept {

@@ -1167,6 +1167,10 @@ class ShellApp final {
             .coreBios =
                 [this](const library::Game& game) {
                     return netplayBiosOf(game);
+                },
+            .catalogEntry =
+                [this](std::string_view id) {
+                    return emulatorSettings_.catalog().find(id);
                 }}};
     /// Playing a ROM linked with a paired openSU.
     LanNetplay lanNetplay_{

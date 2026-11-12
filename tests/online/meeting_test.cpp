@@ -211,6 +211,11 @@ void declinedSaysSo() {
     expect(host.view().failure == Meeting::Failure::Refused &&
                host.view().refusal == "it does not have this ROM",
            "and why");
+    expect(Meeting::sentenceOf(host.view().failure, host.view().refusal) ==
+               "The game did not start: it does not have this ROM.",
+           "the player reads both as one sentence");
+    expect(Meeting::sentenceOf(Meeting::Failure::Refused, "") == "The game did not start.",
+           "and the failure alone without a reason");
     expect(host.view().code.empty(), "and the code is gone");
 }
 

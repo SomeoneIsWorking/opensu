@@ -44,6 +44,7 @@
 #include "lan/rom_shelf.hpp"
 #include "lan/shared_library.hpp"
 #include "lan/wire.hpp"
+#include "library/emulator_catalog.hpp"
 #include "library/rom_tree.hpp"
 #include "net/web_client.hpp"
 #include "profiles/profile_book.hpp"
@@ -680,9 +681,18 @@ void askedToPlayTogether(const lan::LanNode& guest, lan::LanNode& host) {
     expect(lan::netplayDifference(ask.facts, same) == "its BIOS is not the same file as yours",
            "another BIOS is named");
     same = ask.facts;
-    same.coreRevision = std::string{lan::wire::coreBuildPrefix} + "aa";
+    same.coreRevision = "sha256:aa";
     expect(lan::netplayDifference(ask.facts, same) == "its core is not the same build as yours",
            "another core's build is refused");
+    library::roms::EmulatorEntry pinned;
+    pinned.id = "mgba-core";
+    pinned.libraries = library::roms::PinnedLibraries{.tag = "t", .sha256 = {std::string(64, 'a')}};
+    lan::wire::NetplayFacts released = ask.facts;
+    released.coreRevision = library::roms::coreBuildOf(&pinned, std::string(64, 'a'));
+    same = ask.facts;
+    same.coreRevision = library::roms::coreBuildOf(&pinned, std::string(64, 'c'));
+    expect(lan::netplayDifference(released, same) == "its core is not the same build as yours",
+           "a changed library of a pinned release is refused");
     same = ask.facts;
     same.options["mgba_frameskip"] = "2";
     expect(lan::netplayDifference(ask.facts, same) ==

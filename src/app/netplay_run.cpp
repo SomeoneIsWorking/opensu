@@ -48,8 +48,8 @@ const library::Game* NetplayRun::romOf(const std::vector<library::Game>& games,
 }
 
 lan::wire::NetplayFacts NetplayRun::factsOf(const library::Game& game) const {
-    std::string revision =
-        std::string{lan::wire::coreBuildPrefix} + sha256Of(library::sessionCore(game));
+    std::string revision = library::roms::coreBuildOf(
+        hooks_.catalogEntry(library::sessionCoreId(game)), sha256Of(library::sessionCore(game)));
     if (!library::netplayCore(game).empty()) {
         std::string files;
         for (const std::filesystem::path& file : hooks_.coreBios(game)) {

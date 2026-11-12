@@ -19,6 +19,7 @@ namespace {
 
 using namespace opensu::library::roms;
 using opensu::test::expect;
+using opensu::test::need;
 
 void shippedCatalogParses() {
     const EmulatorCatalog catalog = EmulatorCatalog::shipped(OPENSU_ASSETS_DIR, "/home/p");
@@ -74,6 +75,9 @@ void shippedCatalogParses() {
                mgba->release->sha256.size() == 64 && mgba->links == std::vector<std::string>{"gba"},
            "mGBA comes from the fork's pinned release, checked against its pinned SHA-256, and "
            "links GBA players");
+    expect(mgba->release.value_or(ReleaseSource{}).library.size() == 64 && mgba->libraries &&
+               mgba->libraries->sha256.size() == 5 && !mgba->libraries->tag.empty(),
+           "and each build's library inside its zip is pinned, under the release's tag");
     expect(catalog.find("mgba-link-core") == nullptr, "there is one mGBA core");
     expect(catalog.find("mgba") != nullptr && !catalog.find("mgba")->builtIn(),
            "the standalone mGBA stays beside it");
@@ -161,6 +165,48 @@ void coreReleasePerBuild() {
                    android->find("mame2010-core")->release.has_value(),
                "MAME 2010 comes from openSU's own build on Android");
     }
+}
+
+void coreBuildNamesTheRelease() {
+    const std::string linux(64, 'a');
+    const std::string android(64, 'b');
+    const auto catalogOf = [&](const std::string& tag) {
+        std::string error;
+        std::optional<EmulatorCatalog> parsed = EmulatorCatalog::parse(
+            R"({"emulators":[{"id":"mgba-core","name":"M","systems":["gba"],
+                "core":"mgba_libretro","release":{"api":"https://h/api/releases/tags/)" +
+                tag +
+                R"(","downloads":"https://h/dl/",
+                "assets":{"linux-x86_64":"^l\\.zip$","android-x86_64":"^a\\.zip$"},
+                "library":{"linux-x86_64":")" +
+                linux + R"(","android-x86_64":")" + android + R"("}}}]})",
+            "/h", error, "linux-x86_64");
+        return need(parsed, "the catalog with library pins parses");
+    };
+    const EmulatorCatalog first = catalogOf("2026-11-10");
+    const EmulatorEntry* here = first.find("mgba-core");
+    expect(here->release.value_or(ReleaseSource{}).library == linux,
+           "this build checks its own library on extract");
+    expect(coreBuildOf(here, linux) == "release:mgba-core@2026-11-10" &&
+               coreBuildOf(here, android) == coreBuildOf(here, linux),
+           "two builds' libraries of one tag are one core build");
+    const EmulatorCatalog second = catalogOf("2026-12-01");
+    expect(coreBuildOf(second.find("mgba-core"), android) != coreBuildOf(here, linux),
+           "another tag is another build");
+    const std::string changed(64, 'c');
+    expect(coreBuildOf(here, changed) == "sha256:" + changed,
+           "a library that is not a pinned one is named by its SHA-256");
+    expect(coreBuildOf(nullptr, changed) == "sha256:" + changed,
+           "a core the catalog does not have is named by its SHA-256");
+    std::string error;
+    expect(!EmulatorCatalog::parse(
+               R"({"emulators":[{"id":"a","name":"A","systems":["gba"],"core":"mgba_libretro",
+                   "release":{"api":"https://h/api/latest","downloads":"https://h/dl/",
+                   "assets":{"linux-x86_64":"x"},"library":{"linux-x86_64":")" +
+                   linux + R"("}}}]})",
+               "/h", error) &&
+               error.find("tag") != std::string::npos,
+           "library pins without a pinned tag are refused");
 }
 
 void romsetSources() {
@@ -276,6 +322,7 @@ int main() try {
     shippedCatalogParses();
     xdgConfigFolder();
     coreReleasePerBuild();
+    coreBuildNamesTheRelease();
     malformedIsRefused();
     coreEntries();
     romsetSources();

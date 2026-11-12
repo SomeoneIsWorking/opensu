@@ -47,6 +47,15 @@ struct ReleaseSource {
     /// The asset's SHA-256 the catalog pins (a core release's `"sha256"`), lower-case hex; empty
     /// to take the one the release publishes.
     std::string sha256{};
+    /// The SHA-256 of the core library inside a core release's asset (`"library"`), lower-case
+    /// hex; empty when the catalog pins none.
+    std::string library{};
+};
+
+/// A core release's tag and the SHA-256 of the library inside every build's asset (`"library"`).
+struct PinnedLibraries {
+    std::string tag;
+    std::vector<std::string> sha256;
 };
 
 /// Where an arcade core's ROM-set listings come from: datafiles at fixed HTTPS URLs, merged in
@@ -136,6 +145,8 @@ struct EmulatorEntry {
     /// Absent for an emulator without an official AppImage. For a built-in emulator, the release
     /// its core comes from on this build instead of the buildbot (`"release"`'s `"assets"`).
     std::optional<ReleaseSource> release;
+    /// A built-in emulator's release tag and every build's library, when the catalog pins them.
+    std::optional<PinnedLibraries> libraries;
     /// Absent for an emulator whose saves openSU cannot read; a built-in one's are the runner's.
     std::optional<SaveStore> saves;
     /// The libretro core a built-in emulator runs ("mgba_libretro"); empty for a standalone one.
@@ -180,6 +191,11 @@ struct EmulatorEntry {
         return release.has_value() || builtIn();
     }
 };
+
+/// The core build another player compares: `release:<id>@<tag>` when `librarySha256` is a library
+/// `entry`'s release pins for any build, which share that tag's source, else
+/// `sha256:<librarySha256>`, also for a core with no catalog entry.
+[[nodiscard]] std::string coreBuildOf(const EmulatorEntry* entry, std::string_view librarySha256);
 
 class EmulatorCatalog {
   public:

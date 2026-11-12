@@ -619,7 +619,10 @@ A core the buildbot's build cannot run comes from openSU's own build: its catalo
 asset to take; a build it names none for takes the buildbot's. The asset is a zip holding the one
 library, downloaded through `EmulatorRelease::fetch` and refused unless it matches a SHA-256: the
 one the catalog pins for that build (`"sha256"`, by the same build names as `"assets"`; a release
-publishing another is refused), else the one the release publishes. Its info still comes from the
+publishing another is refused), else the one the release publishes. When the catalog also pins
+`"library"` (the SHA-256 of the library inside each build's zip, by the same build names; it needs a
+release pinned by tag), the library taken out of the zip is refused unless it is that build's
+(`CoreDownload::place`). Its info still comes from the
 buildbot, its record keeps the release's tag as its date and the asset's URL, which the update check
 compares. Settings › Emulators names its source "openSU build". A buildbot core openSU downloaded
 before the catalog named the release reads "libretro buildbot" and is offered as an update until
@@ -634,7 +637,10 @@ the link-cable multiplayer of libretro/mgba PR #318, a netplay session's clock a
 fix for Final Fantasy Adventure (`docs/issues/runner-core-crashes.md`). The fork's `release.yml`
 builds `mgba_libretro` with mGBA's CMake (`-DLIBMGBA_ONLY=ON -DBUILD_LIBRETRO=ON`) for each
 `coreTarget.build` on a pushed `20*` tag and uploads `mgba_libretro_<build>.zip` with its
-`.sha256` to the tag's release as each build finishes; the catalog pins the tag (`releases/tags/<tag>`) and each zip's SHA-256. Its
+`.sha256` to the tag's release as each build finishes; the catalog pins the tag (`releases/tags/<tag>`), each zip's SHA-256 and each library's
+(`"library"`), which are read today by hashing the library in each downloaded zip; `release.yml`
+should publish the library's digest beside the zip's, so the next tag's pins are copied, not
+derived. Its
 `"links": ["gba"]` makes it the core GBA games link on, and only as that release's download
 (`InstallSource::ReleasedCore`): a buildbot or RetroArch `mgba_libretro` plays alone. Saves do not
 move: a shell launch keeps them by profile and system, not by core.

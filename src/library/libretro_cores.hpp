@@ -143,13 +143,13 @@ class CoreDownload {
             const net::WebClient::Progress& progress) const;
 
     /// Downloads `core` as the release's `asset`, checks it against the SHA-256 the release
-    /// publishes (refused when it publishes none), takes the one core out of its zip and switches
-    /// to it, recording the release's version as its date. As `install`, nothing stays unless it
-    /// succeeds.
+    /// publishes (refused when it publishes none), takes the one core out of its zip, refused
+    /// unless its SHA-256 is `library` when the catalog pins one, and switches to it, recording
+    /// the release's version as its date. As `install`, nothing stays unless it succeeds.
     [[nodiscard]] net::Result<DownloadedCore>
     installRelease(const std::stop_token& stop, const std::string& core, const ReleaseAsset& asset,
-                   const EmulatorRelease& release, const DownloadedCores& store,
-                   const net::WebClient::Progress& progress) const;
+                   std::string_view library, const EmulatorRelease& release,
+                   const DownloadedCores& store, const net::WebClient::Progress& progress) const;
 
     [[nodiscard]] const std::string& base() const noexcept {
         return base_;
@@ -161,10 +161,12 @@ class CoreDownload {
     /// `core`'s info file from the buildbot's archive.
     [[nodiscard]] net::Result<std::string> infoOf(const std::stop_token& stop,
                                                   const std::string& core) const;
-    /// Puts `library`, taken from the zip `bytes`, and `info` in `store` as `build`; `build.crc32`
-    /// is checked when `checkCrc`, else set from the library.
+    /// Puts the library taken from the zip `bytes`, and `info` in `store` as `build`;
+    /// `build.crc32` is checked when `checkCrc`, else set from the library, and the library's
+    /// SHA-256 must be `sha256` unless that is empty.
     [[nodiscard]] static net::Result<DownloadedCore> place(CoreBuild build, std::string bytes,
                                                            const std::string& info, bool checkCrc,
+                                                           std::string_view sha256,
                                                            const DownloadedCores& store);
 
     const net::WebClient& web_;

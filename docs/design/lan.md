@@ -450,8 +450,10 @@ its active profile's save to the peer (`lan::NetplayAsks::handOver`) and asks `/
 polls the status. The asked side looks for the same ROM by console, size and SHA-256; with
 none it declines by itself. The ask carries what the asker would run with, and the asked side
 compares it (`lan::netplayDifference`, the first difference named for the asker): the core's build
-(`sha256:` and the SHA-256 of the library `library::sessionCore` names, so both run the same
-release's file for the same OS), the SHA-256 of
+(`library::roms::coreBuildOf`: `release:<id>@<tag>` when the library `library::sessionCore` names
+is one the catalog pins for any build of that release's tag, so a phone and a desktop on one
+release's source play together; `sha256:` and the library's SHA-256 for any other core), the
+SHA-256 of
 `gba_bios.bin` in the runner's system folder, and every core option resolved for the link core; an
 option set on one side and not the other counts. A refusal comes back as `declined` with the reason before the player here is asked. Otherwise
 its player gets Decline or Play. Play hands over its own save,

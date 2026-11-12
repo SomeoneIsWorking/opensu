@@ -5,6 +5,7 @@
 #include <format>
 #include <fstream>
 #include <iterator>
+#include <span>
 #include <system_error>
 #include <vector>
 
@@ -14,6 +15,7 @@
 #include "core_target.hpp"
 #include "fileio/atomic_write.hpp"
 #include "fileio/read_whole.hpp"
+#include "lucent/content.h"
 #include "lucent/log.h"
 #include "zip/zip_archive.hpp"
 
@@ -300,6 +302,7 @@ net::Result<std::string> CoreDownload::infoOf(const std::stop_token& stop,
 
 net::Result<DownloadedCore> CoreDownload::place(CoreBuild build, std::string bytes,
                                                 const std::string& info, bool checkCrc,
+                                                std::string_view sha256,
                                                 const DownloadedCores& store) {
     std::string error;
     const std::optional<std::string> library = coreIn(std::move(bytes), build.core, error);
@@ -312,6 +315,18 @@ net::Result<DownloadedCore> CoreDownload::place(CoreBuild build, std::string byt
         error = "the core's CRC-32 " + hexOf(seen) + " is not the buildbot's " + hexOf(build.crc32);
         lucent::warn("emulators", "{} {}: {}", build.core, build.date, error);
         return net::Failure{std::move(error)};
+    }
+    if (!sha256.empty()) {
+        const std::string sha256Seen = lucent::content::sha256_hex(
+            lucent::content::sha256(std::as_bytes(std::span{*library})));
+        if (sha256Seen != sha256) {
+            error =
+                "the core's SHA-256 " + sha256Seen + " is not the catalog's " + std::string{sha256};
+            lucent::warn("emulators", "{} {}: {}", build.core, build.date, error);
+            return net::Failure{std::move(error)};
+        }
+        lucent::info("emulators", "{} {}: its library is the catalog's SHA-256 {}", build.core,
+                     build.date, sha256Seen);
     }
     build.crc32 = seen;
     if (!store.install(build, *library, info, error)) {
@@ -326,8 +341,8 @@ net::Result<DownloadedCore> CoreDownload::place(CoreBuild build, std::string byt
 
 net::Result<DownloadedCore>
 CoreDownload::installRelease(const std::stop_token& stop, const std::string& core,
-                             const ReleaseAsset& asset, const EmulatorRelease& release,
-                             const DownloadedCores& store,
+                             const ReleaseAsset& asset, std::string_view library,
+                             const EmulatorRelease& release, const DownloadedCores& store,
                              const net::WebClient::Progress& progress) const {
     if (asset.sha256.empty()) {
         return net::Failure{"the release publishes no SHA-256 for " + asset.name};
@@ -353,7 +368,7 @@ CoreDownload::installRelease(const std::stop_token& stop, const std::string& cor
         return net::Failure{std::move(error)};
     }
     return place(CoreBuild{core, asset.version, 0, asset.url}, std::move(*bytes), *info, false,
-                 store);
+                 library, store);
 }
 
 net::Result<DownloadedCore> CoreDownload::install(const std::stop_token& stop,
@@ -384,7 +399,7 @@ net::Result<DownloadedCore> CoreDownload::install(const std::stop_token& stop,
     if (!bytes) {
         return net::Failure{std::move(error)};
     }
-    return place(build, std::move(*bytes), *info, true, store);
+    return place(build, std::move(*bytes), *info, true, {}, store);
 }
 
 } // namespace opensu::library::roms

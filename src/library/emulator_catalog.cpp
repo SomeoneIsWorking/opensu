@@ -109,44 +109,75 @@ bool isSha256(const json& value) {
            });
 }
 
-/// A core's `"release"`: its asset for each build, as `{"android-arm64-v8a": pattern}`, and the
-/// SHA-256 each is pinned to when it names `"sha256"` by the same builds. Nothing on a build it
-/// names no asset for, which takes the buildbot's core.
-std::optional<ReleaseSource> coreReleaseOf(const json& object, std::string_view build,
-                                           const std::string& where) {
+/// A core release's pins by build (`"sha256"` or `"library"`): each 64 lower-case hex digits,
+/// one for every asset in its order; empty when it names none.
+std::vector<std::string> pinsOf(const json& release, const char* key, const json& assets,
+                                const std::string& where) {
+    const auto pins = release.find(key);
+    if (pins == release.end()) {
+        return {};
+    }
+    if (!pins->is_object() || pins->size() != assets.size()) {
+        throw Malformed{std::format("{}: a core's \"{}\" pins every asset by build", where, key)};
+    }
+    std::vector<std::string> found;
+    for (const auto& [name, pattern] : assets.items()) {
+        const auto pin = pins->find(name);
+        if (pin == pins->end() || !isSha256(*pin)) {
+            throw Malformed{
+                std::format("{}: the {} of {} is not 64 lower-case hex digits", where, key, name)};
+        }
+        found.push_back(pin->get<std::string>());
+    }
+    return found;
+}
+
+/// The tag a release API URL pins (`.../releases/tags/<tag>`); empty for a rolling one.
+std::string tagOf(std::string_view api) {
+    constexpr std::string_view marker = "/releases/tags/";
+    const std::size_t at = api.rfind(marker);
+    return at == std::string_view::npos ? std::string{}
+                                        : std::string{api.substr(at + marker.size())};
+}
+
+/// A core's `"release"` into `entry`: its asset for each build, as `{"android-arm64-v8a":
+/// pattern}`, the SHA-256 each is pinned to when it names `"sha256"` by the same builds, and the
+/// SHA-256 of the library inside each when it names `"library"`, which needs a pinned tag. No
+/// release on a build it names no asset for, which takes the buildbot's core.
+void readCoreRelease(const json& object, std::string_view build, const std::string& where,
+                     EmulatorEntry& entry) {
     const auto found = object.find("release");
     if (found == object.end()) {
-        return std::nullopt;
+        return;
     }
     const auto assets = found->is_object() ? found->find("assets") : found->end();
     if (assets == found->end() || !assets->is_object() || assets->empty() ||
         found->contains("asset")) {
         throw Malformed{where + ": a core's \"release\" names its \"assets\" by build"};
     }
-    const auto pins = found->find("sha256");
-    if (pins != found->end() && (!pins->is_object() || pins->size() != assets->size())) {
-        throw Malformed{where + ": a core's \"sha256\" pins every asset by build"};
-    }
-    std::optional<ReleaseSource> chosen;
+    const auto pins = pinsOf(*found, "sha256", *assets, where);
+    const auto libraries = pinsOf(*found, "library", *assets, where);
+    std::size_t index = 0;
     for (const auto& [name, pattern] : assets->items()) {
         if (!pattern.is_string()) {
             throw Malformed{std::format("{}: the asset of {} is not a string", where, name)};
         }
         checkPattern(pattern.get<std::string>(), where);
-        ReleaseSource release = releaseOf(*found, where, pattern.get<std::string>());
-        if (pins != found->end()) {
-            const auto pin = pins->find(name);
-            if (pin == pins->end() || !isSha256(*pin)) {
-                throw Malformed{std::format("{}: the SHA-256 of {} is not 64 lower-case hex digits",
-                                            where, name)};
-            }
-            release.sha256 = pin->get<std::string>();
-        }
         if (name == build) {
-            chosen = std::move(release);
+            ReleaseSource release = releaseOf(*found, where, pattern.get<std::string>());
+            release.sha256 = pins.empty() ? std::string{} : pins[index];
+            release.library = libraries.empty() ? std::string{} : libraries[index];
+            entry.release = std::move(release);
         }
+        ++index;
     }
-    return chosen;
+    if (!libraries.empty()) {
+        PinnedLibraries pinned{.tag = tagOf(text(*found, "api", where, true)), .sha256 = libraries};
+        if (pinned.tag.empty()) {
+            throw Malformed{where + ": a core's \"library\" pins need its release's tag"};
+        }
+        entry.libraries = std::move(pinned);
+    }
 }
 
 /// A core's `"links"`: systems it serves on which it links two players.
@@ -301,7 +332,7 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::string_view
     entry.core = text(object, "core", where, false);
     if (entry.builtIn()) {
         checkCore(object, entry.core, where);
-        entry.release = coreReleaseOf(object, build, where);
+        readCoreRelease(object, build, where, entry);
         entry.romsets = romsetsOf(object, where);
         entry.coreOptions = coreOptionsOf(object, where);
         entry.systemFiles = systemFilesOf(object, where);
@@ -397,6 +428,15 @@ fs::path flatpakFolder(const fs::path& path, const fs::path& home, std::string_v
         }
     }
     return {};
+}
+
+std::string coreBuildOf(const EmulatorEntry* entry, std::string_view librarySha256) {
+    if (entry != nullptr && entry->libraries &&
+        std::ranges::find(entry->libraries->sha256, librarySha256) !=
+            entry->libraries->sha256.end()) {
+        return std::format("release:{}@{}", entry->id, entry->libraries->tag);
+    }
+    return std::format("sha256:{}", librarySha256);
 }
 
 std::string_view EmulatorEntry::shortName() const noexcept {
