@@ -132,10 +132,12 @@ SetLayout storageImages(VkDevice device, std::uint32_t count) {
     return SetLayout{device, layout};
 }
 
-/// A compute pipeline of `code` over the sets `sets`, with the shared push constants.
+/// A compute pipeline of `code` over the sets `sets`, with the shared push constants, and the
+/// threads of each of its workgroups.
 struct Pass {
     PipelineLayout layout;
     Pipeline pipeline;
+    std::uint32_t threads{0};
 };
 
 /// The texel count's set: one storage buffer.
@@ -176,6 +178,8 @@ constexpr SearchShape coarsestShape{.threads = 64, .tileReach = coarsestRange / 
 /// The finer levels': their 9 and 25 candidates fit 32 threads, and their windows lie within a
 /// pixel of the centre's.
 constexpr SearchShape finerShape{.threads = 32, .tileReach = 2};
+// The 8 x 8 passes take the default shape, whose threads are theirs.
+static_assert(coarsestShape.threads == groupSize * groupSize);
 
 /// `own` sets, the sets up to `countSet` empty, then the count's; texels counted when `counting`;
 /// a search pass shaped by `shape`.
@@ -197,7 +201,7 @@ Pass passOf(VkDevice device, std::span<const std::uint32_t> code,
         .pPushConstantRanges = &push};
     VkPipelineLayout layout = VK_NULL_HANDLE;
     check(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &layout), "vkCreatePipelineLayout");
-    Pass pass{.layout = PipelineLayout{device, layout}, .pipeline = {}};
+    Pass pass{.layout = PipelineLayout{device, layout}, .pipeline = {}, .threads = shape.threads};
     const VkShaderModuleCreateInfo moduleInfo{.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
                                               .pNext = nullptr,
                                               .flags = 0,
@@ -470,7 +474,7 @@ class FlowInterpolator final : public Interpolator {
     void dispatch(VkCommandBuffer cmd, const Pass& pass, std::span<const VkDescriptorSet> sets,
                   const FlowPush& push, std::uint32_t x, std::uint32_t y, ImageBytes bytes) {
         ++work_.dispatches;
-        work_.invocations += std::uint64_t{x} * y * groupSize * groupSize;
+        work_.invocations += std::uint64_t{x} * y * pass.threads;
         work_.bytesRead += bytes.read;
         work_.bytesWritten += bytes.written;
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass.pipeline.get());
