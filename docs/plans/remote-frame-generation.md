@@ -494,8 +494,12 @@ Lossless's at every size.
   -0.04 on the demo (0.91); the mean over the block's 12 x 12 window in place of the patch's +0.27
   and +0.02 on rain, -0.01 and 0.00 on cave; ties broken by the lowest difference over that
   window +0.12 and -0.05 on rain, -0.04 and -0.07 on cave; the two together as the block mean.
-  None clears the spread on rain and cave, so the gain left to the selection (the best of the 9
-  is 1.5 to 3.0 dB p5 above it) is not in flat-patch ties alone.
+  None clears the spread on rain and cave. The best of the 9 is 1.5 to 3.0 dB p5 above today's
+  rule, and none of the patch- or block-local rules tried comes near it, so that bound is not
+  reachable by a rule of this kind. Caveats: the made pixel is the plain mean of the two moved
+  pixels, not `flow_make`'s; two step offsets give a coarse spread; the copy's own tie-breaking
+  moves 1.5 to 1.7% of pixels. The run's numbers are in `scratch/framegen-quality/layers/out1/` and
+  `out2/` (`step1.py`, `step2.py`), temporary.
 - (b) and (c) on top of `flow`; the shell's own animated screens as scenes (they have no per-frame
   dump yet).
 
