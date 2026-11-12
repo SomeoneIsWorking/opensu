@@ -320,6 +320,18 @@ nearest neighbour, but a player's preset (CRT, scanlines, smoothing) changes wha
 pixels hold, so in the runner frame generation is to take the core's frame before shaders and the
 remote host to send that frame.
 
+On a core's own frame `flow` works on it scaled up nearest by `frame_gen::flowContentScale` (half
+of `flowBlockPixels`, so its finest blocks cover about 2 content pixels): `flow_take` reads the
+real frame at each scaled pixel's source pixel, the search and `flow_choose` run at the scaled
+size with `SourcePixel` scaled to match, and `flow_make` makes only the centre of each scaled
+pixel, written straight into the frame at the core's size. That frame then goes through the
+runner's compositor and the player's shaders like a real one. `python -m
+tools.framegen_quality.core_frames --frames DIR` checks the writing back loses nothing: on Super
+Metroid's demo at 256x224 (`opensu-framegen-pairs --core-frames`) all 60 generated frames equal,
+bit for bit, the centres of what `flow` makes from the same frames scaled up 4x beforehand. A
+generated frame then costs 975 K invocations and 159 M texels read, against 1.84 M and 187 M for
+the 4x frame it equals; the real frame's ingest is the 4x one's, 2.44 M invocations.
+
 ### GPU cost
 
 `opensu-framegen-pairs` ends with `[perf]` lines (`frame_gen::GpuSpans`, compared with

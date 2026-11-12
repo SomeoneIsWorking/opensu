@@ -40,8 +40,10 @@ vec3 at(ivec2 p, bool isLater) {
 }
 
 void main() {
-    const ivec2 p = ivec2(gl_GlobalInvocationID.xy);
-    if (any(greaterThanEqual(p, push.size))) {
+    // The made frame's pixel, made at the centre of its scaled pixel.
+    const ivec2 target = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 p = target * push.scale + push.scale / 2;
+    if (any(greaterThanEqual(target * push.scale, push.size))) {
         return;
     }
     const ivec2 last = push.size - 1;
@@ -105,5 +107,5 @@ void main() {
             colour = mix(colour, laterLit, push.t);
         }
     }
-    imageStore(made, p, vec4(colour, 1.0));
+    imageStore(made, target, vec4(colour, 1.0));
 }

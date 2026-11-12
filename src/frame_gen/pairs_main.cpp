@@ -5,11 +5,12 @@
 //
 //   opensu-framegen-pairs --generator lossless [--dll <Lossless.dll>] [--performance]
 //                         [--flow-scale <percent>] [--step N] --in <dir> --out <dir>
-//   opensu-framegen-pairs --generator flow [--source-pixel <w>x<h>] [--step N]
-//                         --in <dir> --out <dir>
+//   opensu-framegen-pairs --generator flow [--source-pixel <w>x<h> | --core-frames]
+//                         [--step N] --in <dir> --out <dir>
 //
 // --source-pixel is how many frame pixels one of the content's takes (a core's frame scaled to
-// the window), 1x1 by default.
+// the window), 1x1 by default. --core-frames says the frames are a core's own, which flow works on
+// scaled up by `frame_gen::flowContentScale`, as the runner has it.
 //
 // Without --dll, the player's Lossless.dll is the one the shell finds in their Steam libraries.
 //
@@ -57,6 +58,7 @@ struct Options {
     bool performance{false};
     unsigned flowScale{100};
     unsigned step{2};
+    bool coreFrames{false};
     opensu::frame_gen::SourcePixel pixel;
     std::filesystem::path in;
     std::filesystem::path out;
@@ -96,8 +98,8 @@ std::optional<Options> parse(std::span<const std::string> args) {
     Options options;
     for (std::size_t at = 0; at < args.size(); ++at) {
         const std::string_view arg = args[at];
-        if (arg == "--performance") {
-            options.performance = true;
+        if (arg == "--performance" || arg == "--core-frames") {
+            (arg == "--performance" ? options.performance : options.coreFrames) = true;
             continue;
         }
         if (at + 1 >= args.size()) {
@@ -137,7 +139,8 @@ std::optional<Options> parse(std::span<const std::string> args) {
         options.out.empty() || options.step < 2) {
         lucent::error("framegen", "usage: opensu-framegen-pairs --generator lossless|flow "
                                   "[--dll <dll>] [--performance] [--flow-scale <percent>] "
-                                  "[--source-pixel <w>x<h>] [--step N] --in <dir> --out <dir> "
+                                  "[--source-pixel <w>x<h> | --core-frames] [--step N] "
+                                  "--in <dir> --out <dir> "
                                   "(--step 2 or more)");
         return std::nullopt;
     }
@@ -148,10 +151,14 @@ std::unique_ptr<opensu::frame_gen::Interpolator> generatorOf(Options options,
                                                              GeneratorDevice& gpu) {
     std::string why;
     if (options.generator == "flow") {
-        std::unique_ptr<opensu::frame_gen::Interpolator> made = opensu::frame_gen::flow(gpu, why);
+        const std::uint32_t scale = options.coreFrames ? opensu::frame_gen::flowContentScale : 1;
+        std::unique_ptr<opensu::frame_gen::Interpolator> made =
+            opensu::frame_gen::flow(gpu, scale, why);
         if (!made) {
             lucent::error("framegen", "no flow generator: {}", why);
+            return made;
         }
+        lucent::info("framegen", "flow works on the frames scaled up by {}", scale);
         return made;
     }
     if (options.dll.empty()) {

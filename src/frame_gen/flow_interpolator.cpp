@@ -43,6 +43,7 @@ struct FlowPush {
     float t;
     float pixelWidth;
     float pixelHeight;
+    std::int32_t scale;
 };
 
 /// Pyramid levels: the frame and three halvings, so the coarsest search's radius reaches
@@ -50,7 +51,7 @@ struct FlowPush {
 constexpr std::size_t levels = 4;
 /// At most 8: the search's shared tiles hold the windows of vectors that long (`flow_search.comp`).
 constexpr std::int32_t coarsestRange = 8;
-constexpr std::uint32_t blockSize = 8;
+constexpr std::uint32_t blockSize = flowBlockPixels;
 /// The descriptor set every pass's read counts are in (`flow_push.glsl`).
 constexpr std::uint32_t countSet = 3;
 
@@ -223,8 +224,8 @@ void computeBarrier(VkCommandBuffer cmd) {
 /// agree best, the real pixels no motion takes shown in place (`shaders/flow_*.comp`).
 class FlowInterpolator final : public Interpolator {
   public:
-    explicit FlowInterpolator(GeneratorDevice& gpu)
-        : gpu_{gpu}, device_{gpu.device()}, one_{storageImages(device_, 1)},
+    FlowInterpolator(GeneratorDevice& gpu, std::uint32_t scale)
+        : gpu_{gpu}, device_{gpu.device()}, scale_{scale}, one_{storageImages(device_, 1)},
           two_{storageImages(device_, 2)}, three_{storageImages(device_, 3)},
           four_{storageImages(device_, 4)}, empty_{storageImages(device_, 0)},
           countLayout_{countLayout(device_)}, counting_{gpu.spans() != nullptr},
@@ -257,9 +258,10 @@ class FlowInterpolator final : public Interpolator {
         if (gpu_.idle() != VK_SUCCESS || pixel.width < 1.0F || pixel.height < 1.0F) {
             return false;
         }
-        pixel_ = pixel;
+        pixel_ = SourcePixel{.width = pixel.width * static_cast<float>(scale_),
+                             .height = pixel.height * static_cast<float>(scale_)};
         try {
-            make(width, height);
+            make(width * scale_, height * scale_);
         } catch (const std::runtime_error&) {
             width_ = 0;
             return false;
@@ -268,7 +270,7 @@ class FlowInterpolator final : public Interpolator {
     }
 
     std::optional<framegen::Submission_t> add(const framegen::GeneratorImage_t& frame) override {
-        if (width_ == 0 || frame.uWidth != width_ || frame.uHeight != height_) {
+        if (width_ == 0 || frame.uWidth * scale_ != width_ || frame.uHeight * scale_ != height_) {
             return std::nullopt;
         }
         const std::size_t slot = added_ % 2;
@@ -285,9 +287,9 @@ class FlowInterpolator final : public Interpolator {
                       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                       VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
         const std::array<VkDescriptorSet, 2> takeSets{source, takeSets_[slot]};
-        dispatch(cmd, take_, takeSets, pushOf(width_, height_), groups(width_), groups(height_),
-                 {.read = frames_[slot]->bytes(),
-                  .written = frames_[slot]->bytes() + lumas_[slot][0]->bytes()});
+        dispatch(
+            cmd, take_, takeSets, pushOf(width_, height_), groups(width_), groups(height_),
+            {.read = frameBytes(), .written = frames_[slot]->bytes() + lumas_[slot][0]->bytes()});
         std::uint32_t levelWidth = width_;
         std::uint32_t levelHeight = height_;
         for (std::size_t level = 1; level < levels; ++level) {
@@ -325,7 +327,7 @@ class FlowInterpolator final : public Interpolator {
     std::optional<framegen::Submission_t> generate(float t,
                                                    const framegen::GeneratorImage_t& output,
                                                    const framegen::OutputHooks_t& hooks) override {
-        if (added_ < 2 || output.uWidth != width_ || output.uHeight != height_) {
+        if (added_ < 2 || output.uWidth * scale_ != width_ || output.uHeight * scale_ != height_) {
             return std::nullopt;
         }
         const VkDescriptorSet out = viewSet(output.view);
@@ -365,8 +367,10 @@ class FlowInterpolator final : public Interpolator {
                   .written = choice_->bytes() + used_->bytes()});
         computeBarrier(cmd);
         const std::array<VkDescriptorSet, 2> makeSets{makeSets_[slot], out};
-        dispatch(cmd, make_, makeSets, push, groups(width_), groups(height_),
-                 {.read = (2 * frame) + choice_->bytes() + used_->bytes(), .written = frame});
+        // Only the centres of the scaled pixels are made.
+        dispatch(
+            cmd, make_, makeSets, push, groups(width_ / scale_), groups(height_ / scale_),
+            {.read = (2 * frame) + choice_->bytes() + used_->bytes(), .written = frameBytes()});
         if (hooks.after) {
             hooks.after(cmd);
         }
@@ -384,7 +388,14 @@ class FlowInterpolator final : public Interpolator {
                         .hasParent = 0,
                         .t = 0.5F,
                         .pixelWidth = pixel_.width,
-                        .pixelHeight = pixel_.height};
+                        .pixelHeight = pixel_.height,
+                        .scale = static_cast<std::int32_t>(scale_)};
+    }
+
+    /// The bytes of a real or made frame as the caller's images hold it.
+    [[nodiscard]] std::uint64_t frameBytes() const {
+        constexpr std::uint64_t bytesPerPixel = 4;
+        return std::uint64_t{width_ / scale_} * (height_ / scale_) * bytesPerPixel;
     }
 
     /// Submits `cmd`, closing its span when timed, with what it dispatched; while measuring, waits
@@ -639,12 +650,14 @@ class FlowInterpolator final : public Interpolator {
         width_ = width;
         height_ = height;
         // Named as the Lossless generator names its spans, so runs of both compare.
-        ingestKey_ = std::format("ingest {}x{}", width, height);
-        generateKey_ = std::format("generate {}x{}", width, height);
+        ingestKey_ = std::format("ingest {}x{}", width / scale_, height / scale_);
+        generateKey_ = std::format("generate {}x{}", width / scale_, height / scale_);
     }
 
     GeneratorDevice& gpu_;
     VkDevice device_;
+    /// The frame's pixel in the pixels flow works on.
+    std::uint32_t scale_;
     SetLayout one_;
     SetLayout two_;
     SetLayout three_;
@@ -687,9 +700,13 @@ class FlowInterpolator final : public Interpolator {
 
 } // namespace
 
-std::unique_ptr<Interpolator> flow(GeneratorDevice& gpu, std::string& why) {
+std::unique_ptr<Interpolator> flow(GeneratorDevice& gpu, std::uint32_t scale, std::string& why) {
+    if (scale == 0) {
+        why = "flow's scale is 0";
+        return nullptr;
+    }
     try {
-        return std::make_unique<FlowInterpolator>(gpu);
+        return std::make_unique<FlowInterpolator>(gpu, scale);
     } catch (const std::runtime_error& failure) {
         why = failure.what();
         return nullptr;

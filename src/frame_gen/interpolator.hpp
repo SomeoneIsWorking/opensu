@@ -50,8 +50,15 @@ class Interpolator {
 [[nodiscard]] std::unique_ptr<Interpolator>
 lossless(GeneratorDevice& gpu, const framegen::LosslessSettings_t& settings, std::string& why);
 
-/// openSU's own generator (`flow_interpolator.cpp`); nothing with why when its passes cannot be
-/// made on the device.
-[[nodiscard]] std::unique_ptr<Interpolator> flow(GeneratorDevice& gpu, std::string& why);
+/// The side of flow's motion blocks, in the pixels it works on.
+inline constexpr std::uint32_t flowBlockPixels = 8;
+/// What flow scales a core's own frame by: its finest blocks then cover about 2 content pixels.
+inline constexpr std::uint32_t flowContentScale = flowBlockPixels / 2;
+
+/// openSU's own generator (`flow_interpolator.cpp`), working on each real frame scaled up nearest
+/// by `scale` and writing each made frame back at the centres of the scaled pixels; nothing with
+/// why when its passes cannot be made on the device.
+[[nodiscard]] std::unique_ptr<Interpolator> flow(GeneratorDevice& gpu, std::uint32_t scale,
+                                                 std::string& why);
 
 } // namespace opensu::frame_gen

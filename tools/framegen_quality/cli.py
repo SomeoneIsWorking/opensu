@@ -24,7 +24,7 @@ from tools.framegen_quality import (
 SCRATCH = REPO / "scratch" / "framegen-quality"
 
 
-def _binary(build: Path, name: str) -> Path | None:
+def binary(build: Path, name: str) -> Path | None:
     for candidate in (build / "src" / name, build / "src" / "frame_gen" / name):
         if candidate.is_file():
             return candidate
@@ -72,8 +72,8 @@ def main() -> None:
     args = parser.parse_args()
 
     generators = [g for g in args.generators.split(",") if g]
-    runner = _binary(args.build, "opensu-retro")
-    pairs = _binary(args.build, "opensu-framegen-pairs")
+    runner = binary(args.build, "opensu-retro")
+    pairs = binary(args.build, "opensu-framegen-pairs")
     run = SCRATCH / "runs" / args.run
     if not args.rescore and pairs is not None:
         provenance.save(provenance.check(args.build, pairs), run)

@@ -8,9 +8,10 @@ layout(push_constant) uniform Push {
     // The content's pixel in the frame's, 1 x 1 when not known to be scaled.
     float pixelWidth;
     float pixelHeight;
+    int scale; // the real and made frames' pixel in the pixels flow works on
 } push;
 
-// Motion blocks are this many pixels square at every level.
+// Motion blocks are this many pixels square at every level (`flowBlockPixels`).
 const int blockSize = 8;
 
 // While measuring, every texel a pass reads from an image and every value it reads from shared

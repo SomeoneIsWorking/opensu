@@ -42,7 +42,9 @@ def generate(
     dll: Path | None,
     log: Path,
     pixel: tuple[float, float] = (1.0, 1.0),
+    core_frames: bool = False,
 ) -> None:
+    """`core_frames`: the frames are a core's own, which flow scales up while it works."""
     into.mkdir(parents=True, exist_ok=True)
     if generator in OPENSU:
         if pairs is None:
@@ -59,7 +61,11 @@ def generate(
             str(into),
         ]
         if generator == "flow":
-            command += ["--source-pixel", f"{pixel[0]:g}x{pixel[1]:g}"]
+            command += (
+                ["--core-frames"]
+                if core_frames
+                else ["--source-pixel", f"{pixel[0]:g}x{pixel[1]:g}"]
+            )
         if generator == "lossless" and dll is not None:
             command += ["--dll", str(dll)]
         with log.open("wb") as out:
