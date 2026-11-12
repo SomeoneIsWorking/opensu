@@ -567,7 +567,7 @@ RunnerExit RunnerApp::run() {
             generation.reset();
             if (generatingWith) {
                 std::string why;
-                generation = FrameGeneration::open(*generatingWith, why);
+                generation = FrameGeneration::open(*generatingWith, options_.perf, why);
                 lucent::info("framegen", "openSU's frame generation {}{}",
                              generation ? "starts" : "cannot start: ", why);
             }
@@ -666,6 +666,7 @@ RunnerExit RunnerApp::run() {
     }
     if (generation) {
         lucent::info("framegen", "{}", generation->summary());
+        generation->reportWork();
     }
     lucent::info("retro", "ran {} frames; sound: {} ms played as silence, {} ms dropped", frame,
                  millisecondsOf(sink.underrunFrames()), millisecondsOf(sink.overrunFrames()));

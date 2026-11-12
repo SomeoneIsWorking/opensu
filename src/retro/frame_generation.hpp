@@ -25,9 +25,10 @@ class FrameGeneration {
     FrameGeneration(FrameGeneration&&) = delete;
     FrameGeneration& operator=(FrameGeneration&&) = delete;
 
-    /// Frame generation paced by `settings`; nothing with why when it cannot run here.
+    /// Frame generation paced by `settings`, its own work on the calling thread counted when
+    /// `measuring`; nothing with why when it cannot run here.
     [[nodiscard]] static std::unique_ptr<FrameGeneration>
-    open(const settings::FrameGenSettings& settings, std::string& why);
+    open(const settings::FrameGenSettings& settings, bool measuring, std::string& why);
 
     /// The core's frame in CPU RGBA, drawn at `nowNs` on a display refreshing every `refreshNs`;
     /// false once generation has stopped.
@@ -41,6 +42,9 @@ class FrameGeneration {
                                                             std::uint64_t refreshNs) = 0;
     /// Real frames in, presents and generated frames shown, and the pacer's state.
     [[nodiscard]] virtual std::string summary() const = 0;
+    /// Its work per real frame and per present while measuring (`[perf]` lines); nothing
+    /// otherwise.
+    virtual void reportWork() const = 0;
 };
 
 } // namespace opensu::retro

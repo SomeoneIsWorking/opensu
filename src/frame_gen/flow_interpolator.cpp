@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -61,6 +62,10 @@ struct Reads {
     std::uint32_t texels;
     std::uint32_t shared;
 };
+/// A real frame's dispatches: the take, a reduction to each coarser level and a search per level.
+constexpr std::uint32_t maxDispatches = 1 + (levels - 1) + levels;
+/// Each dispatch's read counts sit this far apart, a storage buffer offset every device allows.
+constexpr VkDeviceSize countStride = 256;
 constexpr std::uint32_t groupSize = 8;
 /// Descriptor sets for the caller's views (frames in, frames out) a session can name.
 constexpr std::uint32_t viewSets = 32;
@@ -267,7 +272,7 @@ class FlowInterpolator final : public Interpolator {
           two_{storageImages(device_, 2)}, three_{storageImages(device_, 3)},
           four_{storageImages(device_, 4)}, empty_{storageImages(device_, 0)},
           countLayout_{countLayout(device_)}, counting_{gpu.spans() != nullptr},
-          texels_{gpu, sizeof(Reads), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT} {
+          texels_{gpu, countStride * maxDispatches, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT} {
         const auto pass = [this](std::span<const std::uint32_t> code,
                                  std::span<const VkDescriptorSetLayout> own,
                                  SearchShape shape = coarsestShape) {
@@ -284,7 +289,7 @@ class FlowInterpolator final : public Interpolator {
         choose_ = pass(chooseCode, chooseSets);
         const std::array<VkDescriptorSetLayout, 2> makeSets{four_.get(), one_.get()};
         make_ = pass(makeCode, makeSets);
-        makeCountSet();
+        makeCountSets();
     }
     ~FlowInterpolator() override {
         static_cast<void>(gpu_.idle());
@@ -328,7 +333,7 @@ class FlowInterpolator final : public Interpolator {
                       VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
         const std::array<VkDescriptorSet, 2> takeSets{source, takeSets_[slot]};
         dispatch(
-            cmd, take_, takeSets, pushOf(width_, height_), groups(width_), groups(height_),
+            cmd, "take", take_, takeSets, pushOf(width_, height_), groups(width_), groups(height_),
             {.read = frameBytes(), .written = frames_[slot]->bytes() + lumas_[slot][0]->bytes()});
         std::uint32_t levelWidth = width_;
         std::uint32_t levelHeight = height_;
@@ -337,8 +342,8 @@ class FlowInterpolator final : public Interpolator {
             levelHeight = half(levelHeight);
             computeBarrier(cmd);
             const std::array<VkDescriptorSet, 1> sets{reduceSets_[slot][level]};
-            dispatch(cmd, reduce_, sets, pushOf(levelWidth, levelHeight), groups(levelWidth),
-                     groups(levelHeight),
+            dispatch(cmd, std::format("reduce {}", level), reduce_, sets,
+                     pushOf(levelWidth, levelHeight), groups(levelWidth), groups(levelHeight),
                      {.read = lumas_[slot][level - 1]->bytes(),
                       .written = lumas_[slot][level]->bytes()});
         }
@@ -354,7 +359,8 @@ class FlowInterpolator final : public Interpolator {
                 const std::array<VkDescriptorSet, 1> sets{searchSets_[slot][level]};
                 const std::uint64_t parent = push.hasParent != 0 ? fields_[level + 1]->bytes() : 0;
                 // One workgroup per block.
-                dispatch(cmd, push.hasParent != 0 ? searchFiner_ : search_, sets, push,
+                dispatch(cmd, std::format("search {}", level),
+                         push.hasParent != 0 ? searchFiner_ : search_, sets, push,
                          static_cast<std::uint32_t>(push.blocksX),
                          static_cast<std::uint32_t>(push.blocksY),
                          {.read = (2 * lumas_[slot][level]->bytes()) + parent,
@@ -396,21 +402,23 @@ class FlowInterpolator final : public Interpolator {
                                             .baseArrayLayer = 0,
                                             .layerCount = 1};
         vkCmdClearColorImage(cmd, used_->image(), VK_IMAGE_LAYOUT_GENERAL, &none, 1, &whole);
-        work_.bytesWritten += used_->bytes();
+        GpuWork cleared;
+        cleared.bytesWritten = used_->bytes();
+        recorded_.push_back(Recorded{.name = "clear", .work = cleared, .slot = std::nullopt});
         memoryBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
                       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                       VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
         const std::array<VkDescriptorSet, 2> chooseSets{chooseSets_[slot], choiceSet_};
         const std::uint64_t frame = frames_[0]->bytes();
         // The used marks are read and written.
-        dispatch(cmd, choose_, chooseSets, push, groups(width_), groups(height_),
+        dispatch(cmd, "choose", choose_, chooseSets, push, groups(width_), groups(height_),
                  {.read = (2 * frame) + fields_[0]->bytes() + used_->bytes(),
                   .written = choice_->bytes() + used_->bytes()});
         computeBarrier(cmd);
         const std::array<VkDescriptorSet, 2> makeSets{makeSets_[slot], out};
         // Only the centres of the scaled pixels are made.
         dispatch(
-            cmd, make_, makeSets, push, groups(width_ / scale_), groups(height_ / scale_),
+            cmd, "make", make_, makeSets, push, groups(width_ / scale_), groups(height_ / scale_),
             {.read = (2 * frame) + choice_->bytes() + used_->bytes(), .written = frameBytes()});
         if (hooks.after) {
             hooks.after(cmd);
@@ -439,8 +447,8 @@ class FlowInterpolator final : public Interpolator {
         return std::uint64_t{width_ / scale_} * (height_ / scale_) * bytesPerPixel;
     }
 
-    /// Submits `cmd`, closing its span when timed, with what it dispatched; while measuring, waits
-    /// for it to read the texels it counted.
+    /// Submits `cmd`, closing its span when timed, with what it and each of its dispatches did;
+    /// while measuring, waits for it to read the texels they counted.
     std::uint64_t submit(VkCommandBuffer cmd, std::optional<std::uint32_t> timed,
                          const std::string& key) {
         if (timed) {
@@ -452,16 +460,33 @@ class FlowInterpolator final : public Interpolator {
         }
         if (counting_) {
             gpu_.Wait(seqNo);
-            Reads reads{};
-            std::memcpy(&reads, texels_.bytes().data(), sizeof(reads));
-            work_.texelReads = reads.texels;
-            work_.sharedReads = reads.shared;
-            std::memset(texels_.bytes().data(), 0, sizeof(reads));
+            for (Recorded& recorded : recorded_) {
+                if (!recorded.slot) {
+                    continue;
+                }
+                const std::span<std::uint8_t> counts =
+                    texels_.bytes().subspan(*recorded.slot * countStride, sizeof(Reads));
+                Reads reads{};
+                std::memcpy(&reads, counts.data(), sizeof(reads));
+                recorded.work.texelReads = reads.texels;
+                recorded.work.sharedReads = reads.shared;
+                std::memset(counts.data(), 0, sizeof(reads));
+            }
         }
         if (GpuSpans* spans = gpu_.spans()) {
-            spans->work(key, work_);
+            GpuWork total;
+            for (const Recorded& recorded : recorded_) {
+                spans->work(key + " " + recorded.name, recorded.work);
+                total.dispatches += recorded.work.dispatches;
+                total.invocations += recorded.work.invocations;
+                total.bytesRead += recorded.work.bytesRead;
+                total.bytesWritten += recorded.work.bytesWritten;
+                total.texelReads += recorded.work.texelReads;
+                total.sharedReads += recorded.work.sharedReads;
+            }
+            spans->work(key, total);
         }
-        work_ = {};
+        recorded_.clear();
         return seqNo;
     }
 
@@ -471,17 +496,29 @@ class FlowInterpolator final : public Interpolator {
         std::uint64_t written;
     };
 
-    void dispatch(VkCommandBuffer cmd, const Pass& pass, std::span<const VkDescriptorSet> sets,
-                  const FlowPush& push, std::uint32_t x, std::uint32_t y, ImageBytes bytes) {
-        ++work_.dispatches;
-        work_.invocations += std::uint64_t{x} * y * pass.threads;
-        work_.bytesRead += bytes.read;
-        work_.bytesWritten += bytes.written;
+    void dispatch(VkCommandBuffer cmd, const std::string& name, const Pass& pass,
+                  std::span<const VkDescriptorSet> sets, const FlowPush& push, std::uint32_t x,
+                  std::uint32_t y, ImageBytes bytes) {
+        const auto slot =
+            static_cast<std::uint32_t>(std::ranges::count_if(recorded_, [](const Recorded& r) {
+                return r.slot.has_value();
+            }));
+        if (slot >= maxDispatches) {
+            throw std::logic_error{"more flow dispatches in one submission than read counts"};
+        }
+        recorded_.push_back(Recorded{.name = name,
+                                     .work = {.dispatches = 1,
+                                              .invocations = std::uint64_t{x} * y * pass.threads,
+                                              .bytesRead = bytes.read,
+                                              .bytesWritten = bytes.written,
+                                              .texelReads = 0,
+                                              .sharedReads = 0},
+                                     .slot = slot});
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass.pipeline.get());
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass.layout.get(), 0,
                                 static_cast<std::uint32_t>(sets.size()), sets.data(), 0, nullptr);
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass.layout.get(), countSet, 1,
-                                &countSet_, 0, nullptr);
+                                &countSets_[slot], 0, nullptr);
         vkCmdPushConstants(cmd, pass.layout.get(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push),
                            &push);
         vkCmdDispatch(cmd, x, y, 1);
@@ -556,42 +593,45 @@ class FlowInterpolator final : public Interpolator {
         return set;
     }
 
-    /// The texel count's buffer, zeroed, in its own set.
-    void makeCountSet() {
+    /// The read counts' buffer, zeroed, a set over each dispatch's counts.
+    void makeCountSets() {
         const VkDescriptorPoolSize size{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                                        .descriptorCount = 1};
+                                        .descriptorCount = maxDispatches};
         const VkDescriptorPoolCreateInfo poolInfo{.sType =
                                                       VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
                                                   .pNext = nullptr,
                                                   .flags = 0,
-                                                  .maxSets = 1,
+                                                  .maxSets = maxDispatches,
                                                   .poolSizeCount = 1,
                                                   .pPoolSizes = &size};
         VkDescriptorPool pool = VK_NULL_HANDLE;
         check(vkCreateDescriptorPool(device_, &poolInfo, nullptr, &pool), "vkCreateDescriptorPool");
         countPool_ = Pool{device_, pool};
         const VkDescriptorSetLayout layout = countLayout_.get();
-        const VkDescriptorSetAllocateInfo info{.sType =
-                                                   VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-                                               .pNext = nullptr,
-                                               .descriptorPool = pool,
-                                               .descriptorSetCount = 1,
-                                               .pSetLayouts = &layout};
-        check(vkAllocateDescriptorSets(device_, &info, &countSet_), "vkAllocateDescriptorSets");
-        const VkDescriptorBufferInfo buffer{
-            .buffer = texels_.buffer(), .offset = 0, .range = sizeof(Reads)};
-        const VkWriteDescriptorSet write{.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                                         .pNext = nullptr,
-                                         .dstSet = countSet_,
-                                         .dstBinding = 0,
-                                         .dstArrayElement = 0,
-                                         .descriptorCount = 1,
-                                         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                                         .pImageInfo = nullptr,
-                                         .pBufferInfo = &buffer,
-                                         .pTexelBufferView = nullptr};
-        vkUpdateDescriptorSets(device_, 1, &write, 0, nullptr);
-        std::memset(texels_.bytes().data(), 0, sizeof(Reads));
+        for (std::uint32_t slot = 0; slot < maxDispatches; ++slot) {
+            const VkDescriptorSetAllocateInfo info{
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+                .pNext = nullptr,
+                .descriptorPool = pool,
+                .descriptorSetCount = 1,
+                .pSetLayouts = &layout};
+            check(vkAllocateDescriptorSets(device_, &info, &countSets_[slot]),
+                  "vkAllocateDescriptorSets");
+            const VkDescriptorBufferInfo buffer{
+                .buffer = texels_.buffer(), .offset = slot * countStride, .range = sizeof(Reads)};
+            const VkWriteDescriptorSet write{.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                                             .pNext = nullptr,
+                                             .dstSet = countSets_[slot],
+                                             .dstBinding = 0,
+                                             .dstArrayElement = 0,
+                                             .descriptorCount = 1,
+                                             .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                                             .pImageInfo = nullptr,
+                                             .pBufferInfo = &buffer,
+                                             .pTexelBufferView = nullptr};
+            vkUpdateDescriptorSets(device_, 1, &write, 0, nullptr);
+        }
+        std::memset(texels_.bytes().data(), 0, texels_.bytes().size());
     }
 
     [[nodiscard]] static VkImageView viewOf(const std::unique_ptr<GeneratorImage>& image) {
@@ -708,7 +748,7 @@ class FlowInterpolator final : public Interpolator {
     bool counting_;
     HostBuffer texels_;
     Pool countPool_;
-    VkDescriptorSet countSet_{VK_NULL_HANDLE};
+    std::array<VkDescriptorSet, maxDispatches> countSets_{};
     Pass take_;
     Pass reduce_;
     Pass search_;
@@ -722,7 +762,13 @@ class FlowInterpolator final : public Interpolator {
     SourcePixel pixel_;
     std::string ingestKey_;
     std::string generateKey_;
-    GpuWork work_;
+    /// A submission's work, in order: each dispatch with its read counts' slot, and the clear.
+    struct Recorded {
+        std::string name;
+        GpuWork work;
+        std::optional<std::uint32_t> slot;
+    };
+    std::vector<Recorded> recorded_;
     std::array<std::pair<std::uint32_t, std::uint32_t>, levels> sizes_{};
     std::array<std::unique_ptr<GeneratorImage>, 2> frames_;
     std::array<std::array<std::unique_ptr<GeneratorImage>, levels>, 2> lumas_;

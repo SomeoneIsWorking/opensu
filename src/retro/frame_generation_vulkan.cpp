@@ -10,9 +10,12 @@
 #include <vector>
 
 #include "frame_gen/generator_gpu.hpp"
+#include "frame_gen/gpu_spans.hpp"
 #include "frame_gen/interpolator.hpp"
 #include "frame_gen/paced_frames.hpp"
+#include "lucent/count_histogram.h"
 #include "lucent/log.h"
+#include "lucent/thread_work_counter.h"
 
 namespace opensu::retro {
 namespace {
@@ -31,8 +34,11 @@ std::unique_ptr<frame_gen::Interpolator> flowOf(frame_gen::GeneratorDevice& gpu)
 class FlowGeneration final : public FrameGeneration {
   public:
     // The core's frame is the content's own pixels.
-    explicit FlowGeneration(const settings::FrameGenSettings& settings)
+    FlowGeneration(const settings::FrameGenSettings& settings, bool measuring)
         : frames_{gpu_, flowOf(gpu_), settings, frame_gen::SourcePixel{}} {
+        if (measuring) {
+            work_.emplace();
+        }
         lucent::info("framegen",
                      "openSU's generator on {}, the core's frames scaled up by {}, up to {} per "
                      "real frame",
@@ -45,6 +51,7 @@ class FlowGeneration final : public FrameGeneration {
     FlowGeneration& operator=(FlowGeneration&&) = delete;
 
     bool real(const FrameImage& frame, std::uint64_t nowNs, std::uint64_t refreshNs) override {
+        const Phase phase{work_, realWork_};
         try {
             const std::uint64_t index =
                 frames_.add(frame.rgba, frame.width, frame.height, nowNs, nowNs, refreshNs);
@@ -67,6 +74,7 @@ class FlowGeneration final : public FrameGeneration {
     }
 
     std::optional<FrameImage> present(std::uint64_t nowNs, std::uint64_t refreshNs) override {
+        const Phase phase{work_, presentWork_};
         const std::optional<frame_gen::Shown> shown = frames_.vblank(nowNs, refreshNs);
         if (!shown) {
             return std::nullopt;
@@ -96,7 +104,44 @@ class FlowGeneration final : public FrameGeneration {
                            frames_.summary(), mean / nanosPerMicro, latestNs_ / nanosPerMicro);
     }
 
+    void reportWork() const override {
+        if (!work_) {
+            return;
+        }
+        const char* unit =
+            work_->unit() == lucent::perf::WorkUnit::instructions ? "instructions" : "cpu_ns";
+        lucent::info("perf",
+                     "framegen runner run-end: {} real frames, {} presents, {} on the "
+                     "runner's thread",
+                     realWork_.count(), presentWork_.count(), unit);
+        frame_gen::perfLine("framegen real", realWork_, unit, "real");
+        frame_gen::perfLine("framegen present", presentWork_, unit, "present");
+    }
+
   private:
+    /// Counts the work between its construction and destruction into `into` while measuring.
+    class Phase {
+      public:
+        Phase(const std::optional<lucent::perf::ThreadWorkCounter>& counter,
+              lucent::perf::CountHistogram& into)
+            : counter_{counter}, into_{into}, start_{counter ? counter->read() : 0} {
+        }
+        ~Phase() {
+            if (counter_) {
+                into_.add(counter_->read() - start_);
+            }
+        }
+        Phase(const Phase&) = delete;
+        Phase& operator=(const Phase&) = delete;
+        Phase(Phase&&) = delete;
+        Phase& operator=(Phase&&) = delete;
+
+      private:
+        const std::optional<lucent::perf::ThreadWorkCounter>& counter_;
+        lucent::perf::CountHistogram& into_;
+        std::uint64_t start_;
+    };
+
     /// A real frame's pixels and how it is shown, kept while its interval is.
     struct Real {
         std::vector<std::uint8_t> rgba;
@@ -113,14 +158,18 @@ class FlowGeneration final : public FrameGeneration {
     std::uint64_t lateNs_{0};
     std::uint64_t latestNs_{0};
     std::uint64_t realsShown_{0};
+    /// The runner thread's counter while measuring, and the work of each real frame and present.
+    std::optional<lucent::perf::ThreadWorkCounter> work_;
+    lucent::perf::CountHistogram realWork_;
+    lucent::perf::CountHistogram presentWork_;
 };
 
 } // namespace
 
 std::unique_ptr<FrameGeneration> FrameGeneration::open(const settings::FrameGenSettings& settings,
-                                                       std::string& why) {
+                                                       bool measuring, std::string& why) {
     try {
-        return std::make_unique<FlowGeneration>(settings);
+        return std::make_unique<FlowGeneration>(settings, measuring);
     } catch (const std::runtime_error& failure) {
         why = failure.what();
         return nullptr;

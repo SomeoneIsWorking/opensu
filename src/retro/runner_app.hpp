@@ -48,6 +48,9 @@ struct RunnerOptions {
     display::ScaleSource scale;
     /// Vulkan's validation layer; its errors end the run as ValidationErrors.
     bool validation{false};
+    /// Frame generation's own work on the runner's thread, per real frame and per present, at run
+    /// end.
+    bool perf{false};
     /// Stop after this many frames.
     std::optional<std::uint64_t> frames;
     /// Hidden only: the last image shown, written here as PNG.

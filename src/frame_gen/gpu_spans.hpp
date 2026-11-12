@@ -28,6 +28,11 @@ struct GpuWork {
     std::uint64_t sharedReads{0};
 };
 
+/// Logs `histogram` as one `[perf]` line: `name`'s p50, p99 and max in `unit` per `per`, and the
+/// run's total (the form `perf_compare.py` reads).
+void perfLine(const std::string& name, const lucent::perf::CountHistogram& histogram,
+              const std::string& unit, const std::string& per);
+
 class GpuSpans {
   public:
     /// Timestamps on a queue whose family has `validBits` of them, `periodNs` apart; none when

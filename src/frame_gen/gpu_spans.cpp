@@ -78,16 +78,12 @@ void GpuSpans::work(const std::string& key, const GpuWork& work) {
     counts.sharedReads.add(work.sharedReads);
 }
 
-namespace {
-
-void line(const std::string& name, const lucent::perf::CountHistogram& histogram,
-          const char* unit) {
-    lucent::info("perf", "{}: p50 {} p99 {} max {} {}/span, total {} {}", name,
-                 histogram.percentile(0.5), histogram.percentile(0.99), histogram.max(), unit,
+void perfLine(const std::string& name, const lucent::perf::CountHistogram& histogram,
+              const std::string& unit, const std::string& per) {
+    lucent::info("perf", "{}: p50 {} p99 {} max {} {}/{}, total {} {}", name,
+                 histogram.percentile(0.5), histogram.percentile(0.99), histogram.max(), unit, per,
                  histogram.total(), unit);
 }
-
-} // namespace
 
 void GpuSpans::report() const {
     std::uint64_t spans = 0;
@@ -97,15 +93,15 @@ void GpuSpans::report() const {
     lucent::info("perf", "framegen run-end: {} spans timed, {} not, GPU ns per span", spans,
                  dropped_);
     for (const auto& [key, counts] : work_) {
-        line(key + " dispatches", counts.dispatches, "dispatches");
-        line(key + " invocations", counts.invocations, "invocations");
-        line(key + " read", counts.bytesRead, "bytes");
-        line(key + " written", counts.bytesWritten, "bytes");
-        line(key + " texel reads", counts.texelReads, "texels");
-        line(key + " shared reads", counts.sharedReads, "values");
+        perfLine(key + " dispatches", counts.dispatches, "dispatches", "span");
+        perfLine(key + " invocations", counts.invocations, "invocations", "span");
+        perfLine(key + " read", counts.bytesRead, "bytes", "span");
+        perfLine(key + " written", counts.bytesWritten, "bytes", "span");
+        perfLine(key + " texel reads", counts.texelReads, "texels", "span");
+        perfLine(key + " shared reads", counts.sharedReads, "values", "span");
     }
     for (const auto& [key, histogram] : nanoseconds_) {
-        line(key + " GPU time", histogram, "ns");
+        perfLine(key + " GPU time", histogram, "ns", "span");
     }
 }
 

@@ -4,8 +4,10 @@
 //   opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--settings <file>]
 //                [--option <key>=<value>]... [--players N] [--netplay <file>]
 //                [--arcade <buttons>:<ways>] [--hidden | --silent] [--embedded] [--touch <dp>]
-//                [--validate] [--frames N] [--frame-png <file>] [--frame-pngs <dir>]
+//                [--validate] [--perf] [--frames N] [--frame-png <file>] [--frame-pngs <dir>]
 //                <rom>
+//
+// --perf ends the run with frame generation's own work on the runner's thread (`[perf]` lines).
 //
 // Exit status: 0 on quit, 1 for a bad command line or a window, Vulkan or frame-file failure, 2
 // when the core, the game or its save cannot be loaded, 3 when --validate saw Vulkan validation
@@ -75,6 +77,8 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
             options.embedded = true;
         } else if (arg == "--validate") {
             options.validation = true;
+        } else if (arg == "--perf") {
+            options.perf = true;
         } else if (arg == "--core" || arg == "--saves" || arg == "--system" ||
                    arg == "--settings" || arg == "--frame-png" || arg == "--frame-pngs" ||
                    arg == "--frames" || arg == "--option" || arg == "--players" ||
@@ -166,7 +170,7 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
             "usage: opensu-retro --core <path.so> [--saves <dir>] "
             "[--system <dir>] [--settings <file>] [--option <key>=<value>]... "
             "[--players N] [--netplay <file>] [--arcade <buttons>:<ways>] [--hidden | --silent] "
-            "[--touch <dp>] [--validate] [--frames N] [--frame-png <file>] "
+            "[--touch <dp>] [--validate] [--perf] [--frames N] [--frame-png <file>] "
             "[--frame-pngs <dir>] <rom>");
         return std::nullopt;
     }
