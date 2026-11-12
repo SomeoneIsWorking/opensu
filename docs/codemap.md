@@ -482,6 +482,7 @@ Design: `docs/design/libretro.md`. `opensu_retro` and the `opensu-retro` executa
 | Path | Owns |
 | --- | --- |
 | `src/online/meeting.*` | One thread from Play online until two shells agree or fail: Lucent's `p2p::Connector` to a path, then Ask, Answer, Save and Go over its `ReliableLink`; what the screen shows (`View`), every limit (`Patience`), the failures and code problems in words, openSU's code prefixes (`OSU`, `OSR`) and key label |
+| `src/online/lobbies.*` | Play online's public games, each on a thread: `PublicLobby` lists the host's game under the name it typed and hands the meeting's code, sealed, to the first who asks (Lucent's `p2p::LobbyHost`); `LobbyFinder` lists the games of this `lobbyVersion` and asks one for its code (`p2p::LobbyGuest`); `LobbyPlaces` is where: `onlineLobbyServer`'s lobby server when set, else `onlineLobbyRelays` or Lucent's default relays |
 | `src/online/zero_tier.*` | Play online's embedded ZeroTier node (Lucent's `lucent::zerotier`): started when Play online first opens and kept for the run, on openSU's one ad-hoc network (`zeroTierPort`); `zero_tier_none.cpp` stands in when `OPENSU_BUILD_ZEROTIER` is off |
 | `tests/online/` | Two meetings over loopback with a stand-in STUN server: a code to a session, declined, lapsed, both strict, a friend and a host giving up, cancelling. The transport under them is tested in Lucent (`tests/p2p`); the ZeroTier meeting and `tools.nat_lab` run Lucent's lab root, `lucent_zerotier_root` |
 
@@ -551,7 +552,8 @@ Protocol and data flow: `docs/design/lan.md`; plans: `docs/plans/lan-remote-play
 | `src/app/lan_netplay.*` | Two paired openSUs playing one ROM linked, on the shell's loop: Play with <name>, the question, each side's save taken; the session itself is `NetplayRun`'s |
 | `src/app/netplay_run.*` | A session of either path: the ROM found by console, size and hash, this machine's facts, the session folder and file written, the runner started, this player's save back into the profile when it ends |
 | `src/app/online_play.*` | Play online on the shell's loop: the warning, the code, the join, the question, the `online::Meeting` serviced, the port lease held until the game ends; Settings › Play online's rows (Join, the ZeroTier switch kept as `onlineZeroTier`, what to do when two routers block) |
-| `src/app/online_screen.*` | Play online's card: where things stand, the code with Copy, the reply field, Cancel or Close |
+| `src/app/online_screen.*` | Play online's card: where things stand, the code with Copy, List publicly (`listId`) or how the listing stands, the reply field, Cancel or Close |
+| `src/app/lobby_screen.*` | Play online's public games over the dimmed screen: where the search stands, a row per game with its seats (A asks its host for a seat; not while one is being asked), Refresh and Close |
 | `src/app/lan_roms.*` | ROM import on the shell's loop: the catalog's ROMs and their consoles' BIOS files shared (`share`); Settings › LAN › ROMs on <host> and its console pages, where Library's import starts (`entry`: the one paired host's page, else a page choosing among them) (games and Whole console picked, the BIOS the runner here lacks offered), Import into the first ROM folder it may write (asking for one when there is none), each game's progress and the total, the catalog reloaded as each arrives; `lanImport` for the control channel (`glance`) |
 
 ## Remote play

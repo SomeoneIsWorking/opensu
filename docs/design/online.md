@@ -1,8 +1,9 @@
 # Playing online
 
-Two people play one game over the internet with no server of ours: no relay, no lobby. Lucent's
-transport (`lucent::p2p`, `lucent/docs/p2p.md`) takes a code to an authenticated path; `src/online/`
-gets two shells to agree on a game over it; the game itself then runs as a LAN session does, over
+Two people play one game over the internet with no server of ours: no relay, and a lobby list only
+on Nostr relays or a lobby server the player names (Public games). Lucent's transport
+(`lucent::p2p`, `lucent/docs/p2p.md`) takes a code to an authenticated path; `src/online/` gets two
+shells to agree on a game over it; the game itself then runs as a LAN session does, over
 `netplay::UdpTransport` in `opensu-retro`. The reasoning is in `docs/plans/wan-netplay.md`.
 
 ## Owns
@@ -124,6 +125,28 @@ reasons it is taken now are there. What stands:
 - libzt is a library linked into openSU, not a runner, so G001's rule against bundled runners does
   not apply to it.
 
+## Public games
+
+Play-by-code stays the default and never touches a directory. On the host's card, while the code
+is shown, List publicly says that anyone who asks for a seat gets the code and sees the host's public
+IP address, then takes a name (the game's title to start with). `online::PublicLobby` lists it
+through Lucent's `p2p::LobbyHost` (`lucent/docs/p2p.md`, Discovery): the listing holds the typed
+name, the seats, `online::lobbyVersion` and a contact key made for this listing, never the code or an
+address. The first player who asks gets the code sealed to their own key; later ones hear the game
+is full. The listing comes down when the code goes to someone, when the meeting leaves Inviting
+(someone joined by the pasted code) or when the host cancels, and lapses within 300 s if openSU
+dies. Listing again makes a new contact key.
+
+Settings › Play online › Find a public game says what the host will see, then
+`online::LobbyFinder` lists the games of this version that have a seat. Picking one asks its host
+and waits up to 40 s for the code, which then goes through `online::Meeting` exactly as a pasted
+one: the code's secret still keys the handshake.
+
+`settings.json`'s `onlineLobbyServer` names a `lucent_lobby_server`'s base URL to list on in place
+of Nostr; `onlineLobbyRelays` (comma-separated `wss://` URLs) replaces Lucent's default relays
+(`lucent::p2p::kDefaultNostrRelays`). `online::LobbyPlaces` is the one place both are read. Neither
+has a row.
+
 ## Any core
 
 A game on the link core plays as on the LAN. Any other game the built-in runner runs is one console
@@ -161,6 +184,13 @@ private key may be in a log, and the sockets left are only the node's, bound to 
 one of the machine's own addresses (on Linux a dummy `lab0` in a network namespace of the test's
 own) and a host and a friend as processes of their own with no direct way:
 they meet over the embedded node alone and their stand-in runners hear each other through the bridges.
+
+`lobby` lists the host's game on Lucent's lab relay (`lucent_nostr_relay`, beside the STUN server)
+and the friend joins it from Find a public game, over full-cone NATs; frames show the warning, the
+listing, the list and the join. A third reader that only queries the relay dumps every raw event
+(`relay-listed.jsonl` while the game is listed, `relay-after.jsonl` after the join), and neither may
+hold the code, its secret or any of the lab's addresses. A live public relay is not part of any
+case: lobbies there are the user's own check.
 
 `settings.json`'s `onlineStunServers` (comma-separated `host:port`) replaces the default STUN
 servers. `/state` gives `onlineStep`, and in a hidden run `onlineCode`.

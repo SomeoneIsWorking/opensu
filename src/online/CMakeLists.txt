@@ -3,9 +3,9 @@
 # the embedded ZeroTier node (`lucent::zerotier`) it may also dial over. The shell's alone:
 # the game runs over `netplay::UdpTransport`.
 if(OPENSU_BUILD_ZEROTIER)
-    add_library(opensu_online STATIC meeting.cpp zero_tier.cpp)
+    add_library(opensu_online STATIC lobbies.cpp meeting.cpp zero_tier.cpp)
 else()
-    add_library(opensu_online STATIC meeting.cpp zero_tier_none.cpp)
+    add_library(opensu_online STATIC lobbies.cpp meeting.cpp zero_tier_none.cpp)
 endif()
 add_library(opensu::online ALIAS opensu_online)
 target_include_directories(opensu_online PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"

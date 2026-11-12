@@ -43,6 +43,8 @@ constexpr const char* consoleThemeKey = "consoleTheme";
 constexpr const char* interfaceThemeKey = "interfaceTheme";
 constexpr const char* lanNameKey = "lanName";
 constexpr const char* onlineStunServersKey = "onlineStunServers";
+constexpr const char* onlineLobbyRelaysKey = "onlineLobbyRelays";
+constexpr const char* onlineLobbyServerKey = "onlineLobbyServer";
 constexpr const char* onlineZeroTierKey = "onlineZeroTier";
 constexpr const char* onlineZeroTierRootsKey = "onlineZeroTierRoots";
 constexpr const char* saveShareKey = "saveShare";
@@ -465,6 +467,8 @@ Settings Store::load() const {
     read.text(interfaceThemeKey, settings.interfaceTheme, "showing the default interface theme");
     read.text(lanNameKey, settings.lanName, "going by the machine's name on the LAN");
     read.text(onlineStunServersKey, settings.onlineStunServers, "asking the default STUN servers");
+    read.text(onlineLobbyRelaysKey, settings.onlineLobbyRelays, "listing on the default relays");
+    read.text(onlineLobbyServerKey, settings.onlineLobbyServer, "listing on the relays");
     read.boolean(onlineZeroTierKey, settings.onlineZeroTier, "dialing over ZeroTier too");
     std::string rootsSpelling;
     read.text(onlineZeroTierRootsKey, rootsSpelling, "using ZeroTier's own roots");
@@ -572,6 +576,8 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {interfaceThemeKey, settings.interfaceTheme},
         {lanNameKey, settings.lanName},
         {onlineStunServersKey, settings.onlineStunServers},
+        {onlineLobbyRelaysKey, settings.onlineLobbyRelays},
+        {onlineLobbyServerKey, settings.onlineLobbyServer},
         {onlineZeroTierKey, settings.onlineZeroTier},
         {onlineZeroTierRootsKey, settings.onlineZeroTierRoots.string()},
         {saveShareKey, std::string{key(settings.saveShare)}},

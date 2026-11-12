@@ -36,6 +36,14 @@ std::unique_ptr<tk::Widget> OnlineScreen::build(const tk::Theme& theme) {
             },
             tk::ButtonKind::Primary);
     }
+    if (page.listable) {
+        card.add<tk::Button>(listId, "List publicly", [this] {
+            online_.listPublicly();
+        });
+    }
+    if (!page.listing.empty()) {
+        card.add<tk::Label>(page.listing, tk::TextRole::Body, true).colour(theme.colours.inkMuted);
+    }
     if (page.replyField) {
         card.add<tk::TextField>(fieldId, "Your friend's reply code", online_.replyDraft(),
                                 [this](std::string text) {

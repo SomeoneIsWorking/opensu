@@ -37,6 +37,9 @@ SCREEN_Y = 400
 DARK = 150
 # Every integration off but LAN, which a case turns on.
 LAN_ONLY = {name: False for name in ("steam", "epic", "gog", "emulators", "plugins")}
+# The lab's Nostr relay, beside the STUN server on the lab's internet.
+RELAY_ADDRESS = topology.STUN_ADDRESSES[0]
+RELAY_PORT = 7447
 
 
 def invite_secret(code: str) -> str:
@@ -66,6 +69,7 @@ class Rig:
         lease: int = 120,
         any_core: bool = False,
         embedded_zerotier: bool = False,
+        relay: bool = False,
     ) -> None:
         if context.out.exists():
             shutil.rmtree(context.out)
@@ -76,6 +80,7 @@ class Rig:
             host_nat, friend_nat, tailnet, zerotier, embedded_zerotier, delay_ms
         )
         self.root: subprocess.Popen[bytes] | None = None
+        self.relay: subprocess.Popen[bytes] | None = None
         self.stun: subprocess.Popen[bytes] | None = None
         self.capture: subprocess.Popen[bytes] | None = None
         self.zerotier_capture: subprocess.Popen[bytes] | None = None
@@ -83,6 +88,7 @@ class Rig:
         self.mdns: list[mdns.Mdns] = []
         self.instances: list[Instance] = []
         self.embedded_zerotier = embedded_zerotier
+        self.with_relay = relay
         # __exit__ never runs for a failed __init__, so a failed start stops what it started.
         try:
             self.start(context, zerotier, lan, gateway, lease, any_core)
@@ -116,6 +122,23 @@ class Rig:
             if not roots.exists():
                 raise RuntimeError(f"the lab's ZeroTier root did not start: {root_log}")
             online = {"onlineZeroTierRoots": str(roots)}
+        if self.with_relay:
+            # Lucent's lab relay on the lab's internet: public games never reach a public relay.
+            self.relay = self.lab.internet.start(
+                [
+                    str(context.build / "lucent" / "lucent_nostr_relay"),
+                    "--port",
+                    str(RELAY_PORT),
+                    "--lan",
+                ],
+                context.out / "relay.log",
+            )
+            until = time.monotonic() + 10
+            while time.monotonic() < until and "relay on port" not in self.relay_text():
+                time.sleep(0.05)
+            if "relay on port" not in self.relay_text():
+                raise RuntimeError(f"the lab's relay did not start: {self.relay_text()}")
+            online = {**online, "onlineLobbyRelays": f"ws://{RELAY_ADDRESS}:{RELAY_PORT}"}
         self.stun = self.lab.internet.start(
             [
                 sys.executable,
@@ -188,7 +211,14 @@ class Rig:
     def close(self) -> None:
         for instance in self.instances:
             instance.quit()
-        for each in (self.stun, self.capture, self.zerotier_capture, self.gateway, self.root):
+        for each in (
+            self.stun,
+            self.capture,
+            self.zerotier_capture,
+            self.gateway,
+            self.root,
+            self.relay,
+        ):
             if each is not None:
                 each.kill()
                 each.wait()
@@ -210,6 +240,22 @@ class Rig:
     def frame(self, name: str) -> Path:
         return self.context.out / "frames" / f"{name}.png"
 
+    def relay_text(self) -> str:
+        log = self.context.out / "relay.log"
+        return log.read_text() if log.exists() else ""
+
+    def relay_events(self, name: str) -> str:
+        """Every event the relay holds, as a reader that only looks at it sees them."""
+        dump = self.lab.internet.run(
+            sys.executable,
+            "-I",
+            str(Path(__file__).with_name("relay_dump.py")),
+            RELAY_ADDRESS,
+            str(RELAY_PORT),
+        )
+        (self.context.out / f"relay-{name}.jsonl").write_text(dump)
+        return dump
+
     def gateway_text(self) -> str:
         return self.gateway_log.read_text() if self.gateway_log.exists() else ""
 
@@ -224,9 +270,26 @@ class Rig:
     def remember(self, code: str) -> None:
         self.codes.append(code)
 
+    def secrets(self) -> list[str]:
+        """Every code the case made and the secret in each."""
+        return [*self.codes, *[invite_secret(code) for code in self.codes if code[:3] == "OSU"]]
+
+    def relay_keeps_secrets(self, dump: str, name: str) -> None:
+        """A reader of the relay alone sees no code, no secret and no address of the lab."""
+        words = self.secrets() + [
+            topology.HOST_PUBLIC,
+            topology.FRIEND_PUBLIC,
+            topology.HOST_PRIVATE,
+            topology.FRIEND_PRIVATE,
+        ]
+        for word in words:
+            if word.lower() in dump.lower():
+                raise RuntimeError(f"the relay's events {name} hold {word[:6]}...")
+        print(f"{len(dump.splitlines())} relay events {name}: no code, secret or address")
+
     def logs_keep_secrets(self) -> None:
         """No log under the case's folder holds a code or the secret in one."""
-        words = [*self.codes, *[invite_secret(code) for code in self.codes if code[:3] == "OSU"]]
+        words = self.secrets()
         # Each ZeroTier node's private key: identity.secret's last field.
         for identity in self.context.out.rglob("identity.secret"):
             words.append(identity.read_text().strip().split(":")[-1])
@@ -620,6 +683,60 @@ def upnp(context: Context) -> None:
         print("mapping removed at the end of the session")
 
 
+def host_lists(rig: Rig) -> None:
+    """List publicly from the host's card: the warning read, the game's title kept as its name."""
+    host = rig.host
+    host.focus("online/list")
+    host.press("a")
+    host.wait("warned", lambda state: state["screen"] == "dialog")
+    rig.shot(host, "3-list-warning")
+    host.press("a")
+    host.wait("at the name card", lambda state: state["screenFocus"] == "entry/field")
+    rig.shot(host, "4-name")
+    host.call("/key", "enter")
+    until = time.monotonic() + 20
+    while '"kind": 30078' not in rig.relay_events("listing"):
+        if time.monotonic() > until:
+            raise RuntimeError("the game never reached the relay")
+        time.sleep(0.5)
+    time.sleep(0.5)
+    rig.shot(host, "5-listed")
+
+
+def friend_finds(rig: Rig) -> None:
+    """Settings › Play online › Find a public game, the warning read, the game picked."""
+    friend = rig.friend
+    friend.wait("up", lambda state: state["screen"] == "" and state["games"] >= 0)
+    friend.press("guide")
+    friend.wait("in the Guide menu", lambda state: state["guideMenuOpen"])
+    friend.focus("guide.settings")
+    friend.press("a")
+    friend.wait("in Settings", lambda state: state["settingsOpen"])
+    friend.focus("categories/online")
+    friend.press("a")
+    friend.focus("online.find")
+    friend.press("a")
+    friend.wait("asked first", lambda state: state["screen"] == "dialog")
+    rig.shot(friend, "1-warning")
+    friend.press("a")
+    friend.wait("at the list", lambda state: state["screenFocus"] == "lobbies/game/0", seconds=20)
+    time.sleep(0.5)
+    rig.shot(friend, "2-list")
+    friend.press("a")
+
+
+def lobby(context: Context) -> None:
+    """A public game on the lab's relay, found and joined from the list over full-cone NATs."""
+    with Rig(context, "full-cone", "full-cone", relay=True) as rig:
+        host_offers(rig)
+        host_lists(rig)
+        rig.relay_keeps_secrets(rig.relay_events("listed"), "while listed")
+        friend_finds(rig)
+        play(rig)
+        rig.relay_keeps_secrets(rig.relay_events("after"), "after the join")
+        ends_cleanly(rig, signal.SIGTERM)
+
+
 CASES: dict[str, Callable[[Context], None]] = {
     "full-cone": full_cone,
     "restricted": restricted,
@@ -632,4 +749,5 @@ CASES: dict[str, Callable[[Context], None]] = {
     "nat-pmp": nat_pmp,
     "upnp": upnp,
     "any-core": any_core,
+    "lobby": lobby,
 }

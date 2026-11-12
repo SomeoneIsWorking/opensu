@@ -1,7 +1,8 @@
 // online_play — playing a ROM with a friend over the internet, on the shell's loop. Play online on
-// a game says what the friend will see, then makes a code (`online::Meeting`); Settings › Play
-// online takes a friend's code and, when the host cannot be reached with that alone, shows a reply
-// code to send back. What it finds it puts on `OnlineScreen`; once both sides agree the session
+// a game says what the friend will see, then makes a code (`online::Meeting`), which the host may
+// also list publicly under a name it types (`online::PublicLobby`); Settings › Play online takes a
+// friend's code or a public game picked from the list (`online::LobbyFinder`) and, when the host
+// cannot be reached with that alone, shows a reply code to send back. What it finds it puts on `OnlineScreen`; once both sides agree the session
 // starts through `NetplayRun`, and this holds the router's port mapping until the game ends.
 #pragma once
 
@@ -19,6 +20,7 @@
 #include "keyboard_pad.hpp"
 #include "library/game.hpp"
 #include "netplay_run.hpp"
+#include "online/lobbies.hpp"
 #include "online/meeting.hpp"
 #include "online/zero_tier.hpp"
 #include "preferences.hpp"
@@ -47,6 +49,19 @@ class OnlinePlay {
         bool replyField{false};
         /// The meeting is over: Close, not Cancel.
         bool over{false};
+        /// The host may list this game publicly now.
+        bool listable{false};
+        /// How the public listing stands; empty when the game is not listed.
+        std::string listing;
+    };
+
+    /// What `LobbyScreen` shows.
+    struct Lobbies {
+        online::LobbyFinder::Step step{online::LobbyFinder::Step::Listing};
+        std::vector<online::LobbyFinder::Game> games;
+        std::string note;
+        /// Games may be picked and the list refreshed: no ask is under way.
+        bool pickable{false};
     };
 
     OnlinePlay(gpu2d::ui::Navigator& navigator, audio::SdlSoundPlayer& sounds, NetplayRun& run,
@@ -64,6 +79,8 @@ class OnlinePlay {
     void host(const library::Game& game);
     /// Takes a friend's code, once the player has read the same.
     void join();
+    /// Lists the public games, once the player has read the same.
+    void findGames();
     /// Once a frame.
     void service();
     /// The game ended: the router's mapping and the ZeroTier bridge go.
@@ -82,6 +99,15 @@ class OnlinePlay {
     /// Cancel, or Close once it is over.
     void close();
 
+    /// The host lists its game publicly, once it has read who will see what and typed a name.
+    void listPublicly();
+    [[nodiscard]] Lobbies lobbies() const;
+    void refreshLobbies();
+    /// Asks the host of the listed game `index` for its code.
+    void pickLobby(std::size_t index);
+    /// The lobby list is closed.
+    void closeLobbies();
+
     /// Where it stands, for the control channel.
     [[nodiscard]] std::string glance() const;
     /// The code shown now.
@@ -92,6 +118,11 @@ class OnlinePlay {
     void askCode();
     void closeCode();
     void submitCode();
+    void meet(lucent::p2p::Invite invite);
+    void askLobbyName();
+    void closeLobbyName();
+    void serviceLobbies();
+    [[nodiscard]] online::LobbyPlaces lobbyPlaces() const;
     void openScreen();
     void closeScreen();
     void question(const library::Game& game);
@@ -123,6 +154,9 @@ class OnlinePlay {
     std::string codeDraft_;
     std::string replyDraft_;
     std::string replyProblem_;
+    std::string lobbyNameDraft_;
+    std::unique_ptr<online::PublicLobby> publicLobby_;
+    std::unique_ptr<online::LobbyFinder> finder_;
     std::unique_ptr<lucent::p2p::PortLease> lease_;
     std::unique_ptr<lucent::p2p::PathBridge> bridge_;
     online::Meeting::View view_;

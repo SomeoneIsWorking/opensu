@@ -1,5 +1,6 @@
 // online_screen — Play online's card over the dimmed screen, reading `OnlinePlay` each time it
-// builds: where things stand, the code with Copy, the host's field for a reply, Cancel or Close.
+// builds: where things stand, the code with Copy, List publicly or how the listing stands, the
+// host's field for a reply, Cancel or Close.
 #pragma once
 
 #include <memory>
@@ -17,6 +18,7 @@ class OnlineScreen final : public gpu2d::ui::Screen {
     static constexpr const char* screenId = "online";
     static constexpr const char* fieldId = "online/reply";
     static constexpr const char* copyId = "online/copy";
+    static constexpr const char* listId = "online/list";
     static constexpr const char* closeId = "online/close";
 
     explicit OnlineScreen(OnlinePlay& online) : Screen{screenId, "Play online"}, online_{online} {

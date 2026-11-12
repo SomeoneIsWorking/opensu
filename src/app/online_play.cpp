@@ -13,6 +13,7 @@
 #include "lan/netplay_asks.hpp"
 #include "library/linked_play.hpp"
 #include "lucent/log.h"
+#include "lobby_screen.hpp"
 #include "online_screen.hpp"
 #include "secrets/secret.hpp"
 #include "ui/entry_screen.hpp"
@@ -21,6 +22,8 @@ namespace opensu::app {
 namespace {
 
 constexpr std::string_view joinRowId = "online.join";
+constexpr std::string_view findRowId = "online.find";
+constexpr std::string_view lobbyNameCardId = "online/lobby-name";
 constexpr std::string_view zeroTierRowId = "online.zerotier";
 constexpr std::string_view codeCardId = "online/code";
 /// An invite with every address it can hold, and room for what a chat app adds.
@@ -29,7 +32,10 @@ constexpr std::string_view seesYou =
     "Your friend will see your public IP address, which shows roughly where you are. openSU may "
     "open a port on your router while you play, and closes it when the session ends. Only play "
     "with someone you trust.";
-
+constexpr std::string_view seenByAnyone =
+    "Anyone who finds your game in the list and asks for a seat gets your code and sees your "
+    "public IP address, which shows roughly where you are. The list shows only the name you type. "
+    "The first to ask gets the code; the game leaves the list then, or when you cancel.";
 std::string stepName(online::Meeting::Step step) {
     using Step = online::Meeting::Step;
     switch (step) {
@@ -79,6 +85,12 @@ ui::SettingsCategory OnlinePlay::page() const {
     join.label = "Join a friend's game";
     join.note = "Paste the code your friend sent you. To host, open a game and pick Play online.";
     page.rows.push_back(std::move(join));
+    ui::SettingsRow find;
+    find.id = findRowId;
+    find.kind = ui::RowKind::Action;
+    find.label = "Find a public game";
+    find.note = "Games other players listed for anyone to join.";
+    page.rows.push_back(std::move(find));
     const bool zeroTier = preferences_.values().onlineZeroTier;
     if (online::ZeroTier::built()) {
         page.rows.push_back(
@@ -119,7 +131,7 @@ std::string OnlinePlay::zeroTierNote() const {
 }
 
 bool OnlinePlay::owns(const std::string& id) {
-    return id == joinRowId || id == zeroTierRowId;
+    return id == joinRowId || id == findRowId || id == zeroTierRowId;
 }
 
 void OnlinePlay::run(const std::string& id, int step) {
@@ -129,9 +141,16 @@ void OnlinePlay::run(const std::string& id, int step) {
         preferences_.save();
         return;
     }
-    if (step == 0) {
+    if (step == 0 && id == findRowId) {
+        findGames();
+    } else if (step == 0) {
         join();
     }
+}
+
+online::LobbyPlaces OnlinePlay::lobbyPlaces() const {
+    return online::LobbyPlaces::of(preferences_.values().onlineLobbyRelays,
+                                   preferences_.values().onlineLobbyServer);
 }
 
 online::Network OnlinePlay::network() const {
@@ -276,11 +295,182 @@ void OnlinePlay::submitCode() {
         return;
     }
     closeCode();
+    meet(std::move(*invite));
+}
+
+void OnlinePlay::meet(lucent::p2p::Invite invite) {
     game_.reset();
     hosting_ = false;
     answered_ = false;
-    meeting_ = std::make_unique<online::Meeting>(network(), online::Patience{}, std::move(*invite));
+    meeting_ = std::make_unique<online::Meeting>(network(), online::Patience{}, std::move(invite));
     openScreen();
+}
+
+void OnlinePlay::findGames() {
+    if (meeting_ || hashing_) {
+        hooks_.say("A game online is already being set up", true);
+        return;
+    }
+    if (preferences_.values().onlineZeroTier) {
+        zeroTier_.start();
+    }
+    sounds_.play(audio::Effect::Open);
+    std::vector<gpu2d::ui::Dialog::Choice> choices;
+    choices.push_back(
+        {.label = "Cancel", .chosen = {}, .kind = gpu2d::ui::ButtonKind::Normal, .exits = true});
+    choices.push_back({.label = "Find games",
+                       .chosen =
+                           [this] {
+                               finder_ = std::make_unique<online::LobbyFinder>(lobbyPlaces());
+                               navigator_.push(std::make_unique<LobbyScreen>(*this));
+                           },
+                       .kind = gpu2d::ui::ButtonKind::Primary,
+                       .exits = true});
+    navigator_.push(std::make_unique<gpu2d::ui::Dialog>("Join a public game?",
+                                                        std::string{seesYou}, std::move(choices),
+                                                        1));
+}
+
+OnlinePlay::Lobbies OnlinePlay::lobbies() const {
+    using Step = online::LobbyFinder::Step;
+    Lobbies shown;
+    if (!finder_) {
+        return shown;
+    }
+    const online::LobbyFinder::View view = finder_->view();
+    shown.step = view.step;
+    shown.games = view.games;
+    shown.pickable = view.step != Step::Listing && view.step != Step::Asking &&
+                     view.step != Step::Invited;
+    switch (view.step) {
+    case Step::Listing:
+        shown.note = "Looking for public games...";
+        break;
+    case Step::Listed:
+        shown.note = view.games.empty() ? "No public games right now. Try again in a moment."
+                                        : "Pick a game to ask its host for a seat.";
+        break;
+    case Step::Asking:
+        shown.note = "Asking the host...";
+        break;
+    case Step::Invited:
+        shown.note = "The host answered. Connecting...";
+        break;
+    case Step::Full:
+        shown.note = "Someone else took that seat. Pick another game.";
+        break;
+    case Step::Failed:
+        shown.note = view.problem;
+        break;
+    }
+    return shown;
+}
+
+void OnlinePlay::refreshLobbies() {
+    if (finder_ && lobbies().pickable) {
+        finder_->refresh();
+    }
+}
+
+void OnlinePlay::pickLobby(std::size_t index) {
+    if (finder_) {
+        finder_->ask(index);
+    }
+}
+
+void OnlinePlay::closeLobbies() {
+    finder_.reset();
+    for (const gpu2d::ui::Screen* screen : navigator_.screens()) {
+        if (screen->id() == LobbyScreen::screenId) {
+            navigator_.closeFrom(*screen);
+            break;
+        }
+    }
+}
+
+void OnlinePlay::serviceLobbies() {
+    if (publicLobby_ && view_.step != online::Meeting::Step::Inviting &&
+        !publicLobby_->view().seated) {
+        // The code is spent or the meeting is over: the listing goes.
+        publicLobby_.reset();
+    }
+    if (!finder_) {
+        return;
+    }
+    const online::LobbyFinder::View view = finder_->view();
+    if (view.step != online::LobbyFinder::Step::Invited) {
+        return;
+    }
+    lucent::p2p::CodeProblem problem{};
+    std::optional<lucent::p2p::Invite> invite =
+        lucent::p2p::read_invite(view.invite, online::codePrefixes, problem);
+    closeLobbies();
+    if (!invite) {
+        hooks_.say(std::string{online::textOf(problem)}, true);
+        return;
+    }
+    meet(std::move(*invite));
+}
+
+void OnlinePlay::listPublicly() {
+    if (!meeting_ || view_.step != online::Meeting::Step::Inviting || publicLobby_) {
+        return;
+    }
+    sounds_.play(audio::Effect::Open);
+    std::vector<gpu2d::ui::Dialog::Choice> choices;
+    choices.push_back(
+        {.label = "Cancel", .chosen = {}, .kind = gpu2d::ui::ButtonKind::Normal, .exits = true});
+    choices.push_back({.label = "Name the game",
+                       .chosen =
+                           [this] {
+                               askLobbyName();
+                           },
+                       .kind = gpu2d::ui::ButtonKind::Primary,
+                       .exits = true});
+    navigator_.push(std::make_unique<gpu2d::ui::Dialog>(
+        "List this game publicly?", std::string{seenByAnyone}, std::move(choices), 0));
+}
+
+void OnlinePlay::askLobbyName() {
+    lobbyNameDraft_ = game_ ? game_->title : std::string{};
+    navigator_.push(std::make_unique<ui::EntryScreen>(
+        ui::Entry{.id = std::string{lobbyNameCardId},
+                  .title = "Name your public game",
+                  .note = "Players see only this name in the list.",
+                  .label = "Name",
+                  .placeholder = "Game name",
+                  .secret = false,
+                  .mostBytes = lucent::p2p::kMaxLobbyTitleBytes,
+                  .text = [this]() -> const std::string& {
+                      return lobbyNameDraft_;
+                  },
+                  .changed =
+                      [this](std::string text) {
+                          lobbyNameDraft_ = std::move(text);
+                      },
+                  .submitted =
+                      [this] {
+                          if (meeting_ && view_.step == online::Meeting::Step::Inviting &&
+                              !lobbyNameDraft_.empty()) {
+                              publicLobby_ = std::make_unique<online::PublicLobby>(
+                                  lobbyPlaces(), lobbyNameDraft_, view_.code);
+                          }
+                          closeLobbyName();
+                      },
+                  .cancelled =
+                      [this] {
+                          closeLobbyName();
+                      }}));
+}
+
+void OnlinePlay::closeLobbyName() {
+    keyboard_.close();
+    for (const gpu2d::ui::Screen* screen : navigator_.screens()) {
+        if (screen->id() == lobbyNameCardId) {
+            navigator_.closeFrom(*screen);
+            break;
+        }
+    }
 }
 
 void OnlinePlay::openScreen() {
@@ -301,6 +491,7 @@ void OnlinePlay::closeScreen() {
 void OnlinePlay::close() {
     closeQuestion();
     closeScreen();
+    publicLobby_.reset();
     meeting_.reset();
     lookup_.reset();
     hashing_.reset();
@@ -326,6 +517,7 @@ OnlinePlay::Page OnlinePlay::shown() const {
                          "will not get through.";
         }
         page.replyField = true;
+        page.listable = publicLobby_ == nullptr;
         break;
     case Step::Trying:
         page.note = "Trying to reach your friend...";
@@ -354,6 +546,15 @@ OnlinePlay::Page OnlinePlay::shown() const {
     }
     if (!replyProblem_.empty() && page.replyField) {
         page.note = replyProblem_;
+    }
+    if (publicLobby_) {
+        const online::PublicLobby::View listed = publicLobby_->view();
+        page.listing = listed.seated   ? "A player from the public list has your code."
+                       : listed.listed ? "Listed publicly as \"" + lobbyNameDraft_ +
+                                             "\". Anyone who asks gets your code and your "
+                                             "public IP address."
+                       : listed.problem.empty() ? "Listing publicly..."
+                                                : listed.problem;
     }
     return page;
 }
@@ -482,6 +683,7 @@ void OnlinePlay::begin(online::Agreement& agreement, const library::Game& game) 
 
 void OnlinePlay::service() {
     serviceHash();
+    serviceLobbies();
     if (!meeting_) {
         return;
     }

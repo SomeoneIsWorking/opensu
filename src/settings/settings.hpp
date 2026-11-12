@@ -145,6 +145,11 @@ struct Settings {
     std::string lanName;
     /// The STUN servers Play online asks, `host:port` and comma-separated; empty for the default.
     std::string onlineStunServers;
+    /// The Nostr relays public games are listed on, `wss://` URLs comma-separated; empty for
+    /// Lucent's default relays (`online::LobbyPlaces`).
+    std::string onlineLobbyRelays;
+    /// A self-hosted lobby server's base URL, listing public games in place of the relays.
+    std::string onlineLobbyServer;
     /// Play online also dials over the embedded ZeroTier node, which reaches ZeroTier's roots.
     bool onlineZeroTier{true};
     /// A file holding the ZeroTier root set Play online's node uses; empty for ZeroTier's own
