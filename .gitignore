@@ -1,5 +1,6 @@
 build/
 scratch/
+env-assets/
 docs/reference/
 .venv/
 __pycache__/
