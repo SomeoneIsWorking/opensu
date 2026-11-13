@@ -82,29 +82,34 @@ float lumaAt(ivec2 p, bool isLater, bool tiled) {
     return isLater ? READ(later, q).r : READ(earlier, q).r;
 }
 
+// The two frames' luma difference at the window's pixel (x, y).
+float difference(ivec2 origin, int x, int y, ivec2 back, ivec2 ahead, bool tiled, bool withEarlier,
+                 bool withLater) {
+    const ivec2 p = origin + ivec2(x - margin, y - margin);
+    const float e = lumaAt(p - back, false, tiled);
+    const float l = lumaAt(p + ahead, true, tiled);
+    return (withEarlier ? e : 0.0) - (withLater ? l : 0.0);
+}
+
 // The cost of `d`, from the tiles, which must hold its windows, or from the frames. With one
 // frame's luma taken as 0 it is the other's deviation from its mean over the block's window
 // (`isFlat`).
 float cost(ivec2 origin, ivec2 d, bool tiled, bool withEarlier, bool withLater) {
     const ivec2 back = earlierShare(vec2(d), 0.5);
     const ivec2 ahead = d - back;
-    float differences[side * side];
     float mean = 0.0;
     [[unroll]] for (int y = 0; y < side; ++y) {
         [[unroll]] for (int x = 0; x < side; ++x) {
-            const ivec2 p = origin + ivec2(x - margin, y - margin);
-            const float e = lumaAt(p - back, false, tiled);
-            const float l = lumaAt(p + ahead, true, tiled);
-            const float difference = (withEarlier ? e : 0.0) - (withLater ? l : 0.0);
-            differences[y * side + x] = difference;
-            mean += difference;
+            mean += difference(origin, x, y, back, ahead, tiled, withEarlier, withLater);
         }
     }
     mean /= float(side * side);
     // The block's mean difference left out, so a fade or a flash moves nothing.
     float sum = 0.0;
-    [[unroll]] for (int i = 0; i < side * side; ++i) {
-        sum += abs(differences[i] - mean);
+    [[unroll]] for (int y = 0; y < side; ++y) {
+        [[unroll]] for (int x = 0; x < side; ++x) {
+            sum += abs(difference(origin, x, y, back, ahead, tiled, withEarlier, withLater) - mean);
+        }
     }
     return sum + lengthCost * float(side * side) * float(abs(d.x) + abs(d.y));
 }
