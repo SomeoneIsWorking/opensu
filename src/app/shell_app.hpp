@@ -70,6 +70,7 @@
 #include "launch/handoff.hpp"
 #include "launch/process_tree.hpp"
 #include "launch_mailbox.hpp"
+#include "launch_request.hpp"
 #include "layered_editor.hpp"
 #include "layered_settings.hpp"
 #include "library/catalog.hpp"
@@ -233,19 +234,18 @@ class ShellApp final {
     /// L1 and R1: moves `delta` sections along the dock and shows the section's shelf, with iiSU's
     /// domino cue sized by what the section shows at once.
     void cycleSection(int delta);
-    /// Launches `game` as `profile` with `environment` added to its own, or offers to install it;
-    /// that profile's saves are synced with the openSUs sharing them first, and another openSU's
-    /// game is asked of it. False when it was refused.
-    bool launch(const library::Game& game, std::vector<std::string> environment,
-                const std::string& profile);
+    /// Launches `game` as `request` asks, or offers to install it; the request's profile's saves
+    /// are synced with the openSUs sharing them first, and another openSU's game is asked of it.
+    /// False when it was refused.
+    bool launch(const library::Game& game, LaunchRequest request);
     /// The installed game here with this id.
     [[nodiscard]] std::optional<library::Game> localGame(const std::string& id) const;
     /// Starts downloading the visual presets' missing art, saying so, unless it is under way.
     void fetchFrameArt();
-    /// Starts `game` now as `profile` with `saves` as its save folder, `extra` added to its
-    /// environment; false when it was refused.
-    bool startLaunch(const library::Game& game, std::vector<std::string> extra,
-                     const std::string& profile, const std::filesystem::path& saves);
+    /// Starts `game` now as `request` asks with `saves` as its save folder; false when it was
+    /// refused.
+    bool startLaunch(const library::Game& game, LaunchRequest request,
+                     const std::filesystem::path& saves);
     /// Starts a netplay session's `game` as the active profile with its saves in `saves`, never
     /// synced with the profile's; false when it was refused.
     bool launchSession(const library::Game& game, const std::filesystem::path& saves);
@@ -552,7 +552,8 @@ class ShellApp final {
             },
             [this] {
                 if (const library::Game* game = shell_.grid().focusedGame()) {
-                    static_cast<void>(launch(*game, {}, profiles_.book().active().id));
+                    static_cast<void>(
+                        launch(*game, LaunchRequest{.profile = profiles_.book().active().id}));
                 }
             },
             [this] {
@@ -682,7 +683,8 @@ class ShellApp final {
                 return shownGame(id);
             },
             [this](const library::Game& game) {
-                static_cast<void>(launch(game, {}, profiles_.book().active().id));
+                static_cast<void>(
+                    launch(game, LaunchRequest{.profile = profiles_.book().active().id}));
             },
             [this](const library::Game& game, bool hidden) {
                 setHidden(game, hidden);
@@ -879,7 +881,8 @@ class ShellApp final {
             .launch =
                 [this](const library::Game& game, std::vector<std::string> environment,
                        const std::string& profile) {
-                    return launch(game, std::move(environment), profile);
+                    return launch(game, LaunchRequest{.environment = std::move(environment),
+                                                      .profile = profile});
                 },
             .close =
                 [this] {
@@ -913,7 +916,7 @@ class ShellApp final {
                         return game.source == library::Source::Remote && game.hostId == hostId &&
                                game.sourceId == gameId;
                     });
-                    return found != games_.end() && launch(*found, {}, {});
+                    return found != games_.end() && launch(*found, LaunchRequest{});
                 },
             .facts =
                 [this] {
@@ -1667,9 +1670,8 @@ class ShellApp final {
                 return localGame(id);
             },
         .play =
-            [this](const library::Game& game, std::vector<std::string> environment,
-                   const std::string& profile) {
-                static_cast<void>(launch(game, std::move(environment), profile));
+            [this](const library::Game& game, LaunchRequest request) {
+                static_cast<void>(launch(game, std::move(request)));
             },
         .show =
             [this](const library::Game& game) {

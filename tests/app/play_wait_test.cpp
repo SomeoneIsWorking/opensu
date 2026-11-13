@@ -12,6 +12,7 @@
 namespace {
 
 using opensu::app::EmulatorDownloads;
+using opensu::app::LaunchRequest;
 using opensu::app::PlayWait;
 using opensu::library::EmulatorOption;
 using opensu::library::Game;
@@ -45,7 +46,7 @@ struct World {
                     return std::optional<Game>{game};
                 },
             .play =
-                [this](const Game& started, const std::vector<std::string>&, const std::string&) {
+                [this](const Game& started, const LaunchRequest&) {
                     played.push_back(started.title);
                 },
             .show =
@@ -102,7 +103,7 @@ void downloadsThenPlays() {
     World world;
     world.game = romWithoutCore();
     PlayWait wait{world.hooks()};
-    expect(wait.begin(world.game, {}, "p"), "a missing core is waited for");
+    expect(wait.begin(world.game, LaunchRequest{.profile = "p"}), "a missing core is waited for");
     expect(world.shown == 1 && world.downloads == std::vector<std::string>{"pcsx"},
            "the card is up and the core downloads");
     wait.service();
@@ -127,7 +128,7 @@ void failedDownloadEnds() {
     World world;
     world.game = romWithoutCore();
     PlayWait wait{world.hooks()};
-    expect(wait.begin(world.game, {}, "p"), "waits");
+    expect(wait.begin(world.game, LaunchRequest{.profile = "p"}), "waits");
     world.running.reset();
     world.finished = EmulatorDownloads::Finished{
         1, "pcsx", EmulatorDownloads::Finished::Outcome::Failed, "no network"};
@@ -141,7 +142,7 @@ void refusedDownloadSays() {
     world.game = romWithoutCore();
     world.downloadRefusal = "no";
     PlayWait wait{world.hooks()};
-    expect(wait.begin(world.game, {}, "p"), "waits");
+    expect(wait.begin(world.game, LaunchRequest{.profile = "p"}), "waits");
     expect(!wait.waiting() && world.refused == std::vector<std::string>{"no"},
            "a refused download tells why");
 }
@@ -150,7 +151,7 @@ void cancelStopsDownload() {
     World world;
     world.game = romWithoutCore();
     PlayWait wait{world.hooks()};
-    expect(wait.begin(world.game, {}, "p"), "waits");
+    expect(wait.begin(world.game, LaunchRequest{.profile = "p"}), "waits");
     wait.cancel();
     expect(!wait.waiting() && world.cancelled == std::vector<std::string>{"pcsx"},
            "Cancel stops the download the wait started");
@@ -172,7 +173,7 @@ void romsetCheckResolves() {
     game.emulatorOptions.push_back(core);
     world.game = game;
     PlayWait wait{world.hooks()};
-    expect(wait.begin(game, {}, "p"), "a pending romset is waited for");
+    expect(wait.begin(game, LaunchRequest{.profile = "p"}), "a pending romset is waited for");
     expect(world.line == opensu::library::roms::checkingRomset, "the card says it checks");
     world.game.emulatorOptions.front().romset = RomsetFit::Mismatch;
     wait.service();
@@ -186,7 +187,8 @@ void nothingToWaitFor() {
     Game game;
     game.id = "rom";
     PlayWait wait{world.hooks()};
-    expect(!wait.begin(game, {}, "p") && world.shown == 0, "nothing can help: no wait");
+    expect(!wait.begin(game, LaunchRequest{.profile = "p"}) && world.shown == 0,
+           "nothing can help: no wait");
 }
 
 } // namespace

@@ -21,15 +21,13 @@ bool romsetPending(const library::Game& game) {
 PlayWait::PlayWait(Hooks hooks) : hooks_{std::move(hooks)} {
 }
 
-bool PlayWait::begin(const library::Game& game, std::vector<std::string> environment,
-                     const std::string& profile) {
+bool PlayWait::begin(const library::Game& game, LaunchRequest request) {
     if (ui::emulatorToDownload(game) == nullptr && !romsetPending(game)) {
         return false;
     }
     const std::optional<EmulatorDownloads::Finished> finished = hooks_.finished();
     held_ = Held{.gameId = game.id,
-                 .environment = std::move(environment),
-                 .profile = profile,
+                 .request = std::move(request),
                  .seenDownload = finished ? finished->serial : 0,
                  .started = {}};
     hooks_.show(game);
@@ -70,7 +68,7 @@ void PlayWait::service() {
     if (!game->launch.empty()) {
         Held held = std::move(*held_);
         held_.reset();
-        hooks_.play(*game, std::move(held.environment), held.profile);
+        hooks_.play(*game, std::move(held.request));
         return;
     }
     const library::EmulatorOption* missing = ui::emulatorToDownload(*game);

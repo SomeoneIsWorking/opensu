@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "emulator_downloads.hpp"
+#include "launch_request.hpp"
 #include "library/game.hpp"
 
 namespace opensu::app {
@@ -20,9 +21,7 @@ class PlayWait {
         /// The game as the library has it now.
         std::function<std::optional<library::Game>(const std::string& id)> find;
         /// Plays the game, which can start now.
-        std::function<void(const library::Game& game, std::vector<std::string> environment,
-                           const std::string& profile)>
-            play;
+        std::function<void(const library::Game& game, LaunchRequest request)> play;
         /// Puts the launch card up.
         std::function<void(const library::Game& game)> show;
         /// The card's line, and how far along when that is known.
@@ -42,8 +41,7 @@ class PlayWait {
     explicit PlayWait(Hooks hooks);
 
     /// Waits for `game` if something can still make it startable; false if nothing can.
-    [[nodiscard]] bool begin(const library::Game& game, std::vector<std::string> environment,
-                             const std::string& profile);
+    [[nodiscard]] bool begin(const library::Game& game, LaunchRequest request);
     [[nodiscard]] bool waiting() const noexcept {
         return held_.has_value();
     }
@@ -58,8 +56,7 @@ class PlayWait {
 
     struct Held {
         std::string gameId;
-        std::vector<std::string> environment;
-        std::string profile;
+        LaunchRequest request;
         /// The last download to end before this wait, which says nothing about it.
         std::uint64_t seenDownload{0};
         /// The download this wait started.

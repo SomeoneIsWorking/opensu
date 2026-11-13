@@ -44,8 +44,7 @@ namespace {
 /// A launch held for its saves, shared by the held call so copying it cannot throw.
 struct HeldLaunch {
     library::Game game;
-    std::vector<std::string> environment;
-    std::string profile;
+    LaunchRequest request;
 };
 
 } // namespace
@@ -772,8 +771,7 @@ void ShellApp::cycleSection(int delta) {
     }
 }
 
-bool ShellApp::launch(const library::Game& game, std::vector<std::string> environment,
-                      const std::string& profile) {
+bool ShellApp::launch(const library::Game& game, LaunchRequest request) {
     if (!game.installed) {
         panels_.offerInstall(game);
         return false;
@@ -799,7 +797,7 @@ bool ShellApp::launch(const library::Game& game, std::vector<std::string> enviro
         return true;
     }
     if (game.launch.empty()) {
-        if (playWait_.begin(game, environment, profile)) {
+        if (playWait_.begin(game, request)) {
             return true;
         }
         shell_.setToast(
@@ -810,16 +808,17 @@ bool ShellApp::launch(const library::Game& game, std::vector<std::string> enviro
         shell_.setToast("a game is waiting for its saves", true);
         return false;
     }
-    const auto held = std::make_shared<const HeldLaunch>(
-        HeldLaunch{.game = game, .environment = environment, .profile = profile});
-    if (saveSharing_.before(game, profile, [this, held] {
-            static_cast<void>(startLaunch(held->game, held->environment, held->profile,
-                                          profileRunnerSaves(held->profile)));
+    const auto held =
+        std::make_shared<const HeldLaunch>(HeldLaunch{.game = game, .request = request});
+    if (saveSharing_.before(game, request.profile, [this, held] {
+            static_cast<void>(
+                startLaunch(held->game, held->request, profileRunnerSaves(held->request.profile)));
         })) {
         shell_.setToast("Syncing " + game.title + "'s saves first");
         return true;
     }
-    return startLaunch(game, std::move(environment), profile, profileRunnerSaves(profile));
+    const std::filesystem::path saves = profileRunnerSaves(request.profile);
+    return startLaunch(game, std::move(request), saves);
 }
 
 std::optional<library::Game> ShellApp::localGame(const std::string& id) const {
@@ -834,7 +833,7 @@ bool ShellApp::launchSession(const library::Game& game, const std::filesystem::p
         shell_.setToast("a game is already running", true);
         return false;
     }
-    return startLaunch(game, {}, profiles_.book().active().id, saves);
+    return startLaunch(game, LaunchRequest{.profile = profiles_.book().active().id}, saves);
 }
 
 std::vector<std::filesystem::path> ShellApp::netplayBiosOf(const library::Game& game) const {
@@ -876,8 +875,8 @@ void ShellApp::fetchFrameArt() {
     shell_.setToast("Downloading the visual preset's frame; it shows from the next launch", false);
 }
 
-bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> extra,
-                           const std::string& profile, const std::filesystem::path& saves) {
+bool ShellApp::startLaunch(const library::Game& game, LaunchRequest request,
+                           const std::filesystem::path& saves) {
     library::Game started = game;
     const library::wine::Prepared wine = wineSettings_.prepare(started);
     if (!wine.refusal.empty()) {
@@ -921,8 +920,8 @@ bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> e
     environment.insert(environment.end(), wine.environment.begin(), wine.environment.end());
     environment.insert(environment.end(), started.launch.environment.begin(),
                        started.launch.environment.end());
-    environment.insert(environment.end(), std::make_move_iterator(extra.begin()),
-                       std::make_move_iterator(extra.end()));
+    environment.insert(environment.end(), std::make_move_iterator(request.environment.begin()),
+                       std::make_move_iterator(request.environment.end()));
     // Before the game starts, so it reads the smaller screen as its own.
     presentation_.follow(gameInFront(), &started);
     GameLaunch::Convert convert;
@@ -938,7 +937,7 @@ bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> e
     const bool running = launches_.start(std::move(started), std::move(environment),
                                          std::move(convert), std::move(setup));
     if (running) {
-        playingAs_ = profile;
+        playingAs_ = std::move(request.profile);
     }
     // Last, since it replaces the tile `game` may be: this copy may now top its title.
     refreshShelf();

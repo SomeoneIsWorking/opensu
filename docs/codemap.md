@@ -126,6 +126,7 @@ on the same rule.
 | `src/app/shortcut_router.*` | Keys, pad events and game keys onto shell events and actions through `Shortcuts`; every action that is not a button is done here (quick menu, volume, quit, and the game actions, with a toast when no game runs) |
 | `src/app/shell_frame.*` | The drawn shell's pixels (`renderShell`), for the control channel's frame and `--render`; icons the draw asked for are waited for and the frame drawn again |
 | `src/app/frame_timing.*` | How long the loop's frames take, start to start, and the longest of the last second (`/state` `worstFrameUs`) |
+| `src/app/launch_request.hpp` | What a launch is asked with beside its game: the environment added to its own and the profile it plays as, kept whole by a launch held for saves or a download |
 | `src/app/play_wait.*` | Play on a game that cannot start yet: the launch card stays up while its emulator downloads or its romset is checked, then the game starts |
 | `src/app/panel_flow.*` | The launch and install card (a `ProgressScreen` with Cancel or Hide), the install offer of one copy (`Dialog`), Steam's licence agreement (`Dialog`, Decline is the way out; waits while a game launches or runs), and what the install jobs report |
 | `src/app/launch_mailbox.*` | What the launch and sign-in threads hand the loop: the game-running flag, the latest progress line, the next toast |
