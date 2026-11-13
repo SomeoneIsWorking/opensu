@@ -155,8 +155,7 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   each returning its `Submission_t`), the rest is private to `framegen/src/`. The standalone
   CMake build installs `libframegen.a`, the headers and `framegen::framegen`.
   Proof (headless Gamescope 1280x720 at 60 Hz, ffplay's 32 px bar at 16 px per frame and 30 fps,
-  fixed 2x, the player's DLL 3.2.2.0 balanced FP16; frames from Gamescope's PipeWire stream,
-  `scratch/remote-framegen/tools/gs_proof.py`, runs in `scratch/remote-framegen/runs/`): the pin's
+  fixed 2x, the player's DLL 3.2.2.0 balanced FP16; frames from Gamescope's PipeWire stream): the pin's
   binary (`gs-before-2x*`) and the new one (`gs-after-2x*`) both show 60 shown/s from 30 real/s,
   every captured frame one full 32 px bar with no half-bright edge, advancing 8 px per shown frame
   (the in-between at the half step); the linear blend on the new binary (`gs-after-blend`) shows
@@ -170,8 +169,7 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   modules to paired guests, `RemoteFrameGen` (`remote_frame_gen_vulkan.cpp`, a stub elsewhere)
   generates on the guest and `ShellWindow` presents at the display's refresh while it does. A real
   frame's arrival is when it reaches the generator, after decode. Proof (hidden host in the
-  prefix's Gamescope, hidden guest, the scrolling NES ROM, stream rate 30, fixed 2x,
-  `scratch/remote-framegen/tools/remote_fg.py`): 30.0 real/s, 59.8 to 59.96 shown/s, 420 generated
+  prefix's Gamescope, hidden guest, the scrolling NES ROM, stream rate 30, fixed 2x): 30.0 real/s, 59.8 to 59.96 shown/s, 420 generated
   in 14 s, capture to submit p50 46.9 to 48.1 ms against 14.9 to 17.3 ms off (about 30 ms added,
   the held real interval); the `held` runs, 40.3 ms on against 6.8 off. With the ROM's `held`
   motion (8 px every other game frame) every real frame lies on an 8 px lattice and a 2x
@@ -194,7 +192,7 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   wrap.
 - Before the grabs in `h-grab2`, the pacer held a phase where every present is generated
   (t 0.19 and 0.69) for 8 s, as Gamescope's runs did. Replaying the run's logged arrivals and
-  vblanks through `CFramePacer` (`scratch/remote-framegen/pacer-harness/`, 818 of 853 plans as
+  vblanks through `CFramePacer` (818 of 853 plans as
   logged, all 458 of `h-pace`) shows why: one skipped capture (a 50 ms interval at real frame 8)
   holds the 15-interval mean high, the timeline runs about 5 ms ahead of the arrivals, and when
   that interval leaves the history (frame 23) the aligned delay moves 1.7 ms, past the 5%
@@ -256,7 +254,7 @@ code value of it (rounding on a frame not drawn again) is dropped. Each run's `b
 commit and a hash of its diff; the run is refused when the binary is older than any file under
 `src/frame_gen`. `--rescore` scores a run's made frames again. Tables are over moving frames (the real frames on either side differ); runs,
 scores and the worst frames side by side (real before, left out, after; each generator's frame
-over its FLIP map) are in `scratch/framegen-quality/runs/<run>/`. Scenes are the player's own
+over its FLIP map) are in the run's folder (`--run`). Scenes are the player's own
 cores and games, named in a JSON file outside the tree.
 
 ### Baseline and the choice
@@ -556,8 +554,7 @@ Lossless's at every size.
   rule, and none of the patch- or block-local rules tried comes near it, so that bound is not
   reachable by a rule of this kind. Caveats: the made pixel is the plain mean of the two moved
   pixels, not `flow_make`'s; two step offsets give a coarse spread; the copy's own tie-breaking
-  moves 1.5 to 1.7% of pixels. The run's numbers are in `scratch/framegen-quality/layers/out1/` and
-  `out2/` (`step1.py`, `step2.py`), temporary.
+  moves 1.5 to 1.7% of pixels.
 - (b) and (c) on top of `flow`; the shell's own animated screens as scenes (they have no per-frame
   dump yet).
 
