@@ -115,6 +115,9 @@ class GamePresentation {
     /// sharpness the running game.
     void changed();
 
+    /// Whether `game` is set to openSU's own generator, which Gamescope does not run.
+    [[nodiscard]] bool wantsOwnGenerator(const library::Game& game) const;
+
     /// The frame generation the values `applies` reads come to; `where` names them in a report.
     [[nodiscard]] PresentationSummary frameGenSummary(const settings::SettingLookup& applies,
                                                       const std::string& where) const;

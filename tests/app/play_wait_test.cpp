@@ -12,6 +12,7 @@
 namespace {
 
 using opensu::app::EmulatorDownloads;
+using opensu::app::LaunchAudience;
 using opensu::app::LaunchRequest;
 using opensu::app::PlayWait;
 using opensu::library::EmulatorOption;
@@ -34,6 +35,7 @@ struct World {
     std::vector<std::string> downloads;
     std::vector<std::string> cancelled;
     std::vector<std::string> played;
+    std::vector<LaunchAudience> playedFor;
     std::vector<std::string> refused;
     std::string line;
     int shown{0};
@@ -46,8 +48,9 @@ struct World {
                     return std::optional<Game>{game};
                 },
             .play =
-                [this](const Game& started, const LaunchRequest&) {
+                [this](const Game& started, const LaunchRequest& request) {
                     played.push_back(started.title);
+                    playedFor.push_back(request.audience);
                 },
             .show =
                 [this](const Game&) {
@@ -103,7 +106,9 @@ void downloadsThenPlays() {
     World world;
     world.game = romWithoutCore();
     PlayWait wait{world.hooks()};
-    expect(wait.begin(world.game, LaunchRequest{.profile = "p"}), "a missing core is waited for");
+    expect(wait.begin(world.game,
+                      LaunchRequest{.profile = "p", .audience = LaunchAudience::RemoteGuest}),
+           "a missing core is waited for");
     expect(world.shown == 1 && world.downloads == std::vector<std::string>{"pcsx"},
            "the card is up and the core downloads");
     wait.service();
@@ -122,6 +127,8 @@ void downloadsThenPlays() {
     wait.service();
     expect(world.played == std::vector<std::string>{"Crash"} && !wait.waiting(),
            "the game starts once the library has the core");
+    expect(world.playedFor == std::vector<LaunchAudience>{LaunchAudience::RemoteGuest},
+           "it starts for the audience it was asked for");
 }
 
 void failedDownloadEnds() {

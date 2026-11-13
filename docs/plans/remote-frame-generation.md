@@ -360,7 +360,9 @@ the 4x frame it equals; the real frame's ingest is the 4x one's, 1.84 M invocati
 
 `framegen.generator` picks Lossless Scaling (the default) or openSU. openSU's runs in the built-in
 runner (`retro/frame_generation`) and on the remote play guest (`RemoteFrameGen`), never in
-Gamescope. In the runner the core's frame goes to `flow` before the compositor, and each present
+Gamescope: a game the player launches here outside the runner with openSU's chosen runs without
+frame generation, and the launch says so in a toast (`GamePresentation::wantsOwnGenerator`); a
+launch for a remote play guest does not, since the guest generates. In the runner the core's frame goes to `flow` before the compositor, and each present
 at the display's refresh shows the real frame or a generated one through the compositor and the
 player's shaders. With `--frame-pngs` the pacer runs on the core's own clock and waits for each
 generated frame, so writing the PNGs moves no times. Super Metroid (PAL, 50 fps) on a 60 Hz

@@ -924,12 +924,12 @@ bool ShellApp::startLaunch(const library::Game& game, LaunchRequest request,
                        std::make_move_iterator(request.environment.end()));
     // Before the game starts, so it reads the smaller screen as its own.
     presentation_.follow(gameInFront(), &started);
+    const library::roms::EmulatorEntry* builtIn = builtInOf(started, emulatorSettings_.catalog());
     GameLaunch::Convert convert;
     if (started.launch.conversion) {
-        const library::roms::EmulatorEntry* entry = builtInOf(started, emulatorSettings_.catalog());
-        if (entry != nullptr) {
-            convert = [this, built = *entry](const library::RomConversion& conversion,
-                                             std::string& error) {
+        if (builtIn != nullptr) {
+            convert = [this, built = *builtIn](const library::RomConversion& conversion,
+                                               std::string& error) {
                 return romsetConverter_.build(conversion, built, error);
             };
         }
@@ -938,6 +938,13 @@ bool ShellApp::startLaunch(const library::Game& game, LaunchRequest request,
                                          std::move(convert), std::move(setup));
     if (running) {
         playingAs_ = std::move(request.profile);
+    }
+    if (running && request.audience == LaunchAudience::Player && builtIn == nullptr &&
+        presentation_.wantsOwnGenerator(game)) {
+        shell_.setToast(
+            "openSU's frame generation works in the built-in runner and remote play, so " +
+                game.title + " runs without it",
+            false);
     }
     // Last, since it replaces the tile `game` may be: this copy may now top its title.
     refreshShelf();

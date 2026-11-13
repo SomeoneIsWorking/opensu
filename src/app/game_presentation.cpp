@@ -83,6 +83,16 @@ std::optional<FrameGenRequest> GamePresentation::wantedFrameGen() const {
     return FrameGenRequest{resolved, *dll_};
 }
 
+bool GamePresentation::wantsOwnGenerator(const library::Game& game) const {
+    if (!supported()) {
+        return false;
+    }
+    const settings::FrameGenSettings resolved =
+        settings::resolveFrameGen(gameSettings_.layers(), library::layerKeysOf(game));
+    return resolved.mode != settings::FrameGenMode::Off &&
+           resolved.generator == settings::FrameGenGenerator::OpenSU;
+}
+
 void GamePresentation::applyFrameGen() {
     std::optional<FrameGenRequest> request = wantedFrameGen();
     if (!frameGen_.differs(request)) {

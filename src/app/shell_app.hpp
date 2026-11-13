@@ -882,7 +882,8 @@ class ShellApp final {
                 [this](const library::Game& game, std::vector<std::string> environment,
                        const std::string& profile) {
                     return launch(game, LaunchRequest{.environment = std::move(environment),
-                                                      .profile = profile});
+                                                      .profile = profile,
+                                                      .audience = LaunchAudience::RemoteGuest});
                 },
             .close =
                 [this] {
