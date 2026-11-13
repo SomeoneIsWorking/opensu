@@ -26,16 +26,5 @@ context, its threads onto `retro_run`), kept in a fork pinned by revision. Until
 ## Native ports of console games
 
 Fan-made native PC ports built from decompilations exist for some titles; openSU could offer one as
-another way to run a game it lists, beside the emulator, on the player's own game data. Super Mario
-Galaxy, checked 2026-11-10:
-
-- AstroCore (Luma's Workshop): announced for 2026-10-23, never released; to be rewritten under a new
-  name, no source, licence or date public. Nothing to offer or fork.
-- Nebula (keepvaibin, GPL-3.0-only): 1.0.2 is Windows only (recompiles the player's RMGE01 disc).
-  Nebula 2 on `main` is native from Petari with an SDL3 Linux host, unreleased; its Xbox map already
-  covers the pointer (right stick), Star Bits (LB) and spin (X/Y/RB/RT), rebindable, and its
-  command line (`--pak`, `--saves`, `--settings`) fits a launcher.
-- Petari (the decomp, CC0-1.0): RMGE01 99.91% decompiled. Our own port would redo Nebula 2.
-
-Next: when Nebula 2 or AstroCore's successor ships a Linux x86_64 build, offer it as a downloadable
-port; record it in `docs/prior-art.md` first.
+another way to run a game it lists, beside the emulator, on the player's own game data. What exists
+for Super Mario Galaxy is in `docs/prior-art.md` ("Native ports of console games").

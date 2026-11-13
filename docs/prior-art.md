@@ -95,3 +95,11 @@ Not found (2026-10-13): an iiSU source release, decompile, design spec or layout
 | Multi-hypothesis motion compensation (Flierl, Wiegand, Girod) | https://people.kth.se/~mflierl/Publications/flierl:02-MHMCP.pdf; ITU-T VCEG-L24 (https://www.itu.int/wftp3/av-arch/video-site/0101_Eib/VCEG-L24.doc) | a block predicted by one or two motion hypotheses, the second chosen by the residual the pair leaves | papers, general coding practice | `flow`'s second vector per block, if step 0 shows it is the missing candidate | not applicable | the rule only (a second vector minimising the pair's per-pixel lower cost), written from scratch | |
 | lsfg-vk | https://github.com/PancakeTAS/lsfg-vk (archived, moved to lsfg-vk.dev) | Lossless Scaling's frame generation as a Vulkan layer on Linux | none on the GitHub archive | not used | not applicable | nothing | runs the same DLL shaders openSU's Lossless generator does |
 | NVIDIA FLIP | https://github.com/NVlabs/flip at `d3ab02a4`, PyPI `flip-evaluator` 1.7 | perceptual image difference | BSD-3-Clause | `tools/framegen_quality` (`--group framegen`) | not applicable | the package, as a scoring dependency of a maintainer tool | never shipped |
+
+## Native ports of console games (Super Mario Galaxy, checked 2026-11-10)
+
+| project | URL | kind | license | target build | build match | what we may take | notes |
+|---|---|---|---|---|---|---|---|
+| AstroCore (Luma's Workshop) | not public | announced native port, announced for 2026-10-23 and never released; to be rewritten under a new name | none public | not known | not applicable (no source or build) | nothing | no source, licence or date public |
+| Nebula (keepvaibin) | not recorded | native port: 1.0.2 recompiles the player's RMGE01 disc (Windows only); Nebula 2 on `main` is native from Petari with an SDL3 Linux host, unreleased | GPL-3.0-only | RMGE01 | not checked | at most a downloadable port the player runs on their own disc; its code evidence only | Nebula 2's Xbox map covers the pointer (right stick), Star Bits (LB) and spin (X/Y/RB/RT), rebindable; its command line (`--pak`, `--saves`, `--settings`) fits a launcher |
+| Petari | not recorded | decompilation of Super Mario Galaxy | CC0-1.0 | RMGE01, 99.91% decompiled | not checked | anything; our own port from it would redo Nebula 2 | |
