@@ -3,7 +3,7 @@
 // by `frame_gen::flowContentScale`, and each present at the display's refresh shows the real
 // frame or one generated before it (`frame_gen::PacedFrames`), drawn through the compositor and
 // the player's shaders as a real frame is. A real frame shows one core frame later than without
-// it. Built where frame_gen is (Linux); elsewhere `open` says it is not.
+// it. Built where frame_gen is (Linux, Android); elsewhere `open` says it is not.
 #pragma once
 
 #include <cstdint>

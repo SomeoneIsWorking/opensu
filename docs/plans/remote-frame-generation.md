@@ -228,8 +228,22 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   each a per-pixel choice flipping on a near-tie (float costs, `choice`'s rgba16f rounding), not a
   bad read. Paths given to it are absolute: SDL's file reads on Android take a relative path
   for an app's storage, which needs JNI.
+- Step 5 (a): `remote_frame_gen_vulkan.cpp` and the runner's `frame_generation_vulkan.cpp` build
+  wherever `opensu::frame_gen` does, Android included, so the guest and the runner switch
+  together (`RemoteFrameGen::built()` also decides whether a local game shows frame generation).
+  Proof: a hidden host on this PC streamed the scrolling NES ROM to the tablet's release build
+  with Smooth 60, openSU's generator and a 30 fps stream rate on that game; the guest logged
+  "pacing generating at real frame 15: base 30.00 fps, target 60.00 fps", and over 19.5 s its
+  `remoteVideo` counted 581 real frames, 571 generated and 910 shown, with 253 generated frames
+  dropped and a ready need of 37 to 42 ms per real frame.
 
 ## Left
+
+- The tablet's guest shows about 47 frames a second of a 60 target: the generator's ready need
+  (37 to 42 ms) exceeds the 33 ms between real frames, so about 44% of in-betweens are dropped.
+  Measure where the need goes (the CPU RGBA upload and readback (c) removes, against the
+  dispatches) before changing anything.
+- The tablet's runner with openSU's generator on a local game, the other half of (a)'s proof.
 
 - The generator's ready need per real frame in the probe's log, so a remote run replays through
   `CFramePacer` exactly: the product shows about 62% of `p-after3`'s presents one vblank later
@@ -240,14 +254,6 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   kept only if a setting removes the 8 streaked in-betweens without new artefacts.
 - Step 4, Linux stage B (zero copy).
 - Step 5, the rest, one commit each, in order:
-  - (a) `remote_frame_gen_vulkan.cpp` and the runner's `frame_generation_vulkan.cpp` built on
-    Android as on Linux, on the one condition "where frame_gen is built", since
-    `RemoteFrameGen::built()` also decides whether a local game shows frame generation. The
-    guest generates with flow from the CPU RGBA `GuestVideo` already hands it (MediaCodec's
-    output converted). Proof: a hidden host on this PC streams a light retro game to the tablet's
-    openSU with openSU's generator on; the guest's `remoteVideo` line and its log show real frames
-    at the stream rate and generated frames between them, shown at the display's refresh; and a
-    local game in the tablet's runner logs flow generating.
   - (b) Lossless on the tablet from the modules the host already serves
     (`GET /lan/framegen/modules`, `RemoteFrameGen::pack`, unpacked in memory by `open`); the
     player's DLL never goes to the device. Proof: the same session with Lossless chosen,

@@ -4,7 +4,7 @@
 // the player's Lossless.dll, which their host sends, `pack`) and chosen for each present by its
 // pacer (`framegen::CFramePacer`). Stage A of docs/plans/remote-frame-generation.md: a Vulkan
 // device of its own, each real frame's RGBA uploaded and each generated one read back. Built where
-// framegen is (Linux); elsewhere `open` says why not.
+// frame_gen is (Linux, Android); elsewhere `open` says why not.
 #pragma once
 
 #include <cstdint>

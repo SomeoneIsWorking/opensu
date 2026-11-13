@@ -20,8 +20,8 @@ elseif(WIN32 OR APPLE)
         game_presentation_none.cpp night_light_none.cpp host_services_none.cpp game_typing_none.cpp)
 endif()
 # Frame generation for a game played from another openSU: the Gamescope fork's framegen on a
-# Vulkan device of its own on Linux (docs/plans/remote-frame-generation.md); none elsewhere yet.
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+# Vulkan device of its own where frame_gen is built (docs/plans/remote-frame-generation.md).
+if(TARGET opensu::frame_gen)
     target_sources(opensu_app PRIVATE remote_frame_gen_vulkan.cpp)
     target_link_libraries(opensu_app PRIVATE opensu::frame_gen)
 else()
