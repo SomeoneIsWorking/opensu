@@ -9,9 +9,9 @@ namespace opensu::app {
 
 struct LaunchRequest {
     /// Added to the game's own environment.
-    std::vector<std::string> environment;
+    std::vector<std::string> environment{};
     /// The profile it plays as.
-    std::string profile;
+    std::string profile{};
 };
 
 } // namespace opensu::app
