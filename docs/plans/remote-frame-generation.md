@@ -224,7 +224,9 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   --core-frames --step 2` from `/data/local/tmp` on five 1280x720 frames of Super Metroid's demo
   exits 0 and logs "flow generated 2 frames on Maleoon 910", 15.7 M invocations and 474 MB read per
   generated frame, as on Linux; the two frames against Linux's: PSNR 56.0 and 57.7 dB, 99.97% of
-  pixels equal. Paths given to it are absolute: SDL's file reads on Android take a relative path
+  pixels equal; the rest are isolated single pixels, nearly all colours the other GPU makes too,
+  each a per-pixel choice flipping on a near-tie (float costs, `choice`'s rgba16f rounding), not a
+  bad read. Paths given to it are absolute: SDL's file reads on Android take a relative path
   for an app's storage, which needs JNI.
 
 ## Left
