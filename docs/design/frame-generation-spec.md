@@ -166,8 +166,9 @@ copies through a sampler, so their format is otherwise free.
 Capabilities: the FP16 set (306..351) declares `Float16` (needs `shaderFloat16`, Vulkan 1.2 or
 `VK_KHR_shader_float16_int8`; no 16-bit integers or 16-bit storage); 303..305 and the FP32 set do
 not. Compose's `Unknown` output needs `shaderStorageImageWriteWithoutFormat`, the R8 outputs
-`shaderStorageImageExtendedFormats`, and binding a missing input as a null descriptor
-(`VK_EXT_robustness2` `nullDescriptor`, which Gamescope's device enables) gives D3D11's zero reads. `StorageImageExtendedFormats`
+`shaderStorageImageExtendedFormats`. A missing input reads zero, as D3D11's null SRV does, from a
+1 x 1 RGBA16F image cleared to zero: every optional input is sampled through `Sc` (clamp), so it
+reads (0,0,0,0) everywhere, and no robustness feature is needed. `StorageImageExtendedFormats`
 (R8 storage) appears in the luma and UI-mask modules. All 98 modules pass `spirv-val --target-env
 vulkan1.2`; a sample also passes vulkan1.0. The DXBC versions of 257..302 carry the
 `enableMinimumPrecision` global flag (min16float); 254..256 do not.
@@ -257,7 +258,7 @@ through Generate too: it returns a `FrameCopy` when `t` is near 0 or 1.
 Notation in the tables: `p = (k + 2) mod 3` is the previous real frame's feature slot, `k` the
 newest; `src` is the shader's SRV slots in order (t0, t1, ...), `dst` its UAV slots (u0, ...).
 Every slot not listed is null; on D3D11 a null SRV reads zero, so a Vulkan port binds a zero image
-there (or uses `VK_EXT_robustness2` null descriptors). Dispatch sizes are group counts `(x, y, 1)`.
+there. Dispatch sizes are group counts `(x, y, 1)`.
 `S0` = trilinear, border (0,0,0,0) (object +0x60); `S1` = trilinear, border (1,1,1,1) (+0x68); `Sc`
 = trilinear, clamp (+0x70) (§6).
 

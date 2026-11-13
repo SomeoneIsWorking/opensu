@@ -1,10 +1,8 @@
 #include "frame_gen/generator_gpu.hpp"
 
 #include <algorithm>
-#include <array>
 #include <format>
 #include <stdexcept>
-#include <string_view>
 #include <vector>
 
 #include "lucent/log.h"
@@ -247,30 +245,11 @@ std::string GeneratorDevice::lacks(VkPhysicalDevice candidate,
     if (properties.apiVersion < VK_API_VERSION_1_2) {
         return "Vulkan 1.2";
     }
-    std::uint32_t extensionCount = 0;
-    vkEnumerateDeviceExtensionProperties(candidate, nullptr, &extensionCount, nullptr);
-    std::vector<VkExtensionProperties> extensions(extensionCount);
-    vkEnumerateDeviceExtensionProperties(candidate, nullptr, &extensionCount, extensions.data());
-    if (std::ranges::none_of(extensions, [](const VkExtensionProperties& extension) {
-            return std::string_view{extension.extensionName} == VK_EXT_ROBUSTNESS_2_EXTENSION_NAME;
-        })) {
-        return VK_EXT_ROBUSTNESS_2_EXTENSION_NAME;
-    }
-    VkPhysicalDeviceRobustness2FeaturesEXT robustness{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT,
-        .pNext = nullptr,
-        .robustBufferAccess2 = VK_FALSE,
-        .robustImageAccess2 = VK_FALSE,
-        .nullDescriptor = VK_FALSE};
     VkPhysicalDeviceVulkan12Features vulkan12{};
     vulkan12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-    vulkan12.pNext = &robustness;
     VkPhysicalDeviceFeatures2 features{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = &vulkan12, .features = {}};
     vkGetPhysicalDeviceFeatures2(candidate, &features);
-    if (robustness.nullDescriptor == VK_FALSE) {
-        return "null descriptors";
-    }
     if (vulkan12.timelineSemaphore == VK_FALSE) {
         return "timeline semaphores";
     }
@@ -302,15 +281,8 @@ void GeneratorDevice::makeDevice() {
                                             .queueFamilyIndex = family_,
                                             .queueCount = 1,
                                             .pQueuePriorities = &priority};
-    VkPhysicalDeviceRobustness2FeaturesEXT robustness{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT,
-        .pNext = nullptr,
-        .robustBufferAccess2 = VK_FALSE,
-        .robustImageAccess2 = VK_FALSE,
-        .nullDescriptor = VK_TRUE};
     VkPhysicalDeviceVulkan12Features vulkan12{};
     vulkan12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-    vulkan12.pNext = &robustness;
     vulkan12.shaderFloat16 = float16_ ? VK_TRUE : VK_FALSE;
     vulkan12.scalarBlockLayout = scalarLayout_ ? VK_TRUE : VK_FALSE;
     vulkan12.timelineSemaphore = VK_TRUE;
@@ -319,7 +291,6 @@ void GeneratorDevice::makeDevice() {
     features.features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
     features.features.shaderStorageImageExtendedFormats = VK_TRUE;
     features.features.shaderInt16 = float16_ ? VK_TRUE : VK_FALSE;
-    const std::array<const char*, 1> extensions{VK_EXT_ROBUSTNESS_2_EXTENSION_NAME};
     const VkDeviceCreateInfo deviceInfo{.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
                                         .pNext = &features,
                                         .flags = 0,
@@ -327,9 +298,8 @@ void GeneratorDevice::makeDevice() {
                                         .pQueueCreateInfos = &queueInfo,
                                         .enabledLayerCount = 0,
                                         .ppEnabledLayerNames = nullptr,
-                                        .enabledExtensionCount =
-                                            static_cast<std::uint32_t>(extensions.size()),
-                                        .ppEnabledExtensionNames = extensions.data(),
+                                        .enabledExtensionCount = 0,
+                                        .ppEnabledExtensionNames = nullptr,
                                         .pEnabledFeatures = nullptr};
     check(vkCreateDevice(physical_, &deviceInfo, nullptr, &device_), "vkCreateDevice");
     vkGetDeviceQueue(device_, family_, 0, &queue_);

@@ -22,8 +22,7 @@ Proven when such a game shows generated frames at the pacer's rate on its own sc
 - **The meter with it.** `IQueue` gains a per-dispatch timing mark (Gamescope's `CGpuTimestamps`
   and openSU's `GpuSpans` implement it), and the shaders' read counting becomes a library setting
   whose counts the host reads, so `--measure counts|time` reads the same lines.
-- **Device and format.** `flow` needs robustness2's null descriptor, which Gamescope's device
-  enables. Gamescope captures only 8-bit SDR commits (`IsSupportedCommit`: no YCbCr, no HDR,
+- **Device and format.** `flow` needs no device feature Lossless does not. Gamescope captures only 8-bit SDR commits (`IsSupportedCommit`: no YCbCr, no HDR,
   BGRA8 or RGBA8) into ABGR8888 copies, which are `flow`'s `rgba8` images; HDR stays off as it is
   for Lossless.
 - **Scale and source pixel.** A Gamescope game is at its own size, mostly 3D, so `flow` runs at

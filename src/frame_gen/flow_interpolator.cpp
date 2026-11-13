@@ -273,7 +273,8 @@ class FlowInterpolator final : public Interpolator {
           four_{storageImages(device_, 4)}, empty_{storageImages(device_, 0)},
           countLayout_{countLayout(device_)},
           counting_{gpu.spans() != nullptr && gpu.spans()->counting()},
-          texels_{gpu, countStride * maxDispatches, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT} {
+          texels_{gpu, countStride * maxDispatches, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT},
+          noParent_{gpu, 1, 1, VK_FORMAT_R32G32_SFLOAT} {
         const auto pass = [this](std::span<const std::uint32_t> code,
                                  std::span<const VkDescriptorSetLayout> own,
                                  SearchShape shape = coarsestShape) {
@@ -291,6 +292,7 @@ class FlowInterpolator final : public Interpolator {
         const std::array<VkDescriptorSetLayout, 2> makeSets{four_.get(), one_.get()};
         make_ = pass(makeCode, makeSets);
         makeCountSets();
+        clearNoParent();
     }
     ~FlowInterpolator() override {
         static_cast<void>(gpu_.idle());
@@ -547,7 +549,7 @@ class FlowInterpolator final : public Interpolator {
         return set;
     }
 
-    /// Writes `views` into `set`'s bindings in order; a null view is robustness2's null image.
+    /// Writes `views` into `set`'s bindings in order.
     void write(VkDescriptorSet set, std::span<const VkImageView> views) const {
         std::vector<VkDescriptorImageInfo> images;
         images.reserve(views.size());
@@ -643,6 +645,24 @@ class FlowInterpolator final : public Interpolator {
         std::memset(texels_.bytes().data(), 0, texels_.bytes().size());
     }
 
+    void clearNoParent() {
+        VkCommandBuffer cmd = gpu_.Begin();
+        if (cmd == VK_NULL_HANDLE) {
+            throw std::runtime_error{"no command buffer for the flow's empty parent"};
+        }
+        noParent_.toGeneral(cmd);
+        const VkClearColorValue zero{.float32 = {0.0F, 0.0F, 0.0F, 0.0F}};
+        const VkImageSubresourceRange whole{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                            .baseMipLevel = 0,
+                                            .levelCount = 1,
+                                            .baseArrayLayer = 0,
+                                            .layerCount = 1};
+        vkCmdClearColorImage(cmd, noParent_.image(), VK_IMAGE_LAYOUT_GENERAL, &zero, 1, &whole);
+        memoryBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+                      VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT);
+        gpu_.Wait(gpu_.Submit(cmd));
+    }
+
     [[nodiscard]] static VkImageView viewOf(const std::unique_ptr<GeneratorImage>& image) {
         return image->view().view;
     }
@@ -704,7 +724,7 @@ class FlowInterpolator final : public Interpolator {
             // With `slot` the later real frame, the other the earlier.
             for (std::size_t level = 0; level < levels; ++level) {
                 const VkImageView parent =
-                    level + 1 < levels ? viewOf(fields_[level + 1]) : VK_NULL_HANDLE;
+                    level + 1 < levels ? viewOf(fields_[level + 1]) : noParent_.view().view;
                 const std::array<VkImageView, 4> search{viewOf(lumas_[other][level]),
                                                         viewOf(lumas_[slot][level]), parent,
                                                         viewOf(fields_[level])};
@@ -756,6 +776,8 @@ class FlowInterpolator final : public Interpolator {
     SetLayout countLayout_;
     bool counting_;
     HostBuffer texels_;
+    /// The coarsest search's parent, which it never reads (`hasParent` 0).
+    GeneratorImage noParent_;
     Pool countPool_;
     std::array<VkDescriptorSet, maxDispatches> countSets_{};
     Pass take_;

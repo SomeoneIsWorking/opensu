@@ -25,8 +25,8 @@ void check(VkResult result, const char* what);
 
 class GeneratorDevice final : public framegen::IQueue {
   public:
-    /// Throws when no GPU has robustness2's null descriptors, timeline semaphores, storage images
-    /// of any format and a compute queue.
+    /// Throws when no GPU has timeline semaphores, storage images of any format and a compute
+    /// queue.
     GeneratorDevice();
     ~GeneratorDevice() override;
     GeneratorDevice(const GeneratorDevice&) = delete;
