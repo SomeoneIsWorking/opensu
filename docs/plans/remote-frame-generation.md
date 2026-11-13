@@ -239,9 +239,25 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
 - Generator settings against the Lossless streak: Custom's detail keys tried on `h-dump`'s scroll,
   kept only if a setting removes the 8 streaked in-betweens without new artefacts.
 - Step 4, Linux stage B (zero copy).
-- Step 5, the rest: Lossless on the tablet, from the modules the host sends (the player's DLL never
-  goes to the device); the guest's `RemoteFrameGen` on Android; MediaCodec's output through
-  `AHardwareBuffer`; the generation timed on the tablet's GPU.
+- Step 5, the rest, one commit each, in order:
+  - (a) `remote_frame_gen_vulkan.cpp` and the runner's `frame_generation_vulkan.cpp` built on
+    Android as on Linux, on the one condition "where frame_gen is built", since
+    `RemoteFrameGen::built()` also decides whether a local game shows frame generation. The
+    guest generates with flow from the CPU RGBA `GuestVideo` already hands it (MediaCodec's
+    output converted). Proof: a hidden host on this PC streams a light retro game to the tablet's
+    openSU with openSU's generator on; the guest's `remoteVideo` line and its log show real frames
+    at the stream rate and generated frames between them, shown at the display's refresh; and a
+    local game in the tablet's runner logs flow generating.
+  - (b) Lossless on the tablet from the modules the host already serves
+    (`GET /lan/framegen/modules`, `RemoteFrameGen::pack`, unpacked in memory by `open`); the
+    player's DLL never goes to the device. Proof: the same session with Lossless chosen,
+    generated frames between real ones, and the guest's log naming FP16 or FP32 modules.
+  - (c) MediaCodec's output through `AHardwareBuffer` into the generator's device
+    (`VK_ANDROID_external_memory_android_hardware_buffer`, a YCbCr conversion sampler): no
+    RGBA conversion, upload or readback per frame. Proof: the same session's frames match (a)'s
+    path within the codec's rounding, with the per-frame CPU copies gone from its counts.
+  - (d) The pacer's vblank times from `VK_GOOGLE_display_timing` on the tablet, which has it.
+    Proof: the guest's in-betweens land at t 0.5 within the spread the Linux runs show.
 - Step 6, the Windows guest.
 
 ## Quality
