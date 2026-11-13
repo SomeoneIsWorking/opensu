@@ -6,7 +6,6 @@
     "capabilities": ["sdl3", "image", "image_webp", "font", "text", "png", "shaping", "tls", "http", "webp", "vorbis", "sqlite", "json", "svg"]
   },
   "sharedEmulator": {
-    "lock": "../../../../shared/android-port/coord/android-emulator.lock",
     "serial": "emulator-5554"
   }
 }

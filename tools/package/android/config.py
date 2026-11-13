@@ -2,6 +2,7 @@
 
 import json
 import os
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -71,6 +72,24 @@ class Layout:
         """The profile's prefix path, a link to the shared prefix."""
         return self.root / "deps" / abi
 
+    @property
+    def emulator_lock(self) -> Path:
+        """The shared emulator's lock in the shared android-port checkout beside the main openSU
+        checkout, the one every worktree of it shares."""
+        common = subprocess.run(
+            ["git", "-C", str(REPO), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        return (
+            Path(common).parent.parent
+            / "shared"
+            / "android-port"
+            / "coord"
+            / "android-emulator.lock"
+        )
+
     def native_library(self, abi: str) -> Path:
         return self.native_dir(abi) / "src" / "libmain.so"
 
@@ -100,8 +119,7 @@ class Layout:
             "nativeLibrary": relative(self.native_library(abi)),
             "jniLibs": relative(self.jni_libs),
         }
-        lock = (source.parent / profile["sharedEmulator"]["lock"]).resolve()
-        profile["sharedEmulator"]["lock"] = relative(lock)
+        profile["sharedEmulator"]["lock"] = relative(self.emulator_lock)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(profile, indent=2) + "\n", encoding="utf-8")
         return path
