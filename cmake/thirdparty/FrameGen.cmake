@@ -1,9 +1,18 @@
 # framegen (MIT), the frame pacer and Lossless generator, from the Gamescope fork's `framegen/` at the
 # commit openSU pins for Gamescope, so the guest and the host's Gamescope run one revision of it.
-# Only the SPIR-V headers submodule is fetched; a static library with its headers.
+# Only the SPIR-V headers submodule is fetched; a static library with its headers, built with this
+# prefix's compilers or the NDK's ABI, API level and C++ runtime.
 
 set(root "${CMAKE_BINARY_DIR}/framegen")
 set(stage "${root}/prefix")
+
+set(forwarded "")
+foreach(variable IN ITEMS CMAKE_C_COMPILER CMAKE_CXX_COMPILER CMAKE_TOOLCHAIN_FILE ANDROID_ABI
+        ANDROID_PLATFORM ANDROID_STL)
+    if(DEFINED ${variable})
+        list(APPEND forwarded "-D${variable}=${${variable}}")
+    endif()
+endforeach()
 
 ExternalProject_Add(opensu_framegen
     GIT_REPOSITORY "${OPENSU_GAMESCOPE_REPOSITORY}"
@@ -16,8 +25,7 @@ ExternalProject_Add(opensu_framegen
     INSTALL_DIR "${stage}"
     CMAKE_ARGS
         "-DCMAKE_BUILD_TYPE=Release"
-        "-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}"
-        "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+        ${forwarded}
         "-DCMAKE_INSTALL_PREFIX=${stage}"
         "-DCMAKE_INSTALL_LIBDIR=lib"
     USES_TERMINAL_DOWNLOAD ON

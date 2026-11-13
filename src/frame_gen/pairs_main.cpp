@@ -45,6 +45,7 @@
 #include "library/lossless_scaling.hpp"
 #include "library/steam.hpp"
 #include "lucent/log.h"
+#include "lucent/text.h"
 
 namespace {
 
@@ -87,9 +88,9 @@ std::optional<opensu::frame_gen::SourcePixel> pixelOf(std::string_view text) {
     const std::string_view width = text.substr(0, x);
     const std::string_view height = text.substr(x + 1);
     const auto [widthEnd, widthError] =
-        std::from_chars(width.data(), width.data() + width.size(), pixel.width);
+        lucent::text::from_chars_real(width.data(), width.data() + width.size(), pixel.width);
     const auto [heightEnd, heightError] =
-        std::from_chars(height.data(), height.data() + height.size(), pixel.height);
+        lucent::text::from_chars_real(height.data(), height.data() + height.size(), pixel.height);
     if (widthError != std::errc{} || widthEnd != width.data() + width.size() ||
         heightError != std::errc{} || heightEnd != height.data() + height.size() ||
         pixel.width < 1.0F || pixel.height < 1.0F) {
