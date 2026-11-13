@@ -428,10 +428,15 @@ from boot, 1500 frames, 133 K instructions per real frame and 511 per present at
 instructions.
 
 Timed (`--measure time`, two runs, p50 of each) on the core frames at 4x, a real frame's ingest
-takes 3.38 and 3.41 ms of GPU time: the finest search 2.32 and 2.32, the next 0.62 and 0.63, then
-0.22 and 0.24, the coarsest 0.13 and 0.13, the take and reductions under 0.06 each; a generated
-frame 0.50 and 0.57 ms, `flow_choose` 0.35 and 0.41 of it. The counting shaders' spans had put
-ingest at 17 to 18 ms, the counters' atomics.
+takes 2.00 and 2.00 ms of GPU time: the finest search 1.31 and 1.31, the next 0.35 and 0.35, then
+0.14 and 0.14, the coarsest 0.11 and 0.11, the take and reductions under 0.06 each; a generated
+frame 0.50 and 0.51 ms, `flow_choose` 0.35 and 0.36 of it. The GPU stays at its idle clock
+through these runs (`pp_dpm_sclk` level 0, 500 MHz of 2725; the bursts never raise it), so the
+times are not full-clock ones; they compare builds at the same clock. The counting shaders' spans
+had put ingest at 17 to 18 ms, the counters' atomics. A shader's own work is read in RADV's
+statistics (`RADV_DEBUG=shaderstats` with the cache off): VGPRs, subgroups per SIMD, spills and
+static VALU instructions per subgroup. The search's two pipelines each hold the coarsest and the
+finer path; at 64 threads 168 VGPRs (6 subgroups per SIMD), at 32 192 (5), neither spilling.
 
 The search gives each block a workgroup of 64 threads that try its candidates side by side, each
 candidate's cost summed by one thread in the same order, and a reduction in shared memory picks
@@ -453,7 +458,14 @@ three runs each, interleaved) the first frame between is ready 3.91 ms after its
 (spread 0.04) and 4.47 at p90 (0.04), against 5.11 (0.14) and 6.33 (0.76) at 64 threads; the
 smaller tiles alone at 64 threads gave 4.73 (0.09) and 5.63 (0.18). Two blocks to a 64-thread
 workgroup took 256 VGPRs and 4 subgroups per SIMD; keeping a block's slot uniform for the compiler
-needs a subgroup broadcast, which needs SPIR-V 1.3.
+needs a subgroup broadcast, which needs SPIR-V 1.3. A subgroup runs its threads' branches one
+after another, so the zero vector's cost and the two flat tests (each a cost with the other
+frame's luma taken as 0, the same sums in the same order, so the frames are bit for bit the same)
+are costed in the same call as the parents' candidates, on the threads beside them, and at the
+coarsest level on threads 0 to 2 in one call: the static VALU instructions go from 3916 to 3633
+at 32 threads and 4573 to 4288 at 64, and the finest level from 2.32 to 1.31 ms (the next 0.62 to
+0.35, then 0.22 to 0.14). Costing them on those threads in calls of their own, a branch each, took
+5437 and left the time where it was.
 On the core frames at 4x, 60 frames at the GPU's idle clock, the search's levels take 3.7, 1.0,
 0.28 and 0.13 ms, finest first (9.7, 2.9, 1.0 and 0.83 with the loops rolled); at the finest, its
 phases (tiles, the flat and zero checks on 3 threads, the 9 parent candidates, the 25 around the

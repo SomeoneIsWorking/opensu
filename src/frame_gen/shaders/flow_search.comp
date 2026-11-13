@@ -11,7 +11,8 @@
 // One workgroup per block, its `threads` trying the candidates side by side (64 at the coarsest
 // level's 289, 32 at the finer levels' 9 and 25). The windows a set of
 // candidates reads in each frame are loaded once into shared memory; the parent's candidates, which
-// lie anywhere, are read from the frames. A candidate already tried, or the zero vector, is not
+// lie anywhere, are read from the frames, and beside them the zero vector's cost and the flat
+// tests, so the threads take one path. A candidate already tried, or the zero vector, is not
 // costed again. The loops over a window are unrolled so its reads go out together; each sum keeps
 // its order.
 layout(local_size_x_id = 1) in;
@@ -72,69 +73,45 @@ float laterAt(ivec2 p) {
     return SHARED(laterTile[q.y * tileSide + q.x]);
 }
 
-// The block's window in one frame, from the tiles loaded around the zero vector.
-bool featureless(ivec2 origin, bool isLater) {
-    float values[side * side];
+// A frame's luma at `p`, from its tile, which must hold it, or from the frame.
+float lumaAt(ivec2 p, bool isLater, bool tiled) {
+    if (tiled) {
+        return isLater ? laterAt(p) : earlierAt(p);
+    }
+    const ivec2 q = clamp(p, ivec2(0), push.size - 1);
+    return isLater ? READ(later, q).r : READ(earlier, q).r;
+}
+
+// The cost of `d`, from the tiles, which must hold its windows, or from the frames. With one
+// frame's luma taken as 0 it is the other's deviation from its mean over the block's window
+// (`isFlat`).
+float cost(ivec2 origin, ivec2 d, bool tiled, bool withEarlier, bool withLater) {
+    const ivec2 back = earlierShare(vec2(d), 0.5);
+    const ivec2 ahead = d - back;
+    float differences[side * side];
     float mean = 0.0;
-    [[unroll]] for (int i = 0; i < side * side; ++i) {
-        const ivec2 p = origin + ivec2(i % side - margin, i / side - margin);
-        values[i] = isLater ? laterAt(p) : earlierAt(p);
-        mean += values[i];
+    [[unroll]] for (int y = 0; y < side; ++y) {
+        [[unroll]] for (int x = 0; x < side; ++x) {
+            const ivec2 p = origin + ivec2(x - margin, y - margin);
+            const float e = lumaAt(p - back, false, tiled);
+            const float l = lumaAt(p + ahead, true, tiled);
+            const float difference = (withEarlier ? e : 0.0) - (withLater ? l : 0.0);
+            differences[y * side + x] = difference;
+            mean += difference;
+        }
     }
     mean /= float(side * side);
-    float deviation = 0.0;
+    // The block's mean difference left out, so a fade or a flash moves nothing.
+    float sum = 0.0;
     [[unroll]] for (int i = 0; i < side * side; ++i) {
-        deviation += abs(values[i] - mean);
+        sum += abs(differences[i] - mean);
     }
+    return sum + lengthCost * float(side * side) * float(abs(d.x) + abs(d.y));
+}
+
+// Whether a frame whose deviation over the block's window is `deviation` is flat there.
+bool isFlat(float deviation) {
     return deviation < flatBelow * float(side * side);
-}
-
-// The cost of `d` from the tiles, which must hold its windows.
-float tiledCost(ivec2 origin, ivec2 d) {
-    const ivec2 back = earlierShare(vec2(d), 0.5);
-    const ivec2 ahead = d - back;
-    float differences[side * side];
-    float mean = 0.0;
-    [[unroll]] for (int y = 0; y < side; ++y) {
-        [[unroll]] for (int x = 0; x < side; ++x) {
-            const ivec2 p = origin + ivec2(x - margin, y - margin);
-            const float difference = earlierAt(p - back) - laterAt(p + ahead);
-            differences[y * side + x] = difference;
-            mean += difference;
-        }
-    }
-    mean /= float(side * side);
-    // The block's mean difference left out, so a fade or a flash moves nothing.
-    float sum = 0.0;
-    [[unroll]] for (int i = 0; i < side * side; ++i) {
-        sum += abs(differences[i] - mean);
-    }
-    return sum + lengthCost * float(side * side) * float(abs(d.x) + abs(d.y));
-}
-
-// The cost of `d` read from the frames.
-float cost(ivec2 origin, ivec2 d) {
-    const ivec2 back = earlierShare(vec2(d), 0.5);
-    const ivec2 ahead = d - back;
-    const ivec2 last = push.size - 1;
-    float differences[side * side];
-    float mean = 0.0;
-    [[unroll]] for (int y = 0; y < side; ++y) {
-        [[unroll]] for (int x = 0; x < side; ++x) {
-            const ivec2 p = origin + ivec2(x - margin, y - margin);
-            const float difference = READ(earlier, clamp(p - back, ivec2(0), last)).r -
-                                     READ(later, clamp(p + ahead, ivec2(0), last)).r;
-            differences[y * side + x] = difference;
-            mean += difference;
-        }
-    }
-    mean /= float(side * side);
-    // The block's mean difference left out, so a fade or a flash moves nothing.
-    float sum = 0.0;
-    [[unroll]] for (int i = 0; i < side * side; ++i) {
-        sum += abs(differences[i] - mean);
-    }
-    return sum + lengthCost * float(side * side) * float(abs(d.x) + abs(d.y));
 }
 
 shared float bestCosts[threads];
@@ -174,62 +151,86 @@ int lowest(float c, int index) {
     return bestIndices[0];
 }
 
+// Keeps the zero vector's cost (`which` 0) or a frame's flat test (1 the earlier's, 2 the later's).
+void keepZeroOrFlat(int which, float c) {
+    if (which == 0) {
+        zeroCost = c;
+    } else if (which == 1) {
+        earlierFlat = isFlat(c);
+    } else {
+        laterFlat = isFlat(c);
+    }
+}
+
+// Writes no motion for a block either frame is flat over.
+bool keptStill(ivec2 block) {
+    if (earlierFlat || laterFlat) {
+        if (gl_LocalInvocationIndex == 0) {
+            imageStore(field, block, vec4(0.0));
+        }
+        return true;
+    }
+    return false;
+}
+
 void main() {
     const ivec2 block = ivec2(gl_WorkGroupID.xy);
     const ivec2 origin = block * blockSize;
     const int i = int(gl_LocalInvocationIndex);
-    const ivec2 reach = ivec2(push.hasParent == 0 ? push.range : 0);
-    loadTiles(origin, -reach, reach);
-    if (i == 0) {
-        zeroCost = tiledCost(origin, ivec2(0));
-    } else if (i == 1) {
-        earlierFlat = featureless(origin, false);
-    } else if (i == 2) {
-        laterFlat = featureless(origin, true);
-    }
-    barrier();
-    if (earlierFlat || laterFlat) {
-        if (i == 0) {
-            imageStore(field, block, vec4(0.0));
-        }
-        return;
-    }
     ivec2 best = ivec2(0);
-    float bestCost = zeroCost;
     const float none = 1.0 / 0.0;
     if (push.hasParent == 0) {
+        loadTiles(origin, -ivec2(push.range), ivec2(push.range));
+        if (i < 3) {
+            keepZeroOrFlat(i, cost(origin, ivec2(0), true, i != 2, i != 1));
+        }
+        barrier();
+        if (keptStill(block)) {
+            return;
+        }
         const int side = 2 * push.range + 1;
         float mine = none;
         int mineIndex = side * side;
         for (int k = i; k < side * side; k += int(threads)) {
-            const float c = tiledCost(origin, ivec2(k % side - push.range, k / side - push.range));
+            const float c = cost(origin, ivec2(k % side - push.range, k / side - push.range), true,
+                                 true, true);
             if (c < mine) {
                 mine = c;
                 mineIndex = k;
             }
         }
         const int k = lowest(mine, mineIndex);
-        if (bestCosts[0] < bestCost) {
+        if (bestCosts[0] < zeroCost) {
             best = ivec2(k % side - push.range, k / side - push.range);
-            bestCost = bestCosts[0];
         }
     } else {
         const ivec2 parentLast = imageSize(parent) - 1;
-        float mine = none;
         if (i < 9) {
             const ivec2 at = clamp(block / 2 + ivec2(i % 3 - 1, i / 3 - 1), ivec2(0), parentLast);
             parentVectors[i] = ivec2(READ(parent, at).rg) * 2;
         }
         barrier();
+        // The parents' candidates on threads 0 to 8, the zero vector and the flat tests on 9 to 11.
         // A candidate equal to an earlier one or to the zero vector cannot win: of equal costs the
         // earlier is kept.
-        if (i < 9) {
-            const ivec2 d = SHARED(parentVectors[i]);
-            if (!tried(d, i)) {
-                mine = cost(origin, d);
+        // One cost for all of them, so the threads take one path.
+        float mine = none;
+        if (i < 12) {
+            const ivec2 d = i < 9 ? SHARED(parentVectors[i]) : ivec2(0);
+            if (i >= 9 || !tried(d, i)) {
+                const float c = cost(origin, d, false, i != 11, i != 10);
+                if (i < 9) {
+                    mine = c;
+                } else {
+                    keepZeroOrFlat(i - 9, c);
+                }
             }
         }
         const int k = lowest(mine, i < 9 ? i : 9);
+        if (keptStill(block)) {
+            return;
+        }
+        float bestCost = zeroCost;
         if (bestCosts[0] < bestCost) {
             best = SHARED(parentVectors[k]);
             bestCost = bestCosts[0];
@@ -241,7 +242,7 @@ void main() {
         if (i < 25) {
             const ivec2 d = centre + ivec2(i % 5 - 2, i / 5 - 2);
             if (!tried(d, 9)) {
-                mine = tiledCost(origin, d);
+                mine = cost(origin, d, true, true, true);
             }
         }
         const int n = lowest(mine, i < 25 ? i : 25);
