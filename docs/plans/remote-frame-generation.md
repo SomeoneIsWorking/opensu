@@ -249,7 +249,10 @@ edge energy the made one lacks) and flicker (the edge energy both real neighbour
 place, spread 6 pixels, that the made frame lacks; `repeat` is 0 by construction and pays in FLIP).
 `blend` (the two real frames mixed) and `repeat` (the earlier one) are references. A scene's
 `pixel` is the output pixels one source pixel covers, measured from its recording and passed as
-`--source-pixel`. Each run's `build.json` names the generator binary's sha256, the source tree,
+`--source-pixel`. A scene's `feed` models its consumer: `every` recorded frame for the built-in
+runner, which hands its generator each frame the core runs, a repeat included; `changes` for
+Gamescope, which sees only the game's commits, so a frame equal to the one before or within one
+code value of it (rounding on a frame not drawn again) is dropped. Each run's `build.json` names the generator binary's sha256, the source tree,
 commit and a hash of its diff; the run is refused when the binary is older than any file under
 `src/frame_gen`. `--rescore` scores a run's made frames again. Tables are over moving frames (the real frames on either side differ); runs,
 scores and the worst frames side by side (real before, left out, after; each generator's frame

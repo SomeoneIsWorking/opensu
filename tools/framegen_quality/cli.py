@@ -1,8 +1,9 @@
 """uv run --frozen --group framegen python -m tools.framegen_quality --scenes FILE [options]
 
 Records each scene once (`scratch/framegen-quality/scenes/<scene>/frames`, again with --record),
-then for the run (`scratch/framegen-quality/runs/<run>/`) generates the left-out frames with each
-generator, scores them, and writes `report.md`, `scores/<scene>-<generator>.json`, the worst
+links the frames its generator is fed into `fed/` beside them (`feed`), then for the run
+(`scratch/framegen-quality/runs/<run>/`) generates the left-out frames with each generator, scores
+them, and writes `report.md`, `scores/<scene>-<generator>.json`, the worst
 frames side by side in `worst/` and the build that made them in `build.json`
 (`provenance`). With --same-as, each generator's frames must equal that run's bit for bit
 (`identical`)."""
@@ -12,6 +13,7 @@ from pathlib import Path
 
 from tools.checkout import REPO, require_own_environment
 from tools.framegen_quality import (
+    feed,
     generate,
     identical,
     provenance,
@@ -82,12 +84,13 @@ def main() -> None:
     for scene in scenes.read(args.scenes):
         if args.only and scene.name not in args.only:
             continue
-        frames = SCRATCH / "scenes" / scene.name / "frames"
-        if args.record or not frames.is_dir():
+        recorded = SCRATCH / "scenes" / scene.name / "frames"
+        if args.record or not recorded.is_dir():
             if runner is None:
                 raise SystemExit(f"no opensu-retro under {args.build}")
             print(f"{scene.name}: recording {scene.frames} frames after {scene.skip}", flush=True)
-            record.record(scene, runner, frames.parent)
+            record.record(scene, runner, recorded.parent)
+        frames = feed.fed(scene, recorded)
         made: dict[str, Path] = {}
         results[scene.name] = {}
         for generator in generators:

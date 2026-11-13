@@ -6,11 +6,18 @@ games are the player's own):
 
 `skip` frames run before recording starts, `frames` are recorded, and each press holds its buttons
 from frame `at` for `for` frames (default 4). `pixel` is how many recorded pixels one of the
-core's takes across and down (default [1, 1]), as the runner scaled its frame to the window."""
+core's takes across and down (default [1, 1]), as the runner scaled its frame to the window.
+
+`feed` is what the generator is given of the recording (`feed`): `every` frame the core ran (the
+built-in runner's generator, the default) or only the `changes` (Gamescope's, which sees the
+game's commits). `phase` frames of the fed ones are dropped first, so a scene can be held out on
+its other frames."""
 
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+
+FEEDS = ("every", "changes")
 
 
 @dataclass(frozen=True)
@@ -30,6 +37,8 @@ class Scene:
     presses: tuple[Press, ...] = field(default_factory=tuple)
     options: tuple[str, ...] = field(default_factory=tuple)
     pixel: tuple[float, float] = (1.0, 1.0)
+    feed: str = "every"
+    phase: int = 0
 
 
 def _pixel(given: list[float]) -> tuple[float, float]:
@@ -53,8 +62,12 @@ def read(path: Path) -> list[Scene]:
                 ),
                 options=tuple(entry.get("options", [])),
                 pixel=_pixel(entry.get("pixel", [1, 1])),
+                feed=entry.get("feed", "every"),
+                phase=int(entry.get("phase", 0)),
             )
         )
+        if scenes[-1].feed not in FEEDS:
+            raise SystemExit(f"{path}: {scenes[-1].name}'s feed is not one of {', '.join(FEEDS)}")
     names = [scene.name for scene in scenes]
     if len(set(names)) != len(names):
         raise SystemExit(f"{path}: scene names repeat")
