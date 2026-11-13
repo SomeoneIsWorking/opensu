@@ -215,6 +215,18 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   late still leaves later in-betweens up to 0.25 ms (t 0.507) off until the pacer gets real
   vblank times (`remote-vblank-times.md`).
 
+- Step 5, first part: the generator runs on the tablet (Huawei BKY-W09, Android 12, Maleoon 910,
+  Vulkan 1.1 with no robustness2). An absent input binds a cleared 1x1 image instead of a null
+  descriptor (fork `4192c16a`, openSU `8406c31b`), the device opens on 1.1 with
+  `VK_KHR_timeline_semaphore` and `VK_KHR_shader_float16_int8` (`a34a3bb3`), and framegen,
+  `frame_gen` and `opensu-framegen-pairs` build for arm64 (`c2447719`); each is bit-identical to
+  the one before on the Linux quality scenes. Proof: `opensu-framegen-pairs --generator flow
+  --core-frames --step 2` from `/data/local/tmp` on five 1280x720 frames of Super Metroid's demo
+  exits 0 and logs "flow generated 2 frames on Maleoon 910", 15.7 M invocations and 474 MB read per
+  generated frame, as on Linux; the two frames against Linux's: PSNR 56.0 and 57.7 dB, 99.97% of
+  pixels equal. Paths given to it are absolute: SDL's file reads on Android take a relative path
+  for an app's storage, which needs JNI.
+
 ## Left
 
 - The generator's ready need per real frame in the probe's log, so a remote run replays through
@@ -225,7 +237,9 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
 - Generator settings against the Lossless streak: Custom's detail keys tried on `h-dump`'s scroll,
   kept only if a setting removes the 8 streaked in-betweens without new artefacts.
 - Step 4, Linux stage B (zero copy).
-- Step 5, the Android guest through `AHardwareBuffer`, timed on the tablet's GPU.
+- Step 5, the rest: Lossless on the tablet, from the modules the host sends (the player's DLL never
+  goes to the device); the guest's `RemoteFrameGen` on Android; MediaCodec's output through
+  `AHardwareBuffer`; the generation timed on the tablet's GPU.
 - Step 6, the Windows guest.
 
 ## Quality
