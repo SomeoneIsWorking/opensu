@@ -1,5 +1,6 @@
 """Pins, paths and the environment the Android package is built from."""
 
+import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -70,11 +71,40 @@ class Layout:
         """The profile's prefix path, a link to the shared prefix."""
         return self.root / "deps" / abi
 
+    def native_library(self, abi: str) -> Path:
+        return self.native_dir(abi) / "src" / "libmain.so"
+
+    @property
+    def jni_libs(self) -> Path:
+        return self.project / "app" / "src" / "main" / "jniLibs"
+
     def prefix(self, abi: str) -> Path:
         return self.deps_root / abi
 
     def profile(self, abi: str) -> Path:
-        return SOURCE / "profiles" / f"{abi}.json"
+        """The android-port profile this build reads for `abi` (`write_profile`)."""
+        return self.root / "profiles" / f"{abi}.json"
+
+    def write_profile(self, abi: str) -> Path:
+        """packaging/android/profiles/<abi>.json's policy with this build's paths, each relative to
+        the written profile as android-port takes them."""
+        source = SOURCE / "profiles" / f"{abi}.json"
+        profile = json.loads(source.read_text(encoding="utf-8"))
+        path = self.profile(abi)
+
+        def relative(target: Path) -> str:
+            return os.path.relpath(target, path.parent)
+
+        profile["nativeDependencies"]["prefix"] = relative(self.deps_link(abi))
+        profile["package"] = {
+            "nativeLibrary": relative(self.native_library(abi)),
+            "jniLibs": relative(self.jni_libs),
+        }
+        lock = (source.parent / profile["sharedEmulator"]["lock"]).resolve()
+        profile["sharedEmulator"]["lock"] = relative(lock)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(profile, indent=2) + "\n", encoding="utf-8")
+        return path
 
 
 def refuse(message: str) -> SystemExit:

@@ -24,7 +24,7 @@ def ensure_prefix(layout: config.Layout, port: ModuleType, abi: str) -> object:
         link.unlink()
     layout.prefix(abi).mkdir(parents=True, exist_ok=True)
     link.symlink_to(layout.prefix(abi), target_is_directory=True)
-    profile = port.load_android_port_profile(layout.profile(abi))
+    profile = port.load_android_port_profile(layout.write_profile(abi))
     try:
         port.validate_native_dependency_prefix(profile)
     except SystemExit as missing:
