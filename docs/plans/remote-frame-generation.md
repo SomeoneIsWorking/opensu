@@ -565,7 +565,7 @@ Lossless's at every size.
   on SDL GPU's device. So the decoded frame is not yet a Vulkan image the guest can use: stage A
   uploads it, and stage B decodes with PyroWave's direct API on the generator's device.
 - The generator's device needs `shaderFloat16` (else FP32 modules), `shaderStorageImageWriteWithoutFormat`,
-  `shaderStorageImageExtendedFormats` and timeline semaphores, on a compute queue; the runner's `retro::VulkanDevice` is the libretro core's device and
+  `shaderStorageImageExtendedFormats` and timeline semaphores, on Vulkan 1.1 (with `VK_KHR_timeline_semaphore` and `VK_KHR_shader_float16_int8`) or later and a compute queue; the runner's `retro::VulkanDevice` is the libretro core's device and
   enables none of them, so the guest makes its own.
 - The loader of shader modules reads them from a DLL path (`LoadLosslessShaders`); the guest needs
   the same checks from modules held in memory, a public loader in `framegen/` beside it, and the

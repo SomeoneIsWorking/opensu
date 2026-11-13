@@ -13,6 +13,7 @@
 #include <span>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "frame_gen/gpu_spans.hpp"
 #include "framegen/Device.h"
@@ -25,8 +26,8 @@ void check(VkResult result, const char* what);
 
 class GeneratorDevice final : public framegen::IQueue {
   public:
-    /// Throws when no GPU has timeline semaphores, storage images of any format and a compute
-    /// queue.
+    /// Throws when no GPU has Vulkan 1.1 with timeline semaphores, storage images of any format
+    /// and a compute queue.
     GeneratorDevice();
     ~GeneratorDevice() override;
     GeneratorDevice(const GeneratorDevice&) = delete;
@@ -79,7 +80,11 @@ class GeneratorDevice final : public framegen::IQueue {
     std::string name_;
     std::uint32_t family_{0};
     bool float16_{false};
-    bool scalarLayout_{false};
+    /// Vulkan 1.2 or later; before it timeline semaphores and FP16 are extensions.
+    bool core12_{false};
+    std::vector<const char*> extensions_;
+    PFN_vkWaitSemaphores waitSemaphores_{nullptr};
+    PFN_vkGetSemaphoreCounterValue getSemaphoreCounterValue_{nullptr};
     VkDevice device_{VK_NULL_HANDLE};
     VkQueue queue_{VK_NULL_HANDLE};
     VkCommandPool pool_{VK_NULL_HANDLE};

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <format>
 #include <stdexcept>
+#include <string_view>
 #include <vector>
 
 #include "lucent/log.h"
@@ -146,7 +147,7 @@ std::uint64_t GeneratorDevice::Submit(VkCommandBuffer cmd) {
 
 std::uint64_t GeneratorDevice::Completed() {
     std::uint64_t value = 0;
-    check(vkGetSemaphoreCounterValue(device_, timeline_, &value), "vkGetSemaphoreCounterValue");
+    check(getSemaphoreCounterValue_(device_, timeline_, &value), "vkGetSemaphoreCounterValue");
     return value;
 }
 
@@ -157,7 +158,7 @@ void GeneratorDevice::Wait(std::uint64_t seqNo) {
                                    .semaphoreCount = 1,
                                    .pSemaphores = &timeline_,
                                    .pValues = &seqNo};
-    check(vkWaitSemaphores(device_, &wait, UINT64_MAX), "vkWaitSemaphores");
+    check(waitSemaphores_(device_, &wait, UINT64_MAX), "vkWaitSemaphores");
     if (spans_) {
         spans_->drain(seqNo);
     }
@@ -170,7 +171,7 @@ bool GeneratorDevice::reached(std::uint64_t seqNo, std::uint64_t timeoutNs) {
                                    .semaphoreCount = 1,
                                    .pSemaphores = &timeline_,
                                    .pValues = &seqNo};
-    const VkResult result = vkWaitSemaphores(device_, &wait, timeoutNs);
+    const VkResult result = waitSemaphores_(device_, &wait, timeoutNs);
     if (result == VK_TIMEOUT) {
         return false;
     }
@@ -242,15 +243,36 @@ void GeneratorDevice::choose() {
 /// compute queue noted.
 std::string GeneratorDevice::lacks(VkPhysicalDevice candidate,
                                    const VkPhysicalDeviceProperties& properties) {
-    if (properties.apiVersion < VK_API_VERSION_1_2) {
-        return "Vulkan 1.2";
+    if (properties.apiVersion < VK_API_VERSION_1_1) {
+        return "Vulkan 1.1";
     }
-    VkPhysicalDeviceVulkan12Features vulkan12{};
-    vulkan12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    core12_ = properties.apiVersion >= VK_API_VERSION_1_2;
+    std::uint32_t extensionCount = 0;
+    vkEnumerateDeviceExtensionProperties(candidate, nullptr, &extensionCount, nullptr);
+    std::vector<VkExtensionProperties> extensions(extensionCount);
+    vkEnumerateDeviceExtensionProperties(candidate, nullptr, &extensionCount, extensions.data());
+    const auto has = [&](std::string_view name) {
+        return core12_ || std::ranges::any_of(extensions, [name](const VkExtensionProperties& e) {
+                   return std::string_view{e.extensionName} == name;
+               });
+    };
+    if (!has(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME)) {
+        return VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME;
+    }
+    const bool float16Known = has(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME);
+    VkPhysicalDeviceShaderFloat16Int8Features float16{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES,
+        .pNext = nullptr,
+        .shaderFloat16 = VK_FALSE,
+        .shaderInt8 = VK_FALSE};
+    VkPhysicalDeviceTimelineSemaphoreFeatures timeline{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES,
+        .pNext = float16Known ? &float16 : nullptr,
+        .timelineSemaphore = VK_FALSE};
     VkPhysicalDeviceFeatures2 features{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = &vulkan12, .features = {}};
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = &timeline, .features = {}};
     vkGetPhysicalDeviceFeatures2(candidate, &features);
-    if (vulkan12.timelineSemaphore == VK_FALSE) {
+    if (timeline.timelineSemaphore == VK_FALSE) {
         return "timeline semaphores";
     }
     if (features.features.shaderStorageImageWriteWithoutFormat == VK_FALSE ||
@@ -268,8 +290,14 @@ std::string GeneratorDevice::lacks(VkPhysicalDevice candidate,
         return "a compute queue";
     }
     family_ = static_cast<std::uint32_t>(compute - families.begin());
-    float16_ = vulkan12.shaderFloat16 == VK_TRUE && features.features.shaderInt16 == VK_TRUE;
-    scalarLayout_ = vulkan12.scalarBlockLayout == VK_TRUE;
+    float16_ = float16.shaderFloat16 == VK_TRUE && features.features.shaderInt16 == VK_TRUE;
+    extensions_.clear();
+    if (!core12_) {
+        extensions_.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
+        if (float16_) {
+            extensions_.push_back(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME);
+        }
+    }
     return {};
 }
 
@@ -281,13 +309,17 @@ void GeneratorDevice::makeDevice() {
                                             .queueFamilyIndex = family_,
                                             .queueCount = 1,
                                             .pQueuePriorities = &priority};
-    VkPhysicalDeviceVulkan12Features vulkan12{};
-    vulkan12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-    vulkan12.shaderFloat16 = float16_ ? VK_TRUE : VK_FALSE;
-    vulkan12.scalarBlockLayout = scalarLayout_ ? VK_TRUE : VK_FALSE;
-    vulkan12.timelineSemaphore = VK_TRUE;
+    VkPhysicalDeviceShaderFloat16Int8Features float16{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES,
+        .pNext = nullptr,
+        .shaderFloat16 = VK_TRUE,
+        .shaderInt8 = VK_FALSE};
+    VkPhysicalDeviceTimelineSemaphoreFeatures timeline{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES,
+        .pNext = float16_ ? &float16 : nullptr,
+        .timelineSemaphore = VK_TRUE};
     VkPhysicalDeviceFeatures2 features{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = &vulkan12, .features = {}};
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = &timeline, .features = {}};
     features.features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
     features.features.shaderStorageImageExtendedFormats = VK_TRUE;
     features.features.shaderInt16 = float16_ ? VK_TRUE : VK_FALSE;
@@ -298,10 +330,20 @@ void GeneratorDevice::makeDevice() {
                                         .pQueueCreateInfos = &queueInfo,
                                         .enabledLayerCount = 0,
                                         .ppEnabledLayerNames = nullptr,
-                                        .enabledExtensionCount = 0,
-                                        .ppEnabledExtensionNames = nullptr,
+                                        .enabledExtensionCount =
+                                            static_cast<std::uint32_t>(extensions_.size()),
+                                        .ppEnabledExtensionNames = extensions_.data(),
                                         .pEnabledFeatures = nullptr};
     check(vkCreateDevice(physical_, &deviceInfo, nullptr, &device_), "vkCreateDevice");
+    // Core names from 1.2; before it only the timeline extension's.
+    waitSemaphores_ = reinterpret_cast<PFN_vkWaitSemaphores>(
+        vkGetDeviceProcAddr(device_, core12_ ? "vkWaitSemaphores" : "vkWaitSemaphoresKHR"));
+    getSemaphoreCounterValue_ =
+        reinterpret_cast<PFN_vkGetSemaphoreCounterValue>(vkGetDeviceProcAddr(
+            device_, core12_ ? "vkGetSemaphoreCounterValue" : "vkGetSemaphoreCounterValueKHR"));
+    if (waitSemaphores_ == nullptr || getSemaphoreCounterValue_ == nullptr) {
+        throw std::runtime_error{"the device has no timeline semaphore functions"};
+    }
     vkGetDeviceQueue(device_, family_, 0, &queue_);
     const VkCommandPoolCreateInfo poolInfo{.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
                                            .pNext = nullptr,
