@@ -495,6 +495,11 @@ Lossless's at every size.
   candidates' windows, often the same vector for neighbouring blocks, shared between blocks; the
   finest level's phases still leave most of its 32 threads idle. The generated frame's 100 texels
   per pixel.
+- The finer search's 192 VGPRs (5 subgroups per SIMD) are its cost's 144 differences held for the
+  mean. Reading the window twice instead, for the mean and then each difference from it, compiles
+  to the same code: with both loops unrolled and the reads free of side effects in the product,
+  the compiler keeps the first pass's values for the second. Rolling the loop over rows in both
+  passes, which no compiler can merge across, is not tried.
 - `flow` in Gamescope: Gamescope's generator is Lossless's; a game outside the built-in runner
   with openSU chosen gets no frame generation (the summary's note says where openSU's runs).
 - The source pixel on remote play: `RemoteFrameGen` runs `flow` at scale 1 with a 1 x 1 pixel.
