@@ -394,13 +394,17 @@ at the worst phase.
 `opensu-framegen-pairs` ends with `[perf]` lines (`frame_gen::GpuSpans`, compared with
 `perf_compare.py`), per real frame (`ingest`) and per generated frame (`generate`), and for `flow`
 per dispatch too (`ingest 256x224 search 0`, `generate 256x224 choose`, ...): dispatches, shader
-invocations (each workgroup at its own threads), the bytes of the images each dispatch binds (a footprint, each
-image once) and the texels its shaders read, counted by the shaders themselves while measuring
-(an atomic per read behind a specialization constant, off in the product), and apart from them
-the values they read from shared memory, so a read moved there is not counted as free. These
-repeat exactly and are the cost verdict. Both generators' GPU time comes from timestamps through the fork's
-`IQueue` timing hooks; Lossless records its dispatches inside the fork, so only its time is
-seen.
+invocations (each workgroup at its own threads) and the bytes of the images each dispatch binds (a
+footprint, each image once). `--measure counts`, the default, adds the texels its shaders read,
+counted by the shaders themselves (an atomic per read behind a specialization constant, off in
+the product), and apart from them the values they read from shared memory, so a read moved there
+is not counted as free. These repeat exactly and are the cost verdict. The atomics make those
+shaders far slower than the product's, so a counting run is not timed: `--measure time` runs the
+product's shaders and gives each span's GPU time and, for `flow`, each dispatch's, from
+timestamps through the fork's `IQueue` timing hooks, a span starting once the work submitted
+before it is done. Times are a diagnostic for latency the counts cannot show, read beside the
+counts with the spread of two runs, never a budget; Lossless records its dispatches inside the
+fork, so only its time is seen.
 
 Super Metroid's demo, 60 generated frames:
 
@@ -422,6 +426,12 @@ frame and its luma (two runs, every count the same). On the CPU,
 from boot, 1500 frames, 133 K instructions per real frame and 511 per present at p50, the same at
 1280x720 and 1920x1080, and the meter itself is under the 0.008% spread of the whole run's
 instructions.
+
+Timed (`--measure time`, two runs, p50 of each) on the core frames at 4x, a real frame's ingest
+takes 3.38 and 3.41 ms of GPU time: the finest search 2.32 and 2.32, the next 0.62 and 0.63, then
+0.22 and 0.24, the coarsest 0.13 and 0.13, the take and reductions under 0.06 each; a generated
+frame 0.50 and 0.57 ms, `flow_choose` 0.35 and 0.41 of it. The counting shaders' spans had put
+ingest at 17 to 18 ms, the counters' atomics.
 
 The search gives each block a workgroup of 64 threads that try its candidates side by side, each
 candidate's cost summed by one thread in the same order, and a reduction in shared memory picks

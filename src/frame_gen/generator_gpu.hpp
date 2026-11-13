@@ -58,8 +58,8 @@ class GeneratorDevice final : public framegen::IQueue {
     /// Waits for everything submitted.
     [[nodiscard]] VkResult idle() noexcept;
 
-    /// Times the generators' recorded work from here on (`spans`).
-    void measure();
+    /// Measures the generators' recorded work from here on (`spans`).
+    void measure(Measure what);
     /// The spans measured, or nothing when not measuring.
     [[nodiscard]] GpuSpans* spans() const noexcept {
         return spans_.get();

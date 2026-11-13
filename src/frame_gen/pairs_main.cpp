@@ -4,9 +4,10 @@
 // ones are generated at their times and written into --out under their own names.
 //
 //   opensu-framegen-pairs --generator lossless [--dll <Lossless.dll>] [--performance]
-//                         [--flow-scale <percent>] [--step N] --in <dir> --out <dir>
+//                         [--flow-scale <percent>] [--step N] [--measure counts|time]
+//                         --in <dir> --out <dir>
 //   opensu-framegen-pairs --generator flow [--source-pixel <w>x<h> | --core-frames]
-//                         [--step N] --in <dir> --out <dir>
+//                         [--step N] [--measure counts|time] --in <dir> --out <dir>
 //
 // --source-pixel is how many frame pixels one of the content's takes (a core's frame scaled to
 // the window), 1x1 by default. --core-frames says the frames are a core's own, which flow works on
@@ -14,7 +15,9 @@
 //
 // Without --dll, the player's Lossless.dll is the one the shell finds in their Steam libraries.
 //
-// At the end, the GPU time of each real frame's ingest and each generated frame (`[perf]` lines).
+// At the end, what each real frame's ingest and each generated frame dispatched (`[perf]` lines):
+// with --measure counts (the default) the texels and shared values flow's shaders read, counted
+// by shaders that run slower for it; with time, the GPU time of each and of each dispatch.
 //
 // Exit status: 0 when every frame between two real ones was written, 1 otherwise.
 #include <algorithm>
@@ -59,6 +62,7 @@ struct Options {
     unsigned flowScale{100};
     unsigned step{2};
     bool coreFrames{false};
+    opensu::frame_gen::Measure measure{opensu::frame_gen::Measure::counts};
     opensu::frame_gen::SourcePixel pixel;
     std::filesystem::path in;
     std::filesystem::path out;
@@ -115,6 +119,13 @@ std::optional<Options> parse(std::span<const std::string> args) {
             options.in = value;
         } else if (arg == "--out") {
             options.out = value;
+        } else if (arg == "--measure") {
+            if (value != "counts" && value != "time") {
+                lucent::error("framegen", "--measure takes counts or time, not {}", value);
+                return std::nullopt;
+            }
+            options.measure = value == "time" ? opensu::frame_gen::Measure::time
+                                              : opensu::frame_gen::Measure::counts;
         } else if (arg == "--source-pixel") {
             const std::optional<opensu::frame_gen::SourcePixel> pixel = pixelOf(value);
             if (!pixel) {
@@ -140,7 +151,7 @@ std::optional<Options> parse(std::span<const std::string> args) {
         lucent::error("framegen", "usage: opensu-framegen-pairs --generator lossless|flow "
                                   "[--dll <dll>] [--performance] [--flow-scale <percent>] "
                                   "[--source-pixel <w>x<h> | --core-frames] [--step N] "
-                                  "--in <dir> --out <dir> "
+                                  "[--measure counts|time] --in <dir> --out <dir> "
                                   "(--step 2 or more)");
         return std::nullopt;
     }
@@ -302,7 +313,7 @@ int run(const Options& options) {
         return 1;
     }
     GeneratorDevice gpu;
-    gpu.measure();
+    gpu.measure(options.measure);
     std::unique_ptr<opensu::frame_gen::Interpolator> generator = generatorOf(options, gpu);
     if (!generator) {
         return 1;

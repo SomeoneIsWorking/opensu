@@ -271,7 +271,8 @@ class FlowInterpolator final : public Interpolator {
         : gpu_{gpu}, device_{gpu.device()}, scale_{scale}, one_{storageImages(device_, 1)},
           two_{storageImages(device_, 2)}, three_{storageImages(device_, 3)},
           four_{storageImages(device_, 4)}, empty_{storageImages(device_, 0)},
-          countLayout_{countLayout(device_)}, counting_{gpu.spans() != nullptr},
+          countLayout_{countLayout(device_)},
+          counting_{gpu.spans() != nullptr && gpu.spans()->counting()},
           texels_{gpu, countStride * maxDispatches, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT} {
         const auto pass = [this](std::span<const std::uint32_t> code,
                                  std::span<const VkDescriptorSetLayout> own,
@@ -327,7 +328,7 @@ class FlowInterpolator final : public Interpolator {
         if (cmd == VK_NULL_HANDLE) {
             return std::nullopt;
         }
-        const std::optional<std::uint32_t> timed = gpu_.BeginTiming(cmd);
+        timed_ = gpu_.BeginTiming(cmd);
         memoryBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_MEMORY_WRITE_BIT,
                       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                       VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
@@ -368,7 +369,7 @@ class FlowInterpolator final : public Interpolator {
             }
         }
         ++added_;
-        return framegen::Submission_t{.ulSeqNo = submit(cmd, timed, ingestKey_), .bComplete = true};
+        return framegen::Submission_t{.ulSeqNo = submit(cmd, ingestKey_), .bComplete = true};
     }
 
     std::optional<framegen::Submission_t> generate(float t,
@@ -385,7 +386,7 @@ class FlowInterpolator final : public Interpolator {
         if (cmd == VK_NULL_HANDLE) {
             return std::nullopt;
         }
-        const std::optional<std::uint32_t> timed = gpu_.BeginTiming(cmd);
+        timed_ = gpu_.BeginTiming(cmd);
         if (hooks.before) {
             hooks.before(cmd);
         }
@@ -405,6 +406,7 @@ class FlowInterpolator final : public Interpolator {
         GpuWork cleared;
         cleared.bytesWritten = used_->bytes();
         recorded_.push_back(Recorded{.name = "clear", .work = cleared, .slot = std::nullopt});
+        markTimed(cmd, "clear");
         memoryBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
                       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                       VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
@@ -423,8 +425,7 @@ class FlowInterpolator final : public Interpolator {
         if (hooks.after) {
             hooks.after(cmd);
         }
-        return framegen::Submission_t{.ulSeqNo = submit(cmd, timed, generateKey_),
-                                      .bComplete = true};
+        return framegen::Submission_t{.ulSeqNo = submit(cmd, generateKey_), .bComplete = true};
     }
 
   private:
@@ -449,15 +450,15 @@ class FlowInterpolator final : public Interpolator {
 
     /// Submits `cmd`, closing its span when timed, with what it and each of its dispatches did;
     /// while measuring, waits for it to read the texels they counted.
-    std::uint64_t submit(VkCommandBuffer cmd, std::optional<std::uint32_t> timed,
-                         const std::string& key) {
-        if (timed) {
-            gpu_.EndTiming(cmd, *timed, key);
+    std::uint64_t submit(VkCommandBuffer cmd, const std::string& key) {
+        if (timed_) {
+            gpu_.EndTiming(cmd, *timed_, key);
         }
         const std::uint64_t seqNo = gpu_.Submit(cmd);
-        if (timed) {
+        if (timed_) {
             gpu_.TimingSubmitted(seqNo);
         }
+        timed_.reset();
         if (counting_) {
             gpu_.Wait(seqNo);
             for (Recorded& recorded : recorded_) {
@@ -522,6 +523,14 @@ class FlowInterpolator final : public Interpolator {
         vkCmdPushConstants(cmd, pass.layout.get(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push),
                            &push);
         vkCmdDispatch(cmd, x, y, 1);
+        markTimed(cmd, name);
+    }
+
+    /// Ends the timed span's part `name` here.
+    void markTimed(VkCommandBuffer cmd, const std::string& name) {
+        if (timed_) {
+            gpu_.spans()->mark(cmd, *timed_, name);
+        }
     }
 
     [[nodiscard]] VkDescriptorSet allocate(VkDescriptorSetLayout layout) const {
@@ -769,6 +778,8 @@ class FlowInterpolator final : public Interpolator {
         std::optional<std::uint32_t> slot;
     };
     std::vector<Recorded> recorded_;
+    /// The span of the submission being recorded, when timed.
+    std::optional<std::uint32_t> timed_;
     std::array<std::pair<std::uint32_t, std::uint32_t>, levels> sizes_{};
     std::array<std::unique_ptr<GeneratorImage>, 2> frames_;
     std::array<std::array<std::unique_ptr<GeneratorImage>, levels>, 2> lumas_;

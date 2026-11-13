@@ -180,7 +180,7 @@ bool GeneratorDevice::reached(std::uint64_t seqNo, std::uint64_t timeoutNs) {
     return true;
 }
 
-void GeneratorDevice::measure() {
+void GeneratorDevice::measure(Measure what) {
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(physical_, &properties);
     std::uint32_t familyCount = 0;
@@ -188,7 +188,7 @@ void GeneratorDevice::measure() {
     std::vector<VkQueueFamilyProperties> families(familyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(physical_, &familyCount, families.data());
     spans_ = std::make_unique<GpuSpans>(device_, properties.limits.timestampPeriod,
-                                        families.at(family_).timestampValidBits);
+                                        families.at(family_).timestampValidBits, what);
 }
 
 std::optional<std::uint32_t> GeneratorDevice::BeginTiming(VkCommandBuffer cmd) {
