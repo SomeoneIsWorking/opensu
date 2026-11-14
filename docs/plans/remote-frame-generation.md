@@ -236,6 +236,12 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   "pacing generating at real frame 15: base 30.00 fps, target 60.00 fps", and over 19.5 s its
   `remoteVideo` counted 581 real frames, 571 generated and 910 shown, with 253 generated frames
   dropped and a ready need of 37 to 42 ms per real frame.
+- Linux guest on a second machine: a hidden host on this PC streamed the same ROM over the LAN to a
+  hidden guest on a ROG Ally (Z1 Extreme, RADV PHOENIX, on Wi-Fi) with the same three settings.
+  The guest logged "pacing generating at real frame 19: base 30.08 fps, target 60.00 fps", and
+  over 19.1 s its `remoteVideo` counted 572 real frames, 572 generated and 1144 shown (60.0 a
+  second) with no generated frame dropped and a ready need of 1.9 ms; PyroWave, no loss, network
+  0.8 ms p50. So the 47 fps above is the tablet's GPU, not the stream or the pacer.
 
 ## Left
 
