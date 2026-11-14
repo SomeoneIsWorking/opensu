@@ -63,4 +63,10 @@ Pieces, each in `src/frame_gen/`:
 
 ## Status
 
-Planned.
+- Step 1, the model read: `ncnn_model` reads both models; `tests/frame_gen/rife_reference` runs
+  the graph on the CPU (about 1 s a frame at 256 x 224). Its frame between Kirby's title frames 26
+  and 28, and Super Metroid's demo frames 10 and 12, at their native size: coherent, Samus whole
+  mid-stride where `flow` breaks her apart. The models are pinned at TNTwise/rife-ncnn-vulkan
+  13338e38 under `env-assets/rife/` (sha256 `flownet.bin`: v4.25-lite 350a15e4…,
+  v4.26 94d58e30…).
+- Next: `rife_net` on the device, checked blob by blob against the reference.
