@@ -1,0 +1,21 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+// A leaky ReLU or a sigmoid over `count` values.
+layout(local_size_x = 64) in;
+#include "rife_buffers.glsl"
+layout(push_constant) uniform Push {
+    int src;
+    int dst;
+    int count;
+    int sigmoid; // 0 the leaky ReLU, 1 the sigmoid
+    float slope;
+} push;
+
+void main() {
+    const int i = int(gl_GlobalInvocationID.x);
+    if (i >= push.count) {
+        return;
+    }
+    const float v = blobs[push.src + i];
+    blobs[push.dst + i] = push.sigmoid != 0 ? 1.0 / (1.0 + exp(-v)) : (v < 0.0 ? v * push.slope : v);
+}

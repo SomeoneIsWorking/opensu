@@ -18,3 +18,7 @@ add_executable(rife_reference_frame rife_reference_frame.cpp)
 target_link_libraries(rife_reference_frame PRIVATE frame_gen_rife_reference opensu::fileio
     gpu2d::image)
 opensu_warnings(rife_reference_frame)
+# The graph on the generator device against the reference, every blob (needs a model's folder).
+add_executable(rife_net_check rife_net_check.cpp)
+target_link_libraries(rife_net_check PRIVATE frame_gen_rife_reference lucent::lucent)
+opensu_warnings(rife_net_check)

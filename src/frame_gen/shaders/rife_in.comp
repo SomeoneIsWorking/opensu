@@ -1,0 +1,30 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+// A real frame into the graph's input: each content pixel read at its centre, RGB from 0 to 1,
+// the padding past the content zero.
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(set = 0, binding = 0) buffer Blobs {
+    float blobs[];
+};
+layout(set = 1, binding = 0, rgba8) uniform readonly image2D frame;
+layout(push_constant) uniform Push {
+    ivec4 dst;  // offset, padded width, padded height, 3
+    ivec2 content; // the content's pixels
+    vec2 pixel;    // a content pixel in the frame's
+} push;
+
+void main() {
+    const ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+    if (p.x >= push.dst.y || p.y >= push.dst.z) {
+        return;
+    }
+    vec3 colour = vec3(0.0);
+    if (p.x < push.content.x && p.y < push.content.y) {
+        colour = imageLoad(frame, ivec2((vec2(p) + 0.5) * push.pixel)).rgb;
+    }
+    const int plane = push.dst.y * push.dst.z;
+    const int at = push.dst.x + p.y * push.dst.y + p.x;
+    blobs[at] = colour.r;
+    blobs[at + plane] = colour.g;
+    blobs[at + 2 * plane] = colour.b;
+}

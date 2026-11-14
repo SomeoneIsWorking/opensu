@@ -1,0 +1,32 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+// An image moved by a flow (RIFE's Warp): each pixel read bilinearly at itself plus its flow, the
+// corners clamped and the weights taken from the clamped corner as RIFE's reference does.
+layout(local_size_x = 8, local_size_y = 8) in;
+#include "rife_buffers.glsl"
+layout(push_constant) uniform Push {
+    ivec4 image; // offset, width, height, channels
+    int flow;    // offset of the flow's x and y planes, the image's size
+    int dst;
+} push;
+
+void main() {
+    const ivec3 p = ivec3(gl_GlobalInvocationID);
+    const int w = push.image.y;
+    const int h = push.image.z;
+    if (p.x >= w || p.y >= h || p.z >= push.image.w) {
+        return;
+    }
+    const float sx = float(p.x) + blobAt(push.flow, w, h, p.x, p.y, 0);
+    const float sy = float(p.y) + blobAt(push.flow, w, h, p.x, p.y, 1);
+    const int x0 = clamp(int(floor(sx)), 0, w - 1);
+    const int y0 = clamp(int(floor(sy)), 0, h - 1);
+    const int x1 = clamp(int(floor(sx)) + 1, 0, w - 1);
+    const int y1 = clamp(int(floor(sy)) + 1, 0, h - 1);
+    const float alpha = sx - float(x0);
+    const float beta = sy - float(y0);
+    const int o = push.image.x;
+    const float top = blobAt(o, w, h, x0, y0, p.z) * (1.0 - alpha) + blobAt(o, w, h, x1, y0, p.z) * alpha;
+    const float bottom = blobAt(o, w, h, x0, y1, p.z) * (1.0 - alpha) + blobAt(o, w, h, x1, y1, p.z) * alpha;
+    blobs[push.dst + (p.z * h + p.y) * w + p.x] = top * (1.0 - beta) + bottom * beta;
+}

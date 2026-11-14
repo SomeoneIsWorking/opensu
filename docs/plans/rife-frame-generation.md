@@ -43,10 +43,10 @@ Pieces, each in `src/frame_gen/`:
 
 - `ncnn_model`: parses `flownet.param` and `flownet.bin` into a graph (layers, blobs, weights);
   refuses a layer type or parameter it does not implement, naming it.
-- `rife_net`: the graph on the device, one compute pipeline per layer type, blobs as storage
-  buffers in FP16 where the device has it, recorded once per input size.
+- `rife_net`: the graph on the device, one compute pipeline per layer type, blobs in one fp32
+  storage buffer, recorded once per input size.
 - `rife_interpolator`: the `Interpolator`, taking each real frame at its `SourcePixel` size (a
-  core's own 256 x 224, not the scaled-up screen), padding to the model's multiple of 32, and
+  core's own 256 x 224, not the scaled-up screen), padding to the model's multiple (64 for v4.26, 128 for v4.25-lite, from the graph's strides), and
   writing the frame between at t into the output image.
 
 ## Proof
@@ -69,4 +69,9 @@ Pieces, each in `src/frame_gen/`:
   mid-stride where `flow` breaks her apart. The models are pinned at TNTwise/rife-ncnn-vulkan
   13338e38 under `env-assets/rife/` (sha256 `flownet.bin`: v4.25-lite 350a15e4…,
   v4.26 94d58e30…).
-- Next: `rife_net` on the device, checked blob by blob against the reference.
+- Step 1, on the device: `rife_net` and `rife` (`opensu-framegen-pairs --generator rife`). Every
+  blob of both models agrees with the reference from noise inputs within 1e-2 of its largest
+  value (`rife_net_check`, at the multiple and wider); on Kirby's frames 26 to 28 and Super
+  Metroid's 10 to 12 the device's frame differs from the reference's in 2 and 8 values, by one
+  level each.
+- Next: step 2, the harness scenes against `flow`.

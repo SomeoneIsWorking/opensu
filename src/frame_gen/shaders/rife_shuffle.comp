@@ -1,0 +1,24 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+// Channels into space (ncnn's PixelShuffle, mode 0): output plane p's r x r cell (sw, sh) from
+// input plane p * r * r + sh * r + sw.
+layout(local_size_x = 8, local_size_y = 8) in;
+#include "rife_buffers.glsl"
+layout(push_constant) uniform Push {
+    ivec4 src; // offset, width, height, channels
+    int dst;
+    int factor;
+} push;
+
+void main() {
+    const ivec3 p = ivec3(gl_GlobalInvocationID);
+    const int r = push.factor;
+    const int w = push.src.y * r;
+    const int h = push.src.z * r;
+    if (p.x >= w || p.y >= h || p.z >= push.src.w / (r * r)) {
+        return;
+    }
+    const int q = p.z * r * r + (p.y % r) * r + (p.x % r);
+    blobs[push.dst + (p.z * h + p.y) * w + p.x] =
+        blobAt(push.src.x, push.src.y, push.src.z, p.x / r, p.y / r, q);
+}
