@@ -32,6 +32,16 @@ struct GpuWork {
     std::uint64_t bytesWritten{0};
     std::uint64_t texelReads{0};
     std::uint64_t sharedReads{0};
+
+    GpuWork& operator+=(const GpuWork& other) noexcept {
+        dispatches += other.dispatches;
+        invocations += other.invocations;
+        bytesRead += other.bytesRead;
+        bytesWritten += other.bytesWritten;
+        texelReads += other.texelReads;
+        sharedReads += other.sharedReads;
+        return *this;
+    }
 };
 
 /// Logs `histogram` as one `[perf]` line: `name`'s p50, p99 and max in `unit` per `per`, and the

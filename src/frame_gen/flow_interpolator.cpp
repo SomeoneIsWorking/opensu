@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <cstring>
 #include <format>
-#include <map>
 #include <memory>
 #include <optional>
 #include <span>
@@ -13,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "frame_gen/compute_pass.hpp"
 #include "frame_gen/interpolator.hpp"
 
 namespace opensu::frame_gen {
@@ -67,8 +67,6 @@ constexpr std::uint32_t maxDispatches = 1 + (levels - 1) + levels;
 /// Each dispatch's read counts sit this far apart, a storage buffer offset every device allows.
 constexpr VkDeviceSize countStride = 256;
 constexpr std::uint32_t groupSize = 8;
-/// Descriptor sets for the caller's views (frames in, frames out) a session can name.
-constexpr std::uint32_t viewSets = 32;
 
 std::uint32_t groups(std::uint32_t pixels) {
     return (pixels + groupSize - 1) / groupSize;
@@ -76,92 +74,6 @@ std::uint32_t groups(std::uint32_t pixels) {
 
 std::uint32_t half(std::uint32_t pixels) {
     return (pixels + 1) / 2;
-}
-
-/// A Vulkan handle destroyed with its device.
-template <typename Handle, void (*destroy)(VkDevice, Handle, const VkAllocationCallbacks*)>
-class Owned {
-  public:
-    Owned() = default;
-    Owned(VkDevice device, Handle handle) : device_{device}, handle_{handle} {
-    }
-    ~Owned() {
-        if (handle_ != VK_NULL_HANDLE) {
-            destroy(device_, handle_, nullptr);
-        }
-    }
-    Owned(const Owned&) = delete;
-    Owned& operator=(const Owned&) = delete;
-    Owned(Owned&& other) noexcept
-        : device_{other.device_}, handle_{std::exchange(other.handle_, VK_NULL_HANDLE)} {
-    }
-    Owned& operator=(Owned&& other) noexcept {
-        std::swap(device_, other.device_);
-        std::swap(handle_, other.handle_);
-        return *this;
-    }
-    [[nodiscard]] Handle get() const noexcept {
-        return handle_;
-    }
-
-  private:
-    VkDevice device_{VK_NULL_HANDLE};
-    Handle handle_{VK_NULL_HANDLE};
-};
-
-using SetLayout = Owned<VkDescriptorSetLayout, vkDestroyDescriptorSetLayout>;
-using PipelineLayout = Owned<VkPipelineLayout, vkDestroyPipelineLayout>;
-using Pipeline = Owned<VkPipeline, vkDestroyPipeline>;
-using Pool = Owned<VkDescriptorPool, vkDestroyDescriptorPool>;
-
-SetLayout storageImages(VkDevice device, std::uint32_t count) {
-    std::vector<VkDescriptorSetLayoutBinding> bindings;
-    bindings.reserve(count);
-    for (std::uint32_t i = 0; i < count; ++i) {
-        bindings.push_back(
-            VkDescriptorSetLayoutBinding{.binding = i,
-                                         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                                         .descriptorCount = 1,
-                                         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-                                         .pImmutableSamplers = nullptr});
-    }
-    const VkDescriptorSetLayoutCreateInfo info{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .bindingCount = count,
-        .pBindings = bindings.data()};
-    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
-    check(vkCreateDescriptorSetLayout(device, &info, nullptr, &layout),
-          "vkCreateDescriptorSetLayout");
-    return SetLayout{device, layout};
-}
-
-/// A compute pipeline of `code` over the sets `sets`, with the shared push constants, and the
-/// threads of each of its workgroups.
-struct Pass {
-    PipelineLayout layout;
-    Pipeline pipeline;
-    std::uint32_t threads{0};
-};
-
-/// The texel count's set: one storage buffer.
-SetLayout countLayout(VkDevice device) {
-    const VkDescriptorSetLayoutBinding binding{.binding = 0,
-                                               .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                                               .descriptorCount = 1,
-                                               .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-                                               .pImmutableSamplers = nullptr};
-    const VkDescriptorSetLayoutCreateInfo info{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .bindingCount = 1,
-        .pBindings = &binding};
-    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
-    check(vkCreateDescriptorSetLayout(device, &info, nullptr, &layout),
-          "vkCreateDescriptorSetLayout");
-    return SetLayout{device, layout};
 }
 
 /// The shaders' specialization constants: texels counted, and a search pass's threads to a block
@@ -194,26 +106,6 @@ Pass passOf(VkDevice device, std::span<const std::uint32_t> code,
     std::vector<VkDescriptorSetLayout> sets(own.begin(), own.end());
     sets.resize(countSet, empty);
     sets.push_back(count);
-    const VkPushConstantRange push{
-        .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT, .offset = 0, .size = sizeof(FlowPush)};
-    const VkPipelineLayoutCreateInfo layoutInfo{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .setLayoutCount = static_cast<std::uint32_t>(sets.size()),
-        .pSetLayouts = sets.data(),
-        .pushConstantRangeCount = 1,
-        .pPushConstantRanges = &push};
-    VkPipelineLayout layout = VK_NULL_HANDLE;
-    check(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &layout), "vkCreatePipelineLayout");
-    Pass pass{.layout = PipelineLayout{device, layout}, .pipeline = {}, .threads = shape.threads};
-    const VkShaderModuleCreateInfo moduleInfo{.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-                                              .pNext = nullptr,
-                                              .flags = 0,
-                                              .codeSize = code.size_bytes(),
-                                              .pCode = code.data()};
-    VkShaderModule module = VK_NULL_HANDLE;
-    check(vkCreateShaderModule(device, &moduleInfo, nullptr, &module), "vkCreateShaderModule");
     const Specialized constants{.countReads = counting ? VK_TRUE : VK_FALSE,
                                 .threads = shape.threads,
                                 .tileReach = shape.tileReach};
@@ -232,34 +124,7 @@ Pass passOf(VkDevice device, std::span<const std::uint32_t> code,
                                               .pMapEntries = entries.data(),
                                               .dataSize = sizeof(constants),
                                               .pData = &constants};
-    const VkComputePipelineCreateInfo pipelineInfo{
-        .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .stage = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                  .pNext = nullptr,
-                  .flags = 0,
-                  .stage = VK_SHADER_STAGE_COMPUTE_BIT,
-                  .module = module,
-                  .pName = "main",
-                  .pSpecializationInfo = &specialization},
-        .layout = layout,
-        .basePipelineHandle = VK_NULL_HANDLE,
-        .basePipelineIndex = -1};
-    VkPipeline pipeline = VK_NULL_HANDLE;
-    const VkResult made =
-        vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
-    vkDestroyShaderModule(device, module, nullptr);
-    check(made, "vkCreateComputePipelines");
-    pass.pipeline = Pipeline{device, pipeline};
-    return pass;
-}
-
-/// Each pass's work made visible to the next.
-void computeBarrier(VkCommandBuffer cmd) {
-    memoryBarrier(cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
-                  VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                  VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+    return computePass(device, code, sets, sizeof(FlowPush), &specialization, shape.threads);
 }
 
 /// openSU's own generator: block motion between the two real frames, searched coarse to fine on
@@ -268,10 +133,14 @@ void computeBarrier(VkCommandBuffer cmd) {
 class FlowInterpolator final : public Interpolator {
   public:
     FlowInterpolator(GeneratorDevice& gpu, std::uint32_t scale)
-        : gpu_{gpu}, device_{gpu.device()}, scale_{scale}, one_{storageImages(device_, 1)},
-          two_{storageImages(device_, 2)}, three_{storageImages(device_, 3)},
-          four_{storageImages(device_, 4)}, empty_{storageImages(device_, 0)},
-          countLayout_{countLayout(device_)},
+        : gpu_{gpu}, device_{gpu.device()}, scale_{scale},
+          one_{setLayout(device_, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1)},
+          two_{setLayout(device_, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2)},
+          three_{setLayout(device_, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3)},
+          four_{setLayout(device_, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 4)},
+          empty_{setLayout(device_, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0)},
+          views_{device_, one_.get()},
+          countLayout_{setLayout(device_, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1)},
           counting_{gpu.spans() != nullptr && gpu.spans()->counting()},
           texels_{gpu, countStride * maxDispatches, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT},
           noParent_{gpu, 1, 1, VK_FORMAT_R32G32_SFLOAT} {
@@ -322,7 +191,7 @@ class FlowInterpolator final : public Interpolator {
             return std::nullopt;
         }
         const std::size_t slot = added_ % 2;
-        const VkDescriptorSet source = viewSet(frame.view);
+        const VkDescriptorSet source = views_.set(frame.view);
         if (source == VK_NULL_HANDLE) {
             return std::nullopt;
         }
@@ -380,7 +249,7 @@ class FlowInterpolator final : public Interpolator {
         if (added_ < 2 || output.uWidth * scale_ != width_ || output.uHeight * scale_ != height_) {
             return std::nullopt;
         }
-        const VkDescriptorSet out = viewSet(output.view);
+        const VkDescriptorSet out = views_.set(output.view);
         if (out == VK_NULL_HANDLE) {
             return std::nullopt;
         }
@@ -477,17 +346,12 @@ class FlowInterpolator final : public Interpolator {
             }
         }
         if (GpuSpans* spans = gpu_.spans()) {
-            GpuWork total;
+            std::vector<NamedWork> parts;
+            parts.reserve(recorded_.size());
             for (const Recorded& recorded : recorded_) {
-                spans->work(key + " " + recorded.name, recorded.work);
-                total.dispatches += recorded.work.dispatches;
-                total.invocations += recorded.work.invocations;
-                total.bytesRead += recorded.work.bytesRead;
-                total.bytesWritten += recorded.work.bytesWritten;
-                total.texelReads += recorded.work.texelReads;
-                total.sharedReads += recorded.work.sharedReads;
+                parts.push_back(NamedWork{.name = recorded.name, .work = recorded.work});
             }
-            spans->work(key, total);
+            reportWork(*spans, key, parts);
         }
         recorded_.clear();
         return seqNo;
@@ -584,23 +448,6 @@ class FlowInterpolator final : public Interpolator {
             throw std::runtime_error{"no descriptor set for the flow passes"};
         }
         write(set, views);
-        return set;
-    }
-
-    /// The one-image set of a view the caller hands in or out, made the first time it is named.
-    VkDescriptorSet viewSet(VkImageView view) {
-        if (const auto known = views_.find(view); known != views_.end()) {
-            return known->second;
-        }
-        if (views_.size() >= viewSets) {
-            return VK_NULL_HANDLE;
-        }
-        const VkDescriptorSet set = allocate(one_.get());
-        if (set != VK_NULL_HANDLE) {
-            const std::array<VkImageView, 1> one{view};
-            write(set, one);
-            views_.emplace(view, set);
-        }
         return set;
     }
 
@@ -701,12 +548,12 @@ class FlowInterpolator final : public Interpolator {
         used_ = std::make_unique<GeneratorImage>(gpu_, width, height, VK_FORMAT_R32_UINT);
         const std::uint32_t fixedSets = 2 + 2 * levels + 2 * levels + 2 + 2 + 1;
         const VkDescriptorPoolSize size{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                                        .descriptorCount = (fixedSets + viewSets) * 4};
+                                        .descriptorCount = fixedSets * 4};
         const VkDescriptorPoolCreateInfo poolInfo{.sType =
                                                       VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
                                                   .pNext = nullptr,
                                                   .flags = 0,
-                                                  .maxSets = fixedSets + viewSets,
+                                                  .maxSets = fixedSets,
                                                   .poolSizeCount = 1,
                                                   .pPoolSizes = &size};
         VkDescriptorPool pool = VK_NULL_HANDLE;
@@ -773,6 +620,7 @@ class FlowInterpolator final : public Interpolator {
     SetLayout three_;
     SetLayout four_;
     SetLayout empty_;
+    ViewSets views_;
     SetLayout countLayout_;
     bool counting_;
     HostBuffer texels_;
@@ -817,7 +665,6 @@ class FlowInterpolator final : public Interpolator {
     std::array<VkDescriptorSet, 2> chooseSets_{};
     VkDescriptorSet choiceSet_{VK_NULL_HANDLE};
     std::array<VkDescriptorSet, 2> makeSets_{};
-    std::map<VkImageView, VkDescriptorSet> views_;
 };
 
 } // namespace
