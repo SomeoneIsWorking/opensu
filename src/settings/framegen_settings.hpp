@@ -2,12 +2,13 @@
 // decides first: Off, Smooth 60 (adaptive to 60 fps), Match display (adaptive to the display's
 // refresh) or Custom, which reads the detail keys: a fixed ratio or adaptive to a target rate with
 // a maximum of generated frames per real frame and a tolerance, and the Lossless generator's
-// performance mode and flow scale. `framegen.generator` picks Lossless Scaling's shaders or
-// openSU's own, which runs where openSU has the game's frames: the built-in runner and a game
-// played from another openSU. The keys, their schema declarations, a game's values resolved
-// into what the Gamescope fork's GAMESCOPE_FRAMEGEN_* root atoms take, and the one-line summary
-// the editor shows. Every default is off. A game played from another openSU generates on this one
-// with the same keys, and beside them asks its host for a stream rate (`remote.stream-rate`).
+// performance mode and flow scale. `framegen.generator` picks Lossless Scaling's shaders or one
+// of openSU's own (flow or RIFE), which run where openSU has the game's frames: the built-in runner
+// and a game played from another openSU. The keys, their schema declarations, a game's values
+// resolved into what the Gamescope fork's GAMESCOPE_FRAMEGEN_* root atoms take, and the one-line
+// summary the editor shows. Every default is off. A game played from another openSU generates on
+// this one with the same keys, and beside them asks its host for a stream rate
+// (`remote.stream-rate`).
 #pragma once
 
 #include <array>
@@ -24,7 +25,12 @@
 namespace opensu::settings {
 
 enum class FrameGenMode : std::uint8_t { Off, Fixed, Adaptive };
-enum class FrameGenGenerator : std::uint8_t { Lossless, OpenSU };
+enum class FrameGenGenerator : std::uint8_t { Lossless, Flow, Rife };
+
+/// Whether openSU makes the frames itself (in the runner or as a remote guest), not Gamescope.
+[[nodiscard]] constexpr bool runsInOpenSU(FrameGenGenerator generator) noexcept {
+    return generator != FrameGenGenerator::Lossless;
+}
 
 /// One game's frame generation, in the units of the fork's atoms.
 struct FrameGenSettings {
@@ -52,9 +58,10 @@ inline constexpr std::array<ChoiceText, 4> frameGenPresetChoices{{
     {"display", "Match display"},
     {"custom", "Custom"},
 }};
-inline constexpr std::array<ChoiceText, 2> frameGenGeneratorChoices{{
+inline constexpr std::array<ChoiceText, 3> frameGenGeneratorChoices{{
     {"lossless", "Lossless Scaling"},
-    {"opensu", "openSU"},
+    {"opensu", "openSU flow"},
+    {"rife", "openSU RIFE"},
 }};
 inline constexpr std::array<ChoiceText, 2> frameGenModeChoices{{
     {"fixed", "Fixed ratio"},

@@ -136,7 +136,8 @@ class RemotePlay {
         std::filesystem::path gamescopeSocket;
         std::string x11Display;
     };
-    RemotePlay(Screen screen, Hooks hooks);
+    /// `rifeModel` is the folder of RIFE's model, for a guest that generates with it.
+    RemotePlay(Screen screen, std::filesystem::path rifeModel, Hooks hooks);
     ~RemotePlay();
     RemotePlay(const RemotePlay&) = delete;
     RemotePlay& operator=(const RemotePlay&) = delete;
@@ -408,6 +409,7 @@ class RemotePlay {
     void drop();
 
     Screen screen_;
+    std::filesystem::path rifeModel_;
     Hooks hooks_;
     /// Taken by the listener's thread to offer and let in, by the loop to run the session.
     mutable std::mutex hostMutex_;

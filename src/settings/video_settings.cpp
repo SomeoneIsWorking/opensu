@@ -21,7 +21,7 @@ constexpr std::string_view frameGenKey = "framegen";
 
 /// `settings` when openSU's generator makes them, which the runner does.
 std::optional<FrameGenSettings> ownFrameGen(const FrameGenSettings& settings) {
-    if (settings.mode == FrameGenMode::Off || settings.generator != FrameGenGenerator::OpenSU) {
+    if (settings.mode == FrameGenMode::Off || !runsInOpenSU(settings.generator)) {
         return std::nullopt;
     }
     return settings;
@@ -31,11 +31,13 @@ nlohmann::json frameGenJson(const std::optional<FrameGenSettings>& settings) {
     if (!settings) {
         return nullptr;
     }
-    return nlohmann::json{{"mode", settings->mode == FrameGenMode::Fixed ? "fixed" : "adaptive"},
-                          {"ratio", settings->ratioThousandths},
-                          {"target", settings->targetThousandths},
-                          {"max", settings->maxGenerated},
-                          {"tolerance", settings->toleranceThousandths}};
+    return nlohmann::json{
+        {"mode", settings->mode == FrameGenMode::Fixed ? "fixed" : "adaptive"},
+        {"generator", settings->generator == FrameGenGenerator::Rife ? "rife" : "flow"},
+        {"ratio", settings->ratioThousandths},
+        {"target", settings->targetThousandths},
+        {"max", settings->maxGenerated},
+        {"tolerance", settings->toleranceThousandths}};
 }
 
 bool parseFrameGen(const nlohmann::json& found, std::optional<FrameGenSettings>& settings,
@@ -54,6 +56,11 @@ bool parseFrameGen(const nlohmann::json& found, std::optional<FrameGenSettings>&
     if (mode == found.end() || !mode->is_string() || (*mode != "fixed" && *mode != "adaptive")) {
         return refused();
     }
+    const auto generator = found.find("generator");
+    if (generator == found.end() || !generator->is_string() ||
+        (*generator != "flow" && *generator != "rife")) {
+        return refused();
+    }
     std::array<std::uint32_t, 4> numbers{};
     for (std::size_t at = 0; const char* key : {"ratio", "target", "max", "tolerance"}) {
         const auto value = found.find(key);
@@ -64,7 +71,7 @@ bool parseFrameGen(const nlohmann::json& found, std::optional<FrameGenSettings>&
     }
     settings = FrameGenSettings{
         .mode = *mode == "fixed" ? FrameGenMode::Fixed : FrameGenMode::Adaptive,
-        .generator = FrameGenGenerator::OpenSU,
+        .generator = *generator == "rife" ? FrameGenGenerator::Rife : FrameGenGenerator::Flow,
         .ratioThousandths = numbers[0],
         .targetThousandths = numbers[1],
         .maxGenerated = numbers[2],

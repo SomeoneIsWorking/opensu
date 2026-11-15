@@ -71,6 +71,8 @@ struct RunnerOptions {
     std::optional<NetplaySetup> netplay;
     /// The touch controls' art, where the runner draws its own (`shell_handoff`).
     std::filesystem::path touchArt;
+    /// RIFE's model, for the frame generation that runs it.
+    std::filesystem::path rifeModel;
     /// Hidden only: the touch controls shown, at this many pixels per dp whatever `scale` says.
     std::optional<float> touchDp;
     /// Drawn in the shell's window: its surface where it can be, and the shell's input and

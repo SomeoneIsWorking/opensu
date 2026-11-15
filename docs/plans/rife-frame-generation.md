@@ -74,4 +74,10 @@ Pieces, each in `src/frame_gen/`:
   value (`rife_net_check`, at the multiple and wider); on Kirby's frames 26 to 28 and Super
   Metroid's 10 to 12 the device's frame differs from the reference's in 2 and 8 values, by one
   level each.
-- Next: step 2, the harness scenes against `flow`.
+- In the product: `framegen.generator` `rife` ("openSU RIFE") runs it in the runner and on a
+  remote guest, from `<dataDir>/models/rife-v4.26` (copied there by hand until the download
+  exists). Super Metroid in the hidden runner: 514 frames generated over 660 real ones, none
+  dropped. Cost on an RX 6700 XT at 256 x 224: 19 ms of GPU per generated frame, a 25 ms ready
+  need; enough for 30 to 60 here, not for 60 to 120 or the Ally.
+- Next: the layer shaders made fast (shared-memory tiles, FP16), then step 2, the harness scenes
+  against `flow`.

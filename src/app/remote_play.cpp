@@ -47,8 +47,8 @@ std::string listOf(const std::vector<std::string>& names) {
 
 } // namespace
 
-RemotePlay::RemotePlay(Screen screen, Hooks hooks)
-    : screen_{std::move(screen)}, hooks_{std::move(hooks)} {
+RemotePlay::RemotePlay(Screen screen, std::filesystem::path rifeModel, Hooks hooks)
+    : screen_{std::move(screen)}, rifeModel_{std::move(rifeModel)}, hooks_{std::move(hooks)} {
 }
 
 RemotePlay::~RemotePlay() {
@@ -839,7 +839,7 @@ void RemotePlay::serviceGuest() {
             hooks_.say("Joined " + game_.title + " on " + game_.hostName, false);
         }
         if (generation_.mode != settings::FrameGenMode::Off &&
-            generation_.generator == settings::FrameGenGenerator::OpenSU) {
+            settings::runsInOpenSU(generation_.generator)) {
             startFrameGen(std::string{}, {}, "openSU");
         } else if (generation_.mode != settings::FrameGenMode::Off) {
             // A slot of this session's own, so an answer to an earlier one lands elsewhere.
@@ -890,7 +890,7 @@ void RemotePlay::serviceFrameGen() {
 void RemotePlay::startFrameGen(std::optional<std::string> packed, std::string why,
                                const std::string& by) {
     if (packed) {
-        frameGen_ = RemoteFrameGen::open(generation_, *packed, *video_, why);
+        frameGen_ = RemoteFrameGen::open(generation_, rifeModel_, *packed, *video_, why);
     }
     if (!frameGen_) {
         frameGenOff_ = why;

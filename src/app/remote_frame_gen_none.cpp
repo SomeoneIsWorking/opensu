@@ -13,6 +13,7 @@ std::optional<std::string> RemoteFrameGen::pack(const std::filesystem::path& /*d
 }
 
 std::unique_ptr<RemoteFrameGen> RemoteFrameGen::open(const settings::FrameGenSettings& /*settings*/,
+                                                     const std::filesystem::path& /*rifeModel*/,
                                                      std::string_view /*packed*/,
                                                      stream::GuestVideo& /*video*/,
                                                      std::string& why) {

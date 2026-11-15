@@ -148,7 +148,7 @@ void launchFile() {
            "art with an empty picture rect is refused");
     VideoSettings generating;
     generating.frameGen = FrameGenSettings{.mode = FrameGenMode::Adaptive,
-                                           .generator = FrameGenGenerator::OpenSU,
+                                           .generator = FrameGenGenerator::Flow,
                                            .targetThousandths = 60000,
                                            .maxGenerated = 2,
                                            .toleranceThousandths = 5000};
@@ -169,8 +169,11 @@ void frameGenGoesToTheRunnerForOpenSUOnly() {
     const std::optional<FrameGenSettings> generated = resolveVideo(layers, game, {}).frameGen;
     expect(generated && generated->mode == FrameGenMode::Adaptive &&
                generated->targetThousandths == 60000 &&
-               generated->generator == FrameGenGenerator::OpenSU,
+               generated->generator == FrameGenGenerator::Flow,
            "openSU's is, with the preset's pacing");
+    layers.set(own, "framegen.generator", "rife");
+    const std::optional<FrameGenSettings> rife = resolveVideo(layers, game, {}).frameGen;
+    expect(rife && rife->generator == FrameGenGenerator::Rife, "and so is openSU's RIFE");
     layers.set(own, "framegen.preset", "off");
     expect(!resolveVideo(layers, game, {}).frameGen, "and off is off");
 }

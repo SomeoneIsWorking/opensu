@@ -221,7 +221,7 @@ LayeredSettings::summaryOf(std::string_view section, const EditorContext& contex
             return PresentationSummary{
                 .id = "framegen.summary",
                 .line = settings::frameGenSummary(resolved),
-                .note = resolved.generator == settings::FrameGenGenerator::OpenSU
+                .note = settings::runsInOpenSU(resolved.generator)
                             ? std::string{"Generated here, by openSU"}
                             : "Generated here, with the Lossless Scaling shaders of " +
                                   game->hostName + "'s Steam install"};

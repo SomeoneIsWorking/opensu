@@ -175,9 +175,13 @@ FrameGenSettings resolveFrameGen(const SettingLookup& applies, std::string_view 
     if (preset == spellingOf(Preset::Off)) {
         return FrameGenSettings{};
     }
-    const FrameGenGenerator generator = spelling(Key::Generator) == frameGenGeneratorChoices[1].key
-                                            ? FrameGenGenerator::OpenSU
-                                            : FrameGenGenerator::Lossless;
+    const std::string_view named = spelling(Key::Generator);
+    FrameGenGenerator generator = FrameGenGenerator::Lossless;
+    if (named == frameGenGeneratorChoices[1].key) {
+        generator = FrameGenGenerator::Flow;
+    } else if (named == frameGenGeneratorChoices[2].key) {
+        generator = FrameGenGenerator::Rife;
+    }
     if (preset != spellingOf(Preset::Custom)) {
         const PresetValues named = valuesOf(
             preset == spellingOf(Preset::Smooth60) ? Preset::Smooth60 : Preset::MatchDisplay);
@@ -241,8 +245,11 @@ std::string frameGenSummary(const FrameGenSettings& settings) {
         }
         break;
     }
-    if (settings.generator == FrameGenGenerator::OpenSU) {
-        return text + " · openSU";
+    if (settings.generator == FrameGenGenerator::Flow) {
+        return text + " · openSU flow";
+    }
+    if (settings.generator == FrameGenGenerator::Rife) {
+        return text + " · openSU RIFE";
     }
     if (settings.performance) {
         text += " · performance";

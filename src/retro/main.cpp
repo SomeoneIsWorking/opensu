@@ -210,6 +210,7 @@ int main(int argc, char** argv) try {
     options->control = config.retroControl;
     options->librashader = config.librashader;
     options->touchArt = config.assetsDir / "touch";
+    options->rifeModel = config.rifeModelDir;
     opensu::retro::RunnerApp app{std::move(*options)};
     return static_cast<int>(app.run());
 } catch (const std::exception& failure) {
