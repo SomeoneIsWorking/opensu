@@ -5,7 +5,6 @@
 #pragma once
 
 #include <cstdint>
-#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
@@ -61,10 +60,5 @@ inline constexpr std::uint32_t flowContentScale = flowBlockPixels / 2;
 /// why when its passes cannot be made on the device.
 [[nodiscard]] std::unique_ptr<Interpolator> flow(GeneratorDevice& gpu, std::uint32_t scale,
                                                  std::string& why);
-
-/// RIFE's graph (`rife_interpolator.cpp`) from `model`'s `flownet.param` and `flownet.bin`, run on
-/// each real frame at its content's size; nothing with why when the model cannot be read or run.
-[[nodiscard]] std::unique_ptr<Interpolator>
-rife(GeneratorDevice& gpu, const std::filesystem::path& model, std::string& why);
 
 } // namespace opensu::frame_gen

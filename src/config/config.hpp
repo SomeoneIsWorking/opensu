@@ -128,10 +128,6 @@ struct Config {
     /// The files libretro cores look up by name, BIOS images among them: `<dataDir>/system`.
     std::filesystem::path retroSystemDir;
 
-    /// RIFE's model for openSU's RIFE generator (`flownet.param`, `flownet.bin`):
-    /// `<dataDir>/models/rife-v4.26`.
-    std::filesystem::path rifeModelDir;
-
     /// The home grid's dashboard mode, from OPENSU_HOME_MODE (`standard` or `wiisu`); none
     /// leaves it to the player's choice and then the interface theme.
     std::optional<HomeMode> homeMode;

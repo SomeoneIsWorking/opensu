@@ -248,7 +248,6 @@ Config read() {
     value.logFile = value.stateDir / "opensu.log";
     value.savesDir = value.dataDir / "saves";
     value.retroSystemDir = value.dataDir / "system";
-    value.rifeModelDir = value.dataDir / "models" / "rife-v4.26";
     if (const std::string_view legendary = env("LEGENDARY_CONFIG_PATH"); !legendary.empty()) {
         value.legendaryConfigDir = std::filesystem::path{legendary};
     } else {

@@ -1,14 +1,12 @@
 // frame_generation — openSU's own frame generation in the runner: each frame the core draws in
-// pixels goes to the generator the settings name on a device of its own (`frame_gen::flow`, which
-// works on it scaled up by `frame_gen::flowContentScale`, or `frame_gen::rife`), and each present
-// at the display's refresh shows the real frame or one generated before it
-// (`frame_gen::PacedFrames`), drawn through the compositor and the player's shaders as a real frame
-// is. A real frame shows one core frame later than without it. Built where frame_gen is (Linux,
-// Android); elsewhere `open` says it is not.
+// pixels goes to `frame_gen::flow` on a generator device of its own, which works on it scaled up
+// by `frame_gen::flowContentScale`, and each present at the display's refresh shows the real
+// frame or one generated before it (`frame_gen::PacedFrames`), drawn through the compositor and
+// the player's shaders as a real frame is. A real frame shows one core frame later than without
+// it. Built where frame_gen is (Linux, Android); elsewhere `open` says it is not.
 #pragma once
 
 #include <cstdint>
-#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
@@ -27,12 +25,10 @@ class FrameGeneration {
     FrameGeneration(FrameGeneration&&) = delete;
     FrameGeneration& operator=(FrameGeneration&&) = delete;
 
-    /// Frame generation paced by `settings` with the generator they name (RIFE from the model in
-    /// `rifeModel`), its own work on the calling thread counted when `measuring`; nothing with why
-    /// when it cannot run here.
+    /// Frame generation paced by `settings`, its own work on the calling thread counted when
+    /// `measuring`; nothing with why when it cannot run here.
     [[nodiscard]] static std::unique_ptr<FrameGeneration>
-    open(const settings::FrameGenSettings& settings, const std::filesystem::path& rifeModel,
-         bool measuring, std::string& why);
+    open(const settings::FrameGenSettings& settings, bool measuring, std::string& why);
 
     /// The core's frame in CPU RGBA, drawn at `nowNs` on a display refreshing every `refreshNs`;
     /// false once generation has stopped.

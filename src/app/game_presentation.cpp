@@ -77,7 +77,7 @@ std::optional<FrameGenRequest> GamePresentation::wantedFrameGen() const {
         settings::resolveFrameGen(gameSettings_.layers(), library::layerKeysOf(*front));
     // Gamescope's generator is Lossless Scaling's; openSU's runs in the built-in runner.
     if (resolved.mode == settings::FrameGenMode::Off ||
-        settings::runsInOpenSU(resolved.generator)) {
+        resolved.generator == settings::FrameGenGenerator::OpenSU) {
         return std::nullopt;
     }
     return FrameGenRequest{resolved, *dll_};
@@ -90,7 +90,7 @@ bool GamePresentation::wantsOwnGenerator(const library::Game& game) const {
     const settings::FrameGenSettings resolved =
         settings::resolveFrameGen(gameSettings_.layers(), library::layerKeysOf(game));
     return resolved.mode != settings::FrameGenMode::Off &&
-           settings::runsInOpenSU(resolved.generator);
+           resolved.generator == settings::FrameGenGenerator::OpenSU;
 }
 
 void GamePresentation::applyFrameGen() {
@@ -154,7 +154,7 @@ std::string GamePresentation::noted(std::string text) const {
 PresentationSummary GamePresentation::frameGenSummary(const settings::SettingLookup& applies,
                                                       const std::string& where) const {
     const settings::FrameGenSettings resolved = settings::resolveFrameGen(applies, where);
-    if (settings::runsInOpenSU(resolved.generator)) {
+    if (resolved.generator == settings::FrameGenGenerator::OpenSU) {
         return PresentationSummary{.id = "framegen.summary",
                                    .line = settings::frameGenSummary(resolved),
                                    .note = "openSU's own, for games the built-in runner plays"};

@@ -25,12 +25,12 @@ class RemoteFrameGen {
     /// its guest; nothing with why when it cannot be read or this build has no frame generation.
     [[nodiscard]] static std::optional<std::string> pack(const std::filesystem::path& dll,
                                                          std::string& why);
-    /// A generator for `settings` taking `video`'s frames, which must outlive it: openSU's flow,
-    /// RIFE from the model in `rifeModel`, or Lossless's from the modules `packed`; nothing with
-    /// why when this build, the GPU, the model or the modules cannot generate.
+    /// A generator for `settings` taking `video`'s frames, which must outlive it: openSU's, or
+    /// Lossless's from the modules `packed`; nothing with why when this build, the GPU or the
+    /// modules cannot generate.
     [[nodiscard]] static std::unique_ptr<RemoteFrameGen>
-    open(const settings::FrameGenSettings& settings, const std::filesystem::path& rifeModel,
-         std::string_view packed, stream::GuestVideo& video, std::string& why);
+    open(const settings::FrameGenSettings& settings, std::string_view packed,
+         stream::GuestVideo& video, std::string& why);
 
     /// Whether this build generates frames at all.
     [[nodiscard]] static bool built() noexcept;

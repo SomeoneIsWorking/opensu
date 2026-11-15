@@ -567,8 +567,7 @@ RunnerExit RunnerApp::run() {
             generation.reset();
             if (generatingWith) {
                 std::string why;
-                generation =
-                    FrameGeneration::open(*generatingWith, options_.rifeModel, options_.perf, why);
+                generation = FrameGeneration::open(*generatingWith, options_.perf, why);
                 lucent::info("framegen", "openSU's frame generation {}{}",
                              generation ? "starts" : "cannot start: ", why);
             }

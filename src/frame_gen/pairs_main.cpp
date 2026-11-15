@@ -8,13 +8,10 @@
 //                         --in <dir> --out <dir>
 //   opensu-framegen-pairs --generator flow [--source-pixel <w>x<h> | --core-frames]
 //                         [--step N] [--measure counts|time] --in <dir> --out <dir>
-//   opensu-framegen-pairs --generator rife --model <dir> [--source-pixel <w>x<h>]
-//                         [--step N] [--measure counts|time] --in <dir> --out <dir>
 //
 // --source-pixel is how many frame pixels one of the content's takes (a core's frame scaled to
 // the window), 1x1 by default. --core-frames says the frames are a core's own, which flow works on
-// scaled up by `frame_gen::flowContentScale`, as the runner has it. --model is the folder of a
-// RIFE model's `flownet.param` and `flownet.bin`.
+// scaled up by `frame_gen::flowContentScale`, as the runner has it.
 //
 // Without --dll, the player's Lossless.dll is the one the shell finds in their Steam libraries.
 //
@@ -62,7 +59,6 @@ constexpr float percent = 100.0F;
 struct Options {
     std::string generator;
     std::filesystem::path dll;
-    std::filesystem::path model;
     bool performance{false};
     unsigned flowScale{100};
     unsigned step{2};
@@ -120,8 +116,6 @@ std::optional<Options> parse(std::span<const std::string> args) {
             options.generator = value;
         } else if (arg == "--dll") {
             options.dll = value;
-        } else if (arg == "--model") {
-            options.model = value;
         } else if (arg == "--in") {
             options.in = value;
         } else if (arg == "--out") {
@@ -153,12 +147,10 @@ std::optional<Options> parse(std::span<const std::string> args) {
             return std::nullopt;
         }
     }
-    const bool known = options.generator == "lossless" || options.generator == "flow" ||
-                       (options.generator == "rife" && !options.model.empty());
-    if (!known || options.in.empty() || options.out.empty() || options.step < 2) {
-        lucent::error("framegen", "usage: opensu-framegen-pairs --generator lossless|flow|rife "
+    if ((options.generator != "lossless" && options.generator != "flow") || options.in.empty() ||
+        options.out.empty() || options.step < 2) {
+        lucent::error("framegen", "usage: opensu-framegen-pairs --generator lossless|flow "
                                   "[--dll <dll>] [--performance] [--flow-scale <percent>] "
-                                  "[--model <dir>] "
                                   "[--source-pixel <w>x<h> | --core-frames] [--step N] "
                                   "[--measure counts|time] --in <dir> --out <dir> "
                                   "(--step 2 or more)");
@@ -179,14 +171,6 @@ std::unique_ptr<opensu::frame_gen::Interpolator> generatorOf(Options options,
             return made;
         }
         lucent::info("framegen", "flow works on the frames scaled up by {}", scale);
-        return made;
-    }
-    if (options.generator == "rife") {
-        std::unique_ptr<opensu::frame_gen::Interpolator> made =
-            opensu::frame_gen::rife(gpu, options.model, why);
-        if (!made) {
-            lucent::error("framegen", "no rife generator: {}", why);
-        }
         return made;
     }
     if (options.dll.empty()) {

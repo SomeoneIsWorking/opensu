@@ -50,8 +50,6 @@ using SetLayout = Owned<VkDescriptorSetLayout, vkDestroyDescriptorSetLayout>;
 using PipelineLayout = Owned<VkPipelineLayout, vkDestroyPipelineLayout>;
 using Pipeline = Owned<VkPipeline, vkDestroyPipeline>;
 using Pool = Owned<VkDescriptorPool, vkDestroyDescriptorPool>;
-using Buffer = Owned<VkBuffer, vkDestroyBuffer>;
-using Memory = Owned<VkDeviceMemory, vkFreeMemory>;
 
 /// A set of `count` bindings of `type`, numbered from 0, for compute.
 [[nodiscard]] SetLayout setLayout(VkDevice device, VkDescriptorType type, std::uint32_t count);

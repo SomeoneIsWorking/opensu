@@ -112,21 +112,17 @@ losslessOf(frame_gen::GeneratorDevice& gpu, const settings::FrameGenSettings& se
     return generator;
 }
 
-/// openSU's flow or RIFE when `settings` name them, else Lossless's on the host's `modules`;
-/// throws when it cannot run.
+/// openSU's generator when `settings` name it, else Lossless's on the host's `modules`; throws
+/// when it cannot run.
 std::unique_ptr<frame_gen::Interpolator>
 generatorOf(frame_gen::GeneratorDevice& gpu, const settings::FrameGenSettings& settings,
-            const std::filesystem::path& rifeModel,
             std::shared_ptr<const framegen::LosslessModules_t> modules) {
-    if (!settings::runsInOpenSU(settings.generator)) {
+    if (settings.generator != settings::FrameGenGenerator::OpenSU) {
         return losslessOf(gpu, settings, std::move(modules));
     }
     std::string why;
     // The stream's picture is the host's screen, not the core's frame.
-    std::unique_ptr<frame_gen::Interpolator> generator =
-        settings.generator == settings::FrameGenGenerator::Rife
-            ? frame_gen::rife(gpu, rifeModel, why)
-            : frame_gen::flow(gpu, 1, why);
+    std::unique_ptr<frame_gen::Interpolator> generator = frame_gen::flow(gpu, 1, why);
     if (!generator) {
         throw std::runtime_error{why};
     }
@@ -137,17 +133,14 @@ class VulkanFrameGen final : public RemoteFrameGen {
   public:
     // The stream does not say how its picture was scaled yet.
     VulkanFrameGen(const settings::FrameGenSettings& settings,
-                   const std::filesystem::path& rifeModel,
                    std::shared_ptr<const framegen::LosslessModules_t> modules,
                    stream::GuestVideo& video)
-        : frames_{gpu_, generatorOf(gpu_, settings, rifeModel, std::move(modules)), settings,
+        : frames_{gpu_, generatorOf(gpu_, settings, std::move(modules)), settings,
                   frame_gen::SourcePixel{}},
           video_{video} {
         lucent::info("framegen", "generating with {} on {}, up to {} per real frame",
-                     settings::runsInOpenSU(settings.generator)
-                         ? std::string{settings.generator == settings::FrameGenGenerator::Rife
-                                           ? "openSU's RIFE"
-                                           : "openSU's flow"}
+                     settings.generator == settings::FrameGenGenerator::OpenSU
+                         ? std::string{"openSU's generator"}
                          : std::format("Lossless, {} size mode",
                                        settings.performance ? "performance" : "balanced"),
                      gpu_.name(), frames_.maxGenerated());
@@ -282,11 +275,10 @@ std::optional<std::string> RemoteFrameGen::pack(const std::filesystem::path& dll
 }
 
 std::unique_ptr<RemoteFrameGen> RemoteFrameGen::open(const settings::FrameGenSettings& settings,
-                                                     const std::filesystem::path& rifeModel,
                                                      std::string_view packed,
                                                      stream::GuestVideo& video, std::string& why) {
     std::shared_ptr<const framegen::LosslessModules_t> shared;
-    if (!settings::runsInOpenSU(settings.generator)) {
+    if (settings.generator != settings::FrameGenGenerator::OpenSU) {
         std::optional<framegen::LosslessModules_t> modules = unpack(packed);
         if (!modules) {
             why = "the host's shaders did not arrive whole";
@@ -295,7 +287,7 @@ std::unique_ptr<RemoteFrameGen> RemoteFrameGen::open(const settings::FrameGenSet
         shared = std::make_shared<const framegen::LosslessModules_t>(std::move(*modules));
     }
     try {
-        return std::make_unique<VulkanFrameGen>(settings, rifeModel, std::move(shared), video);
+        return std::make_unique<VulkanFrameGen>(settings, std::move(shared), video);
     } catch (const std::runtime_error& failure) {
         why = failure.what();
         return nullptr;

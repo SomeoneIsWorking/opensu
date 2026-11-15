@@ -869,7 +869,6 @@ class ShellApp final {
                                                   : environment_.runtimeDir.parent_path() /
                                                         environment_.gamescopeWaylandDisplay,
                            .x11Display = environment_.x11Display},
-        environment_.rifeModelDir,
         RemotePlay::Hooks{
             .say =
                 [this](const std::string& text, bool isError) {

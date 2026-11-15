@@ -20,40 +20,35 @@
 namespace opensu::retro {
 namespace {
 
-/// The generator `settings` name on `gpu` for a core's own frames; throws when it cannot run.
-std::unique_ptr<frame_gen::Interpolator> generatorOf(frame_gen::GeneratorDevice& gpu,
-                                                     const settings::FrameGenSettings& settings,
-                                                     const std::filesystem::path& rifeModel) {
+/// openSU's generator on `gpu` for a core's own frames; throws when it cannot run.
+std::unique_ptr<frame_gen::Interpolator> flowOf(frame_gen::GeneratorDevice& gpu) {
     std::string why;
     std::unique_ptr<frame_gen::Interpolator> generator =
-        settings.generator == settings::FrameGenGenerator::Rife
-            ? frame_gen::rife(gpu, rifeModel, why)
-            : frame_gen::flow(gpu, frame_gen::flowContentScale, why);
+        frame_gen::flow(gpu, frame_gen::flowContentScale, why);
     if (!generator) {
         throw std::runtime_error{why};
     }
     return generator;
 }
 
-class OwnGeneration final : public FrameGeneration {
+class FlowGeneration final : public FrameGeneration {
   public:
     // The core's frame is the content's own pixels.
-    OwnGeneration(const settings::FrameGenSettings& settings,
-                  const std::filesystem::path& rifeModel, bool measuring)
-        : frames_{gpu_, generatorOf(gpu_, settings, rifeModel), settings,
-                  frame_gen::SourcePixel{}} {
+    FlowGeneration(const settings::FrameGenSettings& settings, bool measuring)
+        : frames_{gpu_, flowOf(gpu_), settings, frame_gen::SourcePixel{}} {
         if (measuring) {
             work_.emplace();
         }
-        lucent::info("framegen", "openSU's {} on {}, up to {} per real frame",
-                     settings.generator == settings::FrameGenGenerator::Rife ? "RIFE" : "flow",
-                     gpu_.name(), frames_.maxGenerated());
+        lucent::info("framegen",
+                     "openSU's generator on {}, the core's frames scaled up by {}, up to {} per "
+                     "real frame",
+                     gpu_.name(), frame_gen::flowContentScale, frames_.maxGenerated());
     }
-    ~OwnGeneration() override = default;
-    OwnGeneration(const OwnGeneration&) = delete;
-    OwnGeneration& operator=(const OwnGeneration&) = delete;
-    OwnGeneration(OwnGeneration&&) = delete;
-    OwnGeneration& operator=(OwnGeneration&&) = delete;
+    ~FlowGeneration() override = default;
+    FlowGeneration(const FlowGeneration&) = delete;
+    FlowGeneration& operator=(const FlowGeneration&) = delete;
+    FlowGeneration(FlowGeneration&&) = delete;
+    FlowGeneration& operator=(FlowGeneration&&) = delete;
 
     bool real(const FrameImage& frame, std::uint64_t nowNs, std::uint64_t refreshNs) override {
         const Phase phase{work_, realWork_};
@@ -172,10 +167,9 @@ class OwnGeneration final : public FrameGeneration {
 } // namespace
 
 std::unique_ptr<FrameGeneration> FrameGeneration::open(const settings::FrameGenSettings& settings,
-                                                       const std::filesystem::path& rifeModel,
                                                        bool measuring, std::string& why) {
     try {
-        return std::make_unique<OwnGeneration>(settings, rifeModel, measuring);
+        return std::make_unique<FlowGeneration>(settings, measuring);
     } catch (const std::runtime_error& failure) {
         why = failure.what();
         return nullptr;
