@@ -81,6 +81,12 @@ enum class Kind : std::uint8_t {
 /// Why `file` cannot be added as a game, in words for the player; empty when it can.
 [[nodiscard]] std::string refusal(const std::filesystem::path& file);
 
+/// The entry a file the player picked stands for: a shortcut's (`folder::shortcutEntry`) or the
+/// file's own, untitled unless its shortcut names it; nothing, with why in `refused`, when it
+/// cannot be added.
+[[nodiscard]] std::optional<Entry> pickedEntry(const std::filesystem::path& file,
+                                               std::string& refused);
+
 /// `<data dir>/own-games.json`.
 [[nodiscard]] std::filesystem::path recordsFile(const std::filesystem::path& dataDir);
 

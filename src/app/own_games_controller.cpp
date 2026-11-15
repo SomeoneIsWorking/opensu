@@ -146,11 +146,13 @@ void OwnGamesController::identify(const fs::path& file) {
     hooks_.say("Looking up " + file.filename().string(), false);
     identifier_ = std::jthread{[this, file = file](const std::stop_token& stop) {
         const net::WebClient web;
-        const std::optional<Entry> shortcut =
-            library::folder::isShortcut(file) ? library::folder::shortcutEntry(file) : std::nullopt;
-        Entry entry = shortcut.value_or(Entry{.id = {}, .title = {}, .file = file});
-        entry.origin = library::own::Origin::File;
-        entry.originId.clear();
+        std::string refused;
+        std::optional<Entry> picked = library::own::pickedEntry(file, refused);
+        if (!picked) {
+            lucent::warn("own-games", "{}: {}", file.string(), refused);
+            return;
+        }
+        Entry entry = std::move(*picked);
         library::identify::Guess guess = library::identify::identify(
             entry.file,
             [this, &web, &stop](const std::string& term) {
@@ -221,9 +223,9 @@ void OwnGamesController::pickFile(const std::string& title, const fs::path& star
                 if (!isShortcut(file)) {
                     return library::own::refusal(file);
                 }
-                return library::folder::shortcutEntry(file)
-                           ? std::string{}
-                           : file.filename().string() + " does not start a game openSU can find";
+                std::string refused;
+                static_cast<void>(library::own::pickedEntry(file, refused));
+                return refused;
             },
         .files =
             [isShortcut](const fs::path& file) {

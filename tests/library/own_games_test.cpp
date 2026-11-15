@@ -1,6 +1,7 @@
 // The player's own games: the records kept in openSU's data dir (ids never given twice), what a
-// file is, the launch each kind gets (an added .exe through `wine::prepare` in its
-// own prefix), and the imports from Steam's shortcuts.vdf and Lutris's pga.db, both read only.
+// file is and the entry a picked one stands for, the launch each kind gets (an added .exe through
+// `wine::prepare` in its own prefix), and the imports from Steam's shortcuts.vdf and Lutris's
+// pga.db, both read only.
 #include "library/own_games.hpp"
 
 #include <algorithm>
@@ -9,6 +10,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -86,6 +88,25 @@ void filesAreKnownAndTitled(const fs::path& dir) {
     expect(own::refusal(program).empty() && !own::refusal(data).empty() &&
                !own::refusal(dir / "missing").empty(),
            "only a game file is accepted");
+    const fs::path entry = file(dir / "Desktop/devoid.desktop",
+                                "[Desktop Entry]\nType=Application\nName=Devoid\nPath=/g/devoid\n"
+                                "Exec=sh -c \"exec godot --path .\"\nIcon=devoid\n",
+                                false);
+    const fs::path broken =
+        file(dir / "Desktop/broken.desktop", "[Desktop Entry]\nType=Application\n", false);
+    std::string refused;
+    const std::optional<own::Entry> shortcut = own::pickedEntry(entry, refused);
+    expect(shortcut && shortcut->title == "Devoid" && shortcut->file == entry &&
+               shortcut->origin == own::Origin::File && shortcut->originId.empty() &&
+               shortcut->workingDirectory == "/g/devoid" && shortcut->command.size() == 3,
+           "a picked shortcut is its entry, its own file's");
+    const std::optional<own::Entry> plain = own::pickedEntry(program, refused);
+    expect(plain && plain->file == program && plain->title.empty(), "a program is itself");
+    expect(!own::pickedEntry(broken, refused) && !refused.empty(),
+           "a shortcut that starts nothing is refused");
+    refused.clear();
+    expect(!own::pickedEntry(data, refused) && refused == own::refusal(data),
+           "and a file no game is, with its refusal");
 }
 
 void launchesFollowTheKind(const fs::path& dir) {

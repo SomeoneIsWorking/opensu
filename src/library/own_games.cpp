@@ -207,6 +207,24 @@ std::optional<Entry> Records::find(std::string_view id) const {
     return found == entries.end() ? std::nullopt : std::optional{*found};
 }
 
+std::optional<Entry> pickedEntry(const fs::path& file, std::string& refused) {
+    if (folder::isShortcut(file)) {
+        std::optional<Entry> shortcut = folder::shortcutEntry(file);
+        if (!shortcut) {
+            refused = file.filename().string() + " does not start a game openSU can find";
+            return std::nullopt;
+        }
+        shortcut->origin = Origin::File;
+        shortcut->originId.clear();
+        return shortcut;
+    }
+    if (std::string why = refusal(file); !why.empty()) {
+        refused = std::move(why);
+        return std::nullopt;
+    }
+    return Entry{.id = {}, .title = {}, .file = file};
+}
+
 std::string Records::add(Entry entry) const {
     Document document = read();
     entry.id = std::to_string(document.next++);
