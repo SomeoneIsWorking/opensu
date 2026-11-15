@@ -13,8 +13,9 @@ Visible deltas from the baseline:
 - Frame generation for the game in front, off by default: a preset (Off, Smooth 60, Match display)
   or Custom fixed ratios or adaptive to a target (or the display's refresh), set per game, per
   console, per core or globally in the layered settings editor, generated inside openSU's Gamescope
-  on Linux only (outside it the section shows with a note). It needs the player's own Lossless Scaling from Steam
-  (its `Lossless.dll`, read in place); Big Picture has nothing like it (S041).
+  on Linux, and outside it by the built-in runner for its own games (S041). It needs the player's
+  own Lossless Scaling from Steam (its `Lossless.dll`, read in place); Big Picture has nothing like
+  it.
 - Only ROMs and the libretro runner are on out of the box; Steam, Epic, GOG, standalone emulators
   and Lua plugins are each opted into, from Library's Set up tiles or Settings › Integrations (S039).
   Steam Big Picture has no such choice. Steam can be the player's own desktop Steam (Normal),
@@ -214,7 +215,7 @@ game has been observed running yet.
 | S040 | Video settings for built-in cores (aspect, integer scale, sampling, filter, slang shader preset, shader resolution: Auto lowers a preset's resolution only while the GPU misses the frame budget, `docs/plans/shader-resolution.md`) and the core's own options in setting layers per game, core, console and Global, declared once in `settings::Schema` and edited in one layered editor (Settings › Emulators, details, the quick menu's panel over the game, live), with the emulator pick in the same layers (`docs/issues/retro-shaders-overlays.md`) | partial | S031, S032 | G001 |
 | S039 | Opt-in integrations (Steam, Epic, GOG, standalone emulators, Lua plugins), all off on a fresh start with a Set up tile each in Library; Steam Off, Normal, Managed or Isolated with a controller choice (`docs/issues/integrations-opt-in.md`) | partial | S016, S020 | G001, G004 |
 | S042 | Platform seams: every Linux-only concept behind one owner with a per-OS backend picked in CMake (process launching, pads, the shell over a game, Steam modes, user directories, buildbot folder, library loading, battery), Linux unchanged (`docs/issues/cross-platform-releases.md` step 1) | partial | — | G005 |
-| S041 | Adaptive frame generation for the focused game inside openSU's Gamescope, own MIT generator (`docs/issues/adaptive-lsfg-vk.md`): generator and pacing verified headless; openSU's `framegen.*` layered settings (presets, Custom details) and the atoms for the game in front verified with a ROM game in the headless fork and with a GOG game (Absolute Drift, 4K) in the nested (Wayland) backend on the player's own setup, every preset and Custom row, live changes and Off, Global and game layers; the DRM backend not run | partial | S013 | G004 |
+| S041 | Adaptive frame generation for the focused game inside openSU's Gamescope, own MIT generator (`docs/issues/adaptive-lsfg-vk.md`): generator and pacing verified headless; openSU's `framegen.*` layered settings (presets, Custom details) and the atoms for the game in front verified with a ROM game in the headless fork and with a GOG game (Absolute Drift, 4K) in the nested (Wayland) backend on the player's own setup, every preset and Custom row, live changes and Off, Global and game layers; the DRM backend not run; outside Gamescope the built-in runner runs Lossless on the core's frames scaled up 4x nearest, adaptive (Super Metroid Europe 50 to 60 shown, 706 generated, 0 dropped), the shell giving it the DLL; not yet on Android or Windows | partial | S013 | G004 |
 | S043 | SteamGridDB: the API key through Steam's browser or typed in, kept in the keyring or a 0600 file; covers fitted to Home's square tiles; "Choose artwork" per game (connected on the player's account, key in the keyring, fitting (games with no art included), the picker and Disconnect's dialog checked on the real library; not checked in a shown session or Normal mode; `docs/issues/steamgriddb.md`) | partial | S002, S020 | G001, G002 |
 | S044 | Giveaways: free-to-keep offers from Epic, GOG and Steam read in the background, a Library tile opening a toolkit screen with art, store, ends-in and Owned, details with Claim (store page; Steam's in Big Picture when openSU's Steam runs) (`docs/issues/giveaways.md`) | partial | S002, S007, S043 | G001 |
 | S045 | The player's own games: Add a game picks a Linux program, script, AppImage, Windows `.exe` or shortcut, identifies it (title, platform, Steam app and cover) for the player to confirm; Steam shortcuts and Lutris games imported read only, picked from a list, a Lutris game as the Steam app Lutris runs it as; Add a game folder keeps a folder of shortcuts or games in step with the library; Match a different game, Rename, Change file, Remove from library (`docs/issues/own-games.md`) | partial | S004, S038 | G001 |
@@ -1173,11 +1174,23 @@ decides whether the settings show; `active()` whether frames are generated now.
 
 The layered editor's Frame generation section: a summary line ("Adaptive · target 60 fps · up to
 3x · tolerance 5 fps") over the generator's source ("Lossless Scaling's shaders, from your Steam
-install", or "Needs Lossless Scaling, installed through Steam"; outside Gamescope "· applies in
-openSU's Gamescope session"), then the preset row, then with Custom the detail rows the pacing uses,
+install", or "Needs Lossless Scaling, installed through Steam"; outside Gamescope "· outside
+openSU's Gamescope session, for games the built-in runner plays"), then the preset row, then with Custom the detail rows the pacing uses,
 each with a help line, a source chip and "Use … from …". Evidence (`scratch/ui-toolkit/step2/frames/`):
 `gamescope-1280-01..04` (a Steam game inside the headless fork, `WAYLAND_DISPLAY` empty, fake
 `Lossless.dll`), `after-1280-07..09` and `after-1920-07..09` (Kirby, outside Gamescope).
+
+Outside Gamescope `GamePresentation::runnerLossless` hands the DLL to a built-in core's launch
+(`--lossless-dll`, `app::retro_launch`), and the runner (`retro::FrameGeneration`) runs Lossless on
+the core's frames scaled up 4x nearest (`frame_gen::scaledUp`): on the frames at their own size it
+smears pixel art. Inside Gamescope the runner never gets it, so the game's frames are generated once.
+Verified (`scratch/lossless-runner/`): the hidden runner on Super Metroid (Europe), adaptive to the
+display's 60: 900 real, 1075 shown, 706 generated, 0 dropped, real frames 41 ms after the core drew
+them on average; six consecutive frames of the zoom-out move evenly with the pixels kept square
+(`run1/sheet-motion.png`); a cut blends the two scenes in the frame between (`run1/sheet.png`). A
+hidden shell outside Gamescope, Steam listing a library with `Lossless.dll`, Smooth 60 on Game Boy
+Color, launched uCity with `--lossless-dll` and its runner logged Lossless at 4x, held within the
+tolerance at 59.7 fps.
 
 Verified (`scratch/framegen-settings/`, `tools/proof.py`, `tools/frames.py`): a hidden openSU in
 the headless fork (`build/agent-lossless`, 25cb24bb, 1280x720 at 60 Hz, `DISABLE_LSFG=1`), with the

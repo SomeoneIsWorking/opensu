@@ -131,8 +131,8 @@ void summariesNoteTheSession(const fs::path& root) {
     };
     const app::PresentationSummary frameGen = presentation.frameGenSummary(none, "Global");
     expect(frameGen.id == "framegen.summary" &&
-               frameGen.note == "Needs Lossless Scaling, installed through Steam · applies in "
-                                "openSU's Gamescope session",
+               frameGen.note == "Needs Lossless Scaling, installed through Steam · outside "
+                                "openSU's Gamescope session, for games the built-in runner plays",
            "frame generation's note names what it needs and where it applies");
     const app::PresentationSummary scaling = presentation.scalingSummary(none, "Global");
     expect(scaling.id == "scaling.summary" &&

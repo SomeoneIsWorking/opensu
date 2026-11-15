@@ -19,9 +19,9 @@ bool withoutVisualPreset(const SettingLookup& applies) {
 
 constexpr std::string_view frameGenKey = "framegen";
 
-/// `settings` when openSU's generator makes them, which the runner does.
-std::optional<FrameGenSettings> ownFrameGen(const FrameGenSettings& settings) {
-    if (settings.mode == FrameGenMode::Off || settings.generator != FrameGenGenerator::OpenSU) {
+/// `settings` unless they generate nothing.
+std::optional<FrameGenSettings> generating(const FrameGenSettings& settings) {
+    if (settings.mode == FrameGenMode::Off) {
         return std::nullopt;
     }
     return settings;
@@ -32,6 +32,10 @@ nlohmann::json frameGenJson(const std::optional<FrameGenSettings>& settings) {
         return nullptr;
     }
     return nlohmann::json{{"mode", settings->mode == FrameGenMode::Fixed ? "fixed" : "adaptive"},
+                          {"generator",
+                           settings->generator == FrameGenGenerator::OpenSU ? "opensu" : "lossless"},
+                          {"performance", settings->performance},
+                          {"flow-scale", settings->flowScalePercent},
                           {"ratio", settings->ratioThousandths},
                           {"target", settings->targetThousandths},
                           {"max", settings->maxGenerated},
@@ -54,6 +58,17 @@ bool parseFrameGen(const nlohmann::json& found, std::optional<FrameGenSettings>&
     if (mode == found.end() || !mode->is_string() || (*mode != "fixed" && *mode != "adaptive")) {
         return refused();
     }
+    const auto generator = found.find("generator");
+    if (generator == found.end() || !generator->is_string() ||
+        (*generator != "opensu" && *generator != "lossless")) {
+        return refused();
+    }
+    const auto performance = found.find("performance");
+    const auto flowScale = found.find("flow-scale");
+    if (performance == found.end() || !performance->is_boolean() || flowScale == found.end() ||
+        !flowScale->is_number_unsigned()) {
+        return refused();
+    }
     std::array<std::uint32_t, 4> numbers{};
     for (std::size_t at = 0; const char* key : {"ratio", "target", "max", "tolerance"}) {
         const auto value = found.find(key);
@@ -64,11 +79,14 @@ bool parseFrameGen(const nlohmann::json& found, std::optional<FrameGenSettings>&
     }
     settings = FrameGenSettings{
         .mode = *mode == "fixed" ? FrameGenMode::Fixed : FrameGenMode::Adaptive,
-        .generator = FrameGenGenerator::OpenSU,
+        .generator = *generator == "opensu" ? FrameGenGenerator::OpenSU
+                                            : FrameGenGenerator::Lossless,
         .ratioThousandths = numbers[0],
         .targetThousandths = numbers[1],
         .maxGenerated = numbers[2],
         .toleranceThousandths = numbers[3],
+        .performance = performance->get<bool>(),
+        .flowScalePercent = flowScale->get<std::uint32_t>(),
     };
     return true;
 }
@@ -243,7 +261,7 @@ VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
         .touchShow = static_cast<TouchShow>(index(touchShowKey())),
         .touchSize = resolveTouchSize(layers, keys),
         .turned = index(turnedKey()) == 1,
-        .frameGen = ownFrameGen(resolveFrameGen(layers, keys)),
+        .frameGen = generating(resolveFrameGen(layers, keys)),
     };
 }
 

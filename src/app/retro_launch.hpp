@@ -33,13 +33,14 @@ struct RetroVideo {
 };
 
 /// `game`'s video settings from the layers when it runs on a built-in core (a shader preset as its
-/// path under `shaders`, the shader pack), with the visual preset they pick from `looks` applied;
-/// nothing otherwise.
-[[nodiscard]] std::optional<RetroVideo> retroVideoOf(const library::Game& game,
-                                                     const settings::SettingLayers& layers,
-                                                     const library::roms::EmulatorCatalog& catalog,
-                                                     const std::filesystem::path& shaders,
-                                                     const library::roms::VisualPresets& looks);
+/// path under `shaders`, the shader pack), with the visual preset they pick from `looks` applied,
+/// Lossless Scaling's frame generation left out without the `losslessDll` the runner runs it with
+/// (`GamePresentation::runnerLossless`); nothing otherwise.
+[[nodiscard]] std::optional<RetroVideo>
+retroVideoOf(const library::Game& game, const settings::SettingLayers& layers,
+             const library::roms::EmulatorCatalog& catalog, const std::filesystem::path& shaders,
+             const library::roms::VisualPresets& looks,
+             const std::optional<std::filesystem::path>& losslessDll);
 
 /// What readying a launch came to: why the settings file could not be written (empty when it
 /// was), and whether the visual preset's art is missing.
@@ -51,12 +52,14 @@ struct PreparedRetro {
 /// Readies `game`, about to start, for `opensu-retro`: its saves in its console's folder under
 /// `saves` (the profile's, `retro::profileSaveFolder`), its settings written to `file` (a shader
 /// preset as its path under `shaders`, the shader pack; the visual preset from `looks`) and the
-/// options naming both added, an arcade game's controls read from `romsets`, and `--embedded`
-/// when `embedded`. A game on no built-in core is left alone.
+/// options naming both added, `--lossless-dll` with the DLL the runner runs Lossless Scaling's
+/// frame generation with (`retroVideoOf`), an arcade game's controls read from `romsets`, and
+/// `--embedded` when `embedded`. A game on no built-in core is left alone.
 [[nodiscard]] PreparedRetro
 prepareRetroLaunch(library::Game& game, const settings::SettingLayers& layers,
                    const library::roms::EmulatorCatalog& catalog, const std::filesystem::path& file,
                    const std::filesystem::path& shaders, const library::roms::VisualPresets& looks,
+                   const std::optional<std::filesystem::path>& losslessDll,
                    const std::filesystem::path& saves, const library::roms::RomsetDats& romsets,
                    bool embedded);
 

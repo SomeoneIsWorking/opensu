@@ -23,7 +23,10 @@ Inside openSU's Gamescope every game has, in its setting layers ([libretro.md](l
   ratios or adaptive to a target frame rate. It runs the frame-generation shaders of your own
   Lossless Scaling from Steam (its `Lossless.dll`, read in place), on the game in front.
 
-Outside openSU's Gamescope the rows still show, marked "applies in openSU's Gamescope session".
+Outside openSU's Gamescope, Lossless Scaling's frame generation runs only for games the built-in
+runner plays: the runner scales the core's frames up four times, pixel for pixel, before the
+shaders, so pixel art stays sharp. Resolution and upscaling still apply only in openSU's Gamescope
+session.
 
 ## The login session
 

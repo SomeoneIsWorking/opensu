@@ -345,7 +345,7 @@ RunnerExit RunnerApp::run() {
 
     RunnerExit exit = RunnerExit::Quit;
     std::uint64_t frame = 0;
-    /// openSU's frame generation, the settings it runs under, and the next present it paces.
+    /// Frame generation, the settings it runs under, and the next present it paces.
     std::unique_ptr<FrameGeneration> generation;
     std::optional<settings::FrameGenSettings> generatingWith;
     Clock::time_point nextShown = Clock::now();
@@ -567,8 +567,9 @@ RunnerExit RunnerApp::run() {
             generation.reset();
             if (generatingWith) {
                 std::string why;
-                generation = FrameGeneration::open(*generatingWith, options_.perf, why);
-                lucent::info("framegen", "openSU's frame generation {}{}",
+                generation = FrameGeneration::open(*generatingWith, options_.losslessDll,
+                                                   options_.perf, why);
+                lucent::info("framegen", "frame generation {}{}",
                              generation ? "starts" : "cannot start: ", why);
             }
         }

@@ -162,8 +162,11 @@ PresentationSummary GamePresentation::frameGenSummary(const settings::SettingLoo
     return PresentationSummary{
         .id = "framegen.summary",
         .line = settings::frameGenSummary(resolved),
-        .note = noted(dll_ ? "Lossless Scaling's shaders, from your Steam install"
-                           : "Needs Lossless Scaling, installed through Steam")};
+        .note = (dll_ ? std::string{"Lossless Scaling's shaders, from your Steam install"}
+                      : std::string{"Needs Lossless Scaling, installed through Steam"}) +
+                (active() ? ""
+                          : " · outside openSU's Gamescope session, for games the built-in "
+                            "runner plays")};
 }
 
 PresentationSummary GamePresentation::scalingSummary(const settings::SettingLookup& applies,

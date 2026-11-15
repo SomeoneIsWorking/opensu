@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <filesystem>
 #include <format>
 #include <span>
 #include <stdexcept>
@@ -20,35 +21,63 @@
 namespace opensu::retro {
 namespace {
 
-/// openSU's generator on `gpu` for a core's own frames; throws when it cannot run.
-std::unique_ptr<frame_gen::Interpolator> flowOf(frame_gen::GeneratorDevice& gpu) {
+/// What `generator` scales a core's own frame up by.
+std::uint32_t contentScale(settings::FrameGenGenerator generator) {
+    return generator == settings::FrameGenGenerator::Lossless ? frame_gen::losslessContentScale
+                                                              : frame_gen::flowContentScale;
+}
+
+/// `settings`' generator on `gpu` for a core's own frames; throws when it cannot run.
+std::unique_ptr<frame_gen::Interpolator> generatorOf(frame_gen::GeneratorDevice& gpu,
+                                                     const settings::FrameGenSettings& settings,
+                                                     const std::filesystem::path& losslessDll) {
     std::string why;
-    std::unique_ptr<frame_gen::Interpolator> generator =
-        frame_gen::flow(gpu, frame_gen::flowContentScale, why);
+    std::unique_ptr<frame_gen::Interpolator> generator;
+    if (settings.generator == settings::FrameGenGenerator::Lossless) {
+        if (losslessDll.empty()) {
+            throw std::runtime_error{"Lossless Scaling's Lossless.dll was not given"};
+        }
+        std::unique_ptr<frame_gen::Interpolator> lossless = frame_gen::lossless(
+            gpu, settings, frame_gen::LosslessSource{.dll = losslessDll, .modules = nullptr}, why);
+        if (lossless) {
+            generator =
+                frame_gen::scaledUp(gpu, std::move(lossless), frame_gen::losslessContentScale, why);
+        }
+    } else {
+        generator = frame_gen::flow(gpu, frame_gen::flowContentScale, why);
+    }
     if (!generator) {
         throw std::runtime_error{why};
     }
     return generator;
 }
 
-class FlowGeneration final : public FrameGeneration {
+/// The name a log line gives `generator`.
+const char* nameOf(settings::FrameGenGenerator generator) {
+    return generator == settings::FrameGenGenerator::Lossless ? "Lossless Scaling's generator"
+                                                              : "openSU's generator";
+}
+
+class PacedGeneration final : public FrameGeneration {
   public:
     // The core's frame is the content's own pixels.
-    FlowGeneration(const settings::FrameGenSettings& settings, bool measuring)
-        : frames_{gpu_, flowOf(gpu_), settings, frame_gen::SourcePixel{}} {
+    PacedGeneration(const settings::FrameGenSettings& settings,
+                    const std::filesystem::path& losslessDll, bool measuring)
+        : frames_{gpu_, generatorOf(gpu_, settings, losslessDll), settings,
+                  frame_gen::SourcePixel{}} {
         if (measuring) {
             work_.emplace();
         }
         lucent::info("framegen",
-                     "openSU's generator on {}, the core's frames scaled up by {}, up to {} per "
-                     "real frame",
-                     gpu_.name(), frame_gen::flowContentScale, frames_.maxGenerated());
+                     "{} on {}, the core's frames scaled up by {}, up to {} per real frame",
+                     nameOf(settings.generator), gpu_.name(), contentScale(settings.generator),
+                     frames_.maxGenerated());
     }
-    ~FlowGeneration() override = default;
-    FlowGeneration(const FlowGeneration&) = delete;
-    FlowGeneration& operator=(const FlowGeneration&) = delete;
-    FlowGeneration(FlowGeneration&&) = delete;
-    FlowGeneration& operator=(FlowGeneration&&) = delete;
+    ~PacedGeneration() override = default;
+    PacedGeneration(const PacedGeneration&) = delete;
+    PacedGeneration& operator=(const PacedGeneration&) = delete;
+    PacedGeneration(PacedGeneration&&) = delete;
+    PacedGeneration& operator=(PacedGeneration&&) = delete;
 
     bool real(const FrameImage& frame, std::uint64_t nowNs, std::uint64_t refreshNs) override {
         const Phase phase{work_, realWork_};
@@ -167,9 +196,10 @@ class FlowGeneration final : public FrameGeneration {
 } // namespace
 
 std::unique_ptr<FrameGeneration> FrameGeneration::open(const settings::FrameGenSettings& settings,
+                                                       const std::filesystem::path& losslessDll,
                                                        bool measuring, std::string& why) {
     try {
-        return std::make_unique<FlowGeneration>(settings, measuring);
+        return std::make_unique<PacedGeneration>(settings, losslessDll, measuring);
     } catch (const std::runtime_error& failure) {
         why = failure.what();
         return nullptr;

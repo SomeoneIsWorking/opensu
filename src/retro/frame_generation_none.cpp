@@ -3,7 +3,8 @@
 namespace opensu::retro {
 
 std::unique_ptr<FrameGeneration>
-FrameGeneration::open(const settings::FrameGenSettings& /*settings*/, bool /*measuring*/,
+FrameGeneration::open(const settings::FrameGenSettings& /*settings*/,
+                      const std::filesystem::path& /*losslessDll*/, bool /*measuring*/,
                       std::string& why) {
     why = "frame generation is not built here";
     return nullptr;

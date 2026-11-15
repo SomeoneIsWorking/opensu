@@ -2,7 +2,6 @@
 
 #include <vulkan/vulkan.h>
 
-#include <algorithm>
 #include <array>
 #include <atomic>
 #include <format>
@@ -96,16 +95,7 @@ losslessOf(frame_gen::GeneratorDevice& gpu, const settings::FrameGenSettings& se
            std::shared_ptr<const framegen::LosslessModules_t> modules) {
     std::string why;
     std::unique_ptr<frame_gen::Interpolator> generator = frame_gen::lossless(
-        gpu,
-        framegen::LosslessSettings_t{
-            .sDllPath = {},
-            .pModules = std::move(modules),
-            .eSizeMode = settings.performance ? framegen::LosslessSizeMode::Performance
-                                              : framegen::LosslessSizeMode::Balanced,
-            .flFlowScale = std::clamp(static_cast<float>(settings.flowScalePercent) / 100.0F,
-                                      framegen::k_flLosslessMinFlowScale, 1.0F),
-            .bUiDetection = true},
-        why);
+        gpu, settings, frame_gen::LosslessSource{.dll = {}, .modules = std::move(modules)}, why);
     if (!generator) {
         throw std::runtime_error{why};
     }

@@ -108,7 +108,8 @@ struct VideoSettings {
     /// The frame around the picture on a screen wider than tall, and on one taller than wide.
     std::optional<FrameArt> landscapeArt{};
     std::optional<FrameArt> portraitArt{};
-    /// Frame generation by openSU's generator; nothing when it generates nothing.
+    /// Frame generation in the runner, by openSU's generator or Lossless's; nothing when it
+    /// generates nothing.
     std::optional<FrameGenSettings> frameGen{};
 
     bool operator==(const VideoSettings&) const = default;

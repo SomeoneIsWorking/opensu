@@ -32,7 +32,8 @@ std::optional<RetroVideo> retroVideoOf(const library::Game& game,
                                        const settings::SettingLayers& layers,
                                        const library::roms::EmulatorCatalog& catalog,
                                        const std::filesystem::path& shaders,
-                                       const library::roms::VisualPresets& looks) {
+                                       const library::roms::VisualPresets& looks,
+                                       const std::optional<std::filesystem::path>& losslessDll) {
     if (builtInOf(game, catalog) == nullptr) {
         return std::nullopt;
     }
@@ -41,6 +42,10 @@ std::optional<RetroVideo> retroVideoOf(const library::Game& game,
     const std::string choice = settings::resolvePreset(layers, keys);
     if (const library::roms::VisualPreset* preset = looks.chosen(choice, keys.system)) {
         found.artMissing = !looks.apply(*preset, found.video, shaders);
+    }
+    if (found.video.frameGen &&
+        found.video.frameGen->generator == settings::FrameGenGenerator::Lossless && !losslessDll) {
+        found.video.frameGen.reset();
     }
     return found;
 }
@@ -72,9 +77,11 @@ PreparedRetro prepareRetroLaunch(library::Game& game, const settings::SettingLay
                                  const std::filesystem::path& file,
                                  const std::filesystem::path& shaders,
                                  const library::roms::VisualPresets& looks,
+                                 const std::optional<std::filesystem::path>& losslessDll,
                                  const std::filesystem::path& saves,
                                  const library::roms::RomsetDats& romsets, bool embedded) {
-    const std::optional<RetroVideo> video = retroVideoOf(game, layers, catalog, shaders, looks);
+    const std::optional<RetroVideo> video =
+        retroVideoOf(game, layers, catalog, shaders, looks, losslessDll);
     if (!video) {
         return {};
     }
@@ -91,6 +98,11 @@ PreparedRetro prepareRetroLaunch(library::Game& game, const settings::SettingLay
          settings::resolveCoreOptions(layers, library::layerKeysOf(game))) {
         options.emplace_back("--option");
         options.push_back(std::format("{}={}", key, value));
+    }
+    // Also when Lossless is not chosen yet: the player may choose it while the game runs.
+    if (losslessDll) {
+        options.emplace_back("--lossless-dll");
+        options.push_back(losslessDll->string());
     }
     if (game.sourceId == arcadeSystem) {
         options.emplace_back("--arcade");

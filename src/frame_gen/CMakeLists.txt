@@ -1,15 +1,17 @@
 # Frame generation on a Vulkan device of its own (docs/plans/remote-frame-generation.md): the
 # device, images and buffers (`generator_gpu`), the GPU time of their work (`gpu_spans`), the pieces
 # of their compute passes (`compute_pass`) and the generators behind one interface (`interpolator`):
-# the Gamescope fork's Lossless generator and openSU's own (`flow`, shaders/flow_*.comp), and frames
-# arriving in CPU RGBA paced through them (`paced_frames`) for the ready time their first generated
-# frame needs (`ready_need`, measured by `ready_watch`); `opensu-framegen-pairs` runs them on PNG
-# frames for tools/framegen_quality. Linux and Android, where framegen is built.
+# the Gamescope fork's Lossless generator and openSU's own (`flow`, shaders/flow_*.comp), either run
+# on frames scaled up nearest (`scaled_interpolator`, shaders/scale_*.comp), and frames arriving in
+# CPU RGBA paced through them (`paced_frames`) for the ready time their first generated frame needs
+# (`ready_need`, measured by `ready_watch`); `opensu-framegen-pairs` runs them on PNG frames for
+# tools/framegen_quality. Linux and Android, where framegen is built.
 add_library(opensu_frame_gen STATIC generator_gpu.cpp gpu_spans.cpp compute_pass.cpp
-    lossless_interpolator.cpp flow_interpolator.cpp paced_frames.cpp ready_need.cpp
-    ready_watch.cpp)
+    lossless_interpolator.cpp flow_interpolator.cpp scaled_interpolator.cpp paced_frames.cpp
+    ready_need.cpp ready_watch.cpp)
 gpu2d_compile_shaders(opensu_frame_gen shaders/flow_take.comp shaders/flow_reduce.comp
-    shaders/flow_search.comp shaders/flow_choose.comp shaders/flow_make.comp)
+    shaders/flow_search.comp shaders/flow_choose.comp shaders/flow_make.comp shaders/scale_up.comp
+    shaders/scale_down.comp)
 add_library(opensu::frame_gen ALIAS opensu_frame_gen)
 target_include_directories(opensu_frame_gen PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_link_libraries(opensu_frame_gen PUBLIC framegen::framegen opensu::vulkan opensu::settings

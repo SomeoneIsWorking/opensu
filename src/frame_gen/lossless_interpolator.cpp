@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <utility>
 
 #include "frame_gen/interpolator.hpp"
@@ -31,14 +32,25 @@ class LosslessInterpolator final : public Interpolator {
 
 } // namespace
 
-std::unique_ptr<Interpolator>
-lossless(GeneratorDevice& gpu, const framegen::LosslessSettings_t& settings, std::string& why) {
+std::unique_ptr<Interpolator> lossless(GeneratorDevice& gpu,
+                                       const settings::FrameGenSettings& settings,
+                                       LosslessSource source, std::string& why) {
     std::shared_ptr<framegen::CDevice> device = framegen::CDevice::Create(gpu.desc(), why);
     if (!device) {
         return nullptr;
     }
-    std::unique_ptr<framegen::CLosslessGenerator> generator =
-        framegen::CLosslessGenerator::Create(device, settings, why);
+    constexpr float percent = 100.0F;
+    std::unique_ptr<framegen::CLosslessGenerator> generator = framegen::CLosslessGenerator::Create(
+        device,
+        framegen::LosslessSettings_t{
+            .sDllPath = source.dll.string(),
+            .pModules = std::move(source.modules),
+            .eSizeMode = settings.performance ? framegen::LosslessSizeMode::Performance
+                                              : framegen::LosslessSizeMode::Balanced,
+            .flFlowScale = std::clamp(static_cast<float>(settings.flowScalePercent) / percent,
+                                      framegen::k_flLosslessMinFlowScale, 1.0F),
+            .bUiDetection = true},
+        why);
     if (!generator) {
         return nullptr;
     }

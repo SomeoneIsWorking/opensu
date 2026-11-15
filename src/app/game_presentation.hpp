@@ -107,6 +107,11 @@ class GamePresentation {
     [[nodiscard]] const std::optional<std::filesystem::path>& dll() const noexcept {
         return dll_;
     }
+    /// The DLL the built-in runner runs Lossless Scaling's frame generation with: the one found,
+    /// unless Gamescope generates the game's frames itself.
+    [[nodiscard]] std::optional<std::filesystem::path> runnerLossless() const {
+        return active() ? std::nullopt : dll_;
+    }
 
     /// The game in front (frame generation) and the game launching or running (resolution and
     /// upscaling), each null when there is none. Applies only what changed.

@@ -63,6 +63,8 @@ struct RunnerOptions {
     settings::VideoSettings video;
     /// The librashader a shader preset runs on.
     std::filesystem::path librashader;
+    /// The player's Lossless.dll, whose shaders Lossless Scaling's frame generation runs.
+    std::filesystem::path losslessDll;
     /// Core option values chosen for this launch (a GPU core's renderer among them).
     OptionValues coreOptions;
     /// The ports pads are spread over (`Joypad`); 1 puts every pad on port 0.

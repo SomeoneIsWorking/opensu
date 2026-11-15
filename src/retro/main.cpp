@@ -4,10 +4,11 @@
 //   opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--settings <file>]
 //                [--option <key>=<value>]... [--players N] [--netplay <file>]
 //                [--arcade <buttons>:<ways>] [--hidden | --silent] [--embedded] [--touch <dp>]
-//                [--validate] [--perf] [--frames N] [--frame-png <file>] [--frame-pngs <dir>]
-//                <rom>
+//                [--lossless-dll <file>] [--validate] [--perf] [--frames N] [--frame-png <file>]
+//                [--frame-pngs <dir>] <rom>
 //
-// --perf ends the run with frame generation's own work on the runner's thread (`[perf]` lines).
+// --lossless-dll is the player's Lossless.dll, for Lossless Scaling's frame generation. --perf ends
+// the run with frame generation's own work on the runner's thread (`[perf]` lines).
 //
 // Exit status: 0 on quit, 1 for a bad command line or a window, Vulkan or frame-file failure, 2
 // when the core, the game or its save cannot be loaded, 3 when --validate saw Vulkan validation
@@ -82,7 +83,8 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
         } else if (arg == "--core" || arg == "--saves" || arg == "--system" ||
                    arg == "--settings" || arg == "--frame-png" || arg == "--frame-pngs" ||
                    arg == "--frames" || arg == "--option" || arg == "--players" ||
-                   arg == "--netplay" || arg == "--arcade" || arg == "--touch") {
+                   arg == "--netplay" || arg == "--arcade" || arg == "--touch" ||
+                   arg == "--lossless-dll") {
             const std::optional<std::string> given = value();
             if (!given) {
                 return std::nullopt;
@@ -107,6 +109,8 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
                 }
                 options.coreOptions.insert_or_assign(given->substr(0, equals),
                                                      given->substr(equals + 1));
+            } else if (arg == "--lossless-dll") {
+                options.losslessDll = *given;
             } else if (arg == "--frame-png") {
                 options.framePng = *given;
             } else if (arg == "--frame-pngs") {
@@ -170,8 +174,8 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
             "usage: opensu-retro --core <path.so> [--saves <dir>] "
             "[--system <dir>] [--settings <file>] [--option <key>=<value>]... "
             "[--players N] [--netplay <file>] [--arcade <buttons>:<ways>] [--hidden | --silent] "
-            "[--touch <dp>] [--validate] [--perf] [--frames N] [--frame-png <file>] "
-            "[--frame-pngs <dir>] <rom>");
+            "[--touch <dp>] [--lossless-dll <file>] [--validate] [--perf] [--frames N] "
+            "[--frame-png <file>] [--frame-pngs <dir>] <rom>");
         return std::nullopt;
     }
     if ((options.framePng || options.framePngs) && !options.hidden) {

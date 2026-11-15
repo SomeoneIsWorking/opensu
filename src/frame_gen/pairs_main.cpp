@@ -4,14 +4,16 @@
 // ones are generated at their times and written into --out under their own names.
 //
 //   opensu-framegen-pairs --generator lossless [--dll <Lossless.dll>] [--performance]
-//                         [--flow-scale <percent>] [--step N] [--measure counts|time]
+//                         [--flow-scale <percent>] [--core-frames] [--step N]
+//                         [--measure counts|time]
 //                         --in <dir> --out <dir>
 //   opensu-framegen-pairs --generator flow [--source-pixel <w>x<h> | --core-frames]
 //                         [--step N] [--measure counts|time] --in <dir> --out <dir>
 //
 // --source-pixel is how many frame pixels one of the content's takes (a core's frame scaled to
 // the window), 1x1 by default. --core-frames says the frames are a core's own, which flow works on
-// scaled up by `frame_gen::flowContentScale`, as the runner has it.
+// scaled up by `frame_gen::flowContentScale` and Lossless by `frame_gen::losslessContentScale`, as
+// the runner has them.
 //
 // Without --dll, the player's Lossless.dll is the one the shell finds in their Steam libraries.
 //
@@ -54,7 +56,6 @@ using opensu::frame_gen::GeneratorImage;
 using opensu::frame_gen::HostBuffer;
 
 constexpr std::uint32_t bytesPerPixel = 4;
-constexpr float percent = 100.0F;
 
 struct Options {
     std::string generator;
@@ -185,17 +186,17 @@ std::unique_ptr<opensu::frame_gen::Interpolator> generatorOf(Options options,
         options.dll = *found;
     }
     lucent::info("framegen", "Lossless shaders from {}", options.dll.string());
+    opensu::settings::FrameGenSettings sized;
+    sized.performance = options.performance;
+    sized.flowScalePercent = options.flowScale;
     std::unique_ptr<opensu::frame_gen::Interpolator> made = opensu::frame_gen::lossless(
-        gpu,
-        framegen::LosslessSettings_t{
-            .sDllPath = options.dll.string(),
-            .pModules = nullptr,
-            .eSizeMode = options.performance ? framegen::LosslessSizeMode::Performance
-                                             : framegen::LosslessSizeMode::Balanced,
-            .flFlowScale = std::clamp(static_cast<float>(options.flowScale) / percent,
-                                      framegen::k_flLosslessMinFlowScale, 1.0F),
-            .bUiDetection = true},
-        why);
+        gpu, sized, opensu::frame_gen::LosslessSource{.dll = options.dll, .modules = nullptr}, why);
+    if (made && options.coreFrames) {
+        made = opensu::frame_gen::scaledUp(gpu, std::move(made),
+                                           opensu::frame_gen::losslessContentScale, why);
+        lucent::info("framegen", "Lossless works on the frames scaled up by {}",
+                     opensu::frame_gen::losslessContentScale);
+    }
     if (!made) {
         lucent::error("framegen", "no {} generator: {}", options.generator, why);
     }

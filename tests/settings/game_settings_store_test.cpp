@@ -158,13 +158,18 @@ void launchFile() {
            "frame generation without its pacing is refused");
 }
 
-void frameGenGoesToTheRunnerForOpenSUOnly() {
+void frameGenGoesToTheRunner() {
     SettingLayers layers;
     const LayerKeys game{.game = "metroid", .system = "snes", .emulator = "snes9x-core"};
     const Layer own{Kind::Game, "metroid"};
     layers.set(own, "framegen.preset", "smooth-60");
-    expect(!resolveVideo(layers, game, {}).frameGen,
-           "Lossless Scaling's frame generation is not the runner's");
+    const std::optional<FrameGenSettings> lossless = resolveVideo(layers, game, {}).frameGen;
+    expect(lossless && lossless->generator == FrameGenGenerator::Lossless,
+           "Lossless Scaling's frame generation goes to the runner");
+    std::string error;
+    const std::optional<VideoSettings> back =
+        parseVideoJson(videoJson(resolveVideo(layers, game, {})), error);
+    expect(back && back->frameGen == lossless, "and reaches it whole");
     layers.set(own, "framegen.generator", "opensu");
     const std::optional<FrameGenSettings> generated = resolveVideo(layers, game, {}).frameGen;
     expect(generated && generated->mode == FrameGenMode::Adaptive &&
@@ -184,7 +189,7 @@ int main() try {
         roundTripAndDamage(scratch.path());
         picksMoveOnce(scratch.path());
         launchFile();
-        frameGenGoesToTheRunnerForOpenSUOnly();
+        frameGenGoesToTheRunner();
         std::printf("game_settings_store: all checks passed\n");
         return 0;
     } catch (const std::exception& error) {

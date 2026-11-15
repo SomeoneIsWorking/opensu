@@ -886,8 +886,9 @@ bool ShellApp::startLaunch(const library::Game& game, LaunchRequest request,
     std::string control = retro_.begin();
     const PreparedRetro prepared = prepareRetroLaunch(
         started, gameSettings_.layers(), emulatorSettings_.catalog(), retro_.settingsFile(),
-        emulatorDownloads_.shaderPack().root(), emulatorDownloads_.presets(), saves,
-        romsetLists_.dats(), preferences_.values().embeddedRunner && embedsGames());
+        emulatorDownloads_.shaderPack().root(), emulatorDownloads_.presets(),
+        presentation_.runnerLossless(), saves, romsetLists_.dats(),
+        preferences_.values().embeddedRunner && embedsGames());
     if (!prepared.refused.empty()) {
         static_cast<void>(retro_.end());
         shell_.setToast("cannot write " + game.title + "'s settings: " + prepared.refused, true);

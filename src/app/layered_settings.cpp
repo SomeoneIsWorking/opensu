@@ -319,7 +319,8 @@ void LayeredSettings::applyToRunning() {
     }
     const settings::SettingLayers& layers = gameSettings_.layers();
     if (const std::optional<RetroVideo> video =
-            retroVideoOf(*running, layers, found_().catalog(), shaders_.root(), presets_)) {
+            retroVideoOf(*running, layers, found_().catalog(), shaders_.root(), presets_,
+                         presentation_.runnerLossless())) {
         if (const std::string refused = retro_.setVideo(video->video); !refused.empty()) {
             hooks_.say(refused, true);
         }

@@ -5,12 +5,14 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
 
 #include "frame_gen/generator_gpu.hpp"
 #include "framegen/LosslessGenerator.h"
+#include "settings/framegen_settings.hpp"
 
 namespace opensu::frame_gen {
 
@@ -44,11 +46,30 @@ class Interpolator {
              const framegen::OutputHooks_t& hooks) = 0;
 };
 
-/// The LSFG 3 shaders of the player's Lossless.dll (`settings.pModules` or `settings.sDllPath`)
-/// through the Gamescope fork's `framegen::CLosslessGenerator`; nothing with why when the device or
-/// the modules cannot generate.
-[[nodiscard]] std::unique_ptr<Interpolator>
-lossless(GeneratorDevice& gpu, const framegen::LosslessSettings_t& settings, std::string& why);
+/// Where the Lossless generator's shaders come from: the player's own Lossless.dll, or the modules
+/// a host read from its own and sent.
+struct LosslessSource {
+    std::filesystem::path dll;
+    std::shared_ptr<const framegen::LosslessModules_t> modules;
+};
+
+/// The LSFG 3 shaders from `source` through the Gamescope fork's `framegen::CLosslessGenerator`,
+/// sized and scaled as `settings` say; nothing with why when the device or the shaders cannot
+/// generate.
+[[nodiscard]] std::unique_ptr<Interpolator> lossless(GeneratorDevice& gpu,
+                                                     const settings::FrameGenSettings& settings,
+                                                     LosslessSource source, std::string& why);
+
+/// What a core's own frame is scaled up by, nearest, before the Lossless generator: on the frame
+/// itself it smears pixel art.
+inline constexpr std::uint32_t losslessContentScale = 4;
+
+/// `inner` run on each frame scaled up nearest by `scale` (`scaled_interpolator.cpp`), each frame
+/// between written back from the centres of the scaled pixels; nothing with why when its passes
+/// cannot be made.
+[[nodiscard]] std::unique_ptr<Interpolator> scaledUp(GeneratorDevice& gpu,
+                                                     std::unique_ptr<Interpolator> inner,
+                                                     std::uint32_t scale, std::string& why);
 
 /// The side of flow's motion blocks, in the pixels it works on.
 inline constexpr std::uint32_t flowBlockPixels = 8;
