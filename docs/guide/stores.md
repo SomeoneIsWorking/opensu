@@ -124,6 +124,19 @@ Library's Add a game tile picks a Linux program, script or AppImage, a Windows `
 confirm. Steam's non-Steam shortcuts and Lutris's games are imported read-only. openSU starts a Lutris game itself, in Lutris's prefix and with its environment, unless it needs a runner openSU doesn't have; those still go through Lutris. An added game's details
 page has Remove from library under More, and its Game settings page Rename and Change file. Android has no Add a game.
 
+The same from a terminal or a script, for example a project's install step:
+
+```sh
+opensu games add ~/.local/share/applications/mygame.desktop --title "My Game"
+opensu games list
+opensu games remove own:3
+```
+
+`add` takes what Add a game takes, named from its shortcut or files without asking the store, and
+prints the game's id and title. Adding a file already added keeps its game, renamed when `--title`
+differs, so it is safe to run every time. A running openSU shows the change the next time its
+library loads.
+
 Add a game folder, the tile beside it and in Settings › Library, keeps a folder in step with the
 library: it is read each time the library loads, so a new file adds a game and a deleted one removes
 it. On Windows it takes the `.lnk` and `.url` shortcuts in the folder and one `.exe` from each

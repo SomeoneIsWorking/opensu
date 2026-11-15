@@ -149,6 +149,12 @@ target_compile_definitions(own_games_test PRIVATE
     OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME own_games COMMAND own_games_test)
 
+add_executable(own_games_command_test own_games_command_test.cpp)
+target_link_libraries(own_games_command_test PRIVATE opensu::library)
+target_compile_definitions(own_games_command_test PRIVATE
+    OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME own_games_command COMMAND own_games_command_test)
+
 add_executable(game_identify_test game_identify_test.cpp)
 target_link_libraries(game_identify_test PRIVATE opensu::library)
 target_compile_definitions(game_identify_test PRIVATE

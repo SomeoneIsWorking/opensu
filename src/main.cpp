@@ -8,7 +8,9 @@
 #include <cstdio>
 #include <exception>
 #include <filesystem>
+#include <iostream>
 #include <optional>
+#include <span>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -22,6 +24,7 @@
 #include "config/arguments.hpp"
 #include "config/config.hpp"
 #include "fileio/instance_lock.hpp"
+#include "library/own_games_command.hpp"
 #include "lucent/log.h"
 
 namespace {
@@ -39,6 +42,9 @@ void printHelp() {
         "        --steam         with --hidden, start the Steam client in its mode; end the\n"
         "                        run with POST /quit so Steam shuts down with it\n"
         "%.*s"
+        "%.*s"
+        "\n"
+        "Your own games, in the library from its next listing:\n"
         "%.*s"
         "\n"
         "Environment:\n"
@@ -66,7 +72,9 @@ void printHelp() {
         static_cast<int>(session.run.size()), session.run.data(),
         static_cast<int>(session.hidden.size()), session.hidden.data(),
         static_cast<int>(session.sound.size()), session.sound.data(),
-        static_cast<int>(session.options.size()), session.options.data(), separator, separator,
+        static_cast<int>(session.options.size()), session.options.data(),
+        static_cast<int>(opensu::library::own::gamesUsage.size()),
+        opensu::library::own::gamesUsage.data(), separator, separator,
         static_cast<int>(session.environment.size()), session.environment.data());
 }
 
@@ -86,6 +94,12 @@ int main(int argc, char** argv) try {
     const opensu::app::SdlLog sdlLog;
 
     const std::vector<std::string> args(argv + 1, argv + argc);
+    namespace own = opensu::library::own;
+    if (!args.empty() && args.front() == own::gamesCommand) {
+        return own::runGamesCommand(std::span{args}.subspan(1),
+                                    own::Records{own::recordsFile(config.dataDir)}, std::cout,
+                                    std::cerr);
+    }
     const opensu::config::Arguments arguments = opensu::config::Arguments::parse(args);
     if (arguments.help) {
         printHelp();

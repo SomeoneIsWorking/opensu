@@ -73,7 +73,7 @@ add_library(opensu_library STATIC
     umu_launcher.cpp umu_database.cpp
     runtime_archive.cpp
     core_system_files.cpp
-    own_games.cpp
+    own_games.cpp own_games_command.cpp
     game_identify.cpp game_matches.cpp
     steam_shortcuts.cpp
     match_pick.cpp
