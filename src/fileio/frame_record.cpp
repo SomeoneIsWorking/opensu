@@ -1,6 +1,7 @@
 #include "fileio/frame_record.hpp"
 
 #include <cstring>
+#include <exception>
 #include <utility>
 
 #ifdef _WIN32
@@ -95,8 +96,15 @@ FrameRecord::FrameRecord(std::filesystem::path path, int fps, Size size, Clock::
 }
 
 FrameRecord::~FrameRecord() {
-    if (writer_.joinable()) {
+    if (!writer_.joinable()) {
+        return;
+    }
+    try {
         (void)finish(Clock::now());
+    } catch (...) {
+        // Out of memory or a broken mutex, with the writer still running: a thread left joinable
+        // ends the program anyway, so it ends here, said plainly.
+        std::terminate();
     }
 }
 
