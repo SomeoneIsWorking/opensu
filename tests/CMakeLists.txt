@@ -50,7 +50,7 @@ if(WIN32)
         install_job_test settings_controller_test retro_session_test game_end_test
         downloads_controller_test update_job_test pad_translator_test pads_test secret_store_test
         retro_save_memory_test retro_runner_test wine_test steam_compat_test own_games_test
-        battery_test sign_in_test uninstall_job_test wii_remote_layout_test
+        battery_test sign_in_test uninstall_job_test wii_remote_layout_test wii_slot_test
         PROPERTIES EXCLUDE_FROM_ALL TRUE)
     get_property(opensu_config_tests DIRECTORY config PROPERTY TESTS)
     set_property(TEST handoff process_launcher process_tree command DIRECTORY launch
@@ -64,7 +64,7 @@ if(WIN32)
         DIRECTORY steam PROPERTY DISABLED TRUE)
     set_property(TEST install_job settings_controller retro_session game_end downloads_controller
         update_job sign_in uninstall_job DIRECTORY app PROPERTY DISABLED TRUE)
-    set_property(TEST pad_translator pads wii_remote_layout DIRECTORY gamepad
+    set_property(TEST pad_translator pads wii_remote_layout wii_slot DIRECTORY gamepad
         PROPERTY DISABLED TRUE)
     set_property(TEST secret_store DIRECTORY secrets PROPERTY DISABLED TRUE)
     set_property(TEST retro_save_memory retro_runner DIRECTORY retro PROPERTY DISABLED TRUE)
@@ -74,11 +74,11 @@ endif()
 # its own launch backends in tests/launch's darwin test and reads pads through SDL.
 if(APPLE)
     set_target_properties(handoff_test process_launcher_test process_tree_test desktop_steam_test
-        steam_client_test pad_translator_test pads_test wii_remote_layout_test
+        steam_client_test pad_translator_test pads_test wii_remote_layout_test wii_slot_test
         PROPERTIES EXCLUDE_FROM_ALL TRUE)
     set_property(TEST handoff process_launcher process_tree DIRECTORY launch PROPERTY DISABLED TRUE)
     set_property(TEST desktop_steam steam_client DIRECTORY steam PROPERTY DISABLED TRUE)
-    set_property(TEST pad_translator pads wii_remote_layout DIRECTORY gamepad
+    set_property(TEST pad_translator pads wii_remote_layout wii_slot DIRECTORY gamepad
         PROPERTY DISABLED TRUE)
 endif()
 
