@@ -178,7 +178,12 @@ bool PeerBook::forget(std::string_view id, std::string& error) {
         secrets::wipeBytes(cached->second.data(), cached->second.size());
         known_.erase(cached);
     }
-    return secrets_.forget(secretName(id), error);
+    // A keyring that is not there cannot clear what was kept beside it; the peer is gone either
+    // way.
+    if (std::string kept; !secrets_.forget(secretName(id), kept)) {
+        lucent::warn("lan", "the secret of peer {} stays where it was kept: {}", id, kept);
+    }
+    return true;
 }
 
 bool PeerBook::write(const std::vector<Peer>& peers, std::string& error) const {

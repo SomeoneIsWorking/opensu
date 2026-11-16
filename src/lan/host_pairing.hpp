@@ -2,13 +2,15 @@
 // with a fresh X25519 key and nonce, at most one offer per `offerSpacing` until the player answers;
 // its reveal is checked against the commitment, and the code and secret follow (`pairing_keys`);
 // the player is asked with the code on screen, and the guest's polls get the verdict signed with
-// the secret. Accepted, the guest and its secret are handed to the book. A pairing the player has
-// not answered in `patience` lapses. Safe from any thread: the LAN listener's threads and the
-// shell's loop.
+// the secret. Accepted, the guest and its secret are handed to the book only when the guest's poll
+// collects the verdict, so a guest that gave up in the meantime is not kept on this side alone. A
+// pairing the player has not answered in `patience` lapses. Safe from any thread: the LAN
+// listener's threads and the shell's loop.
 #pragma once
 
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -60,8 +62,13 @@ class HostPairing {
         Verdict verdict{Verdict::Waiting};
         std::string signature;
     };
-    /// Nothing when `guestId` has no revealed pairing under way.
-    [[nodiscard]] std::optional<Status> status(std::string_view guestId, Clock::time_point now);
+    /// Keeps an accepted guest and its secret; false when it cannot.
+    using Keep = std::function<bool(const Peer& guest, const secrets::crypto::Bytes& secret)>;
+    /// Nothing when `guestId` has no revealed pairing under way. An accepted verdict is handed to
+    /// `keep` as the guest collects it, and becomes Declined when `keep` fails; once collected,
+    /// the pairing is over.
+    [[nodiscard]] std::optional<Status> status(std::string_view guestId, Clock::time_point now,
+                                               const Keep& keep);
 
     /// What the player is asked: whom to pair with, and the code both screens show.
     struct Question {
@@ -73,18 +80,9 @@ class HostPairing {
     /// The pairing waiting for the player, if one is.
     [[nodiscard]] std::optional<Question> question(Clock::time_point now) const;
 
-    /// What an accepted pairing leaves the book.
-    struct Accepted {
-        Peer guest;
-        secrets::crypto::Bytes secret;
-    };
-    /// What the book keeps if the player accepts the question about `guestId`; nothing when that
-    /// question is no longer asked.
-    [[nodiscard]] std::optional<Accepted> accepting(std::string_view guestId,
-                                                    Clock::time_point now) const;
-    /// The player's answer to the question about `guestId`, which its next poll is told; Accept
-    /// only once the book kept what `accepting` gave.
-    void decide(std::string_view guestId, Verdict verdict, Clock::time_point now);
+    /// The player's answer to the question about `guestId`, which its next poll is told; false
+    /// when that question is no longer asked.
+    [[nodiscard]] bool decide(std::string_view guestId, Verdict verdict, Clock::time_point now);
 
   private:
     struct Pending {

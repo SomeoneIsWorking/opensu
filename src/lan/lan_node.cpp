@@ -70,6 +70,10 @@ LanNode::LanNode(Setup setup)
                                          [this] {
                                              return name_;
                                          },
+                                     .paired =
+                                         [this](const Peer& /*peer*/) {
+                                             wake();
+                                         },
                                      .unpaired =
                                          [this](const Peer& /*peer*/) {
                                              wake();
@@ -141,23 +145,13 @@ std::vector<Sighting> LanNode::sightings() const {
 }
 
 bool LanNode::answer(const std::string& guestId, bool accept, std::string& error) {
-    const auto now = HostPairing::Clock::now();
-    if (!accept) {
-        pairing_.decide(guestId, Verdict::Declined, now);
-        return true;
-    }
-    std::optional<HostPairing::Accepted> accepted = pairing_.accepting(guestId, now);
-    if (!accepted) {
+    if (!pairing_.decide(guestId, accept ? Verdict::Accepted : Verdict::Declined,
+                         HostPairing::Clock::now()) &&
+        accept) {
         error = "the pairing lapsed; ask again from the other openSU";
         return false;
     }
-    const bool kept = book_.remember(accepted->guest, accepted->secret, error);
-    secrets::wipeBytes(accepted->secret.data(), accepted->secret.size());
-    pairing_.decide(guestId, kept ? Verdict::Accepted : Verdict::Declined, now);
-    if (kept) {
-        wake();
-    }
-    return kept;
+    return true;
 }
 
 bool LanNode::pair(const std::string& peerId, std::string& refusal) {
@@ -525,6 +519,9 @@ bool LanNode::forget(const std::string& peerId, std::string& error) {
         const std::lock_guard lock{mutex_};
         if (secret && peer != seen.end()) {
             notices_.push_back(Notice{Endpoint{peer->address, peer->port}, std::move(*secret)});
+        } else {
+            lucent::info("lan", "{} is not told it was removed: {}", peerId,
+                         secret ? "it is not on the LAN now" : "its secret cannot be read");
         }
         woken_ = true;
     }
@@ -700,7 +697,9 @@ void LanNode::tell(const std::stop_token& stop, const Notice& notice) const {
     const PeerClient client{web_, notice.endpoint, stop};
     const net::Result<net::WebClient::Answer> answer = client.call(
         "POST", "/lan/unpair", "{}", PeerClient::Signer{book_.id(), notice.secret}, largestNotice);
-    if (!answer.stopped() && (!answer || answer->status != ok)) {
+    if (answer && answer->status == ok) {
+        lucent::info("lan", "the unpaired openSU at {} was told", notice.endpoint.address);
+    } else if (!answer.stopped()) {
         lucent::info("lan", "the unpaired openSU at {} was not told: {}", notice.endpoint.address,
                      answer ? "HTTP " + std::to_string(answer->status) : answer.error());
     }

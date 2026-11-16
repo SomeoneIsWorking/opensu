@@ -88,11 +88,18 @@ bool HostPairing::reveal(std::string_view guestId, const secrets::crypto::Bytes&
 }
 
 std::optional<HostPairing::Status> HostPairing::status(std::string_view guestId,
-                                                       Clock::time_point now) {
+                                                       Clock::time_point now, const Keep& keep) {
     const std::lock_guard lock{mutex_};
     lapse(now);
     if (!pending_ || pending_->guest.id != guestId || !pending_->revealed) {
         return std::nullopt;
+    }
+    if (pending_->verdict == Verdict::Accepted) {
+        if (keep(pending_->guest, pending_->secret)) {
+            lucent::info("lan", "paired with {}", pending_->guest.name);
+        } else {
+            pending_->verdict = Verdict::Declined;
+        }
     }
     Status status{.verdict = pending_->verdict,
                   .signature = pairingVerdictSignature(pending_->secret, key(pending_->verdict),
@@ -114,26 +121,17 @@ std::optional<HostPairing::Question> HostPairing::question(Clock::time_point now
     return Question{pending_->guest, pending_->code};
 }
 
-std::optional<HostPairing::Accepted> HostPairing::accepting(std::string_view guestId,
-                                                            Clock::time_point now) const {
-    const std::lock_guard lock{mutex_};
-    if (!pending_ || pending_->guest.id != guestId || !pending_->revealed ||
-        pending_->verdict != Verdict::Waiting || now - pending_->started > patience) {
-        return std::nullopt;
-    }
-    return Accepted{pending_->guest, pending_->secret};
-}
-
-void HostPairing::decide(std::string_view guestId, Verdict verdict, Clock::time_point now) {
+bool HostPairing::decide(std::string_view guestId, Verdict verdict, Clock::time_point now) {
     const std::lock_guard lock{mutex_};
     lapse(now);
     if (!pending_ || pending_->guest.id != guestId || !pending_->revealed ||
         pending_->verdict != Verdict::Waiting) {
-        return;
+        return false;
     }
     pending_->verdict = verdict;
     nextOffer_.reset();
     lucent::info("lan", "pairing with {}: {}", pending_->guest.name, key(verdict));
+    return true;
 }
 
 } // namespace opensu::lan

@@ -359,7 +359,7 @@ void LanService::answerQuestion(bool accept) {
         hooks_.say("Cannot pair with " + guest.name + ": " + error, true);
         return;
     }
-    hooks_.say(accept ? "Paired with " + guest.name : "Declined " + guest.name, false);
+    hooks_.say((accept ? "Accepted " : "Declined ") + guest.name, false);
     hooks_.peersChanged();
 }
 

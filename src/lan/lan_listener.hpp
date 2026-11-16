@@ -67,6 +67,8 @@ class LanListener {
         CoverDesk& covers;
         /// The name this openSU goes by now.
         std::function<std::string()> name;
+        /// A guest collected its accepted pairing and is kept; called on the listener's thread.
+        std::function<void(const Peer&)> paired;
         /// A peer unpaired itself; called on the listener's thread.
         std::function<void(const Peer&)> unpaired;
         /// A peer asks to play `game`, which this one lists, here as `profile`: the one the peer

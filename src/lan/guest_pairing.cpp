@@ -77,6 +77,10 @@ void GuestPairing::run(const std::stop_token& stop) {
     }
     if (ended == Phase::Failed) {
         lucent::warn("lan", "pairing with {} failed: {}", host_.name, problem);
+    } else if (ended == Phase::Cancelled) {
+        lucent::info("lan", "pairing with {} cancelled", host_.name);
+    } else if (ended == Phase::Declined) {
+        lucent::info("lan", "{} declined pairing", host_.name);
     }
     enter(ended, std::move(problem));
 }

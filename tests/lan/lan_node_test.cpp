@@ -397,6 +397,19 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
     expect(stranger.node.paired().empty() && host.node.paired().empty(),
            "and neither side keeps the other");
 
+    std::string refusal;
+    expect(stranger.node.pair(host.node.id(), refusal) && waitFor([&stranger] {
+               const auto state = stranger.node.asking();
+               return state && state->phase == GuestPairing::Phase::Waiting;
+           }),
+           "another asks to pair");
+    stranger.node.endAsking();
+    std::string answerError;
+    expect(host.node.answer(stranger.node.id(), true, answerError),
+           "the host's player accepts after it gave up");
+    std::this_thread::sleep_for(std::chrono::milliseconds{2500});
+    expect(host.node.paired().empty(), "the host does not keep a guest that never heard it");
+
     expect(pairUp(guest, host, true) == GuestPairing::Phase::Paired, "an accepted pairing pairs");
     expect(host.node.paired().size() == 1 && host.node.paired().front().name == "Desk" &&
                guest.node.paired().size() == 1 && guest.node.paired().front().name == "Living room",
@@ -1020,6 +1033,22 @@ void romsComeOverInChunks(const fs::path& root) {
            "and arrives once the host is back");
 }
 
+/// A secret that cannot be cleared, as with no keyring to clear it from, does not keep a peer: it
+/// is forgotten all the same, so the other openSU is told.
+void aStuckSecretDoesNotKeepAPeer(const fs::path& root) {
+    const fs::path kept = root / "stuck" / "secrets";
+    lan::PeerBook book{root / "stuck" / "lan.json", secrets::SecretStore{kept, false}};
+    std::string error;
+    expect(book.remember(lan::Peer{"p", "Peer"},
+                         secrets::crypto::randomBytes(secrets::crypto::keyBytes), error),
+           "a peer is kept");
+    fs::permissions(kept, fs::perms::owner_write, fs::perm_options::remove);
+    const bool forgotten = book.forget("p", error);
+    fs::permissions(kept, fs::perms::owner_write, fs::perm_options::add);
+    expect(forgotten && !book.find("p") && !book.secretOf("p"),
+           "a peer whose secret cannot be cleared is still forgotten");
+}
+
 void signedRequestsAreCheckedOnce(const fs::path& root) {
     lan::PeerBook book{root / "signed" / "lan.json",
                        secrets::SecretStore{root / "signed" / "secrets", false}};
@@ -1061,6 +1090,7 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
                                                             [] {
                                                                 return std::string{"Host"};
                                                             },
+                                                        .paired = {},
                                                         .unpaired =
                                                             [](const lan::Peer&) {
                                                             },
@@ -1235,7 +1265,7 @@ void bothSidesDeriveOneSecret() {
                pairing.reveal("g", guest.publicKey(), nonce, later, refusal) &&
                pairing.question(later).has_value(),
            "asked again after it and revealed as committed, the player is asked");
-    pairing.decide("g", lan::Verdict::Declined, later);
+    expect(pairing.decide("g", lan::Verdict::Declined, later), "the player's answer is taken");
     expect(pairing
                .begin(lan::Peer{"x", "Other"}, lan::pairingCommitment(swapped.publicKey(), nonce),
                       later, refusal)
@@ -1243,6 +1273,31 @@ void bothSidesDeriveOneSecret() {
            "once the player answered, the next guest may ask at once");
     expect(!pairing.question(later + lan::patience + std::chrono::seconds{1}),
            "a pairing past its time lapses");
+
+    const auto acceptedBy = [&](const lan::HostPairing::Keep& keep) {
+        lan::HostPairing accepting{"h"};
+        expect(accepting
+                       .begin(lan::Peer{"g", "Guest"},
+                              lan::pairingCommitment(guest.publicKey(), nonce), at, refusal)
+                       .has_value() &&
+                   accepting.reveal("g", guest.publicKey(), nonce, at, refusal) &&
+                   accepting.decide("g", lan::Verdict::Accepted, at),
+               "the player accepts");
+        const std::optional<lan::HostPairing::Status> heard = accepting.status("g", at, keep);
+        expect(!accepting.status("g", at, keep), "once collected, the pairing is over");
+        return must(heard, "the guest's poll collects the verdict").verdict;
+    };
+    int kept = 0;
+    expect(acceptedBy([&kept](const lan::Peer& peer, const secrets::crypto::Bytes& /*secret*/) {
+               kept += peer.id == "g" ? 1 : 0;
+               return true;
+           }) == lan::Verdict::Accepted &&
+               kept == 1,
+           "an accepted guest is kept as its poll collects the verdict, and only once");
+    expect(acceptedBy([](const lan::Peer& /*peer*/, const secrets::crypto::Bytes& /*secret*/) {
+               return false;
+           }) == lan::Verdict::Declined,
+           "a guest the book cannot keep is told it was declined");
 }
 
 /// Two openSUs of one name announced and found through this system's own DNS-SD daemon, as the
@@ -1311,6 +1366,7 @@ int main(int argc, char** argv) try {
     }
     bothSidesDeriveOneSecret();
     signedRequestsAreCheckedOnce(scratch.path());
+    aStuckSecretDoesNotKeepAPeer(scratch.path());
     pairedNodesListEachOthersGames(scratch.path());
     anOfflineHostStaysListed(scratch.path());
     bundlesStayInTheirSlots();

@@ -65,7 +65,9 @@ class PeerBook {
     /// `error` when the secret or the file could not be kept; the book is then as it was.
     [[nodiscard]] bool remember(const Peer& peer, const secrets::crypto::Bytes& secret,
                                 std::string& error);
-    /// Forgets `id` and its secret. False with `error` when either could not be cleared.
+    /// Forgets `id`, and its secret where that can be cleared: one left behind is never read for a
+    /// peer not listed, and pairing again overwrites it. False with `error` when the list could not
+    /// be written.
     [[nodiscard]] bool forget(std::string_view id, std::string& error);
 
   private:

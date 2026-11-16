@@ -533,8 +533,19 @@ Response LanListener::pairStatus(const Request& request) {
     if (!poll) {
         return refused(badRequest, "Bad Request", "not a pairing poll");
     }
-    const std::optional<HostPairing::Status> status =
-        sources_.pairing.status(poll->id, HostPairing::Clock::now());
+    const std::optional<HostPairing::Status> status = sources_.pairing.status(
+        poll->id, HostPairing::Clock::now(),
+        [this](const Peer& guest, const secrets::crypto::Bytes& secret) {
+            std::string error;
+            if (!sources_.book.remember(guest, secret, error)) {
+                lucent::warn("lan", "{} cannot be kept as paired: {}", guest.name, error);
+                return false;
+            }
+            if (sources_.paired) {
+                sources_.paired(guest);
+            }
+            return true;
+        });
     if (!status) {
         return refused(notFound, "Not Found", "no pairing of that openSU is under way");
     }

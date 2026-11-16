@@ -119,6 +119,8 @@ def _pair(guest: HiddenShell, host: _Host, host_id: str) -> None:
     _walk(host, lambda f: f == "dialog/1", "Accept", "right", 4)
     host.press("a")
     host.wait_until(lambda state: state.get("screen") != "dialog", "the dialog closed", 10)
+    # The guest hears the answer on its next poll; leaving its pairing card before then cancels it.
+    guest.wait_until(lambda state: (state.get("lanPaired") or 0) > 0, "the guest paired", 15)
     _to_home(guest)
 
 
