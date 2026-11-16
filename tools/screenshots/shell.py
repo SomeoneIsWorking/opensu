@@ -92,6 +92,9 @@ class RealHome:
     def environment(self) -> dict[str, str]:
         return dict(os.environ)
 
+    def runtime(self) -> Path:
+        return Path(os.environ["XDG_RUNTIME_DIR"])
+
     def prepare(self) -> None:
         pass
 
@@ -147,6 +150,11 @@ class HiddenShell:
         request = urllib.request.Request(self._base + path, data=data)
         with urllib.request.urlopen(request, timeout=30) as response:
             return response.read()
+
+    @property
+    def url(self) -> str:
+        """Where the control channel listens, once started."""
+        return self._base
 
     def post(self, path: str, body: str) -> None:
         self._request(path, body)

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from tools.download import fetch_verified
-from tools.screenshots.shell import HiddenShell, Profile
+from tools.screenshots.shell import HiddenShell, Profile, RealHome
 
 
 @dataclass(frozen=True)
@@ -80,7 +80,7 @@ def shader_pack_installed(home: Profile) -> bool:
     return (home.home / ".local" / "share" / "opensu" / "shaders" / "slang.json").is_file()
 
 
-def runner_port(shell: HiddenShell, home: Profile) -> int:
+def runner_port(shell: HiddenShell, home: Profile | RealHome) -> int:
     """The port the running game's `opensu-retro` announced in the control file `shell` gave it."""
     runtime = home.runtime() / "opensu"
     for control in sorted(runtime.glob(f"retro-{shell.pid}-*.json")):
@@ -92,7 +92,7 @@ def runner_port(shell: HiddenShell, home: Profile) -> int:
     raise RuntimeError(f"no runner control file in {runtime}")
 
 
-def runner_frames(shell: HiddenShell, home: Profile) -> int:
+def runner_frames(shell: HiddenShell, home: Profile | RealHome) -> int:
     """How many frames the running game has run."""
     status = json.loads(shell.fetch(f"http://127.0.0.1:{runner_port(shell, home)}/status"))
     return int(status["frame"])

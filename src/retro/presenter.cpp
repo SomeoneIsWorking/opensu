@@ -558,8 +558,15 @@ Readback Presenter::readBack() {
     try {
         VkMemoryRequirements needs{};
         vkGetBufferMemoryRequirements(vk_, buffer, &needs);
-        memory = device_->allocate(needs, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        // Cached memory where the GPU has it: reading a full frame out of uncached memory takes
+        // longer than drawing one, which a record of every frame cannot afford.
+        constexpr VkMemoryPropertyFlags readable =
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+        try {
+            memory = device_->allocate(needs, readable | VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
+        } catch (const VulkanError&) {
+            memory = device_->allocate(needs, readable);
+        }
         check(vkBindBufferMemory(vk_, buffer, memory, 0), "vkBindBufferMemory");
         // Only a hidden presenter draws offscreen; the check above leaves one of the two.
         if (drawn) {

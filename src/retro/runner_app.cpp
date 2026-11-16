@@ -601,6 +601,7 @@ RunnerExit RunnerApp::run() {
                 return stoppedDrawing(control.get(), failure);
             }
             ++presents;
+            commands.recordShown();
             if (options_.framePngs && !holding &&
                 !writeFramePng(*presenter, *options_.framePngs / name)) {
                 return RunnerExit::PresenterFailed;

@@ -235,13 +235,14 @@ void theSwitchAppliesAChange(const fs::path& root) {
     config.home = dir / "home";
     config.dataDir = dir / "data";
     config.assetsDir = dir / "assets";
-    steam::Client client{steam::Client::Options{.home = config.home,
-                                                .executablePath = {},
-                                                .session = "opensu-integration-test",
-                                                .steamRoots = {},
-                                                .mayStart = false,
-                                                .devToolsPort = 1,
-                                                .containment = opensu::launch::chooseContainment()}};
+    steam::Client client{
+        steam::Client::Options{.home = config.home,
+                               .executablePath = {},
+                               .session = "opensu-integration-test",
+                               .steamRoots = {},
+                               .mayStart = false,
+                               .devToolsPort = 1,
+                               .containment = opensu::launch::chooseContainment()}};
     std::vector<library::CatalogStores> built;
     const auto catalogOf = [&built](const library::CatalogStores& stores) {
         built.push_back(stores);

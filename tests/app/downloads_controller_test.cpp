@@ -122,11 +122,12 @@ sleep 60
     steam::DevTools devTools{fakeSteam.port()};
     steam::DownloadControl steamControl{devTools};
     std::vector<steam::Download> queue;
-    steam::Client steamClient{steam::Client::Options{.home = root / "home",
-                                                     .executablePath = {},
-                                                     .session = "downloads-test",
-                                                     .steamRoots = {},
-                                                     .containment = opensu::launch::chooseContainment()}};
+    steam::Client steamClient{
+        steam::Client::Options{.home = root / "home",
+                               .executablePath = {},
+                               .session = "downloads-test",
+                               .steamRoots = {},
+                               .containment = opensu::launch::chooseContainment()}};
     app::Installs installs{steamClient, legendary.string(),
                            app::GogInstallJob::Options{.dataDir = root / "data"},
                            [](library::Source) {

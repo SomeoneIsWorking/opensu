@@ -70,6 +70,8 @@ void printHelp() {
         "  GET  /frame.png   the next frame, as PNG bytes\n"
         "  GET  /frame.rgba  the next frame, as raw RGBA bytes; its size in\n"
         "                    X-Opensu-Width and X-Opensu-Height\n"
+        "  POST /record      FPS PATH: every frame written raw to PATH at FPS\n"
+        "  POST /record/stop end the record and close PATH\n"
         "  POST /quit        close the shell\n",
         static_cast<int>(session.run.size()), session.run.data(),
         static_cast<int>(session.hidden.size()), session.hidden.data(),

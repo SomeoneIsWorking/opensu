@@ -46,6 +46,8 @@ class ControlBridge final : public ControlTarget {
     void injectPointer(PointerInjection pointer) override;
     void capRemoteLink(std::uint64_t bitsPerSecond) override;
     [[nodiscard]] bool captureFrame(FrameKind kind, FramePixels& frame) override;
+    [[nodiscard]] std::optional<RecordStarted> startRecord(RecordRequest request) override;
+    [[nodiscard]] std::optional<RecordTotals> stopRecord() override;
     void requestClose() override;
     /// Asks the loop to read the library again; `toast` is shown when it is not empty.
     void requestCatalogReload(std::string toast) override;
@@ -67,6 +69,15 @@ class ControlBridge final : public ControlTarget {
     void answerFrame(FramePixels frame);
     /// The loop ended: nobody waiting will get a frame.
     void abandonFrame();
+
+    /// A record asked for: one to begin, or the running one to end when `start` is empty.
+    struct RecordCall {
+        std::optional<RecordRequest> start;
+    };
+    /// The record call a caller waits on, or nothing.
+    [[nodiscard]] std::optional<RecordCall> recordWanted() const;
+    /// Answers it: what began, for a start, or what was written, for an end; nothing for refused.
+    void answerRecord(std::optional<RecordStarted> started, std::optional<RecordTotals> totals);
 
   private:
     std::atomic<bool> closeRequested_{false};
@@ -92,6 +103,13 @@ class ControlBridge final : public ControlTarget {
     std::condition_variable frameAnswered_;
     std::optional<FrameKind> framePending_;
     FramePixels frame_;
+
+    /// The record handshake, on `stateMutex_` beside the frame one.
+    [[nodiscard]] bool awaitRecord(std::unique_lock<std::mutex>& lock);
+    std::condition_variable recordAnswered_;
+    std::optional<RecordCall> recordPending_;
+    std::optional<RecordStarted> recordStarted_;
+    std::optional<RecordTotals> recordTotals_;
 };
 
 } // namespace opensu::app

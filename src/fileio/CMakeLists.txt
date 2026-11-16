@@ -1,5 +1,5 @@
-add_library(opensu_fileio STATIC atomic_write.cpp checked_bytes.cpp host_path.cpp read_whole.cpp
-    relative_path.cpp)
+add_library(opensu_fileio STATIC atomic_write.cpp checked_bytes.cpp frame_record.cpp host_path.cpp
+    read_whole.cpp relative_path.cpp)
 add_library(opensu::fileio ALIAS opensu_fileio)
 if(WIN32)
     target_sources(opensu_fileio PRIVATE instance_lock_win32.cpp owner_only_write_win32.cpp

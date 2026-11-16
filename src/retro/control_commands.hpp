@@ -5,7 +5,10 @@
 // which the game runs no more frames.
 #pragma once
 
+#include <memory>
 #include <string>
+
+#include "fileio/frame_record.hpp"
 
 #include "control_server.hpp"
 #include "core.hpp"
@@ -55,10 +58,18 @@ class ControlCommands {
         return held_;
     }
 
+    /// Hands the control channel's record the frame just shown, when one is due. Frame loop only,
+    /// after each present.
+    void recordShown();
+
   private:
     [[nodiscard]] ControlAnswer suspend();
 
+    [[nodiscard]] ControlAnswer startRecord(const ControlRequest& request);
+    [[nodiscard]] ControlAnswer stopRecord();
+
     Parts parts_;
+    std::unique_ptr<fileio::FrameRecord> record_;
     bool suspended_{false};
     bool held_{false};
     bool quitting_{false};

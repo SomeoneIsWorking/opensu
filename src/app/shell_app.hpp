@@ -37,6 +37,7 @@
 #include "downloads_controller.hpp"
 #include "emulator_downloads.hpp"
 #include "emulator_settings.hpp"
+#include "fileio/frame_record.hpp"
 #include "focus_follow.hpp"
 #include "frame_timing.hpp"
 #include "game_backdrop.hpp"
@@ -180,6 +181,10 @@ class ShellApp final {
     /// Main loop only.
     void publishSnapshot();
     void serviceControlRequests();
+    /// Begins or ends the control channel's record.
+    void serviceRecord();
+    /// Hands the record a frame when one is due. After the frame is presented.
+    void recordFrame();
     void serviceRequests();
 
     /// Asks every store to list again; the listings reach the shell as they arrive.
@@ -425,6 +430,8 @@ class ShellApp final {
     std::unique_ptr<ShellWindow> window_;
     /// What the control channel's threads and the loop hand each other.
     ControlBridge bridge_;
+    /// The control channel's record of every frame, while one runs.
+    std::unique_ptr<fileio::FrameRecord> record_;
     ui::Shell shell_;
     /// The remote game's picture the shell draws, on the window's device once it is open.
     std::unique_ptr<RemotePicture> remotePicture_;

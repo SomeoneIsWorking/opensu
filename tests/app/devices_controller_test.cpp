@@ -217,7 +217,7 @@ void wiiRemotesSayWhatWiiGamesPlay() {
     Rig rig;
     rig.openOn("controllers");
     expect(rig.controller.tabs()[1].rows.size() == 2, "no Wii Remote, no line for one");
-    rig.wiiRemotes = device::WiiRemotes{.dolphinBars = 1};
+    rig.wiiRemotes = device::WiiRemotes{.dolphinBars = 1, .barSlots = {}};
     rig.controller.refresh();
     expect(rig.row("wii.bar").label == "DolphinBar (Wii Remote mode)" &&
                rig.row("wii.bar").note == "Wii games play the remotes synced to it",
@@ -226,7 +226,7 @@ void wiiRemotesSayWhatWiiGamesPlay() {
     rig.controller.refresh();
     expect(rig.row("wii.bar").note.find("udev") != std::string::npos,
            "one Dolphin cannot open says what it needs");
-    rig.wiiRemotes = device::WiiRemotes{.otherModeBars = 1, .bluetoothRemotes = 2};
+    rig.wiiRemotes = device::WiiRemotes{.otherModeBars = 1, .bluetoothRemotes = 2, .barSlots = {}};
     rig.controller.refresh();
     expect(rig.row("wii.bar.mode").note.find("mode 4") != std::string::npos,
            "a DolphinBar in another mode is told to switch to mode 4");

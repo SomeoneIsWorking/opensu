@@ -16,6 +16,10 @@ not shipped in a release yet.
 | Steam | Normal, Managed, Isolated | Normal | Normal | no |
 | Epic (Legendary), GOG (gogdl) | yes, Windows builds under Wine | yes, native builds | yes, Mac builds | no |
 | Lua plugins | yes | yes | yes | yes |
+| LAN: pairing, shared games, ROMs and saves | yes | yes | yes | yes |
+| Remote play | host and guest | guest | guest | guest |
+| Netplay for the built-in runner, on the LAN or online | yes | yes | yes | yes |
+| Profiles, giveaways, SteamGridDB covers, interface themes | yes | yes | yes | yes |
 | Button mappings for other programs' pads (virtual pads) | yes | no | no | no |
 | Gamescope: nested and login session, FSR, frame generation, Alt+F4 | yes | no | no | no |
 | Power list, Bluetooth and brightness tabs | yes | no | no | no |

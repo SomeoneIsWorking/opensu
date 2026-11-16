@@ -417,6 +417,53 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
                                             "{\"cap\":" + std::to_string(bitsPerSecond) + "}");
     }
 
+    if (path == "/record") {
+        if (request.method != "POST") {
+            return refuse("POST only");
+        }
+        // `FPS PATH`: the shell's frames, raw RGBA, written to PATH (a named pipe a tool encodes
+        // from, or a file) at FPS a second.
+        const std::string_view body = trimmed(request.body);
+        const std::size_t space = body.find(' ');
+        int fps = 0;
+        const std::string_view digits = body.substr(0, space);
+        const auto [end, error] =
+            std::from_chars(digits.data(), digits.data() + digits.size(), fps);
+        const std::string_view file =
+            space == std::string_view::npos ? std::string_view{} : trimmed(body.substr(space + 1));
+        if (error != std::errc{} || end != digits.data() + digits.size() || fps < 1 || fps > 240 ||
+            file.empty()) {
+            return refuse(
+                "body must be FPS PATH: frames a second, 1 to 240, and the file to write");
+        }
+        const std::optional<RecordStarted> started =
+            target_.startRecord(RecordRequest{std::filesystem::path{std::string{file}}, fps});
+        if (!started) {
+            return lucent::http::Response::json(409, "Conflict",
+                                                "{\"error\":\"a record runs already, or no frame "
+                                                "could be drawn\"}");
+        }
+        return lucent::http::Response::json(
+            200, "OK",
+            "{\"width\":" + std::to_string(started->width) + ",\"height\":" +
+                std::to_string(started->height) + ",\"fps\":" + std::to_string(started->fps) +
+                ",\"startedMicros\":" + std::to_string(started->startedMicros) + "}");
+    }
+
+    if (path == "/record/stop") {
+        if (request.method != "POST") {
+            return refuse("POST only");
+        }
+        const std::optional<RecordTotals> totals = target_.stopRecord();
+        if (!totals) {
+            return lucent::http::Response::json(409, "Conflict", "{\"error\":\"no record runs\"}");
+        }
+        return lucent::http::Response::json(
+            200, "OK",
+            "{\"frames\":" + std::to_string(totals->frames) + ",\"repeated\":" +
+                std::to_string(totals->repeated) + ",\"error\":" + jsonString(totals->error) + "}");
+    }
+
     if (path == "/text") {
         if (request.method != "POST") {
             return refuse("POST only");

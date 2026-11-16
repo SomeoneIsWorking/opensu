@@ -31,15 +31,15 @@ nlohmann::json frameGenJson(const std::optional<FrameGenSettings>& settings) {
     if (!settings) {
         return nullptr;
     }
-    return nlohmann::json{{"mode", settings->mode == FrameGenMode::Fixed ? "fixed" : "adaptive"},
-                          {"generator",
-                           settings->generator == FrameGenGenerator::OpenSU ? "opensu" : "lossless"},
-                          {"performance", settings->performance},
-                          {"flow-scale", settings->flowScalePercent},
-                          {"ratio", settings->ratioThousandths},
-                          {"target", settings->targetThousandths},
-                          {"max", settings->maxGenerated},
-                          {"tolerance", settings->toleranceThousandths}};
+    return nlohmann::json{
+        {"mode", settings->mode == FrameGenMode::Fixed ? "fixed" : "adaptive"},
+        {"generator", settings->generator == FrameGenGenerator::OpenSU ? "opensu" : "lossless"},
+        {"performance", settings->performance},
+        {"flow-scale", settings->flowScalePercent},
+        {"ratio", settings->ratioThousandths},
+        {"target", settings->targetThousandths},
+        {"max", settings->maxGenerated},
+        {"tolerance", settings->toleranceThousandths}};
 }
 
 bool parseFrameGen(const nlohmann::json& found, std::optional<FrameGenSettings>& settings,
@@ -79,8 +79,8 @@ bool parseFrameGen(const nlohmann::json& found, std::optional<FrameGenSettings>&
     }
     settings = FrameGenSettings{
         .mode = *mode == "fixed" ? FrameGenMode::Fixed : FrameGenMode::Adaptive,
-        .generator = *generator == "opensu" ? FrameGenGenerator::OpenSU
-                                            : FrameGenGenerator::Lossless,
+        .generator =
+            *generator == "opensu" ? FrameGenGenerator::OpenSU : FrameGenGenerator::Lossless,
         .ratioThousandths = numbers[0],
         .targetThousandths = numbers[1],
         .maxGenerated = numbers[2],

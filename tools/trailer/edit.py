@@ -92,6 +92,58 @@ def card(lines: list[Line], length: float, fmt: Format, work: Path, out: Path) -
     return out
 
 
+def list_card(
+    title: str, columns: list[list[str]], length: float, fmt: Format, work: Path, out: Path
+) -> Path:
+    """`title` over columns of short lines, each line fading in after the one before it, a dot in
+    the accent colour before each."""
+    scale = fmt.height / 1080
+    size = round(40 * scale)
+    title_size = round(76 * scale)
+    gap = round(30 * scale)
+    rows = max(len(column) for column in columns)
+    total = title_size + gap * 2 + rows * size + (rows - 1) * gap
+    top = (fmt.height - total) // 2
+    title_file = _text(work, f"{out.stem}-title", title)
+    filters = [
+        f"drawtext=fontfile={FONT}:textfile={title_file}:fontsize={title_size}:fontcolor=white"
+        f":x=(w-text_w)/2:y={top}:alpha='min(1,t/0.5)'"
+    ]
+    first = top + title_size + gap * 2
+    width = fmt.width // len(columns)
+    left = round(130 * scale)
+    shown = 0
+    for row in range(rows):
+        for index, column in enumerate(columns):
+            if row >= len(column):
+                continue
+            start = 0.5 + shown * 0.25
+            shown += 1
+            fade = f"if(lt(t,{start:.2f}),0,min(1,(t-{start:.2f})/0.4))"
+            x = index * width + left
+            y = first + row * (size + gap)
+            dot = round(12 * scale)
+            filters.append(
+                f"drawbox=x={x}:y={y + (size - dot) // 2}:w={dot}:h={dot}:color={ACCENT}:t=fill"
+                f":enable='gte(t,{start:.2f})'"
+            )
+            text = _text(work, f"{out.stem}-{index}-{row}", column[row])
+            filters.append(
+                f"drawtext=fontfile={FONT}:textfile={text}:fontsize={size}:fontcolor=0xE6E8EB"
+                f":x={x + dot * 3}:y={y}:alpha='{fade}'"
+            )
+    _ffmpeg(
+        "-f",
+        "lavfi",
+        "-i",
+        f"color=c={GROUND}:s={fmt.width}x{fmt.height}:r={fmt.fps}:d={length}",
+        "-vf",
+        ",".join(filters),
+        *_encode_args(out),
+    )
+    return out
+
+
 def captioned(clip: Path, caption: str, longest: float, fmt: Format, work: Path, out: Path) -> Path:
     """The clip, sped up to `longest` seconds if it runs over, with its caption low and centred."""
     length = seconds(clip)

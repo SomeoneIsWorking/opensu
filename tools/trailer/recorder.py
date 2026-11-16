@@ -1,140 +1,131 @@
-"""Frames grabbed as fast as a source gives them, each with the time it was taken, and a clip
-made from them at a constant frame rate.
+"""Takes openSU records itself: `POST /record` on the shell's or the game runner's control channel
+writes every frame it draws, raw RGBA at a steady rate, into a named pipe that ffmpeg reads.
 
-A source gives raw RGBA (the shell's `/frame.rgba`, fast enough for motion) or PNG (the game
-runner's `/frame.png`). A take holds one or two sources per frame: the shell's frame alone, or the
-runner's frame with the shell's frame over it, as Gamescope composes them for the player.
+A take holds one or two streams: the shell alone, or the runner's game with the shell over it, as
+Gamescope composes them for the player. Both clocks are the machine's monotonic one, so the
+streams line up by the `startedMicros` each start answers with.
 """
 
+import json
+import os
 import subprocess
-import threading
-import time
-from collections.abc import Callable
-from dataclasses import dataclass, field
+import urllib.error
+import urllib.request
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from pathlib import Path
+
+# Lossless with an alpha channel, and quick enough to keep up at 1080p and 60 a second.
+CODEC = ["-c:v", "utvideo", "-pix_fmt", "gbrap"]
 
 
 @dataclass(frozen=True)
-class Picture:
-    data: bytes
-    # The size of raw RGBA; 0 for PNG, which carries its own.
-    width: int = 0
-    height: int = 0
+class Stream:
+    """One source's recording: a lossless file and when its first frame was drawn."""
 
-    @property
-    def raw(self) -> bool:
-        return self.width > 0
-
-
-Source = Callable[[], Picture]
-
-
-@dataclass
-class Take:
-    folder: Path
-    names: tuple[str, ...]
-    times: list[float] = field(default_factory=list)
-    # Each source's raw size, or None for PNG.
-    sizes: dict[str, tuple[int, int] | None] = field(default_factory=dict)
-
-    def frame(self, index: int, name: str) -> Path:
-        suffix = "png" if self.sizes.get(name) is None else "rgba"
-        return self.folder / f"{index:05d}-{name}.{suffix}"
+    path: Path
+    width: int
+    height: int
+    fps: int
+    started: float
+    frames: int
+    repeated: int
 
     @property
     def seconds(self) -> float:
-        return self.times[-1] - self.times[0] if len(self.times) > 1 else 0.0
+        return self.frames / self.fps
+
+
+def _call(base: str, path: str, body: str) -> dict[str, object]:
+    request = urllib.request.Request(base + path, data=body.encode())
+    try:
+        with urllib.request.urlopen(request, timeout=40) as response:
+            return json.loads(response.read())
+    except urllib.error.HTTPError as error:
+        raise RuntimeError(f"{base}{path}: {error.code} {error.read().decode()}") from error
+
+
+class _Running:
+    """A record started on `base`, ffmpeg reading its pipe into `out`."""
+
+    def __init__(self, base: str, folder: Path, name: str, fps: int) -> None:
+        self._base = base
+        self._pipe = folder / f"{name}.fifo"
+        self._pipe.unlink(missing_ok=True)
+        os.mkfifo(self._pipe)
+        self.out = folder / f"{name}.mkv"
+        # The start answers before openSU opens the pipe, so ffmpeg can follow with its size.
+        started = _call(base, "/record", f"{fps} {self._pipe.resolve()}")
+        self._started = started
+        size = f"{started['width']}x{started['height']}"
+        self._encoder = subprocess.Popen(
+            ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgba"]
+            + ["-s", size, "-r", str(fps), "-i", str(self._pipe), *CODEC, str(self.out)]
+        )
+
+    def stop(self) -> Stream:
+        totals = _call(self._base, "/record/stop", "")
+        code = self._encoder.wait(timeout=120)
+        self._pipe.unlink(missing_ok=True)
+        if totals.get("error"):
+            raise RuntimeError(f"{self._base} stopped recording early: {totals['error']}")
+        if code != 0:
+            raise RuntimeError(f"ffmpeg failed on {self.out} ({code})")
+        started = self._started
+        return Stream(
+            self.out,
+            int(started["width"]),
+            int(started["height"]),
+            int(started["fps"]),
+            int(started["startedMicros"]) / 1e6,
+            int(totals["frames"]),
+            int(totals["repeated"]),
+        )
 
 
 class Recorder:
-    """Grabs every source in turn on a thread of its own until stopped."""
+    """Records every source from entry to exit; `streams` holds them after."""
 
-    def __init__(self, sources: dict[str, Source], folder: Path) -> None:
+    def __init__(self, sources: Mapping[str, Callable[[], str]], folder: Path, fps: int) -> None:
         folder.mkdir(parents=True, exist_ok=True)
-        for old in [*folder.glob("*.png"), *folder.glob("*.rgba"), *folder.glob("*.raw")]:
-            old.unlink()
-        self.take = Take(folder, tuple(sources))
         self._sources = sources
-        self._stop = threading.Event()
-        self._thread = threading.Thread(target=self._run, daemon=True)
-        self._error: BaseException | None = None
-
-    def _run(self) -> None:
-        try:
-            while not self._stop.is_set():
-                taken = time.monotonic()
-                index = len(self.take.times)
-                for name, source in self._sources.items():
-                    picture = source()
-                    self.take.sizes[name] = (picture.width, picture.height) if picture.raw else None
-                    self.take.frame(index, name).write_bytes(picture.data)
-                self.take.times.append(taken)
-        except BaseException as error:  # noqa: BLE001 - raised again on the caller's thread
-            self._error = error
+        self._folder = folder
+        self._fps = fps
+        self._running: list[_Running] = []
+        self.streams: list[Stream] = []
 
     def __enter__(self) -> "Recorder":
-        self._thread.start()
+        try:
+            for name, base in self._sources.items():
+                self._running.append(_Running(base(), self._folder, name, self._fps))
+        except BaseException:
+            self.__exit__()
+            raise
         return self
 
     def __exit__(self, *_exc: object) -> None:
-        self._stop.set()
-        self._thread.join(timeout=30)
-        if self._error is not None:
-            raise RuntimeError(f"recording {self.take.folder} failed") from self._error
+        self.streams = [running.stop() for running in self._running]
+        self._running = []
 
 
-def _ticks(take: Take, fps: int) -> list[int]:
-    """For each frame of the clip, the newest grab taken by then."""
-    start = take.times[0]
-    chosen = []
-    newest = 0
-    for tick in range(max(1, round(take.seconds * fps))):
-        at = start + tick / fps
-        while newest + 1 < len(take.times) and take.times[newest + 1] <= at:
-            newest += 1
-        chosen.append(newest)
-    return chosen
-
-
-def _input(take: Take, name: str, ticks: list[int], fps: int) -> list[str]:
-    """ffmpeg input words for one source at a constant `fps`: raw frames joined into one file, or
-    a concat list of PNGs."""
-    size = take.sizes[name]
-    if size is not None:
-        joined = take.folder / f"{name}.raw"
-        with joined.open("wb") as out:
-            for index in ticks:
-                out.write(take.frame(index, name).read_bytes())
-        width, height = size
-        return ["-f", "rawvideo", "-pix_fmt", "rgba", "-s", f"{width}x{height}"] + [
-            "-r",
-            str(fps),
-            "-i",
-            str(joined),
-        ]
-    listing = take.folder / f"{name}.txt"
-    lines = []
-    for index in ticks:
-        lines += [f"file '{take.frame(index, name)}'", f"duration {1 / fps:.6f}"]
-    lines.append(f"file '{take.frame(ticks[-1], name)}'")
-    listing.write_text("\n".join(lines) + "\n")
-    return ["-f", "concat", "-safe", "0", "-i", str(listing)]
-
-
-def encode(take: Take, out: Path, width: int, height: int, fps: int) -> Path:
-    """The take as an H.264 clip at `fps`, each source fitted to `width` x `height` and the
-    second laid over the first."""
-    if not take.times:
-        raise RuntimeError(f"no frames in {take.folder}")
-    ticks = _ticks(take, fps)
+def encode(streams: list[Stream], out: Path, width: int, height: int, fps: int) -> float:
+    """The take as an H.264 clip at `fps`: the streams lined up from the latest start to the
+    earliest end, each fitted to `width` x `height`, the second laid over the first. Answers the
+    clip's length."""
+    if not streams:
+        raise RuntimeError(f"no streams for {out}")
+    begin = max(stream.started for stream in streams)
+    end = min(stream.started + stream.seconds for stream in streams)
+    if end <= begin:
+        raise RuntimeError(f"the streams for {out} never overlap")
+    inputs: list[str] = []
+    for stream in streams:
+        inputs += ["-ss", f"{begin - stream.started:.4f}", "-i", str(stream.path)]
     fit = (
         f"scale={width}:{height}:force_original_aspect_ratio=decrease:flags=lanczos,"
         f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1"
     )
-    inputs: list[str] = []
-    for name in take.names:
-        inputs += _input(take, name, ticks, fps)
-    if len(take.names) == 1:
+    if len(streams) == 1:
         graph = f"[0:v]{fit},fps={fps},format=yuv420p[v]"
     else:
         graph = (
@@ -142,11 +133,13 @@ def encode(take: Take, out: Path, width: int, height: int, fps: int) -> Path:
             f"[1:v]scale={width}:{height}:flags=lanczos,fps={fps},format=rgba[ui];"
             f"[game][ui]overlay=format=auto:shortest=1,format=yuv420p[v]"
         )
+    out.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(
         ["ffmpeg", "-y", "-loglevel", "error", *inputs, "-filter_complex", graph]
-        + ["-map", "[v]", "-c:v", "libx264", "-preset", "slow", "-crf", "14", str(out)],
+        + ["-map", "[v]", "-t", f"{end - begin:.4f}"]
+        + ["-c:v", "libx264", "-preset", "slow", "-crf", "14", str(out)],
         check=True,
     )
-    for joined in take.folder.glob("*.raw"):
-        joined.unlink()
-    return out
+    for stream in streams:
+        stream.path.unlink()
+    return end - begin

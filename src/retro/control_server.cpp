@@ -1,5 +1,7 @@
 #include "control_server.hpp"
 
+#include <algorithm>
+#include <charconv>
 #include <cmath>
 #include <optional>
 #include <system_error>
@@ -461,6 +463,33 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
         }
         ControlRequest command;
         command.command = path == "/frame.png" ? ControlCommand::Frame : ControlCommand::FrameRgba;
+        return run(std::move(command));
+    }
+    if (path == "/record" || path == "/record/stop") {
+        if (request.method != "POST") {
+            return text(405, "Method Not Allowed", "POST only");
+        }
+        ControlRequest command;
+        command.command = path == "/record" ? ControlCommand::Record : ControlCommand::RecordStop;
+        if (command.command == ControlCommand::Record) {
+            // `FPS PATH`, as the shell's /record takes it.
+            const std::string& body = request.body;
+            const std::size_t space = body.find(' ');
+            int fps = 0;
+            const auto [end, error] =
+                std::from_chars(body.data(), body.data() + std::min(space, body.size()), fps);
+            std::string file = space == std::string::npos ? std::string{} : body.substr(space + 1);
+            while (!file.empty() && (file.back() == '\n' || file.back() == ' ')) {
+                file.pop_back();
+            }
+            if (error != std::errc{} || end != body.data() + std::min(space, body.size()) ||
+                fps < 1 || fps > 240 || file.empty()) {
+                return text(400, "Bad Request",
+                            "body must be FPS PATH: frames a second, 1 to 240, and the file");
+            }
+            command.fps = fps;
+            command.path = std::move(file);
+        }
         return run(std::move(command));
     }
     if (path == "/options") {

@@ -71,6 +71,15 @@ class KeptSettings:
 DEFAULT_CONSOLE_THEME = "photos"
 
 
+def choose_interface_theme(theme: str) -> None:
+    """Sets the interface theme openSU shows (`interfaceTheme`) for the run; empty for the
+    default."""
+    target = SETTINGS / KEPT[0]
+    values = json.loads(target.read_text()) if target.exists() else {}
+    values["interfaceTheme"] = theme
+    target.write_text(json.dumps(values, indent=4))
+
+
 def choose_console_theme(theme: str) -> None:
     """Sets the console art theme openSU shows (`consoleTheme`) for the run."""
     target = SETTINGS / KEPT[0]

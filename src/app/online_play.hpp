@@ -2,8 +2,9 @@
 // a game says what the friend will see, then makes a code (`online::Meeting`), which the host may
 // also list publicly under a name it types (`online::PublicLobby`); Settings › Play online takes a
 // friend's code or a public game picked from the list (`online::LobbyFinder`) and, when the host
-// cannot be reached with that alone, shows a reply code to send back. What it finds it puts on `OnlineScreen`; once both sides agree the session
-// starts through `NetplayRun`, and this holds the router's port mapping until the game ends.
+// cannot be reached with that alone, shows a reply code to send back. What it finds it puts on
+// `OnlineScreen`; once both sides agree the session starts through `NetplayRun`, and this holds the
+// router's port mapping until the game ends.
 #pragma once
 
 #include <filesystem>

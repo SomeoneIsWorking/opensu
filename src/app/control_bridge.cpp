@@ -127,6 +127,54 @@ void ControlBridge::abandonFrame() {
     const std::lock_guard lock{stateMutex_};
     framePending_.reset();
     frameAnswered_.notify_all();
+    recordPending_.reset();
+    recordAnswered_.notify_all();
+}
+
+bool ControlBridge::awaitRecord(std::unique_lock<std::mutex>& lock) {
+    recordStarted_.reset();
+    recordTotals_.reset();
+    // Ending a record waits for its writer to empty its queue into the reader.
+    recordAnswered_.wait_for(lock, std::chrono::seconds{20}, [this] {
+        return !recordPending_;
+    });
+    if (recordPending_) {
+        recordPending_.reset();
+        return false;
+    }
+    return true;
+}
+
+std::optional<RecordStarted> ControlBridge::startRecord(RecordRequest request) {
+    std::unique_lock lock{stateMutex_};
+    if (recordPending_) {
+        return std::nullopt;
+    }
+    recordPending_ = RecordCall{std::move(request)};
+    return awaitRecord(lock) ? std::exchange(recordStarted_, std::nullopt) : std::nullopt;
+}
+
+std::optional<RecordTotals> ControlBridge::stopRecord() {
+    std::unique_lock lock{stateMutex_};
+    if (recordPending_) {
+        return std::nullopt;
+    }
+    recordPending_ = RecordCall{};
+    return awaitRecord(lock) ? std::exchange(recordTotals_, std::nullopt) : std::nullopt;
+}
+
+std::optional<ControlBridge::RecordCall> ControlBridge::recordWanted() const {
+    const std::lock_guard lock{stateMutex_};
+    return recordPending_;
+}
+
+void ControlBridge::answerRecord(std::optional<RecordStarted> started,
+                                 std::optional<RecordTotals> totals) {
+    const std::lock_guard lock{stateMutex_};
+    recordStarted_ = started;
+    recordTotals_ = std::move(totals);
+    recordPending_.reset();
+    recordAnswered_.notify_all();
 }
 
 } // namespace opensu::app

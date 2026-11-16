@@ -1437,6 +1437,7 @@ void ShellApp::serviceControlRequests() {
         handleEvents({event});
     }
 
+    serviceRecord();
     const std::optional<FrameKind> wanted = bridge_.frameWanted();
     if (!wanted) {
         return;
@@ -1446,6 +1447,55 @@ void ShellApp::serviceControlRequests() {
         return;
     }
     bridge_.answerFrame(FramePixels{.pixels = renderShell(*window_, shell_), .number = 0});
+}
+
+void ShellApp::serviceRecord() {
+    const std::optional<ControlBridge::RecordCall> call = bridge_.recordWanted();
+    if (!call) {
+        return;
+    }
+    using Clock = fileio::FrameRecord::Clock;
+    if (!call->start) {
+        if (!record_) {
+            bridge_.answerRecord(std::nullopt, std::nullopt);
+            return;
+        }
+        const fileio::FrameRecord::Totals totals = record_->finish(Clock::now());
+        record_.reset();
+        lucent::info("record", "ended: {} frames, {} repeated{}{}", totals.frames, totals.repeated,
+                     totals.error.empty() ? "" : "; ", totals.error);
+        bridge_.answerRecord(std::nullopt,
+                             RecordTotals{totals.frames, totals.repeated, totals.error});
+        return;
+    }
+    gpu2d::image::Bitmap first = renderShell(*window_, shell_);
+    if (record_ || first.empty()) {
+        bridge_.answerRecord(std::nullopt, std::nullopt);
+        return;
+    }
+    const Clock::time_point start = Clock::now();
+    const auto startedMicros = std::chrono::duration_cast<std::chrono::microseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+    record_ = std::make_unique<fileio::FrameRecord>(
+        call->start->path, call->start->fps,
+        fileio::FrameRecord::Size{.width = first.width, .height = first.height}, start);
+    record_->add(std::move(first.rgba), start);
+    lucent::info("record", "{}x{} at {} a second to {}", record_->width(), record_->height(),
+                 call->start->fps, call->start->path.string());
+    bridge_.answerRecord(
+        RecordStarted{record_->width(), record_->height(), call->start->fps, startedMicros},
+        std::nullopt);
+}
+
+void ShellApp::recordFrame() {
+    if (!record_) {
+        return;
+    }
+    const fileio::FrameRecord::Clock::time_point now = fileio::FrameRecord::Clock::now();
+    if (record_->due(now)) {
+        record_->add(renderShell(*window_, shell_).rgba, now);
+    }
 }
 
 void ShellApp::postPointer(const PointerInjection& injected) {
@@ -1744,6 +1794,7 @@ int ShellApp::run() {
             window_->present([this](ui::Canvas& canvas, const gpu2d::Surface& target) {
                 shell_.draw(canvas, target);
             });
+        recordFrame();
         if (const std::optional<std::uint32_t> shown = remotePicture_->takeFresh()) {
             remotePlay_.presented(*shown, stream::wire::microsOf(presented.submitted),
                                   presented.drawn);

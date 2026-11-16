@@ -45,6 +45,25 @@ void failureOutlivesTheChannel(const std::filesystem::path& dir) {
            "the file holds the failure");
 }
 
+void recordBodies(const std::filesystem::path& dir) {
+    ControlServer control{dir / "record.json", "Fake", "game.gba"};
+    const auto post = [&control](std::string target, std::string body) {
+        return control
+            .handle(lucent::http::Request{.method = "POST",
+                                          .target = std::move(target),
+                                          .headers = {},
+                                          .body = std::move(body)})
+            .status;
+    };
+    expect(post("/record", "fast /tmp/frames") == 400 && post("/record", "60") == 400 &&
+               post("/record", "0 /tmp/frames") == 400 && post("/record", "241 /tmp/frames") == 400,
+           "a record is FPS PATH, 1 to 240 frames a second");
+    expect(control.handle(lucent::http::Request{
+                              .method = "GET", .target = "/record", .headers = {}, .body = {}})
+                   .status == 405,
+           "a record is POST only");
+}
+
 void failureBeforeAnyChannel(const std::filesystem::path& dir) {
     const std::filesystem::path file = dir / "unloaded.json";
     ControlServer::reportFailure(file, "mGBA cannot load game.gba");
@@ -59,6 +78,7 @@ int main() try {
     announcedThenRemoved(scratch.path());
     failureOutlivesTheChannel(scratch.path());
     failureBeforeAnyChannel(scratch.path());
+    recordBodies(scratch.path());
     std::printf("control_server: all checks passed\n");
     return 0;
 } catch (...) {

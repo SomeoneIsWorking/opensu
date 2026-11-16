@@ -1,35 +1,32 @@
 """The trailer's shots: what each one records and the input played while it does.
 
-A shot starts and ends on Home with nothing open, as the screenshot scenes do, but for the game's
-shots, which run in order over one game. `reach` and `leave` are not recorded; `act` is, paced
-for a viewer rather than as fast as the shell takes input.
+Every shot runs on the player's own profile and games. A shot starts and ends on Home with nothing
+open, as the screenshot scenes do, but for the games' shots, which run in order over one game
+each. `reach` and `leave` are not recorded; `act` is, paced for a viewer rather than as fast as the
+shell takes input.
 """
 
 import time
-import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
 
 from tools.screenshots import retro
 from tools.screenshots.scenes import (
-    DOWNLOAD_TIMEOUT,
     _close_guide,
     _close_search,
     _close_settings,
     _details,
-    _downloaded,
+    _game_mapping,
     _guide,
     _guide_row,
     _into_console,
     _leave_console_shelf,
     _library,
     _nothing,
-    _runner_past,
     _settings,
     _walk_to,
 )
-from tools.screenshots.shell import HiddenShell, Profile
-from tools.trailer.recorder import Picture, Source
+from tools.screenshots.shell import HiddenShell, RealHome
 
 Action = Callable[[HiddenShell], None]
 # A press a viewer can follow: the focus ring's move and a beat on the new tile.
@@ -37,23 +34,29 @@ STEP = 0.55
 CUPHEAD = "steam:268910"
 
 
+# A source names the control channel that records it, looked up when the take starts.
+Source = Callable[[], str]
+Sources = Callable[[HiddenShell], dict[str, Source]]
+
+
 def _shell(shell: HiddenShell) -> Source:
-    def grab() -> Picture:
-        width, height, data = shell.frame_rgba()
-        return Picture(data, width, height)
-
-    return grab
+    return lambda: shell.url
 
 
-def _game(shell: HiddenShell, home: Profile) -> Source:
-    def grab() -> Picture:
-        port = retro.runner_port(shell, home)
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}/frame.rgba", timeout=30) as response:
-            width = int(response.headers["X-Opensu-Width"])
-            height = int(response.headers["X-Opensu-Height"])
-            return Picture(response.read(), width, height)
+def _game(shell: HiddenShell) -> Source:
+    return lambda: f"http://127.0.0.1:{retro.runner_port(shell, RealHome())}"
 
-    return grab
+
+def _only_shell(shell: HiddenShell) -> dict[str, Source]:
+    return {"shell": _shell(shell)}
+
+
+def _game_alone(shell: HiddenShell) -> dict[str, Source]:
+    return {"game": _game(shell)}
+
+
+def _game_and_shell(shell: HiddenShell) -> dict[str, Source]:
+    return {"game": _game(shell), "ui": _shell(shell)}
 
 
 @dataclass(frozen=True)
@@ -65,7 +68,7 @@ class Shot:
     leave: Action = _nothing
     # Longer takes are sped up to fit.
     longest: float = 7.0
-    sources: Callable[[HiddenShell], dict[str, Source]] = lambda shell: {"shell": _shell(shell)}
+    sources: Sources = _only_shell
 
 
 def _hold(seconds: float) -> Action:
@@ -189,74 +192,156 @@ def home_shots() -> tuple[Shot, ...]:
     )
 
 
-def _runner(home: Profile) -> Callable[[HiddenShell], dict[str, Source]]:
-    return lambda shell: {"game": _game(shell, home)}
+class _Game:
+    """A ROM of the player's, started from its console's shelf on its built-in core."""
 
+    def __init__(self, system: str, file: str, frames: int) -> None:
+        self.system = system
+        self.file = file
+        # Frames run before the shot, past the core's boot to something worth showing.
+        self.frames = frames
 
-def _runner_and_shell(home: Profile) -> Callable[[HiddenShell], dict[str, Source]]:
-    return lambda shell: {"game": _game(shell, home), "ui": _shell(shell)}
+    def focus(self, shell: HiddenShell) -> None:
+        """The console's shelf, the game focused."""
+        _into_console(shell, self.system)
+        _walk_to(shell, lambda focused: focused.endswith("/" + self.file), self.file, 400)
 
-
-def game_shots(home: Profile) -> tuple[Shot, ...]:
-    """The homebrew game on its built-in core with the console's CRT shader, then the Guide menu
-    and the layered settings over it."""
-
-    def start_game(shell: HiddenShell) -> None:
-        _into_console(shell, retro.SYSTEM)
+    def start(self, shell: HiddenShell) -> None:
+        self.focus(shell)
         _details(shell)
-        # A missing core is downloaded from the details page, as a player does.
-        shell.press("down")
-        if shell.state().get("screenFocus") == "details.download":
-            shell.press("a")
-            shell.wait_until(
-                _downloaded(retro.CORE_DOWNLOAD), "the core downloaded", DOWNLOAD_TIMEOUT
-            )
-        shell.press("up")
+        for _ in range(6):
+            if shell.state().get("screenFocus") == "details.launch":
+                break
+            shell.press("up")
         shell.wait_for("screenFocus", "details.launch")
         shell.press("a")
-        shell.wait_for("inGame", True)
-        shell.wait_until(lambda _state: _runner_past(shell, home), "the title screen", 60.0)
+        shell.wait_for("inGame", True, timeout=30)
+        shell.wait_until(lambda _state: self._past(shell), f"{self.file} running", 120)
 
-    def game_settings(shell: HiddenShell) -> None:
-        _guide_row(shell, "down", "guide.gameSettings")
-        shell.press("a", settle=1.0)
-        shell.wait_for("screen", "layered")
-        for _ in range(12):
-            if shell.state().get("screenFocus") == "row/video.shader":
-                break
-            shell.press("down", settle=0.45)
-        time.sleep(1.5)
+    def _past(self, shell: HiddenShell) -> bool:
+        try:
+            return retro.runner_frames(shell, RealHome()) >= self.frames
+        except (OSError, RuntimeError):
+            # The runner announces its port a moment after the shell says the game runs.
+            return False
 
-    def close_game(shell: HiddenShell) -> None:
-        shell.press("b")
-        shell.wait_for("screen", "guide")
+    @staticmethod
+    def close(shell: HiddenShell) -> None:
+        """The Guide's Close game, then out of the console's shelf to Home."""
+        if not shell.state().get("guideMenuOpen"):
+            _guide(shell)
         _guide_row(shell, "up", "guide.closeGame")
         shell.press("a", "a")
         shell.wait_for("inGame", False)
-        _leave_console_shelf(shell)
+        _back_home(shell)
 
+
+METAL_SLUG = _Game("arcade", "mslug3.zip", 900)
+OCARINA = _Game("n64", "Legend of Zelda, The - Ocarina of Time (USA).z64", 1500)
+
+
+def _layered(shell: HiddenShell) -> None:
+    _guide_row(shell, "down", "guide.gameSettings")
+    shell.press("a", settle=1.0)
+    shell.wait_for("screen", "layered")
+    time.sleep(0.8)
+    for _ in range(5):
+        shell.press("down", settle=0.6)
+    time.sleep(1.0)
+
+
+def _close_layered_game(shell: HiddenShell) -> None:
+    shell.press("b")
+    shell.wait_for("screen", "guide")
+    _Game.close(shell)
+
+
+def _to_mapping(shell: HiddenShell) -> None:
+    """Ocarina of Time's details, Game settings, Controls: its button board, A focused."""
+    OCARINA.focus(shell)
+    _game_mapping(shell)
+
+
+def _mapping(shell: HiddenShell) -> None:
+    """Along the board's buttons, then A's outputs up beside its chip."""
+    time.sleep(1.0)
+    for button in ("right", "right", "up", "left", "down"):
+        shell.press(button, settle=0.6)
+    shell.press("a", settle=1.6)
+    shell.press("b", settle=0.6)
+
+
+def _back_home(shell: HiddenShell) -> None:
+    """Out of whatever is open (a mapping board, Game settings, details, a shelf) to Home."""
+    for _ in range(8):
+        state = shell.state()
+        if (
+            state.get("shelf") == "home"
+            and not state.get("detailsOpen")
+            and not state.get("screen")
+        ):
+            return
+        if state.get("shelf") not in ("home", "library") and not state.get("detailsOpen"):
+            _leave_console_shelf(shell)
+            return
+        shell.press("b", settle=0.5)
+    raise RuntimeError(f"never back on Home: {shell.state()}")
+
+
+def game_shots() -> tuple[Shot, ...]:
+    """Metal Slug 3 and Ocarina of Time on their built-in cores, with the Guide, the layered
+    settings and the button mapping over them."""
     return (
         Shot(
-            "game",
-            "ROMs on built-in libretro cores, with CRT shaders",
-            _hold(5.0),
-            reach=start_game,
-            longest=5.0,
-            sources=_runner(home),
+            "arcade",
+            "Arcade and console games on built-in libretro cores",
+            _hold(6.0),
+            reach=METAL_SLUG.start,
+            longest=6.0,
+            sources=_game_alone,
         ),
         Shot(
             "guide-game",
             "Save states and settings without leaving the game",
             _then(_guide, _hold(0.8), _steps("down", "down", "down"), _hold(0.8)),
+            leave=_Game.close,
             longest=5.0,
-            sources=_runner_and_shell(home),
+            sources=_game_and_shell,
+        ),
+        Shot(
+            "n64",
+            "From the arcade to the N64",
+            _hold(6.0),
+            reach=OCARINA.start,
+            longest=6.0,
+            sources=_game_alone,
         ),
         Shot(
             "layered",
             "Settings per console, core or game",
-            game_settings,
-            leave=close_game,
+            _then(_guide, _layered),
+            leave=_close_layered_game,
             longest=6.0,
-            sources=_runner_and_shell(home),
+            sources=_game_and_shell,
+        ),
+        Shot(
+            "mapping",
+            "Remap any button, for one game or all of them",
+            _mapping,
+            reach=_to_mapping,
+            leave=_back_home,
+            longest=6.0,
+        ),
+    )
+
+
+def theme_shots() -> tuple[Shot, ...]:
+    """Home again in the Channels interface theme."""
+    return (
+        Shot(
+            "channels",
+            "Interface themes: this is Channels",
+            _then(_hold(1.0), _steps(*["right"] * 6), _hold(0.8)),
+            longest=6.0,
         ),
     )

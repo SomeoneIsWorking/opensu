@@ -37,6 +37,10 @@ enum class ControlCommand : std::uint8_t {
     Frame,
     /// The last image shown, as raw RGBA: for recordings, which PNG's compression would slow.
     FrameRgba,
+    /// Every frame shown from now on written raw to `ControlRequest::path` at `fps`.
+    Record,
+    /// The record ended and its file closed.
+    RecordStop,
     Options,
     Option,
     /// Save and close: the resume state taken and the save RAM written; the game runs no more
@@ -57,6 +61,9 @@ struct ControlRequest {
     settings::VideoSettings video;
     std::string key;
     std::string value;
+    /// `Record`'s file and frames a second.
+    std::string path;
+    int fps{60};
 };
 
 /// What a command came to: an HTTP status and, unless it is 200, the reason.

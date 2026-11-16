@@ -36,8 +36,7 @@ class CompositorSession {
     /// `restarts` bounds how often a crashed Gamescope is started again.
     CompositorSession(std::string session, std::filesystem::path gamescope,
                       std::filesystem::path logDir, launch::Containment containment,
-                      host::DesktopRequest desktopRequest,
-                      RestartLimit restarts = {});
+                      host::DesktopRequest desktopRequest, RestartLimit restarts = {});
 
     /// Runs `<this executable> <args>` in a Gamescope sized to `output` (top level when it is
     /// native), in the scope `<session>-compositor.scope`, with the Gamescope WSI layer off

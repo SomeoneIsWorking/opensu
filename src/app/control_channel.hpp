@@ -185,6 +185,30 @@ struct PointerInjection {
     bool operator==(const PointerInjection&) const = default;
 };
 
+/// What `POST /record` asks for: the shell's frames written raw to `path` at `fps`.
+struct RecordRequest {
+    std::filesystem::path path;
+    int fps{60};
+};
+
+/// A record begun: the size of its RGBA frames, their rate, and when the first one was due on the
+/// system clock, in microseconds since the epoch, so records made side by side can be lined up.
+struct RecordStarted {
+    int width{};
+    int height{};
+    int fps{};
+    std::int64_t startedMicros{};
+};
+
+/// What a record wrote once it ended.
+struct RecordTotals {
+    std::uint64_t frames{};
+    /// Ticks that repeated the frame before because none was drawn in time.
+    std::uint64_t repeated{};
+    /// Why writing stopped early, if it did.
+    std::string error;
+};
+
 /// The longest `POST /input` may hold a button, so no injected button stays down for good.
 inline constexpr std::chrono::milliseconds longestHold{10000};
 
@@ -223,6 +247,14 @@ class ControlTarget {
     /// The next frame of `kind`'s pixels, which the caller encodes off the main loop. Blocks
     /// until the main loop has drawn or read it, or fails if it cannot.
     [[nodiscard]] virtual bool captureFrame(FrameKind kind, FramePixels& frame) = 0;
+
+    /// Starts writing every frame the shell draws to `request.path` as raw RGBA, one per tick of
+    /// `request.fps` and the last repeated for a tick with none; nothing when a record runs
+    /// already or no frame can be drawn. Blocks until the main loop has begun it.
+    [[nodiscard]] virtual std::optional<RecordStarted> startRecord(RecordRequest request) = 0;
+
+    /// Ends the record, its file closed: what it wrote, or nothing when none ran.
+    [[nodiscard]] virtual std::optional<RecordTotals> stopRecord() = 0;
 
     /// Asks the main loop to shut down cleanly.
     virtual void requestClose() = 0;

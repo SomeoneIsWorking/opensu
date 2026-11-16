@@ -17,6 +17,12 @@ ROMs play on its built-in libretro runner or the standalone emulators you have.
   cores with on-screen controls; installed emulator apps started with the game.
 - **macOS** (coming): an Apple silicon app with the Windows feature set and stores' Mac builds.
 
+On every platform: other openSUs on your LAN, paired once, share their games, ROMs and saves;
+remote play streams a game from a Linux openSU, which hosts it, to any other; the built-in runner's
+games play together over netplay, on the LAN or online with a code or a public room; player
+profiles keep saves of their own; Library lists free-to-keep giveaways from Epic, GOG and Steam;
+covers come from SteamGridDB; and interface themes, console art and sounds change the look.
+
 Everything but the ROM library and the built-in runner is opt-in: Steam, Epic, GOG, standalone
 emulators and plugins stay off until you turn them on. The full table is in
 [docs/guide/install.md](docs/guide/install.md#what-each-platform-gets).

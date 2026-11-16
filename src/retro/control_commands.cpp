@@ -85,6 +85,65 @@ std::string framePng(Presenter& presenter, std::string& error) {
     return gpu2d::image::encodePng(frame.rgba, frame.width, frame.height, error);
 }
 
+ControlAnswer ControlCommands::startRecord(const ControlRequest& request) {
+    if (record_) {
+        return {409, "a record runs already"};
+    }
+    std::string error;
+    Readback first = lastFrame(parts_.presenter, error);
+    if (first.rgba.empty()) {
+        return {500, error};
+    }
+    using Clock = fileio::FrameRecord::Clock;
+    const Clock::time_point start = Clock::now();
+    const auto startedMicros = std::chrono::duration_cast<std::chrono::microseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+    record_ = std::make_unique<fileio::FrameRecord>(
+        request.path, request.fps,
+        fileio::FrameRecord::Size{.width = static_cast<int>(first.width),
+                                  .height = static_cast<int>(first.height)},
+        start);
+    record_->add(std::move(first.rgba), start);
+    lucent::info("retro", "recording {}x{} at {} a second to {}", first.width, first.height,
+                 request.fps, request.path);
+    ControlAnswer answer;
+    answer.json = nlohmann::json{{"width", first.width},
+                                 {"height", first.height},
+                                 {"fps", request.fps},
+                                 {"startedMicros", startedMicros}}
+                      .dump();
+    return answer;
+}
+
+ControlAnswer ControlCommands::stopRecord() {
+    if (!record_) {
+        return {409, "no record runs"};
+    }
+    const fileio::FrameRecord::Totals totals = record_->finish(fileio::FrameRecord::Clock::now());
+    record_.reset();
+    lucent::info("retro", "record ended: {} frames, {} repeated", totals.frames, totals.repeated);
+    ControlAnswer answer;
+    answer.json = nlohmann::json{{"frames", totals.frames},
+                                 {"repeated", totals.repeated},
+                                 {"error", totals.error}}
+                      .dump();
+    return answer;
+}
+
+void ControlCommands::recordShown() {
+    if (!record_) {
+        return;
+    }
+    const fileio::FrameRecord::Clock::time_point now = fileio::FrameRecord::Clock::now();
+    if (!record_->due(now)) {
+        return;
+    }
+    std::string error;
+    Readback frame = lastFrame(parts_.presenter, error);
+    record_->add(std::move(frame.rgba), now);
+}
+
 ControlAnswer ControlCommands::suspend() {
     // The state first: a sync reading between the two finds the old save and leaves the state out.
     ControlAnswer answer = answerOf(parts_.resume.suspend(parts_.core));
@@ -152,6 +211,12 @@ ControlAnswer ControlCommands::perform(const ControlRequest& request) {
         }
         break;
     }
+    case ControlCommand::Record:
+        answer = startRecord(request);
+        break;
+    case ControlCommand::RecordStop:
+        answer = stopRecord();
+        break;
     case ControlCommand::FrameRgba: {
         std::string error;
         const Readback frame = lastFrame(parts_.presenter, error);

@@ -23,6 +23,9 @@ using opensu::app::ControlTarget;
 using opensu::app::FrameKind;
 using opensu::app::FramePixels;
 using opensu::app::PointerInjection;
+using opensu::app::RecordRequest;
+using opensu::app::RecordStarted;
+using opensu::app::RecordTotals;
 using opensu::app::ShellSnapshot;
 using opensu::app::SignInResult;
 using opensu::app::SignInService;
@@ -70,6 +73,21 @@ class FakeShell final : public ControlTarget {
     [[nodiscard]] bool captureFrame(FrameKind /*kind*/, FramePixels& /*frame*/) override {
         return false;
     }
+    [[nodiscard]] std::optional<RecordStarted> startRecord(RecordRequest request) override {
+        records.push_back(std::move(request));
+        if (recording) {
+            return std::nullopt;
+        }
+        recording = true;
+        return RecordStarted{1920, 1080, records.back().fps, 7};
+    }
+    [[nodiscard]] std::optional<RecordTotals> stopRecord() override {
+        if (!recording) {
+            return std::nullopt;
+        }
+        recording = false;
+        return RecordTotals{120, 3, ""};
+    }
     void requestClose() override {
     }
     void requestCatalogReload(std::string toast) override {
@@ -82,6 +100,8 @@ class FakeShell final : public ControlTarget {
     std::vector<opensu::input::Combo> keys;
     std::vector<PointerInjection> pointers;
     std::vector<std::uint64_t> linkCaps;
+    std::vector<RecordRequest> records;
+    bool recording{false};
     std::vector<opensu::gamepad::Button> pressed;
     std::vector<std::vector<opensu::gamepad::Button>> held;
     std::vector<opensu::input::Device> devices;
@@ -407,6 +427,25 @@ void testPointer() {
            "a remote link cap is bits a second");
     expect(shell.linkCaps == std::vector<std::uint64_t>{60000000, 0},
            "each cap reaches the shell, a refused one none");
+
+    expect(channel.handle(post("/record", "fast /tmp/x")).status == 400 &&
+               channel.handle(post("/record", "60")).status == 400 &&
+               channel.handle(post("/record", "0 /tmp/x")).status == 400 && shell.records.empty(),
+           "a record is FPS PATH, 1 to 240 frames a second");
+    const Response started = channel.handle(post("/record", "60 /run/user/1/shell.fifo\n"));
+    expect(started.status == 200 && contains(started.body, "\"width\":1920") &&
+               contains(started.body, "\"fps\":60") &&
+               contains(started.body, "\"startedMicros\":7"),
+           "a record begun says its frame size, rate and start");
+    expect(shell.records.size() == 1 && shell.records[0].path == "/run/user/1/shell.fifo",
+           "the path reaches the shell");
+    expect(channel.handle(post("/record", "30 /tmp/other")).status == 409,
+           "a second record while one runs is refused");
+    const Response stopped = channel.handle(post("/record/stop"));
+    expect(stopped.status == 200 && contains(stopped.body, "\"frames\":120") &&
+               contains(stopped.body, "\"repeated\":3"),
+           "an ended record says what it wrote");
+    expect(channel.handle(post("/record/stop")).status == 409, "ending none is refused");
 
     shell.state.screen = "dialog";
     shell.state.screenFocus = "dialog/1";

@@ -106,13 +106,14 @@ void PublicLobby::run(const std::stop_token& stop, const LobbyPlaces& places,
         std::string error;
         if (!host.keep_listed(error)) {
             lucent::log(lucent::Level::Warn, "online", "the public game is not listed: " + error);
-            show({.listed = false, .seated = false, .problem = "Could not list the game: " + error});
+            show(
+                {.listed = false, .seated = false, .problem = "Could not list the game: " + error});
         } else {
             show({.listed = true, .seated = false, .problem = {}});
         }
         const std::optional<std::vector<lucent::p2p::LobbyHost::Asker>> asks = host.asks(error);
-        for (const lucent::p2p::LobbyHost::Asker& asker : asks.value_or(
-                 std::vector<lucent::p2p::LobbyHost::Asker>{})) {
+        for (const lucent::p2p::LobbyHost::Asker& asker :
+             asks.value_or(std::vector<lucent::p2p::LobbyHost::Asker>{})) {
             // The code works once: the first asker gets it, the rest hear the game is full.
             if (host.answer(asker, seated ? std::nullopt : std::optional<std::string>{invite},
                             error) &&
@@ -127,8 +128,8 @@ void PublicLobby::run(const std::stop_token& stop, const LobbyPlaces& places,
     }
     std::string error;
     if (!host.withdraw(error)) {
-        lucent::log(lucent::Level::Warn, "online", "the public game stays listed until it lapses: " +
-                                                       error);
+        lucent::log(lucent::Level::Warn, "online",
+                    "the public game stays listed until it lapses: " + error);
     }
     show({.listed = false, .seated = seated, .problem = {}});
 }
