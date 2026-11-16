@@ -163,6 +163,13 @@ class HiddenShell:
     def frame(self) -> bytes:
         return self._request("/frame.png", None)
 
+    def frame_rgba(self) -> tuple[int, int, bytes]:
+        """The next frame unencoded, as its width, height and RGBA bytes."""
+        with urllib.request.urlopen(self._base + "/frame.rgba", timeout=30) as response:
+            width = int(response.headers["X-Opensu-Width"])
+            height = int(response.headers["X-Opensu-Height"])
+            return width, height, response.read()
+
     def fetch(self, url: str) -> bytes:
         """Another loopback channel's answer, such as the running game's runner."""
         with urllib.request.urlopen(url, timeout=30) as response:

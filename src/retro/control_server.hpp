@@ -35,6 +35,8 @@ enum class ControlCommand : std::uint8_t {
     Turn,
     /// The last image shown, as PNG.
     Frame,
+    /// The last image shown, as raw RGBA: for recordings, which PNG's compression would slow.
+    FrameRgba,
     Options,
     Option,
     /// Save and close: the resume state taken and the save RAM written; the game runs no more
@@ -65,6 +67,10 @@ struct ControlAnswer {
     bool hasState{};
     /// `Frame`'s image.
     std::string png{};
+    /// `FrameRgba`'s image and its size.
+    std::string rgba{};
+    std::uint32_t width{};
+    std::uint32_t height{};
     std::string json{};
 };
 

@@ -436,15 +436,24 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
         return lucent::http::Response::json(200, "OK", "{\"clipboard\":true}");
     }
 
-    if (path == "/frame.png" || path == "/remote/frame.png") {
+    if (path == "/frame.png" || path == "/remote/frame.png" || path == "/frame.rgba") {
         if (request.method != "GET") {
             return refuse("GET only");
         }
-        const FrameKind kind = path == "/frame.png" ? FrameKind::Shell : FrameKind::Remote;
+        const FrameKind kind = path == "/remote/frame.png" ? FrameKind::Remote : FrameKind::Shell;
         FramePixels frame;
         if (!target_.captureFrame(kind, frame)) {
             return serverError(kind == FrameKind::Shell ? "could not render a frame"
                                                         : "no remote play picture");
+        }
+        if (path == "/frame.rgba") {
+            // Unencoded, for a recording that grabs frames faster than PNG compresses them.
+            lucent::http::Response response = lucent::http::Response::binary(
+                200, "OK", "application/octet-stream",
+                std::string(frame.pixels.rgba.begin(), frame.pixels.rgba.end()));
+            response.headers.push_back({"X-Opensu-Width", std::to_string(frame.pixels.width)});
+            response.headers.push_back({"X-Opensu-Height", std::to_string(frame.pixels.height)});
+            return response;
         }
         // On the server's thread, so the loop does not wait for the encode.
         std::string error;

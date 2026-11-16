@@ -362,6 +362,13 @@ lucent::http::Response ControlServer::run(ControlRequest request) {
     if (answer.status == 200 && !answer.png.empty()) {
         return lucent::http::Response::binary(200, "OK", "image/png", answer.png);
     }
+    if (answer.status == 200 && !answer.rgba.empty()) {
+        lucent::http::Response response =
+            lucent::http::Response::binary(200, "OK", "application/octet-stream", answer.rgba);
+        response.headers.push_back({"X-Opensu-Width", std::to_string(answer.width)});
+        response.headers.push_back({"X-Opensu-Height", std::to_string(answer.height)});
+        return response;
+    }
     if (answer.status == 200 && !answer.json.empty()) {
         return lucent::http::Response::json(200, "OK", answer.json);
     }
@@ -448,12 +455,12 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
         host_.push_back(*host);
         return text(200, "OK", "taken");
     }
-    if (path == "/frame.png") {
+    if (path == "/frame.png" || path == "/frame.rgba") {
         if (request.method != "GET") {
             return text(405, "Method Not Allowed", "GET only");
         }
         ControlRequest command;
-        command.command = ControlCommand::Frame;
+        command.command = path == "/frame.png" ? ControlCommand::Frame : ControlCommand::FrameRgba;
         return run(std::move(command));
     }
     if (path == "/options") {

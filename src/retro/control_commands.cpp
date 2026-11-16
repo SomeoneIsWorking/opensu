@@ -58,7 +58,10 @@ ControlAnswer changeVideo(Presenter& presenter, ScreenTurn& screen,
 
 } // namespace
 
-std::string framePng(Presenter& presenter, std::string& error) {
+namespace {
+
+/// The last image shown; empty, with `error` set, when there is none.
+Readback lastFrame(Presenter& presenter, std::string& error) {
     Readback frame;
     try {
         frame = presenter.readBack();
@@ -68,6 +71,15 @@ std::string framePng(Presenter& presenter, std::string& error) {
     }
     if (frame.rgba.empty()) {
         error = "no frame was shown";
+    }
+    return frame;
+}
+
+} // namespace
+
+std::string framePng(Presenter& presenter, std::string& error) {
+    const Readback frame = lastFrame(presenter, error);
+    if (frame.rgba.empty()) {
         return {};
     }
     return gpu2d::image::encodePng(frame.rgba, frame.width, frame.height, error);
@@ -138,6 +150,18 @@ ControlAnswer ControlCommands::perform(const ControlRequest& request) {
         if (answer.png.empty()) {
             answer = {500, error};
         }
+        break;
+    }
+    case ControlCommand::FrameRgba: {
+        std::string error;
+        const Readback frame = lastFrame(parts_.presenter, error);
+        if (frame.rgba.empty()) {
+            answer = {500, error};
+            break;
+        }
+        answer.rgba.assign(frame.rgba.begin(), frame.rgba.end());
+        answer.width = frame.width;
+        answer.height = frame.height;
         break;
     }
     }

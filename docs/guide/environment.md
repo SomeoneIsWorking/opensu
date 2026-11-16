@@ -89,13 +89,17 @@ sign-in extension hands over codes and how maintainer tools drive the shell:
 | `POST /key` | A key combination, such as `ctrl+up`, posted to the window's event queue as a real keyboard's. |
 | `POST /text` | Text typed as a real keyboard's, so Enter in a field being edited submits it. |
 | `GET /frame.png` | The next frame, as PNG. |
+| `GET /frame.rgba` | The next frame as raw RGBA, its size in the `X-Opensu-Width` and `X-Opensu-Height` headers; for recordings, which grab frames faster than PNG compresses them. |
 | `POST /quit` | Closes the shell. |
 | `POST /signin/gog/start`, `/signin/epic/start` | Opens the store's sign-in page ([stores.md](stores.md#signing-in-to-gog-and-epic)). |
 
 `opensu-retro` has a channel of its own for each launch, on a free loopback port it announces in
 the file `OPENSU_RETRO_CONTROL` names: `/status`, `/state/save`, `/state/load`, `/reset`, `/video`,
-`/option`, `/options`, `/input`, and `/frame.png` in hidden runs. The shell's quick menu uses it.
+`/option`, `/options`, `/input`, and `/frame.png` and `/frame.rgba` in hidden runs. The shell's quick menu uses it.
 
 `uv run --frozen python -m tools.screenshots` drives hidden runs through both channels to make the
 README's screenshots (`--profile real` on your own library, the default `demo` on a freely
 licensed one, offline).
+`uv run --frozen --group sounds python -m tools.trailer` records the same kind of hidden runs as
+video through `/frame.rgba` and cuts them, with title cards, captions and music it synthesizes,
+into `scratch/trailer/opensu-trailer.mp4`; `--only NAME,...` records just those shots again.
