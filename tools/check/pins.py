@@ -18,7 +18,7 @@ LUCENT = GitPin(
 GPU2D = GitPin(
     "gpu2d",
     "https://github.com/SomeoneIsWorking/gpu2d.git",
-    "83fd8aeb5eb7d101234c23f7cfafbbc9f282e95b",
+    "8904cbac078b2e59e6943eb01202064513c84693",
 )
 ANDROID_PORT = GitPin(
     "android-port",

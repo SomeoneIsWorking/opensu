@@ -83,6 +83,13 @@ gpu2d::WindowOptions windowOptions(const ShellWindow::Options& options) {
                                 .hidden = options.hidden};
 }
 
+/// Pixels per point of `window`: 2 on a Retina screen, where SDL gives the pointer in points and
+/// the layouts are drawn in pixels.
+float densityOf(SDL_Window* window) {
+    const float density = SDL_GetWindowPixelDensity(window);
+    return density > 0.0f ? density : 1.0f;
+}
+
 SDL_GPUCommandBuffer* acquireCommands(SDL_GPUDevice& device) {
     SDL_GPUCommandBuffer* commands = SDL_AcquireGPUCommandBuffer(&device);
     if (commands == nullptr) {
@@ -210,7 +217,8 @@ bool ShellWindow::pollEvents() {
             float x = 0.0f;
             float y = 0.0f;
             SDL_GetMouseState(&x, &y);
-            pointer_.point = ui::Point{x, y};
+            const float density = densityOf(window_.window());
+            pointer_.point = ui::Point{x * density, y * density};
         }
     }
     if (!pointer_.point) {
@@ -220,6 +228,7 @@ bool ShellWindow::pollEvents() {
 }
 
 void ShellWindow::handle(const SDL_Event& event) {
+    const float density = densityOf(window_.window());
     switch (event.type) {
     case SDL_EVENT_QUIT:
     case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
@@ -260,13 +269,13 @@ void ShellWindow::handle(const SDL_Event& event) {
         fingers_.push_back(touch::fingerOf(window_.window(), event.tfinger));
         break;
     case SDL_EVENT_MOUSE_MOTION:
-        pointer_.point = ui::Point{event.motion.x, event.motion.y};
-        pointer_.delta.x += event.motion.xrel;
-        pointer_.delta.y += event.motion.yrel;
+        pointer_.point = ui::Point{event.motion.x * density, event.motion.y * density};
+        pointer_.delta.x += event.motion.xrel * density;
+        pointer_.delta.y += event.motion.yrel * density;
         pointer_.touch = event.motion.which == SDL_TOUCH_MOUSEID;
         break;
     case SDL_EVENT_MOUSE_BUTTON_UP:
-        pointer_.point = ui::Point{event.button.x, event.button.y};
+        pointer_.point = ui::Point{event.button.x * density, event.button.y * density};
         if (event.button.button == SDL_BUTTON_LEFT) {
             pointer_.primary.push_back(false);
         }
@@ -274,7 +283,7 @@ void ShellWindow::handle(const SDL_Event& event) {
         pointer_.touch = event.button.which == SDL_TOUCH_MOUSEID;
         break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
-        pointer_.point = ui::Point{event.button.x, event.button.y};
+        pointer_.point = ui::Point{event.button.x * density, event.button.y * density};
         if (event.button.button == SDL_BUTTON_LEFT) {
             pointer_.primary.push_back(true);
         }
@@ -285,7 +294,7 @@ void ShellWindow::handle(const SDL_Event& event) {
         pointer_.middle = pointer_.middle || event.button.button == SDL_BUTTON_MIDDLE;
         break;
     case SDL_EVENT_MOUSE_WHEEL:
-        pointer_.point = ui::Point{event.wheel.mouse_x, event.wheel.mouse_y};
+        pointer_.point = ui::Point{event.wheel.mouse_x * density, event.wheel.mouse_y * density};
         pointer_.wheel +=
             event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -event.wheel.y : event.wheel.y;
         break;
@@ -320,8 +329,8 @@ void ShellWindow::movePointer(ui::Point at) {
     SDL_Event event{};
     event.motion.type = SDL_EVENT_MOUSE_MOTION;
     event.motion.windowID = SDL_GetWindowID(window_.window());
-    event.motion.x = at.x;
-    event.motion.y = at.y;
+    event.motion.x = at.x / densityOf(window_.window());
+    event.motion.y = at.y / densityOf(window_.window());
     // A posted move always moves, so it hovers even onto the spot the pointer was last put.
     event.motion.xrel = 1.0f;
     event.motion.yrel = 1.0f;
@@ -338,8 +347,8 @@ void ShellWindow::pressPointer(ui::Point at, std::uint8_t button, bool down) {
     event.button.button = button;
     event.button.down = down;
     event.button.clicks = 1;
-    event.button.x = at.x;
-    event.button.y = at.y;
+    event.button.x = at.x / densityOf(window_.window());
+    event.button.y = at.y / densityOf(window_.window());
     post(event);
 }
 
@@ -352,8 +361,8 @@ void ShellWindow::tapPointer(ui::Point at) {
     event.motion.type = SDL_EVENT_MOUSE_MOTION;
     event.motion.windowID = SDL_GetWindowID(window_.window());
     event.motion.which = SDL_TOUCH_MOUSEID;
-    event.motion.x = at.x;
-    event.motion.y = at.y;
+    event.motion.x = at.x / densityOf(window_.window());
+    event.motion.y = at.y / densityOf(window_.window());
     event.motion.xrel = 1.0f;
     event.motion.yrel = 1.0f;
     post(event);
@@ -365,8 +374,8 @@ void ShellWindow::tapPointer(ui::Point at) {
         press.button.button = SDL_BUTTON_LEFT;
         press.button.down = down;
         press.button.clicks = 1;
-        press.button.x = at.x;
-        press.button.y = at.y;
+        press.button.x = at.x / densityOf(window_.window());
+        press.button.y = at.y / densityOf(window_.window());
         post(press);
     }
 }
@@ -377,8 +386,8 @@ void ShellWindow::turnWheel(ui::Point at, float notches) {
     event.wheel.windowID = SDL_GetWindowID(window_.window());
     event.wheel.y = notches;
     event.wheel.direction = SDL_MOUSEWHEEL_NORMAL;
-    event.wheel.mouse_x = at.x;
-    event.wheel.mouse_y = at.y;
+    event.wheel.mouse_x = at.x / densityOf(window_.window());
+    event.wheel.mouse_y = at.y / densityOf(window_.window());
     post(event);
 }
 

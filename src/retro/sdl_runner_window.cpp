@@ -26,7 +26,8 @@ SdlRunnerWindow::SdlRunnerWindow(const Options& options)
     // (Dolphin).
     SDL_WindowFlags flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_VULKAN;
     if (!options.hidden) {
-        flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
+        // Full pixels on a high-density screen; the swapchain is sized by the window's pixels.
+        flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
         if (options.fullscreen) {
             flags |= SDL_WINDOW_FULLSCREEN;
         }
