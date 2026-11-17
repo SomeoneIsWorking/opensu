@@ -29,7 +29,8 @@ namespace opensu::artwork {
 [[nodiscard]] std::optional<std::string> gameIcon(const library::Game& game,
                                                   const std::vector<std::filesystem::path>& themes);
 
-/// The icon of installed emulator `option`: the one the `.desktop` entry in `applications` that
+/// The icon of installed emulator `option`: a macOS `.app`'s own when its program is in one; else
+/// the one the `.desktop` entry in `applications` that
 /// starts it names (by its program, or its Flatpak's app id), else a theme icon in `themes` named
 /// as its Flatpak or its program, else its Windows program's own. Not its catalog id, which other
 /// programs share ("dolphin"). Nothing for an AppImage no entry names, whose icon is inside it.

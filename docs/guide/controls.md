@@ -71,7 +71,7 @@ that subtitle. A store holds one version of a game, so two same-titled Steam gam
 - A game's tile carries one mark, for what runs its default version: its store (Steam, GOG,
   Epic), Linux, AppImage or Wine for a game of your own, or openSU's runner for a ROM it plays
   itself. A ROM on another emulator shows that emulator's own icon, found through its desktop
-  entry or icon theme, or its initials ("DS") when it has none, as an AppImage nothing names.
+  entry or icon theme, or a Mac app's own icon, or its initials ("DS") when it has none, as an AppImage nothing names.
 - The tile plays the game's default version: the one you made default, else an installed one before
   one that is not, the one you last played, then Steam, GOG, Epic, your own, ROMs.
 - A console's shelf still lists its own ROMs, and All games lists each game once if any version is

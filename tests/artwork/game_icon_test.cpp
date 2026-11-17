@@ -135,17 +135,25 @@ void testIco() {
            "an image that does not decode gives way to the next");
 }
 
+PeBytes element(const char* type, const PeBytes& payload) {
+    PeBytes out{static_cast<std::uint8_t>(type[0]), static_cast<std::uint8_t>(type[1]),
+                static_cast<std::uint8_t>(type[2]), static_cast<std::uint8_t>(type[3])};
+    const std::size_t size = payload.size() + 8;
+    for (const unsigned shift : {24U, 16U, 8U, 0U}) {
+        out.push_back(static_cast<std::uint8_t>(size >> shift));
+    }
+    out.insert(out.end(), payload.begin(), payload.end());
+    return out;
+}
+
+PeBytes icnsOf(std::uint32_t side) {
+    PeBytes file = element("icns", {});
+    const PeBytes png = element("ic07", pngOf(side));
+    file.insert(file.end(), png.begin(), png.end());
+    return file;
+}
+
 void testIcns() {
-    const auto element = [](const char* type, const PeBytes& payload) {
-        PeBytes out{static_cast<std::uint8_t>(type[0]), static_cast<std::uint8_t>(type[1]),
-                    static_cast<std::uint8_t>(type[2]), static_cast<std::uint8_t>(type[3])};
-        const std::size_t size = payload.size() + 8;
-        for (const unsigned shift : {24U, 16U, 8U, 0U}) {
-            out.push_back(static_cast<std::uint8_t>(size >> shift));
-        }
-        out.insert(out.end(), payload.begin(), payload.end());
-        return out;
-    };
     PeBytes file = element("icns", {});
     for (const PeBytes& each : {element("ic07", pngOf(128)), element("ic09", pngOf(512)),
                                 element("is32", PeBytes(64, 7)), element("ic08", pngOf(256))}) {
@@ -265,6 +273,20 @@ void testEmulatorIcon(const fs::path& root) {
     eden.launch.program = "flatpak";
     expect(decoded(emulatorIcon(eden, {themes}, {apps}), "a flatpak's icon").width == 32,
            "a Flatpak's icon is its app id's");
+
+    const fs::path bundle = root / "Applications" / "DuckStation.app";
+    write(bundle / "Contents" / "Resources" / "AppIcon.icns", icnsOf(36));
+    write(bundle / "Contents" / "Resources" / "duck.icns", icnsOf(44));
+    writeText(bundle / "Contents" / "Info.plist",
+              "<plist><dict><key>CFBundleIconFile</key>\n<string>duck</string></dict></plist>");
+    opensu::library::EmulatorOption app;
+    app.id = "duckstation";
+    app.launch.program = (bundle / "Contents" / "MacOS" / "DuckStation").string();
+    expect(decoded(emulatorIcon(app, {themes}, {apps}), "a bundle's icon").width == 44,
+           "a macOS app's icon is the one its Info.plist names");
+    fs::remove(bundle / "Contents" / "Info.plist");
+    expect(decoded(emulatorIcon(app, {themes}, {apps}), "a bundle's AppIcon").width == 36,
+           "a binary or missing Info.plist leaves AppIcon.icns");
 
     opensu::library::EmulatorOption unknown;
     unknown.id = "nothing";
