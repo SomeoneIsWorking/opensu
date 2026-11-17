@@ -3,7 +3,8 @@
 import struct
 from pathlib import Path
 
-# What `--render` draws without OPENSU_WIDTH and OPENSU_HEIGHT.
+# What `--render` draws without OPENSU_WIDTH and OPENSU_HEIGHT, in points: a high-density screen
+# (a Retina Mac's) draws it at a whole multiple in pixels.
 RENDER_SIZE = (1280, 800)
 
 
@@ -15,8 +16,10 @@ def png_size(path: Path) -> tuple[int, int]:
 
 
 def check(path: Path) -> None:
-    """Refuses a missing frame or one that is not the shell's size."""
+    """Refuses a missing frame or one that is not the shell's size at a whole pixel density."""
     if not path.is_file():
         raise RuntimeError(f"no frame was written to {path}")
-    if png_size(path) != RENDER_SIZE:
-        raise RuntimeError(f"the frame is {png_size(path)}, not {RENDER_SIZE}")
+    width, height = png_size(path)
+    density = width // RENDER_SIZE[0]
+    if density < 1 or (width, height) != (RENDER_SIZE[0] * density, RENDER_SIZE[1] * density):
+        raise RuntimeError(f"the frame is {(width, height)}, not {RENDER_SIZE} or a whole multiple")
