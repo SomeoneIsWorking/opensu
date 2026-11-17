@@ -114,6 +114,7 @@ void fileLaunch(const Entry& entry, Kind kind, Game& game) {
         break;
     case Kind::AppImage:
     case Kind::Native:
+        game.appImage = kind == Kind::AppImage;
         if (!executable(entry.file)) {
             game.unavailable =
                 name + " is not executable; make it executable (chmod +x) to play it";
@@ -299,6 +300,10 @@ void Records::write(const Document& document) const {
             file_, json{{"next", document.next}, {"games", std::move(games)}}.dump(2), error)) {
         throw std::runtime_error{error};
     }
+}
+
+bool nativeOwn(const Game& game) noexcept {
+    return game.source == Source::Own && !game.windowsInstall && game.winePrefix.empty();
 }
 
 Game gameOf(const Entry& entry) {

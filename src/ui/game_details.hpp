@@ -42,6 +42,13 @@ inline constexpr std::string_view detailsLinkedId = "details.linked";
 inline constexpr std::string_view detailsPlayWithPrefix = "details.playWith:";
 inline constexpr std::string_view detailsPlayOnlineId = "details.playOnline";
 inline constexpr std::string_view detailsMoreId = "details.more";
+/// A version's rows on More, and Group with… and its picks.
+inline constexpr std::string_view detailsDefaultId = "details.default";
+inline constexpr std::string_view detailsExtrasId = "details.extras";
+inline constexpr std::string_view detailsMoveBackId = "details.moveBack";
+inline constexpr std::string_view detailsSeparateId = "details.separate";
+inline constexpr std::string_view detailsGroupWithId = "details.groupWith";
+inline constexpr std::string_view detailsJoinId = "details.join";
 inline constexpr std::string_view detailsBackId = "details.back";
 /// The Wine prefix choice's options, the shared one first.
 inline constexpr std::string_view sharedPrefix = "Shared";
@@ -73,9 +80,13 @@ struct GameDetails {
     /// The rows after it, of the top copy where a row is a copy's: the other ways to play, Update,
     /// Download, Add to Home and Hide, Game settings, More.
     std::vector<SettingsRow> actions;
-    /// The rows on More: the other copies' Play, Update and Install, then Uninstall for each
-    /// installed copy or Remove from library; empty, and no More row, for none.
+    /// The rows on More: with several versions, a heading per version, the top first and those in
+    /// Extras under Extras, each with Play or Install (not the top's), Update, Make default, Move
+    /// to Extras or Move back, Separate and Uninstall; with one, Uninstall or Remove from library.
+    /// Empty, and no More row, for none.
     std::vector<SettingsRow> more;
+    /// The More row's and page's name: "Versions" with several versions, else "More".
+    std::string moreTitle;
     /// What the Game settings page holds besides its settings.
     std::vector<SettingsRow> settingsRows;
 
@@ -137,6 +148,11 @@ struct CopyPart {
 
 /// The id of row `id` acting on copy `gameId`.
 [[nodiscard]] std::string copyRowId(std::string_view gameId, std::string_view id);
+
+/// Where a version comes from as its page names it: "PlayStation 2 · LRPS2", "Windows · Wine",
+/// "Linux · AppImage", "Linux", "Steam", "On Desk"; a Lutris game as what it is, as openSU runs it
+/// from Lutris's settings itself.
+[[nodiscard]] std::string versionLabel(const library::Game& game);
 
 /// A row's own id and the copy it acts on, empty for the page's game.
 struct CopyRow {

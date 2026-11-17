@@ -1,5 +1,6 @@
-// Title merging across stores: the key titles are compared by, and which copies make one title.
+// Version grouping: the keys titles are compared by, and which versions make one game.
 #include "library/titles.hpp"
+#include "library/version_choices.hpp"
 #include "support/test_main.hpp"
 
 #include <chrono>
@@ -13,8 +14,8 @@ namespace {
 
 using opensu::library::copiesOf;
 using opensu::library::Game;
+using opensu::library::gameTitles;
 using opensu::library::Source;
-using opensu::library::storeTitles;
 using opensu::library::TitleCopies;
 using opensu::library::titleKey;
 
@@ -54,14 +55,14 @@ void testMerge() {
         game(Source::Rom, "rom:alpha", "Alpha"), game(Source::Epic, "epic:c", "魔界戦記"),
         game(Source::Gog, "gog:c", "魔界戦記"),
     };
-    const std::vector<opensu::library::Title> titles = storeTitles(games);
-    expect(titles.size() == 4, "Alpha across three stores, Beta, and two unkeyed games");
+    const std::vector<opensu::library::Title> titles = gameTitles(games);
+    expect(titles.size() == 4, "Alpha across three stores and a ROM, Beta, and two unkeyed games");
 
-    // Alpha: installed Steam first, then GOG, then Epic; the ROM is no store copy.
-    expect(titles[0].copies.size() == 3, "three stores own Alpha");
+    // Alpha: installed Steam first, then GOG, Epic and the ROM.
+    expect(titles[0].copies.size() == 4, "three stores and a ROM hold Alpha");
     expect(titles[0].copies[0]->id == "steam:a" && titles[0].copies[1]->id == "gog:a" &&
-               titles[0].copies[2]->id == "epic:a",
-           "the installed copy first, then Steam, GOG, Epic");
+               titles[0].copies[2]->id == "epic:a" && titles[0].copies[3]->id == "rom:alpha",
+           "the installed copy first, then Steam, GOG, Epic, ROMs");
     expect(titles[1].copies.size() == 1 && titles[1].copies[0]->id == "steam:b", "Beta is alone");
     expect(titles[2].copies.size() == 1 && titles[3].copies.size() == 1,
            "titles without a key are never merged");
@@ -77,7 +78,7 @@ void testSameStore() {
         game(Source::Steam, "steam:2", "DOOM"),
         game(Source::Gog, "gog:1", "Doom"),
     };
-    const std::vector<opensu::library::Title> titles = storeTitles(games);
+    const std::vector<opensu::library::Title> titles = gameTitles(games);
     expect(titles.size() == 2, "two Steam games with one key stay two titles");
     expect(titles[0].copies.size() == 2 && titles[1].copies.size() == 1,
            "the other store joins the first of them");
@@ -95,7 +96,7 @@ void testCopiesOf() {
     expect(copiesOf(games, games[2]).size() == 1, "a title in one store has one copy");
     const Game stranger = game(Source::Rom, "rom:x", "Alpha");
     expect(copiesOf(games, stranger).size() == 1 && copiesOf(games, stranger)[0].id == "rom:x",
-           "a game outside the catalog's stores is its own copy");
+           "a game outside the catalog is its own copy");
 }
 
 /// Alpha: Steam not installed, GOG not installed, Epic installed. Beta is GOG's alone.
@@ -217,16 +218,16 @@ void testOffered() {
     games.push_back(game(Source::Own, "own:a", "Alpha"));
     games[4].installed = true;
     games[4].lastPlayed = std::chrono::system_clock::now();
-    const std::vector<Game> stores = TitleCopies{games}.offered(games[0]);
-    expect(stores.size() == 3 && stores[0].id == "epic:a" && stores[1].id == "steam:a" &&
-               stores[2].id == "gog:a",
-           "a button per store copy, top first, and a copy of no store never leads by play");
-    expect(TitleCopies{games}.offered(games[3]).empty(), "one store has plain buttons");
+    const std::vector<Game> versions = TitleCopies{games}.offered(games[0]);
+    expect(versions.size() == 4 && versions[0].id == "own:a" && versions[1].id == "epic:a" &&
+               versions[2].id == "steam:a" && versions[3].id == "gog:a",
+           "every version, the installed last played first");
+    expect(TitleCopies{games}.offered(games[3]).empty(), "a game of one version has none");
 
     const std::vector<Game> oneStore{game(Source::Steam, "steam:c", "Gamma"),
                                      game(Source::Own, "own:c", "Gamma", true)};
-    expect(TitleCopies{oneStore}.offered(oneStore[0]).empty(),
-           "a store's copy and the player's own are one store");
+    expect(TitleCopies{oneStore}.offered(oneStore[0]).size() == 2,
+           "a store's copy and the player's own are two versions");
 
     const std::vector<Game> ownLeads{game(Source::Steam, "steam:d", "Delta"),
                                      game(Source::Epic, "epic:d", "Delta"),
@@ -234,6 +235,79 @@ void testOffered() {
     const std::vector<Game> led = TitleCopies{ownLeads}.offered(ownLeads[0]);
     expect(led.size() == 3 && led[0].id == "own:d",
            "the only installed copy tops the title and has its button");
+}
+
+void testBaseKey() {
+    using opensu::library::baseKey;
+    expect(baseKey("X-Men Legends II: Rise of Apocalypse") == "xmenlegendsii",
+           "a colon starts a subtitle");
+    expect(baseKey("X-Men Legends II - Rise of Apocalypse") == "xmenlegendsii",
+           "so does a dash between spaces");
+    expect(baseKey("Spider-Man") == "spiderman", "a dash inside a word does not");
+}
+
+/// The X-Men Legends II shapes, ROMs titled as the scan cleans them: two ROMs on two consoles, a
+/// port and a Lutris Wine install.
+std::vector<Game> xmen() {
+    std::vector<Game> games{
+        game(Source::Rom, "rom:ps2", "X-Men Legends II - Rise of Apocalypse"),
+        game(Source::Rom, "rom:xbox", "X-Men Legends II - Rise of Apocalypse"),
+        game(Source::Own, "own:port", "X-Men Legends II", true),
+        game(Source::Own, "own:lutris", "X-Men Legends II: Rise of Apocalypse", true),
+        game(Source::Steam, "steam:other", "Other"),
+    };
+    games[0].sourceId = "ps2";
+    games[1].sourceId = "xbox";
+    return games;
+}
+
+void testVersions() {
+    const std::vector<Game> games = xmen();
+    const std::vector<opensu::library::Title> titles = gameTitles(games);
+    expect(titles.size() == 2 && titles[0].copies.size() == 4,
+           "two ROMs, a port and a Lutris install are one game");
+    expect(titles[0].copies[0]->source == Source::Own && titles[0].copies[2]->source == Source::Rom,
+           "installed PC versions before ROMs");
+
+    std::vector<Game> two = xmen();
+    two.push_back(game(Source::Own, "own:other", "X-Men Legends II: Another Game", true));
+    expect(gameTitles(two).size() == 4, "a base title shared by two subtitled games joins neither");
+
+    const std::vector<Game> remakes{game(Source::Steam, "steam:1", "Doom (2016)"),
+                                    game(Source::Gog, "gog:2", "Doom")};
+    expect(gameTitles(remakes).size() == 2,
+           "a year is part of the title: a remake is another game");
+}
+
+void testPlayerChoices() {
+    std::vector<Game> games = xmen();
+    opensu::library::VersionChoices choices;
+    choices.separate("rom:xbox");
+    choices.apply(games);
+    expect(gameTitles(games).size() == 3, "a separated version is a game of its own");
+
+    choices.groupWith("steam:other", "rom:ps2");
+    choices.apply(games);
+    std::vector<opensu::library::Title> titles = gameTitles(games);
+    expect(titles.size() == 2 && copiesOf(games, games[4]).size() == 4,
+           "a version grouped with another joins its game");
+
+    choices.groupWith("rom:xbox", "rom:ps2");
+    choices.apply(games);
+    expect(gameTitles(games).size() == 1, "grouping a separated version brings it back");
+
+    choices.makeDefault("rom:ps2",
+                        {"rom:ps2", "rom:xbox", "own:port", "own:lutris", "steam:other"});
+    choices.setExtra("own:port", true);
+    choices.apply(games);
+    const std::vector<const Game*> order = TitleCopies{games}.ordered(games[2]);
+    expect(order.front()->id == "rom:ps2", "the default leads its game");
+    expect(order.back()->id == "own:port", "a version in Extras goes last");
+
+    choices.setExtra("rom:ps2", true);
+    choices.apply(games);
+    expect(TitleCopies{games}.top(games[0])->id != "rom:ps2",
+           "a default moved to Extras is no longer the default");
 }
 
 } // namespace
@@ -247,6 +321,9 @@ int main() try {
     testTopFollowsPlayHistory();
     testNeverPlayedOrder();
     testOffered();
+    testBaseKey();
+    testVersions();
+    testPlayerChoices();
     std::printf("titles: all checks passed\n");
     return 0;
 } catch (...) {

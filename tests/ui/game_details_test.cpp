@@ -6,6 +6,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "library/store_builds.hpp"
 #include "support/test_main.hpp"
 
 namespace {
@@ -106,12 +107,14 @@ void ownedInTwoStores() {
     expect(details.launch.label == "Play (Steam)", "the top copy's Play leads");
     expect(labelsOf(details.actions) == std::vector<std::string>{"Update (Steam)", "Add to Home",
                                                                  "Hide game", "Game settings",
-                                                                 "More", "Back"},
+                                                                 "Versions", "Back"},
            "the page's rows are the top copy's");
     expect(labelsOf(details.more) ==
-               std::vector<std::string>{"Install (Epic)", "Uninstall (Steam)"},
-           "More has the other copy's rows, then what removes each");
-    const CopyRow install = copyRowOf(details.more[0].id);
+               std::vector<std::string>{"Steam \xC2\xB7 default", "Move to Extras", "Separate",
+                                        "Uninstall", "Epic", "Install", "Make default",
+                                        "Move to Extras", "Separate"},
+           "Versions has a heading per version, the default first, with its rows");
+    const CopyRow install = copyRowOf(details.more[5].id);
     expect(install.gameId == "epic:hades" && install.id == detailsInstallId,
            "a row names its copy");
     expect(copyRowOf(std::string{detailsBackId}).gameId.empty(), "a row of the page names none");
@@ -122,8 +125,11 @@ void ownedInTwoStores() {
     const GameDetails nothing =
         detailsOf(away, GameMarks{.hidden = false}, now, {}, false, {}, uninstalled);
     expect(nothing.launch.label == "Install (Steam)" &&
-               labelsOf(nothing.more) == std::vector<std::string>{"Install (Epic)"},
-           "with nothing installed the top Install leads and is not on More again");
+               labelsOf(nothing.more) == std::vector<std::string>{"Steam \xC2\xB7 default",
+                                                                  "Move to Extras", "Separate",
+                                                                  "Epic", "Install", "Make default",
+                                                                  "Move to Extras", "Separate"},
+           "with nothing installed the top Install leads and is not on Versions again");
     expect(valueOf(details, "Last played (Epic)") == "Never played" &&
                valueOf(details, "Last played (Steam)") == "3 hours ago" &&
                factOf(details, "Last played") == nullptr,
@@ -160,11 +166,12 @@ void storeGame() {
     expect(actionOf(details, detailsHomeId)->label == "Remove from Home",
            "a game on Home offers to be taken off it");
     const std::vector<SettingsRow> more = settingsPageRows(hades(), false);
-    expect(actionOf(details, detailsHiddenId)->label == "Hide game" && more.size() == 3 &&
+    expect(actionOf(details, detailsHiddenId)->label == "Hide game" && more.size() == 4 &&
                copyRowOf(more[0].id).id == detailsMatchId &&
                copyRowOf(more[1].id).id == detailsArtworkId &&
-               copyRowOf(more[2].id).id == detailsControlsId,
-           "Hide acts; Match, Choose artwork and Controls are on the Game settings page");
+               copyRowOf(more[2].id).id == detailsGroupWithId &&
+               copyRowOf(more[3].id).id == detailsControlsId,
+           "Hide acts; Match, Choose artwork, Group with and Controls are on Game settings");
     Game wide = hades();
     wide.artworkWide = "/covers/hades-wide.jpg";
     expect(detailsOf(wide, GameMarks{.hidden = false}, now).hero == "/covers/hades-wide.jpg",
@@ -357,9 +364,29 @@ void ownGame() {
            "a Lutris game has no file to change");
 }
 
+void versionLabels() {
+    using opensu::ui::versionLabel;
+    const std::string system{opensu::library::ownSystemName};
+    Game own;
+    own.source = Source::Own;
+    own.appImage = true;
+    expect(versionLabel(own) == system + " \xC2\xB7 AppImage", "an AppImage says so");
+    own.appImage = false;
+    own.fromLutris = true;
+    expect(versionLabel(own) == system, "a native Lutris game is this OS's, Lutris unnamed");
+    own.winePrefix = "/games/prefix";
+    expect(versionLabel(own) == "Windows \xC2\xB7 Wine",
+           "one in Lutris's Wine prefix runs under Wine");
+    Game exe;
+    exe.source = Source::Own;
+    exe.windowsInstall = true;
+    expect(versionLabel(exe) == "Windows \xC2\xB7 Wine", "an added .exe runs under Wine");
+}
+
 } // namespace
 
 int main() try {
+    versionLabels();
     ownGame();
     lastPlayed();
     storeGame();

@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <array>
+#include <span>
+#include <string>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -19,11 +21,11 @@ constexpr std::array<Source, 4> launcherOrder{Source::Steam, Source::Epic, Sourc
 constexpr std::array<Source, 3> iconOrder{Source::Steam, Source::Gog, Source::Epic};
 
 bool isRomOf(const Game& game, std::string_view system) {
-    return game.source == Source::Rom && game.sourceId == system;
+    return game.source == Source::Rom && game.sourceId == system && !game.inExtras;
 }
 
 bool holds(const Launcher& launcher, const Game& game) {
-    return game.source == launcher.source &&
+    return game.source == launcher.source && !game.inExtras &&
            (launcher.source != Source::Remote || game.hostId == launcher.hostId);
 }
 
@@ -74,12 +76,30 @@ Game entry(const Title& title, const Game& copy) {
     return out;
 }
 
+/// What a game of `versions` (preferred first) is kept under in `HomeChoices`, its first version
+/// that is no ROM or else its preferred, so a change of default keeps it; and whether it is on Home
+/// by default, as any of its versions not in Extras is.
+std::pair<std::string, bool> homeSlot(std::span<const Game* const> versions) {
+    const auto named = std::ranges::find_if(versions, [](const Game* version) {
+        return version->source != Source::Rom;
+    });
+    const bool byDefault = std::ranges::any_of(versions, [](const Game* version) {
+        return !version->inExtras && onHomeByDefault(*version);
+    });
+    return {choiceKey(**(named == versions.end() ? versions.begin() : named)), byDefault};
+}
+
 /// What `item` is kept under in `HomeChoices`, and whether it is on Home by default.
 std::optional<std::pair<std::string, bool>> homeSlotOf(const std::vector<Game>& games,
                                                        const ShelfItem& item) {
     if (const auto* game = std::get_if<Game>(&item)) {
-        const Game preferred = copiesOf(games, *game).front();
-        return std::pair{choiceKey(preferred), onHomeByDefault(preferred)};
+        const std::vector<Game> copies = copiesOf(games, *game);
+        std::vector<const Game*> versions;
+        versions.reserve(copies.size());
+        for (const Game& copy : copies) {
+            versions.push_back(&copy);
+        }
+        return homeSlot(versions);
     }
     if (const auto* console = std::get_if<Console>(&item)) {
         return std::pair{HomeChoices::consoleKey(console->system), consoleOnHomeByDefault};
@@ -88,7 +108,16 @@ std::optional<std::pair<std::string, bool>> homeSlotOf(const std::vector<Game>& 
 }
 
 std::size_t countOf(const std::vector<Game>& games, Source source) {
-    return static_cast<std::size_t>(std::ranges::count(games, source, &Game::source));
+    return static_cast<std::size_t>(std::ranges::count_if(games, [source](const Game& game) {
+        return game.source == source && !game.inExtras;
+    }));
+}
+
+/// Whether `title` is one of All games: a game with a version that is no ROM here.
+bool inAllGames(const Title& title) {
+    return std::ranges::any_of(title.copies, [](const Game* copy) {
+        return copy->source != Source::Rom;
+    });
 }
 
 } // namespace
@@ -161,18 +190,18 @@ std::vector<ShelfItem> homeShelf(const std::vector<Game>& games,
             shelf.emplace_back(std::move(console));
         }
     }
-    const std::vector<Title> titles = storeTitles(games);
+    const std::vector<Title> titles = gameTitles(games);
     std::unordered_map<const Game*, const Title*> preferredOf;
     for (const Title& title : titles) {
         preferredOf.emplace(title.copies.front(), &title);
     }
     for (const Game& game : games) {
-        if (!choices.holds(choiceKey(game), onHomeByDefault(game))) {
+        const auto title = preferredOf.find(&game);
+        if (title == preferredOf.end()) {
             continue;
         }
-        if (game.source == Source::Rom) {
-            shelf.emplace_back(game);
-        } else if (const auto title = preferredOf.find(&game); title != preferredOf.end()) {
+        if (const auto [key, byDefault] = homeSlot(title->second->copies);
+            choices.holds(key, byDefault)) {
             shelf.emplace_back(entry(*title->second, game));
         }
     }
@@ -226,9 +255,10 @@ std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
         shelf.emplace_back(Giveaways{});
     }
     shelf.insert(shelf.end(), adds.begin(), adds.end());
-    const std::vector<Title> titles = storeTitles(games);
-    if (!titles.empty()) {
-        shelf.emplace_back(AllGames{titles.size()});
+    const std::vector<Title> titles = gameTitles(games);
+    if (const auto all = static_cast<std::size_t>(std::ranges::count_if(titles, inAllGames));
+        all > 0) {
+        shelf.emplace_back(AllGames{all});
     }
     for (Console& console : consoles(games)) {
         shelf.emplace_back(std::move(console));
@@ -258,8 +288,10 @@ std::vector<ShelfItem> launcherShelf(const std::vector<Game>& games, const Launc
 
 std::vector<ShelfItem> allGamesShelf(const std::vector<Game>& games) {
     std::vector<ShelfItem> shelf;
-    for (const Title& title : storeTitles(games)) {
-        shelf.emplace_back(entry(title, *title.copies.front()));
+    for (const Title& title : gameTitles(games)) {
+        if (inAllGames(title)) {
+            shelf.emplace_back(entry(title, *title.copies.front()));
+        }
     }
     return shelf;
 }

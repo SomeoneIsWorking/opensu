@@ -60,6 +60,28 @@ add tiles (Add a game, Add a ROM folder, Set up <integration>), All games and on
   a console whose first ROM you add joins it unless you took it off before.
 - Settings › Library says what Home shows. The choices are kept in `settings.json` (`home`).
 
+### One game, many versions
+
+Every copy of one game is one tile, wherever it comes from: ROMs on any console, a native port or a
+`.desktop` shortcut, a Lutris or Wine install, and the Steam, GOG and Epic copies. Titles match when
+they read the same leaving out case, punctuation and ™ (a ROM's region and disc tags never reach its
+title), and "X-Men Legends II" joins "X-Men Legends II: Rise of Apocalypse" when only one game has
+that subtitle. A store holds one version of a game, so two same-titled Steam games stay two.
+
+- The tile plays the game's default version: the one you made default, else an installed one before
+  one that is not, the one you last played, then Steam, GOG, Epic, your own, ROMs.
+- A console's shelf still lists its own ROMs, and All games lists each game once if any version is
+  not a ROM.
+- A game with several versions has **Versions** on its details page in place of More: a heading per
+  version naming what it runs as ("PlayStation 2 · LRPS2", "Windows · Wine", "Linux · AppImage",
+  "Steam"), the
+  default first, each with Play or Install, **Make default**, **Move to Extras** and **Separate**.
+- **Move to Extras** keeps a version playable from Versions' Extras, but it is never the tile or the
+  default and does not count on Home or in Library. **Move back** undoes it.
+- **Separate** takes a version out into a game of its own. **Group with…** on Game settings joins
+  this game with another you pick.
+- The choices are kept in `settings.json` (`versions`) by version, so a rescan does not undo them.
+
 Settings › Controls › Shortcuts sets the key for every action (and the pad chord for those that
 take one); Restore default shortcuts puts them back. Its Keyboard row picks the on-screen keyboard
 the text fields open.

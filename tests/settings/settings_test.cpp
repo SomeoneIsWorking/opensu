@@ -109,6 +109,10 @@ void libraryTools(const fs::path& root) {
     saved.hidden.set(hades(), true);
     saved.home.set("console:gc", true, false);
     saved.home.set("title:hades", true, false);
+    saved.versions.groupWith("rom:x", "own:1");
+    saved.versions.separate("steam:2");
+    saved.versions.makeDefault("rom:x", {"rom:x", "own:1"});
+    saved.versions.setExtra("own:1", true);
     saved.lastPlayed.record("epic:celeste", std::chrono::system_clock::from_time_t(1700000000));
     std::string error;
     expect(store.save(saved, error), "the tools save");
@@ -122,10 +126,15 @@ void libraryTools(const fs::path& root) {
            "hidden games and play history round trip");
     expect(loaded.home == saved.home && loaded.home.entries().size() == 2,
            "what the player added to Home and took off it round trips");
+    expect(loaded.versions == saved.versions && loaded.versions.with().at("rom:x") == "own:1" &&
+               loaded.versions.apart().contains("steam:2") &&
+               loaded.versions.defaults().contains("rom:x") &&
+               loaded.versions.extras().contains("own:1"),
+           "groupings, separations, defaults and Extras round trip");
 
     write(
         file,
-        R"({"iconSize": 99, "sort": "bogus", "hidden": [1, "id:a"], "lastPlayed": {"x": "y", "z": 5}, "home": {"id:a": "pinned"}})");
+        R"({"iconSize": 99, "sort": "bogus", "hidden": [1, "id:a"], "lastPlayed": {"x": "y", "z": 5}, "home": {"id:a": "pinned"}, "versions": {"with": {"a": 1}}})");
     const Settings damagedTools = store.load();
     expect(damagedTools.iconSize == opensu::settings::defaultIconSize,
            "an icon size out of range keeps the default");
@@ -134,6 +143,8 @@ void libraryTools(const fs::path& root) {
     expect(damagedTools.lastPlayed.entries().empty(),
            "a play time that is not a number is dropped");
     expect(damagedTools.home.entries().empty(), "a Home choice that is not one keeps the default");
+    expect(damagedTools.versions == opensu::library::VersionChoices{},
+           "a grouping that is not an id keeps every version where its title puts it");
 }
 
 void formerCopyChoices(const fs::path& root) {

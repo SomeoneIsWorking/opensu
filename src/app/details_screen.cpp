@@ -108,30 +108,32 @@ std::string DetailsScreen::initialFocus() const {
     return std::string{ui::detailsLaunchId};
 }
 
-std::unique_ptr<tk::Widget> DetailsMoreScreen::build(const tk::Theme& theme) {
+std::unique_ptr<tk::Widget> DetailsListScreen::build(const tk::Theme& theme) {
     ui::CardFrame frame = ui::tallCard(theme, chrome_, moreDp);
     const ui::GameDetails* details = controller_.details();
-    if (details == nullptr || details->more.empty()) {
+    const std::vector<ui::SettingsRow> rows =
+        details == nullptr ? std::vector<ui::SettingsRow>{} : rows_();
+    if (rows.empty()) {
         close();
         return std::move(frame.root);
     }
     tk::Card& card = *frame.card;
     card.add<tk::Label>(title(), tk::TextRole::Title);
     card.add<tk::Label>(details->title, tk::TextRole::Caption).colour(theme.colours.inkMuted);
-    tk::List& list = card.add<tk::List>("details/more", theme.spacing.gap);
+    tk::List& list = card.add<tk::List>(id() + "/list", theme.spacing.gap);
     list.grow();
-    for (const ui::SettingsRow& row : details->more) {
+    for (const ui::SettingsRow& row : rows) {
         ui::addRow(list.rows(), row, controller_);
     }
     card.add<tk::HintBar>();
     return std::move(frame.root);
 }
 
-void DetailsMoreScreen::paintBackdrop(tk::Painter& painter, const gpu2d::Rect& viewport) const {
+void DetailsListScreen::paintBackdrop(tk::Painter& painter, const gpu2d::Rect& viewport) const {
     painter.canvas.fillRect(viewport, painter.fade(painter.theme.colours.scrim));
 }
 
-std::vector<tk::Hint> DetailsMoreScreen::hints() const {
+std::vector<tk::Hint> DetailsListScreen::hints() const {
     return {tk::Hint{{tk::Action::Back}, "Back"}};
 }
 

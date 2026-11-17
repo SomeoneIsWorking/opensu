@@ -1,6 +1,7 @@
-// titles — the same game across stores. Store games with the same normalised title are one
-// title owned in several stores; this is the one place that merges them, and the one rule for
-// which copy an entry uses (`TitleCopies`).
+// titles — one game across every source: its versions (ROMs of any console, the player's own
+// games, store copies, copies on paired openSUs) grouped by title, the player's groupings and
+// separations (`VersionChoices`) applied. This is the one place that groups them, and the one rule
+// for which version an entry uses (`TitleCopies`).
 #pragma once
 
 #include <cstddef>
@@ -23,16 +24,25 @@ namespace opensu::library {
 /// stores ("title:<key>"), or its id for a ROM or a title with an empty key ("id:<id>").
 [[nodiscard]] std::string choiceKey(const Game& game);
 
-/// One title and every store copy of it.
+/// The `titleKey` of `title` before its subtitle ("X-Men Legends II" of "X-Men Legends II - Rise
+/// of Apocalypse" or "…: Rise of Apocalypse"); its whole key when it has none.
+[[nodiscard]] std::string baseKey(std::string_view title);
+
+/// One game and every version of it.
 struct Title {
-    /// Preferred first: installed before not, then Steam, GOG, Epic.
+    /// Preferred first: Extras last, the player's default first, installed before not, this
+    /// machine's before another openSU's, then Steam, GOG, Epic, the player's own, ROMs.
     std::vector<const Game*> copies;
 };
 
-/// The store games (not ROMs) merged by title. A store holds at most one copy of a title, so two
-/// games of one store with the same key stay apart. Ordered by the catalog position of each
-/// title's preferred copy. The pointers refer to `games`.
-[[nodiscard]] std::vector<Title> storeTitles(const std::vector<Game>& games);
+/// Every game grouped into its versions. Versions are one game when their `titleKey`s are equal
+/// (ROM titles lost their dump tags at the scan), or when one has only the `baseKey` of the other
+/// and no other subtitled game shares that base. A store or another openSU holds at most one
+/// version of a game, so two of one store with the same key stay apart. A version the player kept
+/// apart is a game of its own; one they grouped with another joins that one's game whatever its
+/// title. Ordered by the catalog position of each game's preferred version. The pointers refer to
+/// `games`.
+[[nodiscard]] std::vector<Title> gameTitles(const std::vector<Game>& games);
 
 /// Every copy of `game`'s title in `games`, preferred first; `game` alone when it has no other.
 [[nodiscard]] std::vector<Game> copiesOf(const std::vector<Game>& games, const Game& game);
@@ -59,17 +69,18 @@ class TitleCopies {
     /// `games` outlives this.
     explicit TitleCopies(const std::vector<Game>& games);
 
-    /// Every copy of `game`'s title, top first: installed before not, within that store copies by
-    /// when they were last played, latest first, then Steam, GOG, Epic. Empty for a game of no
-    /// title.
+    /// Every version of `game`'s game, top first: Extras last, the player's default first,
+    /// installed before not, this machine's before another openSU's, within that by when they were
+    /// last played, latest first, then Steam, GOG, Epic, the player's own, ROMs. Empty for a game
+    /// not in the catalog.
     [[nodiscard]] std::vector<const Game*> ordered(const Game& game) const;
 
     /// The first of `ordered`: what an entry shows, and what plays without the details page. Null
     /// for a game of no title, which is only itself.
     [[nodiscard]] const Game* top(const Game& game) const;
 
-    /// The copies the details page gives a button each, top first: the stores' and the top copy.
-    /// Empty unless two stores own the title.
+    /// The versions the details page lists, top first and Extras last; empty for a game of one
+    /// version.
     [[nodiscard]] std::vector<Game> offered(const Game& game) const;
 
     /// Whether any copy of `game`'s title has an update.

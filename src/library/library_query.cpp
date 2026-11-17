@@ -5,6 +5,7 @@
 #include <numeric>
 #include <optional>
 #include <utility>
+#include <variant>
 
 #include "rom_systems.hpp"
 #include "text_fold.hpp"
@@ -239,6 +240,10 @@ std::string describeResult(const ShelfItem& item) {
 }
 
 bool keepsOwnCopy(const ShelfBrowser& browser, const ViewOptions& options) {
+    if (options.search.empty() && browser.folder() &&
+        std::holds_alternative<Console>(*browser.folder())) {
+        return true;
+    }
     if (const std::optional<Source> open = browser.launcher(); open && options.search.empty()) {
         return *open == Source::Own || *open == Source::Remote;
     }

@@ -190,6 +190,8 @@ struct Game {
     bool fromGameFolder{false};
     /// A game imported from Lutris, whose config names its file: that is changed in Lutris.
     bool fromLutris{false};
+    /// One of the player's own games that is an AppImage.
+    bool appImage{false};
 
     int playtimeMinutes{0};
     std::optional<std::chrono::system_clock::time_point> lastPlayed;
@@ -198,6 +200,13 @@ struct Game {
     bool severalStores{false};
     /// A tile of the title with an update on any copy. Set by `visibleShelf`.
     bool updateOnCopy{false};
+
+    /// The player's grouping of its versions (`VersionChoices`): the version they grouped it with,
+    /// kept out of any other game, made its game's default, moved to its game's Extras.
+    std::string versionWith;
+    bool versionApart{false};
+    bool versionDefault{false};
+    bool inExtras{false};
 
     /// What the copies of its title keep their settings, controls and chosen cover under; empty
     /// for a game that keeps them under its id (`shareTitleData`).

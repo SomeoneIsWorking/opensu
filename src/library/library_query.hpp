@@ -107,8 +107,9 @@ struct LibraryView {
 /// system, or "Console", "Store" or "Library" for a folder.
 [[nodiscard]] std::string describeResult(const ShelfItem& item);
 
-/// Whether the shelf is of the player's own games or another openSU's, whose tiles stand for that
-/// copy and not its title: the open launcher, or the source filter while a search or Home is shown.
+/// Whether the shelf's tiles stand for themselves and not their game's preferred version: a
+/// console's ROMs, the player's own games or another openSU's, as the open folder, or the source
+/// filter while a search or Home is shown.
 [[nodiscard]] bool keepsOwnCopy(const ShelfBrowser& browser, const ViewOptions& options);
 
 /// The shelf the grid shows: the search's results when there is a search, else the browser's

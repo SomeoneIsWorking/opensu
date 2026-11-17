@@ -109,7 +109,7 @@ Legendary has not set yet gets the one Legendary works out. GOG cloud saves are 
 
 ## Uninstalling games
 
-An installed Steam, Epic or GOG game's details page (under More) and tile menu (Select) have Uninstall. The
+An installed Steam, Epic or GOG game's details page (under More, or Versions for a game with several) and tile menu (Select) have Uninstall. The
 first press says what will go, and a second press removes it; moving to another button cancels.
 Steam removes its own games through its own uninstaller; Epic games go through
 `legendary uninstall`. A GOG game's folder is deleted only when it is inside the folder openSU gave

@@ -305,6 +305,12 @@ library::Catalog ShellApp::catalogOf(const library::CatalogStores& stores) {
     return catalog;
 }
 
+void ShellApp::applyVersions() {
+    preferences_.values().versions.apply(games_);
+    library::markCopies(games_);
+    refreshShelf();
+}
+
 void ShellApp::serviceCatalog() {
     if (std::optional<library::CatalogSnapshot> snapshot = catalogLoader_.take()) {
         applyCatalog(std::move(*snapshot));
@@ -319,6 +325,7 @@ void ShellApp::loadCatalogNow() {
 
 void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     games_ = std::move(snapshot.games);
+    preferences_.values().versions.apply(games_);
     library::markCopies(games_);
     sources_ = std::move(snapshot.sources);
     preferences_.values().lastPlayed.apply(games_);

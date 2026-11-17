@@ -15,6 +15,10 @@ inline constexpr bool windowsBuildsNative = OPENSU_WINDOWS_BUILDS_NATIVE != 0;
 inline constexpr bool windowsBuildsRun = OPENSU_WINDOWS_BUILDS_RUN != 0;
 /// gogdl's name for this OS's own builds.
 inline constexpr std::string_view gogOwnPlatform = OPENSU_GOG_OWN_PLATFORM;
+/// This OS as a game's version names it ("Linux · AppImage").
+inline constexpr std::string_view ownSystemName = gogOwnPlatform == "linux" ? "Linux"
+                                                  : gogOwnPlatform == "osx" ? "macOS"
+                                                                            : "Windows";
 /// The builds a GOG install can take here, as a refusal names them.
 inline constexpr std::string_view gogPlatformsText = OPENSU_GOG_PLATFORMS_TEXT;
 

@@ -7,13 +7,16 @@
 #include <functional>
 #include <iterator>
 #include <optional>
+#include <set>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 
 namespace opensu::library {
 namespace {
 
-/// Steam, GOG, Epic: the store a title is taken from when more than one will do.
+/// The order versions are taken in when nothing else tells them apart: Steam, GOG, Epic, the
+/// player's own, ROMs, another openSU's.
 int rank(Source source) noexcept {
     switch (source) {
     case Source::Steam:
@@ -22,29 +25,113 @@ int rank(Source source) noexcept {
         return 1;
     case Source::Epic:
         return 2;
-    case Source::Rom:
     case Source::Own:
-        break;
-    case Source::Remote:
+        return 3;
+    case Source::Rom:
         return 4;
+    case Source::Remote:
+        return 5;
     }
-    return 3;
-}
-
-bool holds(const std::vector<const Game*>& copies, Source source) {
-    return std::ranges::any_of(copies, [source](const Game* copy) {
-        return copy->source == source;
-    });
+    return 6;
 }
 
 bool isStore(Source source) noexcept {
     return source == Source::Steam || source == Source::Gog || source == Source::Epic;
 }
 
-/// When `copy` was last played, as `TitleCopies` orders it; a copy of no store never leads by it.
-std::optional<std::chrono::system_clock::time_point> playedAt(const Game& copy) {
-    return isStore(copy.source) ? copy.lastPlayed : std::nullopt;
+/// What holds at most one version of a game: its store, or the openSU it is on; empty for a
+/// source that may hold several.
+std::string holderOf(const Game& game) {
+    if (isStore(game.source)) {
+        return key(game.source);
+    }
+    return game.source == Source::Remote ? "lan:" + game.hostId : std::string{};
 }
+
+/// When `copy` was last played, as `TitleCopies` orders it; another openSU's never leads by it.
+std::optional<std::chrono::system_clock::time_point> playedAt(const Game& copy) {
+    return copy.source == Source::Remote ? std::nullopt : copy.lastPlayed;
+}
+
+/// Whether `a` goes before `b` among one game's versions, play history aside.
+bool before(const Game& a, const Game& b) {
+    if (a.inExtras != b.inExtras) {
+        return b.inExtras;
+    }
+    if (a.versionDefault != b.versionDefault) {
+        return a.versionDefault;
+    }
+    if (a.installed != b.installed) {
+        return a.installed;
+    }
+    const bool aRemote = a.source == Source::Remote;
+    const bool bRemote = b.source == Source::Remote;
+    if (aRemote != bRemote) {
+        return bRemote;
+    }
+    return rank(a.source) < rank(b.source);
+}
+
+/// Where `title`'s subtitle starts: " - ", ": ", an en or em dash; npos for none.
+std::size_t subtitleAt(std::string_view title) {
+    std::size_t first = std::string_view::npos;
+    for (const std::string_view mark : {" - ", ": ", " \xE2\x80\x93 ", " \xE2\x80\x94 "}) {
+        first = std::min(first, title.find(mark));
+    }
+    return first;
+}
+
+/// The games' versions as groups of indices into them, in the order their first members come.
+class Grouping {
+  public:
+    explicit Grouping(const std::vector<Game>& games) : games_{games}, groupOf_(games.size()) {
+    }
+
+    [[nodiscard]] std::size_t groupOf(std::size_t game) const {
+        return groupOf_[game];
+    }
+    [[nodiscard]] std::vector<std::vector<std::size_t>>& groups() noexcept {
+        return groups_;
+    }
+
+    /// `game` as a group of its own.
+    void alone(std::size_t game) {
+        groupOf_[game] = groups_.size();
+        groups_.push_back({game});
+    }
+    /// `game` into `group`.
+    void into(std::size_t game, std::size_t group) {
+        groupOf_[game] = group;
+        groups_[group].push_back(game);
+    }
+    /// Whether `group` holds a version of `holder` already (`holderOf`).
+    [[nodiscard]] bool holds(std::size_t group, const std::string& holder) const {
+        return !holder.empty() && std::ranges::any_of(groups_[group], [&](std::size_t member) {
+            return holderOf(games_[member]) == holder;
+        });
+    }
+    /// Whether two groups share a holder, so they cannot be one game unless the player says so.
+    [[nodiscard]] bool clash(std::size_t a, std::size_t b) const {
+        return std::ranges::any_of(groups_[b], [&](std::size_t member) {
+            return holds(a, holderOf(games_[member]));
+        });
+    }
+    /// Moves `from`'s members into `to`; `from` is left empty.
+    void merge(std::size_t from, std::size_t to) {
+        if (from == to) {
+            return;
+        }
+        for (const std::size_t member : groups_[from]) {
+            into(member, to);
+        }
+        groups_[from].clear();
+    }
+
+  private:
+    const std::vector<Game>& games_;
+    std::vector<std::size_t> groupOf_;
+    std::vector<std::vector<std::size_t>> groups_;
+};
 
 } // namespace
 
@@ -61,6 +148,10 @@ std::string titleKey(std::string_view title) {
     return key;
 }
 
+std::string baseKey(std::string_view title) {
+    return titleKey(title.substr(0, subtitleAt(title)));
+}
+
 std::string choiceKey(const Game& game) {
     if (game.source != Source::Rom) {
         if (const std::string title = titleKey(game.title); !title.empty()) {
@@ -70,33 +161,86 @@ std::string choiceKey(const Game& game) {
     return "id:" + game.id;
 }
 
-std::vector<Title> storeTitles(const std::vector<Game>& games) {
-    std::vector<Title> titles;
+std::vector<Title> gameTitles(const std::vector<Game>& games) {
+    Grouping grouping{games};
+    // Same key: one game, but a store or an openSU holds one version of it.
     std::unordered_map<std::string, std::vector<std::size_t>> byKey;
-    for (const Game& game : games) {
-        if (game.source == Source::Rom) {
-            continue;
-        }
-        const std::string key = titleKey(game.title);
-        std::vector<std::size_t>& candidates = byKey[key];
-        const auto found =
-            key.empty() ? candidates.end() : std::ranges::find_if(candidates, [&](std::size_t at) {
-                return !holds(titles[at].copies, game.source);
-            });
+    std::vector<std::string> keys(games.size());
+    for (std::size_t at = 0; at < games.size(); ++at) {
+        const Game& game = games[at];
+        keys[at] = game.versionApart ? std::string{} : titleKey(game.title);
+        std::vector<std::size_t>& candidates = byKey[keys[at]];
+        const std::string holder = holderOf(game);
+        const auto found = keys[at].empty()
+                               ? candidates.end()
+                               : std::ranges::find_if(candidates, [&](std::size_t group) {
+                                     return !grouping.holds(group, holder);
+                                 });
         if (found != candidates.end()) {
-            titles[*found].copies.push_back(&game);
+            grouping.into(at, *found);
             continue;
         }
-        candidates.push_back(titles.size());
-        titles.push_back(Title{{&game}});
+        if (!keys[at].empty()) {
+            candidates.push_back(grouping.groups().size());
+        }
+        grouping.alone(at);
     }
-    for (Title& title : titles) {
-        std::ranges::stable_sort(title.copies, [](const Game* a, const Game* b) {
-            if (a->installed != b->installed) {
-                return a->installed;
+    // A title and the one subtitled title of its base: one game.
+    std::unordered_map<std::string, std::set<std::string>> subtitled;
+    for (std::size_t at = 0; at < games.size(); ++at) {
+        if (!keys[at].empty()) {
+            const std::string base = baseKey(games[at].title);
+            if (!base.empty() && base != keys[at]) {
+                subtitled[base].insert(keys[at]);
             }
-            return rank(a->source) < rank(b->source);
+        }
+    }
+    for (const auto& [base, full] : subtitled) {
+        const auto bare = byKey.find(base);
+        if (full.size() != 1 || bare == byKey.end()) {
+            continue;
+        }
+        const std::size_t to = byKey.at(*full.begin()).front();
+        if (grouping.groups()[to].empty()) {
+            continue;
+        }
+        for (const std::size_t group : bare->second) {
+            if (!grouping.clash(to, group)) {
+                grouping.merge(group, to);
+            }
+        }
+    }
+    // The player's groupings, whatever the titles say.
+    std::unordered_map<std::string, std::size_t> indexOf;
+    for (std::size_t at = 0; at < games.size(); ++at) {
+        indexOf.emplace(games[at].id, at);
+    }
+    for (std::size_t at = 0; at < games.size(); ++at) {
+        if (const auto other = indexOf.find(games[at].versionWith);
+            !games[at].versionWith.empty() && other != indexOf.end()) {
+            const std::size_t from = grouping.groupOf(at);
+            const std::size_t to = grouping.groupOf(other->second);
+            if (grouping.groups()[from].size() == 1) {
+                grouping.merge(from, to);
+            } else {
+                grouping.groups()[from].erase(std::ranges::find(grouping.groups()[from], at));
+                grouping.into(at, to);
+            }
+        }
+    }
+    std::vector<Title> titles;
+    for (const std::vector<std::size_t>& group : grouping.groups()) {
+        if (group.empty()) {
+            continue;
+        }
+        Title title;
+        for (const std::size_t member : group) {
+            title.copies.push_back(&games[member]);
+        }
+        std::ranges::stable_sort(title.copies, [](const Game* a, const Game* b) {
+            return before(*a, *b);
         });
+        titles.push_back(std::move(title));
     }
     // Pointers into one vector order as the games do.
     std::ranges::stable_sort(titles, [](const Title& a, const Title& b) {
@@ -106,7 +250,7 @@ std::vector<Title> storeTitles(const std::vector<Game>& games) {
 }
 
 std::vector<Game> copiesOf(const std::vector<Game>& games, const Game& game) {
-    for (const Title& title : storeTitles(games)) {
+    for (const Title& title : gameTitles(games)) {
         if (std::ranges::any_of(title.copies, [&game](const Game* copy) {
                 return copy->id == game.id;
             })) {
@@ -123,7 +267,7 @@ std::vector<Game> copiesOf(const std::vector<Game>& games, const Game& game) {
 
 void markCopies(std::vector<Game>& games) {
     std::unordered_set<std::string> several;
-    for (const Title& title : storeTitles(games)) {
+    for (const Title& title : gameTitles(games)) {
         if (std::ranges::count_if(title.copies, isStore, &Game::source) < 2) {
             continue;
         }
@@ -139,7 +283,7 @@ void markCopies(std::vector<Game>& games) {
 }
 
 void shareTitleData(std::vector<Game>& games, const std::vector<KeptData>& kept) {
-    std::vector<Title> titles = storeTitles(games);
+    std::vector<Title> titles = gameTitles(games);
     const auto storeCopies = [](const Title& title) {
         std::vector<const Game*> copies;
         std::ranges::copy_if(title.copies, std::back_inserter(copies), isStore, &Game::source);
@@ -184,7 +328,7 @@ void shareTitleData(std::vector<Game>& games, const std::vector<KeptData>& kept)
     }
 }
 
-TitleCopies::TitleCopies(const std::vector<Game>& games) : titles_{storeTitles(games)} {
+TitleCopies::TitleCopies(const std::vector<Game>& games) : titles_{gameTitles(games)} {
     for (std::size_t at = 0; at < titles_.size(); ++at) {
         for (const Game* copy : titles_[at].copies) {
             byGame_.emplace(copy->id, at);
@@ -204,8 +348,10 @@ std::vector<const Game*> TitleCopies::ordered(const Game& game) const {
     }
     std::vector<const Game*> copies = title->copies;
     std::ranges::stable_sort(copies, [](const Game* a, const Game* b) {
-        if (a->installed != b->installed) {
-            return a->installed;
+        if (a->inExtras != b->inExtras || a->versionDefault != b->versionDefault ||
+            a->installed != b->installed ||
+            (a->source == Source::Remote) != (b->source == Source::Remote)) {
+            return before(*a, *b);
         }
         return playedAt(*a) > playedAt(*b);
     });
@@ -223,14 +369,13 @@ bool TitleCopies::updatePending(const Game& game) const {
 
 std::vector<Game> TitleCopies::offered(const Game& game) const {
     const std::vector<const Game*> copies = ordered(game);
-    if (std::ranges::count_if(copies, isStore, &Game::source) < 2) {
+    if (copies.size() < 2) {
         return {};
     }
     std::vector<Game> out;
+    out.reserve(copies.size());
     for (const Game* copy : copies) {
-        if (isStore(copy->source) || copy == copies.front()) {
-            out.push_back(*copy);
-        }
+        out.push_back(*copy);
     }
     return out;
 }

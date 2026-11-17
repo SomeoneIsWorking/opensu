@@ -127,6 +127,10 @@ class Records {
 /// cannot start leaves `launch` empty and says why in `unavailable`.
 [[nodiscard]] Game gameOf(const Entry& entry);
 
+/// Whether `game` is one of the player's own that runs as a program of this OS: not a Windows one
+/// under Wine, here or in Lutris's prefix.
+[[nodiscard]] bool nativeOwn(const Game& game) noexcept;
+
 /// Lists the entries and what the games folders hold as games; absent while there are none. A
 /// folder's game whose file is an entry's already is that entry. A Lutris entry takes how it starts
 /// from `lutrisGames` on each listing, read from `lutrisData`, and, with no Steam app of its own,

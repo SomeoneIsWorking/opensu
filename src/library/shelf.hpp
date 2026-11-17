@@ -50,7 +50,7 @@ struct Launcher {
     bool operator==(const Launcher&) const = default;
 };
 
-/// Every store game, a title owned in several stores once.
+/// Every game with a version that is no ROM here, its versions once (`gameTitles`).
 struct AllGames {
     std::size_t games{0};
 
@@ -93,10 +93,11 @@ using ShelfItem = std::variant<Game, Console, Launcher, AllGames, Giveaways, Add
 [[nodiscard]] std::vector<Console> consoles(const std::vector<Game>& games);
 
 /// Home: the consoles the player added, in Library's order, then the games in `games`' order (the
-/// library's sort): each store title whose preferred copy is installed here, a title installed in
-/// several stores once, unless the player took it off, and each game the player added, a ROM, a
-/// title not installed or one on another openSU. With none of those, the add tiles `adds` once no
-/// store in `sources` is still loading its first listing; nothing while one is.
+/// library's sort): each game once, as its preferred version (`gameTitles`), when that is a store
+/// game or one of the player's own installed here, unless the player took it off, and each game the
+/// player added whose preferred version is a ROM, not installed or on another openSU. With none of
+/// those, the add tiles `adds` once no store in `sources` is still loading its first listing;
+/// nothing while one is.
 [[nodiscard]] std::vector<ShelfItem> homeShelf(const std::vector<Game>& games,
                                                const std::vector<SourceStatus>& sources,
                                                const std::vector<AddTile>& adds,
@@ -129,7 +130,8 @@ void setOnHome(const std::vector<Game>& games, const ShelfItem& item, bool on,
 [[nodiscard]] std::vector<ShelfItem> launcherShelf(const std::vector<Game>& games,
                                                    const Launcher& launcher);
 
-/// Every store game, each title once as its preferred copy, with every store it is owned in.
+/// Every game with a version that is no ROM here, once as its preferred version, with every store
+/// it is owned in.
 [[nodiscard]] std::vector<ShelfItem> allGamesShelf(const std::vector<Game>& games);
 
 /// The games a folder holds.

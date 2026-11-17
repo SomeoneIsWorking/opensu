@@ -1,10 +1,11 @@
 // details_screen — a game's details page on the interface toolkit, over its wide picture faded
 // when the store has one: its cover whole beside the title, the store or system and what is known
 // about it, and a pane of the launch button, focused, and the rows that act on it, each row naming
-// the copy it acts on; and More, a tall card over it with the rows of the other copies and
-// what removes the game.
+// the copy it acts on; and a list card over it: More or Versions, with the rows of each version
+// and what removes the game, or Group with…'s games to pick.
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -35,10 +36,15 @@ class DetailsScreen final : public gpu2d::ui::Screen {
     ui::ScreenImages& images_;
 };
 
-class DetailsMoreScreen final : public gpu2d::ui::Screen {
+class DetailsListScreen final : public gpu2d::ui::Screen {
   public:
-    DetailsMoreScreen(DetailsController& controller, const ui::Chrome& chrome)
-        : Screen{"details.more", "More"}, controller_{controller}, chrome_{chrome} {
+    /// The rows the card lists now; it closes when there are none.
+    using Rows = std::function<std::vector<ui::SettingsRow>()>;
+
+    DetailsListScreen(DetailsController& controller, const ui::Chrome& chrome, std::string id,
+                      std::string title, Rows rows)
+        : Screen{std::move(id), std::move(title)}, controller_{controller}, chrome_{chrome},
+          rows_{std::move(rows)} {
     }
 
     [[nodiscard]] std::unique_ptr<gpu2d::ui::Widget> build(const gpu2d::ui::Theme& theme) override;
@@ -51,6 +57,7 @@ class DetailsMoreScreen final : public gpu2d::ui::Screen {
   private:
     DetailsController& controller_;
     const ui::Chrome& chrome_;
+    Rows rows_;
 };
 
 } // namespace opensu::app
