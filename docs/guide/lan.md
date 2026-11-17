@@ -108,6 +108,10 @@ Fedora, RPM Fusion's `mesa-va-drivers-freeworld`).
 - The game plays over there as your profile when it is linked with that openSU
   ([profiles.md](profiles.md#profiles-on-the-lan)), and keeps its saves; otherwise as that
   openSU's first profile.
+- On a touchscreen, the touch controls show over the game as the game's Touch controls setting
+  says, here in Game settings: Dynamic hides them at your controller's first press and brings them
+  back at a touch, Always keeps them, Never never shows them; Touch controls size sizes them. A
+  laptop's or a Mac's trackpad is no touchscreen.
 - Guide opens this openSU's menu. **End remote play** closes the game over there; anything it has
   not saved is lost.
 - The other openSU runs one game at a time. While a different game runs there, it refuses.

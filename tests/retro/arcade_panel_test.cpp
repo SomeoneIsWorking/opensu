@@ -488,12 +488,12 @@ void panelCrossesTheWireAsText() {
 
 void shownByTheLatestInput() {
     using opensu::input::Device;
-    using opensu::retro::touchWanted;
     using opensu::settings::TouchShow;
-    expect(!touchWanted(TouchShow::Dynamic, Device::Pad), "a controller's press hides them");
-    expect(touchWanted(TouchShow::Dynamic, Device::Touch), "a finger shows them again");
-    expect(touchWanted(TouchShow::Always, Device::Pad), "Always keeps them over a controller");
-    expect(!touchWanted(TouchShow::Never, Device::Touch), "Never keeps them hidden");
+    using opensu::settings::touchWanted;
+    expect(!touchWanted(TouchShow::Dynamic, true), "a controller's press hides them");
+    expect(touchWanted(TouchShow::Dynamic, false), "a finger shows them again");
+    expect(touchWanted(TouchShow::Always, true), "Always keeps them over a controller");
+    expect(!touchWanted(TouchShow::Never, false), "Never keeps them hidden");
     opensu::input::LastDevice last{Device::Touch};
     opensu::gamepad::Event press;
     press.button = Button::A;

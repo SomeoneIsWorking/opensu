@@ -596,8 +596,19 @@ void ShellApp::handlePointer() {
     if (!relay_.forwarding()) {
         pointer(window_->pointer());
     }
+    const bool remote = remoteHasControls();
+    // Read again each time the game has the controls back, so a change in the Guide applies.
+    if (remote && !remoteTouchShow_) {
+        const settings::LayerKeys keys = library::layerKeysOf(remotePlay_.game());
+        remoteTouchShow_ = settings::resolveTouchShow(gameSettings_.layers(), keys);
+        remoteTouch_->sized(settings::resolveTouchSize(gameSettings_.layers(), keys));
+    } else if (!remote) {
+        remoteTouchShow_.reset();
+    }
     const bool controls =
-        remoteHasControls() && window_->hasTouchscreen() && pads_->connected().empty();
+        remote && window_->hasTouchscreen() &&
+        settings::touchWanted(remoteTouchShow_.value_or(settings::TouchShow::Dynamic),
+                              shell_.inputDevice().current() == input::Device::Pad);
     remoteTouch_->panel(remotePlay_.panel());
     const display::Placed placed = remotePlacement();
     const touch::Box picture{.x = static_cast<float>(placed.x),
@@ -612,6 +623,9 @@ void ShellApp::pointer(const PointerFrame& frame) {
     using gpu2d::ui::PointerEvent;
     using gpu2d::ui::PointerKind;
     if (remoteHasControls()) {
+        // A finger brings the touch controls back after a controller's press hid them.
+        shell_.inputDevice().notePointer(frame.delta.x, frame.delta.y, !frame.primary.empty(),
+                                         frame.touch);
         if (!frame.touch || !remoteTouch_->shown()) {
             remoteInput_.pointer(frame, remotePlacement());
         }

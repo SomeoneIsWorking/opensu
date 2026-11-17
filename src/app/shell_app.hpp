@@ -1587,6 +1587,9 @@ class ShellApp final {
     bool pointerIn_{false};
     /// Whether the primary button or a finger is down.
     bool pointerHeld_{false};
+    /// When the touch controls show over the remote game, as its settings say; read while the
+    /// game has the controls, unset while it does not.
+    std::optional<settings::TouchShow> remoteTouchShow_;
     /// Held directions, from a pad or the keyboard, repeat on one schedule.
     gamepad::DirectionRepeat repeat_;
 

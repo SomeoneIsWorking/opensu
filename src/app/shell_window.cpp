@@ -163,9 +163,13 @@ void ShellWindow::raise() {
 
 bool ShellWindow::hasTouchscreen() const noexcept {
     int count = 0;
-    const SDL_TouchID* devices = SDL_GetTouchDevices(&count);
-    SDL_free(const_cast<SDL_TouchID*>(devices));
-    return count > 0;
+    SDL_TouchID* devices = SDL_GetTouchDevices(&count);
+    // A Mac's trackpad is a touch device too, an indirect one.
+    const bool screen = std::any_of(devices, devices + count, [](SDL_TouchID device) {
+        return SDL_GetTouchDeviceType(device) == SDL_TOUCH_DEVICE_DIRECT;
+    });
+    SDL_free(devices);
+    return screen;
 }
 
 touch::WindowSurface ShellWindow::touchSurface() {

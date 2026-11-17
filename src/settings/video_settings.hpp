@@ -198,6 +198,11 @@ void declareVideo(Schema& schema);
 /// reported and the default used. The shader preset is found under `presets`, the shader pack.
 /// The controls' size where `keys` look; the default for a value out of the range.
 [[nodiscard]] int resolveTouchSize(const SettingLayers& layers, const LayerKeys& keys);
+/// When the touch controls show for `keys`.
+[[nodiscard]] TouchShow resolveTouchShow(const SettingLayers& layers, const LayerKeys& keys);
+/// Whether the touch controls show for `show` while `padLatest` (a controller gave the latest
+/// input): Dynamic shows them unless a controller did.
+[[nodiscard]] bool touchWanted(TouchShow show, bool padLatest) noexcept;
 /// The keys Aspect and Filter are kept under, with their choices.
 [[nodiscard]] const ChoiceKey& aspectKey();
 [[nodiscard]] const ChoiceKey& filterKey();

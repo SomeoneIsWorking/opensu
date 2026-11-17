@@ -12,6 +12,14 @@ RemoteTouch::RemoteTouch(SDL_GPUDevice& device, std::filesystem::path art)
     : device_{&device}, layer_{std::move(art)} {
 }
 
+void RemoteTouch::sized(int percent) {
+    if (percent != percent_) {
+        percent_ = percent;
+        layer_.setSize(static_cast<float>(percent) / 100.0F);
+        panelChanged_ = true;
+    }
+}
+
 void RemoteTouch::panel(const std::string& text) {
     if (text == panel_) {
         return;

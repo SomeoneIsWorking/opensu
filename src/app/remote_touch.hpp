@@ -1,5 +1,6 @@
-// remote_touch — the on-screen pad over a remote game, on a touchscreen with no controller: the
-// runner's `touch::TouchLayer` on the shell's window. What the fingers hold comes out as a pad's
+// remote_touch — the on-screen pad over a remote game on a touchscreen, shown as the game's Touch
+// controls setting says (`settings::touchWanted`) at its size: the runner's `touch::TouchLayer` on
+// the shell's window. What the fingers hold comes out as a pad's
 // events, so the buttons go to the host and the pause button to the Guide by the pad's own path;
 // the controls are a texture the shell draws over the picture, uploaded when they change.
 #pragma once
@@ -14,6 +15,7 @@
 
 #include "gamepad/event.hpp"
 #include "gpu2d/texture.hpp"
+#include "settings/video_settings.hpp"
 #include "touch/touch_layer.hpp"
 
 namespace opensu::app {
@@ -23,6 +25,8 @@ class RemoteTouch {
     /// The art is read from `art` (assets/touch).
     RemoteTouch(SDL_GPUDevice& device, std::filesystem::path art);
 
+    /// The player's size for the controls, a percentage; laid out again when it changed.
+    void sized(int percent);
     /// Shows the panel `text` writes (`touch::panelText`) in place of the pad; empty text, the pad.
     void panel(const std::string& text);
     /// The frame's `fingers` on the controls laid out for `surface`, a panel around the picture at
@@ -53,7 +57,9 @@ class RemoteTouch {
     touch::WindowSurface laidOut_;
     touch::Box laidAround_;
     std::string panel_;
+    /// The panel or the size changed since the controls were laid out.
     bool panelChanged_{false};
+    int percent_{settings::touchSizeDefault};
     std::vector<gamepad::Button> held_;
     std::optional<gpu2d::Texture> texture_;
     bool shown_{false};

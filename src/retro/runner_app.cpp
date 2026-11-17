@@ -429,7 +429,8 @@ RunnerExit RunnerApp::run() {
             }
         }
         const bool touchShown = touch && !covered && !waiting &&
-                                touchWanted(presenter->video().touchShow, lastInput.current());
+                                settings::touchWanted(presenter->video().touchShow,
+                                                      lastInput.current() == input::Device::Pad);
         if (touch) {
             touch->sized(presenter->video().touchSize);
         }

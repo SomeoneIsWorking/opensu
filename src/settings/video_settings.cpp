@@ -243,6 +243,24 @@ int resolveTouchSize(const SettingLayers& layers, const LayerKeys& keys) {
     return whole && touchSizeFits(size) ? size : touchSizeDefault;
 }
 
+TouchShow resolveTouchShow(const SettingLayers& layers, const LayerKeys& keys) {
+    const Resolved resolved =
+        layers.resolve(keys, touchShowKey().key, std::string{touchShowKey().choices.front().key});
+    return static_cast<TouchShow>(choiceIndexOrDefault(touchShowKey(), resolved.value, keys.game));
+}
+
+bool touchWanted(TouchShow show, bool padLatest) noexcept {
+    switch (show) {
+    case TouchShow::Always:
+        return true;
+    case TouchShow::Never:
+        return false;
+    case TouchShow::Dynamic:
+        return !padLatest;
+    }
+    return true;
+}
+
 VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
                            const std::filesystem::path& presets) {
     const auto index = [&](const ChoiceKey& video) {
@@ -258,7 +276,7 @@ VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
         .filter = static_cast<Filter>(index(filterKey())),
         .shaderPreset = shader.empty() ? std::filesystem::path{} : presets / shader,
         .shaderResolution = static_cast<ShaderResolution>(index(shaderResolutionKey())),
-        .touchShow = static_cast<TouchShow>(index(touchShowKey())),
+        .touchShow = resolveTouchShow(layers, keys),
         .touchSize = resolveTouchSize(layers, keys),
         .turned = index(turnedKey()) == 1,
         .frameGen = generating(resolveFrameGen(layers, keys)),
