@@ -26,8 +26,8 @@ struct Tile {
     std::string caption;
     /// A launcher's logo.
     std::optional<Icon> logo;
-    /// The stores a game is owned in, as icons in its corner.
-    std::vector<Icon> stores;
+    /// What runs the game (`runnerIcon`), as a mark in its corner.
+    std::optional<Icon> runner;
     /// Its artwork files as the loader brings them in; empty for none.
     gpu2d::ImageHandle portrait;
     gpu2d::ImageHandle wide;

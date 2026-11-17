@@ -82,8 +82,8 @@ struct TileVisual {
     std::string_view caption;
     /// A launcher's logo.
     std::optional<Icon> logo;
-    /// The stores a game is owned in, as icons in its corner.
-    std::span<const Icon> stores;
+    /// What runs the game (`runnerIcon`), as a mark in its corner.
+    std::optional<Icon> runner;
     /// The game's store has an update for it.
     bool update{false};
     /// Whether the cover is on its way (downloading, queued or decoding): a spinner stands in for
@@ -139,7 +139,7 @@ class TilePainter {
     void paintMark(Canvas& canvas, const TileVisual& tile, const Rect& box, Colour ink);
     /// A console's photo over `card`, its longer side spanning the card.
     void paintPhoto(Canvas& canvas, const TileVisual& tile, const RoundRect& card);
-    void paintStores(Canvas& canvas, const TileVisual& tile, const Rect& content);
+    void paintRunner(Canvas& canvas, const TileVisual& tile, const Rect& content);
     void paintUpdate(Canvas& canvas, const TileVisual& tile, const Rect& content) const;
 
     IconAtlas& icons_;

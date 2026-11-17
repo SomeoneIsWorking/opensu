@@ -48,6 +48,10 @@ std::string_view name(ui::Icon icon) {
         return "epic";
     case ui::Icon::Gog:
         return "gog";
+    case ui::Icon::Linux:
+    case ui::Icon::Wine:
+    case ui::Icon::AppImage:
+    case ui::Icon::Libretro:
     case ui::Icon::Home:
     case ui::Icon::HomeSelected:
     case ui::Icon::Library:

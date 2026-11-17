@@ -19,11 +19,9 @@ constexpr float artMinRadiusPct = 9.0f;
 constexpr float spriteGlyphOffset = 45.0f;
 constexpr float spriteGlyphSide = 90.0f;
 
-// opensu's own: a store badge is 15% of the content's short side, 5% from its corner, with a
-// fifth of a badge between neighbours.
-constexpr float storeBadgeSide = 0.15f;
-constexpr float storeBadgeMargin = 0.05f;
-constexpr float storeBadgeGap = 0.2f;
+// opensu's own: a badge is 15% of the content's short side, 5% from its corner.
+constexpr float badgeSide = 0.15f;
+constexpr float badgeMargin = 0.05f;
 
 /// iiSU xj2: max(4, ceil(0.068 x)).
 float cornerFor(float side) noexcept {
@@ -78,26 +76,17 @@ FrameGeometry frameGeometry(const Rect& rect) noexcept {
     };
 }
 
-StoreIconRow storeIconRow(const Rect& content, std::size_t count) noexcept {
-    StoreIconRow row;
-    row.count = std::min(count, maxStoreIcons);
+Rect runnerBadge(const Rect& content) noexcept {
     const float side = std::min(content.width, content.height);
-    const float badge = side * storeBadgeSide;
-    const float margin = side * storeBadgeMargin;
-    const float pitch = badge * (1.0f + storeBadgeGap);
-    const float y = content.bottom() - margin - badge;
-    for (std::size_t i = 0; i < row.count; ++i) {
-        const float fromCorner = static_cast<float>(row.count - 1 - i);
-        row.badges[i] =
-            Rect{content.right() - margin - badge - fromCorner * pitch, y, badge, badge};
-    }
-    return row;
+    const float badge = side * badgeSide;
+    const float margin = side * badgeMargin;
+    return Rect{content.right() - margin - badge, content.bottom() - margin - badge, badge, badge};
 }
 
 Rect updateBadge(const Rect& content) noexcept {
     const float side = std::min(content.width, content.height);
-    const float badge = side * storeBadgeSide;
-    const float margin = side * storeBadgeMargin;
+    const float badge = side * badgeSide;
+    const float margin = side * badgeMargin;
     return Rect{content.right() - margin - badge, content.y + margin, badge, badge};
 }
 

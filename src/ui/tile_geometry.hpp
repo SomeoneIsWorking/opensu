@@ -40,20 +40,11 @@ struct FrameGeometry {
     Rect glyph;
 };
 
-/// The most store icons one tile shows: Steam, GOG and Epic.
-inline constexpr std::size_t maxStoreIcons = 3;
+/// Where a game tile's runner mark sits (`runnerIcon`): a round badge in the content's
+/// bottom-right corner.
+[[nodiscard]] Rect runnerBadge(const Rect& content) noexcept;
 
-/// Where a game tile's store icons sit: round badges along the content's bottom-right corner,
-/// the first leftmost, the last against the corner.
-struct StoreIconRow {
-    std::array<Rect, maxStoreIcons> badges{};
-    std::size_t count{0};
-};
-
-/// The row for `count` icons (at most `maxStoreIcons`) on a tile whose content is `content`.
-[[nodiscard]] StoreIconRow storeIconRow(const Rect& content, std::size_t count) noexcept;
-
-/// Where a game tile's update badge sits: a store badge's disc in the content's top-right corner.
+/// Where a game tile's update badge sits: a runner badge's disc in the content's top-right corner.
 [[nodiscard]] Rect updateBadge(const Rect& content) noexcept;
 
 /// The platform frame for a composition rectangle.

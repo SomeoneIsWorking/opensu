@@ -4,6 +4,8 @@
 #include <string>
 #include <utility>
 
+#include "library/own_games.hpp"
+
 namespace opensu::ui {
 namespace {
 
@@ -37,6 +39,31 @@ std::optional<Icon> iconFor(library::Source source) noexcept {
     return std::nullopt;
 }
 
+std::optional<Icon> runnerIcon(const library::Game& game) noexcept {
+    switch (game.source) {
+    case library::Source::Steam:
+    case library::Source::Epic:
+    case library::Source::Gog:
+        return iconFor(game.source);
+    case library::Source::Own:
+        if (!library::own::nativeOwn(game)) {
+            return Icon::Wine;
+        }
+        return game.appImage ? Icon::AppImage : Icon::Linux;
+    case library::Source::Rom: {
+        const auto runs =
+            std::ranges::find(game.emulatorOptions, game.emulator, &library::EmulatorOption::name);
+        if (runs != game.emulatorOptions.end() && runs->builtIn) {
+            return Icon::Libretro;
+        }
+        return std::nullopt;
+    }
+    case library::Source::Remote:
+        break;
+    }
+    return std::nullopt;
+}
+
 std::string_view iconFile(Icon icon) noexcept {
     switch (icon) {
     case Icon::Steam:
@@ -45,6 +72,14 @@ std::string_view iconFile(Icon icon) noexcept {
         return "icons/epicgames.svg";
     case Icon::Gog:
         return "icons/gogdotcom.svg";
+    case Icon::Linux:
+        return "icons/linux.svg";
+    case Icon::Wine:
+        return "icons/wine.svg";
+    case Icon::AppImage:
+        return "icons/appimage.svg";
+    case Icon::Libretro:
+        return "icons/libretro.svg";
     case Icon::Home:
         return "icons/home.svg";
     case Icon::HomeSelected:

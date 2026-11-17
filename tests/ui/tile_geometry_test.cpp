@@ -61,37 +61,23 @@ void glyph() {
     near(f.glyph.centreY(), 200.0f + f.tab * 0.5f, "glyph square is centred in the tab vertically");
 }
 
-void storeIcons() {
+void runnerBadge() {
     const Rect content{100, 200, 200, 300};
-    const opensu::ui::StoreIconRow none = opensu::ui::storeIconRow(content, 0);
-    opensu::test::expect(none.count == 0, "no stores, no badges");
-
-    const opensu::ui::StoreIconRow one = opensu::ui::storeIconRow(content, 1);
-    opensu::test::expect(one.count == 1, "one store, one badge");
-    near(one.badges[0].width, 30.0f, "a badge is 15% of the short side");
-    near(one.badges[0].height, 30.0f, "a badge is round");
-    near(one.badges[0].right(), content.right() - 10.0f, "a badge is 5% in from the right");
-    near(one.badges[0].bottom(), content.bottom() - 10.0f, "a badge is 5% up from the bottom");
-
-    const opensu::ui::StoreIconRow two = opensu::ui::storeIconRow(content, 2);
-    near(two.badges[1].x, one.badges[0].x, "the last badge sits against the corner");
-    near(two.badges[1].x - two.badges[0].x, 36.0f, "badges are a fifth of a badge apart");
-    near(two.badges[0].y, two.badges[1].y, "badges share a line");
-
-    const opensu::ui::StoreIconRow many = opensu::ui::storeIconRow(content, 9);
-    opensu::test::expect(many.count == opensu::ui::maxStoreIcons,
-                         "a row holds one badge per store");
-    opensu::test::expect(many.badges[0].x > content.x, "the row stays on the tile");
+    const Rect badge = opensu::ui::runnerBadge(content);
+    near(badge.width, 30.0f, "a badge is 15% of the short side");
+    near(badge.height, 30.0f, "a badge is round");
+    near(badge.right(), content.right() - 10.0f, "a badge is 5% in from the right");
+    near(badge.bottom(), content.bottom() - 10.0f, "a badge is 5% up from the bottom");
 }
 
 void updateBadge() {
     const Rect content{100, 200, 200, 300};
     const Rect badge = opensu::ui::updateBadge(content);
-    const opensu::ui::StoreIconRow one = opensu::ui::storeIconRow(content, 1);
-    near(badge.width, one.badges[0].width, "the update badge is a store badge's size");
-    near(badge.right(), one.badges[0].right(), "it lines up with the store badges' right edge");
+    const Rect runner = opensu::ui::runnerBadge(content);
+    near(badge.width, runner.width, "the update badge is a runner badge's size");
+    near(badge.right(), runner.right(), "it lines up with the runner badge's right edge");
     near(badge.y, content.y + 10.0f, "it is 5% down from the top");
-    opensu::test::expect(badge.bottom() < one.badges[0].y, "it clears the store badges");
+    opensu::test::expect(badge.bottom() < runner.y, "it clears the runner badge");
 }
 
 } // namespace
@@ -102,7 +88,7 @@ int main() try {
     smallTile();
     frame();
     glyph();
-    storeIcons();
+    runnerBadge();
     updateBadge();
     std::printf("tile_geometry: all checks passed\n");
     return 0;

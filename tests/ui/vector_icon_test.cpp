@@ -18,7 +18,9 @@ using opensu::test::fail;
 
 void testShippedIcons(const std::filesystem::path& assets) {
     for (const opensu::ui::Icon icon :
-         {opensu::ui::Icon::Steam, opensu::ui::Icon::Epic, opensu::ui::Icon::Gog}) {
+         {opensu::ui::Icon::Steam, opensu::ui::Icon::Epic, opensu::ui::Icon::Gog,
+          opensu::ui::Icon::Linux, opensu::ui::Icon::Wine, opensu::ui::Icon::AppImage,
+          opensu::ui::Icon::Libretro}) {
         const auto mask = opensu::svg::rasteriseMask(assets / opensu::ui::iconFile(icon), 48);
         if (!mask) {
             fail("an icon rasterises at the size asked");

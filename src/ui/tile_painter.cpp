@@ -491,7 +491,7 @@ void TilePainter::paintContent(Canvas& canvas, const TileVisual& tile,
     } else {
         paintFallback(canvas, tile, art);
     }
-    paintStores(canvas, tile, art);
+    paintRunner(canvas, tile, art);
     if (tile.update) {
         paintUpdate(canvas, tile, art);
     }
@@ -512,20 +512,20 @@ void TilePainter::paintUpdate(Canvas& canvas, const TileVisual& tile, const Rect
                     Point{centre.x, centre.y + r * updateArrowReach}, ink);
 }
 
-void TilePainter::paintStores(Canvas& canvas, const TileVisual& tile, const Rect& content) {
-    const StoreIconRow row = storeIconRow(content, tile.stores.size());
-    for (std::size_t i = 0; i < row.count; ++i) {
-        const Rect& badge = row.badges[i];
-        const Point centre{badge.centreX(), badge.centreY()};
-        canvas.fillCircle(centre, badge.width * 0.5f, withAlpha(badgeDisc, tile.alpha));
-        const int pixels = std::max(static_cast<int>(std::lround(badge.width * badgeLogo)), 1);
-        if (const gpu2d::Texture* mark = icons_.mask(tile.stores[i], pixels)) {
-            const auto side = static_cast<float>(pixels);
-            canvas.image(mark->view(), wholeOf(*mark),
-                         gpu2d::Rect{std::round(centre.x - side * 0.5f),
-                                     std::round(centre.y - side * 0.5f), side, side},
-                         withAlpha(white, tile.alpha));
-        }
+void TilePainter::paintRunner(Canvas& canvas, const TileVisual& tile, const Rect& content) {
+    if (!tile.runner) {
+        return;
+    }
+    const Rect badge = runnerBadge(content);
+    const Point centre{badge.centreX(), badge.centreY()};
+    canvas.fillCircle(centre, badge.width * 0.5f, withAlpha(badgeDisc, tile.alpha));
+    const int pixels = std::max(static_cast<int>(std::lround(badge.width * badgeLogo)), 1);
+    if (const gpu2d::Texture* mark = icons_.mask(*tile.runner, pixels)) {
+        const auto side = static_cast<float>(pixels);
+        canvas.image(mark->view(), wholeOf(*mark),
+                     gpu2d::Rect{std::round(centre.x - side * 0.5f),
+                                 std::round(centre.y - side * 0.5f), side, side},
+                     withAlpha(white, tile.alpha));
     }
 }
 

@@ -151,7 +151,7 @@ void HomeGrid::fillTile(Tile& tile, library::ShelfItem item) const {
     tile.title.clear();
     tile.caption.clear();
     tile.logo.reset();
-    tile.stores.clear();
+    tile.runner.reset();
     if (const std::optional<library::Folder> folder = library::folderOf(tile.item)) {
         tile.title = library::name(*folder);
     }
@@ -175,11 +175,7 @@ void HomeGrid::fillTile(Tile& tile, library::ShelfItem item) const {
         tile.title = add->name;
         tile.caption = add->caption;
     } else {
-        for (const library::Source source : std::get<library::Game>(tile.item).ownedIn) {
-            if (const std::optional<Icon> icon = iconFor(source)) {
-                tile.stores.push_back(*icon);
-            }
-        }
+        tile.runner = runnerIcon(std::get<library::Game>(tile.item));
     }
 }
 
@@ -742,7 +738,7 @@ void HomeGrid::fillContent(TileVisual& visual, const Tile& tile) const {
     visual.loading = tile.awaitingArt();
     if (const auto* game = std::get_if<library::Game>(&tile.item)) {
         visual.title = game->title;
-        visual.stores = tile.stores;
+        visual.runner = tile.runner;
         visual.update = game->updateAvailable || game->updateOnCopy;
         if (game->source == library::Source::Rom) {
             visual.console = game->sourceId;
