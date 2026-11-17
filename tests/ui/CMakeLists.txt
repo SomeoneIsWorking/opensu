@@ -44,3 +44,8 @@ target_link_libraries(tile_artwork_test PRIVATE opensu::ui)
 target_compile_definitions(tile_artwork_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 opensu_warnings(tile_artwork_test)
 add_test(NAME tile_artwork COMMAND tile_artwork_test)
+
+add_executable(cover_formats_test cover_formats_test.cpp)
+target_link_libraries(cover_formats_test PRIVATE gpu2d::image)
+opensu_warnings(cover_formats_test)
+add_test(NAME cover_formats COMMAND cover_formats_test)

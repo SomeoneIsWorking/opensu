@@ -32,7 +32,7 @@
     },
     {
       "name": "sdl3-image",
-      "features": ["png", "webp"]
+      "features": ["jpeg", "png", "webp"]
     },
     {
       "name": "sdl3-ttf",
