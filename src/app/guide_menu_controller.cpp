@@ -50,7 +50,6 @@ constexpr const char* shutDownId = "power.shutDown";
 constexpr const char* toDesktopId = "power.toDesktop";
 constexpr const char* toSessionId = "power.toSession";
 constexpr const char* installSessionId = "power.installSession";
-constexpr const char* quitId = "power.quit";
 
 SettingsRow action(std::string id, std::string label, std::string note = {}) {
     return ui::makeRow(std::move(id), RowKind::Action, std::move(label), std::move(note), {});
@@ -210,7 +209,9 @@ std::vector<SettingsRow> GuideMenuController::places() const {
     rows.push_back(action(devicesId, "Devices"));
     rows.push_back(action(downloadsId, "Downloads"));
     rows.push_back(action(settingsId, "Settings"));
-    rows.push_back(ui::makePage(powerId, "Power", {}, {}));
+    if (!power().empty()) {
+        rows.push_back(ui::makePage(powerId, "Power", {}, {}));
+    }
     return rows;
 }
 
@@ -283,7 +284,6 @@ std::vector<SettingsRow> GuideMenuController::power() const {
     } else if (session_ != nullptr) {
         rows.push_back(action(installSessionId, "Install session mode"));
     }
-    rows.push_back(action(quitId, "Quit to desktop"));
     return rows;
 }
 
@@ -448,8 +448,6 @@ void GuideMenuController::runPower(const std::string& id) {
         refuse(session_->switchToSession(), "Switch to session mode");
     } else if (id == installSessionId) {
         leave(hooks_.installSession);
-    } else if (id == quitId) {
-        leave(hooks_.quit);
     }
 }
 

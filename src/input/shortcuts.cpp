@@ -40,7 +40,6 @@ constexpr std::array<ActionInfo, allActions.size()> infos{{
     {Action::VolumeUp, "volumeUp", "Volume up", Button::None, true, true},
     {Action::VolumeDown, "volumeDown", "Volume down", Button::None, true, true},
     {Action::VolumeMute, "volumeMute", "Mute", Button::None, true, true},
-    {Action::Quit, "quit", "Quit openSU", Button::None, false, false},
     {Action::CloseGame, "closeGame", "Close game", Button::None, true, true},
     {Action::SaveState, "saveState", "Save state", Button::None, true, true},
     {Action::LoadState, "loadState", "Load state", Button::None, true, true},
@@ -63,7 +62,7 @@ const ActionInfo& infoOf(Action action) noexcept {
 }
 
 /// The shipped key bindings; an action's first entry is the one its prompts show.
-constexpr std::array<KeyBinding, 28> defaultBindings{{
+constexpr std::array<KeyBinding, 27> defaultBindings{{
     {Action::Up, {keys::Up}},
     {Action::Up, {keys::W}},
     {Action::Down, {keys::Down}},
@@ -91,7 +90,6 @@ constexpr std::array<KeyBinding, 28> defaultBindings{{
     {Action::VolumeUp, {keys::Up, true, false}},
     {Action::VolumeDown, {keys::Down, true, false}},
     {Action::VolumeMute, {keys::M, true, false}},
-    {Action::Quit, {keys::Q}},
 }};
 
 struct DefaultPad {

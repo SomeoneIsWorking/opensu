@@ -22,9 +22,6 @@ void ShortcutRouter::perform(input::Action action) {
         });
     };
     switch (action) {
-    case Action::Quit:
-        hooks_.quit();
-        break;
     case Action::QuickMenu:
         hooks_.quickMenu();
         break;

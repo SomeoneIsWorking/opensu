@@ -29,10 +29,7 @@ struct Rig {
     Rig()
         : volume{std::make_unique<test::FakeMixer>(), {}},
           router{shortcuts, chords, volume, retro,
-                 app::ShortcutRouter::Hooks{.quit =
-                                                [] {
-                                                },
-                                            .quickMenu =
+                 app::ShortcutRouter::Hooks{.quickMenu =
                                                 [this] {
                                                     ++quickMenus;
                                                 },

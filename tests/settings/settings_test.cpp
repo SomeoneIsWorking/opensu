@@ -201,7 +201,7 @@ void scaleAndShortcuts(const fs::path& root) {
     saved.uiScale = 125;
     saved.portrait = true;
     Shortcuts table;
-    expect(table.rebind(Action::Quit, Combo{keys::F9}).empty(), "a remap");
+    expect(table.rebind(Action::VolumeMute, Combo{keys::F9}).empty(), "a remap");
     expect(table
                .rebind(Action::VolumeUp,
                        PadChord{opensu::gamepad::Button::R2, opensu::gamepad::Button::Up})
@@ -222,7 +222,8 @@ void scaleAndShortcuts(const fs::path& root) {
     expect(damagedFile.uiScale == opensu::settings::defaultUiScale,
            "an out-of-range scale is dropped");
     expect(damagedFile.shortcuts == ShortcutOverrides{},
-           "an unknown action, a clash and a bad chord are each dropped");
+           "an unknown action (Quit, which openSU no longer has), a clash and a bad chord are "
+           "each dropped");
 
     write(file, R"({"shortcuts": 3})");
     expect(store.load().shortcuts == ShortcutOverrides{}, "a damaged table keeps the shipped one");

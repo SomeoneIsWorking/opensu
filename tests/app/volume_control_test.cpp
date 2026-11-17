@@ -71,7 +71,7 @@ void actionsMoveTheMixerAndAreShownOnce() {
     control.act(Action::VolumeMute);
     expect(!mixer.muted, "unmute");
     wrote = false;
-    control.act(Action::Quit);
+    control.act(Action::Home);
     control.act(Action::Confirm);
     expect(!wrote, "an action that is not the volume's does nothing");
     expect(said.empty(), "nothing was refused");

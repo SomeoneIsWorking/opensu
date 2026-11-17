@@ -199,6 +199,7 @@ void ShellWindow::lower() {
 }
 
 bool ShellWindow::pollEvents() {
+    closeAsked_ = false;
     keys_.nextFrame();
     pointer_ = PointerFrame{};
     fingers_.clear();
@@ -224,7 +225,7 @@ bool ShellWindow::pollEvents() {
     if (!pointer_.point) {
         pointer_.point = posted_;
     }
-    return !closing_;
+    return closeAsked_;
 }
 
 void ShellWindow::handle(const SDL_Event& event) {
@@ -232,7 +233,7 @@ void ShellWindow::handle(const SDL_Event& event) {
     switch (event.type) {
     case SDL_EVENT_QUIT:
     case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-        closing_ = true;
+        closeAsked_ = true;
         break;
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
         resized_ = gpu2d::PixelSize{event.window.data1, event.window.data2};

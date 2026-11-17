@@ -88,10 +88,6 @@ struct Rig {
                              [this] {
                                  calls.emplace_back("layout");
                              },
-                         .quit =
-                             [this] {
-                                 calls.emplace_back("quit");
-                             },
                          .installSession =
                              [this] {
                                  calls.emplace_back("install");
@@ -506,14 +502,13 @@ void sessionInstalledOffersTheSwitch() {
            "as the login session, Switch to desktop ends it");
 }
 
-void withoutPowerOrSessionOnlyQuitIsLeft() {
+void withoutPowerOrSessionThereIsNoPower() {
     Rig rig{{}, true, false};
-    std::vector<std::string> ids;
-    for (const ui::SettingsRow& row : rig.controller.power()) {
-        ids.push_back(row.id);
-    }
-    expect(ids == std::vector<std::string>{"power.quit"},
-           "without power or session mode, Power holds Quit alone");
+    rig.open();
+    const std::vector<std::string> places = rig.places();
+    expect(rig.controller.power().empty() &&
+               std::ranges::find(places, "guide.power") == places.end(),
+           "without power or session mode, Power has nothing and is left out: the OS quits openSU");
 }
 
 } // namespace
@@ -531,7 +526,7 @@ int main() try {
     withoutAMixerVolumeSaysWhy();
     powerAsksAndSaysRefusals();
     sessionInstalledOffersTheSwitch();
-    withoutPowerOrSessionOnlyQuitIsLeft();
+    withoutPowerOrSessionThereIsNoPower();
     std::printf("guide menu controller: all checks passed\n");
     return 0;
 } catch (...) {

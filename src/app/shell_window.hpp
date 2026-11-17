@@ -106,7 +106,8 @@ class ShellWindow {
     /// Minimizes the window, so whatever is behind it comes to the front.
     void lower();
 
-    /// Takes the window's events since the last call; false once the window was asked to close.
+    /// Takes the window's events since the last call; true when the OS asked openSU to close among
+    /// them (Alt+F4, ⌘Q, the window's close button).
     [[nodiscard]] bool pollEvents();
     /// The keyboard and text the last `pollEvents` gave.
     [[nodiscard]] const input::KeyFrame& keys() const noexcept {
@@ -227,7 +228,8 @@ class ShellWindow {
     /// until the event naming it was taken.
     std::deque<Stroke> strokes_;
     bool strokeDown_{false};
-    bool closing_{false};
+    /// The OS asked openSU to close among the last poll's events.
+    bool closeAsked_{false};
     bool systemBack_{false};
     bool screenKeyboard_{false};
     bool screenKeyboardHidden_{false};

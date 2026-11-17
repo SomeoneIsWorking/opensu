@@ -51,7 +51,7 @@ struct GuideContext {
     bool gameSettings{false};
     /// The on-screen keyboard can type into the game: Keyboard.
     bool typesIntoGame{false};
-    /// openSU is the login session: Power ends with Switch to desktop, not Quit.
+    /// openSU is the login session: Power ends with Switch to desktop.
     bool loginSession{false};
     /// Session mode is installed: Power offers Switch to session mode, else Install session
     /// mode. Outside the login session only.
@@ -96,8 +96,6 @@ class GuideMenuController final : public ui::RowActions {
         std::function<void()> keepScreenTurn;
         /// Gives the screen the interface size the preferences now hold.
         std::function<void()> applyLayout;
-        /// Closes openSU, back to the desktop.
-        std::function<void()> quit;
         /// Opens the Install session mode dialog.
         std::function<void()> installSession;
         /// Tells the player something; `error` marks a refusal.

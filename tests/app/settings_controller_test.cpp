@@ -1130,13 +1130,12 @@ void shortcutsAreRemappedAndKept(const fs::path& root) {
     Rig rig{root / "controls"};
     rig.controller.open();
     rig.enter("Controls");
-    expect(rig.rowOf("shortcut.quit").value == "Q", "a row reads its key");
+    expect(rig.rowOf("shortcut.y").value == "Y", "a row reads its key");
     expect(rig.rowOf("shortcut.volumeUp").value == "Ctrl+Up  Guide + Up", "and its pad chord");
 
-    rig.focus("shortcut.quit");
+    rig.focus("shortcut.y");
     rig.act(Button::A);
-    expect(rig.shortcutEditor.capturing() &&
-               rig.rowOf("shortcut.quit").value == "Press the new key",
+    expect(rig.shortcutEditor.capturing() && rig.rowOf("shortcut.y").value == "Press the new key",
            "A starts listening and the row says so");
     rig.act(Button::A);
     expect(rig.shortcutEditor.capturing(), "buttons do nothing on the screen meanwhile");
@@ -1146,16 +1145,16 @@ void shortcutsAreRemappedAndKept(const fs::path& root) {
     expect(rig.shortcutEditor.capturing() && rig.said.back().error &&
                rig.said.back().text.find("already Menu") != std::string::npos,
            "a key another action has is refused and the editor keeps listening");
-    expect(rig.shortcuts.primary(input::Action::Quit) == input::comboNamed("q"), "nothing changed");
+    expect(rig.shortcuts.primary(input::Action::Y) == input::comboNamed("y"), "nothing changed");
 
     rig.shortcutEditor.captureKey(need(input::comboNamed("shift+f9"), "a key name"));
     expect(!rig.shortcutEditor.capturing() &&
-               rig.shortcuts.primary(input::Action::Quit) == input::comboNamed("shift+f9"),
+               rig.shortcuts.primary(input::Action::Y) == input::comboNamed("shift+f9"),
            "a free combination is taken");
-    expect(rig.onDisk().shortcuts.keys.at(input::Action::Quit) ==
+    expect(rig.onDisk().shortcuts.keys.at(input::Action::Y) ==
                need(input::comboNamed("shift+f9"), "a key name"),
            "and kept through the preferences");
-    expect(rig.rowOf("shortcut.quit").value == "Shift+F9", "the row follows");
+    expect(rig.rowOf("shortcut.y").value == "Shift+F9", "the row follows");
 
     rig.focus("shortcut.volumeUp");
     rig.act(Button::A);
@@ -1203,17 +1202,17 @@ void shortcutsAreRemappedAndKept(const fs::path& root) {
     rig.focus("shortcuts.reset");
     rig.act(Button::A);
     expect(rig.top() == "dialog" && rig.focused() == "dialog/1" &&
-               rig.shortcuts.primary(input::Action::Quit) == input::comboNamed("shift+f9"),
+               rig.shortcuts.primary(input::Action::Y) == input::comboNamed("shift+f9"),
            "restoring asks first, Restore focused, and nothing is restored yet");
     rig.act(Button::B);
     expect(rig.top() == "settings" && rig.focused() == "shortcuts.reset" &&
-               rig.shortcuts.primary(input::Action::Quit) == input::comboNamed("shift+f9"),
+               rig.shortcuts.primary(input::Action::Y) == input::comboNamed("shift+f9"),
            "Back cancels the question");
     rig.act(Button::A);
     rig.focus("dialog/1");
     rig.act(Button::A);
     expect(rig.top() == "settings" && rig.onDisk().shortcuts == input::ShortcutOverrides{} &&
-               rig.shortcuts.primary(input::Action::Quit) == input::comboNamed("q"),
+               rig.shortcuts.primary(input::Action::Y) == input::comboNamed("y"),
            "restore puts every shortcut back");
 }
 
@@ -1304,13 +1303,12 @@ void guideChordsAreSetOnTheirPage(const fs::path& root) {
            "a chord another action has is refused");
     rig.shortcutEditor.cancel();
 
-    expect(rig.shortcuts.rebind(input::Action::Quit, input::Combo{input::keys::F9}).empty(),
+    expect(rig.shortcuts.rebind(input::Action::Y, input::Combo{input::keys::F9}).empty(),
            "a key is remapped too");
     rig.focus("chords.reset");
     rig.act(Button::A);
     expect(rig.onDisk().shortcuts.pads.empty() && rig.rowOf("chord.devices").value == "None" &&
-               rig.onDisk().shortcuts.keys.at(input::Action::Quit) ==
-                   input::Combo{input::keys::F9} &&
+               rig.onDisk().shortcuts.keys.at(input::Action::Y) == input::Combo{input::keys::F9} &&
                rig.chordChanges == 2,
            "restoring the chords leaves the keys");
 }

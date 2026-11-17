@@ -55,7 +55,7 @@ SessionHelp sessionHelp() noexcept {
         .options =
             "  opensu --session      openSU is the login session, started by the display manager\n"
             "                        on a top-level Gamescope; the power list offers Switch to\n"
-            "                        desktop instead of Quit to desktop\n",
+            "                        desktop\n",
         .environment =
             "  OPENSU_SESSION      name of the session's scopes (default opensu-<pid>)\n",
     };

@@ -43,8 +43,6 @@ enum class Action : std::uint8_t {
     VolumeUp,
     VolumeDown,
     VolumeMute,
-    /// Closes openSU.
-    Quit,
     /// The game actions, for a chord over a running game; save, load and reset need opensu-retro.
     CloseGame,
     SaveState,
@@ -61,12 +59,12 @@ enum class Action : std::uint8_t {
 };
 
 inline constexpr std::array allActions{
-    Action::Up,        Action::Down,       Action::Left,       Action::Right,   Action::Confirm,
-    Action::Back,      Action::X,          Action::Y,          Action::Select,  Action::Start,
-    Action::L1,        Action::R1,         Action::Search,     Action::Guide,   Action::QuickMenu,
-    Action::VolumeUp,  Action::VolumeDown, Action::VolumeMute, Action::Quit,    Action::CloseGame,
-    Action::SaveState, Action::LoadState,  Action::ResetGame,  Action::Devices, Action::Home,
-    Action::Downloads, Action::Keyboard};
+    Action::Up,        Action::Down,       Action::Left,       Action::Right,     Action::Confirm,
+    Action::Back,      Action::X,          Action::Y,          Action::Select,    Action::Start,
+    Action::L1,        Action::R1,         Action::Search,     Action::Guide,     Action::QuickMenu,
+    Action::VolumeUp,  Action::VolumeDown, Action::VolumeMute, Action::CloseGame, Action::SaveState,
+    Action::LoadState, Action::ResetGame,  Action::Devices,    Action::Home,      Action::Downloads,
+    Action::Keyboard};
 
 /// The action's name in the Settings screen.
 [[nodiscard]] std::string_view label(Action action) noexcept;

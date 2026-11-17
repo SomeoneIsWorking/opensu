@@ -1255,7 +1255,7 @@ command line carries `AppId=<id>` and everything below it are SIGKILLed at once
 (`launch::ProcessTree::killMatching`), leaving the client up, and the close returns once Steam no
 longer says the game runs (`Handoff::endSteamLaunch`). The menu only raises the request;
 the launch's own thread does the stop and the wait, so the shell keeps drawing however long the
-game takes to go. The shell's own exit (SIGTERM, Quit) closes a running game the same way and
+game takes to go. The shell's own exit (SIGTERM) closes a running game the same way and
 waits for its end before it tears down: `GameLaunch` owns the launch thread and joins it, so a
 hidden shell SIGTERMed over mGBA Kirby exits 0 with the `.srm` written, 19 of 19 that reached the game
 (`scratch/sigterm-crash/runs/fixed-summary.txt`; before, 5 of 6 SIGSEGV). Proof (`scratch/close-game/runs/`, hidden shell, scratch XDG dirs): before the
@@ -1284,9 +1284,11 @@ closes the menu on Home and Library. Right from a place reaches Volume, where Le
 holds the slider (then Left and Right change it, A keeps it, B puts it back); Guide + A (Ctrl+Tab on
 a keyboard) opens the same menu with Volume focused. Close game, Load state, Reset game, Restart, Shut down and Switch to
 session mode ask first through the one `confirm` dialog (its action focused, so A, A does it). Power opens a list over
-the menu (Sleep, Restart, Shut down, Install session mode or Switch to session mode, Quit to
-desktop; with `--session` Switch to desktop in place of Quit, since quitting the login session only
-makes the display manager start it again; untested against the real session). Sleep, Restart and
+the menu (Sleep, Restart, Shut down, Install session mode or Switch to session mode; with
+`--session` Switch to desktop, since quitting the login session only makes the display manager
+start it again; untested against the real session), and is left out when it would be empty. There
+is no Quit: the OS's close (Alt+F4, ⌘Q, the close button, or the control channel's `/quit`) ends a
+running game first, through Close game's path, and openSU once it is gone (`ShellApp::stillOpen`). Sleep, Restart and
 Shut down are `systemctl suspend|reboot|poweroff` through `host::Power`; the session entries are
 S010. Over a game it draws through the Gamescope overlay (`GameScreen`).
 
@@ -1695,7 +1697,7 @@ Volume: `audio/volume_backend` (wpctl, pactl, read-only shadow for hidden runs) 
 polling, so one change is one step and one overlay. Missing backend
 shows the install command in the Audio page.
 
-Chords: `input/shortcuts` is the one table (defaults Shift+Tab Guide, Ctrl+Up/Down/M volume, Q quit,
+Chords: `input/shortcuts` is the one table (defaults Shift+Tab Guide, Ctrl+Up/Down/M volume,
 Guide+A quick menu, Guide+Up/Down/Left for volume on a pad), remapped on the Controls page with
 conflict refusal and saved. Esc cannot be captured. Pad chords take any button as the held one and
 can do the quick menu, the volume, Close game, Save state, Load state, Reset game, Devices, Downloads

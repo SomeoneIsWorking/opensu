@@ -1035,6 +1035,22 @@ void ShellApp::closeRunningGame() {
     launches_.close();
 }
 
+bool ShellApp::stillOpen(bool closeAsked) {
+    // The control channel's close stays asked, so it counts once.
+    const bool asked = closeAsked || (bridge_.closeRequested() && !quitting_);
+    if (asked && quitting_) {
+        return false;
+    }
+    if (asked) {
+        quitting_ = true;
+        if (launches_.running()) {
+            lucent::info("shell", "closing {} before openSU closes", launches_.game().title);
+            closeRunningGame();
+        }
+    }
+    return !quitting_ || launches_.running();
+}
+
 void ShellApp::toggleGuide(GuideMenuController::Landing landing) {
     if (guideMenu_.inFront() || !menusBlocked()) {
         guideMenu_.toggle(landing);
@@ -1706,7 +1722,7 @@ int ShellApp::run() {
     // Steam comes up in the background, in its mode, while the shell is already usable.
     integrationSwitch_.begin();
 
-    while (!bridge_.closeRequested() && window_->pollEvents()) {
+    while (stillOpen(window_->pollEvents())) {
         frameTiming_.start(std::chrono::steady_clock::now());
         // A resize changes the framebuffer, so the layout is recomputed before anything is drawn.
         if (const std::optional<gpu2d::PixelSize> size = window_->takeResize()) {

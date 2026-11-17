@@ -310,6 +310,10 @@ class ShellApp final {
     [[nodiscard]] bool menusBlocked();
     /// Ends the running game from a menu.
     void closeRunningGame();
+    /// Whether the loop goes on, `closeAsked` when the OS asked openSU to close: a close, from the
+    /// OS or the control channel, ends the running game first and openSU once it is gone; a
+    /// second one while it ends leaves at once.
+    [[nodiscard]] bool stillOpen(bool closeAsked);
     /// Shows the newest picture of a remote game and hands it to the shell to draw.
     void showGamePicture();
     /// How often the window presents: the display's refresh while a remote game's frames are
@@ -805,11 +809,7 @@ class ShellApp final {
     }};
     /// Where keys, pad chords and the game-time watcher come out as the shell's buttons.
     ShortcutRouter router_{shell_.shortcuts(), shell_.chords(), volume_, retro_,
-                           ShortcutRouter::Hooks{.quit =
-                                                     [this] {
-                                                         bridge_.requestClose();
-                                                     },
-                                                 .quickMenu =
+                           ShortcutRouter::Hooks{.quickMenu =
                                                      [this] {
                                                          toggleGuide(
                                                              GuideMenuController::Landing::Volume);
@@ -1561,10 +1561,6 @@ class ShellApp final {
                 [this] {
                     applyLayout();
                 },
-            .quit =
-                [this] {
-                    bridge_.requestClose();
-                },
             .installSession =
                 [this] {
                     if (sessionInstall_) {
@@ -1835,6 +1831,8 @@ class ShellApp final {
     GameLaunch launches_{handoff_, mailbox_, retro_};
     /// The profile the game `launches_` started last plays as: the active one, or a remote guest's.
     std::string playingAs_;
+    /// openSU was asked to close and waits for the running game to end.
+    bool quitting_{false};
     /// Opens a store's sign-in page; after the mailbox it posts to, so it is joined first.
     std::jthread signInOpener_;
 };

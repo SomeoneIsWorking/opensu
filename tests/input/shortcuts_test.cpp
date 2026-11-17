@@ -94,7 +94,8 @@ void shippedKeysAreUnchanged() {
                !presses(s, FakeKeys{{keys::LeftControl, keys::F}, {keys::F}}, Action::X),
            "Ctrl+F is the search, not X");
     expect(presses(s, FakeKeys{{keys::F}, {keys::F}}, Action::X), "a bare F is X");
-    expect(presses(s, FakeKeys{{keys::Q}, {keys::Q}}, Action::Quit), "Q quits");
+    expect(!s.actionFor(Combo{keys::Q}) && !s.actionFor(Combo{keys::Q, true, false}),
+           "Q is no shortcut: the OS's own close quits openSU");
     expect(presses(s, FakeKeys{{keys::W}, {keys::W}}, Action::Up), "W is up");
     expect(!presses(s, FakeKeys{{keys::LeftControl, keys::Up}, {keys::Up}}, Action::Up) &&
                presses(s, FakeKeys{{keys::LeftControl, keys::Up}, {keys::Up}}, Action::VolumeUp),
@@ -118,8 +119,8 @@ void everyActionHasAHandlerNameAndKey() {
                "an action has a key, but the game actions and the keyboard ship without one");
         expect(buttonOf(action).has_value() ==
                    !(action == Action::VolumeUp || action == Action::VolumeDown ||
-                     action == Action::VolumeMute || action == Action::Quit ||
-                     action == Action::QuickMenu || action == Action::Keyboard || gameAction),
+                     action == Action::VolumeMute || action == Action::QuickMenu ||
+                     action == Action::Keyboard || gameAction),
                "an action is a pad button or one of the shell's own");
         expect(!gameAction || (worksInGame(action) && takesPadChord(action) && !s.padChord(action)),
                "a game action works over a game and takes a chord, none shipped");
@@ -133,11 +134,13 @@ void everyActionHasAHandlerNameAndKey() {
 
 void remapReplacesTheFirstBinding() {
     Shortcuts s;
-    expect(s.rebind(Action::Quit, Combo{keys::F9}).empty(), "a free key is taken");
-    expect(s.primary(Action::Quit) == Combo{keys::F9} && !s.actionFor(Combo{keys::Q}),
+    expect(s.rebind(Action::VolumeMute, Combo{keys::F9}).empty(), "a free key is taken");
+    expect(s.primary(Action::VolumeMute) == Combo{keys::F9} &&
+               !s.actionFor(Combo{keys::M, true, false}),
            "the old key is gone");
     expect(s.overrides().keys.size() == 1, "one override is kept");
-    expect(s.rebind(Action::Quit, Combo{keys::Q}).empty() && s.overrides().keys.empty(),
+    expect(s.rebind(Action::VolumeMute, Combo{keys::M, true, false}).empty() &&
+               s.overrides().keys.empty(),
            "choosing the default again keeps no override");
     expect(s.rebind(Action::Up, Combo{keys::I}).empty() &&
                s.primary(Action::Up) == Combo{keys::I} && s.actionFor(Combo{keys::W}) == Action::Up,
@@ -152,8 +155,9 @@ void conflictsAreRefused() {
     const std::string taken = s.rebind(Action::VolumeMute, Combo{keys::E});
     expect(taken.find("already Menu") != std::string::npos, "naming who has the key");
     expect(s.primary(Action::VolumeMute) == Combo{keys::M, true, false}, "and nothing changed");
-    expect(!s.rebind(Action::Quit, Combo{keys::LeftShift}).empty(), "a modifier alone is refused");
-    expect(!s.rebind(Action::Quit, Combo{keys::LeftAlt}).empty(), "so is a key no cap names");
+    expect(!s.rebind(Action::VolumeUp, Combo{keys::LeftShift}).empty(),
+           "a modifier alone is refused");
+    expect(!s.rebind(Action::VolumeUp, Combo{keys::LeftAlt}).empty(), "so is a key no cap names");
     expect(s.rebind(Action::VolumeMute, Combo{keys::E, true, false}).empty(),
            "the same key with Ctrl is another combination");
     expect(s.rebind(Action::VolumeMute, Combo{keys::E, true, false}).empty(), "again is fine");
