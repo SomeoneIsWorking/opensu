@@ -19,6 +19,7 @@ void TileArtwork::unload(Tile& tile) {
     tile.portrait = {};
     tile.wide = {};
     tile.icon = {};
+    tile.runnerPicture = {};
     tile.artRequested = false;
 }
 
@@ -40,6 +41,10 @@ bool TileArtwork::ask(Tile& tile) {
     }
     if (!game->icon.empty()) {
         tile.icon = loader_.loadFile(game->icon, gpu2d::Filter::Nearest, maxCoverSide);
+    }
+    if (tile.runner && !tile.runner->picture.empty()) {
+        tile.runnerPicture =
+            loader_.loadFile(tile.runner->picture, gpu2d::Filter::Linear, maxCoverSide);
     }
     return !game->artwork.empty() || !game->artworkWide.empty() || !game->icon.empty();
 }

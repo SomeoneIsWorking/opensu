@@ -183,6 +183,9 @@ struct Game {
     std::int32_t iconIndex{0};
     /// Its own icon on disk, drawn small on a tile with no cover; empty for none.
     std::filesystem::path icon;
+    /// The icon of the emulator it runs on, kept by the artwork store; empty until one is read,
+    /// and for a game openSU runs itself.
+    std::filesystem::path runnerIcon;
     /// An added game's picked box art, `<system>/<title>` in libretro-thumbnails; empty for none.
     std::string boxArt;
     /// A game a games folder holds: it comes and goes with its file, so it has no entry to rename,

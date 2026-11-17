@@ -82,8 +82,11 @@ struct TileVisual {
     std::string_view caption;
     /// A launcher's logo.
     std::optional<Icon> logo;
-    /// What runs the game (`runnerIcon`), as a mark in its corner.
+    /// What runs the game (`runnerMark`), as a badge in its corner: `runnerPicture` when it has
+    /// loaded, else the shipped mark, else `runnerLetters`; none when all three are empty.
     std::optional<Icon> runner;
+    const gpu2d::Texture* runnerPicture{nullptr};
+    std::string_view runnerLetters;
     /// The game's store has an update for it.
     bool update{false};
     /// Whether the cover is on its way (downloading, queued or decoding): a spinner stands in for

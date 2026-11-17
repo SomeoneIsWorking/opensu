@@ -175,7 +175,7 @@ void HomeGrid::fillTile(Tile& tile, library::ShelfItem item) const {
         tile.title = add->name;
         tile.caption = add->caption;
     } else {
-        tile.runner = runnerIcon(std::get<library::Game>(tile.item));
+        tile.runner = runnerMark(std::get<library::Game>(tile.item));
     }
 }
 
@@ -738,7 +738,11 @@ void HomeGrid::fillContent(TileVisual& visual, const Tile& tile) const {
     visual.loading = tile.awaitingArt();
     if (const auto* game = std::get_if<library::Game>(&tile.item)) {
         visual.title = game->title;
-        visual.runner = tile.runner;
+        if (tile.runner) {
+            visual.runner = tile.runner->icon;
+            visual.runnerPicture = tile.runnerPicture.texture();
+            visual.runnerLetters = tile.runner->letters;
+        }
         visual.update = game->updateAvailable || game->updateOnCopy;
         if (game->source == library::Source::Rom) {
             visual.console = game->sourceId;

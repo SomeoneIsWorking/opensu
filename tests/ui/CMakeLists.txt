@@ -33,6 +33,11 @@ target_link_libraries(vector_icon_test PRIVATE opensu::ui)
 opensu_warnings(vector_icon_test)
 add_test(NAME vector_icon COMMAND vector_icon_test "${CMAKE_SOURCE_DIR}/assets")
 
+add_executable(runner_mark_test runner_mark_test.cpp)
+target_link_libraries(runner_mark_test PRIVATE opensu::ui)
+opensu_warnings(runner_mark_test)
+add_test(NAME runner_mark COMMAND runner_mark_test)
+
 add_executable(folder_chooser_test folder_chooser_test.cpp)
 target_link_libraries(folder_chooser_test PRIVATE opensu::hud_model)
 opensu_warnings(folder_chooser_test)

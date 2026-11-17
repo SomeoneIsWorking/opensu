@@ -12,6 +12,7 @@
 #include <map>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <stop_token>
 #include <string>
 #include <string_view>
@@ -45,6 +46,8 @@ struct RemoteSources {
     std::string steamAssets{library::steam_items::assetHost};
     /// Where a `.desktop` entry's icon name is looked up.
     std::vector<std::filesystem::path> iconThemes{};
+    /// Where the installed programs' `.desktop` entries are.
+    std::vector<std::filesystem::path> applications{};
 
     /// The real sources, but for the stand-ins `config` names.
     [[nodiscard]] static RemoteSources of(const config::Config& config);
@@ -58,10 +61,12 @@ struct RemoteSources {
 
 /// A game's art or the arcade names, now on disk.
 struct Fetched {
-    enum class Kind : std::uint8_t { Game, Names, Icon };
+    /// Runner: an emulator's icon, kept for every game it runs.
+    enum class Kind : std::uint8_t { Game, Names, Icon, Runner };
 
     Kind kind;
-    /// The game's id; empty for the names, whose games are titled again by the next catalog read.
+    /// The game's id, or a runner's emulator id; empty for the names, whose games are titled
+    /// again by the next catalog read.
     std::string id;
     /// The cover, or the game's own icon.
     std::filesystem::path artwork;
@@ -113,11 +118,16 @@ class ArtworkFetcher {
 
     /// The arcade name listings, as queued work.
     struct NamesWork {};
-    using Work = std::variant<library::Game, NamesWork>;
+    /// An installed emulator's icon.
+    struct RunnerWork {
+        library::EmulatorOption option;
+    };
+    using Work = std::variant<library::Game, NamesWork, RunnerWork>;
 
     void run(const std::stop_token& stop);
     Outcome fetch(const library::Game& game, const std::stop_token& stop);
     Outcome fetch(const NamesWork& names, const std::stop_token& stop);
+    Outcome fetch(const RunnerWork& runner, const std::stop_token& stop);
     /// The finished download of `work`, for the shell.
     [[nodiscard]] Fetched arrived(const Work& work) const;
     void recordMiss(const Work& work) const;
@@ -148,6 +158,8 @@ class ArtworkFetcher {
     std::condition_variable_any wake_;
     std::vector<Work> queue_;
     std::vector<Fetched> done_;
+    /// The emulators whose icon was looked for this run, found or not.
+    std::set<std::string, std::less<>> runnersRead_;
     bool busy_{false};
     /// The game being downloaded, or empty.
     std::string downloading_;

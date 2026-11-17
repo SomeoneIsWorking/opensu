@@ -80,5 +80,6 @@ Apocalypse"). They are to be one tile.
 
 Step 1 built: grouping, Group with…, Separate, the default, Extras and the Versions card, shown
 on the X-Men Legends II fixture (two ROMs, a `.desktop` port, an AppImage and a Lutris install as
-one tile). Next: one mark per tile for its default version's runner (store, Linux, Wine, AppImage,
-each emulator, libretro), then steps 2 to 4.
+one tile). Each tile carries one runner badge for its default version (`ui::runnerMark`): shown
+with xemu's icon from its desktop entry, Dolphin's from its theme icon and DuckStation's
+initials. An AppImage emulator's icon inside its image is not read yet. Next: steps 2 to 4.

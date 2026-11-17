@@ -39,11 +39,6 @@ enum class Icon : std::uint8_t {
 
 /// The store's icon, or nothing for a ROM.
 [[nodiscard]] std::optional<Icon> iconFor(library::Source source) noexcept;
-/// The mark of what runs `game`, which its tile carries: its store; Linux, AppImage or Wine for
-/// one of the player's own; openSU's runner for a ROM it plays itself; nothing for a ROM on
-/// another emulator or a game on another openSU.
-[[nodiscard]] std::optional<Icon> runnerIcon(const library::Game& game) noexcept;
-
 /// A section's dock icon, as drawn while it is the active section or not.
 [[nodiscard]] Icon dockIcon(library::Section section, bool selected) noexcept;
 

@@ -11,7 +11,7 @@
 
 #include "library/shelf.hpp"
 #include "platform.hpp"
-#include "vector_icon.hpp"
+#include "runner_mark.hpp"
 
 namespace opensu::ui {
 
@@ -26,13 +26,15 @@ struct Tile {
     std::string caption;
     /// A launcher's logo.
     std::optional<Icon> logo;
-    /// What runs the game (`runnerIcon`), as a mark in its corner.
-    std::optional<Icon> runner;
+    /// What runs the game, as a badge in its corner.
+    std::optional<RunnerMark> runner;
     /// Its artwork files as the loader brings them in; empty for none.
     gpu2d::ImageHandle portrait;
     gpu2d::ImageHandle wide;
     /// The game's own icon, shown small while it has no art.
     gpu2d::ImageHandle icon;
+    /// The runner's own icon, when `runner` has one.
+    gpu2d::ImageHandle runnerPicture;
     /// Whether its files have been asked of the loader, or it has none to ask for.
     bool artRequested{false};
     /// Whether the artwork fetcher, or SteamGridDB's cover fitting, is downloading or has queued

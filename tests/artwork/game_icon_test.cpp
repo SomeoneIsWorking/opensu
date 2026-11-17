@@ -25,6 +25,7 @@ namespace {
 namespace fs = std::filesystem;
 namespace image = gpu2d::image;
 namespace pe = opensu::library::pe;
+using opensu::artwork::emulatorIcon;
 using opensu::artwork::gameIcon;
 using opensu::artwork::iconOfIcns;
 using opensu::artwork::iconOfIco;
@@ -228,6 +229,49 @@ void testGameIcon(const fs::path& root) {
     expect(!gameIcon(themed, {themes}), "a name no theme has is no icon");
 }
 
+void writeText(const fs::path& file, const std::string& text) {
+    fs::create_directories(file.parent_path());
+    std::ofstream{file, std::ios::binary} << text;
+}
+
+void testEmulatorIcon(const fs::path& root) {
+    const fs::path themes = root / "emu-share" / "icons";
+    const fs::path apps = root / "emu-share" / "applications";
+    write(themes / "hicolor" / "256x256" / "apps" / "duckstation.png", pngOf(64));
+    write(themes / "hicolor" / "64x64" / "apps" / "org.example.Eden.png", pngOf(32));
+    write(themes / "hicolor" / "64x64" / "apps" / "ryujinx-icon.png", pngOf(40));
+    writeText(apps / "ryujinx.desktop", "[Desktop Entry]\nType=Application\nName=Ryujinx\n"
+                                        "Exec=/opt/ryujinx/Ryujinx %f\nIcon=ryujinx-icon\n");
+
+    opensu::library::EmulatorOption ryujinx;
+    ryujinx.id = "ryujinx";
+    ryujinx.launch.program = "/opt/ryujinx/Ryujinx";
+    expect(decoded(emulatorIcon(ryujinx, {themes}, {apps}), "an entry's icon").width == 40,
+           "the icon the .desktop entry that starts it names");
+
+    opensu::library::EmulatorOption duck;
+    duck.id = "duckstation";
+    duck.launch.program = "/usr/bin/duckstation";
+    expect(decoded(emulatorIcon(duck, {themes}, {apps}), "a program's theme icon").width == 64,
+           "a theme icon named as its program");
+    duck.launch.program = "/somewhere/DuckStation-x64.AppImage";
+    expect(!emulatorIcon(duck, {themes}, {apps}),
+           "not one named as its catalog id, which other programs share");
+
+    opensu::library::EmulatorOption eden;
+    eden.id = "eden";
+    eden.flatpak = true;
+    eden.processHint = "org.example.Eden";
+    eden.launch.program = "flatpak";
+    expect(decoded(emulatorIcon(eden, {themes}, {apps}), "a flatpak's icon").width == 32,
+           "a Flatpak's icon is its app id's");
+
+    opensu::library::EmulatorOption unknown;
+    unknown.id = "nothing";
+    unknown.launch.program = "/somewhere/Nothing.AppImage";
+    expect(!emulatorIcon(unknown, {themes}, {apps}), "an AppImage nothing names has no icon");
+}
+
 } // namespace
 
 int main() try {
@@ -239,6 +283,7 @@ int main() try {
     testOversized();
     testHostile(scratch.path());
     testGameIcon(scratch.path());
+    testEmulatorIcon(scratch.path());
     return 0;
 } catch (...) {
     return opensu::test::escaped();

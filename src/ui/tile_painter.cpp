@@ -80,9 +80,11 @@ constexpr Colour giveawaysTo{0x5E, 0x1C, 0x33, 255};
 // Add a game's card: a teal apart from the stores, the library and Giveaways.
 constexpr Colour addGameFrom{0x2E, 0x8C, 0x86, 255};
 constexpr Colour addGameTo{0x15, 0x45, 0x4A, 255};
-// A store badge's disc, dark so a white logo reads over any cover.
+// A badge's disc, dark so a white logo reads over any cover.
 constexpr Colour badgeDisc{0x16, 0x13, 0x1E, 200};
 constexpr float badgeLogo = 0.62f;
+// opensu's own: initials fill most of a logo's square.
+constexpr float runnerLetterSize = 0.8f;
 /// The update arrow against the badge's radius: half its length, its shaft, its head.
 constexpr float updateArrowReach = 0.55f;
 constexpr float updateArrowWidth = 0.22f;
@@ -513,20 +515,31 @@ void TilePainter::paintUpdate(Canvas& canvas, const TileVisual& tile, const Rect
 }
 
 void TilePainter::paintRunner(Canvas& canvas, const TileVisual& tile, const Rect& content) {
-    if (!tile.runner) {
+    if (!tile.runner && tile.runnerPicture == nullptr && tile.runnerLetters.empty()) {
         return;
     }
     const Rect badge = runnerBadge(content);
     const Point centre{badge.centreX(), badge.centreY()};
     canvas.fillCircle(centre, badge.width * 0.5f, withAlpha(badgeDisc, tile.alpha));
     const int pixels = std::max(static_cast<int>(std::lround(badge.width * badgeLogo)), 1);
-    if (const gpu2d::Texture* mark = icons_.mask(*tile.runner, pixels)) {
-        const auto side = static_cast<float>(pixels);
-        canvas.image(mark->view(), wholeOf(*mark),
-                     gpu2d::Rect{std::round(centre.x - side * 0.5f),
-                                 std::round(centre.y - side * 0.5f), side, side},
+    const auto side = static_cast<float>(pixels);
+    const gpu2d::Rect square{std::round(centre.x - side * 0.5f), std::round(centre.y - side * 0.5f),
+                             side, side};
+    if (tile.runnerPicture != nullptr) {
+        canvas.image(tile.runnerPicture->view(), wholeOf(*tile.runnerPicture), square,
                      withAlpha(white, tile.alpha));
+        return;
     }
+    if (tile.runner) {
+        if (const gpu2d::Texture* mark = icons_.mask(*tile.runner, pixels)) {
+            canvas.image(mark->view(), wholeOf(*mark), square, withAlpha(white, tile.alpha));
+        }
+        return;
+    }
+    const float size = side * runnerLetterSize;
+    text_.drawCentred(canvas, tile.runnerLetters,
+                      Point{centre.x - text_.measure(tile.runnerLetters, size) * 0.5f, centre.y},
+                      size, withAlpha(white, tile.alpha));
 }
 
 void TilePainter::paintFrame(Canvas& canvas, const Rect& rect, const Platform& platform,

@@ -19,8 +19,9 @@ void ArtworkDelivery::service() {
             }
             continue;
         }
-        if (fetched.kind == artwork::Fetched::Kind::Names) {
-            hooks_.namesArrived();
+        if (fetched.kind == artwork::Fetched::Kind::Names ||
+            fetched.kind == artwork::Fetched::Kind::Runner) {
+            hooks_.libraryStale();
             continue;
         }
         hooks_.coverArrived(fetched.id, fetched.artwork);

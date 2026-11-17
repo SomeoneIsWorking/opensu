@@ -127,9 +127,24 @@ bool ArtworkStore::saveIcon(const library::Game& game, std::string_view png,
     return saveAt(iconFor(game), game.title, png, error);
 }
 
+fs::path ArtworkStore::runnerIconFor(std::string_view emulatorId) const {
+    return root_ / "runners" / (std::string{emulatorId} + ".png");
+}
+
+bool ArtworkStore::saveRunnerIcon(std::string_view emulatorId, std::string_view png,
+                                  std::string& error) const {
+    return saveAt(runnerIconFor(emulatorId), std::string{emulatorId}, png, error);
+}
+
 void ArtworkStore::giveStored(library::Game& game) const {
     if (const fs::path icon = iconFor(game); !icon.empty() && isFile(icon)) {
         game.icon = icon;
+    }
+    if (const library::EmulatorOption* runs = library::runningEmulator(game);
+        runs != nullptr && !runs->builtIn && !runs->id.empty()) {
+        if (const fs::path icon = runnerIconFor(runs->id); isFile(icon)) {
+            game.runnerIcon = icon;
+        }
     }
     if (!game.artwork.empty()) {
         return;

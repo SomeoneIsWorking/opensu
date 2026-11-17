@@ -11,6 +11,7 @@
 #include "gpu2d/image/bitmap.hpp"
 #include "gpu2d/image/decode.hpp"
 #include "gpu2d/image/png_encoder.hpp"
+#include "library/game_folder.hpp"
 #include "library/pe_resources.hpp"
 #include "lucent/log.h"
 
@@ -401,6 +402,54 @@ std::optional<std::string> gameIcon(const library::Game& game,
     }
     const fs::path ico = icoBeside(game.file);
     return ico.empty() ? std::nullopt : iconIn(ico, 0);
+}
+
+std::optional<std::string> emulatorIcon(const library::EmulatorOption& option,
+                                        const std::vector<fs::path>& themes,
+                                        const std::vector<fs::path>& applications) {
+    const fs::path program{option.launch.program};
+    const auto starts = [&](const std::vector<std::string>& command) {
+        if (command.empty()) {
+            return false;
+        }
+        if (option.flatpak) {
+            return std::ranges::find(command, option.processHint) != command.end();
+        }
+        return !program.empty() && fs::path{command.front()}.filename() == program.filename();
+    };
+    std::vector<std::string> names;
+    for (const fs::path& folder : applications) {
+        std::error_code error;
+        for (const fs::directory_entry& entry : fs::directory_iterator{folder, error}) {
+            if (extensionOf(entry.path()) != ".desktop") {
+                continue;
+            }
+            const std::optional<library::own::Entry> app =
+                library::folder::shortcutEntry(entry.path());
+            if (app && !app->icon.empty() && starts(app->command)) {
+                names.push_back(app->icon.string());
+            }
+        }
+    }
+    if (option.flatpak) {
+        names.push_back(option.processHint);
+    } else {
+        names.push_back(program.stem().string());
+    }
+    for (const std::string& name : names) {
+        const fs::path source =
+            fs::path{name}.is_absolute() ? fs::path{name} : themeIcon(name, themes);
+        if (!name.empty() && !source.empty() && isFile(source)) {
+            if (std::optional<std::string> icon = iconIn(source, 0)) {
+                return icon;
+            }
+        }
+    }
+    const std::string extension = extensionOf(program);
+    if (extension == ".exe" && isFile(program)) {
+        return iconOfProgram(program, 0);
+    }
+    return std::nullopt;
 }
 
 } // namespace opensu::artwork

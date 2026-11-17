@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <charconv>
+#include <iterator>
+#include <set>
 #include <stdexcept>
 #include <utility>
 
@@ -58,8 +60,13 @@ RemoteSources RemoteSources::of(const config::Config& config) {
         sources.steamItems = config.steamStandIn + "/items";
         sources.steamAssets = config.steamStandIn + "/assets/";
     }
-    sources.iconThemes = {config.xdgDataHome / "icons", "/usr/local/share/icons",
-                          "/usr/share/icons"};
+    const std::filesystem::path userFlatpaks = config.xdgDataHome / "flatpak" / "exports" / "share";
+    const std::filesystem::path systemFlatpaks = "/var/lib/flatpak/exports/share";
+    sources.iconThemes = {config.xdgDataHome / "icons", userFlatpaks / "icons",
+                          systemFlatpaks / "icons", "/usr/local/share/icons", "/usr/share/icons"};
+    sources.applications = {config.xdgDataHome / "applications", userFlatpaks / "applications",
+                            systemFlatpaks / "applications", "/usr/local/share/applications",
+                            "/usr/share/applications"};
     return sources;
 }
 
@@ -117,10 +124,24 @@ void ArtworkFetcher::request(const std::vector<library::Game>& games) {
     if (arcade && names_.enabled() && !names_.cached()) {
         wanted.emplace_back(NamesWork{});
     }
-    {
-        const std::lock_guard lock{mutex_};
-        queue_ = std::move(wanted);
+    const std::lock_guard lock{mutex_};
+    // An emulator's icon is read from disk, so it goes before the downloads.
+    std::vector<Work> runners;
+    std::set<std::string, std::less<>> queued;
+    for (const library::Game& game : games) {
+        const library::EmulatorOption* runs = library::runningEmulator(game);
+        if (runs == nullptr || runs->builtIn || !runs->installed || runs->id.empty() ||
+            runnersRead_.contains(runs->id) || !queued.insert(runs->id).second) {
+            continue;
+        }
+        std::error_code error;
+        if (!std::filesystem::is_regular_file(store_.runnerIconFor(runs->id), error)) {
+            runners.emplace_back(RunnerWork{*runs});
+        }
     }
+    wanted.insert(wanted.begin(), std::make_move_iterator(runners.begin()),
+                  std::make_move_iterator(runners.end()));
+    queue_ = std::move(wanted);
     wake_.notify_all();
 }
 
@@ -229,6 +250,10 @@ void ArtworkFetcher::run(const std::stop_token& stop) {
 Fetched ArtworkFetcher::arrived(const Work& work) const {
     if (const auto* game = std::get_if<library::Game>(&work)) {
         return Fetched{Fetched::Kind::Game, game->id, store_.pathFor(*game)};
+    }
+    if (const auto* runner = std::get_if<RunnerWork>(&work)) {
+        return Fetched{Fetched::Kind::Runner, runner->option.id,
+                       store_.runnerIconFor(runner->option.id)};
     }
     return Fetched{Fetched::Kind::Names, {}, {}};
 }
@@ -353,6 +378,26 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetchBoxArt(const library::Game& game,
         }
     }
     return Outcome::Missing;
+}
+
+ArtworkFetcher::Outcome ArtworkFetcher::fetch(const RunnerWork& runner,
+                                              const std::stop_token& /*stop*/) {
+    {
+        const std::lock_guard lock{mutex_};
+        runnersRead_.insert(runner.option.id);
+    }
+    const std::optional<std::string> png =
+        emulatorIcon(runner.option, sources_.iconThemes, sources_.applications);
+    if (!png) {
+        lucent::info("artwork", "no icon found for {}", runner.option.name);
+        return Outcome::Settled;
+    }
+    std::string error;
+    if (!store_.saveRunnerIcon(runner.option.id, *png, error)) {
+        lucent::warn("artwork", "{}", error);
+        return Outcome::Settled;
+    }
+    return Outcome::Saved;
 }
 
 ArtworkFetcher::Outcome ArtworkFetcher::fetch(const NamesWork& /*names*/,

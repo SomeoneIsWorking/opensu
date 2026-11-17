@@ -15,8 +15,9 @@ namespace opensu::app {
 class ArtworkDelivery {
   public:
     struct Hooks {
-        /// The arcade names were downloaded, which re-title the library.
-        std::function<void()> namesArrived;
+        /// The arcade names or an emulator's icon arrived, which the next catalog read gives the
+        /// games.
+        std::function<void()> libraryStale;
         /// Game `id`'s cover was saved as `file`; the hook shows it.
         std::function<void(const std::string& id, const std::filesystem::path& file)> coverArrived;
         /// Game `id`'s download ended without a cover: its source has none, or the round ended.

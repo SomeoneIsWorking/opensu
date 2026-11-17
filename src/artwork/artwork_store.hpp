@@ -51,6 +51,12 @@ class ArtworkStore {
     /// Keeps `game`'s own icon. False with `error` on failure.
     bool saveIcon(const library::Game& game, std::string_view png, std::string& error) const;
 
+    /// The file the icon of emulator `emulatorId` is kept in.
+    [[nodiscard]] std::filesystem::path runnerIconFor(std::string_view emulatorId) const;
+    /// Keeps an emulator's icon. False with `error` on failure.
+    bool saveRunnerIcon(std::string_view emulatorId, std::string_view png,
+                        std::string& error) const;
+
     /// Keeps a downloaded image, replacing the file whole. False with `error` on failure.
     bool save(const library::Game& game, std::string_view bytes, std::string& error) const;
     /// Notes that the source has nothing for the game.
