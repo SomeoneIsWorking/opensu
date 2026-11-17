@@ -375,10 +375,15 @@ Response LanListener::playRoute(std::string_view body, const Signed& verified) {
     if (!asked) {
         return refused(badRequest, "Bad Request", "not a request to play");
     }
-    const std::vector<wire::ListedGame> listed = sources_.library.listing();
+    const std::vector<wire::ListedGame> listed = sources_.library.listing().games;
     const auto game = std::ranges::find(listed, asked->game, &wire::ListedGame::id);
     if (game == listed.end()) {
         return refused(notFound, "Not Found", "no game here has that id");
+    }
+    if (!asked->option.empty() &&
+        std::ranges::find(game->options, asked->option) == game->options.end()) {
+        return refused(notFound, "Not Found",
+                       "it does not offer " + asked->option + " for that game");
     }
     const std::optional<profiles::Profile> linked =
         sources_.profiles.linked(asked->profile, verified.peer.id);
@@ -391,7 +396,8 @@ Response LanListener::playRoute(std::string_view body, const Signed& verified) {
                         .continued = false,
                         .refusal = "this openSU does not offer remote play"};
     if (sources_.play) {
-        outcome = sources_.play(verified.peer, game->id, playing.id, linked.has_value(), keys);
+        outcome = sources_.play(verified.peer, wire::PlayChoice{game->id, asked->option},
+                                playing.id, linked.has_value(), keys);
     }
     secrets::wipeBytes(keys.host.data(), keys.host.size());
     secrets::wipeBytes(keys.guest.data(), keys.guest.size());

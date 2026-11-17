@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <iterator>
 #include <set>
 #include <system_error>
 #include <thread>
@@ -183,7 +184,7 @@ void LanNode::endAsking() {
 
 std::optional<LanNode::PlayOffer>
 LanNode::askToPlay(const std::stop_token& stop, const std::string& hostId,
-                   const std::string& gameId, const std::string& profile,
+                   const wire::PlayChoice& choice, const std::string& profile,
                    const std::function<void()>& waiting, std::string& error) const {
     const std::vector<Sighting> seen = sightings();
     const auto host = std::ranges::find(seen, hostId, &Sighting::id);
@@ -196,7 +197,8 @@ LanNode::askToPlay(const std::stop_token& stop, const std::string& hostId,
     const secrets::crypto::Bytes salt = secrets::crypto::randomBytes(secrets::crypto::nonceBytes);
     const PeerClient client{web_, Endpoint{host->address, host->port}, stop};
     const net::Result<net::WebClient::Answer> answer =
-        client.call("POST", wire::playRoute, wire::write(wire::PlayRequest{gameId, profile, salt}),
+        client.call("POST", wire::playRoute,
+                    wire::write(wire::PlayRequest{choice.game, choice.option, profile, salt}),
                     PeerClient::Signer{book_.id(), *secret}, largestNotice);
     std::optional<wire::PlayAnswer> offered;
     if (!answer) {
@@ -219,7 +221,7 @@ LanNode::askToPlay(const std::stop_token& stop, const std::string& hostId,
             std::this_thread::sleep_for(playPoll);
             const std::optional<std::string> body =
                 askHost(stop, hostId, "POST", wire::playStatusRoute,
-                        wire::write(wire::GameRef{gameId}), largestNotice, error);
+                        wire::write(wire::GameRef{choice.game}), largestNotice, error);
             const std::optional<wire::PlayVerdict> verdict =
                 body ? wire::readPlayVerdict(*body) : std::nullopt;
             if (!verdict) {
@@ -331,9 +333,9 @@ void LanNode::playing(std::string id, std::vector<std::string> profiles) {
     wake();
 }
 
-void LanNode::share(const std::vector<library::Game>& games) {
-    const std::vector<wire::ListedGame> before = library_.listing();
-    library_.share(games);
+void LanNode::share(const std::vector<library::Game>& games, std::string hosting) {
+    const wire::Listing before = library_.listing();
+    library_.share(games, std::move(hosting));
     if (library_.listing() == before) {
         return;
     }
@@ -633,7 +635,7 @@ std::vector<library::Game> LanNode::fetch(const std::stop_token& stop,
             complete = false;
             return games;
         }
-        std::optional<std::vector<wire::ListedGame>> listing;
+        std::optional<wire::Listing> listing;
         if (answer && answer->status == ok) {
             listing = wire::readListing(answer->body);
         }
@@ -645,16 +647,18 @@ std::vector<library::Game> LanNode::fetch(const std::stop_token& stop,
             continue;
         }
         std::set<fs::path> covers;
-        for (const wire::ListedGame& listed : *listing) {
+        for (const wire::ListedGame& listed : listing->games) {
             fs::path cover;
             if (!listed.cover.empty()) {
                 cover = coverOf(host, client, *secret, listed.cover, coverCache_ / host.id);
                 covers.insert(cover);
             }
-            games.push_back(remoteGame(host, listed, cover));
+            std::ranges::move(remoteVersions(host, listed, cover, listing->hosting),
+                              std::back_inserter(games));
         }
         secrets::wipeBytes(secret->data(), secret->size());
-        lucent::info("lan", "{} lists {} games", host.name, listing->size());
+        lucent::info("lan", "{} lists {} games{}{}", host.name, listing->games.size(),
+                     listing->hosting.empty() ? "" : ", not streamable: ", listing->hosting);
         for (const fs::directory_entry& kept : fs::directory_iterator{coverCache_ / host.id, ec}) {
             if (kept.is_regular_file(ec) && !covers.contains(kept.path())) {
                 fs::remove(kept.path(), ec);

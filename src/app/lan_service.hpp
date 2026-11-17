@@ -95,8 +95,9 @@ class LanService {
     /// The name this openSU goes by: the player's, else the machine's.
     [[nodiscard]] std::string name() const;
 
-    /// Shares the installed games among `games` with paired peers.
-    void share(const std::vector<library::Game>& games);
+    /// Shares the installed games among `games` with paired peers, with why they cannot be
+    /// streamed from here (`hosting`, empty when they can).
+    void share(const std::vector<library::Game>& games, std::string hosting);
     /// Offers the ROMs and BIOS files of `contents` to paired peers to import.
     void shareRoms(lan::RomShelf::Contents contents);
     /// The game `id` runs here with `profiles` in its seats; the paired openSUs hear of it.
@@ -126,11 +127,12 @@ class LanService {
 
     /// What a host answered a request to play: its offer, or why there is none.
     using PlayAnswer = std::function<void(std::optional<lan::LanNode::PlayOffer>, std::string)>;
-    /// Asks the paired openSU `hostId` to stream its game `gameId` here, played as `profile`, off
+    /// Asks the paired openSU `hostId` to stream its game `choice` here, played as `profile`, off
     /// the loop; `waiting` is called on that thread when its player is asked to let this one join,
     /// and `answer` when it is over. False while LAN is off or another request is under way.
-    [[nodiscard]] bool askToPlay(std::string hostId, std::string gameId, std::string profile,
-                                 std::function<void()> waiting, PlayAnswer answer);
+    [[nodiscard]] bool askToPlay(std::string hostId, lan::wire::PlayChoice choice,
+                                 std::string profile, std::function<void()> waiting,
+                                 PlayAnswer answer);
 
     /// What a host answered a request for its ROMs: the listing, or why there is none.
     using RomsAnswer =
@@ -178,6 +180,7 @@ class LanService {
     std::shared_ptr<std::atomic<bool>> news_{std::make_shared<std::atomic<bool>>(false)};
     /// What was shared last, shared again after a restart.
     std::vector<library::Game> shared_;
+    std::string hosting_;
     /// Set on the import's thread, taken on the loop.
     std::shared_ptr<std::atomic<bool>> romsNews_{std::make_shared<std::atomic<bool>>(false)};
     /// The ROMs offered last, offered again after a restart.

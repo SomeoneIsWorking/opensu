@@ -575,6 +575,77 @@ def zerotier_lan(context: Context) -> None:
         print(zerotier_traffic(rig))
 
 
+def lan_versions(context: Context) -> None:
+    """A paired openSU's copy of a game is a version of it here, by the way it launches there."""
+    with Rig(context, "restricted", "restricted", zerotier=True, lan=True) as rig:
+        for each in (rig.host, rig.friend):
+            each.wait("seeing the other", lambda state: state["lanSeen"] >= 1, seconds=30)
+        lan_pair(rig)
+        friend = rig.friend
+        until = time.monotonic() + 30
+        while "Host lists" not in friend.log.read_text() and time.monotonic() < until:
+            time.sleep(0.2)
+        print(next(line for line in friend.log.read_text().splitlines() if "Host lists" in line))
+        for _ in range(8):
+            state = friend.state()
+            if not state["settingsOpen"] and state.get("screen") in ("", "home", None):
+                break
+            friend.press("b")
+            time.sleep(0.5)
+        for _ in range(12):
+            if str(friend.state().get("focusedId", "")).endswith("link_test.gba"):
+                break
+            if friend.state().get("focusedId") == "console:gba":
+                friend.press("a")
+                time.sleep(1)
+                continue
+            friend.press("right")
+        rig.shot(friend, "4-tile")
+        friend.press("a")
+        friend.wait("on the details page", lambda state: state["detailsOpen"])
+        time.sleep(1)
+        # A console shelf's ROM stands for itself; Home's tile stands for the game.
+        for _ in range(12):
+            if "home" in str(friend.state()["screenFocus"]).lower():
+                break
+            friend.press("down")
+        print("adding", friend.state()["screenFocus"])
+        friend.press("a")
+        time.sleep(0.5)
+        for _ in range(4):
+            if friend.state().get("shelf") == "home" and not friend.state()["detailsOpen"]:
+                break
+            friend.press("b")
+            time.sleep(0.5)
+        for _ in range(12):
+            if str(friend.state().get("focusedId", "")).endswith("link_test.gba"):
+                break
+            friend.press("right")
+        print("home tile", friend.state().get("focusedId"))
+        rig.shot(friend, "4-home")
+        friend.press("a")
+        friend.wait("on the details page", lambda state: state["detailsOpen"])
+        time.sleep(1)
+        rig.shot(friend, "5-details")
+        for _ in range(12):
+            if str(friend.state()["screenFocus"]).endswith("details.more"):
+                break
+            friend.press("down")
+        friend.press("a")
+        time.sleep(1.2)
+        rig.shot(friend, "6-versions")
+        for _ in range(12):
+            focus = str(friend.state()["screenFocus"])
+            if focus.startswith("details.of:lan:") and focus.endswith("details.launch"):
+                break
+            friend.press("down")
+        print("remote play row", friend.state()["screenFocus"])
+        friend.press("a")
+        state = friend.wait("told why", lambda state: bool(state["toast"]), seconds=10)
+        rig.shot(friend, "7-refused")
+        print("toast", state["toast"])
+
+
 def gathered_line(who: Instance) -> str:
     lines = [line for line in who.log.read_text().splitlines() if "public addresses" in line]
     return lines[-1] if lines else f"{who.name}: no gathered line"
@@ -731,6 +802,7 @@ CASES: dict[str, Callable[[Context], None]] = {
     "tailscale": tailscale,
     "zerotier": zerotier,
     "zerotier-lan": zerotier_lan,
+    "lan-versions": lan_versions,
     "zerotier-embedded": zerotier_embedded,
     "nat-pmp": nat_pmp,
     "upnp": upnp,

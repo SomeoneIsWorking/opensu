@@ -44,20 +44,33 @@ EmulatorPick pickFor(const settings::SettingLayers& layers, const Game& game) {
     return EmulatorPick{system, EmulatorSource::System};
 }
 
+namespace {
+
+void runOn(Game& game, const EmulatorOption& option) {
+    game.emulator = option.name;
+    game.launch = option.launch;
+    if (option.installed) {
+        game.unavailable.clear();
+    } else if (!option.problem.empty()) {
+        game.unavailable = option.name + " cannot start: " + option.problem;
+    } else {
+        game.unavailable = option.name + " is not installed";
+    }
+}
+
+} // namespace
+
+void runOn(Game& game, const std::string& name) {
+    const auto option = std::ranges::find(game.emulatorOptions, name, &EmulatorOption::name);
+    if (option != game.emulatorOptions.end()) {
+        runOn(game, *option);
+    }
+}
+
 void applyEmulatorPicks(const settings::SettingLayers& layers, std::vector<Game>& games) {
     for (Game& game : games) {
-        const EmulatorOption* option = pickFor(layers, game).option;
-        if (option == nullptr) {
-            continue;
-        }
-        game.emulator = option->name;
-        game.launch = option->launch;
-        if (option->installed) {
-            game.unavailable.clear();
-        } else if (!option->problem.empty()) {
-            game.unavailable = option->name + " cannot start: " + option->problem;
-        } else {
-            game.unavailable = option->name + " is not installed";
+        if (const EmulatorOption* option = pickFor(layers, game).option) {
+            runOn(game, *option);
         }
     }
 }

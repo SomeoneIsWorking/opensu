@@ -89,10 +89,11 @@ class RemotePlay {
             launch;
         /// Closes the game started here.
         std::function<void()> close;
-        /// Asks host `hostId` to stream its game `gameId` (`LanService::askToPlay`), `waiting`
+        /// Asks host `hostId` to stream its game `choice` (`LanService::askToPlay`), `waiting`
         /// called when its player is asked; false when it cannot be asked now.
         std::function<bool(
-            const std::string& hostId, const std::string& gameId, std::function<void()> waiting,
+            const std::string& hostId, const lan::wire::PlayChoice& choice,
+            std::function<void()> waiting,
             std::function<void(std::optional<lan::LanNode::PlayOffer>, std::string)>)>
             ask;
         /// Where a remote game's sound plays: 48 kHz stereo on the shell's device, or none
@@ -143,12 +144,14 @@ class RemotePlay {
     RemotePlay(RemotePlay&&) = delete;
     RemotePlay& operator=(RemotePlay&&) = delete;
 
-    /// `peer` asks to play `gameId` here as `profile`, `linked` with it or not, its session sealed
+    /// `peer` asks to play `choice` here as `profile`, `linked` with it or not, its session sealed
     /// with `keys`: the UDP port the stream takes packets on, waiting while the player is asked to
     /// let it join the game that runs here, or a refusal. On the LAN listener's thread.
-    [[nodiscard]] lan::PlayOutcome offer(const lan::Peer& peer, const std::string& gameId,
+    [[nodiscard]] lan::PlayOutcome offer(const lan::Peer& peer, const lan::wire::PlayChoice& choice,
                                          const std::string& profile, bool linked,
                                          const lan::StreamKeys& keys);
+    /// Why a guest's game cannot be streamed from here now; empty when it can.
+    [[nodiscard]] std::string hosting() const;
     /// How `peer`'s ask to join `gameId` stands; let in now, with the port, when the player allowed
     /// it. Nothing when it has no ask. On the LAN listener's thread.
     [[nodiscard]] std::optional<lan::wire::PlayVerdict> playStatus(const lan::Peer& peer,
@@ -331,6 +334,8 @@ class RemotePlay {
         std::unique_ptr<stream::HostVideo> video;
         std::unique_ptr<stream::HostAudio> audio;
         std::string gameId;
+        /// The way the guest asked it be launched (`PlayChoice::option`); empty for its pick.
+        std::string option;
         std::string title;
         /// The profile a game started for a guest plays as here.
         std::string profile;

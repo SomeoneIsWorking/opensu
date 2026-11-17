@@ -919,9 +919,9 @@ class ShellApp final {
                     closeRunningGame();
                 },
             .ask =
-                [this](const std::string& hostId, const std::string& gameId,
+                [this](const std::string& hostId, const lan::wire::PlayChoice& choice,
                        std::function<void()> waiting, LanService::PlayAnswer answer) {
-                    return lan_.askToPlay(hostId, gameId, profiles_.book().active().id,
+                    return lan_.askToPlay(hostId, choice, profiles_.book().active().id,
                                           std::move(waiting), std::move(answer));
                 },
             .speaker =
@@ -1066,9 +1066,9 @@ class ShellApp final {
                     lanRoms_.progressed();
                 },
             .play =
-                [this](const lan::Peer& peer, const std::string& game, const std::string& profile,
-                       bool linked, const lan::StreamKeys& keys) {
-                    return remotePlay_.offer(peer, game, profile, linked, keys);
+                [this](const lan::Peer& peer, const lan::wire::PlayChoice& choice,
+                       const std::string& profile, bool linked, const lan::StreamKeys& keys) {
+                    return remotePlay_.offer(peer, choice, profile, linked, keys);
                 },
             .playStatus =
                 [this](const lan::Peer& peer, const std::string& game) {

@@ -86,6 +86,19 @@ struct SwitchSaveData {
     bool operator==(const SwitchSaveData&) const = default;
 };
 
+/// What another openSU says about a game it lists, beyond its id and title.
+struct RemoteVersion {
+    /// What it runs as there (`versionPlatform`): "PlayStation 2", "Windows · Wine", "Steam".
+    std::string platform;
+    /// Its source there (`key(Source)`): "steam", "rom", "own".
+    std::string source;
+    /// The way to launch it there this version stands for (an emulator's name); empty for its
+    /// only one.
+    std::string option;
+
+    bool operator==(const RemoteVersion&) const = default;
+};
+
 /// One emulator that can run a ROM's system, installed here or not.
 struct EmulatorOption {
     std::string name;
@@ -139,6 +152,8 @@ struct Game {
     std::vector<std::string> playingAs;
     /// A remote game: what its host says it can be matched to (`matchTargetOf`).
     std::string matchAs;
+    /// A remote game: how it runs there.
+    RemoteVersion remote;
 
     /// Whether that openSU answers now; a game listed earlier stays, offline, until it is back.
     bool hostOnline{true};

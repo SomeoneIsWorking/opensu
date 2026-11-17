@@ -381,6 +381,13 @@ void versionLabels() {
     exe.source = Source::Own;
     exe.windowsInstall = true;
     expect(versionLabel(exe) == "Windows \xC2\xB7 Wine", "an added .exe runs under Wine");
+    opensu::library::Game remote;
+    remote.source = opensu::library::Source::Remote;
+    remote.hostName = "Desk";
+    remote.remote.platform = "PlayStation";
+    remote.remote.option = "DuckStation";
+    expect(versionLabel(remote) == "On Desk \xC2\xB7 PlayStation \xC2\xB7 DuckStation",
+           "another openSU's version says where, what it runs as and how");
 }
 
 } // namespace

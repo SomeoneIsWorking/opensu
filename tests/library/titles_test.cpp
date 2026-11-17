@@ -279,6 +279,31 @@ void testVersions() {
            "a year is part of the title: a remake is another game");
 }
 
+Game onDesk(std::string id, std::string title, std::string source, std::string option) {
+    Game out = game(Source::Remote, std::move(id), std::move(title), true);
+    out.hostId = "desk";
+    out.hostName = "Desk";
+    out.remote.source = std::move(source);
+    out.remote.option = std::move(option);
+    return out;
+}
+
+void testRemoteVersions() {
+    const std::vector<Game> games{
+        game(Source::Rom, "rom:crash", "Crash Bandicoot", true),
+        onDesk("lan:desk:rom:crash#DuckStation", "Crash Bandicoot", "rom", "DuckStation"),
+        onDesk("lan:desk:rom:crash#SwanStation", "Crash Bandicoot", "rom", "SwanStation"),
+    };
+    const std::vector<opensu::library::Title> titles = gameTitles(games);
+    expect(titles.size() == 1 && titles[0].copies.size() == 3,
+           "each way another openSU launches a game is a version of it here");
+    expect(titles[0].copies[0]->source == Source::Rom, "the version here leads");
+
+    const std::vector<Game> stores{onDesk("lan:desk:steam:1", "Doom", "steam", ""),
+                                   onDesk("lan:desk:steam:2", "DOOM", "steam", "")};
+    expect(gameTitles(stores).size() == 2, "one store there holds one version of a game");
+}
+
 void testPlayerChoices() {
     std::vector<Game> games = xmen();
     opensu::library::VersionChoices choices;
@@ -323,6 +348,7 @@ int main() try {
     testOffered();
     testBaseKey();
     testVersions();
+    testRemoteVersions();
     testPlayerChoices();
     std::printf("titles: all checks passed\n");
     return 0;

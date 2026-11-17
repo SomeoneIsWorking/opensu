@@ -43,6 +43,10 @@ struct EmulatorPick {
 
 /// Points each ROM with a pick that applies at that emulator: the game's `launch` and `emulator`
 /// follow the pick, and `unavailable` says so when the pick is not installed.
+/// Makes `game` run on its option named `name`, as a pick of it would; nothing when it lists none
+/// by that name.
+void runOn(Game& game, const std::string& name);
+
 void applyEmulatorPicks(const settings::SettingLayers& layers, std::vector<Game>& games);
 
 /// The emulator pick as the schema declares it where its choices are known: `names` the emulators

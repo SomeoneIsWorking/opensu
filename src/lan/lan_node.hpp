@@ -105,9 +105,10 @@ class LanNode {
     [[nodiscard]] std::optional<Peer> find(const std::string& peerId) const {
         return book_.find(peerId);
     }
-    /// Shares the installed games among `games` with paired peers from now on.
-    /// The paired, announced openSUs are told to read the listing again when it changed.
-    void share(const std::vector<library::Game>& games);
+    /// Shares the installed games among `games` with paired peers from now on, with why they
+    /// cannot be streamed from here (`hosting`, empty when they can). The paired, announced
+    /// openSUs are told to read the listing again when it changed.
+    void share(const std::vector<library::Game>& games, std::string hosting);
     /// The guests' asks about a listed game's cover and match.
     [[nodiscard]] CoverDesk& covers() noexcept {
         return covers_;
@@ -212,9 +213,9 @@ class LanNode {
     /// `error` when it is gone, unpaired, refuses or its player declines; nothing without one when
     /// `stop` ended the call.
     [[nodiscard]] std::optional<PlayOffer>
-    askToPlay(const std::stop_token& stop, const std::string& hostId, const std::string& gameId,
-              const std::string& profile, const std::function<void()>& waiting,
-              std::string& error) const;
+    askToPlay(const std::stop_token& stop, const std::string& hostId,
+              const wire::PlayChoice& choice, const std::string& profile,
+              const std::function<void()>& waiting, std::string& error) const;
 
     /// The asks to play a ROM together, this one's and the paired openSUs'.
     [[nodiscard]] NetplayAsks& netplay() const noexcept {

@@ -810,6 +810,10 @@ bool ShellApp::launch(const library::Game& game, LaunchRequest request) {
             shell_.setToast(game.hostName + " is offline; start openSU there", true);
             return false;
         }
+        if (!game.unavailable.empty()) {
+            shell_.setToast(game.unavailable, true);
+            return false;
+        }
         remotePlay_.start(
             game,
             stream::wire::PadMapping{.map = padOwner_.forwarding(mappings_.forGame(game)),
@@ -1180,7 +1184,7 @@ void ShellApp::recordLaunch(const library::Game& game) {
 }
 
 void ShellApp::shareLibrary() {
-    lan_.share(covers_.shown(games_));
+    lan_.share(covers_.shown(games_), remotePlay_.hosting());
 }
 
 void ShellApp::serveGuests() {

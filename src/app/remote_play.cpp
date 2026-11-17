@@ -10,8 +10,10 @@
 #include <utility>
 
 #include "launch/process_tree.hpp"
+#include "library/emulator_choice.hpp"
 #include "lucent/log.h"
 #include "secrets/secret.hpp"
+#include "stream/remote_reach.hpp"
 #include "stream/udp_socket.hpp"
 
 namespace opensu::app {
@@ -206,9 +208,20 @@ lan::PlayOutcome RemotePlay::waitFor(const lan::Peer& peer, const std::string& g
         .port = std::nullopt, .waiting = true, .joined = true, .continued = false, .refusal = {}};
 }
 
-lan::PlayOutcome RemotePlay::offer(const lan::Peer& peer, const std::string& gameId,
+std::string RemotePlay::hosting() const {
+    if (std::string missing = stream::hostingMissing(); !missing.empty()) {
+        return missing;
+    }
+    if (screen_.gamescopeSocket.empty()) {
+        return "it does not run inside Gamescope, whose screen it would stream";
+    }
+    return {};
+}
+
+lan::PlayOutcome RemotePlay::offer(const lan::Peer& peer, const lan::wire::PlayChoice& choice,
                                    const std::string& profile, bool linked,
                                    const lan::StreamKeys& keys) {
+    const std::string& gameId = choice.game;
     const std::lock_guard lock{hostMutex_};
     const auto refuse = [](std::string why) {
         return lan::PlayOutcome{.port = std::nullopt,
@@ -261,8 +274,8 @@ lan::PlayOutcome RemotePlay::offer(const lan::Peer& peer, const std::string& gam
         }
         return waitFor(peer, gameId, profile, linked, keys);
     }
-    if (screen_.gamescopeSocket.empty()) {
-        return refuse("it does not run inside Gamescope, whose screen it would stream");
+    if (std::string why = hosting(); !why.empty()) {
+        return refuse(std::move(why));
     }
     if (busy_) {
         if (runningId_.empty() || runningId_ != gameId) {
@@ -274,6 +287,7 @@ lan::PlayOutcome RemotePlay::offer(const lan::Peer& peer, const std::string& gam
     try {
         auto hosted = std::make_unique<Hosted>();
         hosted->gameId = gameId;
+        hosted->option = choice.option;
         hosted->profile = profile;
         hosted->forGuest = true;
         const std::uint16_t port = admit(
@@ -523,7 +537,7 @@ void RemotePlay::start(const library::Game& game, stream::wire::PadMapping mappi
     waiting_->store(false);
     saidWaiting_ = false;
     asking_ = hooks_.ask(
-        game.hostId, game.sourceId,
+        game.hostId, lan::wire::PlayChoice{game.sourceId, game.remote.option},
         [waiting = waiting_] {
             waiting->store(true);
         },
@@ -655,7 +669,10 @@ void RemotePlay::serviceHost(const library::Game* running, const std::string& pr
     }
     Hosted& hosted = *hosted_;
     if (hosted.forGuest && !hosted.launched && !hosted.guests.empty()) {
-        const std::optional<library::Game> game = hooks_.find(hosted.gameId);
+        std::optional<library::Game> game = hooks_.find(hosted.gameId);
+        if (game && !hosted.option.empty()) {
+            library::runOn(*game, hosted.option);
+        }
         Guest& first = *hosted.guests.front();
         if (!game) {
             first.stream->end("the game is no longer installed there");

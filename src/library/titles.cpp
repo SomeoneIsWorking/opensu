@@ -12,6 +12,10 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "own_games.hpp"
+#include "rom_systems.hpp"
+#include "store_builds.hpp"
+
 namespace opensu::library {
 namespace {
 
@@ -39,13 +43,19 @@ bool isStore(Source source) noexcept {
     return source == Source::Steam || source == Source::Gog || source == Source::Epic;
 }
 
-/// What holds at most one version of a game: its store, or the openSU it is on; empty for a
-/// source that may hold several.
+/// What holds at most one version of a game: its store, or a store on the openSU it is on; empty
+/// for a source that may hold several.
 std::string holderOf(const Game& game) {
     if (isStore(game.source)) {
         return key(game.source);
     }
-    return game.source == Source::Remote ? "lan:" + game.hostId : std::string{};
+    if (game.source != Source::Remote) {
+        return {};
+    }
+    const bool store = game.remote.source == key(Source::Steam) ||
+                       game.remote.source == key(Source::Gog) ||
+                       game.remote.source == key(Source::Epic);
+    return store ? "lan:" + game.hostId + ":" + game.remote.source : std::string{};
 }
 
 /// When `copy` was last played, as `TitleCopies` orders it; another openSU's never leads by it.
@@ -159,6 +169,29 @@ std::string choiceKey(const Game& game) {
         }
     }
     return "id:" + game.id;
+}
+
+std::string versionPlatform(const Game& game) {
+    switch (game.source) {
+    case Source::Rom: {
+        const roms::RomSystem* system = roms::systemByKey(game.sourceId);
+        return system != nullptr ? std::string{system->label} : game.sourceId;
+    }
+    case Source::Own: {
+        if (!own::nativeOwn(game)) {
+            return "Windows \xC2\xB7 Wine";
+        }
+        const std::string system{ownSystemName};
+        return game.appImage ? system + " \xC2\xB7 AppImage" : system;
+    }
+    case Source::Remote:
+        return game.remote.platform;
+    case Source::Steam:
+    case Source::Epic:
+    case Source::Gog:
+        break;
+    }
+    return std::string{label(game.source)};
 }
 
 std::vector<Title> gameTitles(const std::vector<Game>& games) {

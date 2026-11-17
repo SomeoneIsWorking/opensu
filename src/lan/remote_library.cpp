@@ -17,7 +17,7 @@ namespace {
 bool sameListing(const library::Game& a, const library::Game& b) {
     return a.id == b.id && a.title == b.title && a.hostName == b.hostName &&
            a.artwork == b.artwork && a.playingAs == b.playingAs && a.hostOnline == b.hostOnline &&
-           a.matchAs == b.matchAs;
+           a.matchAs == b.matchAs && a.remote == b.remote && a.unavailable == b.unavailable;
 }
 
 library::Game savedGame(const nlohmann::json& entry) {
@@ -31,6 +31,9 @@ library::Game savedGame(const nlohmann::json& entry) {
     game.hostOnline = false;
     game.installed = true;
     game.artwork = entry.at("artwork").get<std::string>();
+    game.remote = library::RemoteVersion{.platform = entry.value("platform", std::string{}),
+                                         .source = entry.value("source", std::string{}),
+                                         .option = entry.value("option", std::string{})};
     return game;
 }
 
@@ -54,8 +57,9 @@ class RemoteProvider final : public library::Provider {
 
 } // namespace
 
-library::Game remoteGame(const Peer& host, const wire::ListedGame& listed,
-                         const std::filesystem::path& cover) {
+std::vector<library::Game> remoteVersions(const Peer& host, const wire::ListedGame& listed,
+                                          const std::filesystem::path& cover,
+                                          const std::string& hosting) {
     library::Game game;
     game.id = "lan:" + host.id + ":" + listed.id;
     game.source = library::Source::Remote;
@@ -65,9 +69,25 @@ library::Game remoteGame(const Peer& host, const wire::ListedGame& listed,
     game.hostName = host.name;
     game.playingAs = listed.playingAs;
     game.matchAs = listed.match;
+    game.remote =
+        library::RemoteVersion{.platform = listed.platform, .source = listed.source, .option = {}};
     game.installed = true;
     game.artwork = cover;
-    return game;
+    if (!hosting.empty()) {
+        game.unavailable = host.name + " cannot stream it: " + hosting;
+    }
+    if (listed.options.size() <= 1) {
+        game.remote.option = listed.options.empty() ? std::string{} : listed.options.front();
+        return {std::move(game)};
+    }
+    std::vector<library::Game> versions;
+    for (const std::string& option : listed.options) {
+        library::Game version = game;
+        version.id += "#" + option;
+        version.remote.option = option;
+        versions.push_back(std::move(version));
+    }
+    return versions;
 }
 
 RemoteLibrary::RemoteLibrary(std::filesystem::path file) : file_{std::move(file)} {
@@ -96,7 +116,10 @@ void RemoteLibrary::save() const {
                         {"title", game.title},
                         {"hostId", game.hostId},
                         {"hostName", game.hostName},
-                        {"artwork", game.artwork.string()}});
+                        {"artwork", game.artwork.string()},
+                        {"platform", game.remote.platform},
+                        {"source", game.remote.source},
+                        {"option", game.remote.option}});
     }
     if (std::string error; !fileio::writeWhole(file_, list.dump() + "\n", error)) {
         lucent::warn("lan", "{} cannot be written: {}", file_.string(), error);

@@ -82,4 +82,8 @@ Step 1 built: grouping, Group with…, Separate, the default, Extras and the Ver
 on the X-Men Legends II fixture (two ROMs, a `.desktop` port, an AppImage and a Lutris install as
 one tile). Each tile carries one runner badge for its default version (`ui::runnerMark`): shown
 with xemu's icon from its desktop entry, Dolphin's from its theme icon and DuckStation's
-initials. An AppImage emulator's icon inside its image is not read yet. Next: steps 2 to 4.
+initials. An AppImage emulator's icon inside its image is not read yet.
+
+Step 2 built: the listing carries each game's platform, source and emulators and the host's
+`hosting`; `lan::remoteVersions` makes one version per emulator, `/lan/play` names it and the host
+refuses one it does not list, then launches with it (`library::runOn`). Next: steps 3 and 4.

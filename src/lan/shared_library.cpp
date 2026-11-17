@@ -5,6 +5,7 @@
 #include <system_error>
 
 #include "library/match_pick.hpp"
+#include "library/titles.hpp"
 #include "lucent/log.h"
 #include "secrets/crypto.hpp"
 #include "secrets/secret.hpp"
@@ -36,7 +37,25 @@ std::string coverToken(const library::Game& game) {
 
 } // namespace
 
-void SharedLibrary::share(const std::vector<library::Game>& games) {
+namespace {
+
+/// The emulators `game` can be launched with here, when it has a choice of them.
+std::vector<std::string> optionsOf(const library::Game& game) {
+    std::vector<std::string> options;
+    if (game.source != library::Source::Rom) {
+        return options;
+    }
+    for (const library::EmulatorOption& option : game.emulatorOptions) {
+        if (option.installed && option.problem.empty()) {
+            options.push_back(option.name);
+        }
+    }
+    return options;
+}
+
+} // namespace
+
+void SharedLibrary::share(const std::vector<library::Game>& games, std::string hosting) {
     std::vector<wire::ListedGame> listed;
     std::map<std::string, fs::path, std::less<>> covers;
     for (const library::Game& game : games) {
@@ -46,7 +65,10 @@ void SharedLibrary::share(const std::vector<library::Game>& games) {
         wire::ListedGame entry{.id = game.id,
                                .title = game.title,
                                .cover = coverToken(game),
-                               .match = library::matchTargetOf(game)};
+                               .match = library::matchTargetOf(game),
+                               .platform = library::versionPlatform(game),
+                               .source = library::key(game.source),
+                               .options = optionsOf(game)};
         if (!entry.cover.empty()) {
             covers.emplace(entry.cover, game.artwork);
         }
@@ -55,6 +77,7 @@ void SharedLibrary::share(const std::vector<library::Game>& games) {
     lucent::info("lan", "sharing {} installed games, {} with covers", listed.size(), covers.size());
     const std::lock_guard lock{mutex_};
     games_ = std::move(listed);
+    hosting_ = std::move(hosting);
     covers_ = std::move(covers);
 }
 
@@ -64,15 +87,15 @@ void SharedLibrary::playing(std::string id, std::vector<std::string> profiles) {
     playingAs_ = std::move(profiles);
 }
 
-std::vector<wire::ListedGame> SharedLibrary::listing() const {
+wire::Listing SharedLibrary::listing() const {
     const std::lock_guard lock{mutex_};
-    std::vector<wire::ListedGame> games = games_;
-    for (wire::ListedGame& game : games) {
+    wire::Listing listing{.games = games_, .hosting = hosting_};
+    for (wire::ListedGame& game : listing.games) {
         if (game.id == playingId_) {
             game.playingAs = playingAs_;
         }
     }
-    return games;
+    return listing;
 }
 
 std::optional<fs::path> SharedLibrary::cover(std::string_view token) const {

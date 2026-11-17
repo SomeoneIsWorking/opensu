@@ -71,10 +71,10 @@ class LanListener {
         std::function<void(const Peer&)> paired;
         /// A peer unpaired itself; called on the listener's thread.
         std::function<void(const Peer&)> unpaired;
-        /// A peer asks to play `game`, which this one lists, here as `profile`: the one the peer
-        /// asked for when it is linked with the peer (`linked`), else the first; `keys` seal that
-        /// session. Called on the listener's thread.
-        std::function<PlayOutcome(const Peer& peer, const std::string& game,
+        /// A peer asks to play `choice`, a game this one lists launched one of the ways it lists,
+        /// here as `profile`: the one the peer asked for when it is linked with the peer
+        /// (`linked`), else the first; `keys` seal that session. Called on the listener's thread.
+        std::function<PlayOutcome(const Peer& peer, const wire::PlayChoice& choice,
                                   const std::string& profile, bool linked, const StreamKeys& keys)>
             play;
         /// How the peer's waiting ask to join `game` stands; nothing when it has none. Called on

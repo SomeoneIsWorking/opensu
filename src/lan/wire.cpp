@@ -183,9 +183,9 @@ bool isCoverToken(std::string_view text) noexcept {
     return text.size() == coverTokenBytes * 2 && secrets::isLowerHex(text);
 }
 
-std::string write(const std::vector<ListedGame>& games) {
+std::string write(const Listing& listing) {
     json list = json::array();
-    for (const ListedGame& game : games) {
+    for (const ListedGame& game : listing.games) {
         json entry{{"id", game.id}, {"title", game.title}};
         if (!game.cover.empty()) {
             entry["cover"] = game.cover;
@@ -196,17 +196,47 @@ std::string write(const std::vector<ListedGame>& games) {
         if (!game.match.empty()) {
             entry["match"] = game.match;
         }
+        if (!game.platform.empty()) {
+            entry["platform"] = game.platform;
+        }
+        if (!game.source.empty()) {
+            entry["source"] = game.source;
+        }
+        if (!game.options.empty()) {
+            entry["options"] = game.options;
+        }
         list.push_back(std::move(entry));
     }
-    return json{{"games", list}}.dump();
+    json document{{"games", list}};
+    if (!listing.hosting.empty()) {
+        document["hosting"] = listing.hosting;
+    }
+    return document.dump();
 }
 
-std::optional<std::vector<ListedGame>> readListing(std::string_view body) {
+namespace {
+
+/// The strings of array `name` in `entry`; others are left out.
+std::vector<std::string> textsField(const json& entry, const char* name) {
+    std::vector<std::string> texts;
+    if (const auto found = entry.find(name); found != entry.end() && found->is_array()) {
+        for (const json& each : *found) {
+            if (each.is_string()) {
+                texts.push_back(each.get<std::string>());
+            }
+        }
+    }
+    return texts;
+}
+
+} // namespace
+
+std::optional<Listing> readListing(std::string_view body) {
     const std::optional<json> document = objectOf(body);
     if (!document || !document->contains("games") || !(*document)["games"].is_array()) {
         return std::nullopt;
     }
-    std::vector<ListedGame> games;
+    Listing listing{.games = {}, .hosting = textField(*document, "hosting")};
     for (const json& entry : (*document)["games"]) {
         if (!entry.is_object()) {
             continue;
@@ -214,24 +244,20 @@ std::optional<std::vector<ListedGame>> readListing(std::string_view body) {
         ListedGame game{.id = textField(entry, "id"),
                         .title = textField(entry, "title"),
                         .cover = textField(entry, "cover"),
-                        .match = textField(entry, "match")};
-        if (const auto playing = entry.find("playingAs");
-            playing != entry.end() && playing->is_array()) {
-            for (const json& profile : *playing) {
-                if (profile.is_string()) {
-                    game.playingAs.push_back(profile.get<std::string>());
-                }
-            }
-        }
+                        .playingAs = textsField(entry, "playingAs"),
+                        .match = textField(entry, "match"),
+                        .platform = textField(entry, "platform"),
+                        .source = textField(entry, "source"),
+                        .options = textsField(entry, "options")};
         if (game.id.empty() || game.title.empty()) {
             continue;
         }
         if (!isCoverToken(game.cover)) {
             game.cover.clear();
         }
-        games.push_back(std::move(game));
+        listing.games.push_back(std::move(game));
     }
-    return games;
+    return listing;
 }
 
 namespace {
@@ -347,10 +373,13 @@ std::optional<SaveAsk> readSaveAsk(std::string_view body) {
 }
 
 std::string write(const PlayRequest& request) {
-    return json{{"game", request.game},
-                {"profile", request.profile},
-                {"salt", secrets::hexText(request.salt)}}
-        .dump();
+    json document{{"game", request.game},
+                  {"profile", request.profile},
+                  {"salt", secrets::hexText(request.salt)}};
+    if (!request.option.empty()) {
+        document["option"] = request.option;
+    }
+    return document.dump();
 }
 
 std::optional<PlayRequest> readPlayRequest(std::string_view body) {
@@ -364,7 +393,8 @@ std::optional<PlayRequest> readPlayRequest(std::string_view body) {
     if (!salt || game.empty()) {
         return std::nullopt;
     }
-    return PlayRequest{std::move(game), textField(*document, "profile"), std::move(*salt)};
+    return PlayRequest{std::move(game), textField(*document, "option"),
+                       textField(*document, "profile"), std::move(*salt)};
 }
 
 std::string write(const PlayAnswer& answer) {

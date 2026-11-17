@@ -77,8 +77,23 @@ struct ListedGame {
     std::vector<std::string> playingAs{};
     /// What it can be matched to (`library::matchTargetOf`); empty for nothing.
     std::string match{};
+    /// What it runs as here (`library::versionPlatform`), and its source (`library::key`).
+    std::string platform{};
+    std::string source{};
+    /// The ways it can be launched here, which `/lan/play` may name: a ROM's installed
+    /// emulators. Empty for a game with one way.
+    std::vector<std::string> options{};
 
     bool operator==(const ListedGame&) const = default;
+};
+
+/// `GET /lan/library`: the games, and why this openSU cannot stream them to a peer now (empty
+/// when it can).
+struct Listing {
+    std::vector<ListedGame> games;
+    std::string hosting{};
+
+    bool operator==(const Listing&) const = default;
 };
 
 /// A cover token is this many bytes, sent as hex.
@@ -87,11 +102,11 @@ inline constexpr std::size_t coverTokenBytes = 16;
 /// Whether `text` can be a cover token: `coverTokenBytes` as lower-case hex.
 [[nodiscard]] bool isCoverToken(std::string_view text) noexcept;
 
-/// `{"games":[{"id","title","cover"}]}`.
-[[nodiscard]] std::string write(const std::vector<ListedGame>& games);
+/// `{"games":[{"id","title","cover",…}],"hosting"}`.
+[[nodiscard]] std::string write(const Listing& listing);
 /// A listing read back; nothing when `body` is not one. Games without an id or a title are left
 /// out, and covers that are not tokens dropped.
-[[nodiscard]] std::optional<std::vector<ListedGame>> readListing(std::string_view body);
+[[nodiscard]] std::optional<Listing> readListing(std::string_view body);
 
 /// The routes of profile copies, for paired peers.
 inline constexpr std::string_view profilesRoute = "/lan/profiles";
@@ -161,8 +176,16 @@ struct SaveAsk {
 /// `POST /lan/play`: a paired guest asks to play one of the listed games on the host as its
 /// active profile, with its half of the session's salt.
 inline constexpr std::string_view playRoute = "/lan/play";
+/// A listed game and the way to launch it (one of its `options`; empty for its host's pick).
+struct PlayChoice {
+    std::string game;
+    std::string option{};
+};
+
 struct PlayRequest {
     std::string game;
+    /// One of the game's `options`; empty for its host's pick.
+    std::string option;
     /// The guest's active profile's id; the host plays as it only while it is linked with the
     /// guest.
     std::string profile;

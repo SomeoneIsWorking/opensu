@@ -200,7 +200,7 @@ struct Node {
                   },
               .saves = sync,
               .profiles = profiles,
-              .play = [this](const lan::Peer& peer, const std::string& game,
+              .play = [this](const lan::Peer& peer, const lan::wire::PlayChoice& choice,
                              const std::string& profile, bool /*linked*/,
                              const lan::StreamKeys& keys) -> lan::PlayOutcome {
                   const std::lock_guard lock{mutex};
@@ -211,7 +211,7 @@ struct Node {
                               .continued = false,
                               .refusal = refusePlay};
                   }
-                  played = peer.name + " " + game + " " + profile;
+                  played = peer.name + " " + choice.game + " " + profile;
                   playKeys = keys;
                   if (!joinVerdicts.empty()) {
                       return {.port = std::nullopt,
@@ -382,8 +382,8 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
     writeFile(cover, "not really a png");
     library::Game uninstalled = installedGame("own:3", "Gone", {});
     uninstalled.installed = false;
-    host.node.share({installedGame("own:1", "Shared game", cover), uninstalled});
-    guest.node.share({installedGame("own:9", "Guest game", {})});
+    host.node.share({installedGame("own:1", "Shared game", cover), uninstalled}, {});
+    guest.node.share({installedGame("own:9", "Guest game", {})}, {});
 
     expect(waitFor([&guest] {
                return guest.node.sightings().size() == 2;
@@ -435,7 +435,8 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
         throw std::logic_error{"the host's player was not to be asked"};
     };
     const std::optional<lan::LanNode::PlayOffer> offer = guest.node.askToPlay(
-        std::stop_token{}, host.node.id(), listed.sourceId, guestPlayer, noWait, playError);
+        std::stop_token{}, host.node.id(), lan::wire::PlayChoice{listed.sourceId}, guestPlayer,
+        noWait, playError);
     expect(offer && offer->stream.port == Node::streamPort && offer->stream.address == "127.0.0.1",
            "the host agrees to stream its game and says where");
     {
@@ -449,13 +450,19 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
                "both sides hold one pair of session keys, one for each way");
         host.refusePlay = "a game is already running there";
     }
-    expect(!guest.node.askToPlay(std::stop_token{}, host.node.id(), listed.sourceId, guestPlayer,
-                                 noWait, playError) &&
+    expect(!guest.node.askToPlay(std::stop_token{}, host.node.id(),
+                                 lan::wire::PlayChoice{listed.sourceId}, guestPlayer, noWait,
+                                 playError) &&
                playError.find("a game is already running there") != std::string::npos,
            "a host that cannot stream says why");
-    expect(!guest.node.askToPlay(std::stop_token{}, host.node.id(), "own:2", guestPlayer, noWait,
-                                 playError),
+    expect(!guest.node.askToPlay(std::stop_token{}, host.node.id(), lan::wire::PlayChoice{"own:2"},
+                                 guestPlayer, noWait, playError),
            "a game the host does not list is not streamed");
+    expect(!guest.node.askToPlay(std::stop_token{}, host.node.id(),
+                                 lan::wire::PlayChoice{listed.sourceId, "Nope"}, guestPlayer,
+                                 noWait, playError) &&
+               playError.find("it does not offer Nope") != std::string::npos,
+           "a way the host does not list for that game is refused");
     {
         const std::lock_guard lock{host.mutex};
         host.refusePlay.clear();
@@ -463,8 +470,9 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
     const profiles::Profile ana =
         test::need(host.profiles.add("Ana", playError), "the host has a second profile");
     expect(host.profiles.link(ana.id, guest.node.id(), true, playError), "linked with the guest");
-    const std::optional<lan::LanNode::PlayOffer> again = guest.node.askToPlay(
-        std::stop_token{}, host.node.id(), listed.sourceId, ana.id, noWait, playError);
+    const std::optional<lan::LanNode::PlayOffer> again =
+        guest.node.askToPlay(std::stop_token{}, host.node.id(),
+                             lan::wire::PlayChoice{listed.sourceId}, ana.id, noWait, playError);
     expect(again && offer && again->keys.host != offer->keys.host,
            "each session has keys of its own");
     {
@@ -475,8 +483,9 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
     std::stop_source quitting;
     quitting.request_stop();
     std::string stopError;
-    expect(!guest.node.askToPlay(quitting.get_token(), host.node.id(), listed.sourceId, ana.id,
-                                 noWait, stopError) &&
+    expect(!guest.node.askToPlay(quitting.get_token(), host.node.id(),
+                                 lan::wire::PlayChoice{listed.sourceId}, ana.id, noWait,
+                                 stopError) &&
                stopError.empty(),
            "a request on a requested stop comes to nothing, and no error");
     {
@@ -486,7 +495,7 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
     }
     bool told = false;
     const std::optional<lan::LanNode::PlayOffer> joined = guest.node.askToPlay(
-        std::stop_token{}, host.node.id(), listed.sourceId, ana.id,
+        std::stop_token{}, host.node.id(), lan::wire::PlayChoice{listed.sourceId}, ana.id,
         [&told] {
             told = true;
         },
@@ -500,7 +509,7 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
         host.joinVerdicts = {{.verdict = "declined", .port = 0, .why = {}}};
     }
     expect(!guest.node.askToPlay(
-               std::stop_token{}, host.node.id(), listed.sourceId, ana.id,
+               std::stop_token{}, host.node.id(), lan::wire::PlayChoice{listed.sourceId}, ana.id,
                [] {
                },
                playError) &&
@@ -766,8 +775,8 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
     Node host{root, "Den", directory};
     Node guest{root, "Attic", directory};
     const library::Game game = runnerGame();
-    host.node.share({game});
-    guest.node.share({game});
+    host.node.share({game}, {});
+    guest.node.share({game}, {});
     host.sync.know({game}, runnerCatalog());
     guest.sync.know({game}, runnerCatalog());
     // One player's profile on both: the den's, which the attic copies.
@@ -1054,7 +1063,7 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
                        secrets::SecretStore{root / "signed" / "secrets", false}};
     lan::HostPairing pairing{book.id()};
     lan::SharedLibrary library;
-    library.share({installedGame("own:1", "Shared game", {})});
+    library.share({installedGame("own:1", "Shared game", {})}, {});
     lan::RomShelf shelf;
     const net::WebClient web;
     profiles::ProfileBook profiles{root / "signed" / "profiles.json"};
@@ -1135,15 +1144,29 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
            "nor as the answer to another request");
     const auto opened = lan::openBody(secret, facts, lan::Direction::Answer, 200, answer.body);
     const auto listing = opened ? lan::wire::readListing(*opened) : std::nullopt;
-    expect(listing && listing->size() == 1 && listing->front().title == "Shared game",
+    expect(listing && listing->games.size() == 1 && listing->games.front().title == "Shared game",
            "sealed with the pairing's secret for this request, it holds the shared listing");
     lan::wire::ListedGame seated;
     seated.id = "game";
     seated.title = "Seated game";
     seated.playingAs = {"profile"};
-    const auto seats = lan::wire::readListing(lan::wire::write({seated}));
-    expect(seats && seats->front().playingAs == std::vector<std::string>{"profile"},
+    const auto seats = lan::wire::readListing(lan::wire::write(lan::wire::Listing{{seated}}));
+    expect(seats && seats->games.front().playingAs == std::vector<std::string>{"profile"},
            "a running game's listing says who plays it");
+    seated.platform = "PlayStation";
+    seated.source = "rom";
+    seated.options = {"DuckStation", "SwanStation"};
+    const lan::wire::Listing ways{.games = {seated}, .hosting = "it does not run inside Gamescope"};
+    expect(lan::wire::readListing(lan::wire::write(ways)) == ways,
+           "a listing carries each game's platform, source and ways, and why it cannot stream");
+    const std::vector<library::Game> versions =
+        lan::remoteVersions(lan::Peer{"desk", "Desk"}, seated, {}, ways.hosting);
+    expect(versions.size() == 2 && versions[0].remote.option == "DuckStation" &&
+               versions[1].remote.option == "SwanStation" && versions[0].id != versions[1].id &&
+               versions[0].sourceId == "game" && versions[0].remote.platform == "PlayStation",
+           "each way to launch a listed game is a version of its own");
+    expect(versions[0].unavailable == "Desk cannot stream it: it does not run inside Gamescope",
+           "a host that cannot stream says why on each version");
 
     expect(listener.handle(request(secret, now, nonce)).status == 403, "a repeat is refused");
     const std::string fresh =
@@ -1313,7 +1336,7 @@ void systemDiscoveryPairs(const fs::path& root) {
                return host.node.status().name != guest.node.status().name;
            }),
            "the later one is announced under the daemon's next name");
-    host.node.share({installedGame("own:1", "Announced game", {})});
+    host.node.share({installedGame("own:1", "Announced game", {})}, {});
     const auto sees = [](const Node& node, const std::string& id) {
         const std::vector<lan::Sighting> seen = node.node.sightings();
         return std::ranges::find(seen, id, &lan::Sighting::id) != seen.end();
@@ -1340,7 +1363,8 @@ void anOfflineHostStaysListed(const fs::path& scratch) {
     const lan::Peer other{"other", "Loft"};
     lan::RemoteLibrary library{file};
     const lan::wire::ListedGame listed{.id = "g", .title = "Game", .cover = {}, .playingAs = {}};
-    expect(library.update({lan::remoteGame(host, listed, {})}, {host, other}), "a host lists");
+    expect(library.update(lan::remoteVersions(host, listed, {}, {}), {host, other}),
+           "a host lists");
     expect(library.update({}, {host, other}) && library.games().size() == 1 &&
                !library.games().front().hostOnline,
            "a host gone quiet stays, offline");
@@ -1348,7 +1372,7 @@ void anOfflineHostStaysListed(const fs::path& scratch) {
     expect(restarted.games().size() == 1 && restarted.games().front().title == "Game" &&
                !restarted.games().front().hostOnline,
            "the listing survives a restart, offline until the host answers");
-    expect(restarted.update({lan::remoteGame(host, listed, {})}, {host}) &&
+    expect(restarted.update(lan::remoteVersions(host, listed, {}, {}), {host}) &&
                restarted.games().front().hostOnline,
            "the host answers and is online");
     expect(restarted.update({}, {other}) && restarted.games().empty(),

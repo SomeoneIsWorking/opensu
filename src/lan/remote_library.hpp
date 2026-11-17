@@ -16,9 +16,12 @@
 
 namespace opensu::lan {
 
-/// `listed` on `host`, its cover at `cover` (empty for none).
-[[nodiscard]] library::Game remoteGame(const Peer& host, const wire::ListedGame& listed,
-                                       const std::filesystem::path& cover);
+/// `listed` on `host`, its cover at `cover` (empty for none): one version per way it can be
+/// launched there, each unavailable with `hosting` when that host cannot stream.
+[[nodiscard]] std::vector<library::Game> remoteVersions(const Peer& host,
+                                                        const wire::ListedGame& listed,
+                                                        const std::filesystem::path& cover,
+                                                        const std::string& hosting);
 
 class RemoteLibrary {
   public:

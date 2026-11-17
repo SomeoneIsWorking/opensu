@@ -90,6 +90,10 @@ a save. Other games match by ROM name on the built-in emulators.
 
 ## Remote play
 
+Another openSU's copy of a game is a version of that game here, on its page's Versions card:
+"On Desk · PlayStation · DuckStation". A ROM there that it can run with more than one emulator
+is one version per emulator, and its Play says which: **Play on Desk: DuckStation**.
+
 Press Play on another openSU's game in Library. That openSU starts the game and sends its picture
 and sound here, and your controller, keyboard and mouse play it. A card says what it waits for until
 the picture comes, with Cancel; a host and guest with no video format in common end there and say so.
@@ -97,9 +101,9 @@ An Android guest decodes H.264 and HEVC only, so a Linux host needs a driver tha
 Fedora, RPM Fusion's `mesa-va-drivers-freeworld`).
 
 - The openSU with the game runs on Linux, as a session in Gamescope (openSU's own session, or
-  `opensu` started inside `gamescope`); otherwise it says it cannot stream. The one you play on can
-  run Linux, Windows or macOS. Windows and macOS share no games to play remotely, and Android
-  neither shares them nor lists them.
+  `opensu` started inside `gamescope`). Otherwise its games are still listed, each saying why that
+  openSU cannot stream it. The one you play on can run Linux, Windows or macOS. Android lists no
+  other openSU's games.
 - A wired network gives the best picture: up to 200 Mbit/s for busy games. Over Wi-Fi the two
   ends settle on a hardware codec at up to 40 Mbit/s and a picture no longer than 1920 pixels,
   which the device playing scales to its screen.
@@ -153,7 +157,9 @@ while you play. See [the built-in runner](libretro.md).
 ## What is shared, and with whom
 
 - An openSU you have not paired with learns only this one's name. Everything else is refused.
-- A paired openSU sees the titles and covers of your installed games, the ROMs in your ROM
+- A paired openSU sees the titles and covers of your installed games, what each runs as (its
+  console or platform, its store, the emulators that can run it) and whether this openSU can
+  stream now, the ROMs in your ROM
   folders and the BIOS files for their consoles (and can copy them), your profiles' names and
   colours, and the saves of the profiles linked with it, nothing more. It can start one of those games here to play it remotely;
   this screen then shows a notice naming it.

@@ -42,6 +42,11 @@ struct Title {
 /// apart is a game of its own; one they grouped with another joins that one's game whatever its
 /// title. Ordered by the catalog position of each game's preferred version. The pointers refer to
 /// `games`.
+/// What `game` runs as, as its version's label and another openSU's listing name it: its
+/// console, "Windows · Wine", "Linux", "Linux · AppImage", or its store. A remote game's, as its
+/// host said.
+[[nodiscard]] std::string versionPlatform(const Game& game);
+
 [[nodiscard]] std::vector<Title> gameTitles(const std::vector<Game>& games);
 
 /// Every copy of `game`'s title in `games`, preferred first; `game` alone when it has no other.

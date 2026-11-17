@@ -12,6 +12,7 @@
 #include "library/own_games.hpp"
 #include "library/rom_systems.hpp"
 #include "library/store_builds.hpp"
+#include "library/titles.hpp"
 #include "lucent/text.h"
 
 namespace opensu::ui {
@@ -26,27 +27,14 @@ std::string ago(long long count, const char* unit) {
 } // namespace
 
 std::string versionLabel(const library::Game& game) {
-    switch (game.source) {
-    case library::Source::Rom: {
-        const library::roms::RomSystem* system = library::roms::systemByKey(game.sourceId);
-        const std::string console = system != nullptr ? std::string{system->label} : game.sourceId;
-        return game.emulator.empty() ? console : console + " \xC2\xB7 " + game.emulator;
+    const std::string platform = library::versionPlatform(game);
+    const auto with = [](const std::string& text, const std::string& more) {
+        return more.empty() ? text : text + " \xC2\xB7 " + more;
+    };
+    if (game.source == library::Source::Remote) {
+        return with(with("On " + game.hostName, platform), game.remote.option);
     }
-    case library::Source::Own: {
-        if (!library::own::nativeOwn(game)) {
-            return "Windows \xC2\xB7 Wine";
-        }
-        const std::string system{library::ownSystemName};
-        return game.appImage ? system + " \xC2\xB7 AppImage" : system;
-    }
-    case library::Source::Remote:
-        return "On " + game.hostName;
-    case library::Source::Steam:
-    case library::Source::Epic:
-    case library::Source::Gog:
-        break;
-    }
-    return std::string{library::label(game.source)};
+    return game.source == library::Source::Rom ? with(platform, game.emulator) : platform;
 }
 
 namespace {
@@ -182,6 +170,13 @@ bool ownedOutright(const library::Game& game) {
 }
 
 LaunchButton launchOf(const PageCopy& copy) {
+    const library::Game& game = copy.game;
+    if (game.source == library::Source::Remote) {
+        // "Play on Desk: DuckStation", or by what it runs as there when it has one way.
+        const std::string way =
+            game.remote.option.empty() ? library::versionPlatform(game) : game.remote.option;
+        return LaunchButton{"Play on " + game.hostName + (way.empty() ? "" : ": " + way), game.id};
+    }
     const std::string verb = !copy.game.installed      ? "Install"
                              : copy.settings.continues ? "Continue here"
                                                        : "Play";
@@ -448,8 +443,14 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
         // The page keeps its order while open; the default is the one the player chose since.
         const bool isDefault = chosen ? copy.game.versionDefault : top;
         if (!top) {
-            rows.push_back(copy.game.installed ? action(detailsLaunchId, "Play")
-                                               : action(detailsInstallId, "Install"));
+            // Another openSU's says where and how: "Play on Desk: DuckStation".
+            const bool remote = copy.game.source == library::Source::Remote;
+            rows.push_back(!copy.game.installed ? action(detailsInstallId, "Install")
+                           : remote             ? action(detailsLaunchId, launchOf(copy).label)
+                                                : action(detailsLaunchId, "Play"));
+            if (remote && !copy.game.unavailable.empty()) {
+                rows.back().note = copy.game.unavailable;
+            }
             std::ranges::move(updateRows(copy.game), std::back_inserter(rows));
         }
         if (versions && !isDefault && !copy.game.inExtras) {

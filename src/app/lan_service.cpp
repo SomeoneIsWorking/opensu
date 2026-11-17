@@ -7,7 +7,6 @@
 
 #include "lan/dns_sd.hpp"
 #include "lucent/log.h"
-#include "stream/remote_reach.hpp"
 #include "ui/progress_screen.hpp"
 
 namespace opensu::app {
@@ -103,7 +102,7 @@ void LanService::start() {
         hooks_.say("LAN cannot start: " + std::string{error.what()}, true);
         return;
     }
-    node_->share(shared_);
+    node_->share(shared_, hosting_);
     node_->shareRoms(roms_);
 }
 
@@ -120,11 +119,11 @@ void LanService::stop() {
     }
 }
 
-void LanService::share(const std::vector<library::Game>& games) {
-    // The listing is what a guest may ask to stream.
-    shared_ = stream::hostingMissing().empty() ? games : std::vector<library::Game>{};
+void LanService::share(const std::vector<library::Game>& games, std::string hosting) {
+    shared_ = games;
+    hosting_ = std::move(hosting);
     if (node_ != nullptr) {
-        node_->share(shared_);
+        node_->share(shared_, hosting_);
     }
 }
 
@@ -155,7 +154,7 @@ void LanService::shareRoms(lan::RomShelf::Contents contents) {
     }
 }
 
-bool LanService::askToPlay(std::string hostId, std::string gameId, std::string profile,
+bool LanService::askToPlay(std::string hostId, lan::wire::PlayChoice choice, std::string profile,
                            std::function<void()> waiting, PlayAnswer answer) {
     if (node_ == nullptr || asking_->exchange(true)) {
         return false;
@@ -164,12 +163,12 @@ bool LanService::askToPlay(std::string hostId, std::string gameId, std::string p
         asker_.join();
     }
     asker_ = std::jthread{[node = node_.get(), asking = asking_, hostId = std::move(hostId),
-                           gameId = std::move(gameId), profile = std::move(profile),
+                           choice = std::move(choice), profile = std::move(profile),
                            waiting = std::move(waiting),
                            answer = std::move(answer)](const std::stop_token& stop) {
         std::string error;
         std::optional<lan::LanNode::PlayOffer> offer =
-            node->askToPlay(stop, hostId, gameId, profile, waiting, error);
+            node->askToPlay(stop, hostId, choice, profile, waiting, error);
         asking->store(false);
         if (!stop.stop_requested()) {
             answer(std::move(offer), std::move(error));
