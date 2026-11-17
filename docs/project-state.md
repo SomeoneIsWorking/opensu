@@ -2259,8 +2259,8 @@ Actions are pinned by SHA, uv by version and checksum, permissions are `contents
 The `android` job builds the signed APK for both ABIs through `tools.package.android build`
 (android-port's native prefix cached by its pin) and `release.yml` publishes it. A `windows` job
 builds with clang-cl and vcpkg on `windows-2025`, runs the tests on lavapipe and builds and
-smoke-tests the installer (S046). A `macos` job builds with Homebrew's LLVM and vcpkg on
-`macos-15`, runs the tests on the runner's Metal device and builds and smoke-tests the app (S047).
+smoke-tests the installer (S046). A `macos` job builds with Xcode's Clang and vcpkg on
+`macos-26` (Homebrew's `llvm@22` only for clang-tidy), runs the tests on the runner's Metal device and builds and smoke-tests the app (S047).
 A manual run can pick one platform.
 
 A maintainer's build is the same image: `tools.check` runs deps, configure, build and lint in

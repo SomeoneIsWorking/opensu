@@ -179,17 +179,19 @@ def prepare(plan: Plan, env: Mapping[str, str]) -> None:
 
 def configure(plan: Plan, env: Mapping[str, str]) -> None:
     languages = ("C", "CXX") if plan.platform == "linux" else ("CXX",)
+    # Xcode's Clang reports itself as AppleClang.
+    expected = "AppleClang" if plan.platform == "macos" else "Clang"
     args = plan.configure_args(env)
     # CMake drops the -D arguments when it resets a cache whose compiler changed.
-    if any(compiler_id(plan.cmake_dir, lang) not in ("", "Clang") for lang in languages):
+    if any(compiler_id(plan.cmake_dir, lang) not in ("", expected) for lang in languages):
         args.append("--fresh")
     process.run(args, env)
     for language in languages:
         found = compiler_id(plan.cmake_dir, language)
-        if found != "Clang":
+        if found != expected:
             raise RuntimeError(
                 f"{plan.cmake_dir} is configured with {found or 'no'} {language} compiler, "
-                "not Clang"
+                f"not {expected}"
             )
 
 

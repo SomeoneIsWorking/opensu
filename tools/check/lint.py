@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
-from tools.check import process
+from tools.check import macos, process
 from tools.check.cmake import require_own_tree
 from tools.checkout import REPO
 
@@ -242,7 +242,7 @@ def run_checks(
         clang_tidy(cmake_dir, scope.translation_units, env, jobs, MSVC_STL_UNINLINED)
         return
     if platform == "macos":
-        clang_tidy(cmake_dir, scope.translation_units, env, jobs)
+        clang_tidy(cmake_dir, scope.translation_units, macos.clang_tidy_environment(env), jobs)
         return
     clang_format(scope.cxx, env)
     ruff(scope.python, env)

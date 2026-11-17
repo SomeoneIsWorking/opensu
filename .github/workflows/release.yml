@@ -129,7 +129,7 @@ jobs:
 
   macos:
     name: macOS app
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -141,7 +141,7 @@ jobs:
           version: "0.12.19"
           checksum: "a9a8df1eedeb192f2e47e40e2faabfb387db4b850209118786d42f89dde3e0ba"
           enable-cache: false
-      - name: Homebrew's LLVM and Ninja
+      - name: Homebrew's clang-tidy and Ninja
         run: brew install llvm@22 ninja
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

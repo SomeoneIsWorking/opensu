@@ -11,7 +11,7 @@ pinned Fedora 44 with systemd, as the CI workflow does. `install`
 (not part of `all`) installs the tree into `--prefix` (default ~/.local) and, on Linux, puts the
 menu entry it installed on the desktop too (tools/check/shortcut.py); `--destdir` stages it instead.
 `--platform windows` builds on a Windows host with clang-cl and vcpkg (tools/check/windows.py),
-`--platform macos` on an Apple silicon Mac with Homebrew's LLVM and vcpkg (tools/check/macos.py).
+`--platform macos` on an Apple silicon Mac with Xcode's Clang and vcpkg (tools/check/macos.py).
 `--jobs` caps the compilers and clang-tidy processes that run at once. On Linux the tree links with
 lld and keeps line tables only (`--debug-info full` for a debugger's build).
 """

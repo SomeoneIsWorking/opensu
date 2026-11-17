@@ -1,10 +1,11 @@
-"""The macOS build: Homebrew's LLVM Clang, its libraries from vcpkg, MoltenVK as the Vulkan driver.
+"""The macOS build: Xcode's Clang, its libraries from vcpkg, MoltenVK as the Vulkan driver.
 
-Runs on an Apple silicon Mac with Xcode's command line tools and Homebrew's `llvm@22` and `ninja`,
-as the `macos-15` runner image has them after `brew install llvm@22 ninja`. Xcode's own Clang is
-not used: its libc++ keeps std::jthread experimental. LLVM 22 is the Linux gate's, so clang-tidy
-holds both trees to the same checks. vcpkg is checked out at the manifest's own baseline commit
-and builds every port as a dylib through openSU's arm64 triplet (macOS 14 and newer); libcurl
+Runs on an Apple silicon Mac with Xcode's command line tools (Apple Clang 21 or newer, whose libc++
+has std::jthread) and Ninja, as the `macos-26` runner image has them. Xcode ships no clang-tidy, so
+only `lint` needs one: Homebrew's `llvm@22`, the Linux gate's LLVM, when it is installed, else the
+one on PATH, else lint is refused with the install command. vcpkg is checked out at the manifest's
+own baseline commit and builds every port as a dylib through openSU's arm64 triplet (macOS 14 and
+newer); libcurl
 is the system's, which trusts the Keychain. SDL_shadercross, which gpu2d needs for its Metal
 shaders, is built by gpu2d's own script against vcpkg's SDL3. The runner's Vulkan driver is MoltenVK
 from its pinned, checksummed release; the tests draw through it on the Mac's Metal device.
@@ -26,8 +27,10 @@ TRIPLET = "arm64-osx-opensu"
 HOST_TRIPLET = "arm64-osx"
 TRIPLETS = REPO / "packaging" / "macos" / "triplets"
 DEPLOYMENT_TARGET = "14.0"
-# The LLVM major of the Linux gate (Fedora 44): one clang-tidy for both trees.
+# The LLVM major of the Linux gate (Fedora 44): lint's clang-tidy, the same checks on both trees.
 LLVM_FORMULA = "llvm@22"
+# The oldest Apple Clang major whose libc++ has std::jthread without -fexperimental-library.
+MIN_APPLE_CLANG = 21
 
 # vcpkg's host builds of pkgconf and of glslc (gpu2d's shaders), under the build's installed tree.
 HOST_TOOLS = Path("vcpkg_installed", HOST_TRIPLET, "tools")
@@ -48,30 +51,54 @@ def require_host() -> None:
     if sys.platform != "darwin" or platform.machine() != "arm64":
         raise RuntimeError(
             "--platform macos builds on an Apple silicon Mac with Xcode's command line tools and "
-            f"Homebrew (brew install {LLVM_FORMULA} ninja); there is no cross build from another OS"
+            "Ninja (brew install ninja); there is no cross build from another OS"
         )
 
 
-def llvm_bin(env: Mapping[str, str]) -> Path:
-    """Homebrew's pinned LLVM, whose libc++ has std::jthread."""
-    if shutil.which("brew", path=env.get("PATH")) is None:
+def xcode_clang(env: Mapping[str, str]) -> Path:
+    """Xcode's clang++, refused when its libc++ may keep std::jthread experimental."""
+    clang = Path(process.output(["xcrun", "--find", "clang++"], env).strip())
+    version = process.output([clang, "--version"], env)
+    words = version.split()
+    major = (
+        int(words[3].split(".")[0])
+        if words[:3] == ["Apple", "clang", "version"] and words[3].split(".")[0].isdigit()
+        else 0
+    )
+    if major < MIN_APPLE_CLANG:
         raise RuntimeError(
-            f"no Homebrew: see https://brew.sh, then brew install {LLVM_FORMULA} ninja"
+            f"{clang} is {version.splitlines()[0]}; openSU needs Apple Clang {MIN_APPLE_CLANG} or "
+            "newer for std::jthread: update Xcode's command line tools "
+            "(softwareupdate --list, or xcode-select --install)"
         )
-    prefix = Path(process.output(["brew", "--prefix", LLVM_FORMULA], env).strip())
-    if not (prefix / "bin" / "clang++").is_file():
-        raise RuntimeError(f"Homebrew's LLVM is not installed: brew install {LLVM_FORMULA}")
-    return prefix / "bin"
+    return clang
+
+
+def clang_tidy_environment(env: Mapping[str, str]) -> dict[str, str]:
+    """`env` with a clang-tidy for lint, which Xcode does not ship: Homebrew's `llvm@22` first, the
+    Linux gate's, else one already on PATH; refused with the install command when there is none."""
+    merged = dict(env)
+    if shutil.which("brew", path=env.get("PATH")) is not None:
+        prefix = Path(process.output(["brew", "--prefix", LLVM_FORMULA], env).strip())
+        if (prefix / "bin" / "clang-tidy").is_file():
+            merged["PATH"] = f"{prefix / 'bin'}:{merged.get('PATH', '')}"
+            print(f"+ clang-tidy from Homebrew's {LLVM_FORMULA}", flush=True)
+            return merged
+    found = shutil.which("clang-tidy", path=env.get("PATH"))
+    if found is None:
+        raise RuntimeError(
+            "lint on macOS needs clang-tidy, which Xcode does not ship: "
+            f"brew install {LLVM_FORMULA}"
+        )
+    print(f"+ clang-tidy from {found}, not the Linux gate's {LLVM_FORMULA}", flush=True)
+    return merged
 
 
 def environment(build_dir: Path, env: Mapping[str, str]) -> dict[str, str]:
-    """The build's environment: Homebrew's LLVM first on PATH (clang-tidy too), one macOS SDK for
-    every compiler and CMake find (`SDKROOT`), and vcpkg's binary cache under the build directory
-    unless the caller names one."""
+    """The build's environment: one macOS SDK for every compiler and CMake find (`SDKROOT`), and
+    vcpkg's binary cache under the build directory unless the caller names one."""
     merged = dict(env)
-    merged["PATH"] = f"{llvm_bin(env)}:{merged.get('PATH', '')}"
-    # Homebrew's Clang and CMake's finds otherwise pick different SDKs, and an SDK's usr/include
-    # on the include path hides libc++'s own C headers.
+    # The compilers and CMake's finds see the same SDK.
     merged["SDKROOT"] = process.output(["xcrun", "--sdk", "macosx", "--show-sdk-path"], env).strip()
     if shutil.which("ninja", path=merged["PATH"]) is None:
         raise RuntimeError("ninja is not on PATH: brew install ninja")
@@ -115,12 +142,12 @@ def shadercross(gpu2d: Path, build_dir: Path, env: Mapping[str, str]) -> Path:
 
 
 def compiler_defines(env: Mapping[str, str]) -> list[str]:
-    """Homebrew's Clang for arm64 at the deployment target, on the one SDK."""
-    clang = llvm_bin(env)
+    """Xcode's Clang for arm64 at the deployment target, on the one SDK."""
+    clangxx = xcode_clang(env)
     return [
-        f"-DCMAKE_C_COMPILER={clang / 'clang'}",
-        f"-DCMAKE_CXX_COMPILER={clang / 'clang++'}",
-        f"-DCMAKE_OBJCXX_COMPILER={clang / 'clang++'}",
+        f"-DCMAKE_C_COMPILER={clangxx.with_name('clang')}",
+        f"-DCMAKE_CXX_COMPILER={clangxx}",
+        f"-DCMAKE_OBJCXX_COMPILER={clangxx}",
         "-DCMAKE_OSX_ARCHITECTURES=arm64",
         f"-DCMAKE_OSX_DEPLOYMENT_TARGET={DEPLOYMENT_TARGET}",
         f"-DCMAKE_OSX_SYSROOT={env['SDKROOT']}",

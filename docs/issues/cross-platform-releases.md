@@ -435,13 +435,14 @@ code. The `_none`/`unavailable` backends that only "elsewhere" used (`process_la
   builds SDL_shadercross against vcpkg's SDL3; libcurl is the system's on macOS (`"platform":
   "!osx"`), which trusts the Keychain. Dylibs, not static ports: pkg-config's flags for a static
   SDL3 leave out the frameworks it needs. MoltenVK 1.4.2 from its release tarball by SHA-256.
-- Compiler: Homebrew's LLVM 22 Clang (`llvm@22`, the Linux gate's LLVM major, so one clang-tidy
-  version holds both trees; `CMAKE_CXX_COMPILER_ID` `Clang`), against the SDK and the
-  system's libc++ dylib; Xcode's AppleClang is not built (its libc++ keeps `std::jthread` behind
-  `-fexperimental-library`, which openSU uses throughout). `tools/check/macos.py` names one SDK
-  (`xcrun --show-sdk-path`) as `SDKROOT` and `CMAKE_OSX_SYSROOT`: CMake 4 picks none, so Homebrew's
-  Clang and `FindCURL` otherwise land in different SDKs and that SDK's `usr/include` hides libc++'s
-  C headers.
+- Compiler: Xcode's Clang (`xcrun --find clang++`, `CMAKE_CXX_COMPILER_ID` `AppleClang`), 21 or
+  newer: older Apple libc++ keeps `std::jthread` behind `-fexperimental-library`, and Apple clang
+  21.0.0 (clang-2100.1.1.101) builds and runs a `std::jthread` and `std::stop_token` test with
+  `-std=c++20 -mmacosx-version-min=14.0` alone; `tools/check/macos.py` refuses an older one. Xcode
+  ships no clang-tidy, so only lint needs Homebrew's `llvm@22` (the Linux gate's LLVM major), else a
+  clang-tidy on PATH. `tools/check/macos.py` names one SDK (`xcrun --show-sdk-path`) as `SDKROOT`
+  and `CMAKE_OSX_SYSROOT`: CMake 4 picks none, so the compiler and `FindCURL` otherwise land in
+  different SDKs.
   clang-tidy 23 (Homebrew's unversioned `llvm`) adds `bugprone-signed-bitwise` and wider
   `bugprone-exception-escape` findings across shared code (about 40 files, CI run 40833610072);
   moving every gate to LLVM 23 is its own change.
@@ -488,7 +489,8 @@ code. The `_none`/`unavailable` backends that only "elsewhere" used (`process_la
 - Session text: `--help` takes its run, `--hidden`, `--sound` and session lines from the OS's
   `shell_session_*.cpp` (`sessionHelp`), so macOS and Windows name no Gamescope, `--session`,
   `OPENSU_SESSION` or PipeWire, and the path lists name the OS's separator.
-- CI: `macos` in `ci.yml` and `release.yml` on `macos-15`: `brew install llvm@22 ninja`,
+- CI: `macos` in `ci.yml` and `release.yml` on `macos-26` (Xcode 26.6, Apple Clang 21; `macos-15`
+  defaults to Apple Clang 17): `brew install llvm@22 ninja` for clang-tidy and Ninja,
   `tools.check all --platform macos` (vcpkg binary cache restored and saved like Windows'), ctest
   with MoltenVK as the only Vulkan driver (`VK_DRIVER_FILES`), so the runner's tests draw on the
   runner's Metal device and the shell's through gpu2d's Metal backend; lint is clang-tidy over the

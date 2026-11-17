@@ -46,8 +46,9 @@ installed.
 clang-tidy, ruff) and tests openSU with Clang in `build/check`, as CI does (`--gamescope off` leaves
 the fork out of the tree). Each step also runs on its own (`deps`, `configure`, `build`, `lint`, `test`), and
 `--build-dir` names another tree (`build/agent`, `build/player`). `--platform windows` builds on a
-Windows host with clang-cl and vcpkg, `--platform macos` on an Apple silicon Mac with Homebrew's
-LLVM and vcpkg. `--jobs N` caps the compilers and clang-tidy processes that run at once, the fork's
+Windows host with clang-cl and vcpkg, `--platform macos` on an Apple silicon Mac with Xcode's
+Clang (21 or newer) and vcpkg; its `lint` runs Homebrew's `llvm@22` clang-tidy, the Linux gate's, or one
+on PATH. `--jobs N` caps the compilers and clang-tidy processes that run at once, the fork's
 ninja included (one per core by default). A Linux tree links with lld, which the build image has
 (missing, configure is refused with the install command), and its RelWithDebInfo objects keep line
 tables only, zstd-compressed (`-gline-tables-only -gz=zstd`), enough for backtraces and profiles at
