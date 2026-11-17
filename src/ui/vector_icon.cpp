@@ -51,9 +51,8 @@ std::optional<Icon> runnerIcon(const library::Game& game) noexcept {
         }
         return game.appImage ? Icon::AppImage : Icon::Linux;
     case library::Source::Rom: {
-        const auto runs =
-            std::ranges::find(game.emulatorOptions, game.emulator, &library::EmulatorOption::name);
-        if (runs != game.emulatorOptions.end() && runs->builtIn) {
+        if (const library::EmulatorOption* runs = library::runningEmulator(game);
+            runs != nullptr && runs->builtIn) {
             return Icon::Libretro;
         }
         return std::nullopt;

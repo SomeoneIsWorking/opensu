@@ -59,9 +59,8 @@ const LaunchRule* ruleOf(std::string_view id) {
 
 std::optional<LaunchSetup> launchSetupOf(const Game& game, const roms::EmulatorCatalog& catalog,
                                          const WiiControls& wii, bool realWiiRemotes) {
-    const auto option =
-        std::ranges::find(game.emulatorOptions, game.emulator, &EmulatorOption::name);
-    if (option == game.emulatorOptions.end() || ruleOf(option->id) == nullptr) {
+    const EmulatorOption* option = runningEmulator(game);
+    if (option == nullptr || ruleOf(option->id) == nullptr) {
         return std::nullopt;
     }
     const roms::EmulatorEntry* entry = catalog.find(option->id);

@@ -19,9 +19,8 @@ constexpr std::string_view arcadeSystem = "arcade";
 
 const library::roms::EmulatorEntry* builtInOf(const library::Game& game,
                                               const library::roms::EmulatorCatalog& catalog) {
-    const auto option =
-        std::ranges::find(game.emulatorOptions, game.emulator, &library::EmulatorOption::name);
-    if (option == game.emulatorOptions.end()) {
+    const library::EmulatorOption* option = library::runningEmulator(game);
+    if (option == nullptr) {
         return nullptr;
     }
     const library::roms::EmulatorEntry* entry = catalog.find(option->id);

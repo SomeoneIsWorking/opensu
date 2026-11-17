@@ -67,8 +67,7 @@ settings::LayerKeys layerKeysOf(const Game& game) {
     if (game.source == Source::Rom) {
         keys.system = game.sourceId;
     }
-    const auto runs = std::ranges::find(game.emulatorOptions, game.emulator, &EmulatorOption::name);
-    if (!game.emulator.empty() && runs != game.emulatorOptions.end()) {
+    if (const EmulatorOption* runs = runningEmulator(game)) {
         keys.emulator = runs->id;
         keys.libretro = runs->builtIn;
     }

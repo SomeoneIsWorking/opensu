@@ -33,6 +33,14 @@ std::vector<Game> dedupe(std::vector<Game> games) {
 
 } // namespace
 
+const EmulatorOption* runningEmulator(const Game& game) noexcept {
+    if (game.emulator.empty()) {
+        return nullptr;
+    }
+    const auto runs = std::ranges::find(game.emulatorOptions, game.emulator, &EmulatorOption::name);
+    return runs == game.emulatorOptions.end() ? nullptr : &*runs;
+}
+
 std::string_view label(Source source) {
     switch (source) {
     case Source::Steam:

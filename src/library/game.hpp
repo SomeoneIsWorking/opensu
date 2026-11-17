@@ -252,6 +252,9 @@ class RequestStopped : public std::exception {
     }
 };
 
+/// The option of `game.emulatorOptions` its `emulator` names, the one it runs on; null for none.
+[[nodiscard]] const EmulatorOption* runningEmulator(const Game& game) noexcept;
+
 /// How a store fared on the last read.
 enum class Availability : std::uint8_t {
     /// Not on this machine.

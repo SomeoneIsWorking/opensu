@@ -181,10 +181,8 @@ std::vector<SaveSlot> storedSlots(const SaveHome& home) {
 
 const EmulatorSaves* launchedSaves(const std::vector<EmulatorSaves>& saves, const Game& game,
                                    const roms::EmulatorCatalog& catalog) {
-    const auto option =
-        std::ranges::find(game.emulatorOptions, game.emulator, &EmulatorOption::name);
-    const roms::EmulatorEntry* entry =
-        option != game.emulatorOptions.end() ? catalog.find(option->id) : nullptr;
+    const EmulatorOption* option = runningEmulator(game);
+    const roms::EmulatorEntry* entry = option != nullptr ? catalog.find(option->id) : nullptr;
     if (entry == nullptr) {
         return nullptr;
     }

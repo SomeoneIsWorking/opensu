@@ -447,8 +447,7 @@ void applyRomsets(Game& game, std::string_view set, const std::vector<RomsetVerd
         game.launch = option.launch;
         game.unavailable = option.installed ? std::string{} : option.name + " is not installed";
     };
-    const auto current =
-        std::ranges::find(game.emulatorOptions, game.emulator, &EmulatorOption::name);
+    const EmulatorOption* current = runningEmulator(game);
     if (!matching.empty()) {
         std::string names;
         for (const EmulatorOption* option : matching) {
@@ -458,7 +457,7 @@ void applyRomsets(Game& game, std::string_view set, const std::vector<RomsetVerd
             }
         }
         game.romset = "Matches " + names;
-        if (current != game.emulatorOptions.end() && starts(*current) && current->installed) {
+        if (current != nullptr && starts(*current) && current->installed) {
             return;
         }
         const auto installed = std::ranges::find_if(matching, &EmulatorOption::installed);
