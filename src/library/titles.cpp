@@ -400,6 +400,17 @@ bool TitleCopies::updatePending(const Game& game) const {
     return std::ranges::any_of(ordered(game), &Game::updateAvailable);
 }
 
+std::vector<std::string> TitleCopies::hostsOf(const Game& game) const {
+    std::vector<std::string> hosts;
+    for (const Game* copy : ordered(game)) {
+        if (copy->source == Source::Remote && !copy->inExtras && copy->hostId != game.hostId &&
+            std::ranges::find(hosts, copy->hostName) == hosts.end()) {
+            hosts.push_back(copy->hostName);
+        }
+    }
+    return hosts;
+}
+
 std::vector<Game> TitleCopies::offered(const Game& game) const {
     const std::vector<const Game*> copies = ordered(game);
     if (copies.size() < 2) {

@@ -22,6 +22,7 @@ void testInitials() {
     expect(initials("Ryujinx") == "Ry", "a one-word name's first two letters");
     expect(initials("Dolphin Emu") == "DE", "a name's words' initials");
     expect(initials("eden") == "Ed", "a lower-case name starts upper-case");
+    expect(initials("Snes9x (built-in)") == "Sn", "a note in brackets is no part of the name");
     expect(initials("").empty(), "no name, no letters");
 }
 
@@ -56,6 +57,33 @@ void testMarks() {
     Game unpicked;
     unpicked.source = Source::Rom;
     expect(!runnerMark(unpicked), "a ROM on no emulator carries no mark");
+
+    Game desk;
+    desk.source = Source::Remote;
+    desk.hostName = "Desk";
+    desk.remote.source = "steam";
+    const auto there = runnerMark(desk);
+    expect(there && there->icon == Icon::Steam && there->remote,
+           "another openSU's game carries its store's mark there, ringed");
+    desk.remote = {.platform = "PlayStation", .source = "rom", .option = "DuckStation"};
+    const auto rom = runnerMark(desk);
+    expect(rom && rom->letters == "DS" && rom->remote,
+           "its ROM, the initials of its emulator there");
+    desk.remote = {.platform = "Windows \xC2\xB7 Wine", .source = "own", .option = {}};
+    const auto wine = runnerMark(desk);
+    expect(wine && wine->icon == Icon::Wine, "its own game, by what it runs as there");
+}
+
+void testWhereElse() {
+    Game here;
+    here.source = Source::Rom;
+    expect(opensu::ui::whereElse(here).empty(), "a game only here says nothing");
+    here.alsoOn = {"Desk", "Loft"};
+    expect(opensu::ui::whereElse(here) == "Also on Desk, Loft", "one here too says where else");
+    Game there;
+    there.source = Source::Remote;
+    there.hostName = "Desk";
+    expect(opensu::ui::whereElse(there) == "On Desk", "one only there says where");
 }
 
 } // namespace
@@ -63,6 +91,7 @@ void testMarks() {
 int main() try {
     testInitials();
     testMarks();
+    testWhereElse();
     return 0;
 } catch (...) {
     return opensu::test::escaped();

@@ -275,6 +275,7 @@ std::vector<ShelfItem> visibleShelf(ShelfBrowser& browser, const std::vector<Gam
         }
         if (copy != nullptr) {
             game->updateOnCopy = titles.updatePending(*game);
+            game->alsoOn = titles.hostsOf(*game);
         }
     }
     return shelf;

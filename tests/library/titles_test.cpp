@@ -298,6 +298,10 @@ void testRemoteVersions() {
     expect(titles.size() == 1 && titles[0].copies.size() == 3,
            "each way another openSU launches a game is a version of it here");
     expect(titles[0].copies[0]->source == Source::Rom, "the version here leads");
+    const opensu::library::TitleCopies copies{games};
+    expect(copies.hostsOf(games[0]) == std::vector<std::string>{"Desk"},
+           "the openSUs that hold it too, each once");
+    expect(copies.hostsOf(games[1]).empty(), "a version there leaves its own host out");
 
     const std::vector<Game> stores{onDesk("lan:desk:steam:1", "Doom", "steam", ""),
                                    onDesk("lan:desk:steam:2", "DOOM", "steam", "")};

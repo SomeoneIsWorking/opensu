@@ -87,6 +87,8 @@ struct TileVisual {
     std::optional<Icon> runner;
     const gpu2d::Texture* runnerPicture{nullptr};
     std::string_view runnerLetters;
+    /// The runner is another openSU's, which a ring round the badge says.
+    bool runnerRemote{false};
     /// The game's store has an update for it.
     bool update{false};
     /// Whether the cover is on its way (downloading, queued or decoding): a spinner stands in for

@@ -644,6 +644,35 @@ def lan_versions(context: Context) -> None:
         state = friend.wait("told why", lambda state: bool(state["toast"]), seconds=10)
         rig.shot(friend, "7-refused")
         print("toast", state["toast"])
+        friend.press("b")
+        time.sleep(1)
+        friend.press("b")
+        time.sleep(1)
+        rig.shot(friend, "8-also-on")
+        print("heading", friend.state().get("focusedId"))
+        friend.press("a")
+        friend.wait("on the details page", lambda state: state["detailsOpen"])
+        for _ in range(12):
+            if str(friend.state()["screenFocus"]).endswith("details.more"):
+                break
+            friend.press("down")
+        friend.press("a")
+        time.sleep(1)
+        for _ in range(16):
+            focus = str(friend.state()["screenFocus"])
+            if focus.startswith("details.of:lan:") and focus.endswith("details.default"):
+                break
+            friend.press("down")
+        print("make default", friend.state()["screenFocus"])
+        friend.press("a")
+        time.sleep(1)
+        for _ in range(4):
+            if not friend.state()["detailsOpen"]:
+                break
+            friend.press("b")
+            time.sleep(0.8)
+        time.sleep(1)
+        rig.shot(friend, "9-remote-default")
 
 
 def gathered_line(who: Instance) -> str:

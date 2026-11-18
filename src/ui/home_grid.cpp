@@ -727,8 +727,18 @@ const library::AddTile* HomeGrid::focusedAdd() const {
                : nullptr;
 }
 
+std::string HomeGrid::focusedHeading() const {
+    std::string title = focusedTitle();
+    if (const library::Game* game = focusedGame()) {
+        if (const std::string where = whereElse(*game); !where.empty()) {
+            title += " \xC2\xB7 " + where;
+        }
+    }
+    return title;
+}
+
 std::string HomeGrid::pillTitle() const {
-    return presentation() == Presentation::Grid ? focusedTitle() : std::string{};
+    return presentation() == Presentation::Grid ? focusedHeading() : std::string{};
 }
 
 void HomeGrid::fillContent(TileVisual& visual, const Tile& tile) const {
@@ -742,6 +752,7 @@ void HomeGrid::fillContent(TileVisual& visual, const Tile& tile) const {
             visual.runner = tile.runner->icon;
             visual.runnerPicture = tile.runnerPicture.texture();
             visual.runnerLetters = tile.runner->letters;
+            visual.runnerRemote = tile.runner->remote;
         }
         visual.update = game->updateAvailable || game->updateOnCopy;
         if (game->source == library::Source::Rom) {
@@ -890,7 +901,7 @@ void HomeGrid::drawRail(Canvas& canvas) {
         return;
     }
     const std::size_t focused = std::min(focus_.index(), tiles_.size() - 1);
-    const std::string title = focusedTitle();
+    const std::string title = focusedHeading();
     const RailStyle style{chromeDark(tokens_.palette), railAlpha(1)};
     if (!xmb) {
         railPainter_.paintTitle(canvas, row, title, style);

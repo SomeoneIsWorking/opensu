@@ -186,6 +186,9 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
     [[nodiscard]] const library::AddTile* focusedAdd() const;
     /// The title the focused entry shows, empty for an empty slot.
     [[nodiscard]] std::string focusedTitle() const;
+    /// The focused entry's title as the pill and rail show it: a game's followed by where else it
+    /// is (`whereElse`).
+    [[nodiscard]] std::string focusedHeading() const;
     /// The title for the top bar's pill: the grid's, where an XMB and a Carousel draw their own.
     [[nodiscard]] std::string pillTitle() const;
     [[nodiscard]] std::size_t focusIndex() const noexcept {

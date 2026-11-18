@@ -154,6 +154,9 @@ struct Game {
     std::string matchAs;
     /// A remote game: how it runs there.
     RemoteVersion remote;
+    /// On a tile standing for its game: the other openSUs that hold a version of it
+    /// (`TitleCopies::hostsOf`).
+    std::vector<std::string> alsoOn;
 
     /// Whether that openSU answers now; a game listed earlier stays, offline, until it is back.
     bool hostOnline{true};

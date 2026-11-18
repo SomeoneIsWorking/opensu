@@ -85,6 +85,9 @@ constexpr Colour badgeDisc{0x16, 0x13, 0x1E, 200};
 constexpr float badgeLogo = 0.62f;
 // opensu's own: initials fill most of a logo's square.
 constexpr float runnerLetterSize = 0.8f;
+// A ring round a runner badge for another openSU's game, a tenth of the badge wide.
+constexpr float remoteRing = 0.1f;
+constexpr Colour remoteInk{0x48, 0xE0, 0xFF, 255};
 /// The update arrow against the badge's radius: half its length, its shaft, its head.
 constexpr float updateArrowReach = 0.55f;
 constexpr float updateArrowWidth = 0.22f;
@@ -520,6 +523,10 @@ void TilePainter::paintRunner(Canvas& canvas, const TileVisual& tile, const Rect
     }
     const Rect badge = runnerBadge(content);
     const Point centre{badge.centreX(), badge.centreY()};
+    if (tile.runnerRemote) {
+        canvas.fillCircle(centre, badge.width * (0.5f + remoteRing),
+                          withAlpha(remoteInk, tile.alpha));
+    }
     canvas.fillCircle(centre, badge.width * 0.5f, withAlpha(badgeDisc, tile.alpha));
     const int pixels = std::max(static_cast<int>(std::lround(badge.width * badgeLogo)), 1);
     const auto side = static_cast<float>(pixels);

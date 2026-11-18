@@ -16,7 +16,30 @@ bool letter(char c) {
 }
 
 RunnerMark shipped(std::optional<Icon> icon) {
-    return RunnerMark{.icon = icon, .picture = {}, .letters = {}};
+    return RunnerMark{.icon = icon, .picture = {}, .letters = {}, .remote = false};
+}
+
+/// What runs another openSU's game there, by what its listing says.
+std::optional<RunnerMark> remoteMark(const library::Game& game) {
+    const library::RemoteVersion& there = game.remote;
+    RunnerMark mark;
+    if (there.source == library::key(library::Source::Steam)) {
+        mark = shipped(Icon::Steam);
+    } else if (there.source == library::key(library::Source::Gog)) {
+        mark = shipped(Icon::Gog);
+    } else if (there.source == library::key(library::Source::Epic)) {
+        mark = shipped(Icon::Epic);
+    } else if (there.source == library::key(library::Source::Own)) {
+        const bool wine = there.platform.find("Wine") != std::string::npos;
+        const bool appImage = there.platform.find("AppImage") != std::string::npos;
+        mark = shipped(wine ? Icon::Wine : appImage ? Icon::AppImage : Icon::Linux);
+    } else if (!there.option.empty()) {
+        mark.letters = initials(there.option);
+    } else {
+        return std::nullopt;
+    }
+    mark.remote = true;
+    return mark;
 }
 
 } // namespace
@@ -40,16 +63,31 @@ std::optional<RunnerMark> runnerMark(const library::Game& game) {
         if (runs->builtIn) {
             return shipped(Icon::Libretro);
         }
-        return RunnerMark{
-            .icon = std::nullopt, .picture = game.runnerIcon, .letters = initials(runs->name)};
+        return RunnerMark{.icon = std::nullopt,
+                          .picture = game.runnerIcon,
+                          .letters = initials(runs->name),
+                          .remote = false};
     }
     case library::Source::Remote:
-        break;
+        return remoteMark(game);
     }
     return std::nullopt;
 }
 
+std::string whereElse(const library::Game& game) {
+    std::string hosts;
+    for (const std::string& host : game.alsoOn) {
+        hosts += (hosts.empty() ? "" : ", ") + host;
+    }
+    if (game.source == library::Source::Remote) {
+        return "On " + game.hostName + (hosts.empty() ? "" : ", " + hosts);
+    }
+    return hosts.empty() ? std::string{} : "Also on " + hosts;
+}
+
 std::string initials(std::string_view name) {
+    // A note after the name is not part of it: "mGBA (built-in)".
+    name = name.substr(0, name.find(" ("));
     std::string words;
     std::string capitals;
     std::string first;

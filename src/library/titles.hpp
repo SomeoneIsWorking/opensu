@@ -91,6 +91,10 @@ class TitleCopies {
     /// Whether any copy of `game`'s title has an update.
     [[nodiscard]] bool updatePending(const Game& game) const;
 
+    /// The other openSUs holding a version of `game`'s game outside Extras, by name, each once,
+    /// in version order; `game`'s own host is left out.
+    [[nodiscard]] std::vector<std::string> hostsOf(const Game& game) const;
+
   private:
     [[nodiscard]] const Title* titleOf(const Game& game) const;
 

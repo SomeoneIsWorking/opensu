@@ -86,4 +86,8 @@ initials. An AppImage emulator's icon inside its image is not read yet.
 
 Step 2 built: the listing carries each game's platform, source and emulators and the host's
 `hosting`; `lan::remoteVersions` makes one version per emulator, `/lan/play` names it and the host
-refuses one it does not list, then launches with it (`library::runOn`). Next: steps 3 and 4.
+refuses one it does not list, then launches with it (`library::runOn`).
+
+Step 3 built: another openSU's default version carries its runner there, ringed
+(`ui::runnerMark`), and the focused title says "On Desk" or "Also on Desk" (`ui::whereElse`,
+from `TitleCopies::hostsOf`). Shown in `tools.nat_lab lan-versions`. Next: step 4.
