@@ -48,7 +48,8 @@ struct PointerFrame {
     std::uint8_t held{0};
     /// The primary button's or the finger's changes this frame, in order: true down, false up.
     std::vector<bool> primary;
-    /// This frame's pointer events came from a finger (SDL's touch mouse).
+    /// The pointer is a finger's: its latest event, this frame or before, came from SDL's touch
+    /// mouse, so a finger held still keeps it.
     bool touch{false};
 };
 
@@ -216,6 +217,8 @@ class ShellWindow {
     PointerFrame pointer_;
     /// The mouse's buttons held, as `PointerFrame::held`; kept across frames.
     std::uint8_t pointerHeld_{0};
+    /// The pointer's latest event came from a finger, as `PointerFrame::touch`; kept across frames.
+    bool pointerTouch_{false};
     /// Where a posted mouse last was put, until `leavePointer` or SDL's own mouse is over the
     /// window: the pointer's place in frames that post nothing.
     std::optional<ui::Point> posted_;

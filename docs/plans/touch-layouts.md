@@ -60,10 +60,12 @@ same rules as now.
 
 Steps 1 and 3 built: the setting with Auto, every console layout, Racing and Platformer, analog
 sticks to the core, and the gamepad by default in remote play with its sticks sent to the host.
-Shown in hidden runner frames per layout; remote play and the tablet not yet shown. Genesis layouts are reachable only
+Shown in hidden runner frames per layout, and on a tablet in portrait (NES, GBA, PS1, the remote gamepad). Genesis layouts are reachable only
 by hand until openSU has a Genesis system. Step 4 built: the Shooter's keys, mouse buttons and
-swipe-to-aim as relative mouse motion through XTest; tested through the touch layer and the wire,
-not yet shown in a remote session. Step 5 built: Steam's store tags kept per app
-(`library::SteamTags`, shown fetched and kept by a hidden openSU with Counter-Strike 2), and Auto
+swipe-to-aim as relative mouse motion through XTest; shown in a remote session from a tablet: the stick
+holds W A S D, Fire and Aim the mouse buttons, a swipe turns the view, and a finger on a control
+clicks nothing on the picture. Step 5 built: Steam's store tags kept per app
+(`library::SteamTags`, shown fetched and kept by a hidden openSU with Counter-Strike 2, whose
+remote session on the tablet opened in the Shooter), and Auto
 picking Shooter, Racing or Platformer from them for a game in remote play. Epic, GOG and ROM games
 have no tags, so Auto keeps the console's own or the gamepad for them.

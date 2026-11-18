@@ -127,6 +127,10 @@ RemoteInput::State RemoteInput::take() {
     return state;
 }
 
+void RemoteInput::releasePointer() {
+    mouse_.buttons = 0;
+}
+
 void RemoteInput::release() {
     held_ = 0;
     pressedThisFrame_ = 0;

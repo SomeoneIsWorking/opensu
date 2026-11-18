@@ -33,6 +33,8 @@ class RemoteInput {
     void touchMouse(std::uint8_t buttons, std::pair<float, float> lookDp);
     /// The pointer's frame, with the picture drawn at `picture` in the window.
     void pointer(const PointerFrame& frame, const display::Placed& picture);
+    /// Lets go of the pointer's buttons, as when fingers play the touch controls, not the picture.
+    void releasePointer();
     /// Lets go of everything, as when a menu takes the controls.
     void release();
 

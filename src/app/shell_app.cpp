@@ -646,6 +646,8 @@ void ShellApp::pointer(const PointerFrame& frame) {
                                          frame.touch);
         if (!frame.touch || !remoteTouch_->shown()) {
             remoteInput_.pointer(frame, remotePlacement());
+        } else {
+            remoteInput_.releasePointer();
         }
         return;
     }

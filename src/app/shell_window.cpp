@@ -215,6 +215,7 @@ bool ShellWindow::pollEvents() {
     }
     postStroke();
     pointer_.held = pointerHeld_;
+    pointer_.touch = pointerTouch_;
     // An event's own position stands, as a posted one never moves SDL's mouse.
     if (SDL_GetMouseFocus() == window_.window()) {
         posted_.reset();
@@ -277,7 +278,7 @@ void ShellWindow::handle(const SDL_Event& event) {
         pointer_.point = ui::Point{event.motion.x * density, event.motion.y * density};
         pointer_.delta.x += event.motion.xrel * density;
         pointer_.delta.y += event.motion.yrel * density;
-        pointer_.touch = event.motion.which == SDL_TOUCH_MOUSEID;
+        pointerTouch_ = event.motion.which == SDL_TOUCH_MOUSEID;
         break;
     case SDL_EVENT_MOUSE_BUTTON_UP:
         pointer_.point = ui::Point{event.button.x * density, event.button.y * density};
@@ -285,7 +286,7 @@ void ShellWindow::handle(const SDL_Event& event) {
             pointer_.primary.push_back(false);
         }
         pointerHeld_ = static_cast<std::uint8_t>(pointerHeld_ & ~heldBit(event.button.button));
-        pointer_.touch = event.button.which == SDL_TOUCH_MOUSEID;
+        pointerTouch_ = event.button.which == SDL_TOUCH_MOUSEID;
         break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
         pointer_.point = ui::Point{event.button.x * density, event.button.y * density};
@@ -293,7 +294,7 @@ void ShellWindow::handle(const SDL_Event& event) {
             pointer_.primary.push_back(true);
         }
         pointerHeld_ = static_cast<std::uint8_t>(pointerHeld_ | heldBit(event.button.button));
-        pointer_.touch = event.button.which == SDL_TOUCH_MOUSEID;
+        pointerTouch_ = event.button.which == SDL_TOUCH_MOUSEID;
         pointer_.left = pointer_.left || event.button.button == SDL_BUTTON_LEFT;
         pointer_.right = pointer_.right || event.button.button == SDL_BUTTON_RIGHT;
         pointer_.middle = pointer_.middle || event.button.button == SDL_BUTTON_MIDDLE;
