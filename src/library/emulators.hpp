@@ -43,6 +43,8 @@ struct EmulatorSearch {
     std::vector<std::filesystem::path> appImageDirs;
     /// Flatpak installations' `app` directories.
     std::vector<std::filesystem::path> flatpakDirs;
+    /// Where macOS app bundles are installed; none off macOS.
+    std::vector<std::filesystem::path> macAppDirs;
     /// Installed Android apps' package names (`installedAndroidApps`).
     std::vector<std::string> androidApps;
     /// openSU's own downloads; empty for none.
@@ -80,6 +82,8 @@ enum class InstallSource : std::uint8_t {
     Flatpak,
     /// An installed Android app, started by an intent.
     AndroidApp,
+    /// A macOS app bundle, started by the program inside it.
+    MacApp,
     /// A core openSU downloaded from the libretro buildbot.
     DownloadedCore,
     /// A core openSU downloaded from its own build's release (`EmulatorEntry::release`).

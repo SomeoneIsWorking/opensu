@@ -31,6 +31,9 @@ struct EmulatorLauncher {
     /// The words after the program, `{rom}` where the game's file goes; for an Android app,
     /// its intent's options (`Launches.applyOptions`).
     std::vector<std::string> args;
+    /// macOS app bundle names start with this, compared as `appImage` is: "duckstation" for
+    /// `DuckStation.app`; empty when it has none.
+    std::string macApp{};
 };
 
 /// Where an emulator's official releases are published.

@@ -1553,7 +1553,8 @@ game folders, and a folder starts its marker (Wii U `code/*.rpx`, PS4 `eboot.bin
 PS3 `PS3_GAME/USRDIR/EBOOT.BIN`) or else its game file that is no update or DLC.
 Emulators (`library/emulators`, from the catalog `assets/emulators.json`) are found
 as openSU's downloaded AppImage, on PATH, as AppImages in `~/Applications`,
-`~/AppImages`, `~/.local/bin`, or as Flatpaks; a system without one is listed, and
+`~/AppImages`, `~/.local/bin`, as macOS app bundles in `/Applications` and `~/Applications`
+(catalog `"macApp"`; not yet run on a Mac), or as Flatpaks; a system without one is listed, and
 play names what to install or offers the download (S026). On this machine: 124 games in the
 grid from `/mnt/Boy/ROM`; Dolphin (GameCube), PCSX2 (PS2) and Eden (Switch)
 launched in a headless Gamescope, showed a window in 1.5–2.5 s and closed from the

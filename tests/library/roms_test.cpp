@@ -292,6 +292,27 @@ void emulatorsAreFound(const Fixture& f) {
            "a configured override is the first option and the default");
 }
 
+void macAppsAreFound(const Fixture& f) {
+    const fs::path apps = f.base / "MacApplications";
+    const fs::path bundle = apps / "DuckStation.app";
+    writeExecutable(bundle / "Contents" / "MacOS" / "DuckStation-bin");
+    fs::create_directories(apps / "mGBA.app" / "Contents");
+    {
+        std::ofstream plist{bundle / "Contents" / "Info.plist"};
+        plist << "<plist><dict><key>CFBundleExecutable</key>\n  <string>DuckStation-bin</string>"
+                 "<key>CFBundleShortVersionString</key><string>0.1-9000</string></dict></plist>";
+    }
+    const Emulators emulators =
+        Emulators::discover(shipped(), EmulatorSearch{.macAppDirs = {apps}}, {});
+    const auto* duck = emulators.installed("duckstation");
+    expect(duck != nullptr && duck->source == opensu::library::roms::InstallSource::MacApp &&
+               duck->where == bundle.string() && duck->version == "0.1-9000" &&
+               duck->command.front() ==
+                   (bundle / "Contents" / "MacOS" / "DuckStation-bin").string(),
+           "a macOS app bundle runs the program its Info.plist names, at its version");
+    expect(emulators.installed("mgba") == nullptr, "a bundle with no program inside is not one");
+}
+
 void providerLists(const Fixture& f) {
     const fs::path bin = f.base / "bin2";
     writeExecutable(bin / "rpcs3");
@@ -613,6 +634,7 @@ int main() try {
     gameFiles(fixture);
     rootsAreDiscovered(fixture);
     emulatorsAreFound(fixture);
+    macAppsAreFound(fixture);
     providerLists(fixture);
     looseFilesArePlaced(fixture);
     biosIsNoGame(fixture);

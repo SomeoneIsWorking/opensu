@@ -7,7 +7,9 @@
 #include <regex>
 #include <system_error>
 
+#include "game_folder.hpp"
 #include "lucent/log.h"
+#include "mac_bundle.hpp"
 
 namespace opensu::library::roms {
 namespace {
@@ -89,6 +91,34 @@ std::optional<EmulatorInstall> appImageIn(const EmulatorLauncher& launcher,
     return std::nullopt;
 }
 
+/// The app bundle of `launcher` in `search`'s macOS app folders, by its name.
+std::optional<EmulatorInstall> macAppIn(const EmulatorLauncher& launcher,
+                                        const EmulatorSearch& search) {
+    for (const fs::path& dir : search.macAppDirs) {
+        std::error_code ec;
+        std::vector<fs::path> found;
+        for (const fs::directory_entry& entry : fs::directory_iterator{dir, ec}) {
+            if (entry.path().extension() == ".app" &&
+                nameKey(entry.path().stem().string()).starts_with(launcher.macApp) &&
+                executable(MacBundle{entry.path()}.executable())) {
+                found.push_back(entry.path());
+            }
+        }
+        if (!found.empty()) {
+            // Sorted, so the same bundle wins on every run.
+            std::ranges::sort(found);
+            const MacBundle bundle{found.front()};
+            return EmulatorInstall{{},
+                                   InstallSource::MacApp,
+                                   bundle.root().string(),
+                                   bundle.value("CFBundleShortVersionString"),
+                                   commandOf(bundle.executable().string(), launcher),
+                                   {}};
+        }
+    }
+    return std::nullopt;
+}
+
 /// How `launcher` is installed, or nothing when it is not.
 std::optional<EmulatorInstall> locate(const EmulatorLauncher& launcher,
                                       const EmulatorSearch& search) {
@@ -103,6 +133,11 @@ std::optional<EmulatorInstall> locate(const EmulatorLauncher& launcher,
     }
     if (!launcher.appImage.empty()) {
         if (std::optional<EmulatorInstall> found = appImageIn(launcher, search)) {
+            return found;
+        }
+    }
+    if (!launcher.macApp.empty()) {
+        if (std::optional<EmulatorInstall> found = macAppIn(launcher, search)) {
             return found;
         }
     }
@@ -246,6 +281,8 @@ std::string_view label(InstallSource source) {
         return "Flatpak";
     case InstallSource::AndroidApp:
         return "Android app";
+    case InstallSource::MacApp:
+        return "App";
     case InstallSource::DownloadedCore:
         return "libretro buildbot";
     case InstallSource::ReleasedCore:
@@ -269,6 +306,9 @@ EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& da
         .executablePath = std::move(executablePath),
         .appImageDirs = {home / "Applications", home / "AppImages", home / ".local" / "bin"},
         .flatpakDirs = {home / ".local" / "share" / "flatpak" / "app", "/var/lib/flatpak/app"},
+        .macAppDirs = folder::thisHost() == folder::Host::Mac
+                          ? std::vector<fs::path>{"/Applications", home / "Applications"}
+                          : std::vector<fs::path>{},
         .androidApps = installedAndroidApps(),
         .downloads = DownloadedEmulators::under(dataDir).root(),
         .fuse = std::move(fuse),

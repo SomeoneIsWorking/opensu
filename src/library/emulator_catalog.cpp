@@ -369,7 +369,7 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::string_view
         entry.launchers.push_back(EmulatorLauncher{
             words(launcher, "programs", where), text(launcher, "appImage", where, false),
             text(launcher, "flatpak", where, false), text(launcher, "android", where, false),
-            words(launcher, "args", where)});
+            words(launcher, "args", where), text(launcher, "macApp", where, false)});
     }
     if (const auto release = object.find("release"); release != object.end()) {
         if (!release->is_object()) {

@@ -7,7 +7,7 @@
       "config": "~/.config/dolphin-emu",
       "data": "~/.local/share/dolphin-emu",
       "launchers": [
-        {"programs": ["dolphin-emu"], "appImage": "dolphin", "flatpak": "org.DolphinEmu.dolphin-emu",
+        {"programs": ["dolphin-emu"], "appImage": "dolphin", "macApp": "dolphin", "flatpak": "org.DolphinEmu.dolphin-emu",
          "args": ["-b", "-e", "{rom}"]}
       ]
     },
@@ -18,7 +18,7 @@
       "config": "~/.config/Cemu",
       "data": "~/.local/share/Cemu",
       "launchers": [
-        {"programs": ["cemu", "Cemu"], "appImage": "cemu", "flatpak": "info.cemu.Cemu",
+        {"programs": ["cemu", "Cemu"], "appImage": "cemu", "macApp": "cemu", "flatpak": "info.cemu.Cemu",
          "args": ["-f", "-g", "{rom}"]}
       ],
       "release": {
@@ -35,7 +35,7 @@
       "data": "~/.local/share/eden",
       "saves": {"layout": "yuzu", "folder": "~/.local/share/eden/nand"},
       "launchers": [
-        {"programs": ["eden"], "appImage": "eden", "flatpak": "dev.eden_emu.eden",
+        {"programs": ["eden"], "appImage": "eden", "macApp": "eden", "flatpak": "dev.eden_emu.eden",
          "args": ["-f", "-g", "{rom}"]}
       ],
       "release": {
@@ -51,7 +51,7 @@
       "config": "~/.config/Ryujinx",
       "saves": {"layout": "ryujinx", "folder": "~/.config/Ryujinx/bis"},
       "launchers": [
-        {"programs": ["ryujinx", "Ryujinx"], "appImage": "ryujinx",
+        {"programs": ["ryujinx", "Ryujinx"], "appImage": "ryujinx", "macApp": "ryujinx",
          "flatpak": "io.github.ryubing.Ryujinx", "args": ["--fullscreen", "{rom}"]}
       ],
       "release": {
@@ -93,7 +93,7 @@
       "systems": ["ps2"],
       "config": "~/.config/PCSX2",
       "launchers": [
-        {"programs": ["pcsx2-qt"], "appImage": "pcsx2", "flatpak": "net.pcsx2.PCSX2",
+        {"programs": ["pcsx2-qt"], "appImage": "pcsx2", "macApp": "pcsx2", "flatpak": "net.pcsx2.PCSX2",
          "args": ["-batch", "-nogui", "-fullscreen", "--", "{rom}"]}
       ],
       "release": {
@@ -108,7 +108,7 @@
       "systems": ["ps3"],
       "config": "~/.config/rpcs3",
       "launchers": [
-        {"programs": ["rpcs3"], "appImage": "rpcs3", "flatpak": "net.rpcs3.RPCS3",
+        {"programs": ["rpcs3"], "appImage": "rpcs3", "macApp": "rpcs3", "flatpak": "net.rpcs3.RPCS3",
          "args": ["--no-gui", "--fullscreen", "{rom}"]}
       ],
       "release": {
@@ -143,7 +143,7 @@
       "xdgConfig": "duckstation",
       "saves": {"layout": "duckstation", "folder": "~/.local/share/duckstation/memcards"},
       "launchers": [
-        {"programs": ["duckstation-qt"], "appImage": "duckstation",
+        {"programs": ["duckstation-qt"], "appImage": "duckstation", "macApp": "duckstation",
          "flatpak": "org.duckstation.DuckStation", "args": ["-batch", "-fullscreen", "--", "{rom}"]}
       ],
       "release": {
@@ -158,7 +158,7 @@
       "systems": ["psp"],
       "config": "~/.config/ppsspp",
       "launchers": [
-        {"programs": ["PPSSPPSDL", "PPSSPPQt", "ppsspp"], "appImage": "ppsspp",
+        {"programs": ["PPSSPPSDL", "PPSSPPQt", "ppsspp"], "appImage": "ppsspp", "macApp": "ppsspp",
          "flatpak": "org.ppsspp.PPSSPP", "args": ["--fullscreen", "{rom}"]}
       ],
       "release": {
@@ -173,7 +173,7 @@
       "systems": ["nds"],
       "config": "~/.config/melonDS",
       "launchers": [
-        {"programs": ["melonDS"], "appImage": "melonds", "flatpak": "net.kuribo64.melonDS",
+        {"programs": ["melonDS"], "appImage": "melonds", "macApp": "melonds", "flatpak": "net.kuribo64.melonDS",
          "args": ["-f", "{rom}"]},
         {"android": "me.magnum.melonds/me.magnum.melonds.ui.emulator.EmulatorActivity",
          "args": ["-d", "{rom}"]}
@@ -192,7 +192,7 @@
       "config": "~/.config/azahar-emu",
       "data": "~/.local/share/azahar-emu",
       "launchers": [
-        {"programs": ["azahar"], "appImage": "azahar", "flatpak": "org.azahar_emu.Azahar",
+        {"programs": ["azahar"], "appImage": "azahar", "macApp": "azahar", "flatpak": "org.azahar_emu.Azahar",
          "args": ["-f", "{rom}"]}
       ],
       "release": {
@@ -208,7 +208,7 @@
       "config": "~/.config/mgba",
       "saves": {"layout": "mgba"},
       "launchers": [
-        {"programs": ["mgba-qt", "mgba"], "appImage": "mgba", "flatpak": "io.mgba.mGBA",
+        {"programs": ["mgba-qt", "mgba"], "appImage": "mgba", "macApp": "mgba", "flatpak": "io.mgba.mGBA",
          "args": ["-f", "{rom}"]}
       ],
       "release": {
@@ -223,7 +223,7 @@
       "systems": ["xbox"],
       "config": "~/.local/share/xemu/xemu",
       "launchers": [
-        {"programs": ["xemu"], "appImage": "xemu", "flatpak": "app.xemu.xemu",
+        {"programs": ["xemu"], "appImage": "xemu", "macApp": "xemu", "flatpak": "app.xemu.xemu",
          "args": ["-dvd_path", "{rom}"]}
       ],
       "release": {

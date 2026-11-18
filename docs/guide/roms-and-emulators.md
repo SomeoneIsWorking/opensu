@@ -40,8 +40,10 @@ Built-in cores ([libretro.md](libretro.md)) are always available. Standalone emu
 integration, off until turned on in Settings › Integrations. Then they are found on PATH, as
 AppImages in `~/Applications`, `~/AppImages` or `~/.local/bin`, or as Flatpaks: Dolphin, Cemu,
 Eden, Ryujinx, Citron, sudachi, PCSX2, RPCS3, shadPS4, DuckStation, PPSSPP, melonDS, Azahar, mGBA, xemu and Xenia
-Canary. On Windows and macOS openSU finds and launches the installed ones (macOS in
-`/Applications`); on Android it starts an installed emulator app by intent with the game.
+Canary. On Windows openSU finds and launches the installed ones; on macOS it finds their app
+bundles in `/Applications` and `~/Applications` (DuckStation.app and the others, all but Citron,
+sudachi, shadPS4 and Xenia Canary) and starts the program inside; on Android it starts an
+installed emulator app by intent with the game.
 
 A game whose system has no emulator still appears, and pressing play names the emulator to
 install. The Emulator row on a game's Game settings page picks one per game, Settings › Emulators per console (both
