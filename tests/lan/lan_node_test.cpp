@@ -536,30 +536,21 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
         host.closeVerdicts = {{.verdict = "waiting", .port = 0, .why = {}},
                               {.verdict = "closed", .port = 0, .why = {}}};
     }
-    bool asked = false;
     std::string closeError;
-    expect(guest.node.askToClose(
-               std::stop_token{}, host.node.id(), listed.sourceId, ana.id,
-               [&asked] {
-                   asked = true;
-               },
-               closeError) &&
-               asked,
-           "a guest asking to close the host's game waits for it to close");
+    expect(guest.node.askToClose(std::stop_token{}, host.node.id(), listed.sourceId, ana.id,
+                                 closeError),
+           "a guest closing the host's game waits for it to close");
     {
         const std::lock_guard lock{host.mutex};
         expect(host.closeAsked == "Desk own:1 " + ana.id + " linked",
                "the host hears the game, the asking profile and that it is linked");
         host.closeVerdicts = {
-            {.verdict = "declined", .port = 0, .why = "its player keeps playing"}};
+            {.verdict = "declined", .port = 0, .why = "it is another profile's game"}};
     }
-    expect(!guest.node.askToClose(
-               std::stop_token{}, host.node.id(), listed.sourceId, guestPlayer,
-               [] {
-               },
-               closeError) &&
-               closeError == "its player keeps playing",
-           "a close the host's player declines says why");
+    expect(!guest.node.askToClose(std::stop_token{}, host.node.id(), listed.sourceId, guestPlayer,
+                                  closeError) &&
+               closeError == "it is another profile's game",
+           "a close the host refuses says why");
     std::string inviteError;
     expect(host.node.invite(std::stop_token{}, guest.node.id(),
                             lan::wire::Invitation{"game-1", "Host game"}, inviteError),

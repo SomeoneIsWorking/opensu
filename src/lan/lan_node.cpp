@@ -185,9 +185,8 @@ void LanNode::endAsking() {
 
 bool LanNode::askToClose(const std::stop_token& stop, const std::string& hostId,
                          const std::string& gameId, const std::string& profile,
-                         const std::function<void()>& waiting, std::string& error) const {
+                         std::string& error) const {
     const std::string request = wire::write(wire::CloseRequest{gameId, profile});
-    bool told = false;
     const auto until = std::chrono::steady_clock::now() + playPatience;
     while (!stop.stop_requested() && std::chrono::steady_clock::now() < until) {
         const std::optional<std::string> body =
@@ -204,17 +203,13 @@ bool LanNode::askToClose(const std::stop_token& stop, const std::string& hostId,
             return true;
         }
         if (verdict->verdict != "waiting") {
-            error = verdict->why.empty() ? "its player declined" : verdict->why;
+            error = verdict->why.empty() ? "it did not close" : verdict->why;
             return false;
-        }
-        if (!told) {
-            told = true;
-            waiting();
         }
         std::this_thread::sleep_for(playPoll);
     }
     if (!stop.stop_requested()) {
-        error = "its player did not answer";
+        error = "it did not close in time";
     }
     return false;
 }

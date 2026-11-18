@@ -221,14 +221,13 @@ class LanNode {
               const wire::PlayChoice& choice, const std::string& profile,
               const std::function<void()>& waiting, std::string& error) const;
 
-    /// Asks the paired, announced openSU `hostId` to close its game `gameId` running there, as
-    /// `profile`, this one's active profile: `waiting` is called when its player is asked, and
-    /// how it stands is asked every second until it closes, for as long as its player may take.
-    /// Blocks, so never on the loop. False with `error` when it does not close; false without one
-    /// when `stop` ended the call.
+    /// Closes the paired, announced openSU `hostId`'s game `gameId` running there as `profile`,
+    /// this one's active profile, which must play it there; how it stands is asked every second
+    /// until it closed. Blocks, so never on the loop. False with `error` when it does not close;
+    /// false without one when `stop` ended the call.
     [[nodiscard]] bool askToClose(const std::stop_token& stop, const std::string& hostId,
                                   const std::string& gameId, const std::string& profile,
-                                  const std::function<void()>& waiting, std::string& error) const;
+                                  std::string& error) const;
 
     /// The asks to play a ROM together, this one's and the paired openSUs'.
     [[nodiscard]] NetplayAsks& netplay() const noexcept {
