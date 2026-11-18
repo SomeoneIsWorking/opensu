@@ -318,7 +318,6 @@ void testOwnGames(const fs::path& root) {
     ArtworkFetcher fetcher{store,
                            {.libretro = base + "/libretro",
                             .steam = base + "/steam",
-                            .steamStore = base + "/store",
                             .steamItems = base + "/items",
                             .steamAssets = base + "/assets/"}};
     const auto own = [](const std::string& id, std::string title, std::string key = {}) {
@@ -334,13 +333,8 @@ void testOwnGames(const fs::path& root) {
 
     const Game titled = own("2", "DINO CRISIS 2");
     fetcher.request({titled});
-    expect(waitFor(fetcher).size() == 1 && read(store.pathFor(titled)) == "hashed portrait",
-           "a title with no match on record finds the app of exactly that name, ignoring marks");
-
-    const Game near = own("3", "Dino Crisis");
-    fetcher.request({near});
-    expect(waitFor(fetcher).empty() && fs::exists(store.pathFor(near).string() + ".missed"),
-           "a store's near match is another game: no cover, and the miss is kept");
+    expect(waitFor(fetcher).empty() && fs::exists(store.pathFor(titled).string() + ".missed"),
+           "a game with no Steam app on record takes no Steam app's art by its title");
 
     const Game boxed = own("4", "Super Mario Sunshine");
     fetcher.request({boxed});

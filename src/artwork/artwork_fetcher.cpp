@@ -316,24 +316,9 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetchOwn(const library::Game& game,
     if (!game.boxArt.empty()) {
         return fetchBoxPick(game, stop);
     }
-    std::string appId = game.artworkKey;
-    if (appId.empty()) {
-        const std::string url = library::identify::storeSearchUrl(game.title, sources_.steamStore);
-        const net::Result<std::string> answer = web_.get(stop, url);
-        if (answer.stopped()) {
-            return Outcome::Stopped;
-        }
-        if (!answer) {
-            lucent::warn("artwork", "{}: {}", url, answer.error());
-            return Outcome::Unreachable;
-        }
-        if (const std::optional<library::identify::StoreApp> app = library::identify::sameTitle(
-                library::identify::parseStoreSearch(*answer), game.title)) {
-            appId = app->appId;
-        }
-    }
-    if (!appId.empty()) {
-        const Outcome steam = fetchSteam(game, appId, stop);
+    // Only the Steam app the game is known as: a title names other games too (Devoid, DEVOID).
+    if (!game.artworkKey.empty()) {
+        const Outcome steam = fetchSteam(game, game.artworkKey, stop);
         if (steam != Outcome::Missing) {
             return steam;
         }

@@ -34,8 +34,8 @@ program, not the folder".
   `<wine> <exe>`, always in `<data dir>/wine-prefixes/own-<n>`, started in the file's folder. A
   non-executable script runs through its `#!` interpreter; a non-executable AppImage or program says
   to `chmod +x` it. A missing file points at Change file.
-- Art, no key needed (`ArtworkFetcher::fetchOwn`): the Steam app on record or the store app of
-  exactly the title, from the plain CDN paths else the hashed art `GetItems` names (`fetchSteam`;
+- Art, no key needed (`ArtworkFetcher::fetchOwn`): the Steam app on record (never one found by
+  the title, which names other games too: Devoid is not De:Void or DEVOID), from the plain CDN paths else the hashed art `GetItems` names (`fetchSteam`;
   apps released lately 404 on the plain paths), then `artwork::confidentMatch`'s box art (cached
   under `artwork/own/<n>-<title>.jpg`), then SteamGridDB by title through `CoverFitter` when
   connected. The game's own icon is read from its files first (`artwork/game_icon`, kept as
