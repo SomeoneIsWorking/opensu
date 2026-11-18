@@ -15,6 +15,31 @@ Maybes the player has raised but not decided. Nothing here is planned; a decided
 - A QR code beside the Play online invite and reply codes, so a friend can take a code off a photo
   or another screen without reading it (`docs/issues/invite-code-legibility.md`).
 
+## Friends on the LAN without pairing
+
+Asked 2026-11-18 and put off for a better friend system later: anyone on the LAN with another
+profile finds a game playing and asks to join it without pairing first. With it, a checkbox at
+launch to play a game without sharing it, so nobody finds it or asks to join. A first sketch, kept
+for then:
+
+What an unpaired openSU learns today is `GET /lan/hello` (id, name) and nothing else; every other
+route needs a pairing, whose keys sign the requests and seal the stream. The design keeps that and
+folds pairing into the join:
+
+- The announcement's TXT record carries the title of the game playing there, if any, and whether
+  it takes guests (`playing`, `joinable`): no ids, no profile, nothing an unpaired one can act on.
+  An openSU that does not want to be seen playing turns it off in Settings › LAN.
+- An unpaired openSU lists it on Home as "<name> is playing <game>", with **Ask to join**.
+- Ask to join runs the pairing handshake (`/lan/pair`, the commitment and reveal) with a join
+  flag and the game. The host does not show the pairing question: it shows "Let <name> join
+  <game>?" to the player, wherever they play it (step 2's passing). Let in pairs the two as
+  pairing would and admits the guest; Decline leaves them unpaired.
+- A pairing made this way is a guest pairing: it lists nothing, shares no saves, ROMs or profiles,
+  and ends with the session unless the player keeps it from the Players list in the Guide.
+
+Its risk is the TXT record: anyone on the LAN can read what a computer plays, so it is on by
+default only while a game takes guests.
+
 ## Libretro ports of standalone emulators
 
 A libretro core of Eden (Switch) or Cemu (Wii U) would let the built-in runner own input, pacing,

@@ -21,8 +21,6 @@ play: nobody need be at the computer that runs the game.
   the computer's own screen, or the device it streams to. Let in, the friend plays from its own
   device. A friend cannot close or take over another profile's game.
 - Both may be remote: the player on a phone streaming the game, the friend on a tablet asking.
-- **Friends on the LAN.** A friend is anyone on the LAN with another profile, whose openSU can find
-  the game and ask to join, without the two devices first being paired.
 
 ## State
 
@@ -40,8 +38,6 @@ play: nobody need be at the computer that runs the game.
   shows on the computer's own screen. An ask that cannot be passed, or whose player came back, is
   asked there. Shown between two nodes (`lan_node_test`); a session with a stream needs a Gamescope
   host, which the LAN lab does not have yet.
-- Not built: friends without pairing. Today an openSU sees another's games only once the two are
-  paired.
 
 ## Owners
 
@@ -60,24 +56,3 @@ play: nobody need be at the computer that runs the game.
 2. The join question on the device the player plays on: the host passes a friend's ask to the
    guest holding the player's seat, which answers it. Left: a lab rig whose host runs in a nested
    Gamescope, to walk it with three openSUs.
-3. Friends without pairing: a LAN openSU lists the games playing on others and asks to join one.
-
-## Friends without pairing
-
-What an unpaired openSU learns today is `GET /lan/hello` (id, name) and nothing else; every other
-route needs a pairing, whose keys sign the requests and seal the stream. The design keeps that and
-folds pairing into the join:
-
-- The announcement's TXT record carries the title of the game playing there, if any, and whether
-  it takes guests (`playing`, `joinable`): no ids, no profile, nothing an unpaired one can act on.
-  An openSU that does not want to be seen playing turns it off in Settings › LAN.
-- An unpaired openSU lists it on Home as "<name> is playing <game>", with **Ask to join**.
-- Ask to join runs the pairing handshake (`/lan/pair`, the commitment and reveal) with a join
-  flag and the game. The host does not show the pairing question: it shows "Let <name> join
-  <game>?" to the player, wherever they play it (step 2's passing). Let in pairs the two as
-  pairing would and admits the guest; Decline leaves them unpaired.
-- A pairing made this way is a guest pairing: it lists nothing, shares no saves, ROMs or profiles,
-  and ends with the session unless the player keeps it from the Players list in the Guide.
-
-Its risk is the TXT record: anyone on the LAN can read what a computer plays, so it is on by
-default only while a game takes guests.
