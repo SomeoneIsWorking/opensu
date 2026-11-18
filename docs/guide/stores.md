@@ -85,8 +85,9 @@ Guide › Downloads lists every download openSU knows of: Steam's queue (its upd
 GOG or Steam install started from openSU, an emulator, core, shader pack or romset listing
 download, and the Wine runners openSU keeps, each with its progress and state. Steam's downloads
 can be paused and resumed (the whole queue, as in Steam), started now, moved and removed; the
-others can be cancelled. Finished downloads stay listed until openSU quits. A click on the Steam
-badge in the top bar while it shows a download's progress ring opens it too.
+others can be cancelled. Finished downloads stay listed until openSU quits. While anything on it
+downloads or waits to, a Downloads badge shows in the top bar after the launchers, ringed with how
+far it all is (spinning when nothing measures it); a click on it opens the page.
 
 ## Updating games
 

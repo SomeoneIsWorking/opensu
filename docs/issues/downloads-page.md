@@ -32,8 +32,8 @@ Requested: "downloads menu showing active downloads and progess".
   - Ended rows have none.
 - Up and Down move between rows, Left and Right between a row's buttons, A presses, B closes. A
   click focuses a row or presses a button.
-- Entry points: the Guide menu's Downloads row (home and over a game), a click on a launcher badge
-  showing a progress ring, and the Downloads chord action (no chord by default; Settings › Guide
+- Entry points: the Guide menu's Downloads row (home and over a game), a click on the top bar's
+  Downloads badge (shown while a row is live), and the Downloads chord action (no chord by default; Settings › Guide
   chords binds one).
 - `/state` has `downloadsOpen` and `downloads`, one `{key, title, source, state, percent}` per row.
 - A Steam row's title is the library's title for the app, else Steam's own name for it, else
@@ -123,7 +123,7 @@ Steam's name and tool type and the board picks the title every frame; the same q
 
 - No cover art or store badge on a row; the source is text.
 - Epic and GOG rows show percent only: legendary's and gogdl's byte and ETA figures are not parsed.
-- A tile has no progress badge, so the badge entry point is the launcher badge's ring; A cannot
+- A tile has no progress badge, so the badge entry point is the top bar's Downloads badge; A cannot
   reach the top bar's badges.
 - Unverified: Steam's buttons against a real Steam client, a real Epic or GOG cancel, the page over
   a game in Gamescope.

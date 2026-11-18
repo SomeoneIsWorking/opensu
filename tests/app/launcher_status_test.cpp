@@ -1,18 +1,25 @@
-// The launcher badges from Steam's client state, its downloads and the catalog's store statuses.
+// The top bar's badges from Steam's client state, the catalog's store statuses and the Downloads
+// page's rows.
 #include "launcher_status.hpp"
 #include "support/test_main.hpp"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <optional>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace {
 
+using opensu::app::DownloadKind;
+using opensu::app::DownloadRow;
+using opensu::app::DownloadState;
 using opensu::launch::SteamState;
 using opensu::library::Availability;
 using opensu::library::Source;
 using opensu::library::SourceStatus;
-using opensu::steam::Download;
 using opensu::ui::LauncherBadge;
 using opensu::ui::ServiceState;
 
@@ -36,7 +43,8 @@ std::vector<SourceStatus> stores() {
 void testStoresAndStartingSteam() {
     const std::vector<LauncherBadge> badges =
         opensu::app::launcherBadges(SteamState::Initializing, {}, stores());
-    expect(badges.size() == 3, "one badge per launcher");
+    expect(badges.size() == 4 && badges[3].state == ServiceState::Hidden,
+           "one badge per launcher, and Downloads hidden while nothing downloads");
     expect(badges[0].state == ServiceState::Starting && !badges[0].progress,
            "Steam signing in is starting");
     expect(badges[1].state == ServiceState::Failed, "Epic signed out needs the player");
@@ -45,28 +53,48 @@ void testStoresAndStartingSteam() {
            "the channel names the visible badges");
 }
 
-void testDownloadRing() {
-    const std::vector<Download> downloads{Download{.appId = "1",
-                                                   .progress = 0.2,
-                                                   .active = false,
-                                                   .paused = true,
-                                                   .installing = false,
-                                                   .secondsLeft = {}},
-                                          Download{.appId = "2",
-                                                   .progress = 0.53,
-                                                   .active = true,
-                                                   .paused = false,
-                                                   .installing = false,
-                                                   .secondsLeft = {}}};
-    const std::vector<LauncherBadge> ready =
-        opensu::app::launcherBadges(SteamState::Ready, downloads, stores());
-    expect(ready[0].state == ServiceState::Ready && ready[0].progress == 0.53,
-           "the active download's progress rings the Steam badge");
-    expect(opensu::app::describe(ready).starts_with("steam=ready:53%"), "progress is published");
-    const std::vector<LauncherBadge> blocked =
-        opensu::app::launcherBadges(SteamState::Blocked, downloads, stores());
-    expect(blocked[0].state == ServiceState::Blocked && !blocked[0].progress,
-           "a Steam opensu does not own shows no progress");
+DownloadRow row(std::string key, DownloadState state, std::optional<double> fraction,
+                std::uint64_t done, std::uint64_t total) {
+    return DownloadRow{.key = std::move(key),
+                       .kind = DownloadKind::Emulator,
+                       .state = state,
+                       .fraction = fraction,
+                       .bytesDone = done,
+                       .bytesTotal = total};
+}
+
+void testDownloadsBadge() {
+    const std::vector<LauncherBadge> idle =
+        opensu::app::launcherBadges(SteamState::Ready, {}, stores());
+    expect(idle.size() == 4 && idle[3].state == ServiceState::Hidden && !idle[3].source,
+           "nothing downloading, no Downloads badge");
+    const std::vector<DownloadRow> offered{
+        row("update:a", DownloadState::Available, std::nullopt, 0, 0)};
+    expect(opensu::app::launcherBadges(SteamState::Ready, offered, stores())[3].state ==
+               ServiceState::Hidden,
+           "an update only on offer shows no badge");
+    const std::vector<DownloadRow> rows{
+        row("romsets:a", DownloadState::Downloading, 0.5, 30, 100),
+        row("emulator:b", DownloadState::Queued, std::nullopt, 0, 300),
+        row("emulator:c", DownloadState::Failed, std::nullopt, 0, 900)};
+    const std::vector<LauncherBadge> busy =
+        opensu::app::launcherBadges(SteamState::Ready, rows, stores());
+    expect(busy[3].state == ServiceState::Ready && busy[3].progress == 30.0 / 400.0,
+           "the live rows' bytes ring the Downloads badge; an ended row does not count");
+    expect(busy[0].state == ServiceState::Ready && !busy[0].progress,
+           "the Steam badge shows Steam's state only");
+    expect(opensu::app::describe(busy).ends_with("downloads=ready:7%"), "progress is published");
+    const std::vector<DownloadRow> fractions{
+        row("update:a", DownloadState::Installing, 0.2, 0, 0),
+        row("update:b", DownloadState::Downloading, 0.6, 0, 0)};
+    expect(opensu::app::launcherBadges(SteamState::Ready, fractions, stores())[3].progress == 0.4,
+           "rows without bytes ring it with their mean fraction");
+    const std::vector<DownloadRow> unmeasured{
+        row("romsets:a", DownloadState::Queued, std::nullopt, 0, 0)};
+    const LauncherBadge spinning =
+        opensu::app::launcherBadges(SteamState::Ready, unmeasured, stores())[3];
+    expect(spinning.state == ServiceState::Starting && !spinning.progress,
+           "a download nothing measures spins");
     expect(opensu::app::launcherBadges(SteamState::Stopped, {}, {})[0].state ==
                ServiceState::Hidden,
            "no Steam, no badge");
@@ -76,7 +104,7 @@ void testDownloadRing() {
 
 int main() try {
     testStoresAndStartingSteam();
-    testDownloadRing();
+    testDownloadsBadge();
     std::printf("launcher_status: all checks passed\n");
     return 0;
 } catch (...) {

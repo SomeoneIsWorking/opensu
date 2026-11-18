@@ -547,7 +547,9 @@ The status pill's bell column (iiSU `a32.n`; openSU has no notifications) holds 
 (`ui::LauncherBadgePainter`, mapped in `app::launcherBadges`): Steam, Epic and
 GOG, each its Simple Icons logo in an avatar circle at a32.e's avatar size, spaced
 rather than overlapped, with a presence dot (green ready, amber starting with a
-spinner ring, red failed or blocked). A launcher not installed has no badge; GOG is always
+spinner ring, red failed or blocked), then a Downloads badge while the Downloads page has a live
+row, ringed with the bytes moved of all of them (or their mean fraction; a spinner when none
+measures), which a click opens the page from. A launcher not installed has no badge; GOG is always
 there, red until the player has signed in. Epic's
 and GOG's state is the catalog's last read of them (`library::SourceStatus`): a
 store whose tool is missing is absent, one that fails to list (Legendary signed
@@ -1599,8 +1601,7 @@ no use for this: during a measured BTD6 (960090) update at 44 Mbps the manifest'
 byte counts and StateFlags stayed unchanged for minutes while the client reported
 92% done. The queue drives three things: a launch of a game with an unfinished
 download keeps the shell up with `Updating · N%` and no appearance bound (B cancels);
-the Steam badge shows a progress ring; and a
-progress ring fills around the Steam badge.
+and the Downloads badge's progress ring fills with it.
 Reproduced from a real run: BTD6 with a 2.2 GB update left an empty Gamescope
 behind a hidden shell before the launch waited for it.
 
@@ -1756,7 +1757,7 @@ hidraw, gyro through the motion node, SDL HIDAPI doubled input
 
 One screen on the `gpu2d::ui` toolkit (`DownloadsScreen`: a card per row with its line, a progress
 bar while measured and its buttons; failed rows in the error red; verified headless at both sizes
-under `scratch/ui-toolkit/step3/frames/`) (Guide › Downloads, a click on a launcher badge's progress ring, or the Downloads chord
+under `scratch/ui-toolkit/step3/frames/`) (Guide › Downloads, a click on the top bar's Downloads badge, or the Downloads chord
 action, unbound by default) lists Steam's queue, the store install openSU runs and the emulator or
 core download, with state, progress, figures and the buttons each owner allows: Pause, Resume,
 Download now, Move up, Move down and Remove for Steam through `SteamClient.Downloads` (the calls

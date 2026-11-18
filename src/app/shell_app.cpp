@@ -195,12 +195,10 @@ void ShellApp::buildHome() {
                                                          },
                                                      .launcher =
                                                          [this](const ui::LauncherBadge& badge) {
-                                                             // A badge that shows a download opens
-                                                             // the Downloads page.
-                                                             if (badge.progress) {
-                                                                 openDownloads();
+                                                             if (badge.source) {
+                                                                 selectLauncher(*badge.source);
                                                              } else {
-                                                                 selectLauncher(badge.source);
+                                                                 openDownloads();
                                                              }
                                                          },
                                                      .button =
@@ -1362,7 +1360,7 @@ ui::HintContext ShellApp::hints() const {
 void ShellApp::syncChrome() {
     const ui::HintContext corner = hints();
     shell_.setHints(corner);
-    shell_.setLaunchers(launcherBadges(steam_.state(), steam_.downloads(), sources_));
+    shell_.setLaunchers(launcherBadges(steam_.state(), downloadsScreen_.board().rows(), sources_));
     const gpu2d::ui::Navigator& navigator = shell_.screens().navigator();
     const bool home = navigator.atRoot() && !shell_.inGame();
     // iiSU's Home has no title (pl3.q); opensu's names the focused tile, except over a screen,
@@ -1449,7 +1447,8 @@ void ShellApp::publishSnapshot() {
     next.downloads = downloadsScreen_.lines();
     next.steam = std::string{launch::name(steam_.state())};
     next.inputDevice = std::string{input::name(shell_.inputDevice().current())};
-    next.launchers = describe(launcherBadges(steam_.state(), steam_.downloads(), sources_));
+    next.launchers =
+        describe(launcherBadges(steam_.state(), downloadsScreen_.board().rows(), sources_));
     const LanService::Glance lan = lan_.glance();
     next.lanOn = lan.on;
     next.lanSeen = lan.seen;

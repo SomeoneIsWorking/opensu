@@ -34,7 +34,8 @@ enum class Icon : std::uint8_t {
     Home,
     HomeSelected,
     Library,
-    LibrarySelected
+    LibrarySelected,
+    Downloads
 };
 
 /// The store's icon, or nothing for a ROM.

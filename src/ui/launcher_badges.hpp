@@ -1,6 +1,7 @@
 // launcher_badges — the launchers opensu depends on, as icons inline in the top bar's status pill
-// where iiSU has its bell: each launcher's logo with a presence dot for its state. The status pill
-// painter draws them with the clock.
+// where iiSU has its bell: each launcher's logo with a presence dot for its state, then the
+// Downloads badge while anything downloads, ringed with its progress. The status pill painter
+// draws them with the clock.
 #pragma once
 
 #include <cstddef>
@@ -30,10 +31,11 @@ enum class ServiceState : std::uint8_t {
 
 struct LauncherBadge {
     Icon icon{Icon::Steam};
-    /// The store it stands for, which a click opens.
-    library::Source source{library::Source::Steam};
+    /// The store it stands for, which a click opens; none for the Downloads badge, which opens the
+    /// Downloads page.
+    std::optional<library::Source> source{library::Source::Steam};
     ServiceState state{ServiceState::Hidden};
-    /// A download the launcher is running, 0 to 1.
+    /// How far what it downloads is, 0 to 1.
     std::optional<double> progress;
 
     bool operator==(const LauncherBadge&) const = default;

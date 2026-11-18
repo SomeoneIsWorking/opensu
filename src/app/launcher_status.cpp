@@ -48,6 +48,8 @@ std::string_view name(ui::Icon icon) {
         return "epic";
     case ui::Icon::Gog:
         return "gog";
+    case ui::Icon::Downloads:
+        return "downloads";
     case ui::Icon::Linux:
     case ui::Icon::Wine:
     case ui::Icon::AppImage:
@@ -77,24 +79,55 @@ std::string_view name(ui::ServiceState state) {
     return "hidden";
 }
 
+ui::LauncherBadge downloadsBadge(std::span<const DownloadRow> rows) {
+    ui::LauncherBadge badge{.icon = ui::Icon::Downloads,
+                            .source = std::nullopt,
+                            .state = ui::ServiceState::Hidden,
+                            .progress = std::nullopt};
+    std::uint64_t done = 0;
+    std::uint64_t total = 0;
+    double fractions = 0.0;
+    int measured = 0;
+    for (const DownloadRow& row : rows) {
+        // An update on offer is not under way until the player asks for it.
+        if (ended(row.state) || row.state == DownloadState::Available) {
+            continue;
+        }
+        badge.state = ui::ServiceState::Ready;
+        if (row.bytesTotal > 0) {
+            done += std::min(row.bytesDone, row.bytesTotal);
+            total += row.bytesTotal;
+        }
+        if (row.fraction) {
+            fractions += std::clamp(*row.fraction, 0.0, 1.0);
+            ++measured;
+        }
+    }
+    if (total > 0) {
+        badge.progress = static_cast<double>(done) / static_cast<double>(total);
+    } else if (measured > 0) {
+        badge.progress = fractions / measured;
+    } else if (badge.state == ui::ServiceState::Ready) {
+        badge.state = ui::ServiceState::Starting;
+    }
+    return badge;
+}
+
 } // namespace
 
 std::vector<ui::LauncherBadge> launcherBadges(launch::SteamState steam,
-                                              std::span<const steam::Download> downloads,
+                                              std::span<const DownloadRow> downloads,
                                               std::span<const library::SourceStatus> sources) {
-    ui::LauncherBadge steamBadge{
-        .icon = ui::Icon::Steam, .source = library::Source::Steam, .state = steamState(steam)};
-    const auto active = std::ranges::find_if(downloads, &steam::Download::active);
-    if (steamBadge.state == ui::ServiceState::Ready && active != downloads.end()) {
-        steamBadge.progress = active->progress;
-    }
-    return {steamBadge,
+    return {ui::LauncherBadge{.icon = ui::Icon::Steam,
+                              .source = library::Source::Steam,
+                              .state = steamState(steam)},
             ui::LauncherBadge{.icon = ui::Icon::Epic,
                               .source = library::Source::Epic,
                               .state = storeState(library::Source::Epic, sources)},
             ui::LauncherBadge{.icon = ui::Icon::Gog,
                               .source = library::Source::Gog,
-                              .state = storeState(library::Source::Gog, sources)}};
+                              .state = storeState(library::Source::Gog, sources)},
+            downloadsBadge(downloads)};
 }
 
 std::string describe(std::span<const ui::LauncherBadge> badges) {

@@ -61,6 +61,8 @@ std::string_view iconFile(Icon icon) noexcept {
         return "icons/library.svg";
     case Icon::LibrarySelected:
         return "icons/library_selected.svg";
+    case Icon::Downloads:
+        return "icons/downloads.svg";
     }
     return {};
 }
