@@ -135,8 +135,6 @@ inline constexpr ChoiceKey remoteStreamRateKey{"remote.stream-rate", "Stream rat
 inline constexpr std::string_view frameGenFlowScaleKey = "framegen.flow-scale";
 inline constexpr Setting::Range frameGenFlowScaleRange{25, 100, 5};
 inline constexpr int frameGenFlowScaleDefault = 100;
-/// The heading frame generation stands under.
-inline constexpr std::string_view frameGenSection = "Frame generation";
 
 /// Declares frame generation's settings in `schema`: the preset, then the detail rows Custom shows.
 void declareFrameGen(Schema& schema);

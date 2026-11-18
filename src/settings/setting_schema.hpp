@@ -5,6 +5,7 @@
 // of what a scope keeps (`setting_scope`) are all read from the declarations.
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -56,6 +57,17 @@ class LayerKinds {
     }
     std::uint8_t bits_{0};
 };
+
+/// The categories settings stand in (`Setting::section`), in the order the editor lists them.
+inline constexpr std::string_view emulatorSection = "Emulator";
+inline constexpr std::string_view videoSection = "Video";
+inline constexpr std::string_view controlsSection = "Controls";
+inline constexpr std::string_view frameGenSection = "Frame generation";
+inline constexpr std::string_view scalingSection = "Resolution and upscaling";
+inline constexpr std::string_view coreOptionSection = "Core options";
+inline constexpr std::array<std::string_view, 6> sectionOrder{emulatorSection, videoSection,
+                                                              controlsSection, frameGenSection,
+                                                              scalingSection,  coreOptionSection};
 
 /// A choice as it is kept and as the player reads it.
 struct SettingChoice {

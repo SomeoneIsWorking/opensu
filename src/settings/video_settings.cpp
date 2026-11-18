@@ -245,20 +245,21 @@ void declareVideo(Schema& schema) {
         return !applies(shaderKey).empty();
     };
     schema.add(std::move(resolution));
+    const std::string controls{controlsSection};
     schema.add(choiceSetting(touchShowKey(),
                              "Dynamic hides them while a controller plays and shows them again at "
                              "a touch",
-                             section));
+                             controls));
     schema.add(choiceSetting(touchLayoutKey,
                              "Auto shows the game's console's own controls, the gamepad for a PC "
                              "game; Racing and Platformer suit those games, and Shooter plays a "
                              "remote PC game with keys and a mouse",
-                             section));
+                             controls));
     Setting touchSize;
     touchSize.key = std::string{touchSizeKey};
     touchSize.label = "Touch controls size";
     touchSize.help = "How big the on-screen stick, buttons, Coin and Start are, as far as they fit";
-    touchSize.section = section;
+    touchSize.section = controls;
     touchSize.type = SettingType::Slider;
     touchSize.range = {.low = touchSizeSmallest, .high = touchSizeLargest, .step = 5};
     touchSize.unit = "%";

@@ -31,9 +31,20 @@ std::string phrased(const LayeredSettings& settings, const Layer& scope) {
     return scope.kind == Layer::Kind::Game ? std::string{"this game"} : settings.scopeName(scope);
 }
 
-/// The row opening group `name`'s page.
-std::string groupId(std::string_view name) {
-    return "group/" + std::string{name};
+/// The category holding the game's own rows beyond its settings.
+constexpr std::string_view thisGame = "This game";
+
+/// The row opening the page of `section`, or of `group` in it.
+std::string pageRowId(const std::string& section, const std::string& group) {
+    return group.empty() ? "section/" + section : "group/" + group;
+}
+
+/// The screen id of that page; "layered" for the list of categories.
+std::string pageId(const std::string& section, const std::string& group) {
+    if (section.empty()) {
+        return "layered";
+    }
+    return group.empty() ? "layered/" + section : "layered/" + section + "/" + group;
 }
 
 std::string rowId(std::string_view key) {
@@ -106,17 +117,26 @@ gpu2d::Rect areaFor(EditorLook look, const gpu2d::Rect& viewport, const tk::Them
 
 LayeredEditor::LayeredEditor(LayeredSettings& settings, tk::Navigator& navigator,
                              const ui::Chrome& chrome, EditorContext context, EditorLook look,
-                             std::string title, EditorRows more, std::string group)
-    : Screen{group.empty() ? std::string{"layered"} : "layered/" + group, std::move(title)},
-      settings_{settings}, navigator_{navigator}, chrome_{chrome}, context_{std::move(context)},
-      look_{look}, schema_{settings_.schemaOf(context_)}, more_{std::move(more)},
+                             std::string title, EditorRows more, std::string section,
+                             std::string group)
+    : Screen{pageId(section, group), std::move(title)}, settings_{settings}, navigator_{navigator},
+      chrome_{chrome}, context_{std::move(context)}, look_{look},
+      schema_{settings_.schemaOf(context_)}, more_{std::move(more)}, section_{std::move(section)},
       group_{std::move(group)} {
+}
+
+bool LayeredEditor::below(const settings::ScopedValue& value) const {
+    return (section_.empty() || value.setting->section == section_) &&
+           (group_.empty() || value.setting->group == group_);
 }
 
 std::unique_ptr<tk::Widget> LayeredEditor::build(const tk::Theme& theme) {
     Frame frame = frameFor(look_, theme, chrome_);
     frame.head->add<tk::Label>(title(), tk::TextRole::Title, look_ == EditorLook::Page);
-    const std::vector<settings::ScopedValue> values = settings_.rows(schema_, context_, scope());
+    std::vector<settings::ScopedValue> values = settings_.rows(schema_, context_, scope());
+    std::erase_if(values, [this](const settings::ScopedValue& value) {
+        return !below(value);
+    });
     const auto changed = static_cast<std::size_t>(
         std::ranges::count_if(values, [](const settings::ScopedValue& value) {
             return value.from.has_value();
@@ -126,33 +146,39 @@ std::unique_ptr<tk::Widget> LayeredEditor::build(const tk::Theme& theme) {
                                tk::TextRole::Caption);
     tk::List& list = frame.body->add<tk::List>("rows", theme.spacing.gap);
     list.grow();
-    addRows(list.rows(), theme);
+    addRows(list.rows(), values);
     return std::move(frame.root);
 }
 
-void LayeredEditor::addRows(tk::Column& rows, const tk::Theme& /*theme*/) {
-    const std::vector<settings::ScopedValue> values = settings_.rows(schema_, context_, scope());
+void LayeredEditor::addRows(tk::Column& rows, const std::vector<settings::ScopedValue>& values) {
     firstRow_.clear();
-    std::string section;
+    if (section_.empty()) {
+        addCategories(rows, values);
+        return;
+    }
+    if (section_ == thisGame) {
+        for (const ui::SettingsRow& row : more_.rows()) {
+            if (firstRow_.empty()) {
+                firstRow_ = row.id;
+            }
+            ui::addRow(rows, row, *more_.actions);
+        }
+        return;
+    }
+    if (group_.empty()) {
+        addSummary(rows, section_);
+    }
     std::vector<std::string> listed;
     for (const settings::ScopedValue& value : values) {
         const std::string& group = value.setting->group;
-        const bool grouped = group_.empty() && !group.empty();
-        if ((!group_.empty() && group != group_) ||
-            (grouped && std::ranges::find(listed, group) != listed.end())) {
-            continue;
-        }
-        if (value.setting->section != section) {
-            section = value.setting->section;
-            rows.add<tk::SectionHeading>(section);
-            addSummary(rows, section);
-        }
-        if (grouped) {
-            listed.push_back(group);
-            if (firstRow_.empty()) {
-                firstRow_ = groupId(group);
+        if (group_.empty() && !group.empty()) {
+            if (std::ranges::find(listed, group) == listed.end()) {
+                listed.push_back(group);
+                if (firstRow_.empty()) {
+                    firstRow_ = pageRowId(section_, group);
+                }
+                addPage(rows, values, section_, group);
             }
-            addGroup(rows, values, group);
             continue;
         }
         if (firstRow_.empty()) {
@@ -160,8 +186,25 @@ void LayeredEditor::addRows(tk::Column& rows, const tk::Theme& /*theme*/) {
         }
         addRow(rows, value);
     }
-    if (!group_.empty()) {
-        return;
+}
+
+void LayeredEditor::addCategories(tk::Column& rows,
+                                  const std::vector<settings::ScopedValue>& values) {
+    std::vector<std::string> sections{settings::sectionOrder.begin(), settings::sectionOrder.end()};
+    for (const settings::ScopedValue& value : values) {
+        if (std::ranges::find(sections, value.setting->section) == sections.end()) {
+            sections.push_back(value.setting->section);
+        }
+    }
+    for (const std::string& section : sections) {
+        if (std::ranges::any_of(values, [&section](const settings::ScopedValue& value) {
+                return value.setting->section == section;
+            })) {
+            if (firstRow_.empty()) {
+                firstRow_ = pageRowId(section, {});
+            }
+            addPage(rows, values, section, {});
+        }
     }
     const std::vector<ui::SettingsRow> more =
         more_.rows ? more_.rows() : std::vector<ui::SettingsRow>{};
@@ -171,36 +214,43 @@ void LayeredEditor::addRows(tk::Column& rows, const tk::Theme& /*theme*/) {
                                                                phrased(settings_, scope())});
     }
     if (!more.empty()) {
-        rows.add<tk::SectionHeading>("This game");
+        const std::string id = pageRowId(std::string{thisGame}, {});
         if (firstRow_.empty()) {
-            firstRow_ = more.front().id;
+            firstRow_ = id;
         }
-    }
-    for (const ui::SettingsRow& row : more) {
-        ui::addRow(rows, row, *more_.actions);
+        rows.add<tk::Item>(id, tk::Item::Text{std::string{thisGame},
+                                              "Artwork, its match, grouping and controls"})
+            .onPress(
+                [this] {
+                    navigator_.push(std::make_unique<LayeredEditor>(
+                        settings_, navigator_, chrome_, context_, look_, std::string{thisGame},
+                        more_, std::string{thisGame}));
+                },
+                "Open", true);
     }
     addClear(rows);
 }
 
-void LayeredEditor::addGroup(tk::Column& rows, const std::vector<settings::ScopedValue>& values,
-                             const std::string& group) {
+void LayeredEditor::addPage(tk::Column& rows, const std::vector<settings::ScopedValue>& values,
+                            const std::string& section, const std::string& group) {
     std::size_t settings = 0;
     std::size_t kept = 0;
     for (const settings::ScopedValue& value : values) {
-        if (value.setting->group == group) {
+        if (value.setting->section == section && (group.empty() || value.setting->group == group)) {
             ++settings;
             kept += value.from ? 1U : 0U;
         }
     }
-    rows.add<tk::Item>(groupId(group),
-                       tk::Item::Text{group, kept == 0
-                                                 ? lucent::text::counted(settings, "setting")
-                                                 : lucent::text::counted(kept, "changed setting")})
+    const std::string& name = group.empty() ? section : group;
+    rows.add<tk::Item>(pageRowId(section, group),
+                       tk::Item::Text{name, kept == 0
+                                                ? lucent::text::counted(settings, "setting")
+                                                : lucent::text::counted(kept, "changed setting")})
         .onPress(
-            // The name lives in `schema_`, so the closure copies nothing that can throw.
-            [this, name = &group] {
+            [this, section = section, group = group] {
                 navigator_.push(std::make_unique<LayeredEditor>(
-                    settings_, navigator_, chrome_, context_, look_, *name, EditorRows{}, *name));
+                    settings_, navigator_, chrome_, context_, look_,
+                    group.empty() ? section : group, EditorRows{}, section, group));
             },
             "Open", true);
 }
@@ -240,7 +290,6 @@ void LayeredEditor::addClear(tk::Column& rows) {
     const std::string whose = game ? std::string{"this game's"} : settings_.scopeName(here);
     const std::string under = here.kind == Layer::Kind::Global ? std::string{"its default"}
                                                                : std::string{"what it inherits"};
-    rows.add<tk::SectionHeading>("Reset");
     rows.add<tk::Item>(std::string{clearId},
                        tk::Item::Text{"Clear " + whose + " settings",
                                       "Every value set here goes back to " + under})

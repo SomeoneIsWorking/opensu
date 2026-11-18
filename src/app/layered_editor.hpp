@@ -1,11 +1,12 @@
 // layered_editor — the one editor of layered settings, for a game (its own level over its core's,
-// its console's and the one for all games), Global, a console or a core. Each row shows the value
-// in effect and a chip naming the level it comes from; A opens the setting's sheet
-// (`SettingSheet`), which overrides or removes it at each level. A core's option categories each
-// open the editor on their own options. Frame generation and resolution and upscaling open on a
-// one-line summary. As a page it fills the screen (Settings, a game's details); as a panel it
-// stands at the right over the running game. The shader preset opens `ShaderPresetScreen`, the
-// pack's folders in the same presentation.
+// its console's and the one for all games), Global, a console or a core. It opens on its categories
+// (`settings::sectionOrder`), each a row leading to that category's page; a core's option groups
+// lead on again to a page each. A setting's row shows the value in effect and a chip naming the
+// level it comes from; A opens the setting's sheet (`SettingSheet`), which sets it for all games
+// and adds or removes an override at each level. Frame generation and resolution and upscaling
+// open on a one-line summary. As a page it fills the screen (Settings, a game's details); as a
+// panel it stands at the right over the running game. The shader preset opens `ShaderPresetScreen`,
+// the pack's folders in the same presentation.
 #pragma once
 
 #include <cstddef>
@@ -40,10 +41,12 @@ struct EditorRows {
 
 class LayeredEditor final : public gpu2d::ui::Screen {
   public:
-    /// `title` names what it edits; with `group`, only that group's settings (`Setting::group`).
+    /// `title` names what it edits. Without `section` it lists the categories; with it, that
+    /// category's settings; with `group` too, only that group's (`Setting::group`).
     LayeredEditor(LayeredSettings& settings, gpu2d::ui::Navigator& navigator,
                   const ui::Chrome& chrome, EditorContext context, EditorLook look,
-                  std::string title, EditorRows more = {}, std::string group = {});
+                  std::string title, EditorRows more = {}, std::string section = {},
+                  std::string group = {});
 
     [[nodiscard]] std::unique_ptr<gpu2d::ui::Widget> build(const gpu2d::ui::Theme& theme) override;
     [[nodiscard]] gpu2d::Rect area(const gpu2d::Rect& viewport,
@@ -59,12 +62,17 @@ class LayeredEditor final : public gpu2d::ui::Screen {
     [[nodiscard]] const settings::Layer& scope() const {
         return context_.scopes.back();
     }
-    /// The rows, under their headings, into `rows`.
-    void addRows(gpu2d::ui::Column& rows, const gpu2d::ui::Theme& theme);
+    /// The page's rows into `rows`: the categories, a category's settings or a group's.
+    void addRows(gpu2d::ui::Column& rows, const std::vector<settings::ScopedValue>& values);
+    /// A row per category that has a setting here, then the game's own rows and Reset.
+    void addCategories(gpu2d::ui::Column& rows, const std::vector<settings::ScopedValue>& values);
     void addRow(gpu2d::ui::Column& rows, const settings::ScopedValue& value);
-    /// The row opening `group`'s page, with how many of its settings are changed.
-    void addGroup(gpu2d::ui::Column& rows, const std::vector<settings::ScopedValue>& values,
-                  const std::string& group);
+    /// The row opening the page of `section` (and `group` in it), with how many of its settings
+    /// are changed.
+    void addPage(gpu2d::ui::Column& rows, const std::vector<settings::ScopedValue>& values,
+                 const std::string& section, const std::string& group);
+    /// Whether `value` stands on this page, or on one it leads to.
+    [[nodiscard]] bool below(const settings::ScopedValue& value) const;
     /// The summary over `section`'s rows, for a section that has one.
     void addSummary(gpu2d::ui::Column& rows, const std::string& section);
     void addClear(gpu2d::ui::Column& rows);
@@ -78,7 +86,9 @@ class LayeredEditor final : public gpu2d::ui::Screen {
     /// The first row as last built.
     std::string firstRow_;
     EditorRows more_;
-    /// The group this page sets; empty for the editor itself.
+    /// The category this page sets; empty for the list of categories.
+    std::string section_;
+    /// The group of `section_` this page sets; empty for the whole category.
     std::string group_;
 };
 

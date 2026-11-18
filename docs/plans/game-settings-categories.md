@@ -15,6 +15,16 @@ Steps 4 and 5 are built: a core's v2 categories reach Game settings, each as a r
 settings") that opens a page of its options; options in no category stay on the main page. Seen
 with mGBA's options at phone size; FinalBurn Neo not yet seen.
 
+Asked 2026-11-18: "Game Settings is not intuitive, the settings aren't categorized well, a lot of
+top level entries then groups, imo don't put anything top level"; overrides "top to bottom, global >
+library > system > emulator"; "Removing overrides should just be an X near the override, don't show
+all overrides at once also, show the main settings then add override buttons". Built: the editor
+opens on its categories only (`settings::sectionOrder`, touch controls under Controls, the game's
+own rows under This game); a setting's sheet shows the value for all games, the overrides it has in
+that order, each with an × (X on a pad), and Add override per level without one. Seen over Crash
+Bandicoot on Beetle PSX HW in a hidden run. Not settled: the name "Game settings" for what is also
+set for all games.
+
 ## What it does
 
 Every setting names one category, and the editor shows each category once, under its heading, in

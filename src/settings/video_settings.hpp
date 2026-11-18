@@ -226,9 +226,6 @@ inline constexpr std::string_view presetArtCredit =
 inline constexpr std::string_view noPreset = "none";
 inline constexpr std::string_view autoConsolePreset = "auto-console";
 
-/// The heading the video settings stand under.
-inline constexpr std::string_view videoSection = "Video";
-
 /// Declares the video settings in `schema`: the visual preset, Aspect, Integer scale, Sampling and
 /// Filter (Sampling and Filter hidden while a shader preset applies, which replaces them), the
 /// shader preset, Shader resolution (shown only while a preset applies), Touch controls, their

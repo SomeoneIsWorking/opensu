@@ -93,7 +93,7 @@ settings::Setting emulatorPickSetting(const std::vector<std::string>& names,
     setting.key = std::string{emulatorKey};
     setting.label = "Emulator";
     setting.help = "What runs its games: a built-in core or an emulator of your own";
-    setting.section = "Emulator";
+    setting.section = std::string{settings::emulatorSection};
     for (const std::string& name : names) {
         setting.choices.push_back(settings::SettingChoice{name, name});
     }

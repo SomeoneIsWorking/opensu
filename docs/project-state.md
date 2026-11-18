@@ -78,8 +78,9 @@ Visible deltas from the baseline:
   librashader; it replaces Sampling and Filter), or a Visual preset (CRT, or Auto Console's frame of
   the game's console) that sets them with a frame drawn around the picture, kept per game, per core, per console, for every
   built-in core's game (Libretro) and globally, each value showing where it comes from as a chip,
-  set in one layered editor whose rows each open a sheet overriding or removing the value at each
-  level (the game, its core, its console, Libretro, All games) from Settings › Emulators, the
+  set in one layered editor that opens on its categories, whose rows each open a sheet with the value
+  for all games and an added override per level (Libretro, its console, its core, the game), each
+  removed by its ×, from Settings › Emulators, the
   details page and the quick menu while the game runs, where each change shows at once; a core's own options are kept per core and per game the same way (S040). iiSU has no video settings for its
   emulators.
 - A breadcrumb trail in the top bar's start (`Library > GOG > Search "had" > Installed > <game>`)

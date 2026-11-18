@@ -113,12 +113,16 @@ the frame around the game.
 
 ## Setting layers
 
-Every per-game setting (video, the core's own options, the emulator pick, frame generation and
-resolution) is kept at four layers: Global, the console, the core, and the game. A value resolves
-game, then core, then console, then Global, then the default, and every row names the layer it
-comes from. One editor shows them all, with a tab per layer: Settings › Emulators (Global, Consoles,
-Built-in cores), a game's details page (Game settings) and the Guide menu over a running game (Game
-settings, a panel over the game, whose changes reach the game at once).
+Every per-game setting (video, controls, the core's own options, the emulator pick, frame
+generation and resolution) is kept at five levels: all games, Libretro (every game a built-in core
+plays), the console, the core and the game. A value resolves game, then core, then console, then
+Libretro, then all games, then the default, and every row names the level it comes from. One editor
+shows them: Settings › Emulators (Global, Consoles, Built-in cores), a game's details page (Game
+settings) and the Guide menu over a running game (Game settings, a panel over the game, whose
+changes reach the game at once). It opens on its categories (Emulator, Video, Controls, Frame
+generation, Resolution and upscaling, Core options, This game), each a page; Core options opens on
+the core's own groups. A setting opens on its value for all games, then the overrides it has, each
+with an × to remove it (X on a controller), then Add override for each level that has none.
 
 ![The layered editor over a game](../screenshots/layered-editor.webp)
 

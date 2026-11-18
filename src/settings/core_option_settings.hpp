@@ -16,8 +16,6 @@ namespace opensu::settings {
 
 /// The prefix every core option's key is kept under.
 inline constexpr std::string_view coreOptionPrefix = "core.";
-/// The heading core options stand under.
-inline constexpr std::string_view coreOptionSection = "Core options";
 
 /// One option as the core defines it.
 struct CoreOptionDefinition {

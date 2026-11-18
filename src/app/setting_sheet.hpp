@@ -1,10 +1,9 @@
-// setting_sheet — one layered setting over the dimmed screen: a row for each level of the editor's
-// context that may keep it under "Override for", the most specific first (Alien vs Predator,
-// FinalBurn Neo, Arcade, All games), each with the value it keeps or inherits, and a "Remove
-// override" row for each level that keeps one.
+// setting_sheet — one layered setting over the dimmed screen, least specific first: its value for
+// all games, then each level of the editor's context that overrides it (Libretro, Arcade,
+// FinalBurn Neo, Alien vs Predator), each with an × (or X) that removes the override, then "Add
+// override" with a button for each level that has none yet.
 #pragma once
 
-#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -37,9 +36,12 @@ class SettingSheet final : public gpu2d::ui::Screen {
     [[nodiscard]] std::string initialFocus() const override;
 
   private:
-    /// The row setting the value `level` keeps.
+    /// The row setting the value `level` keeps, with its × `gap` dp beside it when it keeps one.
     void addLevel(gpu2d::ui::Column& rows, const settings::ScopedValue& value,
-                  const settings::Layer& level);
+                  const settings::Layer& level, float gap);
+    /// The button adding an override at `level`, or putting back the one removed this run.
+    void addOverride(gpu2d::ui::Column& rows, const settings::ScopedValue& value,
+                     const settings::Layer& level);
     /// The value at `level`, or null when the setting is not kept there.
     [[nodiscard]] const settings::ScopedValue*
     find(const std::vector<settings::ScopedValue>& values) const;
@@ -47,10 +49,8 @@ class SettingSheet final : public gpu2d::ui::Screen {
     [[nodiscard]] const settings::Layer& layerOf(settings::Layer::Kind kind) const;
     /// "Alien vs Predator" for the game's level, else the level's name.
     [[nodiscard]] std::string levelName(const settings::Layer& level) const;
-    /// The level's row under "Override for": "FinalBurn Neo", or "All games".
+    /// The level's row: "FinalBurn Neo", or "All games".
     [[nodiscard]] std::string levelTitle(const settings::Layer& level) const;
-    /// "Use 4:3 from Arcade", or "Use the default: Off".
-    [[nodiscard]] std::string useText(const settings::ScopedValue& value) const;
 
     LayeredSettings& settings_;
     gpu2d::ui::Navigator& navigator_;
@@ -59,9 +59,11 @@ class SettingSheet final : public gpu2d::ui::Screen {
     EditorLook look_;
     settings::Schema schema_;
     std::string key_;
-    /// Each level's choice keys by place, place 0 inheriting; kept here so a row's closure holds
-    /// only values that copy without throwing.
-    std::map<settings::Layer::Kind, std::vector<std::string>> choiceKeys_;
+    /// The setting's choice keys by place; kept here so a row's closure holds only values that
+    /// copy without throwing.
+    std::vector<std::string> choiceKeys_;
+    /// The level focused when it opens: the one whose value is in effect.
+    std::string focus_;
 };
 
 } // namespace opensu::app

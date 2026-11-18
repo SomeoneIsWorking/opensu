@@ -405,11 +405,15 @@ def _downloads_uninstalling(shell: HiddenShell) -> None:
 
 
 def _game_mapping(shell: HiddenShell) -> None:
-    """The focused game's details, Game settings, then its Controls row; the board opens on A."""
+    """The focused game's details, Game settings › This game, then its Controls row; the board
+    opens on A."""
     _details(shell)
     _down_to(shell, "details.settings")
     shell.press("a")
     shell.wait_for("screen", "layered")
+    _down_to(shell, "section/This game")
+    shell.press("a")
+    shell.wait_for("screen", "layered/This game")
     _down_to(shell, "details.controls")
     shell.press("a")
     shell.wait_for("mapping", "board")
@@ -419,6 +423,8 @@ def _game_mapping(shell: HiddenShell) -> None:
 def _leave_game_mapping(shell: HiddenShell) -> None:
     shell.press("b")
     shell.wait_for("mapping", "")
+    shell.wait_for("screen", "layered/This game")
+    shell.press("b")
     shell.wait_for("screen", "layered")
     shell.press("b")
     shell.wait_for("screen", "details")
@@ -740,6 +746,9 @@ def retro_scenes(home: Profile, work: Path) -> tuple[Scene, ...]:
         _guide_row(shell, "down", "guide.gameSettings")
         shell.press("a")
         shell.wait_for("screen", "layered")
+        _down_to(shell, "section/Video")
+        shell.press("a")
+        shell.wait_for("screen", "layered/Video")
         for _ in range(LONGEST_WALK):
             if shell.state().get("screenFocus") == "row/video.shader":
                 return
@@ -747,6 +756,8 @@ def retro_scenes(home: Profile, work: Path) -> tuple[Scene, ...]:
         shell.wait_for("screenFocus", "row/video.shader", timeout=1.0)
 
     def close_game(shell: HiddenShell) -> None:
+        shell.press("b")
+        shell.wait_for("screen", "layered")
         shell.press("b")
         shell.wait_for("screen", "guide")
         _guide_row(shell, "up", "guide.closeGame")

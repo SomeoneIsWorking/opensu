@@ -68,8 +68,6 @@ inline constexpr std::string_view scalingFullSize = "full";
 inline constexpr std::string_view scalingSharpnessKey = "scaling.sharpness";
 inline constexpr Setting::Range scalingSharpnessRange{0, 100, 5};
 inline constexpr int scalingSharpnessDefault = 90;
-/// The heading the scaling settings stand under.
-inline constexpr std::string_view scalingSection = "Resolution and upscaling";
 
 /// Declares the scaling settings in `schema`; `screen` names each resolution by the size it comes
 /// to, else by its share of the screen.
