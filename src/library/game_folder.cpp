@@ -15,6 +15,7 @@
 #include "game_identify.hpp"
 #include "ini_file.hpp"
 #include "lucent/log.h"
+#include "mac_bundle.hpp"
 #include "net/web_client.hpp"
 #include "shell_link.hpp"
 #include "titles.hpp"
@@ -324,47 +325,18 @@ std::optional<fs::path> programIn(const fs::path& subfolder, Host host) {
     return best;
 }
 
-/// The value after `<key>name</key>` in an XML property list; empty when it has none.
-std::string plistValue(const std::string& plist, std::string_view name) {
-    const std::string key = "<key>" + std::string{name} + "</key>";
-    const std::size_t at = plist.find(key);
-    if (at == std::string::npos) {
-        return {};
-    }
-    const std::size_t open = plist.find("<string>", at + key.size());
-    const std::size_t close = plist.find("</string>", at + key.size());
-    if (open == std::string::npos || close == std::string::npos || close < open) {
-        return {};
-    }
-    const std::size_t from = open + std::string_view{"<string>"}.size();
-    return plist.substr(from, close - from);
-}
-
 std::optional<Entry> bundleEntry(const fs::path& app) {
-    std::ifstream in{app / "Contents" / "Info.plist", std::ios::binary};
-    const std::string plist{std::istreambuf_iterator<char>{in}, {}};
-    std::string program = plistValue(plist, "CFBundleExecutable");
-    if (program.empty()) {
-        program = app.stem().string();
-    }
-    fs::path executable = app / "Contents" / "MacOS" / program;
+    const MacBundle bundle{app};
+    fs::path executable = bundle.executable();
     if (!own::kindOf(executable)) {
         return std::nullopt;
     }
-    std::string title = plistValue(plist, "CFBundleDisplayName");
-    if (title.empty()) {
-        title = plistValue(plist, "CFBundleName");
-    }
-    std::string icon = plistValue(plist, "CFBundleIconFile");
-    if (!icon.empty() && !icon.ends_with(".icns")) {
-        icon += ".icns";
-    }
     return Entry{.id = idOf(app),
-                 .title = title.empty() ? app.stem().string() : std::move(title),
+                 .title = bundle.title(),
                  .file = std::move(executable),
                  .origin = own::Origin::Folder,
                  .originId = app.string(),
-                 .icon = icon.empty() ? fs::path{} : app / "Contents" / "Resources" / icon};
+                 .icon = bundle.iconFile()};
 }
 
 /// Adds `entry` unless another way to the same file was found first.

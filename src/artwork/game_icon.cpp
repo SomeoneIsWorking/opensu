@@ -12,6 +12,7 @@
 #include "gpu2d/image/decode.hpp"
 #include "gpu2d/image/png_encoder.hpp"
 #include "library/game_folder.hpp"
+#include "library/mac_bundle.hpp"
 #include "library/pe_resources.hpp"
 #include "lucent/log.h"
 
@@ -406,41 +407,11 @@ std::optional<std::string> gameIcon(const library::Game& game,
 
 namespace {
 
-/// The `.app` bundle `program` sits in; empty when it is in none.
-fs::path bundleOf(const fs::path& program) {
-    for (fs::path folder = program; folder.has_relative_path(); folder = folder.parent_path()) {
-        if (extensionOf(folder) == ".app") {
-            return folder;
-        }
-    }
-    return {};
-}
-
-/// The string an XML property list gives `key`; empty when it gives none or is binary.
-std::string plistString(const std::string& text, std::string_view key) {
-    const std::string tag = "<key>" + std::string{key} + "</key>";
-    const std::size_t at = text.find(tag);
-    if (at == std::string::npos) {
-        return {};
-    }
-    const std::size_t open = text.find("<string>", at + tag.size());
-    const std::size_t close = text.find("</string>", open);
-    if (open == std::string::npos || close == std::string::npos ||
-        text.find_first_not_of(" \t\r\n", at + tag.size()) != open) {
-        return {};
-    }
-    return text.substr(open + 8, close - open - 8);
-}
-
 /// A macOS bundle's icon: the `.icns` its Info.plist names, else `AppIcon.icns`, else one named
 /// as the bundle, else the first in its Resources.
 std::optional<std::string> bundleIcon(const fs::path& bundle) {
     const fs::path resources = bundle / "Contents" / "Resources";
-    const std::vector<std::uint8_t> plist = fileBytes(bundle / "Contents" / "Info.plist");
-    fs::path named{plistString(std::string{plist.begin(), plist.end()}, "CFBundleIconFile")};
-    if (!named.empty() && !named.has_extension()) {
-        named += ".icns";
-    }
+    const fs::path named = library::MacBundle{bundle}.iconFile();
     std::vector<fs::path> found;
     std::error_code error;
     for (const fs::directory_entry& entry : fs::directory_iterator{resources, error}) {
@@ -464,7 +435,7 @@ std::optional<std::string> emulatorIcon(const library::EmulatorOption& option,
                                         const std::vector<fs::path>& themes,
                                         const std::vector<fs::path>& applications) {
     const fs::path program{option.launch.program};
-    if (const fs::path bundle = bundleOf(program); !bundle.empty()) {
+    if (const fs::path bundle = library::MacBundle::containing(program); !bundle.empty()) {
         return bundleIcon(bundle);
     }
     const auto starts = [&](const std::vector<std::string>& command) {
