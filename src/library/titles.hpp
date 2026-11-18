@@ -20,6 +20,11 @@ namespace opensu::library {
 /// count, so a title with none (all CJK, say) has an empty key and is never merged.
 [[nodiscard]] std::string titleKey(std::string_view title);
 
+/// `title`'s words as a store app is told apart by: runs of lower-case ASCII letters and digits,
+/// one space between, an apostrophe inside a word dropped and "&" read as "and", so "Baldurs Gate
+/// 3" is "Baldur's Gate 3" but "Devoid" is not "De:Void".
+[[nodiscard]] std::string titleWords(std::string_view title);
+
 /// What the player's choices about `game` (hidden, on Home) are kept under: its title across
 /// stores ("title:<key>"), or its id for a ROM or a title with an empty key ("id:<id>").
 [[nodiscard]] std::string choiceKey(const Game& game);

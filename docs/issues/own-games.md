@@ -24,7 +24,8 @@ program, not the folder".
   above it up to a library folder such as `Games` or `AppImages`, skipping `Game`, `Binaries`,
   `Win64` and the like, the .exe's version resource unless it is an engine placeholder such as
   `BootstrapPackagedGame`, the file's name without build words such as `_Steam`), then each clue
-  in Steam's store search (no key) until one equals a store title (`titles::titleKey`), or the
+  in Steam's store search (no key) until one equals a store title word for word
+  (`titles::titleWords`: "Devoid" is not "De:Void"), or the
   app of `steam_appid.txt`. The confirm card says the platform, the Steam app and where the title
   came from, with the title in a field; Done adds, Close does not.
 - An entry is kept in `<data dir>/own-games.json`, never in the game's folder; ids are never given

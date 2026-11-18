@@ -115,6 +115,7 @@ std::vector<identify::StoreApp> store(const std::string& term) {
         {"1599660", "Sackboy\xE2\x84\xA2: A Big Adventure"},
         {"1177980", "Little Kitty, Big City"},
         {"1262560", "Need for Speed\xE2\x84\xA2 Most Wanted"},
+        {"1240440", "De:Void"},
     };
     const std::string key = opensu::library::titleKey(term);
     std::vector<identify::StoreApp> found;
@@ -158,6 +159,8 @@ void gamesAreIdentified(const fs::path& games) {
     file(games / "Resident Evil 4/steam_appid.txt", "2050650\n");
     const fs::path nebula = file(games / "AppImages/nebula-reset.appimage", "ELF");
     fs::permissions(nebula, fs::perms::owner_all);
+    const fs::path devoid = file(games / "Devoid/Devoid.x86_64", "ELF");
+    fs::permissions(devoid, fs::perms::owner_all);
     const std::vector<Case> cases{
         {elden, "ELDEN RING", "1245620", Kind::Windows},
         {file(games / "Lies of P/LOP.exe", programWith("ProductName", "BootstrapPackagedGame")),
@@ -176,6 +179,7 @@ void gamesAreIdentified(const fs::path& games) {
         {file(games / "Need For Speed Most Wanted Remaster Edition/speed.exe"),
          "Need For Speed Most Wanted Remaster Edition", "", Kind::Windows},
         {nebula, "Nebula Reset", "", Kind::AppImage},
+        {devoid, "Devoid", "", Kind::Native},
     };
     for (const Case& each : cases) {
         const identify::Guess guess = identify::identify(each.file, &store);
@@ -223,6 +227,10 @@ void sameTitleIsExact() {
            "trademark signs and case do not count");
     expect(!sameTitle(apps, "Dino Crisis"), "a near title is no match");
     expect(!sameTitle(apps, "!!"), "a title of nothing matches nothing");
+    const std::vector<StoreApp> others{{"3", "De:Void"}, {"4", "Baldur's Gate 3"}};
+    expect(!sameTitle(others, "Devoid"), "a title whose words differ is another game");
+    expect(sameTitle(others, "Baldurs Gate 3").value_or(StoreApp{}).appId == "4",
+           "an apostrophe a file name leaves out does not split a word");
 }
 
 void storeAnswersAreRead() {

@@ -158,6 +158,36 @@ std::string titleKey(std::string_view title) {
     return key;
 }
 
+std::string titleWords(std::string_view title) {
+    std::string words;
+    bool broken = false;
+    const auto add = [&](std::string_view part) {
+        if (broken && !words.empty()) {
+            words += ' ';
+        }
+        broken = false;
+        words += part;
+    };
+    for (std::size_t at = 0; at < title.size(); ++at) {
+        const auto byte = static_cast<unsigned char>(title[at]);
+        if (byte < 0x80 && std::isalnum(byte) != 0) {
+            const char lower = static_cast<char>(std::tolower(byte));
+            add(std::string_view{&lower, 1});
+        } else if (title[at] == '&') {
+            broken = true;
+            add("and");
+            broken = true;
+        } else if (title[at] == '\'') {
+            continue;
+        } else if (title.substr(at).starts_with("\xE2\x80\x99")) {
+            at += 2;
+        } else {
+            broken = true;
+        }
+    }
+    return words;
+}
+
 std::string baseKey(std::string_view title) {
     return titleKey(title.substr(0, subtitleAt(title)));
 }

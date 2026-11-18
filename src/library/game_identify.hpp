@@ -76,8 +76,9 @@ struct Guess {
 [[nodiscard]] Clues cluesOf(const std::filesystem::path& file,
                             const std::filesystem::path& stopAt = {});
 
-/// The app of `apps` called `title`, ignoring case, punctuation and trademark signs; a store's near
-/// matches are not the game.
+/// The app of `apps` called `title` word for word (`titleWords`), ignoring case and trademark
+/// signs; a store's near matches, and a title whose punctuation splits other words, are not the
+/// game.
 [[nodiscard]] std::optional<StoreApp> sameTitle(const std::vector<StoreApp>& apps,
                                                 std::string_view title);
 

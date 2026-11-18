@@ -260,9 +260,9 @@ Clues cluesOf(const fs::path& file, const fs::path& stopAt) {
 }
 
 std::optional<StoreApp> sameTitle(const std::vector<StoreApp>& apps, std::string_view title) {
-    const std::string key = titleKey(unmarked(std::string{title}));
-    const auto found = std::ranges::find_if(apps, [&key](const StoreApp& app) {
-        return !key.empty() && titleKey(unmarked(app.title)) == key;
+    const std::string words = titleWords(unmarked(std::string{title}));
+    const auto found = std::ranges::find_if(apps, [&words](const StoreApp& app) {
+        return !words.empty() && titleWords(unmarked(app.title)) == words;
     });
     return found == apps.end() ? std::nullopt : std::optional{*found};
 }
