@@ -208,8 +208,13 @@ def _capture(args: argparse.Namespace) -> int:
     )
     wanted = set(filter(None, args.scenes.split(",")))
     scenes = tuple(scene for scene in SCENES if not wanted or scene.name in wanted)
-    _run(args.opensu, profile, run / "opensu.log", scenes, frames, None, args.out, _demo_loaded(0))
-    if wanted:
+    stores = tuple(scene for scene in DOWNLOAD_SCENES if not wanted or scene.name in wanted)
+    if scenes:
+        _run(
+            args.opensu, profile, run / "opensu.log", scenes, frames, None, args.out,
+            _demo_loaded(0),
+        )  # fmt: skip
+    if not stores:
         return 0
     store_tools = legendary.install(mixer.install(run / "store-tools"))
     store = Profile(home=run / "store-home", steam_root=steam, rom_root=roms, tools=store_tools)
@@ -217,7 +222,7 @@ def _capture(args: argparse.Namespace) -> int:
         args.opensu,
         store,
         run / "opensu-store.log",
-        DOWNLOAD_SCENES,
+        stores,
         frames,
         None,
         args.out,
