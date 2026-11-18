@@ -33,9 +33,10 @@ constexpr std::string_view small = R"({
 void shippedParses() {
     const VisualPresets shipped = VisualPresets::shipped(OPENSU_ASSETS_DIR, "/data");
     expect(shipped.find("crt") != nullptr, "CRT is in the shipped catalog");
-    expect(shipped.forConsole("nes") != nullptr, "the NES has a preset of its own");
+    expect(shipped.forConsole("nes") != nullptr && shipped.forConsole("psx") != nullptr,
+           "the NES and the PlayStation have presets of their own");
     expect(shipped.chosen("auto-console", "nes") == shipped.forConsole("nes") &&
-               shipped.chosen("auto-console", "psx") == nullptr &&
+               shipped.chosen("auto-console", "n64") == nullptr &&
                shipped.chosen("none", "nes") == nullptr,
            "Auto Console picks the console's own, a console without one runs as None");
     for (const PresetArt& art : shipped.art()) {

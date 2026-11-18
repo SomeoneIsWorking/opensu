@@ -17,6 +17,12 @@
       "url": "https://raw.githubusercontent.com/libretro/common-overlays/8cc97a529fc642ec9e40e2c2f7e7e5c53ea88428/borders/animated-border/img-nes/background.png",
       "size": 81813,
       "sha256": "79c664f010c154af9267add41b166e8f8b6cebbec79dd09ef15fea1933f85cda"
+    },
+    {
+      "id": "psx-console",
+      "url": "https://raw.githubusercontent.com/libretro/common-overlays/8cc97a529fc642ec9e40e2c2f7e7e5c53ea88428/borders/animated-border/img-psx/main_body_lights.png",
+      "size": 128627,
+      "sha256": "0a3fcd174c2ae0ec910e18ea7d87f5819cef88bff4a8d7fc17b04d720fb7cf77"
     }
   ],
   "presets": [
@@ -34,6 +40,13 @@
       "aspect": "4:3",
       "landscape": {"art": "nes-console", "picture": [255, 0, 1410, 1080]},
       "portrait": {"art": "nes-console", "picture": [255, 0, 1410, 1080]}
+    },
+    {
+      "id": "psx",
+      "consoles": ["psx"],
+      "aspect": "4:3",
+      "landscape": {"art": "psx-console", "picture": [240, 0, 1440, 1080]},
+      "portrait": {"art": "psx-console", "picture": [240, 0, 1440, 1080]}
     }
   ]
 }

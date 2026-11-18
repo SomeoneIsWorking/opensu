@@ -95,7 +95,8 @@ says why.
 `assets/visual-presets.json` lists them. CRT runs `crt/crt-lottes.slangp` from the shader pack (the
 built-in CRT filter while the pack is not downloaded) at 4:3 inside a television on a landscape
 screen and inside a curved CRT bezel on a portrait one. Auto Console picks the game's console's own
-preset, so far the NES controller frame; a console with none runs as None.
+preset: the NES controller frame, or the PlayStation console frame; a console with none runs as
+None.
 
 The frames are never shipped. Each image is pinned to a libretro common-overlays commit by URL,
 size and SHA-256 and downloads on demand into `<data>/opensu/overlays/<id>.png`: on the first
