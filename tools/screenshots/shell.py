@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from tools.screenshots.locations import config_dir
+
 PORT_LINE = re.compile(r"control channel on http://127\.0\.0\.1:(\d+)/")
 
 # Every integration on, so every store shows.
@@ -62,6 +64,8 @@ class Profile:
             XDG_CACHE_HOME=str(self.home / ".cache"),
             XDG_DATA_HOME=str(self.home / ".local" / "share"),
             XDG_RUNTIME_DIR=str(self.runtime()),
+            # macOS keeps the runtime directory under TMPDIR.
+            TMPDIR=str(self.runtime()),
             OPENSU_STEAM_ROOTS=str(self.steam_root),
             OPENSU_ROM_ROOTS=str(self.rom_root),
             LC_TIME="C.UTF-8",
@@ -78,7 +82,7 @@ class Profile:
     def prepare(self) -> None:
         """Makes the runtime directory and, the first time, settings with every integration on."""
         self.runtime().mkdir(parents=True, exist_ok=True, mode=0o700)
-        settings = self.home / ".config" / "opensu" / "settings.json"
+        settings = config_dir(self.home) / "settings.json"
         if not settings.exists():
             settings.parent.mkdir(parents=True, exist_ok=True)
             chosen = {"interfaceTheme": self.interface_theme} if self.interface_theme else {}

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from tools.download import fetch_verified
+from tools.screenshots.locations import config_dir
 from tools.screenshots.shell import HiddenShell, Profile, RealHome
 
 
@@ -67,7 +68,7 @@ def profile(root: Path, downloads: Path) -> Profile:
     steam = root / "steam"
     steam.mkdir(parents=True, exist_ok=True)
     home = root / "home"
-    config = home / ".config" / "opensu"
+    config = config_dir(home)
     config.mkdir(parents=True, exist_ok=True)
     (config / "settings.json").write_text(json.dumps(INTEGRATIONS))
     layers = {"systems": {SYSTEM: {"video.shader": SHADER}}}

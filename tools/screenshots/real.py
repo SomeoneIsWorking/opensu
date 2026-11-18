@@ -8,9 +8,11 @@ import json
 from pathlib import Path
 from types import TracebackType
 
+from tools.screenshots.locations import config_dir
+
 PROC = Path("/proc")
 EXECUTABLE = "opensu"
-SETTINGS = Path.home() / ".config" / "opensu"
+SETTINGS = config_dir(Path.home())
 KEPT = ("settings.json", "game-settings.json")
 
 

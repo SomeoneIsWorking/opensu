@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from tools.nat_lab.topology import Host, Node
+from tools.screenshots.locations import config_dir
 
 
 @dataclass
@@ -44,7 +45,7 @@ class Instance:
 
     def start(self) -> None:
         self.home.mkdir(parents=True, exist_ok=True)
-        config = self.home / ".config" / "opensu"
+        config = config_dir(self.home)
         config.mkdir(parents=True, exist_ok=True)
         (config / "settings.json").write_text(
             json.dumps({"onlineStunServers": self.stun, **self.settings})
