@@ -70,6 +70,7 @@ class Rig:
         any_core: bool = False,
         embedded_zerotier: bool = False,
         relay: bool = False,
+        busy_host: bool = False,
     ) -> None:
         if context.out.exists():
             shutil.rmtree(context.out)
@@ -89,6 +90,7 @@ class Rig:
         self.instances: list[Instance] = []
         self.embedded_zerotier = embedded_zerotier
         self.with_relay = relay
+        self.busy_host = busy_host
         # __exit__ never runs for a failed __init__, so a failed start stops what it started.
         try:
             self.start(context, zerotier, lan, gateway, lease, any_core)
@@ -183,9 +185,9 @@ class Rig:
             while "up" not in self.gateway_text() and time.monotonic() < until:
                 time.sleep(0.05)
         roms = context.out / "roms"
-        if any_core:
+        if any_core or self.busy_host:
             build_gb_rom(roms / "gb" / "any_core.gb")
-        else:
+        if not any_core:
             (roms / "gba").mkdir(parents=True)
             build_rom(roms / "gba" / "link_test.gba", False)
         binary = context.build / "src" / "opensu"
@@ -195,8 +197,16 @@ class Rig:
             settings = {**settings, **online}
             bus = self.mdns[len(made)].address if lan else ""
             folder = context.out / name.lower()
+            # A host that lists its games as streamable, though nothing here streams them.
+            env = (
+                {"GAMESCOPE_WAYLAND_DISPLAY": "lab-gamescope"}
+                if self.busy_host and not made
+                else {}
+            )
             made.append(
-                Instance(name.lower(), at, folder, binary, roms, stun_list(), settings, bus)
+                Instance(
+                    name.lower(), at, folder, binary, roms, stun_list(), settings, bus, env=env
+                )
             )
         self.host, self.friend = made
         self.instances = made
@@ -646,6 +656,68 @@ def lan_homes(context: Context) -> None:
             raise RuntimeError("Host's Home did not follow the guest's")
 
 
+def start_from_shelf(node, console: str, rom: str) -> None:
+    """From Home, opens `console`'s shelf and plays `rom` from its details page."""
+    for _ in range(12):
+        if node.state().get("focusedId") == console:
+            break
+        node.press("right")
+    node.press("a")
+    time.sleep(1)
+    for _ in range(12):
+        if str(node.state().get("focusedId", "")).endswith(rom):
+            break
+        node.press("right")
+    node.press("a")
+    node.wait("on the details page", lambda state: state["detailsOpen"])
+    node.focus("details.launch")
+    node.press("a")
+    # A Gamescope host waits on a window the lab has none of; its game runs all the same.
+    node.wait("running it", lambda state: state["inGame"] or state["launching"], seconds=30)
+
+
+def lan_busy(context: Context) -> None:
+    """A paired openSU playing one game: asking it for another asks to continue or join that."""
+    with Rig(context, "restricted", "restricted", zerotier=True, lan=True, busy_host=True) as rig:
+        for each in (rig.host, rig.friend):
+            each.wait("seeing the other", lambda state: state["lanSeen"] >= 1, seconds=30)
+        lan_pair(rig)
+        host, friend = rig.host, rig.friend
+        for each in (host, friend):
+            for _ in range(8):
+                state = each.state()
+                if not state["settingsOpen"] and state.get("screen") in ("", "home", None):
+                    break
+                each.press("b")
+                time.sleep(0.5)
+        listed = friend.log.read_text().count("Host lists")
+        start_from_shelf(host, "console:gb", "any_core.gb")
+        until = time.monotonic() + 30
+        while friend.log.read_text().count("Host lists") <= listed and time.monotonic() < until:
+            time.sleep(0.2)
+        time.sleep(1)
+        add_link_test_to_home(rig, friend)
+        friend.press("a")
+        friend.wait("on the details page", lambda state: state["detailsOpen"])
+        time.sleep(1)
+        for _ in range(12):
+            if str(friend.state()["screenFocus"]).endswith("details.more"):
+                break
+            friend.press("down")
+        friend.press("a")
+        time.sleep(1.2)
+        for _ in range(12):
+            focus = str(friend.state()["screenFocus"])
+            if focus.startswith("details.of:lan:") and focus.endswith("details.launch"):
+                break
+            friend.press("down")
+        print("remote play row", friend.state()["screenFocus"])
+        friend.press("a")
+        state = friend.wait("asked", lambda state: state["screen"] == "dialog", seconds=10)
+        rig.shot(friend, "busy-question")
+        print("question", state.get("screenTitle"), state.get("screenFocus"), state.get("toast"))
+
+
 def lan_versions(context: Context) -> None:
     """A paired openSU's copy of a game is a version of it here, by the way it launches there."""
     with Rig(context, "restricted", "restricted", zerotier=True, lan=True) as rig:
@@ -870,6 +942,7 @@ CASES: dict[str, Callable[[Context], None]] = {
     "zerotier-lan": zerotier_lan,
     "lan-versions": lan_versions,
     "lan-homes": lan_homes,
+    "lan-busy": lan_busy,
     "zerotier-embedded": zerotier_embedded,
     "nat-pmp": nat_pmp,
     "upnp": upnp,

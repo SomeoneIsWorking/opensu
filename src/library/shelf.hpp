@@ -46,6 +46,8 @@ struct Launcher {
     std::string hostName{};
     /// For `Source::Remote`, whether that openSU answers now.
     bool online{true};
+    /// For `Source::Remote`, the title of the game playing there now; empty when none is.
+    std::string playing{};
 
     bool operator==(const Launcher&) const = default;
 };
@@ -88,6 +90,9 @@ using ShelfItem = std::variant<Game, Console, Launcher, AllGames, Giveaways, Add
 
 /// The folder's name as the player reads it.
 [[nodiscard]] std::string name(const Folder& folder);
+
+/// The game of `games` playing now on the openSU `hostId`, as it lists it; null when none is.
+[[nodiscard]] const Game* playingOn(const std::vector<Game>& games, std::string_view hostId);
 
 /// One console per system with ROMs, in the known systems' order.
 [[nodiscard]] std::vector<Console> consoles(const std::vector<Game>& games);

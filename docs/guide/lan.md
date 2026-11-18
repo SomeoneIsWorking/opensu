@@ -97,6 +97,9 @@ is one version per emulator, and its Play says which: **Play on Desk: DuckStatio
 Press Play on another openSU's game in Library. That openSU starts the game and sends its picture
 and sound here, and your controller, keyboard and mouse play it. A card says what it waits for until
 the picture comes, with Cancel; a host and guest with no video format in common end there and say so.
+While that openSU plays a game, its launcher in Library says **Playing <game>**. Asking it for
+another game asks instead: **Continue it here** when it plays as your linked profile, or **Ask to
+join it** otherwise, which its player answers.
 An Android guest decodes H.264 and HEVC only, so a Linux host needs a driver that encodes them (on
 Fedora, RPM Fusion's `mesa-va-drivers-freeworld`).
 

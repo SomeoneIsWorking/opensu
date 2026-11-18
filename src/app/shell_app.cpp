@@ -805,6 +805,33 @@ void ShellApp::cycleSection(int delta) {
     }
 }
 
+void ShellApp::askBusyHost(const library::Game& running, const LaunchRequest& request) {
+    const bool mine =
+        std::ranges::find(running.playingAs, request.profile) != running.playingAs.end();
+    const auto play =
+        std::make_shared<const HeldLaunch>(HeldLaunch{.game = running, .request = request});
+    std::vector<gpu2d::ui::Dialog::Choice> choices;
+    choices.push_back(
+        gpu2d::ui::Dialog::Choice{.label = mine ? "Continue it here" : "Ask to join it",
+                                  .chosen =
+                                      [this, play] {
+                                          static_cast<void>(launch(play->game, play->request));
+                                      },
+                                  .kind = gpu2d::ui::ButtonKind::Normal,
+                                  .exits = false});
+    choices.push_back(gpu2d::ui::Dialog::Choice{.label = "Cancel",
+                                                .chosen =
+                                                    [] {
+                                                    },
+                                                .kind = gpu2d::ui::ButtonKind::Normal,
+                                                .exits = true});
+    shell_.screens().navigator().push(std::make_unique<gpu2d::ui::Dialog>(
+        running.hostName + " is playing " + running.title,
+        mine ? "It plays as your profile there, so it moves here and goes on where it is."
+             : "Its player there is asked to let you join.",
+        std::move(choices)));
+}
+
 bool ShellApp::launch(const library::Game& game, LaunchRequest request) {
     if (!game.installed) {
         panels_.offerInstall(game);
@@ -825,6 +852,11 @@ bool ShellApp::launch(const library::Game& game, LaunchRequest request) {
         }
         if (!game.unavailable.empty()) {
             shell_.setToast(game.unavailable, true);
+            return false;
+        }
+        const library::Game* busy = library::playingOn(games_, game.hostId);
+        if (busy != nullptr && busy->id != game.id) {
+            askBusyHost(*busy, request);
             return false;
         }
         remotePlay_.start(

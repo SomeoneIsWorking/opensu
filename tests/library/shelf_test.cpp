@@ -173,6 +173,20 @@ void testPairedHomes() {
            "another openSU is told this Home's own versions");
 }
 
+void testPlayingOnHost() {
+    std::vector<Game> games{onDesk("lan:desk:steam:1", "Hades", 0),
+                            onDesk("lan:desk:steam:2", "Tunic", 1)};
+    expect(opensu::library::playingOn(games, "desk") == nullptr, "Desk plays nothing");
+    games[1].playingAs = {"ana"};
+    const Game* playing = opensu::library::playingOn(games, "desk");
+    expect(playing != nullptr && playing->title == "Tunic", "Desk plays Tunic");
+    expect(opensu::library::playingOn(games, "room") == nullptr, "another openSU plays nothing");
+    const std::vector<SourceStatus> lan{{Source::Remote, Availability::Ready, {}}};
+    const std::vector<ShelfItem> home = opensu::library::homeShelf(games, lan, {}, HomeChoices{});
+    expect(launcherAt(home, 0) != nullptr && launcherAt(home, 0)->playing == "Tunic",
+           "Desk's launcher says what plays there");
+}
+
 void testHomeChoices() {
     const std::vector<Game> games = library();
     HomeChoices choices;
@@ -515,6 +529,7 @@ int main() try {
         testConsoleShelf();
         testLauncherShelf();
         testRemoteHosts();
+        testPlayingOnHost();
         testAllGames();
         testBrowser();
         testCycling();

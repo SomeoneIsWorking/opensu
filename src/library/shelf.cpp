@@ -38,9 +38,13 @@ std::vector<Launcher> hostLaunchers(const std::vector<Game>& games, bool ready) 
         if (game.source != Source::Remote) {
             continue;
         }
+        const std::string playing = game.playingAs.empty() ? std::string{} : game.title;
         const auto known = std::ranges::find(hosts, game.hostId, &Launcher::hostId);
         if (known != hosts.end()) {
             ++known->games;
+            if (!playing.empty()) {
+                known->playing = playing;
+            }
             continue;
         }
         hosts.push_back(Launcher{.source = Source::Remote,
@@ -49,7 +53,8 @@ std::vector<Launcher> hostLaunchers(const std::vector<Game>& games, bool ready) 
                                  .loading = false,
                                  .hostId = game.hostId,
                                  .hostName = game.hostName,
-                                 .online = game.hostOnline});
+                                 .online = game.hostOnline,
+                                 .playing = playing});
     }
     std::ranges::sort(hosts, [](const Launcher& a, const Launcher& b) {
         return std::tie(a.hostName, a.hostId) < std::tie(b.hostName, b.hostId);
@@ -260,6 +265,13 @@ std::vector<std::string> homeGameIds(const std::vector<Game>& games, const HomeC
         }
     }
     return ids;
+}
+
+const Game* playingOn(const std::vector<Game>& games, std::string_view hostId) {
+    const auto found = std::ranges::find_if(games, [hostId](const Game& game) {
+        return game.source == Source::Remote && game.hostId == hostId && !game.playingAs.empty();
+    });
+    return found == games.end() ? nullptr : &*found;
 }
 
 std::vector<ShelfItem> homeShelf(const std::vector<Game>& games,

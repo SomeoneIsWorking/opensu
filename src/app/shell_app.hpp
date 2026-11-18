@@ -368,6 +368,8 @@ class ShellApp final {
     void keepMatch(const library::Game& game, const std::string& key, const std::string& title);
     /// The game with `id` as the grid shows it now.
     [[nodiscard]] std::optional<library::Game> shownGame(const std::string& id) const;
+    /// A remote game asked for while its host plays `running`: offers to continue or join that.
+    void askBusyHost(const library::Game& running, const LaunchRequest& request);
     /// The game with `id` as its source lists it, its own cover in `artwork`; null when gone.
     [[nodiscard]] const library::Game* ownGame(const std::string& id) const;
     /// What each button does now, for the corner prompts: the same tests the actions make.

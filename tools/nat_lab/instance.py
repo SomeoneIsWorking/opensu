@@ -28,6 +28,8 @@ class Instance:
     settings: dict = field(default_factory=dict)
     # This machine's own system bus, when it runs one (`mdns`).
     bus: str = ""
+    # Over the lab's own environment, as a session would set it (GAMESCOPE_WAYLAND_DISPLAY).
+    env: dict = field(default_factory=dict)
     process: subprocess.Popen[bytes] | None = None
     port: int = 0
     ports_before: set[str] = field(default_factory=set)
@@ -62,6 +64,7 @@ class Instance:
         }
         if self.bus:
             env["DBUS_SYSTEM_BUS_ADDRESS"] = self.bus
+        env.update(self.env)
         command = ["env", *[f"{key}={value}" for key, value in env.items()], str(self.binary)]
         self.process = self.node.start([*command, "--hidden"], self.log)
         pattern = re.compile(r"control channel on http://127\.0\.0\.1:(\d+)/")
