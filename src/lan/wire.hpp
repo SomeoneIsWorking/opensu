@@ -312,6 +312,24 @@ struct Invitation {
 };
 [[nodiscard]] std::string write(const Invitation& invitation);
 [[nodiscard]] std::optional<Invitation> readInvitation(std::string_view body);
+/// `POST /lan/join/ask`: the host passes a guest's ask to join its game to the openSU its player
+/// plays the game from, whose player answers it; `asker` and `name` are the guest's.
+inline constexpr std::string_view joinAskRoute = "/lan/join/ask";
+struct JoinAsk {
+    std::string asker;
+    std::string name;
+    std::string title;
+};
+[[nodiscard]] std::string write(const JoinAsk& ask);
+[[nodiscard]] std::optional<JoinAsk> readJoinAsk(std::string_view body);
+/// `POST /lan/join/answer`: that player's answer to the guest `asker`'s ask, sent to the host.
+inline constexpr std::string_view joinAnswerRoute = "/lan/join/answer";
+struct JoinAnswer {
+    std::string asker;
+    bool allow{false};
+};
+[[nodiscard]] std::string write(const JoinAnswer& answer);
+[[nodiscard]] std::optional<JoinAnswer> readJoinAnswer(std::string_view body);
 /// `waiting`, `declined` (with why, when the player allowed it and the host could not) or
 /// `accepted`, with the stream's port.
 struct PlayVerdict {

@@ -201,7 +201,9 @@ lan::PlayOutcome RemotePlay::waitFor(const lan::Peer& peer, const std::string& g
                         .keys = keys,
                         .at = Clock::now(),
                         .verdict = invited ? Ask::Verdict::Allowed : Ask::Verdict::Waiting,
-                        .why = {}});
+                        .why = {},
+                        .askedOn = {},
+                        .askedHere = false});
     lucent::info("remote", "{} {} the game here", peer.name,
                  invited ? "takes its invitation to" : "asks to join");
     return lan::PlayOutcome{
@@ -391,12 +393,79 @@ void RemotePlay::lapseAsks() {
 std::optional<RemotePlay::JoinQuestion> RemotePlay::joinQuestion() const {
     const std::lock_guard lock{hostMutex_};
     for (const Ask& ask : asks_) {
-        if (ask.verdict == Ask::Verdict::Waiting) {
+        if (ask.verdict == Ask::Verdict::Waiting && ask.askedOn.empty()) {
             return JoinQuestion{.peer = ask.peer,
                                 .title = hosted_ ? hosted_->title : runningTitle_};
         }
     }
     return std::nullopt;
+}
+
+std::optional<std::string> RemotePlay::answeredThere(const lan::Peer& peer,
+                                                     const lan::wire::JoinAnswer& answer) {
+    const std::lock_guard lock{hostMutex_};
+    const auto found = std::ranges::find_if(asks_, [&](const Ask& ask) {
+        return ask.peer.id == answer.asker && ask.askedOn == peer.id &&
+               ask.verdict == Ask::Verdict::Waiting;
+    });
+    if (found == asks_.end()) {
+        return "no ask passed to it waits";
+    }
+    found->verdict = answer.allow ? Ask::Verdict::Allowed : Ask::Verdict::Declined;
+    found->at = Clock::now();
+    lucent::info("remote", "the player on {} {} {} to join", peer.name,
+                 answer.allow ? "allows" : "declines", found->peer.name);
+    return std::nullopt;
+}
+
+const RemotePlay::Guest* RemotePlay::playerThere(const Hosted& hosted) const {
+    for (const std::unique_ptr<Guest>& guest : hosted.guests) {
+        if (guest->stream && !guest->kicked &&
+            (guest->own || (hosted.forGuest && guest->profile == hosted.profile))) {
+            return guest.get();
+        }
+    }
+    return nullptr;
+}
+
+void RemotePlay::passAsks(const Hosted& hosted) {
+    std::vector<std::string> unpassed;
+    {
+        const std::lock_guard lock{*answerMutex_};
+        unpassed.swap(*unpassed_);
+    }
+    const Guest* there = playerThere(hosted);
+    for (Ask& ask : asks_) {
+        if (ask.verdict != Ask::Verdict::Waiting) {
+            continue;
+        }
+        if (std::ranges::find(unpassed, ask.peer.id) != unpassed.end()) {
+            ask.askedHere = true;
+        }
+        if (!ask.askedOn.empty() &&
+            (ask.askedHere || there == nullptr || there->peer.id != ask.askedOn)) {
+            ask.askedOn.clear();
+        }
+        if (!ask.askedOn.empty() || ask.askedHere || there == nullptr) {
+            continue;
+        }
+        const bool passed = hooks_.passAsk(
+            there->peer.id,
+            lan::wire::JoinAsk{.asker = ask.peer.id, .name = ask.peer.name, .title = hosted.title},
+            [mutex = answerMutex_, unpassed = unpassed_,
+             asker = ask.peer.id](const std::string& why) {
+                lucent::warn("remote", "an ask to join could not be passed on: {}", why);
+                const std::lock_guard lock{*mutex};
+                unpassed->push_back(asker);
+            });
+        if (!passed) {
+            ask.askedHere = true;
+            continue;
+        }
+        ask.askedOn = there->peer.id;
+        lucent::info("remote", "passed {}'s ask to join to {}, where its player plays",
+                     ask.peer.name, there->peer.name);
+    }
 }
 
 void RemotePlay::answerJoin(const std::string& peerId, bool allow) {
@@ -668,6 +737,7 @@ void RemotePlay::serviceHost(const library::Game* running, const std::string& pr
         return;
     }
     Hosted& hosted = *hosted_;
+    passAsks(hosted);
     if (hosted.forGuest && !hosted.launched && !hosted.guests.empty()) {
         std::optional<library::Game> game = hooks_.find(hosted.gameId);
         if (game && !hosted.option.empty()) {

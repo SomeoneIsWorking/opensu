@@ -83,6 +83,8 @@ LanNode::LanNode(Setup setup)
                                      .playStatus = std::move(setup.playStatus),
                                      .close = std::move(setup.close),
                                      .invited = std::move(setup.invited),
+                                     .joinAsked = std::move(setup.joinAsked),
+                                     .joinAnswered = std::move(setup.joinAnswered),
                                      .libraryNews =
                                          [this] {
                                              wake();
@@ -435,6 +437,19 @@ fs::path LanNode::offeredCover(const std::stop_token& stop, const std::string& h
 bool LanNode::invite(const std::stop_token& stop, const std::string& peerId,
                      const wire::Invitation& game, std::string& error) const {
     return askHost(stop, peerId, "POST", wire::inviteRoute, wire::write(game), largestNotice, error)
+        .has_value();
+}
+
+bool LanNode::passJoinAsk(const std::stop_token& stop, const std::string& peerId,
+                          const wire::JoinAsk& ask, std::string& error) const {
+    return askHost(stop, peerId, "POST", wire::joinAskRoute, wire::write(ask), largestNotice, error)
+        .has_value();
+}
+
+bool LanNode::answerJoinAsk(const std::stop_token& stop, const std::string& peerId,
+                            const wire::JoinAnswer& answer, std::string& error) const {
+    return askHost(stop, peerId, "POST", wire::joinAnswerRoute, wire::write(answer), largestNotice,
+                   error)
         .has_value();
 }
 

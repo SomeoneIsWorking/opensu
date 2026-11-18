@@ -95,6 +95,7 @@
 #include "own_games_controller.hpp"
 #include "pad_owner.hpp"
 #include "panel_flow.hpp"
+#include "passed_asks.hpp"
 #include "path_editor.hpp"
 #include "play_wait.hpp"
 #include "player_files.hpp"
@@ -949,6 +950,18 @@ class ShellApp final {
                             }
                         });
                 },
+            .passAsk =
+                [this](const std::string& peerId, const lan::wire::JoinAsk& ask,
+                       std::function<void(std::string)> refused) {
+                    return lan_.askPeers([peerId = peerId, ask = ask, refused = std::move(refused)](
+                                             const lan::LanNode& node,
+                                             const std::stop_token& stop) {
+                        std::string error;
+                        if (!node.passJoinAsk(stop, peerId, ask, error) && !stop.stop_requested()) {
+                            refused(std::move(error));
+                        }
+                    });
+                },
             .join =
                 [this](const std::string& hostId, const std::string& gameId) {
                     const auto found = std::ranges::find_if(games_, [&](const library::Game& game) {
@@ -1048,6 +1061,26 @@ class ShellApp final {
     CloseAsks closeAsks_{[this] {
         return closeForPeer();
     }};
+    /// Asks to join passed here by the host the player plays from; before `lan_`, whose listener
+    /// hands them in.
+    PassedAsks passedAsks_{PassedAsks::Hooks{
+        .answer =
+            [this](const std::string& hostId, const lan::wire::JoinAnswer& answer,
+                   std::function<void(std::string)> refused) {
+                return lan_.askPeers([hostId = hostId, answer = answer,
+                                      refused = std::move(refused)](const lan::LanNode& node,
+                                                                    const std::stop_token& stop) {
+                    std::string error;
+                    if (!node.answerJoinAsk(stop, hostId, answer, error) &&
+                        !stop.stop_requested()) {
+                        refused(std::move(error));
+                    }
+                });
+            },
+        .say =
+            [this](const std::string& text, bool error) {
+                shell_.setToast(text, error);
+            }}};
     /// This openSU on the LAN while LAN is on: pairing, and the paired openSUs' games.
     LanService lan_{
         LanService::Places{.bookFile = files_.lanBookFile(),
@@ -1096,6 +1129,14 @@ class ShellApp final {
                 [this](const lan::Peer& peer, const lan::wire::Invitation& game) {
                     return remotePlay_.invited(peer, game);
                 },
+            .joinAsked =
+                [this](const lan::Peer& peer, const lan::wire::JoinAsk& ask) {
+                    return passedAsks_.passed(peer, ask);
+                },
+            .joinAnswered =
+                [this](const lan::Peer& peer, const lan::wire::JoinAnswer& answer) {
+                    return remotePlay_.answeredThere(peer, answer);
+                },
             .frameGenModules = [this](std::string& why) -> std::optional<std::string> {
                 const std::optional<std::filesystem::path> dll = losslessDll();
                 if (!dll) {
@@ -1105,7 +1146,8 @@ class ShellApp final {
                 return RemoteFrameGen::pack(*dll, why);
             }}};
     /// What play together asks the player here.
-    TogetherQuestions togetherQuestions_{shell_.screens().navigator(), sounds_, remotePlay_};
+    TogetherQuestions togetherQuestions_{shell_.screens().navigator(), sounds_, remotePlay_,
+                                         passedAsks_};
     /// A remote game asked for while its host plays another.
     BusyHost busyHost_{
         shell_.screens().navigator(), lan_,

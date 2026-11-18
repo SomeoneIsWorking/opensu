@@ -89,6 +89,15 @@ class LanListener {
         std::function<std::optional<std::string>(const Peer& peer,
                                                  const wire::Invitation& invitation)>
             invited;
+        /// The host a game here streams from passes another guest's ask to join it, for the player
+        /// here, who plays it there; why it will not be asked, or nothing. Called on the
+        /// listener's thread.
+        std::function<std::optional<std::string>(const Peer& peer, const wire::JoinAsk& ask)>
+            joinAsked;
+        /// The openSU the player here plays from answers an ask passed to it; why it was not
+        /// taken, or nothing. Called on the listener's thread.
+        std::function<std::optional<std::string>(const Peer& peer, const wire::JoinAnswer& answer)>
+            joinAnswered;
         /// A peer's listing changed; called on the listener's thread.
         std::function<void()> libraryNews;
         /// The frame generation shaders for a peer, or nothing with why; called on the listener's
@@ -149,6 +158,9 @@ class LanListener {
                                                          const Signed& verified);
     /// `/lan/invite`, `body` opened.
     [[nodiscard]] lucent::http::Response inviteRoute(std::string_view body, const Signed& verified);
+    /// `/lan/join/ask` and `/lan/join/answer`, `body` opened.
+    [[nodiscard]] lucent::http::Response joinRoute(std::string_view path, std::string_view body,
+                                                   const Signed& verified);
     [[nodiscard]] lucent::http::Response coversRoute(std::string_view path, std::string_view body);
     [[nodiscard]] std::optional<Signed> verify(const lucent::http::Request& request);
 

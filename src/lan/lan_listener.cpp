@@ -106,7 +106,8 @@ Response LanListener::handle(const Request& request) {
           path == wire::frameGenModulesRoute || path.starts_with(coverPrefix))) ||
         (request.method == "POST" &&
          (path == "/lan/unpair" || path == wire::playRoute || path == wire::playStatusRoute ||
-          path == wire::closeRoute || path == wire::inviteRoute || path == wire::libraryNewsRoute ||
+          path == wire::closeRoute || path == wire::inviteRoute || path == wire::joinAskRoute ||
+          path == wire::joinAnswerRoute || path == wire::libraryNewsRoute ||
           path.starts_with(savesPrefix) || path == wire::romFileRoute ||
           path == wire::romChunkRoute || path == wire::profileCopyRoute ||
           path == wire::profileCopyStatusRoute || path == wire::profileUnlinkRoute ||
@@ -140,6 +141,8 @@ Response LanListener::handle(const Request& request) {
             answer = netplayRoute(path, *body, *verified);
         } else if (path == wire::inviteRoute) {
             answer = inviteRoute(*body, *verified);
+        } else if (path == wire::joinAskRoute || path == wire::joinAnswerRoute) {
+            answer = joinRoute(path, *body, *verified);
         } else if (path == wire::coverOffersRoute || path == wire::coverPickRoute ||
                    path == wire::gameMatchRoute) {
             answer = coversRoute(path, *body);
@@ -525,6 +528,32 @@ Response LanListener::inviteRoute(std::string_view body, const Signed& verified)
     const std::optional<std::string> refusal =
         sources_.invited ? sources_.invited(verified.peer, *invitation)
                          : std::optional<std::string>{"this openSU does not offer remote play"};
+    if (refusal) {
+        return refused(conflict, "Conflict", *refusal);
+    }
+    return Response::json(ok, "OK", "{}");
+}
+
+Response LanListener::joinRoute(std::string_view path, std::string_view body,
+                                const Signed& verified) {
+    std::optional<std::string> refusal{"this openSU does not offer remote play"};
+    if (path == wire::joinAskRoute) {
+        const std::optional<wire::JoinAsk> ask = wire::readJoinAsk(body);
+        if (!ask) {
+            return refused(badRequest, "Bad Request", "not an ask to join");
+        }
+        if (sources_.joinAsked) {
+            refusal = sources_.joinAsked(verified.peer, *ask);
+        }
+    } else {
+        const std::optional<wire::JoinAnswer> answer = wire::readJoinAnswer(body);
+        if (!answer) {
+            return refused(badRequest, "Bad Request", "not an answer to an ask to join");
+        }
+        if (sources_.joinAnswered) {
+            refusal = sources_.joinAnswered(verified.peer, *answer);
+        }
+    }
     if (refusal) {
         return refused(conflict, "Conflict", *refusal);
     }

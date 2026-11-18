@@ -33,8 +33,13 @@ play: nobody need be at the computer that runs the game.
 - Built: the same profile continues it with no question (`RemotePlay::continueSeat`).
 - Built: the same profile closes it with no question (`/lan/close`, `app/close_asks`); another
   profile is refused at the route (`LanListener::closeRoute`, 403) and never reaches the close.
-- Not built: the join question follows the player. Today a friend's ask to join shows on the
-  computer's own screen only (`TogetherQuestions`), so a player streaming to a phone never sees it.
+- Built: the join question follows the player. While the player plays the game from another
+  device (the seat of the player there, or of the guest a game was started for), the host passes a
+  friend's ask to it (`RemotePlay::passAsks`, `/lan/join/ask`), which asks there (`PassedAsks`,
+  `TogetherQuestions`) and answers back (`/lan/join/answer`, `RemotePlay::answeredThere`); nothing
+  shows on the computer's own screen. An ask that cannot be passed, or whose player came back, is
+  asked there. Shown between two nodes (`lan_node_test`); a session with a stream needs a Gamescope
+  host, which the LAN lab does not have yet.
 - Not built: friends without pairing. Today an openSU sees another's games only once the two are
   paired.
 
@@ -53,5 +58,6 @@ play: nobody need be at the computer that runs the game.
    (`tools.nat_lab lan-busy`): another profile is offered Ask to join; after copying the host's
    profile, the same profile closes the host's game with nothing asked there.
 2. The join question on the device the player plays on: the host passes a friend's ask to the
-   guest holding the player's seat, which answers it.
+   guest holding the player's seat, which answers it. Left: a lab rig whose host runs in a nested
+   Gamescope, to walk it with three openSUs.
 3. Friends without pairing: a LAN openSU lists the games playing on others and asks to join one.

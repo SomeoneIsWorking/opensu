@@ -1838,6 +1838,7 @@ int ShellApp::run() {
         remotePlay_.service(launches_.running() || saveSharing_.holding() || playWait_.waiting(),
                             launches_.running() ? &launches_.game() : nullptr, playingAs_,
                             mailbox_.gameRunning());
+        passedAsks_.service(remotePlay_.streaming() ? remotePlay_.game().hostId : std::string{});
         togetherQuestions_.service();
         closeAsks_.service();
         busyHost_.service(games_);

@@ -10,11 +10,20 @@ namespace opensu::app {
 
 std::optional<TogetherQuestions::Question> TogetherQuestions::next() const {
     if (std::optional<RemotePlay::JoinQuestion> join = remote_.joinQuestion()) {
-        return Question{
-            .invitation = false, .peer = std::move(join->peer), .title = std::move(join->title)};
+        return Question{.invitation = false,
+                        .passed = false,
+                        .peer = std::move(join->peer),
+                        .title = std::move(join->title)};
+    }
+    if (std::optional<PassedAsks::Passed> passed = passed_.next()) {
+        return Question{.invitation = false,
+                        .passed = true,
+                        .peer = std::move(passed->asker),
+                        .title = std::move(passed->title)};
     }
     if (std::optional<RemotePlay::Invited> invited = remote_.invitation()) {
         return Question{.invitation = true,
+                        .passed = false,
                         .peer = std::move(invited->peer),
                         .title = std::move(invited->title)};
     }
@@ -66,6 +75,8 @@ void TogetherQuestions::answer(bool allow) {
     title_.clear();
     if (asked_ && asked_->invitation) {
         remote_.answerInvitation(asked_->peer.id, allow);
+    } else if (asked_ && asked_->passed) {
+        passed_.answer(asked_->peer.id, allow);
     } else if (asked_) {
         remote_.answerJoin(asked_->peer.id, allow);
     }

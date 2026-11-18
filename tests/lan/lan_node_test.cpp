@@ -256,6 +256,22 @@ struct Node {
                   invitedTo = peer.name + " " + game.game + " " + game.title;
                   return std::nullopt;
               },
+              .joinAsked = [this](const lan::Peer& peer,
+                                  const lan::wire::JoinAsk& ask) -> std::optional<std::string> {
+                  const std::lock_guard lock{mutex};
+                  passedAsk = peer.name + " " + ask.asker + " " + ask.name + " " + ask.title;
+                  return std::nullopt;
+              },
+              .joinAnswered = [this](const lan::Peer& peer, const lan::wire::JoinAnswer& answer)
+                  -> std::optional<std::string> {
+                  const std::lock_guard lock{mutex};
+                  if (!refuseAnswer.empty()) {
+                      return refuseAnswer;
+                  }
+                  joinAnswer =
+                      peer.name + " " + answer.asker + (answer.allow ? " allow" : " decline");
+                  return std::nullopt;
+              },
               .frameGenModules = {},
               .roms = lan::RomImport::Setup{.selfId = {},
                                             .staging = state / "lan-roms",
@@ -300,6 +316,10 @@ struct Node {
     std::string closeAsked;
     std::string refuseInvite;
     std::string invitedTo;
+    /// The ask to join passed here last, and the answer to one; refused with `refuseAnswer`.
+    std::string passedAsk;
+    std::string joinAnswer;
+    std::string refuseAnswer;
     fs::path saves;
     fs::path state;
     save_sync::SaveSync sync;
@@ -567,6 +587,31 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
                              lan::wire::Invitation{"game-1", "Host game"}, inviteError) &&
                inviteError == "it is in a game",
            "a guest that will not be asked says why");
+    std::string passError;
+    expect(host.node.passJoinAsk(
+               std::stop_token{}, guest.node.id(),
+               lan::wire::JoinAsk{.asker = "friend-id", .name = "Tablet", .title = "Host game"},
+               passError),
+           "a host passes an ask to join to the openSU its player plays from");
+    {
+        const std::lock_guard lock{guest.mutex};
+        expect(guest.passedAsk.ends_with(" friend-id Tablet Host game"),
+               "with who asks, its name and the game");
+    }
+    expect(guest.node.answerJoinAsk(std::stop_token{}, host.node.id(),
+                                    lan::wire::JoinAnswer{.asker = "friend-id", .allow = true},
+                                    passError),
+           "that openSU's player answers the host");
+    {
+        const std::lock_guard lock{host.mutex};
+        expect(host.joinAnswer.ends_with(" friend-id allow"), "the host hears who and the answer");
+        host.refuseAnswer = "no ask passed to it waits";
+    }
+    expect(!guest.node.answerJoinAsk(std::stop_token{}, host.node.id(),
+                                     lan::wire::JoinAnswer{.asker = "friend-id", .allow = false},
+                                     passError) &&
+               passError == "no ask passed to it waits",
+           "an answer the host has no ask for is refused with why");
     expect(waitFor([&host] {
                return host.remote->games().size() == 1 &&
                       host.remote->games().front().title == "Guest game";

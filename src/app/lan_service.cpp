@@ -96,6 +96,8 @@ void LanService::start() {
                                 .playStatus = hooks_.playStatus,
                                 .close = hooks_.close,
                                 .invited = hooks_.invited,
+                                .joinAsked = hooks_.joinAsked,
+                                .joinAnswered = hooks_.joinAnswered,
                                 .frameGenModules = hooks_.frameGenModules,
                                 .roms = std::move(roms)});
     } catch (const std::runtime_error& error) {

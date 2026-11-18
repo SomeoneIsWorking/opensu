@@ -136,8 +136,9 @@ Fedora, RPM Fusion's `mesa-va-drivers-freeworld`).
 
 Up to four openSUs can play one game at once, each with its own controller as its own player.
 
-- Press Play on the game another openSU is running. Its player is asked to let you in;
-  you wait until they answer, up to two minutes.
+- Press Play on the game another openSU is running. Its player is asked to let you in, on the
+  device they play it on: that openSU's own screen, or the device they continued it on. You wait
+  until they answer, up to two minutes.
 - Or the player there invites you: open the Guide in the game and pick **Invite to play**, then the
   openSU. It is asked **Play with** that openSU, and **Join** starts playing. An invitation lasts two
   minutes.

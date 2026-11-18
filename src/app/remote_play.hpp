@@ -6,7 +6,8 @@
 // paired openSU's request to play (`offer`, on the LAN listener's thread) starts the game for it
 // through the normal launch path when nothing runs here; while the same game runs here, started by
 // the player or for another guest, the guest asks to join, the player is asked (`joinQuestion`,
-// `answerJoin`) and the guest is let in when it next asks how its ask stands (`playStatus`). A
+// `answerJoin`), on the device it plays from when that is another (`passAsks`, `answeredThere`),
+// and the guest is let in when it next asks how its ask stands (`playStatus`). A
 // guest leaving frees its pad and the game goes on; the game ending ends every guest's stream, and
 // a game started for a guest closes when its last guest leaves. As guest: Play on another openSU's
 // game asks that host (`start`), waiting while its player is asked when the game runs there, and
@@ -104,6 +105,12 @@ class RemotePlay {
         std::function<bool(const std::string& peerId, const lan::wire::Invitation& game,
                            std::function<void(std::string)> refused)>
             invite;
+        /// Passes a guest's ask to join the game here to the paired openSU `peerId` the player
+        /// plays it from, `refused` called with why off the loop when it was not taken; false when
+        /// it cannot be passed now.
+        std::function<bool(const std::string& peerId, const lan::wire::JoinAsk& ask,
+                           std::function<void(std::string)> refused)>
+            passAsk;
         /// Plays host `hostId`'s game `gameId` from here; false when the catalog does not list it.
         std::function<bool(const std::string& hostId, const std::string& gameId)> join;
         /// What the running game tells its guests.
@@ -164,8 +171,13 @@ class RemotePlay {
 
         bool operator==(const JoinQuestion&) const = default;
     };
-    /// The oldest ask that waits. Main loop only.
+    /// The oldest ask that waits for the player here; one passed to the openSU the player plays
+    /// from is asked there. Main loop only.
     [[nodiscard]] std::optional<JoinQuestion> joinQuestion() const;
+    /// The openSU `peer`, which the player plays the game here from, answers the ask passed to it:
+    /// why it was not taken, or nothing. On the LAN listener's thread.
+    [[nodiscard]] std::optional<std::string> answeredThere(const lan::Peer& peer,
+                                                           const lan::wire::JoinAnswer& answer);
     /// The player's answer to `peerId`'s ask. Main loop only.
     void answerJoin(const std::string& peerId, bool allow);
 
@@ -362,6 +374,10 @@ class RemotePlay {
         std::chrono::steady_clock::time_point at;
         Verdict verdict{Verdict::Waiting};
         std::string why;
+        /// The openSU the player plays from, which was passed the ask; empty when it is asked here.
+        std::string askedOn;
+        /// Passing it failed, so it is asked here.
+        bool askedHere{false};
     };
     /// The player here invited a peer: its ask to join this game is let in without a question.
     struct Sent {
@@ -393,6 +409,12 @@ class RemotePlay {
     /// Asks that waited too long are declined, and answers no guest came for are dropped. Holding
     /// `hostMutex_`.
     void lapseAsks();
+    /// The guest playing as the player of the game here, from another openSU; null when the
+    /// player is here. Holding `hostMutex_`.
+    [[nodiscard]] const Guest* playerThere(const Hosted& hosted) const;
+    /// Passes the waiting asks to the openSU the player plays from, and asks here again those it
+    /// no longer plays from or that could not be passed. Holding `hostMutex_`.
+    void passAsks(const Hosted& hosted);
     /// Lets go of the guest at `at`, giving back the pad of the seat of the player here; the guest
     /// after it. Holding `hostMutex_`.
     GuestList::iterator free(Hosted& hosted, GuestList::iterator at);
@@ -444,6 +466,9 @@ class RemotePlay {
     /// `answerMutex_`.
     std::shared_ptr<std::vector<std::pair<std::string, bool>>> news_{
         std::make_shared<std::vector<std::pair<std::string, bool>>>()};
+    /// The guests whose asks could not be passed on, by id; under `answerMutex_`.
+    std::shared_ptr<std::vector<std::string>> unpassed_{
+        std::make_shared<std::vector<std::string>>()};
     /// Whether a game here runs or is on its way, as the loop last saw; read by `offer`.
     std::atomic<bool> busy_{false};
     /// Whether a game plays here or from another, as the loop last saw; read by `invited`.

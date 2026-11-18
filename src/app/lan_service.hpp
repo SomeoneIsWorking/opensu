@@ -68,6 +68,9 @@ class LanService {
         decltype(lan::LanNode::Setup::close) close;
         /// A paired peer invites this one to its game; on the listener's thread.
         decltype(lan::LanNode::Setup::invited) invited;
+        /// An ask to join passed here, and the answer to one passed on; on the listener's thread.
+        decltype(lan::LanNode::Setup::joinAsked) joinAsked;
+        decltype(lan::LanNode::Setup::joinAnswered) joinAnswered;
         /// The frame generation shaders a paired peer asks for; on the listener's thread.
         decltype(lan::LanNode::Setup::frameGenModules) frameGenModules;
     };

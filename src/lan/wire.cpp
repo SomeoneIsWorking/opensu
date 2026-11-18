@@ -580,6 +580,40 @@ std::optional<Invitation> readInvitation(std::string_view body) {
     return Invitation{std::move(game), std::move(title)};
 }
 
+std::string write(const JoinAsk& ask) {
+    return json{{"asker", ask.asker}, {"name", ask.name}, {"title", ask.title}}.dump();
+}
+
+std::optional<JoinAsk> readJoinAsk(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    JoinAsk ask{textField(*document, "asker"), textField(*document, "name"),
+                textField(*document, "title")};
+    if (ask.asker.empty() || ask.name.empty() || ask.title.empty()) {
+        return std::nullopt;
+    }
+    return ask;
+}
+
+std::string write(const JoinAnswer& answer) {
+    return json{{"asker", answer.asker}, {"allow", answer.allow}}.dump();
+}
+
+std::optional<JoinAnswer> readJoinAnswer(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    const auto allow = document->find("allow");
+    std::string asker = textField(*document, "asker");
+    if (asker.empty() || allow == document->end() || !allow->is_boolean()) {
+        return std::nullopt;
+    }
+    return JoinAnswer{std::move(asker), allow->get<bool>()};
+}
+
 std::string write(const PlayVerdict& verdict) {
     return json{{"verdict", verdict.verdict}, {"port", verdict.port}, {"why", verdict.why}}.dump();
 }

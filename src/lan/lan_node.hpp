@@ -70,6 +70,10 @@ class LanNode {
         decltype(LanListener::Sources::close) close;
         /// A peer invites this one to its game (`LanListener::Sources::invited`).
         decltype(LanListener::Sources::invited) invited;
+        /// An ask to join passed here, and the answer to one passed on
+        /// (`LanListener::Sources::joinAsked`, `joinAnswered`).
+        decltype(LanListener::Sources::joinAsked) joinAsked;
+        decltype(LanListener::Sources::joinAnswered) joinAnswered;
         /// The frame generation shaders a peer asks for (`LanListener::Sources::frameGenModules`).
         decltype(LanListener::Sources::frameGenModules) frameGenModules;
         /// Where ROMs being imported are staged, where each one taken goes, and when an import's
@@ -262,6 +266,13 @@ class LanNode {
     /// so never on the loop. False with `error` when it is gone or will not be asked.
     [[nodiscard]] bool invite(const std::stop_token& stop, const std::string& peerId,
                               const wire::Invitation& game, std::string& error) const;
+    /// Passes a guest's ask to join the game here to the paired, announced openSU `peerId` the
+    /// player plays it from, and sends the host `peerId` its player's answer to one. Block for
+    /// the call, so never on the loop; false with `error` when it was not taken.
+    [[nodiscard]] bool passJoinAsk(const std::stop_token& stop, const std::string& peerId,
+                                   const wire::JoinAsk& ask, std::string& error) const;
+    [[nodiscard]] bool answerJoinAsk(const std::stop_token& stop, const std::string& peerId,
+                                     const wire::JoinAnswer& answer, std::string& error) const;
 
     /// Forgets `peerId` here, and tells it to forget this one when it is announced. False with
     /// `error` when it could not be forgotten here.
