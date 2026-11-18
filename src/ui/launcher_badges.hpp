@@ -3,6 +3,7 @@
 // painter draws them with the clock.
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -42,8 +43,8 @@ struct LauncherBadge {
 struct BadgeRow {
     /// One circle's bounds per visible badge, in order (`TopBarLayout::launchers`).
     std::span<const Rect> cells;
-    /// The launcher the pointer is on.
-    std::optional<library::Source> hovered;
+    /// The visible badge the pointer is on, by its place in the row.
+    std::optional<std::size_t> hovered;
     /// Drives the starting spinner.
     double seconds{};
 };
@@ -58,7 +59,7 @@ class LauncherBadgePainter {
 
   private:
     void paintOne(Canvas& canvas, const LauncherBadge& badge, const BadgeRow& row,
-                  const Rect& cell);
+                  std::size_t cell);
 
     IconAtlas& icons_;
 };

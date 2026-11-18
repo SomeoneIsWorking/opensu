@@ -39,12 +39,13 @@ void LauncherBadgePainter::paint(Canvas& canvas, std::span<const LauncherBadge> 
         if (badge.state == ServiceState::Hidden || cell >= row.cells.size()) {
             continue;
         }
-        paintOne(canvas, badge, row, row.cells[cell++]);
+        paintOne(canvas, badge, row, cell++);
     }
 }
 
 void LauncherBadgePainter::paintOne(Canvas& canvas, const LauncherBadge& badge, const BadgeRow& row,
-                                    const Rect& cell) {
+                                    std::size_t index) {
+    const Rect& cell = row.cells[index];
     const Point centre{cell.centreX(), cell.centreY()};
     const float diameter = cell.width;
     const double seconds = row.seconds;
@@ -72,7 +73,7 @@ void LauncherBadgePainter::paintOne(Canvas& canvas, const LauncherBadge& badge, 
         drawSpinner(canvas, centre, ringRadius * 2.0f, line, dotWorking, seconds);
     }
 
-    if (row.hovered == badge.source) {
+    if (row.hovered == index) {
         canvas.fillCircle(centre, ringRadius + line, hoverFill);
     }
 

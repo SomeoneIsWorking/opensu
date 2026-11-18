@@ -161,7 +161,8 @@ class Hud {
     /// What the pointer rests on in the top bar: a level of the trail, a launcher's badge.
     struct TopBarHover {
         std::optional<std::size_t> crumb;
-        std::optional<library::Source> launcher;
+        /// The visible badge the pointer is on, by its place in the row.
+        std::optional<std::size_t> launcher;
         std::optional<TouchButton> button;
     };
 

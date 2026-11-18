@@ -78,7 +78,7 @@ void TopBarChrome::paint(gpu2d::ui::Painter& painter) {
     const std::vector<Hud::BadgeCell> badges = hud_.badgeCells();
     for (std::size_t i = 0; i < badges.size(); ++i) {
         if (painter.hovered == launcherId(i)) {
-            hover.launcher = badges[i].badge.source;
+            hover.launcher = i;
         }
     }
     for (const TouchButton button : {TouchButton::Back, TouchButton::Menu}) {
