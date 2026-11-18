@@ -677,7 +677,8 @@ def start_from_shelf(node, console: str, rom: str) -> None:
 
 
 def lan_busy(context: Context) -> None:
-    """A paired openSU playing one game: asking it for another asks to continue or join that."""
+    """A paired openSU playing one game: asking it for another offers to continue that, or close it
+    and play the one asked for, nobody asked over there."""
     with Rig(context, "restricted", "restricted", zerotier=True, lan=True, busy_host=True) as rig:
         for each in (rig.host, rig.friend):
             each.wait("seeing the other", lambda state: state["lanSeen"] >= 1, seconds=30)
@@ -697,42 +698,106 @@ def lan_busy(context: Context) -> None:
             time.sleep(0.2)
         time.sleep(1)
         add_link_test_to_home(rig, friend)
-        friend.press("a")
-        friend.wait("on the details page", lambda state: state["detailsOpen"])
-        time.sleep(1)
-        for _ in range(12):
-            if str(friend.state()["screenFocus"]).endswith("details.more"):
+        state = play_remote_version(friend)
+        rig.shot(friend, "other-profile")
+        print("another profile is offered", state.get("screenFocus"))
+        friend.press("b")
+        time.sleep(0.5)
+        for _ in range(6):
+            if not friend.state()["detailsOpen"] and friend.state().get("screen") in ("", "home"):
                 break
-            friend.press("down")
-        friend.press("a")
-        time.sleep(1.2)
+            friend.press("b")
+            time.sleep(0.5)
+        copy_host_profile(rig)
         for _ in range(12):
-            focus = str(friend.state()["screenFocus"])
-            if focus.startswith("details.of:lan:") and focus.endswith("details.launch"):
+            if str(friend.state().get("focusedId", "")).endswith("link_test.gba"):
                 break
-            friend.press("down")
-        print("remote play row", friend.state()["screenFocus"])
-        friend.press("a")
-        state = friend.wait("asked", lambda state: state["screen"] == "dialog", seconds=10)
-        rig.shot(friend, "busy-question")
-        print("question", state.get("screenFocus"))
+            friend.press("right")
+        state = play_remote_version(friend)
+        rig.shot(friend, "same-profile")
         friend.focus("dialog/1", "right", 4)
         friend.press("a")
-        host.wait("asked to close", lambda state: state["screen"] == "dialog", seconds=15)
-        rig.shot(host, "close-question")
-        host.focus("dialog/1", "right", 4)
-        host.press("a")
         host.wait(
             "closed it", lambda state: not state["inGame"] and not state["launching"], seconds=30
         )
+        rig.shot(host, "closed-nobody-asked")
         closed = friend.wait("told", lambda state: "closed" in state["toast"], seconds=30)
         print("friend told", closed["toast"])
-        rig.shot(friend, "closed")
         asked = friend.wait(
             "asking for the game", lambda state: state["toast"] != closed["toast"], seconds=30
         )
         print("then", asked["toast"], asked["screen"])
         rig.shot(friend, "then-plays")
+
+
+def play_remote_version(friend: Instance) -> dict:
+    """From the focused link test tile: its page, Versions, then Play on Host; the question's
+    state."""
+    friend.press("a")
+    friend.wait("on the details page", lambda state: state["detailsOpen"])
+    time.sleep(1)
+    for _ in range(12):
+        if str(friend.state()["screenFocus"]).endswith("details.more"):
+            break
+        friend.press("down")
+    friend.press("a")
+    time.sleep(1.2)
+    for _ in range(12):
+        focus = str(friend.state()["screenFocus"])
+        if focus.startswith("details.of:lan:") and focus.endswith("details.launch"):
+            break
+        friend.press("down")
+    print("remote play row", friend.state()["screenFocus"])
+    friend.press("a")
+    return friend.wait("asked", lambda state: state["screen"] == "dialog", seconds=10)
+
+
+def copy_host_profile(rig: Rig) -> None:
+    """Settings › LAN › Profiles on Host › Copy on the friend, allowed on the host, then the copy,
+    linked with the host's, made the friend's active profile in the Guide."""
+    friend, host = rig.friend, rig.host
+    friend.press("guide")
+    friend.wait("in the Guide menu", lambda state: state["guideMenuOpen"])
+    friend.focus("guide.settings")
+    friend.press("a")
+    friend.wait("in Settings", lambda state: state["settingsOpen"])
+    friend.focus("categories/lan")
+    friend.press("a")
+    for _ in range(40):
+        if str(friend.state()["screenFocus"]).startswith("lanprofiles:"):
+            break
+        friend.press("down")
+    friend.press("a")
+    for _ in range(40):
+        if str(friend.state()["screenFocus"]).startswith("lanprofiles.copy:"):
+            break
+        friend.press("down")
+        time.sleep(0.3)
+    print("copy row", friend.state()["screenFocus"])
+    friend.press("a")
+    host.wait("asked to copy", lambda state: state["screen"] == "dialog", seconds=30)
+    host.focus("dialog/1", "right", 4)
+    host.press("a")
+    time.sleep(3)
+    for _ in range(8):
+        if not friend.state()["settingsOpen"]:
+            break
+        friend.press("b")
+        time.sleep(0.5)
+    for _ in range(6):
+        if friend.state()["guideMenuOpen"]:
+            break
+        friend.press("guide")
+        time.sleep(1)
+    friend.wait("in the Guide menu", lambda state: state["guideMenuOpen"])
+    # Profile stands in the Guide's second column, with the volume.
+    friend.press("right")
+    friend.focus("guide.profile")
+    friend.press("right")
+    time.sleep(1)
+    rig.shot(friend, "linked-profile")
+    friend.press("b")
+    time.sleep(1)
 
 
 def lan_versions(context: Context) -> None:

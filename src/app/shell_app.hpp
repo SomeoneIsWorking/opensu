@@ -1045,7 +1045,7 @@ class ShellApp final {
         files_.secrets(environment_.keyring), profiles_.book(), [this] {
             details_.refresh();
         }};
-    /// A paired openSU's asks to close the game here; before `lan_`, whose listener hands them in.
+    /// A paired openSU's closes of the game here; before `lan_`, whose listener hands them in.
     CloseAsks closeAsks_{[this] {
         return closeForPeer();
     }};
@@ -1107,8 +1107,7 @@ class ShellApp final {
                 return RemoteFrameGen::pack(*dll, why);
             }}};
     /// What play together asks the player here.
-    TogetherQuestions togetherQuestions_{shell_.screens().navigator(), sounds_, remotePlay_,
-                                         closeAsks_};
+    TogetherQuestions togetherQuestions_{shell_.screens().navigator(), sounds_, remotePlay_};
     /// A remote game asked for while its host plays another.
     BusyHost busyHost_{
         shell_.screens().navigator(), lan_,

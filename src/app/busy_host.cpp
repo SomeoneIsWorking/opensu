@@ -22,13 +22,15 @@ void BusyHost::ask(const library::Game& running, const library::Game& wanted,
                                       },
                                   .kind = gpu2d::ui::ButtonKind::Normal,
                                   .exits = false});
-    choices.push_back(gpu2d::ui::Dialog::Choice{.label = "Close it and play " + wanted.title,
-                                                .chosen =
-                                                    [this, running, wanted, request] {
-                                                        close(running, wanted, request);
-                                                    },
-                                                .kind = gpu2d::ui::ButtonKind::Normal,
-                                                .exits = false});
+    if (mine) {
+        choices.push_back(gpu2d::ui::Dialog::Choice{.label = "Close it and play " + wanted.title,
+                                                    .chosen =
+                                                        [this, running, wanted, request] {
+                                                            close(running, wanted, request);
+                                                        },
+                                                    .kind = gpu2d::ui::ButtonKind::Normal,
+                                                    .exits = false});
+    }
     choices.push_back(gpu2d::ui::Dialog::Choice{.label = "Cancel",
                                                 .chosen =
                                                     [] {
@@ -37,18 +39,16 @@ void BusyHost::ask(const library::Game& running, const library::Game& wanted,
                                                 .exits = true});
     navigator_.push(std::make_unique<gpu2d::ui::Dialog>(
         running.hostName + " is playing " + running.title,
-        mine ? "It plays as your profile there, so it can move here and go on where it is, or "
-               "close for " +
-                   wanted.title + "."
-             : "Its player there is asked whether you may join it, or close it for " +
-                   wanted.title + ".",
+        mine ? "You are playing it there. Continue it here and it goes on where it is; close it "
+               "and a game on a built-in core is saved first."
+             : "Another profile is playing it. Ask to join it and its player there is asked.",
         std::move(choices)));
 }
 
 void BusyHost::close(const library::Game& running, const library::Game& wanted,
                      const LaunchRequest& request) {
     if (pending_) {
-        hooks_.say("Still asking " + pending_->running.hostName + " to close its game", true);
+        hooks_.say("Still closing " + pending_->running.title, true);
         return;
     }
     auto heard = std::make_shared<Heard>();
@@ -56,13 +56,7 @@ void BusyHost::close(const library::Game& running, const library::Game& wanted,
         [heard, host = running.hostId, game = running.sourceId,
          profile = request.profile](const lan::LanNode& node, const std::stop_token& stop) {
             std::string error;
-            const bool closed = node.askToClose(
-                stop, host, game, profile,
-                [heard] {
-                    const std::lock_guard lock{heard->mutex};
-                    heard->waiting = true;
-                },
-                error);
+            const bool closed = node.askToClose(stop, host, game, profile, error);
             if (stop.stop_requested()) {
                 return;
             }
@@ -76,7 +70,7 @@ void BusyHost::close(const library::Game& running, const library::Game& wanted,
         hooks_.say("Cannot reach " + running.hostName + " now", true);
         return;
     }
-    hooks_.say("Asking " + running.hostName + " to close " + running.title, false);
+    hooks_.say("Closing " + running.title + " on " + running.hostName, false);
     pending_ = Pending{.running = running,
                        .wanted = wanted,
                        .request = request,
@@ -92,10 +86,6 @@ void BusyHost::service(const std::vector<library::Game>& games) {
     const std::string& host = pending.running.hostName;
     if (!pending.closedAt) {
         const std::lock_guard lock{pending.heard->mutex};
-        if (pending.heard->waiting) {
-            pending.heard->waiting = false;
-            hooks_.say(host + "'s player is asked to close " + pending.running.title, false);
-        }
         if (pending.heard->refusal) {
             hooks_.say(host + " did not close " + pending.running.title + ": " +
                            *pending.heard->refusal,
@@ -110,7 +100,7 @@ void BusyHost::service(const std::vector<library::Game>& games) {
         hooks_.say(host + " closed " + pending.running.title, false);
     }
     if (library::playingOn(games, pending.running.hostId) == nullptr) {
-        const Pending done = std::move(pending);
+        Pending done = std::move(pending);
         pending_.reset();
         hooks_.launch(done.wanted, done.request);
         return;

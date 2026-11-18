@@ -1,58 +1,57 @@
-# A paired openSU that is playing something
+# Remote play by profile
 
-Asked 2026-11-18: remote play said "fedora already running Legend of Zelda" and "you are completely
-locked out, you have no way of seeing what is running on fedora and you can't interact with it,
-this needs its own system to handle, show running game, resume it / take over from remote etc or
-close it options".
+Asked 2026-11-18: "fedora already running Legend of Zelda ... you are completely locked out ...
+show running game, resume it / take over from remote etc or close it options", then: "The goal is
+to give seamless remote experience to same profile on another device as if they are using
+locally. An extra scenario is remote play together where another profile can join the game. And
+this should even work when both the same profile and the other profile are remote ... I think
+things should be profile based like that and people on the same LAN but different profiles are
+also considered friends as they can discover your game and ask to join". Think of Steam's remote
+play: nobody need be at the computer that runs the game.
 
-## Now
+## The rules
 
-The host refuses `/lan/play` for any other game while one runs (`RemotePlay::offer`: "it is playing
-<title> now"), and the guest shows that as a toast. Taking over exists: asking for the game that
-runs, from a device whose active profile is linked with the profile playing it, streams it with no
-question (`RemotePlay::continueSeat`), and its details page reads "Continue here". Nothing leads the
-player there: the running game is listed (`ListedGame::playingAs`) but not shown, and nothing closes
-it.
-
-## What it does
-
-- **Shown.** A paired openSU playing a game says so where its games are: its launcher tile and its
-  Home section read "Playing <title>", and that game's tile stands first in the section with a
-  Playing mark.
-- **Asked, not refused.** Playing another game on a host that is busy opens a question instead of a
-  toast: "<host> is playing <title>", with **Continue it here** (the take-over above, when the
-  profile is linked with the one playing it), **Close it and play <game>** and **Cancel**.
-- **Closing from afar.** `/lan/close` closes the game running there for a paired openSU. A game on a
-  built-in core is saved and closed (its resume state, as Save and close does) so nothing is lost; any
-  other game is closed as Close game does, and the question says what is not saved is lost. A
-  device whose profile is linked with the one playing closes it with no question; any other asks the
-  host's player first, Decline focused, as joining does. A guest streaming it is told "<host> closed
-  the game".
-- What runs there is read from the listing as it is: the listed game whose `playingAs` is not empty
-  (sent since 2026-11-05), so it works with a host not updated since.
-
-## Owners
-
-- `lan/wire`: `CloseRequest` and its verdict.
-- `app/close_asks`: decides and asks, closing on the loop.
-- `app/shell_app` with the game's runner owners: closing the running game for a peer, through the
-  same path as the Guide's Close game and Save and close.
-- `lan/lan_node`: `askToClose`, asked every second as a join is.
-- The client: the launcher and Home section line, the Playing mark, and the busy question
-  (`app/busy_host`).
-
-## Order
-
-1. The client shows "Playing <title>" from `playingAs`, and the question with Continue it here (or
-   Join it, for a profile not playing it, which asks the host's player) and Cancel. Shown with two hidden openSUs (`tools.nat_lab`).
-2. `/lan/close` with Save and close for a built-in core and Close game otherwise, the linked-profile
-   rule and the host's question; Close it and play. Shown the same way, then from the tablet.
+- A profile is a person; a device is only a screen. A profile linked with another on a paired
+  openSU is the same person there.
+- **The same profile, any device: as if it sat there.** Asking for the game it plays continues it
+  here, the stream moving and the game going on where it is; closing it or playing another game
+  closes it, saved first on a built-in core. Nobody is asked, on either side.
+- **Another profile is a friend.** It sees the game playing there ("Playing <game>") and may ask
+  to join it as the next player. The profile playing it is asked, on the device it plays on now:
+  the computer's own screen, or the device it streams to. Let in, the friend plays from its own
+  device. A friend cannot close or take over another profile's game.
+- Both may be remote: the player on a phone streaming the game, the friend on a tablet asking.
+- **Friends on the LAN.** A friend is anyone on the LAN with another profile, whose openSU can find
+  the game and ask to join, without the two devices first being paired.
 
 ## State
 
-Step 1 built: the launcher line (`library::playingOn`, `Launcher::playing`) and the question
-(`ShellApp::askBusyHost`), shown by `tools.nat_lab lan-busy` (the host plays a Game Boy ROM, the
-friend asks it for the GBA one). Step 2 built: `/lan/close` (`lan::wire::CloseRequest`,
-`LanNode::askToClose`), the host's `CloseAsks` with its question in `TogetherQuestions`, and the
-client's `BusyHost`; the same lab case walks the close, the host's player letting it through and the
-friend's request going on. Not yet seen against a real Gamescope host or from the tablet.
+- Built: the launcher says "Playing <game>" (`library::playingOn`, `Launcher::playing`).
+- Built: asking for another game on a busy openSU asks on the device asking (`app/busy_host`). The
+  same profile: Continue it here, Close it and play <game>, Cancel. Another profile: Ask to join it,
+  Cancel.
+- Built: the same profile continues it with no question (`RemotePlay::continueSeat`).
+- Built: the same profile closes it with no question (`/lan/close`, `app/close_asks`); another
+  profile is refused.
+- Not built: the join question follows the player. Today a friend's ask to join shows on the
+  computer's own screen only (`TogetherQuestions`), so a player streaming to a phone never sees it.
+- Not built: friends without pairing. Today an openSU sees another's games only once the two are
+  paired.
+
+## Owners
+
+- `lan/wire`: `CloseRequest`; the join question sent to the device playing and its answer.
+- `app/close_asks`: the same profile's close.
+- `app/remote_play`: takes a seat over, asks the profile playing to let a friend in.
+- `app/together_questions`: asks on the computer's own screen; on the guest's when the player is
+  remote.
+- `app/busy_host`: the question on the asking device.
+
+## Order
+
+1. The rules above for the same profile, and the busy question. Shown with two hidden openSUs
+   (`tools.nat_lab lan-busy`): another profile is offered Ask to join; after copying the host's
+   profile, the same profile closes the host's game with nothing asked there.
+2. The join question on the device the player plays on: the host passes a friend's ask to the
+   guest holding the player's seat, which answers it.
+3. Friends without pairing: a LAN openSU lists the games playing on others and asks to join one.

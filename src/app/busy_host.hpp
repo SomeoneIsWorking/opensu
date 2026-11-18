@@ -1,7 +1,8 @@
-// busy_host — a remote game asked for while its openSU plays another: the question over the
-// screen ("<host> is playing <game>": Continue it here or Ask to join it, Close it and play
-// <game>, Cancel), and the close asked of that openSU off the loop (`LanNode::askToClose`). Once
-// it closed and its listing here no longer shows it playing, the game asked for starts.
+// busy_host — a remote game asked for while its openSU plays another: the question here
+// ("<host> is playing <game>"). The profile playing it continues it here or closes it and plays the
+// game asked for, as if it sat there; another profile asks to join it. The close goes to that
+// openSU off the loop (`LanNode::askToClose`); once it closed and its listing here no longer shows
+// it playing, the game asked for starts.
 #pragma once
 
 #include <chrono>
@@ -46,7 +47,6 @@ class BusyHost {
     /// What the asking thread leaves for the loop.
     struct Heard {
         std::mutex mutex;
-        bool waiting{false};
         std::optional<std::string> refusal;
         bool closed{false};
     };
