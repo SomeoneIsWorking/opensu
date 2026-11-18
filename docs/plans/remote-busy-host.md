@@ -34,12 +34,12 @@ it.
 ## Owners
 
 - `lan/wire`: `CloseRequest` and its verdict.
-- `app/remote_play`: `close` decides and asks.
+- `app/close_asks`: decides and asks, closing on the loop.
 - `app/shell_app` with the game's runner owners: closing the running game for a peer, through the
   same path as the Guide's Close game and Save and close.
-- `lan/lan_node`: `askToClose`, polled as `askToPlay` is.
+- `lan/lan_node`: `askToClose`, asked every second as a join is.
 - The client: the launcher and Home section line, the Playing mark, and the busy question
-  (`ui/game_details` launch, a dialog on the details controller).
+  (`app/busy_host`).
 
 ## Order
 
@@ -52,4 +52,7 @@ it.
 
 Step 1 built: the launcher line (`library::playingOn`, `Launcher::playing`) and the question
 (`ShellApp::askBusyHost`), shown by `tools.nat_lab lan-busy` (the host plays a Game Boy ROM, the
-friend asks it for the GBA one). Step 2, closing from afar, is not built.
+friend asks it for the GBA one). Step 2 built: `/lan/close` (`lan::wire::CloseRequest`,
+`LanNode::askToClose`), the host's `CloseAsks` with its question in `TogetherQuestions`, and the
+client's `BusyHost`; the same lab case walks the close, the host's player letting it through and the
+friend's request going on. Not yet seen against a real Gamescope host or from the tablet.

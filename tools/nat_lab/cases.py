@@ -715,7 +715,24 @@ def lan_busy(context: Context) -> None:
         friend.press("a")
         state = friend.wait("asked", lambda state: state["screen"] == "dialog", seconds=10)
         rig.shot(friend, "busy-question")
-        print("question", state.get("screenTitle"), state.get("screenFocus"), state.get("toast"))
+        print("question", state.get("screenFocus"))
+        friend.focus("dialog/1", "right", 4)
+        friend.press("a")
+        host.wait("asked to close", lambda state: state["screen"] == "dialog", seconds=15)
+        rig.shot(host, "close-question")
+        host.focus("dialog/1", "right", 4)
+        host.press("a")
+        host.wait(
+            "closed it", lambda state: not state["inGame"] and not state["launching"], seconds=30
+        )
+        closed = friend.wait("told", lambda state: "closed" in state["toast"], seconds=30)
+        print("friend told", closed["toast"])
+        rig.shot(friend, "closed")
+        asked = friend.wait(
+            "asking for the game", lambda state: state["toast"] != closed["toast"], seconds=30
+        )
+        print("then", asked["toast"], asked["screen"])
+        rig.shot(friend, "then-plays")
 
 
 def lan_versions(context: Context) -> None:

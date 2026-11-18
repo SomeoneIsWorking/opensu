@@ -106,7 +106,7 @@ Response LanListener::handle(const Request& request) {
           path == wire::frameGenModulesRoute || path.starts_with(coverPrefix))) ||
         (request.method == "POST" &&
          (path == "/lan/unpair" || path == wire::playRoute || path == wire::playStatusRoute ||
-          path == wire::inviteRoute || path == wire::libraryNewsRoute ||
+          path == wire::closeRoute || path == wire::inviteRoute || path == wire::libraryNewsRoute ||
           path.starts_with(savesPrefix) || path == wire::romFileRoute ||
           path == wire::romChunkRoute || path == wire::profileCopyRoute ||
           path == wire::profileCopyStatusRoute || path == wire::profileUnlinkRoute ||
@@ -131,6 +131,8 @@ Response LanListener::handle(const Request& request) {
             answer = savesRoute(path, *body, *verified);
         } else if (path == wire::playRoute) {
             answer = playRoute(*body, *verified);
+        } else if (path == wire::closeRoute) {
+            answer = closeRoute(*body, *verified);
         } else if (path == wire::playStatusRoute) {
             answer = playStatusRoute(*body, *verified);
         } else if (path == wire::netplayRoute || path == wire::netplayStatusRoute ||
@@ -421,6 +423,20 @@ Response LanListener::playRoute(std::string_view body, const Signed& verified) {
                                                        .waiting = false,
                                                        .joined = outcome.joined,
                                                        .continued = outcome.continued}));
+}
+
+Response LanListener::closeRoute(std::string_view body, const Signed& verified) {
+    const std::optional<wire::CloseRequest> asked = wire::readCloseRequest(body);
+    if (!asked) {
+        return refused(badRequest, "Bad Request", "not a request to close");
+    }
+    if (!sources_.close) {
+        return refused(conflict, "Conflict", "this openSU closes no game for another");
+    }
+    const bool linked = sources_.profiles.linked(asked->profile, verified.peer.id).has_value();
+    const wire::PlayVerdict verdict =
+        sources_.close(verified.peer, asked->game, asked->profile, linked);
+    return Response::json(ok, "OK", wire::write(verdict));
 }
 
 Response LanListener::playStatusRoute(std::string_view body, const Signed& verified) {

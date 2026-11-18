@@ -434,6 +434,22 @@ std::string write(const GameRef& ref) {
     return json{{"game", ref.game}}.dump();
 }
 
+std::string write(const CloseRequest& request) {
+    return json{{"game", request.game}, {"profile", request.profile}}.dump();
+}
+
+std::optional<CloseRequest> readCloseRequest(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    std::string game = textField(*document, "game");
+    if (game.empty()) {
+        return std::nullopt;
+    }
+    return CloseRequest{std::move(game), textField(*document, "profile")};
+}
+
 std::optional<GameRef> readGameRef(std::string_view body) {
     const std::optional<json> document = objectOf(body);
     if (!document) {

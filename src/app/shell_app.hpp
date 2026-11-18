@@ -25,7 +25,9 @@
 #include "bluetooth_session.hpp"
 #include "breadcrumb_trail.hpp"
 #include "brightness_control.hpp"
+#include "busy_host.hpp"
 #include "chord_settings.hpp"
+#include "close_asks.hpp"
 #include "config/config.hpp"
 #include "console_themes.hpp"
 #include "context_menu_controller.hpp"
@@ -368,8 +370,9 @@ class ShellApp final {
     void keepMatch(const library::Game& game, const std::string& key, const std::string& title);
     /// The game with `id` as the grid shows it now.
     [[nodiscard]] std::optional<library::Game> shownGame(const std::string& id) const;
-    /// A remote game asked for while its host plays `running`: offers to continue or join that.
-    void askBusyHost(const library::Game& running, const LaunchRequest& request);
+    /// Closes the running game for a paired openSU, saving it first on a built-in core; why it
+    /// did not, or empty.
+    [[nodiscard]] std::string closeForPeer();
     /// The game with `id` as its source lists it, its own cover in `artwork`; null when gone.
     [[nodiscard]] const library::Game* ownGame(const std::string& id) const;
     /// What each button does now, for the corner prompts: the same tests the actions make.
@@ -992,6 +995,8 @@ class ShellApp final {
                 },
             .seats =
                 [this](std::string id, std::vector<std::string> profiles) {
+                    closeAsks_.playing(id, launches_.running() ? launches_.game().title : "",
+                                       profiles);
                     lan_.playing(std::move(id), std::move(profiles));
                 },
             .frameGen =
@@ -1040,6 +1045,10 @@ class ShellApp final {
         files_.secrets(environment_.keyring), profiles_.book(), [this] {
             details_.refresh();
         }};
+    /// A paired openSU's asks to close the game here; before `lan_`, whose listener hands them in.
+    CloseAsks closeAsks_{[this] {
+        return closeForPeer();
+    }};
     /// This openSU on the LAN while LAN is on: pairing, and the paired openSUs' games.
     LanService lan_{
         LanService::Places{.bookFile = files_.lanBookFile(),
@@ -1080,6 +1089,11 @@ class ShellApp final {
                 [this](const lan::Peer& peer, const std::string& game) {
                     return remotePlay_.playStatus(peer, game);
                 },
+            .close =
+                [this](const lan::Peer& peer, const std::string& game, const std::string& profile,
+                       bool linked) {
+                    return closeAsks_.ask(peer, game, profile, linked);
+                },
             .invited =
                 [this](const lan::Peer& peer, const lan::wire::Invitation& game) {
                     return remotePlay_.invited(peer, game);
@@ -1093,7 +1107,19 @@ class ShellApp final {
                 return RemoteFrameGen::pack(*dll, why);
             }}};
     /// What play together asks the player here.
-    TogetherQuestions togetherQuestions_{shell_.screens().navigator(), sounds_, remotePlay_};
+    TogetherQuestions togetherQuestions_{shell_.screens().navigator(), sounds_, remotePlay_,
+                                         closeAsks_};
+    /// A remote game asked for while its host plays another.
+    BusyHost busyHost_{
+        shell_.screens().navigator(), lan_,
+        BusyHost::Hooks{.say =
+                            [this](const std::string& text, bool error) {
+                                shell_.setToast(text, error);
+                            },
+                        .launch =
+                            [this](const library::Game& game, const LaunchRequest& request) {
+                                static_cast<void>(launch(game, request));
+                            }}};
     /// The details page's Saves fact and row for saves shared with paired openSUs.
     SharedSaves sharedSaves_{saveSharing_, shell_.screens().navigator(), sounds_};
     /// Settings › Saves.

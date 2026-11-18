@@ -99,7 +99,9 @@ and sound here, and your controller, keyboard and mouse play it. A card says wha
 the picture comes, with Cancel; a host and guest with no video format in common end there and say so.
 While that openSU plays a game, its launcher in Library says **Playing <game>**. Asking it for
 another game asks instead: **Continue it here** when it plays as your linked profile, or **Ask to
-join it** otherwise, which its player answers.
+join it** otherwise, which its player answers, or **Close it and play** the game you asked for. A
+profile linked with the one playing it closes it with no question; otherwise that openSU's player is
+asked first. A game on a built-in core is saved before it closes.
 An Android guest decodes H.264 and HEVC only, so a Linux host needs a driver that encodes them (on
 Fedora, RPM Fusion's `mesa-va-drivers-freeworld`).
 

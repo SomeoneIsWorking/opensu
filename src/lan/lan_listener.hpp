@@ -81,6 +81,11 @@ class LanListener {
         /// the listener's thread.
         std::function<std::optional<wire::PlayVerdict>(const Peer& peer, const std::string& game)>
             playStatus;
+        /// A peer asks to close `game`, running here, as `profile` (`linked` when that profile is
+        /// linked with the peer); how it stands. Called on the listener's thread.
+        std::function<wire::PlayVerdict(const Peer& peer, const std::string& game,
+                                        const std::string& profile, bool linked)>
+            close;
         /// A peer invites this one to its game running now; why it will not be asked, or nothing.
         /// Called on the listener's thread.
         std::function<std::optional<std::string>(const Peer& peer,
@@ -141,6 +146,7 @@ class LanListener {
     /// `/lan/play`, `body` opened.
     [[nodiscard]] lucent::http::Response playRoute(std::string_view body, const Signed& verified);
     /// `/lan/play/status`, `body` opened.
+    [[nodiscard]] lucent::http::Response closeRoute(std::string_view body, const Signed& verified);
     [[nodiscard]] lucent::http::Response playStatusRoute(std::string_view body,
                                                          const Signed& verified);
     /// `/lan/invite`, `body` opened.

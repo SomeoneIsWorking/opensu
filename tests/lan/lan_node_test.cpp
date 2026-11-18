@@ -236,6 +236,19 @@ struct Node {
                   joinVerdicts.erase(joinVerdicts.begin());
                   return verdict;
               },
+              .close =
+                  [this](const lan::Peer& peer, const std::string& game, const std::string& profile,
+                         bool linked) {
+                      const std::lock_guard lock{mutex};
+                      closeAsked =
+                          peer.name + " " + game + " " + profile + (linked ? " linked" : "");
+                      if (closeVerdicts.empty()) {
+                          return lan::wire::PlayVerdict{.verdict = "closed", .port = 0, .why = {}};
+                      }
+                      lan::wire::PlayVerdict verdict = closeVerdicts.front();
+                      closeVerdicts.erase(closeVerdicts.begin());
+                      return verdict;
+                  },
               .invited = [this](const lan::Peer& peer,
                                 const lan::wire::Invitation& game) -> std::optional<std::string> {
                   const std::lock_guard lock{mutex};
@@ -284,6 +297,9 @@ struct Node {
     lan::StreamKeys playKeys;
     /// While any are left, an ask to play waits and each `/lan/play/status` takes the next.
     std::vector<lan::wire::PlayVerdict> joinVerdicts;
+    /// Each `/lan/close` takes the next; none left, the game closed.
+    std::vector<lan::wire::PlayVerdict> closeVerdicts;
+    std::string closeAsked;
     std::string refuseInvite;
     std::string invitedTo;
     fs::path saves;
@@ -515,6 +531,35 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
                playError) &&
                playError == "its player declined",
            "a guest the host's player declines is told so");
+    {
+        const std::lock_guard lock{host.mutex};
+        host.closeVerdicts = {{.verdict = "waiting", .port = 0, .why = {}},
+                              {.verdict = "closed", .port = 0, .why = {}}};
+    }
+    bool asked = false;
+    std::string closeError;
+    expect(guest.node.askToClose(
+               std::stop_token{}, host.node.id(), listed.sourceId, ana.id,
+               [&asked] {
+                   asked = true;
+               },
+               closeError) &&
+               asked,
+           "a guest asking to close the host's game waits for it to close");
+    {
+        const std::lock_guard lock{host.mutex};
+        expect(host.closeAsked == "Desk own:1 " + ana.id + " linked",
+               "the host hears the game, the asking profile and that it is linked");
+        host.closeVerdicts = {
+            {.verdict = "declined", .port = 0, .why = "its player keeps playing"}};
+    }
+    expect(!guest.node.askToClose(
+               std::stop_token{}, host.node.id(), listed.sourceId, guestPlayer,
+               [] {
+               },
+               closeError) &&
+               closeError == "its player keeps playing",
+           "a close the host's player declines says why");
     std::string inviteError;
     expect(host.node.invite(std::stop_token{}, guest.node.id(),
                             lan::wire::Invitation{"game-1", "Host game"}, inviteError),
@@ -1105,6 +1150,7 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
                                                             },
                                                         .play = {},
                                                         .playStatus = {},
+                                                        .close = {},
                                                         .invited = {},
                                                         .libraryNews = {},
                                                         .frameGenModules = {}},

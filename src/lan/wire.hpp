@@ -219,6 +219,16 @@ struct GameRef {
 };
 [[nodiscard]] std::string write(const GameRef& ref);
 [[nodiscard]] std::optional<GameRef> readGameRef(std::string_view body);
+/// `POST /lan/close`: a paired openSU asks to close `game`, running here, as its active
+/// `profile`. Its answer is a `PlayVerdict`: "closed" once nothing runs here, "waiting" while the
+/// player here is asked or it closes, "declined" with why. Asked again for how it stands.
+inline constexpr std::string_view closeRoute = "/lan/close";
+struct CloseRequest {
+    std::string game;
+    std::string profile;
+};
+[[nodiscard]] std::string write(const CloseRequest& request);
+[[nodiscard]] std::optional<CloseRequest> readCloseRequest(std::string_view body);
 /// `GET /lan/framegen/modules`: the frame generation shaders of the host player's Lossless.dll,
 /// for a guest of theirs that generates frames (`app::RemoteFrameGen::pack`), or why there are
 /// none.

@@ -65,6 +65,7 @@ class LanService {
         /// listener's thread.
         decltype(lan::LanNode::Setup::play) play;
         decltype(lan::LanNode::Setup::playStatus) playStatus;
+        decltype(lan::LanNode::Setup::close) close;
         /// A paired peer invites this one to its game; on the listener's thread.
         decltype(lan::LanNode::Setup::invited) invited;
         /// The frame generation shaders a paired peer asks for; on the listener's thread.

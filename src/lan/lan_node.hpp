@@ -66,6 +66,8 @@ class LanNode {
         decltype(LanListener::Sources::play) play;
         /// How a peer's ask to join the game here stands (`LanListener::Sources::playStatus`).
         decltype(LanListener::Sources::playStatus) playStatus;
+        /// A peer's ask to close the game here (`LanListener::Sources::close`).
+        decltype(LanListener::Sources::close) close;
         /// A peer invites this one to its game (`LanListener::Sources::invited`).
         decltype(LanListener::Sources::invited) invited;
         /// The frame generation shaders a peer asks for (`LanListener::Sources::frameGenModules`).
@@ -218,6 +220,15 @@ class LanNode {
     askToPlay(const std::stop_token& stop, const std::string& hostId,
               const wire::PlayChoice& choice, const std::string& profile,
               const std::function<void()>& waiting, std::string& error) const;
+
+    /// Asks the paired, announced openSU `hostId` to close its game `gameId` running there, as
+    /// `profile`, this one's active profile: `waiting` is called when its player is asked, and
+    /// how it stands is asked every second until it closes, for as long as its player may take.
+    /// Blocks, so never on the loop. False with `error` when it does not close; false without one
+    /// when `stop` ended the call.
+    [[nodiscard]] bool askToClose(const std::stop_token& stop, const std::string& hostId,
+                                  const std::string& gameId, const std::string& profile,
+                                  const std::function<void()>& waiting, std::string& error) const;
 
     /// The asks to play a ROM together, this one's and the paired openSUs'.
     [[nodiscard]] NetplayAsks& netplay() const noexcept {

@@ -805,31 +805,17 @@ void ShellApp::cycleSection(int delta) {
     }
 }
 
-void ShellApp::askBusyHost(const library::Game& running, const LaunchRequest& request) {
-    const bool mine =
-        std::ranges::find(running.playingAs, request.profile) != running.playingAs.end();
-    const auto play =
-        std::make_shared<const HeldLaunch>(HeldLaunch{.game = running, .request = request});
-    std::vector<gpu2d::ui::Dialog::Choice> choices;
-    choices.push_back(
-        gpu2d::ui::Dialog::Choice{.label = mine ? "Continue it here" : "Ask to join it",
-                                  .chosen =
-                                      [this, play] {
-                                          static_cast<void>(launch(play->game, play->request));
-                                      },
-                                  .kind = gpu2d::ui::ButtonKind::Normal,
-                                  .exits = false});
-    choices.push_back(gpu2d::ui::Dialog::Choice{.label = "Cancel",
-                                                .chosen =
-                                                    [] {
-                                                    },
-                                                .kind = gpu2d::ui::ButtonKind::Normal,
-                                                .exits = true});
-    shell_.screens().navigator().push(std::make_unique<gpu2d::ui::Dialog>(
-        running.hostName + " is playing " + running.title,
-        mine ? "It plays as your profile there, so it moves here and goes on where it is."
-             : "Its player there is asked to let you join.",
-        std::move(choices)));
+std::string ShellApp::closeForPeer() {
+    if (!launches_.running()) {
+        return {};
+    }
+    if (retro_.status()) {
+        if (std::string refused = retro_.suspend(); !refused.empty()) {
+            return "not saved: " + refused;
+        }
+    }
+    closeRunningGame();
+    return {};
 }
 
 bool ShellApp::launch(const library::Game& game, LaunchRequest request) {
@@ -856,7 +842,7 @@ bool ShellApp::launch(const library::Game& game, LaunchRequest request) {
         }
         const library::Game* busy = library::playingOn(games_, game.hostId);
         if (busy != nullptr && busy->id != game.id) {
-            askBusyHost(*busy, request);
+            busyHost_.ask(*busy, game, request);
             return false;
         }
         remotePlay_.start(
@@ -1853,6 +1839,8 @@ int ShellApp::run() {
                             launches_.running() ? &launches_.game() : nullptr, playingAs_,
                             mailbox_.gameRunning());
         togetherQuestions_.service();
+        closeAsks_.service();
+        busyHost_.service(games_);
         delivery_.service();
         covers_.service();
         serveGuests();

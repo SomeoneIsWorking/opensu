@@ -94,6 +94,7 @@ void LanService::start() {
                                 .profiles = places_.profiles,
                                 .play = hooks_.play,
                                 .playStatus = hooks_.playStatus,
+                                .close = hooks_.close,
                                 .invited = hooks_.invited,
                                 .frameGenModules = hooks_.frameGenModules,
                                 .roms = std::move(roms)});

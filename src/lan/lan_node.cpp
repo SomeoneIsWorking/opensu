@@ -81,6 +81,7 @@ LanNode::LanNode(Setup setup)
                                          },
                                      .play = std::move(setup.play),
                                      .playStatus = std::move(setup.playStatus),
+                                     .close = std::move(setup.close),
                                      .invited = std::move(setup.invited),
                                      .libraryNews =
                                          [this] {
@@ -180,6 +181,42 @@ std::optional<GuestPairing::State> LanNode::asking() const {
 void LanNode::endAsking() {
     asking_.reset();
     wake();
+}
+
+bool LanNode::askToClose(const std::stop_token& stop, const std::string& hostId,
+                         const std::string& gameId, const std::string& profile,
+                         const std::function<void()>& waiting, std::string& error) const {
+    const std::string request = wire::write(wire::CloseRequest{gameId, profile});
+    bool told = false;
+    const auto until = std::chrono::steady_clock::now() + playPatience;
+    while (!stop.stop_requested() && std::chrono::steady_clock::now() < until) {
+        const std::optional<std::string> body =
+            askHost(stop, hostId, "POST", wire::closeRoute, request, largestNotice, error);
+        const std::optional<wire::PlayVerdict> verdict =
+            body ? wire::readPlayVerdict(*body) : std::nullopt;
+        if (!verdict) {
+            if (body) {
+                error = "its answer is not a verdict";
+            }
+            return false;
+        }
+        if (verdict->verdict == "closed") {
+            return true;
+        }
+        if (verdict->verdict != "waiting") {
+            error = verdict->why.empty() ? "its player declined" : verdict->why;
+            return false;
+        }
+        if (!told) {
+            told = true;
+            waiting();
+        }
+        std::this_thread::sleep_for(playPoll);
+    }
+    if (!stop.stop_requested()) {
+        error = "its player did not answer";
+    }
+    return false;
 }
 
 std::optional<LanNode::PlayOffer>
