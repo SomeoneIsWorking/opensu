@@ -81,6 +81,7 @@
 #include "library/lossless_scaling.hpp"
 #include "library/romset_convert.hpp"
 #include "library/shelf.hpp"
+#include "library/steam_tags.hpp"
 #include "library_additions.hpp"
 #include "lucent/log.h"
 #include "mapping_editor.hpp"
@@ -423,6 +424,9 @@ class ShellApp final {
     std::shared_ptr<const artwork::IisuPack> consoleThemeIisu_;
     artwork::ArtworkFetcher artworkFetcher_{artworkStore_, artwork::RemoteSources::of(environment_),
                                             library::roms::NameDb::under(environment_.cacheDir)};
+    /// The Steam games' store tags, whose genre Auto's touch layout follows.
+    library::SteamTags steamTags_{environment_.dataDir / "steam-tags.json",
+                                  artwork::RemoteSources::of(environment_).steamItems};
     /// SteamGridDB's API, asked only with the player's key.
     artwork::SteamGridDb steamGridDb_{environment_.steamGridDbApi.empty()
                                           ? std::string{artwork::steamGridDbApi}

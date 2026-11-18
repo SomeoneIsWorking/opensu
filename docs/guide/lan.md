@@ -116,8 +116,10 @@ Fedora, RPM Fusion's `mesa-va-drivers-freeworld`).
   says, here in Game settings: Dynamic hides them at your controller's first press and brings them
   back at a touch, Always keeps them, Never never shows them; Touch controls size sizes them. A
   laptop's or a Mac's trackpad is no touchscreen. Touch layout picks them: Auto shows a full
-  gamepad (two analog sticks, d-pad, A B X Y, bumpers, triggers, Back and Start) for every remote
-  game; pick another layout for the game in Game settings. **Shooter** plays a PC game with keys
+  gamepad (two analog sticks, d-pad, A B X Y, bumpers, triggers, Back and Start), or for a Steam
+  game whose store tags say so the Shooter (a first or third person shooter), Racing or
+  Platformer, whichever of those tags players voted most; pick another layout for the game in
+  Game settings. **Shooter** plays a PC game with keys
   and a mouse instead of a pad, so its prompts stay on the keyboard: a stick for WASD, Jump, Crouch,
   Reload, Use, Fire, Aim, Sprint, Q, G, Tab and Esc, and a swipe on the right half of the screen
   moves the mouse to aim. Keys and the mouse reach a game whose host has an X display.

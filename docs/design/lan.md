@@ -444,7 +444,8 @@ that profile's; the host's own active profile does not change.
   does the same while the game has the controls. With a touchscreen and no pad connected the
   runner's on-screen pad is drawn over the picture (`app::RemoteTouch` on `touch::TouchLayer`)
   and its buttons, pause as Guide, enter as any pad's would; fingers on it are not pointer input.
-  Its layout is the game's Touch layout (Auto: the gamepad). The Shooter sends no pad at all, so a
+  Its layout is the game's Touch layout (Auto: the genre a Steam game's store tags name,
+  `library::SteamTags` and `settings::touchLayoutOfTags`, else the gamepad). The Shooter sends no pad at all, so a
   game's prompts never flip between pad and keyboard: its buttons are keys and mouse buttons
   (`touch::deskInput`: move stick WASD, Jump Space, Crouch Left Ctrl, Reload R, Use E, Sprint
   Left Shift, Q, G, Tab, Esc; Fire the left button, Aim the right), and a swipe on the right half

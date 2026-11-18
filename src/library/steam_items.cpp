@@ -46,7 +46,7 @@ std::string itemsUrl(const std::vector<std::uint32_t>& apps, std::string_view ap
     }
     const json input{{"ids", std::move(ids)},
                      {"context", {{"language", "english"}, {"country_code", "US"}}},
-                     {"data_request", {{"include_assets", true}}}};
+                     {"data_request", {{"include_assets", true}, {"include_tag_count", tagCount}}}};
     return std::string{api} + "?input_json=" + net::percentEncode(input.dump());
 }
 
@@ -72,6 +72,14 @@ std::vector<Item> parseItems(std::string_view body, std::string_view host) {
             item.portraitUrl = assetUrl(assets, host, "library_capsule_2x");
             if (item.portraitUrl.empty()) {
                 item.portraitUrl = assetUrl(assets, host, "library_capsule");
+            }
+        }
+        const json tags = entry.value("tagids", json{});
+        if (tags.is_array()) {
+            for (const json& tag : tags) {
+                if (tag.is_number_unsigned()) {
+                    item.tags.push_back(tag.get<std::uint32_t>());
+                }
             }
         }
         const json purchase = entry.value("best_purchase_option", json{});

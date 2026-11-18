@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -242,13 +243,18 @@ void declareVideo(Schema& schema);
 /// The layout Auto picks for a game of `system` (a ROM's system key; empty for a store game, one
 /// of the player's own or one on another openSU): the console's own, the gamepad where it has none.
 [[nodiscard]] TouchLayout touchLayoutFor(std::string_view system) noexcept;
-/// The touch layout `keys` show, Auto's pick made, and the console's own.
+/// The genre layout a game's Steam store `tags` (most voted first) call for: Shooter for a first
+/// or third person shooter, Racing, Platformer, whichever of their tags comes first; nothing for
+/// none of them.
+[[nodiscard]] std::optional<TouchLayout> touchLayoutOfTags(std::span<const std::uint32_t> tags);
+/// The touch layout `keys` show, Auto's pick made (`genre` where the game has one, else the
+/// console's own), and the console's own.
 struct TouchLayoutPick {
     TouchLayout shown{TouchLayout::Pad};
     TouchLayout console{TouchLayout::Pad};
 };
-[[nodiscard]] TouchLayoutPick resolveTouchLayout(const SettingLayers& layers,
-                                                 const LayerKeys& keys);
+[[nodiscard]] TouchLayoutPick resolveTouchLayout(const SettingLayers& layers, const LayerKeys& keys,
+                                                 std::optional<TouchLayout> genre);
 /// When the touch controls show for `keys`.
 [[nodiscard]] TouchShow resolveTouchShow(const SettingLayers& layers, const LayerKeys& keys);
 /// Whether the touch controls show for `show` while `padLatest` (a controller gave the latest

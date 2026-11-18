@@ -15,6 +15,9 @@ inline constexpr std::string_view itemsApi =
 inline constexpr std::string_view assetHost =
     "https://shared.akamai.steamstatic.com/store_item_assets/";
 
+/// How many of an app's tags `GetItems` is asked for.
+inline constexpr int tagCount = 8;
+
 /// The `GetItems` request for `apps`, of the API at `api`.
 [[nodiscard]] std::string itemsUrl(const std::vector<std::uint32_t>& apps,
                                    std::string_view api = itemsApi);
@@ -32,6 +35,8 @@ struct Item {
     bool freeToKeep{false};
     /// Seconds since the epoch.
     std::int64_t freeToKeepEnds{0};
+    /// Its store tags' ids, most voted first, at most `tagCount`.
+    std::vector<std::uint32_t> tags{};
 
     bool operator==(const Item&) const = default;
 };

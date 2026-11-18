@@ -260,7 +260,8 @@ on the same rule.
 | `src/library/mac_bundle.*` | A macOS `.app` bundle as its Info.plist says (`MacBundle`): the program inside it, its title, its icon file, any string value; the bundle a program sits in (`containing`). The one Info.plist reader |
 | `src/library/shell_link.*` | A Windows `.lnk` read portably from its bytes (MS-SHLLINK): target, arguments, working folder, icon. |
 | `src/library/pe_resources.*` | A Windows program's resources, read portably and bounds-checked: the directory's type, name and language levels. |
-| `src/library/steam_items.*` | Steam's keyless `GetItems`: an app's name, type, offer and hashed art URLs. |
+| `src/library/steam_items.*` | Steam's keyless `GetItems`: an app's name, type, offer, hashed art URLs and store tags. |
+| `src/library/steam_tags.*` | The store tags of the Steam games shown, here or on another openSU (`steamAppOf`), most voted first: asked of `GetItems` in the background fifty apps at a time and kept in `<data>/steam-tags.json`; Auto's touch layout reads a genre from them (`settings::touchLayoutOfTags`) |
 | `src/library/game_identify.*` | What a picked game file is (`identify`): clues on disk (`steam_appid.txt`, `goggame-*.info`, a `.desktop` entry, the folders up to a library folder such as `Games`, an .exe's version resource `versionName`, `fileTitle`) each searched in Steam's store (`storeSearchUrl`, `parseStoreSearch`) until one names a store app; the title, platform and Steam app id the confirm card shows |
 | `src/library/game_matches.*` | The Steam apps a game could be: each app's release year from the store's `appdetails` (`releaseDateUrl`, `parseReleaseYear`); the search is `game_identify`'s |
 | `src/library/steam_shortcuts.*` | Steam's non-Steam shortcuts as own-game entries, read only from `userdata/*/config/shortcuts.vdf` (`steamShortcuts`), launch options after `%command%` (`launchWords`) |

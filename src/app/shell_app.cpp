@@ -378,6 +378,7 @@ void ShellApp::requestArtwork() {
     // The iiSU file placed serves the sounds too.
     interfaceSounds_.apply(chosen, interfaceThemeSettings_.current());
     artworkFetcher_.request(games_);
+    steamTags_.want(games_);
     delivery_.restart();
 }
 
@@ -609,8 +610,14 @@ void ShellApp::handlePointer() {
         const settings::LayerKeys keys = library::layerKeysOf(remotePlay_.game());
         remoteTouchShow_ = settings::resolveTouchShow(gameSettings_.layers(), keys);
         remoteTouch_->sized(settings::resolveTouchSize(gameSettings_.layers(), keys));
+        std::optional<settings::TouchLayout> genre;
+        if (const std::optional<std::uint32_t> app = library::steamAppOf(remotePlay_.game())) {
+            if (const auto tags = steamTags_.of(*app)) {
+                genre = settings::touchLayoutOfTags(*tags);
+            }
+        }
         const settings::TouchLayoutPick layout =
-            settings::resolveTouchLayout(gameSettings_.layers(), keys);
+            settings::resolveTouchLayout(gameSettings_.layers(), keys, genre);
         remoteTouch_->wished(touch::LayoutWish{
             .layout = layout.shown, .console = layout.console, .analog = false, .keyboard = true});
     } else if (!remote) {

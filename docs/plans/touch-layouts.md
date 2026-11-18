@@ -63,4 +63,7 @@ sticks to the core, and the gamepad by default in remote play with its sticks se
 Shown in hidden runner frames per layout; remote play and the tablet not yet shown. Genesis layouts are reachable only
 by hand until openSU has a Genesis system. Step 4 built: the Shooter's keys, mouse buttons and
 swipe-to-aim as relative mouse motion through XTest; tested through the touch layer and the wire,
-not yet shown in a remote session. Step 5 not started: openSU keeps no genres yet.
+not yet shown in a remote session. Step 5 built: Steam's store tags kept per app
+(`library::SteamTags`, shown fetched and kept by a hidden openSU with Counter-Strike 2), and Auto
+picking Shooter, Racing or Platformer from them for a game in remote play. Epic, GOG and ROM games
+have no tags, so Auto keeps the console's own or the gamepad for them.

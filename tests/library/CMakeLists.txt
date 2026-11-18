@@ -246,3 +246,9 @@ target_compile_definitions(visual_presets_test PRIVATE OPENSU_ASSETS_DIR="${CMAK
     OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 opensu_warnings(visual_presets_test)
 add_test(NAME visual_presets COMMAND visual_presets_test)
+
+add_executable(steam_tags_test steam_tags_test.cpp)
+target_link_libraries(steam_tags_test PRIVATE opensu::library opensu::setting_layers lucent::lucent)
+target_compile_definitions(steam_tags_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+opensu_warnings(steam_tags_test)
+add_test(NAME steam_tags COMMAND steam_tags_test)

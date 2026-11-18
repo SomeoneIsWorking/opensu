@@ -161,6 +161,29 @@ const ChoiceKey& touchShowKey() {
     return videoKeys[6];
 }
 
+/// Steam's tag ids (store.steampowered.com/tagdata/populartags) and the layout each calls for.
+struct GenreTag {
+    std::uint32_t tag;
+    TouchLayout layout;
+};
+constexpr std::array<GenreTag, 15> genreTags{{
+    {1663, TouchLayout::Shooter},    // FPS
+    {3814, TouchLayout::Shooter},    // Third-Person Shooter
+    {620519, TouchLayout::Shooter},  // Hero Shooter
+    {5547, TouchLayout::Shooter},    // Arena Shooter
+    {353880, TouchLayout::Shooter},  // Looter Shooter
+    {1023537, TouchLayout::Shooter}, // Boomer Shooter
+    {1199779, TouchLayout::Shooter}, // Extraction Shooter
+    {699, TouchLayout::Racing},      // Racing
+    {1644, TouchLayout::Racing},     // Driving
+    {4102, TouchLayout::Racing},     // Combat Racing
+    {1625, TouchLayout::Platformer}, // Platformer
+    {5379, TouchLayout::Platformer}, // 2D Platformer
+    {5395, TouchLayout::Platformer}, // 3D Platformer
+    {5537, TouchLayout::Platformer}, // Puzzle Platformer
+    {3877, TouchLayout::Platformer}, // Precision Platformer
+}};
+
 } // namespace
 
 const ChoiceKey& aspectKey() {
@@ -271,13 +294,25 @@ TouchLayout touchLayoutFor(std::string_view system) noexcept {
     return found == layoutPicks.end() ? TouchLayout::Pad : found->layout;
 }
 
-TouchLayoutPick resolveTouchLayout(const SettingLayers& layers, const LayerKeys& keys) {
+std::optional<TouchLayout> touchLayoutOfTags(std::span<const std::uint32_t> tags) {
+    for (const std::uint32_t tag : tags) {
+        const auto found = std::ranges::find(genreTags, tag, &GenreTag::tag);
+        if (found != genreTags.end()) {
+            return found->layout;
+        }
+    }
+    return std::nullopt;
+}
+
+TouchLayoutPick resolveTouchLayout(const SettingLayers& layers, const LayerKeys& keys,
+                                   std::optional<TouchLayout> genre) {
     const Resolved resolved =
         layers.resolve(keys, touchLayoutKey.key, std::string{touchLayoutChoices.front().key});
     const auto chosen =
         static_cast<TouchLayout>(choiceIndexOrDefault(touchLayoutKey, resolved.value, keys.game));
     const TouchLayout console = touchLayoutFor(keys.system);
-    return {.shown = chosen == TouchLayout::Auto ? console : chosen, .console = console};
+    return {.shown = chosen == TouchLayout::Auto ? genre.value_or(console) : chosen,
+            .console = console};
 }
 
 TouchShow resolveTouchShow(const SettingLayers& layers, const LayerKeys& keys) {
@@ -306,7 +341,8 @@ VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
         return choiceIndexOrDefault(video, resolved.value, keys.game);
     };
     const std::string shader = resolveShader(layers, keys).value;
-    const TouchLayoutPick layout = resolveTouchLayout(layers, keys);
+    // The runner's games have no store tags.
+    const TouchLayoutPick layout = resolveTouchLayout(layers, keys, std::nullopt);
     return VideoSettings{
         .aspect = static_cast<Aspect>(index(aspectKey())),
         .integer = static_cast<IntegerScale>(index(integerKey())),
