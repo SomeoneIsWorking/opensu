@@ -141,12 +141,15 @@ struct KeyState {
 [[nodiscard]] std::optional<KeyState> readKeyState(std::string_view payload);
 
 /// The guest's pointer over the picture, 0 to 65535 across each side; the buttons held (bit 0
-/// left, 1 middle, 2 right) and the wheel's notches since the session began.
+/// left, 1 middle, 2 right), the wheel's notches and the relative motion in mouse counts, each
+/// since the session began.
 struct MouseState {
     std::uint16_t x{0};
     std::uint16_t y{0};
     std::uint8_t buttons{0};
     std::int32_t wheel{0};
+    std::int32_t moveX{0};
+    std::int32_t moveY{0};
 
     bool operator==(const MouseState&) const = default;
 };

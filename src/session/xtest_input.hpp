@@ -30,6 +30,8 @@ class XTestInput {
     void button(unsigned button, bool down);
     /// Moves the pointer to `x`, `y` across the screen, each 0 to 1.
     void move(double x, double y);
+    /// Moves the pointer by `dx`, `dy` counts, as a mouse does.
+    void nudge(int dx, int dy);
     /// Taps the key that types the printable ASCII `character`; false when the key map has none.
     bool type(char character);
     /// Taps `key`; false when the key map has no key for it.

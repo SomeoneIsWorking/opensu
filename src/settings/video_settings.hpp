@@ -106,6 +106,8 @@ enum class TouchLayout : std::uint8_t {
     Gamepad,
     Racing,
     Platformer,
+    /// Keys and mouse, for a game on another openSU; the console's own elsewhere.
+    Shooter,
 };
 
 struct VideoSettings {
@@ -170,7 +172,7 @@ inline constexpr std::array<ChoiceText, 3> touchShowChoices{{
     {"never", "Never"},
 }};
 
-inline constexpr std::array<ChoiceText, 12> touchLayoutChoices{{
+inline constexpr std::array<ChoiceText, 13> touchLayoutChoices{{
     {"auto", "Auto"},
     {"pad", "Pad"},
     {"two-buttons", "Two buttons"},
@@ -183,6 +185,7 @@ inline constexpr std::array<ChoiceText, 12> touchLayoutChoices{{
     {"gamepad", "Gamepad"},
     {"racing", "Racing"},
     {"platformer", "Platformer"},
+    {"shooter", "Shooter"},
 }};
 inline constexpr ChoiceKey touchLayoutKey{"touch.layout", "Touch layout", touchLayoutChoices};
 /// Where the runner is told the console's own layout beside the one shown.

@@ -81,6 +81,8 @@ struct Control {
     bool round{false};
     std::optional<Stick> stick;
     std::vector<Target> targets;
+    /// A finger here holds nothing; how far it moves is the look's (`TouchLayer::takeLook`).
+    bool look{false};
 };
 
 /// A whole layout. The first control whose `hit` holds a finger takes it.

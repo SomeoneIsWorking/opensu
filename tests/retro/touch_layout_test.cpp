@@ -2,15 +2,18 @@
 // lean, and the setting that picks it.
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "gamepad/event.hpp"
 #include "settings/video_settings.hpp"
 #include "support/test_main.hpp"
+#include "touch/shooter_keys.hpp"
 #include "touch/touch_layer.hpp"
 
 namespace {
@@ -148,6 +151,38 @@ void cButtonsPushTheRightStick() {
            "C-up pushes the right stick all the way up");
 }
 
+void shooterPlaysKeysAndMouse() {
+    TouchLayer layer{"no-art"};
+    const WindowSurface phone = surface(2400, 1080, 2.75F);
+    const auto alone =
+        placesOf(layer, {TouchLayout::Shooter, TouchLayout::SuperNintendo, false, false}, phone);
+    expect(has(alone, Button::A) && !has(alone, Button::R2) && has(alone, Button::L1),
+           "with no keys and mouse to send to, the Shooter is the console's own");
+    const auto places =
+        placesOf(layer, {TouchLayout::Shooter, TouchLayout::Gamepad, false, true}, phone);
+    expect(has(places, Button::R2) && has(places, Button::L2) && has(places, Button::L3) &&
+               has(places, Button::Start) && sticksIn(places) == 1,
+           "the Shooter: a move stick, Fire, Aim, Sprint and the rest");
+
+    // A finger on the right half that lands on no button turns the view, holding nothing.
+    const float x = 1500.0F;
+    const float y = 300.0F;
+    layer.finger(Finger{3, x, y, Finger::Phase::Down});
+    layer.finger(Finger{3, x + 275.0F, y - 55.0F, Finger::Phase::Move});
+    const auto [across, down] = layer.takeLook();
+    expect(across == 100.0F && down == -20.0F && layer.held().empty(),
+           "a swipe of 275 by -55 pixels at 2.75 per dp turns the view 100 by -20 dp");
+    expect(layer.takeLook() == std::pair{0.0F, 0.0F}, "the look is taken once");
+    layer.finger(Finger{3, x, y, Finger::Phase::Up});
+
+    const std::vector<Button> held{Button::Up, Button::Right, Button::A,    Button::R2,
+                                   Button::L2, Button::L3,    Button::Guide};
+    const opensu::touch::DeskInput desk = opensu::touch::deskInput(held);
+    expect(desk.keys == std::vector<std::uint8_t>{0x1a, 0x07, 0x2c, 0xe1} &&
+               desk.mouseButtons == 0b101,
+           "W, D, Space and Shift, both mouse buttons; Guide presses nothing");
+}
+
 void settingPicksByConsole() {
     using opensu::settings::touchLayoutFor;
     expect(touchLayoutFor("n64") == TouchLayout::Nintendo64 &&
@@ -174,6 +209,7 @@ int main() try {
     genresTakeTheConsolesButtons();
     sticksLean();
     cButtonsPushTheRightStick();
+    shooterPlaysKeysAndMouse();
     settingPicksByConsole();
     std::printf("touch_layout: all checks passed\n");
     return 0;

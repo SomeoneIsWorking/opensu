@@ -228,7 +228,8 @@ void declareVideo(Schema& schema) {
                              section));
     schema.add(choiceSetting(touchLayoutKey,
                              "Auto shows the game's console's own controls, the gamepad for a PC "
-                             "game; Racing and Platformer suit those games",
+                             "game; Racing and Platformer suit those games, and Shooter plays a "
+                             "remote PC game with keys and a mouse",
                              section));
     Setting touchSize;
     touchSize.key = std::string{touchSizeKey};

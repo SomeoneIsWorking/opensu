@@ -72,8 +72,20 @@ std::vector<gamepad::Event> RemoteTouch::follow(bool shown, const touch::WindowS
     return events;
 }
 
+touch::DeskInput RemoteTouch::desk() const {
+    if (!shown_ || !shooter() || !panel_.empty()) {
+        return {};
+    }
+    return touch::deskInput(layer_.held());
+}
+
 void RemoteTouch::noteHeld(std::vector<gamepad::Event>& events) {
-    const std::vector<gamepad::Button> held = layer_.held();
+    std::vector<gamepad::Button> held = layer_.held();
+    if (shooter() && panel_.empty()) {
+        std::erase_if(held, [](gamepad::Button button) {
+            return button != gamepad::Button::Guide;
+        });
+    }
     const auto note = [&events](gamepad::Button button, bool pressed) {
         events.push_back(gamepad::Event{.button = button, .pressed = pressed});
     };

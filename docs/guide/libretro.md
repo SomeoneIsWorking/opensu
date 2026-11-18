@@ -179,7 +179,8 @@ with L and R; Nintendo 64 its stick, d-pad, A, B, the four C buttons, Z, L and R
 the d-pad, the four symbols and L1 L2 R1 R2, with both sticks and L3 R3 when the game reads them;
 GameCube, Switch, Xbox and the newer consoles a full gamepad. By hand you can pick any of them,
 Genesis 3 or 6-button, the plain pad, or a genre: Racing (steer on the left, gas and brake pedals on
-the right) or Platformer (big Jump and Action buttons). A stick on screen is analog: the further
+the right) or Platformer (big Jump and Action buttons); Shooter is for remote play and shows the
+console's own here. A stick on screen is analog: the further
 your thumb from its centre, the further it leans. In portrait the controls stand under the picture instead of beside it. Touch controls size in Game settings makes either 75 to 175% of its size, everywhere or
 for a system or a game, and changes a running game at once. MAME 2010 is not offered: its Android
 build crashes on load, so a set only it matches reads "No arcade core matches this romset". Back, a

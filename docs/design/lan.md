@@ -434,8 +434,8 @@ that profile's; the host's own active profile does not change.
   (`audio::LiveSound`, at most 60 ms queued) when the shell plays sounds.
 - Input: while the remote game has the controls (streaming, no Guide menu or other menu open), the
   shell's pad buttons other than Guide, the first pad's sticks and triggers' travel (0–255), the
-  held keys (at most 16) and the pointer over the picture with its buttons held and the wheel's
-  whole notches go to the host (`app::RemoteInput`, sampled once a frame, a press and release in
+  held keys (at most 16) and the pointer over the picture with its buttons held, the wheel's
+  whole notches and its relative motion in mouse counts go to the host (`app::RemoteInput`, sampled once a frame, a press and release in
   one frame sent held for it), each sent when it changes. The guest's mapping for the game
   (`PadOwner::forwarding`, the same `ForwardMap` a local launch gives its pads, and the chord hold
   delay) goes with each ping; the host's `RemotePad` plays the pad through a `PadTranslator` with
@@ -444,6 +444,13 @@ that profile's; the host's own active profile does not change.
   does the same while the game has the controls. With a touchscreen and no pad connected the
   runner's on-screen pad is drawn over the picture (`app::RemoteTouch` on `touch::TouchLayer`)
   and its buttons, pause as Guide, enter as any pad's would; fingers on it are not pointer input.
+  Its layout is the game's Touch layout (Auto: the gamepad). The Shooter sends no pad at all, so a
+  game's prompts never flip between pad and keyboard: its buttons are keys and mouse buttons
+  (`touch::deskInput`: move stick WASD, Jump Space, Crouch Left Ctrl, Reload R, Use E, Sprint
+  Left Shift, Q, G, Tab, Esc; Fire the left button, Aim the right), and a swipe on the right half
+  that lands on no button moves the mouse, `touch::lookCountsPerDp` counts a dp
+  (`MouseState::moveX`, `moveY`, played as XTest relative motion). Keys and the mouse reach the
+  game only where the host has an X display.
 
 ## Playing a ROM together
 

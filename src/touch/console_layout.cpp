@@ -78,6 +78,10 @@ enum class Cluster : std::uint8_t {
     CButtons,
     /// Two pedals, the first on the left.
     Pedals,
+    /// A stick holding its directions, as a d-pad does.
+    Move,
+    /// One big button.
+    Fire,
 };
 
 /// A button: what it holds, and its drawing or else the word on a blank one.
@@ -100,6 +104,10 @@ struct Description {
     std::vector<Face> rightShoulders;
     /// Left to right.
     std::vector<Face> pills;
+    /// The Fire cluster's button.
+    Face fire{};
+    /// The rest of the right half turns the view.
+    bool look{false};
 };
 
 std::vector<Face> selectStart() {
@@ -228,6 +236,25 @@ Description describe(const LayoutWish& wish) {
         d.pills.clear();
         keepConsoles(d, wish);
         return d;
+    case TouchLayout::Shooter:
+        if (!wish.keyboard) {
+            return describe(LayoutWish{.layout = wish.console,
+                                       .console = wish.console,
+                                       .analog = wish.analog,
+                                       .keyboard = false});
+        }
+        d.leftMain = Cluster::Move;
+        d.rightAux = Cluster::Fire;
+        d.faces = {{Button::A, nullptr, "Jump"},
+                   {Button::B, nullptr, "Crouch"},
+                   {Button::X, nullptr, "Reload"},
+                   {Button::Y, nullptr, "Use"}};
+        d.fire = {Button::R2, nullptr, "Fire"};
+        d.leftShoulders = {{Button::L2, nullptr, "Aim"}, {Button::L3, nullptr, "Sprint"}};
+        d.rightShoulders = {{Button::R1, nullptr, "G"}, {Button::L1, nullptr, "Q"}};
+        d.pills = {{Button::Select, nullptr, "Tab"}, {Button::Start, nullptr, "Esc"}};
+        d.look = true;
+        return d;
     case TouchLayout::Auto:
     case TouchLayout::Pad:
         break;
@@ -255,7 +282,10 @@ Size sizeOf(Cluster cluster, bool aux, float side) {
     case Cluster::Dpad:
     case Cluster::LeftStick:
     case Cluster::RightStick:
+    case Cluster::Move:
         return {square, square};
+    case Cluster::Fire:
+        return {bigFace, bigFace};
     case Cluster::Steer:
     case Cluster::SteerDigital:
         return {steerWidth, steerHeight};
@@ -328,6 +358,12 @@ class Builder {
         }
     }
 
+    /// A finger in `area` that lands on no control turns the view.
+    void look(const Box& area) {
+        plan_.controls.push_back(Control{
+            .hit = area, .round = false, .stick = std::nullopt, .targets = {}, .look = true});
+    }
+
     void cluster(Cluster kind, const Box& box, const Description& d) {
         switch (kind) {
         case Cluster::None:
@@ -337,6 +373,12 @@ class Builder {
             return;
         case Cluster::LeftStick:
             stick(box, StickSide::Left);
+            return;
+        case Cluster::Move:
+            move(box);
+            return;
+        case Cluster::Fire:
+            button(box, d.fire, "button.svg", true);
             return;
         case Cluster::RightStick:
             stick(box, StickSide::Right);
@@ -392,6 +434,24 @@ class Builder {
                                                         .analog = side,
                                                         .reach = ring.width * stickReach},
                                          .targets = {}});
+    }
+
+    void move(const Box& ring) {
+        const std::vector<Button> ways{Button::Up, Button::Down, Button::Left, Button::Right};
+        plan_.pieces.push_back(Piece{.box = ring, .art = art_.svg("stick_ring.svg", ring)});
+        const float thumb = ring.width * thumbShare;
+        const Box knob{ring.centreX() - (thumb * 0.5F), ring.centreY() - (thumb * 0.5F), thumb,
+                       thumb};
+        plan_.pieces.push_back(Piece{.box = knob,
+                                     .art = art_.svg("stick_thumb.svg", knob),
+                                     .lit = ways,
+                                     .lean = ring.width * thumbTravel});
+        plan_.controls.push_back(Control{
+            .hit = ring.grown(ring.width * 0.5F * (reach - 1.0F)),
+            .round = true,
+            .stick =
+                Stick{.x = ring.centreX(), .y = ring.centreY(), .deadZone = ring.width * stickDead},
+            .targets = {}});
     }
 
     void steer(const Box& track, bool analog) {
@@ -612,6 +672,10 @@ ControlPlan consoleLayout(const WindowSurface& surface, const LayoutWish& wish,
     build.row(d.pills, middle - (rowWidth(d.pills, pillWidth) * dp * 0.5F), pillY, pillWidth * dp,
               pillHeight * dp, true);
 
+    if (d.look) {
+        // Last, so every button on that side keeps its finger.
+        build.look(Box{middle, top, right - middle, bottom - top});
+    }
     ControlPlan plan = build.take();
     plan.band = upright ? static_cast<float>(surface.height) - rowY + apart : 0.0F;
     return plan;

@@ -61,4 +61,6 @@ same rules as now.
 Steps 1 and 3 built: the setting with Auto, every console layout, Racing and Platformer, analog
 sticks to the core, and the gamepad by default in remote play with its sticks sent to the host.
 Shown in hidden runner frames per layout; remote play and the tablet not yet shown. Genesis layouts are reachable only
-by hand until openSU has a Genesis system. Steps 4 and 5 not started.
+by hand until openSU has a Genesis system. Step 4 built: the Shooter's keys, mouse buttons and
+swipe-to-aim as relative mouse motion through XTest; tested through the touch layer and the wire,
+not yet shown in a remote session. Step 5 not started: openSU keeps no genres yet.

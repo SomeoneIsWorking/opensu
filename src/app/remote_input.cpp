@@ -62,6 +62,18 @@ void RemoteInput::touchSticks(const gamepad::Sticks& sticks) {
     touchSticks_ = sticks;
 }
 
+void RemoteInput::touchMouse(std::uint8_t buttons, std::pair<float, float> lookDp) {
+    touchButtons_ = buttons;
+    moveRest_.first += lookDp.first * touch::lookCountsPerDp;
+    moveRest_.second += lookDp.second * touch::lookCountsPerDp;
+    const float across = std::trunc(moveRest_.first);
+    const float down = std::trunc(moveRest_.second);
+    mouse_.moveX += static_cast<std::int32_t>(across);
+    mouse_.moveY += static_cast<std::int32_t>(down);
+    moveRest_.first -= across;
+    moveRest_.second -= down;
+}
+
 void RemoteInput::pointer(const PointerFrame& frame, const display::Placed& picture) {
     if (frame.point && picture.width > 1 && picture.height > 1) {
         const auto across = [](float at, int start, int size) {
@@ -108,7 +120,7 @@ RemoteInput::State RemoteInput::take() {
         state.pad.rightY = narrowed(touchSticks_.rightY);
     }
     state.mouse = mouse_;
-    state.mouse.buttons = static_cast<std::uint8_t>(mouse_.buttons | clicked_);
+    state.mouse.buttons = static_cast<std::uint8_t>(mouse_.buttons | clicked_ | touchButtons_);
     pressedThisFrame_ = 0;
     endedThisFrame_ = 0;
     clicked_ = 0;
@@ -122,6 +134,8 @@ void RemoteInput::release() {
     stickHeld_ = 0;
     axes_.reset();
     touchSticks_ = {};
+    touchButtons_ = 0;
+    moveRest_ = {};
     mouse_.buttons = 0;
     clicked_ = 0;
 }

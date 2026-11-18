@@ -117,7 +117,10 @@ Fedora, RPM Fusion's `mesa-va-drivers-freeworld`).
   back at a touch, Always keeps them, Never never shows them; Touch controls size sizes them. A
   laptop's or a Mac's trackpad is no touchscreen. Touch layout picks them: Auto shows a full
   gamepad (two analog sticks, d-pad, A B X Y, bumpers, triggers, Back and Start) for every remote
-  game; pick another layout for the game in Game settings.
+  game; pick another layout for the game in Game settings. **Shooter** plays a PC game with keys
+  and a mouse instead of a pad, so its prompts stay on the keyboard: a stick for WASD, Jump, Crouch,
+  Reload, Use, Fire, Aim, Sprint, Q, G, Tab and Esc, and a swipe on the right half of the screen
+  moves the mouse to aim. Keys and the mouse reach a game whose host has an X display.
 - Guide opens this openSU's menu. **End remote play** closes the game over there; anything it has
   not saved is lost.
 - The other openSU runs one game at a time. While a different game runs there, it refuses.

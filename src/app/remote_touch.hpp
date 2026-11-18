@@ -16,6 +16,7 @@
 #include "gamepad/event.hpp"
 #include "gpu2d/texture.hpp"
 #include "settings/video_settings.hpp"
+#include "touch/shooter_keys.hpp"
 #include "touch/touch_layer.hpp"
 
 namespace opensu::app {
@@ -43,6 +44,13 @@ class RemoteTouch {
     [[nodiscard]] gamepad::Sticks sticks() const {
         return shown_ ? layer_.sticks() : gamepad::Sticks{};
     }
+    /// What the Shooter's controls press as keys and mouse buttons; nothing for any other layout
+    /// or while they are not shown.
+    [[nodiscard]] touch::DeskInput desk() const;
+    /// How far the Shooter's look moved since the last frame, in dp.
+    [[nodiscard]] std::pair<float, float> takeLook() {
+        return layer_.takeLook();
+    }
     /// How much of the window's bottom the controls keep from the picture.
     [[nodiscard]] int band() const {
         return shown_ ? static_cast<int>(layer_.band()) : 0;
@@ -56,8 +64,12 @@ class RemoteTouch {
     [[nodiscard]] std::optional<gpu2d::TextureView> view();
 
   private:
-    /// The events taking the held buttons from `held_` to what the layer holds now.
+    /// The events taking the held buttons from `held_` to what the layer holds now, which for the
+    /// Shooter is only the pause button's Guide: the rest go as keys and mouse (`desk`).
     void noteHeld(std::vector<gamepad::Event>& events);
+    [[nodiscard]] bool shooter() const {
+        return wish_.layout == settings::TouchLayout::Shooter && wish_.keyboard;
+    }
 
     SDL_GPUDevice* device_;
     touch::TouchLayer layer_;

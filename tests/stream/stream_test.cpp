@@ -183,7 +183,8 @@ void payloadsReadAsWritten() {
     tooMany.append(wire::heldKeys + 1, '\x04');
     expect(!wire::readKeyState(tooMany), "more than a keyboard rolls over does not");
 
-    const wire::MouseState mouse{.x = 65535, .y = 2, .buttons = 5, .wheel = -3};
+    const wire::MouseState mouse{
+        .x = 65535, .y = 2, .buttons = 5, .wheel = -3, .moveX = -70000, .moveY = 12};
     expect(wire::readMouseState(wire::write(mouse)) == mouse, "a pointer reads as written");
 
     const std::optional<wire::End> end = wire::readEnd("over\nand out");

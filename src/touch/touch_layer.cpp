@@ -126,6 +126,8 @@ void TouchLayer::setSize(float size) {
 
 void TouchLayer::layout(const WindowSurface& surface, const Box& picture) {
     touches_.clear();
+    look_ = {};
+    dp_ = surface.dp;
     width_ = surface.width;
     height_ = surface.height;
     WindowSurface sized = surface;
@@ -190,6 +192,10 @@ bool TouchLayer::finger(const Finger& finger) {
         break;
     case Finger::Phase::Move:
         if (auto touch = touches_.find(finger.id); touch != touches_.end()) {
+            if (plan_.controls[touch->second.control].look) {
+                look_.first += finger.x - touch->second.x;
+                look_.second += finger.y - touch->second.y;
+            }
             touch->second.buttons =
                 buttonsAt(plan_.controls[touch->second.control], finger.x, finger.y);
             touch->second.x = finger.x;
@@ -203,6 +209,12 @@ bool TouchLayer::finger(const Finger& finger) {
     const bool changed = held() != before || leans() != wasLeaning;
     dirty_ = dirty_ || changed;
     return changed;
+}
+
+std::pair<float, float> TouchLayer::takeLook() {
+    const std::pair<float, float> moved{look_.first / dp_, look_.second / dp_};
+    look_ = {};
+    return moved;
 }
 
 bool TouchLayer::releaseAll() {

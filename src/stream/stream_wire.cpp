@@ -327,6 +327,8 @@ std::string write(const MouseState& mouse) {
     appendLittleEndian(out, mouse.y, 2);
     out.push_back(static_cast<char>(mouse.buttons));
     appendLittleEndian(out, static_cast<std::uint32_t>(mouse.wheel), 4);
+    appendLittleEndian(out, static_cast<std::uint32_t>(mouse.moveX), 4);
+    appendLittleEndian(out, static_cast<std::uint32_t>(mouse.moveY), 4);
     return out;
 }
 
@@ -337,6 +339,8 @@ std::optional<MouseState> readMouseState(std::string_view payload) {
     mouse.y = static_cast<std::uint16_t>(in.take(2));
     mouse.buttons = static_cast<std::uint8_t>(in.take(1));
     mouse.wheel = static_cast<std::int32_t>(static_cast<std::uint32_t>(in.take(4)));
+    mouse.moveX = static_cast<std::int32_t>(static_cast<std::uint32_t>(in.take(4)));
+    mouse.moveY = static_cast<std::int32_t>(static_cast<std::uint32_t>(in.take(4)));
     return in.whole() ? std::optional{mouse} : std::nullopt;
 }
 

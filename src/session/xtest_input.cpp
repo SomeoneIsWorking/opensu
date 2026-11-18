@@ -67,6 +67,10 @@ void XTestInput::move(double x, double y) {
                          static_cast<int>(y * (height - 1)), CurrentTime);
 }
 
+void XTestInput::nudge(int dx, int dy) {
+    XTestFakeRelativeMotionEvent(connection_->display, dx, dy, CurrentTime);
+}
+
 bool XTestInput::type(char character) {
     // Printable ASCII's keysyms are its codes (X11/keysymdef.h, Latin 1).
     if (character < ' ' || character > '~') {

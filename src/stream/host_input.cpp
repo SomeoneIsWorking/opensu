@@ -106,10 +106,17 @@ class HostInput::Devices {
         if (!display_) {
             return;
         }
-        const wire::MouseState before =
-            mouse_.value_or(wire::MouseState{.x = 0, .y = 0, .buttons = 0, .wheel = state.wheel});
+        const wire::MouseState before = mouse_.value_or(wire::MouseState{.x = 0,
+                                                                         .y = 0,
+                                                                         .buttons = 0,
+                                                                         .wheel = state.wheel,
+                                                                         .moveX = state.moveX,
+                                                                         .moveY = state.moveY});
         if (!mouse_ || before.x != state.x || before.y != state.y) {
             display_->move(state.x / pointerScale, state.y / pointerScale);
+        }
+        if (state.moveX != before.moveX || state.moveY != before.moveY) {
+            display_->nudge(state.moveX - before.moveX, state.moveY - before.moveY);
         }
         for (std::size_t i = 0; i < pointerButtons.size(); ++i) {
             const bool was = (before.buttons >> i & 1U) != 0;

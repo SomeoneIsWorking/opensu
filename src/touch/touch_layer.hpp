@@ -70,6 +70,8 @@ class TouchLayer {
     [[nodiscard]] bool pressed(gamepad::Button button) const;
     /// Where the analog sticks lean, on the virtual pad's scale.
     [[nodiscard]] gamepad::Sticks sticks() const;
+    /// How far fingers on the look area moved since it was last taken, in dp across and down.
+    [[nodiscard]] std::pair<float, float> takeLook();
 
     /// The controls as an overlay the size of the surface, drawn again when what is held changed.
     [[nodiscard]] OverlayImage image();
@@ -106,6 +108,9 @@ class TouchLayer {
     unsigned width_{0};
     unsigned height_{0};
     std::map<std::uint64_t, Touch> touches_;
+    /// Pixels per dp of the surface laid out, and the look moved since it was taken, in pixels.
+    float dp_{1.0F};
+    std::pair<float, float> look_{};
     std::vector<unsigned char> pixels_;
     bool dirty_{true};
 };

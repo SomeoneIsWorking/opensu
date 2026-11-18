@@ -15,12 +15,14 @@
 namespace opensu::touch {
 
 /// What to lay out: `layout` (never Auto), the console's own `console` that Racing and Platformer
-/// take their buttons from, and whether the game reads analog sticks (a PlayStation game with
-/// DualShock; a Nintendo 64 or gamepad game always does).
+/// take their buttons from, whether the game reads analog sticks (a PlayStation game with
+/// DualShock; a Nintendo 64 or gamepad game always does), and whether keys and a mouse reach it,
+/// which Shooter needs (a game on another openSU).
 struct LayoutWish {
     settings::TouchLayout layout{settings::TouchLayout::Pad};
     settings::TouchLayout console{settings::TouchLayout::Pad};
     bool analog{false};
+    bool keyboard{false};
 
     bool operator==(const LayoutWish&) const = default;
 };

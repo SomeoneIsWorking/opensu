@@ -16,6 +16,7 @@
 #include "gamepad/pad_translator.hpp"
 #include "shell_window.hpp"
 #include "stream/stream_wire.hpp"
+#include "touch/shooter_keys.hpp"
 
 namespace opensu::app {
 
@@ -27,6 +28,9 @@ class RemoteInput {
     void axes(const std::map<std::string, gamepad::PadAxes>& axes);
     /// The touch controls' sticks, which the host gets in place of a pad's while they lean.
     void touchSticks(const gamepad::Sticks& sticks);
+    /// The Shooter's mouse buttons held, and its look moved `lookDp` across and down since the
+    /// last frame, which moves the mouse by `touch::lookCountsPerDp` counts a dp.
+    void touchMouse(std::uint8_t buttons, std::pair<float, float> lookDp);
     /// The pointer's frame, with the picture drawn at `picture` in the window.
     void pointer(const PointerFrame& frame, const display::Placed& picture);
     /// Lets go of everything, as when a menu takes the controls.
@@ -50,6 +54,9 @@ class RemoteInput {
     /// The first pad's axes, when a pad reports them.
     std::optional<gamepad::PadAxes> axes_;
     gamepad::Sticks touchSticks_{};
+    std::uint8_t touchButtons_{0};
+    /// The motion's part counts, kept until they add up to one.
+    std::pair<float, float> moveRest_{};
     stream::wire::MouseState mouse_;
     /// The pointer's buttons that went down this frame, held for it even when let go in it.
     std::uint8_t clicked_{0};
