@@ -1,21 +1,18 @@
 #include "close_asks.hpp"
 
-#include <algorithm>
 #include <utility>
 
 #include "lucent/log.h"
 
 namespace opensu::app {
 
-void CloseAsks::playing(std::string id, std::string title, std::vector<std::string> seats) {
+void CloseAsks::playing(std::string id, std::string title) {
     const std::lock_guard lock{mutex_};
     runningId_ = std::move(id);
     runningTitle_ = std::move(title);
-    seats_ = std::move(seats);
 }
 
-lan::wire::PlayVerdict CloseAsks::ask(const lan::Peer& peer, const std::string& gameId,
-                                      const std::string& profile, bool linked) {
+lan::wire::PlayVerdict CloseAsks::ask(const lan::Peer& peer, const std::string& gameId) {
     const std::lock_guard lock{mutex_};
     const auto waiting = waiting_.find(peer.id);
     if (runningId_ != gameId) {
@@ -30,12 +27,6 @@ lan::wire::PlayVerdict CloseAsks::ask(const lan::Peer& peer, const std::string& 
         return lan::wire::PlayVerdict{.verdict = "declined", .port = 0, .why = std::move(why)};
     }
     if (waiting == waiting_.end()) {
-        if (!linked || std::ranges::find(seats_, profile) == seats_.end()) {
-            return lan::wire::PlayVerdict{.verdict = "declined",
-                                          .port = 0,
-                                          .why = runningTitle_ +
-                                                 " is another profile's game; ask to join it"};
-        }
         waiting_.emplace(peer.id, std::string{});
         closing_ = true;
         lucent::info("remote", "{} closes {} here", peer.name, runningTitle_);

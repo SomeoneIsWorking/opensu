@@ -995,8 +995,7 @@ class ShellApp final {
                 },
             .seats =
                 [this](std::string id, std::vector<std::string> profiles) {
-                    closeAsks_.playing(id, launches_.running() ? launches_.game().title : "",
-                                       profiles);
+                    closeAsks_.playing(id, launches_.running() ? launches_.game().title : "");
                     lan_.playing(std::move(id), std::move(profiles));
                 },
             .frameGen =
@@ -1090,9 +1089,8 @@ class ShellApp final {
                     return remotePlay_.playStatus(peer, game);
                 },
             .close =
-                [this](const lan::Peer& peer, const std::string& game, const std::string& profile,
-                       bool linked) {
-                    return closeAsks_.ask(peer, game, profile, linked);
+                [this](const lan::Peer& peer, const std::string& game) {
+                    return closeAsks_.ask(peer, game);
                 },
             .invited =
                 [this](const lan::Peer& peer, const lan::wire::Invitation& game) {

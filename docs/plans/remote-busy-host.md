@@ -32,7 +32,7 @@ play: nobody need be at the computer that runs the game.
   Cancel.
 - Built: the same profile continues it with no question (`RemotePlay::continueSeat`).
 - Built: the same profile closes it with no question (`/lan/close`, `app/close_asks`); another
-  profile is refused.
+  profile is refused at the route (`LanListener::closeRoute`, 403) and never reaches the close.
 - Not built: the join question follows the player. Today a friend's ask to join shows on the
   computer's own screen only (`TogetherQuestions`), so a player streaming to a phone never sees it.
 - Not built: friends without pairing. Today an openSU sees another's games only once the two are

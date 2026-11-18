@@ -433,10 +433,18 @@ Response LanListener::closeRoute(std::string_view body, const Signed& verified) 
     if (!sources_.close) {
         return refused(conflict, "Conflict", "this openSU closes no game for another");
     }
-    const bool linked = sources_.profiles.linked(asked->profile, verified.peer.id).has_value();
-    const wire::PlayVerdict verdict =
-        sources_.close(verified.peer, asked->game, asked->profile, linked);
-    return Response::json(ok, "OK", wire::write(verdict));
+    // Only a profile playing the game, linked with the asker, may close it; once nothing plays it,
+    // the asker hears it closed.
+    const std::vector<wire::ListedGame> listed = sources_.library.listing().games;
+    const auto game = std::ranges::find(listed, asked->game, &wire::ListedGame::id);
+    const bool playing = game != listed.end() && !game->playingAs.empty();
+    const bool seated =
+        playing && std::ranges::find(game->playingAs, asked->profile) != game->playingAs.end();
+    if (playing &&
+        (!seated || !sources_.profiles.linked(asked->profile, verified.peer.id).has_value())) {
+        return refused(forbidden, "Forbidden", "only the profile playing it closes it");
+    }
+    return Response::json(ok, "OK", wire::write(sources_.close(verified.peer, asked->game)));
 }
 
 Response LanListener::playStatusRoute(std::string_view body, const Signed& verified) {

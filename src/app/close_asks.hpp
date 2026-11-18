@@ -9,7 +9,6 @@
 #include <map>
 #include <mutex>
 #include <string>
-#include <vector>
 
 #include "lan/peer_book.hpp"
 #include "lan/wire.hpp"
@@ -24,14 +23,11 @@ class CloseAsks {
     explicit CloseAsks(Close close) : close_{std::move(close)} {
     }
 
-    /// The game running here now (an empty id, none), its title and the profiles in its seats.
-    /// Main loop.
-    void playing(std::string id, std::string title, std::vector<std::string> seats);
+    /// The game running here now (an empty id, none) and its title. Main loop.
+    void playing(std::string id, std::string title);
 
-    /// `peer` asks, as `profile` (`linked` with it), to close `gameId`; how that stands. Listener
-    /// thread.
-    [[nodiscard]] lan::wire::PlayVerdict ask(const lan::Peer& peer, const std::string& gameId,
-                                             const std::string& profile, bool linked);
+    /// `peer` closes `gameId`; how that stands. Listener thread.
+    [[nodiscard]] lan::wire::PlayVerdict ask(const lan::Peer& peer, const std::string& gameId);
 
     /// Closes the game when it was asked to. Main loop.
     void service();
@@ -41,7 +37,6 @@ class CloseAsks {
     mutable std::mutex mutex_;
     std::string runningId_;
     std::string runningTitle_;
-    std::vector<std::string> seats_;
     /// The peers waiting for the close, by id, each with why it failed once it did.
     std::map<std::string, std::string> waiting_;
     /// A close asked for and not yet done.

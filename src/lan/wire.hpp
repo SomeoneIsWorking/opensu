@@ -220,8 +220,9 @@ struct GameRef {
 [[nodiscard]] std::string write(const GameRef& ref);
 [[nodiscard]] std::optional<GameRef> readGameRef(std::string_view body);
 /// `POST /lan/close`: a paired openSU closes `game`, running here, as its active `profile`, which
-/// must play it. Its answer is a `PlayVerdict`: "closed" once nothing runs here, "waiting" while
-/// it closes, "declined" with why. Asked again for how it stands.
+/// must be linked with it and play the game; any other gets 403. Its answer is a `PlayVerdict`:
+/// "closed" once nothing plays it, "waiting" while it closes, "declined" with why it did not.
+/// Asked again for how it stands.
 inline constexpr std::string_view closeRoute = "/lan/close";
 struct CloseRequest {
     std::string game;
