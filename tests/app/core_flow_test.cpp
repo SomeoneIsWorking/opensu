@@ -222,6 +222,17 @@ struct Rig {
             },
             [](const library::Game&) {
                 return false;
+            },
+            [](const library::Game&) {
+            },
+            [](const library::Game&, bool) {
+            },
+            [](const library::Game&) {
+            },
+            [](const library::Game&) {
+                return std::vector<library::Game>{};
+            },
+            [](const library::Game&, const std::string&) {
             }}};
 
     /// Each action as a press, the stack settled after it.
