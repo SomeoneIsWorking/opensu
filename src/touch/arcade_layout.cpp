@@ -8,6 +8,7 @@
 
 #include "gpu2d/geometry.hpp"
 #include "svg/svg_raster.hpp"
+#include "touch/layout_parts.hpp"
 
 namespace opensu::touch {
 namespace {
@@ -82,19 +83,6 @@ float placed(float width, float barStart, float barWidth, bool fromRight, float 
 
 float idleFor(const Box& box, const Box& picture) {
     return overlaps(box, picture) ? idleOverPicture : idleOnBlack;
-}
-
-/// A label centred in `box`.
-Piece labelIn(const Box& box, Art art, std::vector<Button> lit, float idle) {
-    const auto width = static_cast<float>(art.width);
-    const auto height = static_cast<float>(art.height);
-    return Piece{
-        .box = {box.centreX() - (width * 0.5F), box.centreY() - (height * 0.5F), width, height},
-        .art = std::move(art),
-        .down = {},
-        .lit = std::move(lit),
-        .idle = idle,
-        .lean = 0.0F};
 }
 
 void addStick(ControlPlan& plan, const Box& base, const ArcadePanel& panel, const Box& picture,

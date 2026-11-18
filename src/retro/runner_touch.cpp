@@ -66,9 +66,30 @@ void RunnerTouch::cabinet(const CabinetListing& listing) {
     shape({}, listing);
 }
 
-void RunnerTouch::named(const std::vector<InputDescriptor>& descriptors) {
+void RunnerTouch::named(const std::vector<InputDescriptor>& descriptors, bool sticks) {
     if (listing_) {
         shape(descriptors, *listing_);
+        return;
+    }
+    if (sticks != wish_.analog) {
+        wish_.analog = sticks;
+        lucent::info("retro", "the core {} the pad's sticks", sticks ? "reads" : "does not read");
+        layer_.setLayout(wish_);
+        place();
+    }
+}
+
+void RunnerTouch::wished(settings::TouchLayout layout, settings::TouchLayout console) {
+    if (layout == wish_.layout && console == wish_.console) {
+        return;
+    }
+    wish_.layout = layout;
+    wish_.console = console;
+    lucent::info("retro", "touch layout {}",
+                 settings::touchLayoutChoices.at(static_cast<std::size_t>(layout)).label);
+    layer_.setLayout(wish_);
+    if (!listing_) {
+        place();
     }
 }
 
@@ -95,6 +116,8 @@ void RunnerTouch::place() {
     owed_.clear();
     holding_.clear();
     joypad_.hold("touch", {});
+    sticks_ = {};
+    joypad_.sticks("touch", sticks_);
     moved_ = true;
 }
 
@@ -131,6 +154,10 @@ bool RunnerTouch::follow(const touch::WindowSurface& surface, bool shown,
     } else {
         owed_.clear();
         layer_.releaseAll();
+    }
+    if (const gamepad::Sticks sticks = layer_.sticks(); sticks != sticks_) {
+        sticks_ = sticks;
+        joypad_.sticks("touch", sticks_);
     }
     std::vector<gamepad::Button> held = layer_.held();
     for (const auto& [button, frames] : owed_) {

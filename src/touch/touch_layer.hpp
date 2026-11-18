@@ -1,12 +1,13 @@
 // touch_layer — on-screen controls for a touchscreen with no controller, the runner's and the ones
-// over a remote game. It runs a `ControlPlan`, the generic pad (`pad_layout`) unless it is given an
-// arcade machine's panel (`arcade_layout`): each finger keeps the control it went down on, so
-// several are held at once and a thumb slides within one; the buttons held reach the game as a
-// pad's do, and the pause button holds Guide, which asks for the shell's menu as a pad's Guide
-// does; the runner's Rotate screen button holds Rotate the same way. The pieces are composed into
-// an overlay the size of the surface.
+// over a remote game. It runs a `ControlPlan`, the layout it is wished (`console_layout`) unless
+// it is given an arcade machine's panel (`arcade_layout`): each finger keeps the control it went
+// down on, so several are held at once and a thumb slides within one; the buttons held reach the
+// game as a pad's do, an analog stick's lean as the pad's stick, and the pause button holds Guide,
+// which asks for the shell's menu as a pad's Guide does; the runner's Rotate screen button holds
+// Rotate the same way. The pieces are composed into an overlay the size of the surface.
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <map>
@@ -16,7 +17,9 @@
 #include <vector>
 
 #include "gamepad/event.hpp"
+#include "gamepad/pad_translator.hpp"
 #include "touch/arcade_layout.hpp"
+#include "touch/console_layout.hpp"
 #include "touch/label_face.hpp"
 #include "touch/touch_art.hpp"
 #include "touch/touch_controls.hpp"
@@ -39,8 +42,10 @@ class TouchLayer {
 
     /// Shows `panel` instead of the pad from the next `layout`.
     void setPanel(ArcadePanel panel);
-    /// Goes back to the pad.
+    /// Goes back to the wished layout.
     void clearPanel();
+    /// Shows `wish`'s layout from the next `layout`, where no panel is set.
+    void setLayout(const LayoutWish& wish);
     /// Shows Rotate screen on the pad from the next `layout`, as a panel always does.
     void offerRotate();
     /// Draws the controls at `size` times their size from the next `layout`, as far as they fit.
@@ -63,6 +68,8 @@ class TouchLayer {
     [[nodiscard]] std::vector<gamepad::Button> held() const;
     /// Whether a finger holds `button`.
     [[nodiscard]] bool pressed(gamepad::Button button) const;
+    /// Where the analog sticks lean, on the virtual pad's scale.
+    [[nodiscard]] gamepad::Sticks sticks() const;
 
     /// The controls as an overlay the size of the surface, drawn again when what is held changed.
     [[nodiscard]] OverlayImage image();
@@ -71,7 +78,11 @@ class TouchLayer {
     struct Touch {
         std::size_t control{0};
         std::vector<gamepad::Button> buttons;
+        float x{0.0F};
+        float y{0.0F};
     };
+    /// How far each stick leans across and down, from -1 to 1: left, right.
+    using Leans = std::array<std::pair<float, float>, 2>;
 
     /// The index of the control a finger at `x`, `y` takes.
     [[nodiscard]] std::optional<std::size_t> controlAt(float x, float y) const;
@@ -79,12 +90,15 @@ class TouchLayer {
                                                          float y) const;
     /// How far a piece leaning `distance` moves on x and y for the directions held.
     [[nodiscard]] std::pair<float, float> leaning(float distance) const;
+    [[nodiscard]] Leans leans() const;
+    [[nodiscard]] LabelFace& labels();
     void draw();
 
     std::filesystem::path fontFile_;
     ArtSource art_;
     std::optional<ArcadePanel> panel_;
-    /// Made for a panel: the pad has no words.
+    LayoutWish wish_;
+    /// Made at the first layout that has words.
     std::unique_ptr<LabelFace> labels_;
     ControlPlan plan_;
     float size_{1.0F};

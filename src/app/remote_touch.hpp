@@ -27,7 +27,10 @@ class RemoteTouch {
 
     /// The player's size for the controls, a percentage; laid out again when it changed.
     void sized(int percent);
-    /// Shows the panel `text` writes (`touch::panelText`) in place of the pad; empty text, the pad.
+    /// Shows `wish`'s layout where no panel is up; laid out again when it changed.
+    void wished(const touch::LayoutWish& wish);
+    /// Shows the panel `text` writes (`touch::panelText`) in place of the layout; empty text, the
+    /// layout.
     void panel(const std::string& text);
     /// The frame's `fingers` on the controls laid out for `surface`, a panel around the picture at
     /// `picture`, or with `shown` false none of them, every finger let go: the pad events for what
@@ -36,6 +39,10 @@ class RemoteTouch {
                                                      const touch::WindowSurface& surface,
                                                      const touch::Box& picture,
                                                      std::span<const touch::Finger> fingers);
+    /// Where the controls' analog sticks lean; at rest while they are not shown.
+    [[nodiscard]] gamepad::Sticks sticks() const {
+        return shown_ ? layer_.sticks() : gamepad::Sticks{};
+    }
     /// How much of the window's bottom the controls keep from the picture.
     [[nodiscard]] int band() const {
         return shown_ ? static_cast<int>(layer_.band()) : 0;
@@ -57,6 +64,7 @@ class RemoteTouch {
     touch::WindowSurface laidOut_;
     touch::Box laidAround_;
     std::string panel_;
+    touch::LayoutWish wish_;
     /// The panel or the size changed since the controls were laid out.
     bool panelChanged_{false};
     int percent_{settings::touchSizeDefault};

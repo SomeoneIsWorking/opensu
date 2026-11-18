@@ -20,6 +20,14 @@ void RemoteTouch::sized(int percent) {
     }
 }
 
+void RemoteTouch::wished(const touch::LayoutWish& wish) {
+    if (wish != wish_) {
+        wish_ = wish;
+        layer_.setLayout(wish);
+        panelChanged_ = true;
+    }
+}
+
 void RemoteTouch::panel(const std::string& text) {
     if (text == panel_) {
         return;

@@ -609,6 +609,10 @@ void ShellApp::handlePointer() {
         const settings::LayerKeys keys = library::layerKeysOf(remotePlay_.game());
         remoteTouchShow_ = settings::resolveTouchShow(gameSettings_.layers(), keys);
         remoteTouch_->sized(settings::resolveTouchSize(gameSettings_.layers(), keys));
+        const settings::TouchLayoutPick layout =
+            settings::resolveTouchLayout(gameSettings_.layers(), keys);
+        remoteTouch_->wished(
+            touch::LayoutWish{.layout = layout.shown, .console = layout.console, .analog = false});
     } else if (!remote) {
         remoteTouchShow_.reset();
     }
@@ -1602,6 +1606,7 @@ void ShellApp::sendRemoteInput() {
         return;
     }
     remoteInput_.axes(pads_->axes());
+    remoteInput_.touchSticks(remoteTouch_->sticks());
     stream::wire::KeyState keys;
     const std::vector<std::uint8_t>& held = window_->keysHeld();
     keys.held.assign(held.begin(), held.begin() + static_cast<std::ptrdiff_t>(std::min(

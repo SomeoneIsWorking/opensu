@@ -60,6 +60,10 @@ class CoreEnvironment {
     [[nodiscard]] std::optional<retro_game_geometry> takeGeometry();
     /// Port 0's joypad controls as the core last named them, if it did since the last call.
     [[nodiscard]] std::optional<std::vector<InputDescriptor>> takeInputDescriptors();
+    /// Whether the core's last named controls included the first pad's analog sticks.
+    [[nodiscard]] bool namesSticks() const noexcept {
+        return namesSticks_;
+    }
     /// The ports the core lists (SET_CONTROLLER_INFO); 0 when it lists none.
     [[nodiscard]] unsigned controllerPorts() const noexcept {
         return controllerPorts_;
@@ -87,6 +91,7 @@ class CoreEnvironment {
     std::optional<retro_system_timing> timing_;
     std::optional<retro_game_geometry> geometry_;
     std::optional<std::vector<InputDescriptor>> inputDescriptors_;
+    bool namesSticks_{false};
     unsigned controllerPorts_{0};
     std::optional<unsigned> netplaySlot_;
     std::optional<NetplayClock> netplayClock_;

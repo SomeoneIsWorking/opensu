@@ -130,6 +130,24 @@ bool touchSizeFits(int size) {
     return size >= touchSizeSmallest && size <= touchSizeLargest;
 }
 
+/// Auto's layout for each system that has one of its own or no buttons of its own ("").
+struct LayoutPick {
+    std::string_view system;
+    TouchLayout layout;
+};
+constexpr std::array<LayoutPick, 20> layoutPicks{{
+    {"nes", TouchLayout::TwoButtons},     {"gb", TouchLayout::TwoButtons},
+    {"gbc", TouchLayout::TwoButtons},     {"gba", TouchLayout::GameBoyAdvance},
+    {"snes", TouchLayout::SuperNintendo}, {"nds", TouchLayout::SuperNintendo},
+    {"n64", TouchLayout::Nintendo64},     {"psx", TouchLayout::PlayStation},
+    {"ps2", TouchLayout::PlayStation},    {"psp", TouchLayout::PlayStation},
+    {"n3ds", TouchLayout::Gamepad},       {"gc", TouchLayout::Gamepad},
+    {"wiiu", TouchLayout::Gamepad},       {"switch", TouchLayout::Gamepad},
+    {"ps3", TouchLayout::Gamepad},        {"ps4", TouchLayout::Gamepad},
+    {"dreamcast", TouchLayout::Gamepad},  {"xbox", TouchLayout::Gamepad},
+    {"xbox360", TouchLayout::Gamepad},    {"", TouchLayout::Gamepad},
+}};
+
 const ChoiceKey& integerKey() {
     return videoKeys[1];
 }
@@ -208,6 +226,10 @@ void declareVideo(Schema& schema) {
                              "Dynamic hides them while a controller plays and shows them again at "
                              "a touch",
                              section));
+    schema.add(choiceSetting(touchLayoutKey,
+                             "Auto shows the game's console's own controls, the gamepad for a PC "
+                             "game; Racing and Platformer suit those games",
+                             section));
     Setting touchSize;
     touchSize.key = std::string{touchSizeKey};
     touchSize.label = "Touch controls size";
@@ -243,6 +265,20 @@ int resolveTouchSize(const SettingLayers& layers, const LayerKeys& keys) {
     return whole && touchSizeFits(size) ? size : touchSizeDefault;
 }
 
+TouchLayout touchLayoutFor(std::string_view system) noexcept {
+    const auto found = std::ranges::find(layoutPicks, system, &LayoutPick::system);
+    return found == layoutPicks.end() ? TouchLayout::Pad : found->layout;
+}
+
+TouchLayoutPick resolveTouchLayout(const SettingLayers& layers, const LayerKeys& keys) {
+    const Resolved resolved =
+        layers.resolve(keys, touchLayoutKey.key, std::string{touchLayoutChoices.front().key});
+    const auto chosen =
+        static_cast<TouchLayout>(choiceIndexOrDefault(touchLayoutKey, resolved.value, keys.game));
+    const TouchLayout console = touchLayoutFor(keys.system);
+    return {.shown = chosen == TouchLayout::Auto ? console : chosen, .console = console};
+}
+
 TouchShow resolveTouchShow(const SettingLayers& layers, const LayerKeys& keys) {
     const Resolved resolved =
         layers.resolve(keys, touchShowKey().key, std::string{touchShowKey().choices.front().key});
@@ -269,6 +305,7 @@ VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
         return choiceIndexOrDefault(video, resolved.value, keys.game);
     };
     const std::string shader = resolveShader(layers, keys).value;
+    const TouchLayoutPick layout = resolveTouchLayout(layers, keys);
     return VideoSettings{
         .aspect = static_cast<Aspect>(index(aspectKey())),
         .integer = static_cast<IntegerScale>(index(integerKey())),
@@ -278,6 +315,8 @@ VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
         .shaderResolution = static_cast<ShaderResolution>(index(shaderResolutionKey())),
         .touchShow = resolveTouchShow(layers, keys),
         .touchSize = resolveTouchSize(layers, keys),
+        .touchLayout = layout.shown,
+        .touchConsole = layout.console,
         .turned = index(turnedKey()) == 1,
         .frameGen = generating(resolveFrameGen(layers, keys)),
     };
@@ -297,6 +336,8 @@ std::string videoJson(const VideoSettings& video) {
          spelling(shaderResolutionKey(), video.shaderResolution)},
         {std::string{touchShowKey().key}, spelling(touchShowKey(), video.touchShow)},
         {std::string{touchSizeKey}, video.touchSize},
+        {std::string{touchLayoutKey.key}, spelling(touchLayoutKey, video.touchLayout)},
+        {std::string{touchConsoleKey}, spelling(touchLayoutKey, video.touchConsole)},
         {std::string{turnedKey().key}, turnedValue(video.turned)},
         {std::string{landscapeArtKey}, artJson(video.landscapeArt)},
         {std::string{portraitArtKey}, artJson(video.portraitArt)},
@@ -342,6 +383,20 @@ std::optional<VideoSettings> parseVideoJson(std::string_view text, std::string& 
         }
         touchSize = found->get<int>();
     }
+    std::array<TouchLayout, 2> layouts{TouchLayout::Pad, TouchLayout::Pad};
+    for (std::size_t at = 0; const std::string_view key : {touchLayoutKey.key, touchConsoleKey}) {
+        if (const auto found = document.find(std::string{key}); found != document.end()) {
+            const std::optional<std::size_t> index =
+                found->is_string() ? choiceIndex(touchLayoutKey, found->get<std::string>())
+                                   : std::nullopt;
+            if (!index || *index == 0) {
+                error = found->dump() + " is not a " + std::string{key};
+                return std::nullopt;
+            }
+            layouts.at(at) = static_cast<TouchLayout>(*index);
+        }
+        ++at;
+    }
     std::array<std::optional<FrameArt>, 2> art;
     for (std::size_t at = 0; const std::string_view key : {landscapeArtKey, portraitArtKey}) {
         if (const auto found = document.find(std::string{key}); found != document.end()) {
@@ -366,6 +421,8 @@ std::optional<VideoSettings> parseVideoJson(std::string_view text, std::string& 
         .shaderResolution = static_cast<ShaderResolution>(chosen[4]),
         .touchShow = static_cast<TouchShow>(chosen[6]),
         .touchSize = touchSize,
+        .touchLayout = layouts[0],
+        .touchConsole = layouts[1],
         .turned = chosen[5] == 1,
         .landscapeArt = std::move(art[0]),
         .portraitArt = std::move(art[1]),

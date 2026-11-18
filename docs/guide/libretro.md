@@ -172,8 +172,15 @@ panel: an arcade stick, round buttons in the cabinet's number and rows, each nam
 in that game when the core says, and small Coin and Start controls, since nothing starts without a
 coin. A fighter's punches and kicks show a fist or a foot with L, M or H, punches above kicks. It
 sits on the black beside the picture where it fits, reaching over the picture rather than shrinking
-below a thumb's size, and hides like the rest when a pad connects. Every other system shows the
-usual pad. In portrait the controls stand under the picture instead of beside it. Touch controls size in Game settings makes either 75 to 175% of its size, everywhere or
+below a thumb's size, and hides like the rest when a pad connects. Every other system shows its own
+controller, as Touch layout in Game settings says (everywhere, for a system or a game): Auto gives
+NES and Game Boy a d-pad with B and A; Game Boy Advance adds L and R; Super Nintendo and DS Y X B A
+with L and R; Nintendo 64 its stick, d-pad, A, B, the four C buttons, Z, L and R; PS1, PS2 and PSP
+the d-pad, the four symbols and L1 L2 R1 R2, with both sticks and L3 R3 when the game reads them;
+GameCube, Switch, Xbox and the newer consoles a full gamepad. By hand you can pick any of them,
+Genesis 3 or 6-button, the plain pad, or a genre: Racing (steer on the left, gas and brake pedals on
+the right) or Platformer (big Jump and Action buttons). A stick on screen is analog: the further
+your thumb from its centre, the further it leans. In portrait the controls stand under the picture instead of beside it. Touch controls size in Game settings makes either 75 to 175% of its size, everywhere or
 for a system or a game, and changes a running game at once. MAME 2010 is not offered: its Android
 build crashes on load, so a set only it matches reads "No arcade core matches this romset". Back, a
 pad's Guide or the pause button

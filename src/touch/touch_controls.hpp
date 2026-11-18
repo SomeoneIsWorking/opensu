@@ -1,8 +1,9 @@
 // touch_controls — what an on-screen layout is made of, whichever controls it shows: the pieces it
-// draws and the controls a finger takes. `TouchLayer` runs any such plan; `pad_layout` and
+// draws and the controls a finger takes. `TouchLayer` runs any such plan; `console_layout` and
 // `arcade_layout` make them.
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <vector>
 
@@ -18,17 +19,34 @@ struct Art {
     int height{0};
 };
 
+/// Which of a pad's two sticks.
+enum class StickSide : std::uint8_t {
+    Left,
+    Right,
+};
+
+/// A stick leaning one way, `x` and `y` a unit direction, y downwards.
+struct StickPush {
+    StickSide side{StickSide::Left};
+    float x{0.0F};
+    float y{0.0F};
+};
+
 /// One image of the layout, stronger while a finger holds any of `lit`.
 struct Piece {
     Box box;
     Art art;
     /// Drawn while held, when it has one.
     Art down{};
-    std::vector<gamepad::Button> lit;
+    std::vector<gamepad::Button> lit{};
     /// How strongly it is drawn with no finger on it.
     float idle{0.65F};
     /// How far it moves towards the directions held.
     float lean{0.0F};
+    /// It moves with this analog stick instead, `lean` at full travel.
+    std::optional<StickSide> knob{};
+    /// Also stronger while this stick leans its way.
+    std::optional<StickPush> pushed{};
 };
 
 /// A direction control: the buttons held follow the finger's angle from its centre.
@@ -41,6 +59,11 @@ struct Stick {
     unsigned ways{8};
     /// A 2-way stick moves up and down rather than left and right.
     bool vertical{false};
+    /// An analog stick: the finger's lean is this stick's, holding no direction button. With 0
+    /// ways it leans freely, with 2 along its one axis, with 4 or 8 all the way to the nearest.
+    std::optional<StickSide> analog{};
+    /// How far from the centre a finger leans an analog stick all the way.
+    float reach{0.0F};
 };
 
 /// A button a finger can land on, and the point it is nearest to.

@@ -25,6 +25,8 @@ class RemoteInput {
     void button(const gamepad::Event& event);
     /// The pads' sticks and triggers; the first pad's stand for the player's.
     void axes(const std::map<std::string, gamepad::PadAxes>& axes);
+    /// The touch controls' sticks, which the host gets in place of a pad's while they lean.
+    void touchSticks(const gamepad::Sticks& sticks);
     /// The pointer's frame, with the picture drawn at `picture` in the window.
     void pointer(const PointerFrame& frame, const display::Placed& picture);
     /// Lets go of everything, as when a menu takes the controls.
@@ -47,6 +49,7 @@ class RemoteInput {
     std::uint32_t stickHeld_{0};
     /// The first pad's axes, when a pad reports them.
     std::optional<gamepad::PadAxes> axes_;
+    gamepad::Sticks touchSticks_{};
     stream::wire::MouseState mouse_;
     /// The pointer's buttons that went down this frame, held for it even when let go in it.
     std::uint8_t clicked_{0};

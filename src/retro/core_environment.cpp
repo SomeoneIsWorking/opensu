@@ -138,12 +138,17 @@ bool CoreEnvironment::answer(unsigned command, void* data) {
         return true;
     case RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS: {
         std::vector<InputDescriptor> named;
+        bool sticks = false;
         for (const auto* descriptor = static_cast<const retro_input_descriptor*>(data);
              descriptor->description != nullptr; ++descriptor) {
             if (descriptor->port == 0 && descriptor->device == RETRO_DEVICE_JOYPAD) {
                 named.push_back({descriptor->id, descriptor->description});
             }
+            sticks =
+                sticks || (descriptor->port == 0 && descriptor->device == RETRO_DEVICE_ANALOG &&
+                           descriptor->index != RETRO_DEVICE_INDEX_ANALOG_BUTTON);
         }
+        namesSticks_ = sticks;
         inputDescriptors_ = std::move(named);
         return true;
     }

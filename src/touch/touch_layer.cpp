@@ -2,10 +2,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <numbers>
 #include <utility>
 
-#include "touch/pad_layout.hpp"
+#include "touch/console_layout.hpp"
 
 namespace opensu::touch {
 namespace {
@@ -36,7 +37,40 @@ std::vector<Button> eightWay(int sector) {
     }
 }
 
+/// How far a finger at `x`, `y` leans analog `stick` across and down, each from -1 to 1.
+std::pair<float, float> stickLean(const Stick& stick, float x, float y) {
+    const float dx = x - stick.x;
+    const float dy = y - stick.y;
+    const float length = std::hypot(dx, dy);
+    if (length < stick.deadZone || stick.reach <= stick.deadZone) {
+        return {0.0F, 0.0F};
+    }
+    if (stick.ways == 2) {
+        const float along = stick.vertical ? dy : dx;
+        const float share = std::clamp(
+            (std::abs(along) - stick.deadZone) / (stick.reach - stick.deadZone), 0.0F, 1.0F);
+        const float towards = along < 0.0F ? -share : share;
+        return stick.vertical ? std::pair{0.0F, towards} : std::pair{towards, 0.0F};
+    }
+    if (stick.ways == 4 || stick.ways == 8) {
+        const float step = 2.0F * std::numbers::pi_v<float> / static_cast<float>(stick.ways);
+        const float angle = std::round(std::atan2(dy, dx) / step) * step;
+        return {std::cos(angle), std::sin(angle)};
+    }
+    const float share =
+        std::min((length - stick.deadZone) / (stick.reach - stick.deadZone), 1.0F) / length;
+    return {dx * share, dy * share};
+}
+
+std::int32_t onStickScale(float lean) {
+    return static_cast<std::int32_t>(
+        std::lround(lean * static_cast<float>(gamepad::virtualStick.max)));
+}
+
 std::vector<Button> stickButtons(const Stick& stick, float x, float y) {
+    if (stick.analog) {
+        return {};
+    }
     const float dx = x - stick.x;
     const float dy = y - stick.y;
     if (std::hypot(dx, dy) < stick.deadZone) {
@@ -65,13 +99,21 @@ TouchLayer::TouchLayer(std::filesystem::path art)
 
 void TouchLayer::setPanel(ArcadePanel panel) {
     panel_ = std::move(panel);
-    if (!labels_) {
-        labels_ = std::make_unique<LabelFace>(fontFile_);
-    }
 }
 
 void TouchLayer::clearPanel() {
     panel_.reset();
+}
+
+void TouchLayer::setLayout(const LayoutWish& wish) {
+    wish_ = wish;
+}
+
+LabelFace& TouchLayer::labels() {
+    if (!labels_) {
+        labels_ = std::make_unique<LabelFace>(fontFile_);
+    }
+    return *labels_;
 }
 
 void TouchLayer::offerRotate() {
@@ -88,8 +130,8 @@ void TouchLayer::layout(const WindowSurface& surface, const Box& picture) {
     height_ = surface.height;
     WindowSurface sized = surface;
     sized.dp *= size_;
-    plan_ = panel_ ? arcadeLayout(sized, picture, *panel_, art_, *labels_, rotate_)
-                   : padLayout(sized, art_, rotate_);
+    plan_ = panel_ ? arcadeLayout(sized, picture, *panel_, art_, labels(), rotate_)
+                   : consoleLayout(sized, wish_, art_, labels(), rotate_);
     dirty_ = true;
 }
 
@@ -137,30 +179,34 @@ std::vector<Button> TouchLayer::buttonsAt(const Control& control, float x, float
 
 bool TouchLayer::finger(const Finger& finger) {
     const std::vector<Button> before = held();
+    const Leans wasLeaning = leans();
     switch (finger.phase) {
     case Finger::Phase::Down:
         if (const std::optional<std::size_t> control = controlAt(finger.x, finger.y)) {
-            touches_.insert_or_assign(finger.id, Touch{*control, buttonsAt(plan_.controls[*control],
-                                                                           finger.x, finger.y)});
+            touches_.insert_or_assign(
+                finger.id, Touch{*control, buttonsAt(plan_.controls[*control], finger.x, finger.y),
+                                 finger.x, finger.y});
         }
         break;
     case Finger::Phase::Move:
         if (auto touch = touches_.find(finger.id); touch != touches_.end()) {
             touch->second.buttons =
                 buttonsAt(plan_.controls[touch->second.control], finger.x, finger.y);
+            touch->second.x = finger.x;
+            touch->second.y = finger.y;
         }
         break;
     case Finger::Phase::Up:
         touches_.erase(finger.id);
         break;
     }
-    const bool changed = held() != before;
+    const bool changed = held() != before || leans() != wasLeaning;
     dirty_ = dirty_ || changed;
     return changed;
 }
 
 bool TouchLayer::releaseAll() {
-    const bool any = !held().empty();
+    const bool any = !held().empty() || sticks() != gamepad::Sticks{};
     touches_.clear();
     dirty_ = dirty_ || any;
     return any;
@@ -185,6 +231,30 @@ bool TouchLayer::pressed(Button button) const {
     });
 }
 
+TouchLayer::Leans TouchLayer::leans() const {
+    Leans out{};
+    for (const auto& [id, touch] : touches_) {
+        const std::optional<Stick>& stick = plan_.controls[touch.control].stick;
+        if (!stick || !stick->analog) {
+            continue;
+        }
+        const auto [across, down] = stickLean(*stick, touch.x, touch.y);
+        auto& side = out.at(*stick->analog == StickSide::Left ? 0 : 1);
+        if (std::hypot(across, down) > std::hypot(side.first, side.second)) {
+            side = {across, down};
+        }
+    }
+    return out;
+}
+
+gamepad::Sticks TouchLayer::sticks() const {
+    const Leans now = leans();
+    return gamepad::Sticks{.leftX = onStickScale(now[0].first),
+                           .leftY = onStickScale(now[0].second),
+                           .rightX = onStickScale(now[1].first),
+                           .rightY = onStickScale(now[1].second)};
+}
+
 std::pair<float, float> TouchLayer::leaning(float distance) const {
     const float across =
         (pressed(Button::Right) ? 1.0F : 0.0F) - (pressed(Button::Left) ? 1.0F : 0.0F);
@@ -198,12 +268,25 @@ std::pair<float, float> TouchLayer::leaning(float distance) const {
 
 void TouchLayer::draw() {
     pixels_.assign(static_cast<std::size_t>(width_) * height_ * 4, 0);
+    const Leans now = leans();
+    const auto sideOf = [&now](StickSide side) {
+        return now.at(side == StickSide::Left ? 0 : 1);
+    };
     for (const Piece& piece : plan_.pieces) {
-        const bool down = std::ranges::any_of(piece.lit, [this](Button button) {
-            return pressed(button);
-        });
+        const bool pushed = piece.pushed && [&] {
+            const auto [across, down] = sideOf(piece.pushed->side);
+            return (across * piece.pushed->x) + (down * piece.pushed->y) > 0.5F;
+        }();
+        const bool down = pushed || std::ranges::any_of(piece.lit, [this](Button button) {
+                              return pressed(button);
+                          });
         const Art& shown = down && !piece.down.rgba.empty() ? piece.down : piece.art;
-        const auto [leanX, leanY] = leaning(piece.lean);
+        auto [leanX, leanY] = leaning(piece.lean);
+        if (piece.knob) {
+            const auto [across, along] = sideOf(*piece.knob);
+            leanX = across * piece.lean;
+            leanY = along * piece.lean;
+        }
         composeOver(pixels_, static_cast<int>(width_), static_cast<int>(height_), shown,
                     ArtSpot{.left = static_cast<int>(std::lround(piece.box.x + leanX)),
                             .top = static_cast<int>(std::lround(piece.box.y + leanY)),

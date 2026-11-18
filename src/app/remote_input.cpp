@@ -58,6 +58,10 @@ void RemoteInput::axes(const std::map<std::string, gamepad::PadAxes>& axes) {
     axes_ = axes.empty() ? std::nullopt : std::optional{axes.begin()->second};
 }
 
+void RemoteInput::touchSticks(const gamepad::Sticks& sticks) {
+    touchSticks_ = sticks;
+}
+
 void RemoteInput::pointer(const PointerFrame& frame, const display::Placed& picture) {
     if (frame.point && picture.width > 1 && picture.height > 1) {
         const auto across = [](float at, int start, int size) {
@@ -97,6 +101,12 @@ RemoteInput::State RemoteInput::take() {
         state.pad.leftTrigger = (state.pad.buttons & bit(Button::L2)) != 0 ? fullTrigger : 0;
         state.pad.rightTrigger = (state.pad.buttons & bit(Button::R2)) != 0 ? fullTrigger : 0;
     }
+    if (touchSticks_ != gamepad::Sticks{}) {
+        state.pad.leftX = narrowed(touchSticks_.leftX);
+        state.pad.leftY = narrowed(touchSticks_.leftY);
+        state.pad.rightX = narrowed(touchSticks_.rightX);
+        state.pad.rightY = narrowed(touchSticks_.rightY);
+    }
     state.mouse = mouse_;
     state.mouse.buttons = static_cast<std::uint8_t>(mouse_.buttons | clicked_);
     pressedThisFrame_ = 0;
@@ -111,6 +121,7 @@ void RemoteInput::release() {
     endedThisFrame_ = 0;
     stickHeld_ = 0;
     axes_.reset();
+    touchSticks_ = {};
     mouse_.buttons = 0;
     clicked_ = 0;
 }

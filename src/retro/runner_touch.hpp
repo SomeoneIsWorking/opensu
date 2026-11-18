@@ -28,8 +28,10 @@ class RunnerTouch {
 
     /// The game is an arcade machine whose set lists `listing`.
     void cabinet(const CabinetListing& listing);
-    /// The core named its controls.
-    void named(const std::vector<InputDescriptor>& descriptors);
+    /// The core named its controls, among them the pad's analog sticks when `sticks`.
+    void named(const std::vector<InputDescriptor>& descriptors, bool sticks);
+    /// The layout the video settings show, and the console's own; laid out again when it changed.
+    void wished(settings::TouchLayout layout, settings::TouchLayout console);
     /// The player's size for the controls, a percentage; they are laid out again when it changed.
     void sized(int percent);
     /// The frame is drawn at `picture`, which a machine's panel keeps clear of where it can.
@@ -72,6 +74,7 @@ class RunnerTouch {
     Joypad& joypad_;
     std::optional<CabinetListing> listing_;
     touch::ArcadePanel panel_;
+    touch::LayoutWish wish_{};
     touch::WindowSurface laidOut_{};
     touch::Box picture_{};
     int percent_{settings::touchSizeDefault};
@@ -79,6 +82,7 @@ class RunnerTouch {
     bool rotate_{false};
     /// What the joypad was last told.
     std::vector<gamepad::Button> holding_;
+    gamepad::Sticks sticks_{};
     /// Frames each press still stays held for, its finger up or not.
     std::map<gamepad::Button, unsigned> owed_;
 };

@@ -92,6 +92,22 @@ inline constexpr int touchSizeSmallest = 75;
 inline constexpr int touchSizeLargest = 175;
 inline constexpr int touchSizeDefault = 100;
 
+/// Which on-screen controls show: Auto's pick by console, a console's own or a genre's.
+enum class TouchLayout : std::uint8_t {
+    Auto,
+    Pad,
+    TwoButtons,
+    GameBoyAdvance,
+    SuperNintendo,
+    Nintendo64,
+    PlayStation,
+    Genesis3,
+    Genesis6,
+    Gamepad,
+    Racing,
+    Platformer,
+};
+
 struct VideoSettings {
     Aspect aspect{Aspect::Core};
     IntegerScale integer{IntegerScale::Off};
@@ -103,6 +119,10 @@ struct VideoSettings {
     TouchShow touchShow{TouchShow::Dynamic};
     /// The touch controls' size, a percentage of their own.
     int touchSize{touchSizeDefault};
+    /// The touch layout shown, never Auto; and the console's own, which Auto picks and Racing and
+    /// Platformer take their buttons from.
+    TouchLayout touchLayout{TouchLayout::Pad};
+    TouchLayout touchConsole{TouchLayout::Pad};
     /// Rotate screen is on; the runner's `ScreenTurn` carries it out.
     bool turned{false};
     /// The frame around the picture on a screen wider than tall, and on one taller than wide.
@@ -149,6 +169,24 @@ inline constexpr std::array<ChoiceText, 3> touchShowChoices{{
     {"always", "Always"},
     {"never", "Never"},
 }};
+
+inline constexpr std::array<ChoiceText, 12> touchLayoutChoices{{
+    {"auto", "Auto"},
+    {"pad", "Pad"},
+    {"two-buttons", "Two buttons"},
+    {"gba", "Game Boy Advance"},
+    {"snes", "Super Nintendo"},
+    {"n64", "Nintendo 64"},
+    {"playstation", "PlayStation"},
+    {"genesis-3", "Genesis 3-button"},
+    {"genesis-6", "Genesis 6-button"},
+    {"gamepad", "Gamepad"},
+    {"racing", "Racing"},
+    {"platformer", "Platformer"},
+}};
+inline constexpr ChoiceKey touchLayoutKey{"touch.layout", "Touch layout", touchLayoutChoices};
+/// Where the runner is told the console's own layout beside the one shown.
+inline constexpr std::string_view touchConsoleKey = "touch.console";
 
 inline constexpr std::array<ChoiceText, 2> turnedChoices{{
     {"off", "Off"},
@@ -198,6 +236,16 @@ void declareVideo(Schema& schema);
 /// reported and the default used. The shader preset is found under `presets`, the shader pack.
 /// The controls' size where `keys` look; the default for a value out of the range.
 [[nodiscard]] int resolveTouchSize(const SettingLayers& layers, const LayerKeys& keys);
+/// The layout Auto picks for a game of `system` (a ROM's system key; empty for a store game, one
+/// of the player's own or one on another openSU): the console's own, the gamepad where it has none.
+[[nodiscard]] TouchLayout touchLayoutFor(std::string_view system) noexcept;
+/// The touch layout `keys` show, Auto's pick made, and the console's own.
+struct TouchLayoutPick {
+    TouchLayout shown{TouchLayout::Pad};
+    TouchLayout console{TouchLayout::Pad};
+};
+[[nodiscard]] TouchLayoutPick resolveTouchLayout(const SettingLayers& layers,
+                                                 const LayerKeys& keys);
 /// When the touch controls show for `keys`.
 [[nodiscard]] TouchShow resolveTouchShow(const SettingLayers& layers, const LayerKeys& keys);
 /// Whether the touch controls show for `show` while `padLatest` (a controller gave the latest

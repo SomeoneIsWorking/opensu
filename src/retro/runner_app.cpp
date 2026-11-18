@@ -433,6 +433,7 @@ RunnerExit RunnerApp::run() {
                                                       lastInput.current() == input::Device::Pad);
         if (touch) {
             touch->sized(presenter->video().touchSize);
+            touch->wished(presenter->video().touchLayout, presenter->video().touchConsole);
         }
         if (touch && touch->follow(presenter->surface(), touchShown, input.fingers)) {
             openShellMenu("the pause button");
@@ -546,7 +547,7 @@ RunnerExit RunnerApp::run() {
         std::optional<touch::OverlayImage> overlay;
         if (const auto named = environment.takeInputDescriptors()) {
             if (touch) {
-                touch->named(*named);
+                touch->named(*named, environment.namesSticks());
             }
             if (control && options_.arcade) {
                 control->reportPanel(touch::panelText(panelOf(*named, *options_.arcade)));

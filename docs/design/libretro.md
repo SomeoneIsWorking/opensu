@@ -115,7 +115,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/hardware_render.*` | A GPU core: `SET_HW_RENDER` (Vulkan taken, any other context refused with its name kept as the load failure's reason), `GET_PREFERRED_HW_RENDER` (Vulkan), the context negotiation interface kept for the device, `GET_HW_RENDER_INTERFACE` (`retro_hw_render_interface_vulkan` on the presenter's instance, device and queue), `set_image`, semaphores, command buffers, the signal semaphore, the queue lock, the sync index; `context_reset` once the presenter is up, `context_destroy` before the game is unloaded; the image of each `RETRO_HW_FRAME_BUFFER_VALID` frame, kept for duplicated frames |
 | `src/retro/video_frame.*` | A frame in the core's pixel format (0RGB1555, XRGB8888, RGB565) to RGBA, turned as `SET_ROTATION` asked, duplicate frames kept |
 | `src/retro/audio_sink.*` | The core's samples into a ring, resampled with dynamic rate control so the buffer stays near its target |
-| `src/touch/` | The on-screen controls (**Touch controls** below): `touch_layer` runs a `ControlPlan` of `touch_controls`, `pad_layout` and `arcade_layout` make one, `touch_art` and `label_face` draw it |
+| `src/touch/` | The on-screen controls (**Touch controls** below): `touch_layer` runs a `ControlPlan` of `touch_controls`, `console_layout` and `arcade_layout` make one, `touch_art` and `label_face` draw it |
 | `src/retro/runner_touch.*` | The runner's touch controls: laid out for the window, fingers taken, what they hold on the joypad as the pad `touch`; an arcade game's panel made again as the core names its controls |
 | `src/retro/arcade_cabinet.*` | An arcade machine's panel from the core's descriptors and the listing's `--arcade` |
 | `src/retro/joypad.*` | The pads' controls (`gamepad::Button`) and the keyboard to `RETRO_DEVICE_JOYPAD` state, one fixed mapping; the pads' sticks (`gamepad::Sticks`) to `RETRO_DEVICE_ANALOG`; which port each pad plays on (**Input**) |
@@ -323,8 +323,21 @@ controls show while no pad is connected and nothing covers the game. Each finger
 it went down on, so a stick held while buttons are pressed is several controls at once; what they
 hold is one more pad, `touch`. A press stays on that pad for frames the core ran, whenever its
 finger lifts (`RunnerTouch::ran`): one, and four for Select and Start, because a CPS2 game drops a
-one-frame coin and takes a two-frame one. Every system gets the generic pad (`pad_layout`) except
-arcade.
+one-frame coin and takes a two-frame one.
+
+Which layout shows is the **Touch layout** setting (`touch.layout`, at every layer like Touch
+controls size; `settings::resolveTouchLayout`), carried in the video settings with the console's own
+(`touch.console`) that a genre takes its buttons from. Auto picks by system (`touchLayoutFor`): Two
+buttons for NES, Game Boy and Color; Game Boy Advance; Super Nintendo for SNES and DS; Nintendo 64;
+PlayStation for PS1, PS2 and PSP; the Gamepad for GameCube, Wii U, Switch, 3DS, Dreamcast, Xbox,
+Xbox 360, PS3 and PS4; the plain Pad for anything else; an arcade game keeps its panel. Genesis 3
+and 6-button, Racing (steering, pedals on the triggers or the bottom and left faces) and Platformer
+(big Jump and Action) are picked by hand. `console_layout` builds each from its description. A
+stick on screen is analog: the finger's distance from its centre over the stick's reach is its lean,
+reaching the core as the pad `touch`'s `RETRO_DEVICE_ANALOG` (`Joypad::sticks`). Nintendo 64's C
+buttons push the right stick all the way, as the cores read them. A PlayStation game shows both
+sticks with L3 and R3 only when the core names analog controls on port 0
+(`CoreEnvironment::namesSticks`).
 
 An arcade game's launch has `--arcade <buttons>:<ways>` (`app/retro_launch`, from its core's listing;
 `0:0` where the listing says nothing; `v` before a vertical stick's ways, `f` after them for a
