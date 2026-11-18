@@ -95,6 +95,8 @@ struct RemoteVersion {
     /// The way to launch it there this version stands for (an emulator's name); empty for its
     /// only one.
     std::string option;
+    /// Its place on that openSU's Home, first 0; nothing when it is not on it.
+    std::optional<std::size_t> home;
 
     bool operator==(const RemoteVersion&) const = default;
 };

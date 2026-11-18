@@ -21,8 +21,10 @@ namespace opensu::lan {
 class SharedLibrary {
   public:
     /// Shares the installed games among `games` from now on; `hosting` is why they cannot be
-    /// streamed from here now, empty when they can.
-    void share(const std::vector<library::Game>& games, std::string hosting);
+    /// streamed from here now, empty when they can; `home` the ids of the games on Home, in its
+    /// order.
+    void share(const std::vector<library::Game>& games, std::string hosting,
+               const std::vector<std::string>& home);
 
     /// The game `id` runs here with these profiles in its seats; an empty id, none runs.
     void playing(std::string id, std::vector<std::string> profiles);
@@ -37,6 +39,7 @@ class SharedLibrary {
     mutable std::mutex mutex_;
     std::vector<wire::ListedGame> games_;
     std::string hosting_;
+    std::vector<std::string> home_;
     std::map<std::string, std::filesystem::path, std::less<>> covers_;
 };
 

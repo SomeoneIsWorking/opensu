@@ -90,4 +90,9 @@ refuses one it does not list, then launches with it (`library::runOn`).
 
 Step 3 built: another openSU's default version carries its runner there, ringed
 (`ui::runnerMark`), and the focused title says "On Desk" or "Also on Desk" (`ui::whereElse`,
-from `TitleCopies::hostsOf`). Shown in `tools.nat_lab lan-versions`. Next: step 4.
+from `TitleCopies::hostsOf`). Shown in `tools.nat_lab lan-versions`.
+
+Step 4 built: the listing carries the host's Home order (`library::homeGameIds`), kept on each
+remote version (`RemoteVersion::home`); `library::homeShelf` follows this Home with each paired
+openSU's launcher and its Home's games. The launcher tile stands as the section's heading. Shown in
+`tools.nat_lab lan-homes`. All four steps are built.

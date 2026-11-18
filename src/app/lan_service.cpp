@@ -102,7 +102,7 @@ void LanService::start() {
         hooks_.say("LAN cannot start: " + std::string{error.what()}, true);
         return;
     }
-    node_->share(shared_, hosting_);
+    node_->share(shared_, hosting_, home_);
     node_->shareRoms(roms_);
 }
 
@@ -119,11 +119,13 @@ void LanService::stop() {
     }
 }
 
-void LanService::share(const std::vector<library::Game>& games, std::string hosting) {
+void LanService::share(const std::vector<library::Game>& games, std::string hosting,
+                       std::vector<std::string> home) {
     shared_ = games;
     hosting_ = std::move(hosting);
+    home_ = std::move(home);
     if (node_ != nullptr) {
-        node_->share(shared_, hosting_);
+        node_->share(shared_, hosting_, home_);
     }
 }
 

@@ -211,6 +211,9 @@ std::string write(const Listing& listing) {
     if (!listing.hosting.empty()) {
         document["hosting"] = listing.hosting;
     }
+    if (!listing.home.empty()) {
+        document["home"] = listing.home;
+    }
     return document.dump();
 }
 
@@ -236,7 +239,9 @@ std::optional<Listing> readListing(std::string_view body) {
     if (!document || !document->contains("games") || !(*document)["games"].is_array()) {
         return std::nullopt;
     }
-    Listing listing{.games = {}, .hosting = textField(*document, "hosting")};
+    Listing listing{.games = {},
+                    .hosting = textField(*document, "hosting"),
+                    .home = textsField(*document, "home")};
     for (const json& entry : (*document)["games"]) {
         if (!entry.is_object()) {
             continue;

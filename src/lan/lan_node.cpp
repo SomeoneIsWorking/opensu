@@ -333,9 +333,10 @@ void LanNode::playing(std::string id, std::vector<std::string> profiles) {
     wake();
 }
 
-void LanNode::share(const std::vector<library::Game>& games, std::string hosting) {
+void LanNode::share(const std::vector<library::Game>& games, std::string hosting,
+                    const std::vector<std::string>& home) {
     const wire::Listing before = library_.listing();
-    library_.share(games, std::move(hosting));
+    library_.share(games, std::move(hosting), home);
     if (library_.listing() == before) {
         return;
     }
@@ -653,7 +654,12 @@ std::vector<library::Game> LanNode::fetch(const std::stop_token& stop,
                 cover = coverOf(host, client, *secret, listed.cover, coverCache_ / host.id);
                 covers.insert(cover);
             }
-            std::ranges::move(remoteVersions(host, listed, cover, listing->hosting),
+            const auto onHome = std::ranges::find(listing->home, listed.id);
+            const std::optional<std::size_t> home =
+                onHome == listing->home.end()
+                    ? std::nullopt
+                    : std::optional{static_cast<std::size_t>(onHome - listing->home.begin())};
+            std::ranges::move(remoteVersions(host, listed, cover, listing->hosting, home),
                               std::back_inserter(games));
         }
         secrets::wipeBytes(secret->data(), secret->size());

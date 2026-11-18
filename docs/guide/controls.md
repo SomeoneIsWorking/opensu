@@ -46,6 +46,8 @@ Home holds every console you have ROMs for and every store game and game of your
 this computer, plus whatever you add to it; Library holds everything: the stores, Giveaways, the
 add tiles (Add a game, Add a ROM folder, Set up <integration>), All games and one tile per console.
 
+- After your Home comes each paired openSU's: its tile (Online or Offline), then the games on its
+  Home in its order. A game already on your Home is not shown twice.
 - While Home has nothing on it, as on a fresh start, it shows the add tiles too. Once a game or
   console is on Home they leave it and stay in Library.
 

@@ -96,8 +96,9 @@ class LanService {
     [[nodiscard]] std::string name() const;
 
     /// Shares the installed games among `games` with paired peers, with why they cannot be
-    /// streamed from here (`hosting`, empty when they can).
-    void share(const std::vector<library::Game>& games, std::string hosting);
+    /// streamed from here (`hosting`, empty when they can), and the ids on Home in its order.
+    void share(const std::vector<library::Game>& games, std::string hosting,
+               std::vector<std::string> home);
     /// Offers the ROMs and BIOS files of `contents` to paired peers to import.
     void shareRoms(lan::RomShelf::Contents contents);
     /// The game `id` runs here with `profiles` in its seats; the paired openSUs hear of it.
@@ -181,6 +182,7 @@ class LanService {
     /// What was shared last, shared again after a restart.
     std::vector<library::Game> shared_;
     std::string hosting_;
+    std::vector<std::string> home_;
     /// Set on the import's thread, taken on the loop.
     std::shared_ptr<std::atomic<bool>> romsNews_{std::make_shared<std::atomic<bool>>(false)};
     /// The ROMs offered last, offered again after a restart.

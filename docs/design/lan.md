@@ -25,8 +25,10 @@ Module rows are in `docs/codemap.md` under LAN and Remote play.
   `<cache>/opensu/lan/<peer id>/<token>.<ext>`; those of peers no longer paired are deleted.
 - `lan::RemoteLibrary` holds the remote games (`Source::Remote`, id `lan:<peer>:<game>`, the host's
   id and name, the cached cover, `installed`, no launch). `library::libraryShelf` gives each host
-  a launcher (`launcher:lan:<peer id>`), sorted by name, after Your games. Home leaves remote games
-  out. The details page shows "On <host>", Play, Game settings and Hide game.
+  a launcher (`launcher:lan:<peer id>`), sorted by name, after Your games. `library::homeShelf`
+  follows this Home with each host's: its launcher, then the games on that host's Home in its order
+  (`RemoteVersion::home`), each as its game's tile, leaving out one already on this Home. Taking a
+  game on or off Home re-announces the listing. The details page shows "On <host>", Play, Game settings and Hide game.
 - The node adds its paired peers to `save_sync::SaveSync` (owned by the shell's
   `app::SaveSharing`) as `PeerSaveTarget`s, each sharing only the profiles linked with it; the
   copies of profiles asked of this one are `lan::ProfileCopies` (in the node), and
@@ -113,7 +115,7 @@ It never shares the loopback control channel's port.
 | `POST /lan/pair` | anyone | `{"id","name","commitment"}` → `{"key","nonce"}` (host's X25519 key, 16-byte nonce); 409 while another guest pairs |
 | `POST /lan/pair/reveal` | anyone | `{"id","key","nonce"}`; 409 unless it matches the commitment |
 | `POST /lan/pair/status` | anyone | `{"id"}` → `{"verdict","signature"}`: `waiting`, `accepted` or `declined` |
-| `GET /lan/library` | paired, signed | `[{"id","title","cover"}]`, installed local games only; each game's `match` says what it can be matched to: `steam`, `added` or `rom:<system>` |
+| `GET /lan/library` | paired, signed | `{"games":[{"id","title","cover","match","platform","source","options","playingAs"}],"hosting","home"}`, installed local games only; each game's `match` says what it can be matched to (`steam`, `added` or `rom:<system>`), `options` the ways it launches there; `hosting` why this openSU cannot stream now (absent when it can); `home` the listed games' ids on this openSU's Home, in its order (`library::homeGameIds`) |
 | `GET /lan/cover/<token>` | paired, signed | one listed cover, at most 16 MiB |
 | `POST /lan/unpair` | paired, signed | the caller forgets this openSU; this one forgets it |
 | `GET /lan/profiles` | paired, signed | `{"profiles":[{"id","name","picture","linked"}]}`: this openSU's profiles, `linked` with the caller |

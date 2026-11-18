@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <vector>
 
 #include "library/game.hpp"
@@ -16,12 +17,12 @@
 
 namespace opensu::lan {
 
-/// `listed` on `host`, its cover at `cover` (empty for none): one version per way it can be
-/// launched there, each unavailable with `hosting` when that host cannot stream.
-[[nodiscard]] std::vector<library::Game> remoteVersions(const Peer& host,
-                                                        const wire::ListedGame& listed,
-                                                        const std::filesystem::path& cover,
-                                                        const std::string& hosting);
+/// `listed` on `host`, its cover at `cover` (empty for none), at `home` on that host's Home: one
+/// version per way it can be launched there, each unavailable with `hosting` when that host
+/// cannot stream.
+[[nodiscard]] std::vector<library::Game>
+remoteVersions(const Peer& host, const wire::ListedGame& listed, const std::filesystem::path& cover,
+               const std::string& hosting, std::optional<std::size_t> home);
 
 class RemoteLibrary {
   public:

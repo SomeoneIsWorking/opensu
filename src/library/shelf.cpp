@@ -2,10 +2,12 @@
 
 #include <algorithm>
 #include <array>
+#include <iterator>
 #include <span>
 #include <string>
 #include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 #include "rom_systems.hpp"
@@ -181,6 +183,85 @@ std::vector<Console> consoles(const std::vector<Game>& games) {
     return out;
 }
 
+namespace {
+
+/// The games on this Home, in its order, each as its title.
+std::vector<const Title*> homeTitles(const std::vector<Game>& games,
+                                     const std::vector<Title>& titles, const HomeChoices& choices) {
+    std::unordered_map<const Game*, const Title*> preferredOf;
+    for (const Title& title : titles) {
+        preferredOf.emplace(title.copies.front(), &title);
+    }
+    std::vector<const Title*> home;
+    for (const Game& game : games) {
+        const auto title = preferredOf.find(&game);
+        if (title == preferredOf.end()) {
+            continue;
+        }
+        if (const auto [key, byDefault] = homeSlot(title->second->copies);
+            choices.holds(key, byDefault)) {
+            home.push_back(title->second);
+        }
+    }
+    return home;
+}
+
+/// Each paired openSU's Home after this one's: its launcher, then the games on its Home in its
+/// order, as their titles, leaving out the titles in `shown`.
+void appendPairedHomes(std::vector<ShelfItem>& shelf, const std::vector<Game>& games,
+                       const std::vector<Title>& titles, const std::vector<SourceStatus>& sources,
+                       std::unordered_set<const Title*> shown) {
+    const auto lan = std::ranges::find(sources, Source::Remote, &SourceStatus::source);
+    if (lan == sources.end()) {
+        return;
+    }
+    std::unordered_map<const Game*, const Title*> titleOf;
+    for (const Title& title : titles) {
+        for (const Game* copy : title.copies) {
+            titleOf.emplace(copy, &title);
+        }
+    }
+    for (Launcher& host : hostLaunchers(games, lan->availability == Availability::Ready)) {
+        std::vector<const Game*> listed;
+        for (const Game& game : games) {
+            if (game.source == Source::Remote && game.hostId == host.hostId && game.remote.home) {
+                listed.push_back(&game);
+            }
+        }
+        std::ranges::stable_sort(listed, {}, [](const Game* game) {
+            return *game->remote.home;
+        });
+        std::vector<ShelfItem> section;
+        for (const Game* game : listed) {
+            const auto title = titleOf.find(game);
+            if (title != titleOf.end() && shown.insert(title->second).second) {
+                section.emplace_back(entry(*title->second, *title->second->copies.front()));
+            }
+        }
+        if (!section.empty()) {
+            shelf.emplace_back(std::move(host));
+            std::ranges::move(section, std::back_inserter(shelf));
+        }
+    }
+}
+
+} // namespace
+
+std::vector<std::string> homeGameIds(const std::vector<Game>& games, const HomeChoices& choices) {
+    std::vector<std::string> ids;
+    const std::vector<Title> titles = gameTitles(games);
+    for (const Title* title : homeTitles(games, titles, choices)) {
+        // Its version here: another openSU's is that one's to list.
+        const auto here = std::ranges::find_if(title->copies, [](const Game* copy) {
+            return copy->source != Source::Remote;
+        });
+        if (here != title->copies.end()) {
+            ids.push_back((*here)->id);
+        }
+    }
+    return ids;
+}
+
 std::vector<ShelfItem> homeShelf(const std::vector<Game>& games,
                                  const std::vector<SourceStatus>& sources,
                                  const std::vector<AddTile>& adds, const HomeChoices& choices) {
@@ -191,19 +272,9 @@ std::vector<ShelfItem> homeShelf(const std::vector<Game>& games,
         }
     }
     const std::vector<Title> titles = gameTitles(games);
-    std::unordered_map<const Game*, const Title*> preferredOf;
-    for (const Title& title : titles) {
-        preferredOf.emplace(title.copies.front(), &title);
-    }
-    for (const Game& game : games) {
-        const auto title = preferredOf.find(&game);
-        if (title == preferredOf.end()) {
-            continue;
-        }
-        if (const auto [key, byDefault] = homeSlot(title->second->copies);
-            choices.holds(key, byDefault)) {
-            shelf.emplace_back(entry(*title->second, game));
-        }
+    const std::vector<const Title*> home = homeTitles(games, titles, choices);
+    for (const Title* title : home) {
+        shelf.emplace_back(entry(*title, *title->copies.front()));
     }
     const bool loading = std::ranges::any_of(sources, [](const SourceStatus& status) {
         return status.availability == Availability::Loading;
@@ -211,6 +282,7 @@ std::vector<ShelfItem> homeShelf(const std::vector<Game>& games,
     if (shelf.empty() && !loading) {
         shelf.assign(adds.begin(), adds.end());
     }
+    appendPairedHomes(shelf, games, titles, sources, {home.begin(), home.end()});
     return shelf;
 }
 

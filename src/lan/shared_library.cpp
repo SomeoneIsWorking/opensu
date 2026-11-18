@@ -55,7 +55,8 @@ std::vector<std::string> optionsOf(const library::Game& game) {
 
 } // namespace
 
-void SharedLibrary::share(const std::vector<library::Game>& games, std::string hosting) {
+void SharedLibrary::share(const std::vector<library::Game>& games, std::string hosting,
+                          const std::vector<std::string>& home) {
     std::vector<wire::ListedGame> listed;
     std::map<std::string, fs::path, std::less<>> covers;
     for (const library::Game& game : games) {
@@ -76,8 +77,15 @@ void SharedLibrary::share(const std::vector<library::Game>& games, std::string h
     }
     lucent::info("lan", "sharing {} installed games, {} with covers", listed.size(), covers.size());
     const std::lock_guard lock{mutex_};
+    std::vector<std::string> shown;
+    for (const std::string& id : home) {
+        if (std::ranges::find(listed, id, &wire::ListedGame::id) != listed.end()) {
+            shown.push_back(id);
+        }
+    }
     games_ = std::move(listed);
     hosting_ = std::move(hosting);
+    home_ = std::move(shown);
     covers_ = std::move(covers);
 }
 
@@ -89,7 +97,7 @@ void SharedLibrary::playing(std::string id, std::vector<std::string> profiles) {
 
 wire::Listing SharedLibrary::listing() const {
     const std::lock_guard lock{mutex_};
-    wire::Listing listing{.games = games_, .hosting = hosting_};
+    wire::Listing listing{.games = games_, .hosting = hosting_, .home = home_};
     for (wire::ListedGame& game : listing.games) {
         if (game.id == playingId_) {
             game.playingAs = playingAs_;

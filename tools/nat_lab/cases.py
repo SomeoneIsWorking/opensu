@@ -575,6 +575,77 @@ def zerotier_lan(context: Context) -> None:
         print(zerotier_traffic(rig))
 
 
+def add_link_test_to_home(rig: Rig, node) -> None:
+    """Back on Home, opens the GBA shelf's link test and adds it to Home, focused there."""
+    for _ in range(8):
+        state = node.state()
+        if not state["settingsOpen"] and state.get("screen") in ("", "home", None):
+            break
+        node.press("b")
+        time.sleep(0.5)
+    for _ in range(12):
+        if str(node.state().get("focusedId", "")).endswith("link_test.gba"):
+            break
+        if node.state().get("focusedId") == "console:gba":
+            node.press("a")
+            time.sleep(1)
+            continue
+        node.press("right")
+    rig.shot(node, "4-tile")
+    node.press("a")
+    node.wait("on the details page", lambda state: state["detailsOpen"])
+    time.sleep(1)
+    # A console shelf's ROM stands for itself; Home's tile stands for the game.
+    for _ in range(12):
+        if "home" in str(node.state()["screenFocus"]).lower():
+            break
+        node.press("down")
+    print("adding", node.state()["screenFocus"])
+    node.press("a")
+    time.sleep(0.5)
+    for _ in range(4):
+        if node.state().get("shelf") == "home" and not node.state()["detailsOpen"]:
+            break
+        node.press("b")
+        time.sleep(0.5)
+    for _ in range(12):
+        if str(node.state().get("focusedId", "")).endswith("link_test.gba"):
+            break
+        node.press("right")
+
+
+def lan_homes(context: Context) -> None:
+    """A paired openSU's Home follows this one's, opened by its launcher, in its order."""
+    with Rig(context, "restricted", "restricted", zerotier=True, lan=True) as rig:
+        for each in (rig.host, rig.friend):
+            each.wait("seeing the other", lambda state: state["lanSeen"] >= 1, seconds=30)
+        lan_pair(rig)
+        host, friend = rig.host, rig.friend
+        add_link_test_to_home(rig, host)
+        print("host home", host.state().get("focusedId"))
+        until = time.monotonic() + 30
+        while friend.log.read_text().count("Host lists") < 2 and time.monotonic() < until:
+            time.sleep(0.2)
+        for _ in range(8):
+            state = friend.state()
+            if not state["settingsOpen"] and state.get("screen") in ("", "home", None):
+                break
+            friend.press("b")
+            time.sleep(0.5)
+        time.sleep(1)
+        seen = []
+        for _ in range(8):
+            seen.append(str(friend.state().get("focusedId", "")))
+            friend.press("right")
+            time.sleep(0.3)
+        print("friend home", seen)
+        friend.press("left")
+        time.sleep(0.5)
+        rig.shot(friend, "home-sections")
+        if not any(focus.startswith("launcher:lan:") for focus in seen):
+            raise RuntimeError("Host's Home did not follow the guest's")
+
+
 def lan_versions(context: Context) -> None:
     """A paired openSU's copy of a game is a version of it here, by the way it launches there."""
     with Rig(context, "restricted", "restricted", zerotier=True, lan=True) as rig:
@@ -586,41 +657,7 @@ def lan_versions(context: Context) -> None:
         while "Host lists" not in friend.log.read_text() and time.monotonic() < until:
             time.sleep(0.2)
         print(next(line for line in friend.log.read_text().splitlines() if "Host lists" in line))
-        for _ in range(8):
-            state = friend.state()
-            if not state["settingsOpen"] and state.get("screen") in ("", "home", None):
-                break
-            friend.press("b")
-            time.sleep(0.5)
-        for _ in range(12):
-            if str(friend.state().get("focusedId", "")).endswith("link_test.gba"):
-                break
-            if friend.state().get("focusedId") == "console:gba":
-                friend.press("a")
-                time.sleep(1)
-                continue
-            friend.press("right")
-        rig.shot(friend, "4-tile")
-        friend.press("a")
-        friend.wait("on the details page", lambda state: state["detailsOpen"])
-        time.sleep(1)
-        # A console shelf's ROM stands for itself; Home's tile stands for the game.
-        for _ in range(12):
-            if "home" in str(friend.state()["screenFocus"]).lower():
-                break
-            friend.press("down")
-        print("adding", friend.state()["screenFocus"])
-        friend.press("a")
-        time.sleep(0.5)
-        for _ in range(4):
-            if friend.state().get("shelf") == "home" and not friend.state()["detailsOpen"]:
-                break
-            friend.press("b")
-            time.sleep(0.5)
-        for _ in range(12):
-            if str(friend.state().get("focusedId", "")).endswith("link_test.gba"):
-                break
-            friend.press("right")
+        add_link_test_to_home(rig, friend)
         print("home tile", friend.state().get("focusedId"))
         rig.shot(friend, "4-home")
         friend.press("a")
@@ -832,6 +869,7 @@ CASES: dict[str, Callable[[Context], None]] = {
     "zerotier": zerotier,
     "zerotier-lan": zerotier_lan,
     "lan-versions": lan_versions,
+    "lan-homes": lan_homes,
     "zerotier-embedded": zerotier_embedded,
     "nat-pmp": nat_pmp,
     "upnp": upnp,

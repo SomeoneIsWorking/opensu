@@ -92,12 +92,18 @@ using ShelfItem = std::variant<Game, Console, Launcher, AllGames, Giveaways, Add
 /// One console per system with ROMs, in the known systems' order.
 [[nodiscard]] std::vector<Console> consoles(const std::vector<Game>& games);
 
+/// The ids of the games on Home, in its order, each its first version here, as another openSU is
+/// told them.
+[[nodiscard]] std::vector<std::string> homeGameIds(const std::vector<Game>& games,
+                                                   const HomeChoices& choices);
+
 /// Home: the consoles the player added, in Library's order, then the games in `games`' order (the
 /// library's sort): each game once, as its preferred version (`gameTitles`), when that is a store
 /// game or one of the player's own installed here, unless the player took it off, and each game the
 /// player added whose preferred version is a ROM, not installed or on another openSU. With none of
 /// those, the add tiles `adds` once no store in `sources` is still loading its first listing;
-/// nothing while one is.
+/// nothing while one is. Then each paired openSU's Home: its launcher, then the games on its Home
+/// in its order, each as its game's tile, leaving out a game already shown.
 [[nodiscard]] std::vector<ShelfItem> homeShelf(const std::vector<Game>& games,
                                                const std::vector<SourceStatus>& sources,
                                                const std::vector<AddTile>& adds,

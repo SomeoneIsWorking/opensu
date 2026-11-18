@@ -382,8 +382,8 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
     writeFile(cover, "not really a png");
     library::Game uninstalled = installedGame("own:3", "Gone", {});
     uninstalled.installed = false;
-    host.node.share({installedGame("own:1", "Shared game", cover), uninstalled}, {});
-    guest.node.share({installedGame("own:9", "Guest game", {})}, {});
+    host.node.share({installedGame("own:1", "Shared game", cover), uninstalled}, {}, {});
+    guest.node.share({installedGame("own:9", "Guest game", {})}, {}, {});
 
     expect(waitFor([&guest] {
                return guest.node.sightings().size() == 2;
@@ -775,8 +775,8 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
     Node host{root, "Den", directory};
     Node guest{root, "Attic", directory};
     const library::Game game = runnerGame();
-    host.node.share({game}, {});
-    guest.node.share({game}, {});
+    host.node.share({game}, {}, {});
+    guest.node.share({game}, {}, {});
     host.sync.know({game}, runnerCatalog());
     guest.sync.know({game}, runnerCatalog());
     // One player's profile on both: the den's, which the attic copies.
@@ -1063,7 +1063,7 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
                        secrets::SecretStore{root / "signed" / "secrets", false}};
     lan::HostPairing pairing{book.id()};
     lan::SharedLibrary library;
-    library.share({installedGame("own:1", "Shared game", {})}, {});
+    library.share({installedGame("own:1", "Shared game", {})}, {}, {"own:1", "own:gone"});
     lan::RomShelf shelf;
     const net::WebClient web;
     profiles::ProfileBook profiles{root / "signed" / "profiles.json"};
@@ -1144,6 +1144,8 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
            "nor as the answer to another request");
     const auto opened = lan::openBody(secret, facts, lan::Direction::Answer, 200, answer.body);
     const auto listing = opened ? lan::wire::readListing(*opened) : std::nullopt;
+    expect(listing && listing->home == std::vector<std::string>{"own:1"},
+           "the listing says which listed games are on Home, in its order");
     expect(listing && listing->games.size() == 1 && listing->games.front().title == "Shared game",
            "sealed with the pairing's secret for this request, it holds the shared listing");
     lan::wire::ListedGame seated;
@@ -1156,15 +1158,17 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
     seated.platform = "PlayStation";
     seated.source = "rom";
     seated.options = {"DuckStation", "SwanStation"};
-    const lan::wire::Listing ways{.games = {seated}, .hosting = "it does not run inside Gamescope"};
+    const lan::wire::Listing ways{
+        .games = {seated}, .hosting = "it does not run inside Gamescope", .home = {"game"}};
     expect(lan::wire::readListing(lan::wire::write(ways)) == ways,
            "a listing carries each game's platform, source and ways, and why it cannot stream");
     const std::vector<library::Game> versions =
-        lan::remoteVersions(lan::Peer{"desk", "Desk"}, seated, {}, ways.hosting);
+        lan::remoteVersions(lan::Peer{"desk", "Desk"}, seated, {}, ways.hosting, 3);
     expect(versions.size() == 2 && versions[0].remote.option == "DuckStation" &&
                versions[1].remote.option == "SwanStation" && versions[0].id != versions[1].id &&
                versions[0].sourceId == "game" && versions[0].remote.platform == "PlayStation",
            "each way to launch a listed game is a version of its own");
+    expect(versions[0].remote.home == 3, "each knows its place on that openSU's Home");
     expect(versions[0].unavailable == "Desk cannot stream it: it does not run inside Gamescope",
            "a host that cannot stream says why on each version");
 
@@ -1336,7 +1340,7 @@ void systemDiscoveryPairs(const fs::path& root) {
                return host.node.status().name != guest.node.status().name;
            }),
            "the later one is announced under the daemon's next name");
-    host.node.share({installedGame("own:1", "Announced game", {})}, {});
+    host.node.share({installedGame("own:1", "Announced game", {})}, {}, {});
     const auto sees = [](const Node& node, const std::string& id) {
         const std::vector<lan::Sighting> seen = node.node.sightings();
         return std::ranges::find(seen, id, &lan::Sighting::id) != seen.end();
@@ -1363,7 +1367,7 @@ void anOfflineHostStaysListed(const fs::path& scratch) {
     const lan::Peer other{"other", "Loft"};
     lan::RemoteLibrary library{file};
     const lan::wire::ListedGame listed{.id = "g", .title = "Game", .cover = {}, .playingAs = {}};
-    expect(library.update(lan::remoteVersions(host, listed, {}, {}), {host, other}),
+    expect(library.update(lan::remoteVersions(host, listed, {}, {}, std::nullopt), {host, other}),
            "a host lists");
     expect(library.update({}, {host, other}) && library.games().size() == 1 &&
                !library.games().front().hostOnline,
@@ -1372,7 +1376,7 @@ void anOfflineHostStaysListed(const fs::path& scratch) {
     expect(restarted.games().size() == 1 && restarted.games().front().title == "Game" &&
                !restarted.games().front().hostOnline,
            "the listing survives a restart, offline until the host answers");
-    expect(restarted.update(lan::remoteVersions(host, listed, {}, {}), {host}) &&
+    expect(restarted.update(lan::remoteVersions(host, listed, {}, {}, std::nullopt), {host}) &&
                restarted.games().front().hostOnline,
            "the host answers and is online");
     expect(restarted.update({}, {other}) && restarted.games().empty(),

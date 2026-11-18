@@ -141,6 +141,38 @@ void testVersionsOnHome() {
            "a version in Extras does not put its game on Home");
 }
 
+Game onDesk(std::string id, std::string title, std::optional<std::size_t> home) {
+    Game out = game(Source::Remote, std::move(id), {}, std::move(title));
+    out.hostId = "desk";
+    out.hostName = "Desk";
+    out.remote.source = "steam";
+    out.remote.home = home;
+    return out;
+}
+
+void testPairedHomes() {
+    const std::vector<Game> games{
+        game(Source::Steam, "steam:hades", {}, "Hades"),
+        onDesk("lan:desk:steam:2", "Tunic", 1),
+        onDesk("lan:desk:steam:1", "Hades", 0),
+        onDesk("lan:desk:steam:3", "Celeste", 2),
+        onDesk("lan:desk:steam:4", "Off Home", std::nullopt),
+    };
+    const std::vector<SourceStatus> lan{{Source::Remote, Availability::Ready, {}}};
+    const std::vector<ShelfItem> home = opensu::library::homeShelf(games, lan, {}, HomeChoices{});
+    expect(home.size() == 4 && gameAt(home, 0)->id == "steam:hades",
+           "this Home first, then Desk's");
+    expect(launcherAt(home, 1) != nullptr && launcherAt(home, 1)->hostName == "Desk",
+           "a paired openSU's Home opens with its launcher");
+    expect(gameAt(home, 2)->title == "Tunic" && gameAt(home, 3)->title == "Celeste",
+           "its games in its order, leaving out one shown already and one not on its Home");
+    expect(opensu::library::homeShelf(games, {}, {}, HomeChoices{}).size() == 1,
+           "with LAN off, no paired Home");
+    expect(opensu::library::homeGameIds(games, HomeChoices{}) ==
+               std::vector<std::string>{"steam:hades"},
+           "another openSU is told this Home's own versions");
+}
+
 void testHomeChoices() {
     const std::vector<Game> games = library();
     HomeChoices choices;
@@ -476,6 +508,7 @@ int main() try {
         testHomeShelf();
         testHomeChoices();
         testVersionsOnHome();
+        testPairedHomes();
         testEmptyHome();
         testLibraryShelf();
         testLibraryLaunchers();

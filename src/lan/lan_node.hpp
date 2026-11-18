@@ -106,9 +106,11 @@ class LanNode {
         return book_.find(peerId);
     }
     /// Shares the installed games among `games` with paired peers from now on, with why they
-    /// cannot be streamed from here (`hosting`, empty when they can). The paired, announced
+    /// cannot be streamed from here (`hosting`, empty when they can) and the ids on Home in its
+    /// order (`home`). The paired, announced
     /// openSUs are told to read the listing again when it changed.
-    void share(const std::vector<library::Game>& games, std::string hosting);
+    void share(const std::vector<library::Game>& games, std::string hosting,
+               const std::vector<std::string>& home);
     /// The guests' asks about a listed game's cover and match.
     [[nodiscard]] CoverDesk& covers() noexcept {
         return covers_;

@@ -1171,6 +1171,8 @@ void ShellApp::setOnHome(const library::ShelfItem& item, bool on) {
     library::setOnHome(games_, item, on, preferences_.values().home);
     preferences_.save();
     refreshShelf();
+    // Paired openSUs show this Home after theirs.
+    shareLibrary();
     const auto* game = std::get_if<library::Game>(&item);
     const std::optional<library::Folder> folder = library::folderOf(item);
     const std::string name = game != nullptr ? game->title : folder ? library::name(*folder) : "";
@@ -1184,7 +1186,8 @@ void ShellApp::recordLaunch(const library::Game& game) {
 }
 
 void ShellApp::shareLibrary() {
-    lan_.share(covers_.shown(games_), remotePlay_.hosting());
+    lan_.share(covers_.shown(games_), remotePlay_.hosting(),
+               library::homeGameIds(games_, preferences_.values().home));
 }
 
 void ShellApp::serveGuests() {

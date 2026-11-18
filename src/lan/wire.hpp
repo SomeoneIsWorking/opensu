@@ -92,6 +92,8 @@ struct ListedGame {
 struct Listing {
     std::vector<ListedGame> games;
     std::string hosting{};
+    /// The ids of the listed games on this openSU's Home, in its order.
+    std::vector<std::string> home{};
 
     bool operator==(const Listing&) const = default;
 };

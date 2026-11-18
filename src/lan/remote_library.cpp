@@ -33,7 +33,11 @@ library::Game savedGame(const nlohmann::json& entry) {
     game.artwork = entry.at("artwork").get<std::string>();
     game.remote = library::RemoteVersion{.platform = entry.value("platform", std::string{}),
                                          .source = entry.value("source", std::string{}),
-                                         .option = entry.value("option", std::string{})};
+                                         .option = entry.value("option", std::string{}),
+                                         .home = std::nullopt};
+    if (const auto home = entry.find("home"); home != entry.end() && home->is_number_unsigned()) {
+        game.remote.home = home->get<std::size_t>();
+    }
     return game;
 }
 
@@ -59,7 +63,8 @@ class RemoteProvider final : public library::Provider {
 
 std::vector<library::Game> remoteVersions(const Peer& host, const wire::ListedGame& listed,
                                           const std::filesystem::path& cover,
-                                          const std::string& hosting) {
+                                          const std::string& hosting,
+                                          std::optional<std::size_t> home) {
     library::Game game;
     game.id = "lan:" + host.id + ":" + listed.id;
     game.source = library::Source::Remote;
@@ -69,8 +74,8 @@ std::vector<library::Game> remoteVersions(const Peer& host, const wire::ListedGa
     game.hostName = host.name;
     game.playingAs = listed.playingAs;
     game.matchAs = listed.match;
-    game.remote =
-        library::RemoteVersion{.platform = listed.platform, .source = listed.source, .option = {}};
+    game.remote = library::RemoteVersion{
+        .platform = listed.platform, .source = listed.source, .option = {}, .home = home};
     game.installed = true;
     game.artwork = cover;
     if (!hosting.empty()) {
@@ -120,6 +125,9 @@ void RemoteLibrary::save() const {
                         {"platform", game.remote.platform},
                         {"source", game.remote.source},
                         {"option", game.remote.option}});
+        if (game.remote.home) {
+            list.back()["home"] = *game.remote.home;
+        }
     }
     if (std::string error; !fileio::writeWhole(file_, list.dump() + "\n", error)) {
         lucent::warn("lan", "{} cannot be written: {}", file_.string(), error);
