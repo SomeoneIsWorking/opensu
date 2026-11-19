@@ -292,6 +292,16 @@ Config read() {
     value.gameOutputDir = value.runtimeDir / "games";
     value.retroControl = std::filesystem::path{env("OPENSU_RETRO_CONTROL")};
     value.executablePath = splitPaths(env("PATH"));
+    std::vector<std::filesystem::path> userBins{value.home / ".local/bin"};
+#ifdef __APPLE__
+    userBins.emplace_back("/opt/homebrew/bin");
+    userBins.emplace_back("/usr/local/bin");
+#endif
+    for (std::filesystem::path& bin : userBins) {
+        if (std::ranges::find(value.executablePath, bin) == value.executablePath.end()) {
+            value.executablePath.push_back(std::move(bin));
+        }
+    }
     value.steamGridDbApi = std::string{env("OPENSU_STEAMGRIDDB_API")};
     value.libretroThumbnails = std::string{env("OPENSU_LIBRETRO_THUMBNAILS")};
     value.steamStandIn = std::string{env("OPENSU_STEAM_STAND_IN")};

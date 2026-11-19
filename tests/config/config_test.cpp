@@ -102,7 +102,10 @@ int main(int argc, char** argv) try {
         using Paths = std::vector<std::filesystem::path>;
         expect(config.romRoots == Paths{"/roms/a", "/roms/b"},
                "OPENSU_ROM_ROOTS splits on ':', dropping empty entries");
-        expect(config.executablePath == Paths{"/bin-a", "/bin-b"}, "PATH splits on ':'");
+        expect(config.executablePath.size() >= 3 &&
+                   Paths(config.executablePath.begin(), config.executablePath.begin() + 3) ==
+                       Paths{"/bin-a", "/bin-b", config.home / ".local/bin"},
+               "PATH splits on ':', then the user's own bin folder a desktop launch leaves out");
         expect(config.logFile == config.stateDir / "opensu.log", "the log file is a state file");
         std::printf("config: all checks passed\n");
         return 0;

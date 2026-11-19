@@ -23,10 +23,15 @@ Catalog makeCatalog(const config::Config& config, bool hidden,
                     const std::filesystem::path& ownGames, roms::RomsetLists& romsets,
                     const CatalogStores& stores) {
     Catalog catalog;
-    if (stores.steam) {
+    // fumarole plays Steam's Windows games without the Steam client, so its installs are listed
+    // whether or not Steam is.
+    fumarole::Installs fumaroleInstalls =
+        fumarole::Installs::find(config.executablePath, config.fumaroleDataDir);
+    if (stores.steam || !fumaroleInstalls.program.empty()) {
         catalog.add(std::make_unique<steam::Provider>(
-            steam::Library::discover(config.home, config.steamRoots),
-            fumarole::Installs::find(config.executablePath, config.fumaroleDataDir)));
+            stores.steam ? steam::Library::discover(config.home, config.steamRoots)
+                         : steam::Library{},
+            std::move(fumaroleInstalls)));
     }
     if (stores.epic) {
         catalog.add(std::make_unique<epic::Provider>());

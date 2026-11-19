@@ -202,7 +202,8 @@ struct Config {
     /// OPENSU_RETRO_CONTROL, which the shell sets for each launch; empty when unset.
     std::filesystem::path retroControl;
 
-    /// The directories searched for a launch's program, from PATH.
+    /// The directories searched for a launch's program: PATH, then the user's `~/.local/bin` (and
+    /// Homebrew's on macOS) when PATH lacks them, as a desktop-started app's PATH does.
     std::vector<std::filesystem::path> executablePath;
 
     /// libretro-thumbnails' root, from OPENSU_LIBRETRO_THUMBNAILS, which points a test run at a
