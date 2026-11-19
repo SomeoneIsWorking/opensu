@@ -13,6 +13,18 @@ run by Wine with FEX emulating x86. Today Android has no Steam, Epic or GOG at a
    game is openSU's own child, with no kept virtual pads for a sandbox, the sound sink's
    environment reaching it and no client to hide. Windows builds only until fumarole has a native
    `steamclient.so`. It is where fumarole is verified today, and every later part reuses it.
+   How it is built:
+   - fumarole's installs are Steam games (`Source::Steam`, `steam:<appid>`, so art, saves and
+     profiles follow the app id): `library::steam` reads fumarole's records
+     (`<data>/installed/<appid>.vdf`, state `installed`, os `windows`) beside Steam's library
+     folders, and a game Steam has installed stays Steam's.
+   - Its launch is `fumarole launch <appid>`; `wine::prepare` adds `--wine <runner's wine>` from
+     Settings › Wine, as it adds GOG's and Epic's runner. fumarole keeps its own prefix per app and
+     syncs the cloud before and after, waiting for Wine, so the handoff follows its process tree.
+   - The `fumarole` program is found as the D-Bus proxy is (`Config`): beside openSU's own
+     programs, else on PATH; without it the records are not read.
+   - Proof: Snakebird (357300), installed by fumarole, started from openSU's shelf reaches its title
+     menu with no Steam client running, and a remote guest's pad moves its menu.
 2. **GOG and Epic downloads without Python.** A C++ downloader per store in openSU: GOG's
    content-system v2 manifests and Epic's chunked manifests, signed in with the tokens openSU
    already holds (`gog-token.json`, Legendary's). It replaces `gogdl` and `legendary` on every

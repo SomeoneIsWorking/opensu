@@ -513,11 +513,33 @@ std::vector<Game> Library::list() const {
     return games;
 }
 
-Provider::Provider(Library library) : library_{std::move(library)} {
+Provider::Provider(Library library, fumarole::Installs fumarole)
+    : library_{std::move(library)}, fumarole_{std::move(fumarole)} {
 }
 
 std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
-    return library_.list();
+    std::vector<Game> fumarole = fumarole_.games();
+    std::vector<Game> games;
+    try {
+        games = library_.list();
+    } catch (const SourceAbsent&) {
+        if (fumarole.empty()) {
+            throw;
+        }
+    }
+    for (Game& installed : fumarole) {
+        const auto known = std::ranges::find(games, installed.id, &Game::id);
+        if (known == games.end()) {
+            games.push_back(std::move(installed));
+        } else if (!known->installed) {
+            known->installed = true;
+            known->updateAvailable = false;
+            known->windowsInstall = true;
+            known->launch = std::move(installed.launch);
+            known->processHint.clear();
+        }
+    }
+    return games;
 }
 
 } // namespace opensu::library::steam

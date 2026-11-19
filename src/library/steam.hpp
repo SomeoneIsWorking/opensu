@@ -12,6 +12,7 @@
 #include <string_view>
 #include <vector>
 
+#include "fumarole_installs.hpp"
 #include "game.hpp"
 
 namespace opensu::library::steam {
@@ -59,11 +60,12 @@ class Library {
     std::vector<std::filesystem::path> roots_;
 };
 
-/// A Provider over a discovered installation. Throws when no installation was
-/// found, which the catalog reports as a problem rather than a failure.
+/// A Provider over a discovered installation and fumarole's installs: a game Steam has installed
+/// stays Steam's, one only fumarole installed starts through fumarole. Throws when neither has a
+/// game, which the catalog reports as a problem rather than a failure.
 class Provider final : public library::Provider {
   public:
-    explicit Provider(Library library);
+    Provider(Library library, fumarole::Installs fumarole);
 
     [[nodiscard]] Source source() const override {
         return Source::Steam;
@@ -72,6 +74,7 @@ class Provider final : public library::Provider {
 
   private:
     Library library_;
+    fumarole::Installs fumarole_;
 };
 
 } // namespace opensu::library::steam

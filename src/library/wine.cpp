@@ -358,7 +358,10 @@ ReadyPrefix readyPrefix(const fs::path& prefix, const Runner& runner) {
 
 Prepared prepare(Game& game, const Choice& choice) {
     const bool own = game.source == Source::Own;
-    if ((!isGameStore(game.source) && !own) || !game.windowsInstall || game.launch.empty()) {
+    // A Steam game with a Windows install is fumarole's, which keeps its own prefix.
+    const bool fumarole = game.source == Source::Steam;
+    if ((!isGameStore(game.source) && !own && !fumarole) || !game.windowsInstall ||
+        game.launch.empty()) {
         return {};
     }
     const std::optional<Runner> runner = runnerOf(choice, game.id);
@@ -377,6 +380,11 @@ Prepared prepare(Game& game, const Choice& choice) {
                            " needs umu-launcher, which is not installed; pick another runner in "
                            "Settings › Wine",
                 .environment = {}};
+    }
+    if (fumarole) {
+        game.launch.args.insert(game.launch.args.end(), {"--wine", runner->wine.string()});
+        lucent::info("wine", "{} runs under {} through fumarole", game.title, runner->name);
+        return {};
     }
     ReadyPrefix ready = readyPrefix(prefixFor(choice.dataDir, game, choice.own), *runner);
     if (!ready.refusal.empty()) {

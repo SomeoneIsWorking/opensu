@@ -13,7 +13,9 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
+#include <stop_token>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -134,6 +136,44 @@ const Game* find(const std::vector<Game>& games, const std::string& id) {
 
 } // namespace
 
+/// fumarole's record of one install, as `fumarole install` writes it.
+void writeRecord(const fs::path& data, const std::string& appId, const std::string& os,
+                 const fs::path& path) {
+    write(data / "installed" / (appId + ".vdf"),
+          "\"install\"\n{\n\t\"appid\"\t\t\"" + appId + "\"\n\t\"name\"\t\t\"App " + appId +
+              "\"\n\t\"path\"\t\t\"" + vdfText(path) + "\"\n\t\"os\"\t\t\"" + os +
+              "\"\n\t\"state\"\t\t\"installed\"\n}\n");
+}
+
+void fumaroleInstallsAreSteamGames(const Fixture& fixture, const Library& library) {
+    const fs::path data = fixture.base / "fumarole";
+    const fs::path apps = data / "apps";
+    fs::create_directories(apps / "Snakebird");
+    writeRecord(data, "357300", "windows", apps / "Snakebird");
+    writeRecord(data, "440", "windows", apps / "Snakebird");
+    writeRecord(data, "357301", "linux", apps / "Snakebird");
+    writeRecord(data, "357302", "windows", apps / "Gone");
+    const fs::path program = fixture.base / "bin" / "fumarole";
+    opensu::library::steam::Provider provider{
+        library, opensu::library::fumarole::Installs{.program = program, .dataDir = data}};
+    const std::vector<Game> games = provider.list(std::stop_token{});
+    const Game* snakebird = find(games, "steam:357300");
+    expect(snakebird != nullptr && snakebird->installed && snakebird->windowsInstall &&
+               snakebird->launch.program == program.string() &&
+               snakebird->launch.args == std::vector<std::string>{"launch", "357300"},
+           "a Windows install fumarole made is a Steam game it launches");
+    const Game* portal = find(games, "steam:440");
+    expect(portal != nullptr && portal->launch.program == "steam",
+           "a game Steam has installed stays Steam's");
+    expect(find(games, "steam:357301") == nullptr && find(games, "steam:357302") == nullptr,
+           "a Linux install, or one whose folder is gone, is not listed");
+    opensu::library::steam::Provider without{
+        library, opensu::library::fumarole::Installs{.program = {}, .dataDir = data}};
+    const std::vector<Game> plain = without.list(std::stop_token{});
+    expect(find(plain, "steam:357300") == nullptr,
+           "without the fumarole program its records are not read");
+}
+
 int main() try {
     Fixture fixture;
 
@@ -150,7 +190,7 @@ int main() try {
     }
     expect(rootCount == 1, "the install root appears once");
 
-    opensu::library::steam::Provider provider{library};
+    opensu::library::steam::Provider provider{library, {}};
     const std::vector<Game> games = provider.list(std::stop_token{});
 
     // Four games: the three manifests in the root that are games, plus the extra
@@ -210,6 +250,7 @@ int main() try {
     const Library missingRoot = Library::discover(fixture.base, {fixture.base / "nope"});
     expect(missingRoot.roots().empty(), "a missing root is not an install root");
 
+    fumaroleInstallsAreSteamGames(fixture, library);
     std::printf("steam: all checks passed\n");
     return 0;
 } catch (...) {

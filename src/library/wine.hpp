@@ -219,7 +219,8 @@ struct Prepared {
 /// Readies the launch of a GOG or Epic game whose install is a Windows build and makes its prefix:
 /// `--wine <binary> --wine-prefix <prefix>` for plain Wine, `--no-wine --wrapper <umu-run>` and
 /// umu's environment for a Proton build. An added `.exe` is started by the runner itself
-/// (`invocationOf`). Any other game is left as it is.
+/// (`invocationOf`); a Steam game fumarole installed gets `--wine <binary>`, fumarole keeping its
+/// own prefix. Any other game is left as it is.
 [[nodiscard]] Prepared prepare(Game& game, const Choice& choice);
 
 } // namespace opensu::library::wine
