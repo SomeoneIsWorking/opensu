@@ -10,7 +10,7 @@ add_library(opensu_datagram STATIC packet_seal.cpp udp_address.cpp)
 add_library(opensu::datagram ALIAS opensu_datagram)
 target_include_directories(opensu_datagram PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/..")
-target_link_libraries(opensu_datagram PRIVATE opensu::secrets opensu::fileio)
+target_link_libraries(opensu_datagram PRIVATE opensu::secrets opensu::fileio lucent::lucent)
 target_compile_features(opensu_datagram PUBLIC cxx_std_20)
 opensu_warnings(opensu_datagram)
 if(WIN32)

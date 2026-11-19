@@ -744,8 +744,9 @@ void aGuestThatLosesFramesAsksForFewer() {
     expect(!fit.take(counts, false, now), "the first counts only start a stretch");
     expect(!window(5), "a guest that loses few frames keeps every frame");
     expect(window(60) && fit.framesPerSecond() == 45, "20% lost steps down to 45");
-    expect(window(60) && fit.framesPerSecond() == 30, "and again to 30");
-    expect(!window(100) && fit.framesPerSecond() == 30, "30 is the floor");
+    expect(!window(6) && fit.framesPerSecond() == 45, "a step that halved the loss is kept");
+    expect(window(60) && fit.framesPerSecond() == 30, "losing a fifth again steps down to 30");
+    expect(!window(9) && fit.framesPerSecond() == 30, "and that step helped too");
     expect(!window(0) && !window(0), "two calm windows are not enough to step up");
     expect(window(0) && fit.framesPerSecond() == 45, "the third steps back up to 45");
     expect(window(60) && fit.framesPerSecond() == 30, "losing frames again takes the raise back");
@@ -753,6 +754,27 @@ void aGuestThatLosesFramesAsksForFewer() {
            "a raise taken back needs twice the calm windows");
     expect(window(0) && fit.framesPerSecond() == 45, "the sixth calm window steps up");
     expect(!fit.take(counts, true, now + 10 * second), "a codec change starts a new stretch");
+    // A Wi-Fi stall loses as much at a lower rate: the step is taken back and not tried again soon.
+    stream::GuestFit stalled;
+    stream::GuestFit::Counts stalls;
+    std::uint64_t at = 0;
+    const auto stall = [&]() {
+        stalls.decoded += 240;
+        stalls.dropped += 60;
+        at += 5 * second;
+        return stalled.take(stalls, false, at);
+    };
+    expect(!stalled.take(stalls, false, at), "a new stretch");
+    expect(stall() && stalled.framesPerSecond() == 45, "a stall's loss first steps down");
+    expect(stall() && stalled.framesPerSecond() == 0, "losing as much after it takes it back");
+    for (int held = 0; held < stream::heldOffWindows; ++held) {
+        expect(!stall() && stalled.framesPerSecond() == 0, "no step down is tried while held off");
+    }
+    expect(stall() && stalled.framesPerSecond() == 45, "it is tried again after the hold");
+    expect(stall() && stalled.framesPerSecond() == 0, "and taken back again");
+    for (int held = 0; held < 2 * stream::heldOffWindows; ++held) {
+        expect(!stall(), "held off twice as long the second time");
+    }
     stream::GuestFit quick;
     expect(!quick.take({}, false, 0), "a new stretch");
     expect(quick.take({.decoded = 480, .dropped = 120, .late = 0}, false, 5 * second) &&

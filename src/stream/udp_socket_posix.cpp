@@ -12,11 +12,31 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "lucent/log.h"
+
 namespace opensu::stream {
 namespace {
 
 /// Room for a frame's packets while the reader catches up; the system may cap it lower.
 constexpr int bufferBytes = 8 * 1024 * 1024;
+/// DSCP AF41 in the TOS byte: Wi-Fi access points put it in the video queue (WMM AC_VI).
+constexpr int videoTos = 0x88;
+
+/// Asks the networks on the way to carry the socket's datagrams as interactive video.
+void markAsVideo(int fd) {
+    if (::setsockopt(fd, IPPROTO_IP, IP_TOS, &videoTos, sizeof videoTos) != 0) {
+        lucent::warn("stream", "the stream is not marked as video (IP_TOS): {}",
+                     std::system_category().message(errno));
+    }
+#ifdef SO_NET_SERVICE_TYPE
+    // macOS's own class for it, which also sets the Wi-Fi queue.
+    const int service = NET_SERVICE_TYPE_VI;
+    if (::setsockopt(fd, SOL_SOCKET, SO_NET_SERVICE_TYPE, &service, sizeof service) != 0) {
+        lucent::warn("stream", "the stream is not marked as video (SO_NET_SERVICE_TYPE): {}",
+                     std::system_category().message(errno));
+    }
+#endif
+}
 
 sockaddr_in socketAddress(const UdpAddress& address) {
     sockaddr_in raw{};
@@ -74,6 +94,7 @@ UdpSocket::UdpSocket(std::uint16_t port) : descriptor_{std::make_unique<Descript
     }
     ::setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &bufferBytes, sizeof bufferBytes);
     ::setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &bufferBytes, sizeof bufferBytes);
+    markAsVideo(fd);
     const sockaddr_in any = socketAddress(UdpAddress{htonl(INADDR_ANY), port});
     sockaddr_in bound{};
     socklen_t length = sizeof bound;

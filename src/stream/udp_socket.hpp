@@ -1,6 +1,8 @@
 // udp_socket — remote play's one UDP socket per session, IPv4, bound on every interface: datagrams
 // sent to an address and received with where they came from, waiting at most a given time so a
-// thread reading it can stop.
+// thread reading it can stop. On Linux and macOS its datagrams are marked as interactive video
+// (DSCP AF41, and macOS's NET_SERVICE_TYPE_VI) so Wi-Fi carries them in its video queue; Windows
+// would need its QoS API and is not marked.
 #pragma once
 
 #include <chrono>

@@ -1,6 +1,7 @@
 #include "guest_fit.hpp"
 
 #include <algorithm>
+#include <utility>
 
 namespace opensu::stream {
 
@@ -36,8 +37,23 @@ bool GuestFit::take(Counts totals, bool pyroWave, std::uint64_t nowUs) {
         pyroWaveGivenUp_ = true;
         return true;
     }
+    if (const std::optional<StepDown> before = std::exchange(steppedDown_, std::nullopt);
+        before && missed_ > before->missed / 2) {
+        step_ = before->from;
+        calm_ = 0;
+        heldOff_ = holdFor_;
+        holdFor_ = std::min(holdFor_ * 2, mostHeldOffWindows);
+        return true;
+    }
+    const bool heldOff = heldOff_ > 0;
+    if (heldOff) {
+        --heldOff_;
+    }
     if (missed_ > behindLimit) {
         calm_ = 0;
+        if (heldOff) {
+            return false;
+        }
         const double arrived =
             static_cast<double>(decoded + lost) * 1e6 / static_cast<double>(elapsedUs);
         std::size_t lower = step_ + 1;
@@ -52,6 +68,7 @@ bool GuestFit::take(Counts totals, bool pyroWave, std::uint64_t nowUs) {
             calmNeeded_ = std::min(calmNeeded_ * 2, mostCleanWindows);
         }
         raised_ = false;
+        steppedDown_ = StepDown{.from = step_, .missed = missed_};
         step_ = lower;
         return true;
     }

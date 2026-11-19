@@ -5,7 +5,9 @@
 // hardware codec with its parity. Past `behindLimit` of any codec's frames lost or late it asks
 // the host for fewer frames a second (`frameRateSteps`, under the rate that arrived), and after
 // `cleanWindows` calm windows for more again, twice as many each time a raise had to be taken back.
-// Pure state with the time passed in.
+// A step down whose next window did not halve the share lost is taken back at once, and no step
+// down is tried for `heldOffWindows` windows, twice as long each time: a Wi-Fi stall loses as much
+// at 45 frames a second as at 60. Pure state with the time passed in.
 #pragma once
 
 #include <array>
@@ -29,6 +31,9 @@ inline constexpr std::array<std::uint8_t, 4> frameRateSteps{0, 60, 45, 30};
 /// The calm windows in a row before the rate steps up, and the most that grows to.
 inline constexpr int cleanWindows = 3;
 inline constexpr int mostCleanWindows = 24;
+/// The windows no step down is tried for after one did not help, and the most that grows to.
+inline constexpr int heldOffWindows = 12;
+inline constexpr int mostHeldOffWindows = 96;
 
 /// The slower of two asked rates, 0 being every frame.
 [[nodiscard]] constexpr std::uint8_t slowerRate(std::uint8_t a, std::uint8_t b) noexcept {
@@ -75,6 +80,14 @@ class GuestFit {
     int calmNeeded_{cleanWindows};
     /// The last change raised the rate, so stepping down now takes the raise back.
     bool raised_{false};
+    /// The last step down, while its first window after is judged.
+    struct StepDown {
+        std::size_t from{0};
+        double missed{0};
+    };
+    std::optional<StepDown> steppedDown_;
+    int heldOff_{0};
+    int holdFor_{heldOffWindows};
     double missed_{0};
 };
 

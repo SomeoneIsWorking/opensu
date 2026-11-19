@@ -394,8 +394,12 @@ that profile's; the host's own active profile does not change.
   it asks for the highest of 60, 45 and 30
   frames a second under the rate that arrived (`GuestStream::keepsUpWith`, sent as the slower of
   it and the game's stream rate), and after three calm windows (under 2 %) for the step above,
-  twice as many windows each time a raise had to be taken back. The bitrate needs no guest rule:
-  the host's plan follows the link's loss and queue.
+  twice as many windows each time a raise had to be taken back. A step down whose next window
+  does not halve the share lost is taken back at once and none is tried for a minute, twice as
+  long each time: a Wi-Fi stall loses as much at 45 frames a second as at 60. The bitrate needs no
+  guest rule: the host's plan follows the link's loss and queue. Both ends mark the stream's
+  datagrams as interactive video (DSCP AF41, and `NET_SERVICE_TYPE_VI` on macOS) so Wi-Fi carries
+  them in its video queue; Windows is not marked.
 - Hardware codecs on macOS (`hardware_codec_videotoolbox.cpp`, decode only): VideoToolbox's
   hardware HEVC and H.264. Each key frame's parameter sets make the format description (the
   session is opened again only when it cannot take a new one), the frame's other NAL units go in
