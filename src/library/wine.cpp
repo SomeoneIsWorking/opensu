@@ -39,13 +39,40 @@ fs::path protonOf(const fs::path& wine) {
 
 /// The Proton builds (and, for Lutris and openSU, plain Wine builds with `bin/wine`) directly
 /// inside `parent` whose name passes `accept`.
+/// The `WINEDLLOVERRIDES` that keeps plain Wine from asking to install the Mono or Gecko its build
+/// lacks, a dialog that would stop a launch behind openSU's window; empty when it has both.
+std::vector<std::string> missingAddOns(const Runner& runner) {
+    const fs::path share = runner.wine.parent_path().parent_path() / "share" / "wine";
+    std::error_code error;
+    std::string off;
+    for (const auto& [dll, addOn] : {std::pair{"mscoree", "mono"}, std::pair{"mshtml", "gecko"}}) {
+        if (!fs::is_directory(share / addOn, error)) {
+            off += (off.empty() ? "" : ",") + std::string{dll};
+        }
+    }
+    return off.empty() ? std::vector<std::string>{}
+                       : std::vector<std::string>{"WINEDLLOVERRIDES=" + off + "="};
+}
+
+/// `wineserver -k` beside plain Wine `runner` for `prefix`, which ends the server and the
+/// processes it started that left the game's group; empty when there is none.
+std::vector<std::string> serverStop(const Runner& runner, const fs::path& prefix) {
+    const fs::path server = runner.wine.parent_path() / "wineserver";
+    std::error_code error;
+    if (!runner.proton.empty() || !fs::is_regular_file(server, error)) {
+        return {};
+    }
+    return {"/usr/bin/env", "WINEPREFIX=" + prefix.string(), server.string(), "-k"};
+}
+
 template <typename Accept>
 std::vector<Runner> buildsIn(const fs::path& parent, Origin origin, Accept accept) {
     std::vector<Runner> runners;
     std::error_code error;
     for (const fs::directory_entry& entry : fs::directory_iterator{parent, error}) {
         const std::string name = entry.path().filename().string();
-        if (!accept(name)) {
+        // A dotted name is a build being put in place or taken out (`.new`, `.old`).
+        if (!accept(name) || (origin == Origin::OpenSu && name.find('.') != std::string::npos)) {
             continue;
         }
         if (fs::path binary = protonWine(entry.path()); !binary.empty()) {
@@ -312,8 +339,9 @@ std::optional<Runner> runnerOf(const Choice& choice, const std::string& gameId) 
 Invocation invocationOf(const Runner& runner, const fs::path& prefix, const fs::path& umuRun,
                         const fs::path& dataDir, std::string_view store, std::string_view gameId) {
     if (runner.proton.empty()) {
-        return Invocation{.command = {runner.wine.string()},
-                          .environment = {"WINEPREFIX=" + prefix.string()}};
+        std::vector<std::string> environment{"WINEPREFIX=" + prefix.string()};
+        std::ranges::move(missingAddOns(runner), std::back_inserter(environment));
+        return Invocation{.command = {runner.wine.string()}, .environment = std::move(environment)};
     }
     return Invocation{
         .command = {umuRun.string()},
@@ -411,14 +439,16 @@ Prepared prepare(Game& game, const Choice& choice) {
         game.launch.args.insert(game.launch.args.begin(), invocation.command.begin() + 1,
                                 invocation.command.end());
         game.launch.program = invocation.command.front();
+        game.launch.afterStop = serverStop(*runner, prefix);
         lucent::info("wine", "{} runs under {} in {}", game.title, runner->name, prefix.string());
         return {.refusal = {}, .environment = std::move(invocation.environment)};
     }
     if (runner->proton.empty()) {
         game.launch.args.insert(game.launch.args.end(), {"--wine", runner->wine.string(),
                                                          "--wine-prefix", prefix.string()});
+        game.launch.afterStop = serverStop(*runner, prefix);
         lucent::info("wine", "{} runs under {} in {}", game.title, runner->name, prefix.string());
-        return {};
+        return {.refusal = {}, .environment = missingAddOns(*runner)};
     }
     Invocation invocation =
         invocationOf(*runner, prefix, choice.umuRun, choice.dataDir, umuStore(game.source), gameId);

@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "child_process.hpp"
 #include "command.hpp"
 #include "library/game.hpp"
 #include "lucent/log.h"
@@ -23,6 +24,8 @@ using Clock = std::chrono::system_clock;
 
 /// How often the process table is consulted while waiting.
 constexpr auto pollInterval = std::chrono::milliseconds{750};
+/// How long a launch's `afterStop` (`wineserver -k`) may take.
+constexpr auto afterStopTimeout = std::chrono::seconds{10};
 /// How often a game in the shell's window is asked for its first frame.
 constexpr auto firstFrameInterval = std::chrono::milliseconds{50};
 
@@ -311,6 +314,13 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
         } else {
             // SIGTERM first so the game can save; the scope SIGKILLs what is left after 5 s.
             instance_.stop();
+            if (!game.launch.afterStop.empty()) {
+                const std::vector<std::string>& after = game.launch.afterStop;
+                const std::optional<int> ended =
+                    child::run(after.front(), {after.begin() + 1, after.end()}, afterStopTimeout);
+                lucent::info("launch", "after {}: {} ended {}", game.title, after.front(),
+                             ended ? std::to_string(*ended) : "by its timeout");
+            }
             if (!forced_.load() && hooks.ended) {
                 hooks.ended(instance_.exitStatus());
             }

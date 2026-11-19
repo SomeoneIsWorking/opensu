@@ -56,6 +56,9 @@ struct LaunchSpec {
     /// Set when the game's zip must be rebuilt first; its location in `args` gives way to the
     /// rebuilt one.
     std::optional<RomConversion> conversion{};
+    /// Run once the game's processes are ended, for what left their group: Wine's `wineserver -k`
+    /// for its prefix. Empty for none.
+    std::vector<std::string> afterStop{};
 
     [[nodiscard]] bool empty() const noexcept {
         return program.empty();

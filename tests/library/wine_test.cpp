@@ -223,6 +223,31 @@ void prefixesAreSharedUnlessOwn(const fs::path& dir) {
            "a game another launcher keeps in a prefix stays there");
 }
 
+void plainWineIsStoppedAndAsksForNothing(const fs::path& dir) {
+    const fs::path data = dir / "data";
+    const fs::path bare = binary(dir / "bare/bin/wine");
+    const fs::path server = binary(dir / "bare/bin/wineserver");
+    wine::Choice choice{.runner = bare, .found = {{"Bare", bare}}, .dataDir = data};
+    Game gog = windowsGame(Source::Gog, "2");
+    const wine::Prepared prepared = wine::prepare(gog, choice);
+    expect(prepared.environment == std::vector<std::string>{"WINEDLLOVERRIDES=mscoree,mshtml="},
+           "a Wine without Mono or Gecko is kept from asking to install them");
+    expect(gog.launch.afterStop ==
+               std::vector<std::string>{"/usr/bin/env",
+                                        "WINEPREFIX=" + (data / "wine-prefix").string(),
+                                        server.string(), "-k"},
+           "its wineserver is ended for the prefix once the game is");
+
+    const fs::path full = binary(dir / "full/bin/wine");
+    fs::create_directories(dir / "full/share/wine/mono");
+    fs::create_directories(dir / "full/share/wine/gecko");
+    choice.runner = full;
+    choice.found = {{"Full", full}};
+    Game epic = windowsGame(Source::Epic, "Owned");
+    expect(wine::prepare(epic, choice).environment.empty() && epic.launch.afterStop.empty(),
+           "a Wine with both is left to them, and one with no wineserver beside it to its group");
+}
+
 void launchesGetTheRunnerAndPrefix(const fs::path& dir) {
     const fs::path data = dir / "data";
     const fs::path runner = binary(dir / "runners/wine");
@@ -358,6 +383,7 @@ int main() try {
     prefixesAreReadiedForTheRunner(scratch.path() / "saves");
     prefixesAreSharedUnlessOwn(scratch.path() / "prefixes");
     launchesGetTheRunnerAndPrefix(scratch.path() / "launch");
+    plainWineIsStoppedAndAsksForNothing(scratch.path() / "plain");
     protonLaunchesGetTheirUmuId(scratch.path() / "umu");
     std::printf("wine: all checks passed\n");
     return 0;
