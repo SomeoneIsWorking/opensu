@@ -20,9 +20,6 @@
 
 namespace opensu::library {
 
-/// The Steam app `game` is, here or on another openSU; nothing for any other game.
-[[nodiscard]] std::optional<std::uint32_t> steamAppOf(const Game& game);
-
 class SteamTags {
   public:
     /// Kept in `file`, asked of the `GetItems` at `api`.

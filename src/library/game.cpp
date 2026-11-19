@@ -1,6 +1,7 @@
 #include "game.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <memory>
 #include <ranges>
 #include <string>
@@ -141,6 +142,24 @@ bool isSteamAppId(std::string_view text) noexcept {
     return !text.empty() && std::ranges::all_of(text, [](unsigned char c) {
         return c >= '0' && c <= '9';
     });
+}
+
+std::optional<std::uint32_t> steamAppNumber(std::string_view text) noexcept {
+    std::uint32_t app = 0;
+    const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), app);
+    return error == std::errc{} && end == text.data() + text.size() && app != 0 ? std::optional{app}
+                                                                                : std::nullopt;
+}
+
+std::optional<std::uint32_t> steamAppOf(const Game& game) {
+    constexpr std::string_view steamPrefix = "steam:";
+    const bool steam = game.source == Source::Steam ||
+                       (game.source == Source::Remote && game.remote.source == key(Source::Steam));
+    const std::string_view id = game.source == Source::Steam ? game.id : game.sourceId;
+    if (!steam || !id.starts_with(steamPrefix)) {
+        return std::nullopt;
+    }
+    return steamAppNumber(id.substr(steamPrefix.size()));
 }
 
 } // namespace opensu::library

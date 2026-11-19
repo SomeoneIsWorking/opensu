@@ -1,9 +1,7 @@
 #include "library/steam_tags.hpp"
 
-#include <charconv>
 #include <iterator>
 #include <stdexcept>
-#include <string_view>
 #include <utility>
 
 #include <nlohmann/json.hpp>
@@ -20,19 +18,6 @@ using nlohmann::json;
 
 /// Apps asked of `GetItems` at once.
 constexpr std::size_t batch = 50;
-constexpr std::string_view steamPrefix = "steam:";
-
-std::optional<std::uint32_t> appNumber(std::string_view id) {
-    if (!id.starts_with(steamPrefix)) {
-        return std::nullopt;
-    }
-    id.remove_prefix(steamPrefix.size());
-    std::uint32_t app = 0;
-    const auto [end, error] = std::from_chars(id.data(), id.data() + id.size(), app);
-    return error == std::errc{} && end == id.data() + id.size() && app != 0 ? std::optional{app}
-                                                                            : std::nullopt;
-}
-
 std::map<std::uint32_t, std::vector<std::uint32_t>> load(const std::filesystem::path& file) {
     std::map<std::uint32_t, std::vector<std::uint32_t>> known;
     std::error_code exists;
@@ -47,7 +32,7 @@ std::map<std::uint32_t, std::vector<std::uint32_t>> load(const std::filesystem::
         return known;
     }
     for (const auto& [app, tags] : document.items()) {
-        const std::optional<std::uint32_t> number = appNumber(std::string{steamPrefix} + app);
+        const std::optional<std::uint32_t> number = steamAppNumber(app);
         if (!number || !tags.is_array()) {
             continue;
         }
@@ -62,16 +47,6 @@ std::map<std::uint32_t, std::vector<std::uint32_t>> load(const std::filesystem::
 }
 
 } // namespace
-
-std::optional<std::uint32_t> steamAppOf(const Game& game) {
-    if (game.source == Source::Steam) {
-        return appNumber(game.id);
-    }
-    if (game.source == Source::Remote && game.remote.source == key(Source::Steam)) {
-        return appNumber(game.sourceId);
-    }
-    return std::nullopt;
-}
 
 SteamTags::SteamTags(std::filesystem::path file, std::string api)
     : file_{std::move(file)}, api_{std::move(api)}, known_{load(file_)},

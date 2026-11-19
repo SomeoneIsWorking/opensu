@@ -352,6 +352,12 @@ void order(std::vector<Game>& games);
 /// Whether `text` can be a Steam app id: digits only, so a Steam script takes it as a number.
 [[nodiscard]] bool isSteamAppId(std::string_view text) noexcept;
 
+/// `text` as a Steam app number: digits only and not 0; nothing otherwise.
+[[nodiscard]] std::optional<std::uint32_t> steamAppNumber(std::string_view text) noexcept;
+
+/// The Steam app `game` is, here or on another openSU; nothing for any other game.
+[[nodiscard]] std::optional<std::uint32_t> steamAppOf(const Game& game);
+
 /// What `game` keeps its settings, controls and chosen cover under.
 [[nodiscard]] inline const std::string& dataId(const Game& game) {
     return game.sharedId.empty() ? game.id : game.sharedId;
