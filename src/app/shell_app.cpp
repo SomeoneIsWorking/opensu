@@ -66,6 +66,7 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
                                           .gpu = steam::gpuNodes("/dev")},
           .desktopBus = environment_.sessionBus,
           .secretBusSocket = environment_.runtimeDir / (resolved_.session + "-secret-bus"),
+          .secretBusProxy = environment_.dbusProxy,
           .containment = containment_}},
       session_{openShellSession(environment_)},
       handoff_{environment_.executablePath,

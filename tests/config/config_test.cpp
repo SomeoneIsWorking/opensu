@@ -73,6 +73,10 @@ int main(int argc, char** argv) try {
         expect(gamescopeBeside("/build/src/opensu") == "/build" / rel,
                "a build-tree opensu finds the staged fork under the build directory");
         expect(gamescopeBeside("").empty(), "an unknown executable has no fork");
+        expect(opensu::config::dbusProxyBeside("/prefix/bin/opensu") ==
+                   "/prefix" / std::filesystem::path{OPENSU_DBUS_PROXY_RELATIVE},
+               "an installed opensu finds the proxy fork under its prefix");
+        expect(config.dbusProxy.filename() == "xdg-dbus-proxy", "the config names the proxy");
         expect(config.gamescope.filename() == "gamescope", "the config names the fork binary");
         expect(opensu::config::retroRunnerBeside("/prefix/bin/opensu") ==
                        std::filesystem::path{"/prefix/bin"} /

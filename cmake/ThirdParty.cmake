@@ -9,6 +9,8 @@ set(OPENSU_LIBRASHADER_REPOSITORY "https://github.com/SomeoneIsWorking/librashad
 set(OPENSU_LIBRASHADER_COMMIT "271ac2ead5a9ace657f6edd7f670382073b8b269")
 set(OPENSU_GAMESCOPE_REPOSITORY "https://github.com/SomeoneIsWorking/gamescope.git")
 set(OPENSU_GAMESCOPE_COMMIT "4192c16a1d2f72fb0d3847c8edf3f084604e43a6")
+set(OPENSU_DBUS_PROXY_REPOSITORY "https://github.com/SomeoneIsWorking/xdg-dbus-proxy.git")
+set(OPENSU_DBUS_PROXY_COMMIT "3afd67be4531c69865780efc37e8ddf75c62d7b1")
 set(OPENSU_OPUS_REPOSITORY "https://github.com/xiph/opus.git")
 set(OPENSU_OPUS_COMMIT "ddbe48383984d56acd9e1ab6a090c54ca6b735a6")
 set(OPENSU_SDL_REPOSITORY "https://github.com/SomeoneIsWorking/SDL.git")

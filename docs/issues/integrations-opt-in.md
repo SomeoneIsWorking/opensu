@@ -170,12 +170,15 @@ was kept for the devices and the desktop, with the real HOME. The Docker idea is
     unreachable (its abstract socket refuses without the cookie).
   - The runtime dir a 0700 tmpfs with only `pipewire-0`, `pulse/native` and `gamescope-0` bound in
     (game audio, openSU's Gamescope); `/dev/shm` private; `--new-session`.
-  - Session bus: a socket of `xdg-dbus-proxy <desktop bus> --filter
-    --talk=org.freedesktop.secrets` (`steam::SecretBus`, unit `<session>-steam-bus.scope`). Steam
+  - Session bus: a socket of openSU's xdg-dbus-proxy fork, `<desktop bus> --filter
+    --talk=org.freedesktop.secrets --own=<Steam Runtime's launcher names> --peers-talk`
+    (`steam::SecretBus`, unit `<session>-steam-bus.scope`); `--peers-talk` lets Steam Runtime's
+    launcher service answer Steam's launch client, which a stock filtered proxy denies. Steam
     reads its login from the Secret Service: with no bus it never logged on (240 s); with none set
     it autolaunched a private bus that started a second `ksecretd` on the player's wallet, portals
     and gvfsd that outlived Steam. Through the proxy it logs on in ~12 s and nothing lingers.
-  Missing `bwrap` or `xdg-dbus-proxy` refuses the start with the install command per platform.
+  Missing `bwrap` refuses the start with the install command per platform; a build without the
+  proxy fork (`OPENSU_BUILD_DBUS_PROXY=OFF`) refuses it too.
 - Isolated controllers: bwrap binds nodes once at start, so pads cannot appear later.
   `gamepad::Pads::keepVirtualPads(4)` keeps four uinput Xbox 360 pads alive for Steam's run and
   `IntegrationSwitch::moveSteam` hands their nodes to the sandbox; under the Game claim real pads

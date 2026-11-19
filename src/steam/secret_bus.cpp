@@ -20,7 +20,7 @@ bool SecretBus::start(const std::string& unit, const fs::path& proxy, const std:
     socket_ = socket;
     if (!instance_.start(unit, proxy.string(),
                          {desktopBus, socket.string(), "--filter", "--talk=org.freedesktop.secrets",
-                          "--own=" + std::string{launcherServiceNames}},
+                          "--own=" + std::string{launcherServiceNames}, "--peers-talk"},
                          failure)) {
         return false;
     }

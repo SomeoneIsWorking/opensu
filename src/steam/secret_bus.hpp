@@ -30,8 +30,9 @@ class SecretBus {
     }
 
     /// Starts `proxy` (xdg-dbus-proxy) in `unit`, relaying `desktopBus` (a D-Bus address) to a
-    /// socket at `socket`, filtered to org.freedesktop.secrets and `launcherServiceNames`; returns
-    /// once the socket is there.
+    /// socket at `socket`, filtered to org.freedesktop.secrets and `launcherServiceNames`, its
+    /// clients talking to one another (the fork's --peers-talk: Steam Runtime's launcher service
+    /// answers Steam's launch client by unique name); returns once the socket is there.
     /// False with `failure` set when it could not be started or did not listen in time.
     [[nodiscard]] bool start(const std::string& unit, const std::filesystem::path& proxy,
                              const std::string& desktopBus, const std::filesystem::path& socket,

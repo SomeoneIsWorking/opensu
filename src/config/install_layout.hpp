@@ -17,6 +17,8 @@ struct InstallLayout {
     std::filesystem::path assetsDir;
     /// The Gamescope fork; empty where there is none.
     std::filesystem::path gamescope;
+    /// The xdg-dbus-proxy fork; empty where there is none.
+    std::filesystem::path dbusProxy;
     /// The libretro runner: an executable on the desktop, the `:retro` Activity's library on
     /// Android.
     std::filesystem::path retroRunner;

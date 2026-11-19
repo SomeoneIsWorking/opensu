@@ -111,4 +111,8 @@ project, not affiliated with iiSU, and ships none of iiSU's code or assets; iiSU
 are read only from a copy of iiSU's release you place yourself
 ([console-art.md](docs/guide/console-art.md#iisus-art-and-sounds)).
 
+The Linux packages also carry `libexec/opensu/xdg-dbus-proxy`, a separate program built from
+[our fork of xdg-dbus-proxy](https://github.com/SomeoneIsWorking/xdg-dbus-proxy/tree/opensu) under
+the GNU LGPL 2.1 or later, its source at the commit `cmake/ThirdParty.cmake` pins.
+
 Built with AI assistance (Claude and other LLMs).

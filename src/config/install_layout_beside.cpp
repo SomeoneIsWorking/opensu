@@ -25,6 +25,7 @@ InstallLayout installLayout(std::string_view assets) {
         .assetsDir = assets.empty() ? self.parent_path().parent_path() / OPENSU_ASSETS_RELATIVE
                                     : std::filesystem::path{assets},
         .gamescope = gamescopeBeside(self),
+        .dbusProxy = dbusProxyBeside(self),
         .retroRunner = retroRunnerBeside(self),
         .librashader = librashaderBeside(self),
     };

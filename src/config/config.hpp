@@ -83,6 +83,9 @@ struct Config {
     /// `gamescopeBeside`. May not exist when opensu was built without the fork.
     std::filesystem::path gamescope;
 
+    /// The xdg-dbus-proxy fork Isolated Steam's filtered bus runs; see `dbusProxyBeside`.
+    std::filesystem::path dbusProxy;
+
     /// The libretro runner built-in emulators start; see `retroRunnerBeside`.
     std::filesystem::path retroRunner;
 
@@ -244,6 +247,10 @@ struct Config {
 /// for `<prefix>/bin/opensu` as installed, and `<build>/libexec/opensu/gamescope` for
 /// `<build>/src/opensu` in the build tree. Empty when `executable` is empty.
 [[nodiscard]] std::filesystem::path gamescopeBeside(const std::filesystem::path& executable);
+
+/// Where the xdg-dbus-proxy fork sits for an opensu at `executable`:
+/// `<prefix>/libexec/opensu/xdg-dbus-proxy`, as `gamescopeBeside`. Empty when `executable` is.
+[[nodiscard]] std::filesystem::path dbusProxyBeside(const std::filesystem::path& executable);
 
 /// Where the libretro runner sits for an opensu at `executable`: `opensu-retro` (`.exe` on Windows)
 /// in the same directory. Empty when `executable` is empty.

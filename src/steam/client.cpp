@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <system_error>
 #include <utility>
 
 #include "launch/command.hpp"
@@ -158,11 +159,12 @@ bool Client::sandbox(const SandboxDevices& devices, std::string& command,
                                "Arch: sudo pacman -S bubblewrap)");
         return false;
     }
-    proxy = launch::resolveExecutable("xdg-dbus-proxy", options_.executablePath);
-    if (proxy.empty()) {
-        lucent::error("steam", "Isolated Steam needs xdg-dbus-proxy for its login: install it "
-                               "(Fedora: sudo dnf install xdg-dbus-proxy; Debian, Ubuntu: sudo "
-                               "apt install xdg-dbus-proxy; Arch: sudo pacman -S xdg-dbus-proxy)");
+    proxy = options_.secretBusProxy;
+    if (std::error_code error; proxy.empty() || !std::filesystem::is_regular_file(proxy, error)) {
+        lucent::error("steam",
+                      "Isolated Steam needs openSU's xdg-dbus-proxy at {}, which this "
+                      "build does not hold (OPENSU_BUILD_DBUS_PROXY=OFF)",
+                      proxy.string());
         return false;
     }
     std::string failure;

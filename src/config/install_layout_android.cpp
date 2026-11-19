@@ -31,6 +31,7 @@ InstallLayout installLayout(std::string_view assets) {
         .executable = {},
         .assetsDir = assetsDir,
         .gamescope = {},
+        .dbusProxy = {},
         .retroRunner = libraries / "libopensu-retro.so",
         .librashader = libraries / "librashader.so",
     };

@@ -178,11 +178,24 @@ std::optional<device::BatteryStatus> batteryStandInOf(std::string_view text) {
     return device::BatteryStatus{percent, isCharging};
 }
 
-std::filesystem::path gamescopeBeside(const std::filesystem::path& executable) {
+namespace {
+
+/// `relative` under the prefix above `executable`'s directory; empty when `executable` is.
+std::filesystem::path inPrefixOf(const std::filesystem::path& executable, const char* relative) {
     if (executable.empty()) {
         return {};
     }
-    return executable.parent_path().parent_path() / OPENSU_GAMESCOPE_RELATIVE;
+    return executable.parent_path().parent_path() / relative;
+}
+
+} // namespace
+
+std::filesystem::path gamescopeBeside(const std::filesystem::path& executable) {
+    return inPrefixOf(executable, OPENSU_GAMESCOPE_RELATIVE);
+}
+
+std::filesystem::path dbusProxyBeside(const std::filesystem::path& executable) {
+    return inPrefixOf(executable, OPENSU_DBUS_PROXY_RELATIVE);
 }
 
 std::filesystem::path retroRunnerBeside(const std::filesystem::path& executable) {
@@ -193,10 +206,7 @@ std::filesystem::path retroRunnerBeside(const std::filesystem::path& executable)
 }
 
 std::filesystem::path librashaderBeside(const std::filesystem::path& executable) {
-    if (executable.empty()) {
-        return {};
-    }
-    return executable.parent_path().parent_path() / OPENSU_LIBRASHADER_RELATIVE;
+    return inPrefixOf(executable, OPENSU_LIBRASHADER_RELATIVE);
 }
 
 Config read() {
@@ -216,6 +226,7 @@ Config read() {
     const std::string_view appImage = env("APPIMAGE");
     value.program = appImage.empty() ? value.executable : std::filesystem::path{appImage};
     value.gamescope = layout.gamescope;
+    value.dbusProxy = layout.dbusProxy;
     value.retroRunner = layout.retroRunner;
     value.librashader = layout.librashader;
     const auto base = [&value](const char* variable, const char* fallback) {
