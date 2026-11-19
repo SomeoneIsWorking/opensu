@@ -120,6 +120,10 @@ void GuestVideo::decode(const Queued& queued) {
     const auto local = [hostAheadUs](std::uint64_t hostUs) {
         return static_cast<double>(static_cast<std::int64_t>(hostUs) - hostAheadUs);
     };
+    // A frame's parity can come after the frame was whole and handed on.
+    if (packet.frame <= handedOn_) {
+        return;
+    }
     if (!building_ || building_->number != packet.frame) {
         if (building_ && packet.frame < building_->number) {
             return;
@@ -165,6 +169,7 @@ void GuestVideo::decode(const Queued& queued) {
     if (inFlight_.size() > waitingKept) {
         inFlight_.pop_front();
     }
+    handedOn_ = packet.frame;
     building_.reset();
     Picture picture;
     try {

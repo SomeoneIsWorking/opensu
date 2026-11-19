@@ -128,6 +128,8 @@ class GuestVideo {
     VideoCodecs undecodable_{0};
     /// The frame whose packets are going into the decoder, on the decoding thread.
     std::optional<Times> building_;
+    /// The newest frame handed to its decoder; later packets of it are its parity.
+    std::uint32_t handedOn_{0};
     /// Whole frames given to a decoder whose pictures have not come out, oldest first.
     std::deque<Times> inFlight_;
     /// The decoder last given a packet waits for a key frame.
