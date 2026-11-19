@@ -2,10 +2,10 @@
 // `guestFitWindowUs` of its frame counts. A PyroWave frame that misses one datagram is dropped
 // whole and one decoded late is skipped, neither of which the host's datagram loss shows: past
 // `pyroWaveFitLimit` of them the guest gives PyroWave up for the session, so the host codes a
-// hardware codec with its parity. Frames decoded but replaced before the screen showed them mean
-// the guest cannot show them all: past `behindLimit` it asks the host for fewer frames a second
-// (`frameRateSteps`, under the rate that arrived), and after `cleanWindows` calm windows for more
-// again, twice as many each time a raise had to be taken back. Pure state with the time passed in.
+// hardware codec with its parity. Past `behindLimit` of any codec's frames lost or late it asks
+// the host for fewer frames a second (`frameRateSteps`, under the rate that arrived), and after
+// `cleanWindows` calm windows for more again, twice as many each time a raise had to be taken back.
+// Pure state with the time passed in.
 #pragma once
 
 #include <array>
@@ -20,7 +20,7 @@ inline constexpr std::uint64_t guestFitWindowUs = 5'000'000;
 inline constexpr std::size_t guestFitLeast = 60;
 /// The share of PyroWave's frames lost or skipped late it may have.
 inline constexpr double pyroWaveFitLimit = 0.05;
-/// The share of decoded frames never shown that asks for fewer, and under which a window is calm.
+/// The share of frames lost or late that asks for fewer, and under which a window is calm.
 inline constexpr double behindLimit = 0.10;
 inline constexpr double behindCalm = 0.02;
 /// The frame rates a guest steps down through; 0 is every frame the host captures. A step down
@@ -45,7 +45,6 @@ class GuestFit {
         std::size_t decoded{0};
         std::size_t dropped{0};
         std::size_t late{0};
-        std::size_t presented{0};
     };
 
     /// The counts at `nowUs`, PyroWave's when `pyroWave`; true when the verdict changed.
@@ -58,7 +57,7 @@ class GuestFit {
     [[nodiscard]] std::uint8_t framesPerSecond() const noexcept {
         return frameRateSteps.at(step_);
     }
-    /// The share missed in the last window judged: lost or late for PyroWave, else not shown.
+    /// The share of frames lost or late in the last window judged.
     [[nodiscard]] double missed() const noexcept {
         return missed_;
     }

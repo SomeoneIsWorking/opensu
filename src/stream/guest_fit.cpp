@@ -27,23 +27,19 @@ bool GuestFit::take(Counts totals, bool pyroWave, std::uint64_t nowUs) {
     const Counts& from = start_->counts;
     const std::size_t decoded = totals.decoded - from.decoded;
     const std::size_t lost = (totals.dropped - from.dropped) + (totals.late - from.late);
-    const std::size_t shown = totals.presented - from.presented;
-    const std::size_t behind = decoded - std::min(decoded, shown);
     start_ = Mark{.atUs = nowUs, .counts = totals, .pyroWave = pyroWave};
     if (decoded + lost < guestFitLeast) {
         return false;
     }
-    if (pyroWave && !pyroWaveGivenUp_) {
-        if (const double share = shareOf(lost, decoded + lost); share > pyroWaveFitLimit) {
-            missed_ = share;
-            pyroWaveGivenUp_ = true;
-            return true;
-        }
+    missed_ = shareOf(lost, decoded + lost);
+    if (pyroWave && !pyroWaveGivenUp_ && missed_ > pyroWaveFitLimit) {
+        pyroWaveGivenUp_ = true;
+        return true;
     }
-    missed_ = shareOf(behind, decoded);
     if (missed_ > behindLimit) {
         calm_ = 0;
-        const double arrived = static_cast<double>(decoded) * 1e6 / static_cast<double>(elapsedUs);
+        const double arrived =
+            static_cast<double>(decoded + lost) * 1e6 / static_cast<double>(elapsedUs);
         std::size_t lower = step_ + 1;
         while (lower < frameRateSteps.size() &&
                frameRateSteps.at(lower) >= arrived * arrivedMargin) {

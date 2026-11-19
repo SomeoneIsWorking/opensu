@@ -390,8 +390,8 @@ that profile's; the host's own active profile does not change.
   is skipped, neither of which the host's datagram loss shows, so once five seconds of PyroWave
   frames lose or skip more than 5 % the guest leaves it out of its reports for the session
   (`GuestStream::withdraw`) and the host plans again without it. The same judgement
-  (`stream::GuestFit`) watches frames decoded but replaced before the screen showed them: past
-  10 % of a window the guest cannot show what arrives, so it asks for the highest of 60, 45 and 30
+  (`stream::GuestFit`) watches any codec's frames lost or skipped late: past 10 % of a window
+  it asks for the highest of 60, 45 and 30
   frames a second under the rate that arrived (`GuestStream::keepsUpWith`, sent as the slower of
   it and the game's stream rate), and after three calm windows (under 2 %) for the step above,
   twice as many windows each time a raise had to be taken back. The bitrate needs no guest rule:

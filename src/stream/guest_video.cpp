@@ -95,7 +95,7 @@ void GuestVideo::noteFit() {
     bool pyroWave = false;
     {
         const std::lock_guard lock{mutex_};
-        counts = {.decoded = decoded_, .dropped = dropped_, .late = late_, .presented = presented_};
+        counts = {.decoded = decoded_, .dropped = dropped_, .late = late_};
         pyroWave = codec_ == nameOf(VideoCodec::PyroWave);
     }
     if (!fit_.take(counts, pyroWave, wire::nowMicros())) {
@@ -110,7 +110,7 @@ void GuestVideo::noteFit() {
     }
     framesPerSecondFit_ = fit_.framesPerSecond();
     lucent::info("video",
-                 "{:.0f}% of decoded frames went unshown: asking for {} frames a second (0 is all)",
+                 "{:.0f}% of frames were lost or late: asking for {} frames a second (0 is all)",
                  fit_.missed() * 100, fit_.framesPerSecond());
 }
 
