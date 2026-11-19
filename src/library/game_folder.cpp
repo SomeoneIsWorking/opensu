@@ -6,6 +6,7 @@
 #include <charconv>
 #include <fstream>
 #include <iterator>
+#include <ranges>
 #include <set>
 #include <string>
 #include <system_error>
@@ -435,6 +436,48 @@ std::optional<Entry> shortcutEntry(const fs::path& file) {
         return urlEntry(file);
     }
     return extension == ".desktop" ? desktopEntry(file) : std::nullopt;
+}
+
+/// Whether the `.desktop` entry `file` is in the Game category and not the Emulator one.
+bool listsAsGame(const fs::path& file) {
+    const std::string categories = iniValue(file, "Desktop Entry", "Categories").value_or("");
+    bool game = false;
+    for (const auto part : std::views::split(categories, ';')) {
+        const std::string_view category{part.begin(), part.end()};
+        if (category == "Emulator") {
+            return false;
+        }
+        game = game || category == "Game";
+    }
+    return game;
+}
+
+std::vector<fs::path> flatpakExports(const fs::path& xdgDataHome) {
+    return {xdgDataHome / "flatpak" / "exports" / "share", "/var/lib/flatpak/exports/share"};
+}
+
+std::vector<Entry> flatpakGames(const std::vector<fs::path>& exports) {
+    std::vector<Entry> games;
+    std::set<fs::path> apps;
+    for (const fs::path& share : exports) {
+        const fs::path applications = share / "applications";
+        std::error_code error;
+        if (!fs::is_directory(applications, error)) {
+            continue;
+        }
+        for (const fs::directory_entry& entry : listed(applications)) {
+            const fs::path& file = entry.path();
+            if (extensionOf(file) != ".desktop" || apps.contains(file.filename()) ||
+                !listsAsGame(file)) {
+                continue;
+            }
+            if (std::optional<Entry> game = desktopEntry(file); game && !notAGame(game->title)) {
+                apps.insert(file.filename());
+                games.push_back(*std::move(game));
+            }
+        }
+    }
+    return games;
 }
 
 std::vector<Entry> scan(const fs::path& folder, Host host) {

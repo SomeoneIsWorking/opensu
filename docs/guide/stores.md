@@ -146,6 +146,11 @@ included, from each immediate subfolder; on macOS its `.app` bundles and those o
 game is named by its shortcut, else by its folder or the program's version info. Hide game works on
 these; Rename, Change file and Remove do not, as the file is what keeps the game there.
 
+On Linux the installed Flatpaks that are games are listed the same way, each as a game of its own,
+started with `flatpak run` as its menu entry says: an app in the Game category, not an emulator
+(Emulator category) and not a store client or launcher such as Steam, Lutris or Heroic. Uninstall
+it and its game goes.
+
 What is left out: installers and uninstallers, redistributables, DirectX and .NET setups, updaters
 and patchers, crash reporters, anti-cheat, and store clients that only start other games. The rule
 is `library::folder::notAGame`: a whole word of the name (so `Crash Bandicoot` stays and

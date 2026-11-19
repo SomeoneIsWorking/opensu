@@ -310,7 +310,7 @@ void theProviderListsThisOsGames(const fs::path& root) {
     writeProgram(program, "#!/bin/sh\n");
 
     const own::Records records{root / "records.json"};
-    own::Provider provider{records, root / "no-lutris", {games}};
+    own::Provider provider{records, root / "no-lutris", {games}, {}};
     const std::vector<opensu::library::Game> listed = provider.list(std::stop_token{});
     expect(listed.size() == 1 && listed.front().file == program && listed.front().fromGameFolder,
            "the provider lists a folder's games");
@@ -318,6 +318,32 @@ void theProviderListsThisOsGames(const fs::path& root) {
     const std::vector<opensu::library::Game> kept = provider.list(std::stop_token{});
     expect(kept.size() == 1 && !kept.front().fromGameFolder,
            "a game added by hand is not listed twice");
+}
+
+void flatpakGamesAreTheirOwn(const fs::path& root) {
+    const fs::path user = root / "flatpak-user";
+    const fs::path system = root / "flatpak-system";
+    const auto app = [](const fs::path& share, const std::string& id, const std::string& name,
+                        const std::string& categories) {
+        write(share / "applications" / (id + ".desktop"),
+              "[Desktop Entry]\nType=Application\nName=" + name + "\nExec=/usr/bin/flatpak run " +
+                  id + " %U\nCategories=" + categories + "\nX-Flatpak=" + id + "\n");
+    };
+    app(user, "org.example.Cave", "Cave Story", "Game;ActionGame;");
+    app(user, "org.example.Ruffle", "Ruffle", "AudioVideo;Emulator;Game");
+    app(user, "com.valvesoftware.Steam", "Steam", "Network;Game;");
+    app(user, "org.example.Paint", "Paint", "Graphics;");
+    app(system, "org.example.Cave", "Cave Story (system)", "Game;");
+    app(system, "org.example.Tux", "SuperTux", "Game;");
+
+    const std::vector<own::Entry> found = folder::flatpakGames({user, root / "none", system});
+    expect(found.size() == 2, "the games, not an emulator, a store client or another app");
+    expect(found[0].title == "Cave Story" && found[1].title == "SuperTux",
+           "an app installed twice is listed once, from the first export");
+    expect((found[0].command ==
+            std::vector<std::string>{"/usr/bin/flatpak", "run", "org.example.Cave"}),
+           "started as its entry says, without field codes");
+    expect(own::gameOf(found[0]).fromGameFolder, "found on the listing, never kept");
 }
 
 } // namespace
@@ -336,6 +362,7 @@ int main() try {
 #endif
     aFolderGameLaunches(root);
     theProviderListsThisOsGames(root);
+    flatpakGamesAreTheirOwn(root);
     std::printf("game_folder: all checks passed\n");
     return 0;
 } catch (...) {

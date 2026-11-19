@@ -347,11 +347,13 @@ Game gameOf(const Entry& entry) {
 
 std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
     std::vector<Entry> entries = records_.all();
+    std::vector<Entry> found = folder::flatpakGames(flatpakExports_);
     for (const fs::path& gameFolder : gameFolders_) {
-        for (Entry& found : folder::scan(gameFolder)) {
-            if (std::ranges::find(entries, found.file, &Entry::file) == entries.end()) {
-                entries.push_back(std::move(found));
-            }
+        std::ranges::move(folder::scan(gameFolder), std::back_inserter(found));
+    }
+    for (Entry& game : found) {
+        if (std::ranges::find(entries, game.file, &Entry::file) == entries.end()) {
+            entries.push_back(std::move(game));
         }
     }
     if (entries.empty()) {

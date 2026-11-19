@@ -34,6 +34,18 @@ enum class Host : std::uint8_t { Windows, Linux, Mac };
 /// The game shortcut `file` starts; nothing when it starts no game or what it names is not there.
 [[nodiscard]] std::optional<own::Entry> shortcutEntry(const std::filesystem::path& file);
 
+/// Where Flatpak exports its apps' `.desktop` entries and icons: the player's installs under
+/// `xdgDataHome`, then the system's.
+[[nodiscard]] std::vector<std::filesystem::path>
+flatpakExports(const std::filesystem::path& xdgDataHome);
+
+/// The installed Flatpaks that are games, from the `applications` of `exports`: an entry in the
+/// Game category and not the Emulator one that is no store client or launcher (`notAGame`), each
+/// with origin `Folder` and started as its entry says; an app installed twice, as the first export
+/// lists it.
+[[nodiscard]] std::vector<own::Entry>
+flatpakGames(const std::vector<std::filesystem::path>& exports);
+
 /// The games in `folder`, each with origin `Folder`; none when it cannot be read.
 [[nodiscard]] std::vector<own::Entry> scan(const std::filesystem::path& folder,
                                            Host host = thisHost());

@@ -10,6 +10,7 @@
 #include <nlohmann/json.hpp>
 
 #include "game_icon.hpp"
+#include "library/game_folder.hpp"
 #include "libretro_index.hpp"
 #include "lucent/log.h"
 #include "rom_systems.hpp"
@@ -60,13 +61,16 @@ RemoteSources RemoteSources::of(const config::Config& config) {
         sources.steamItems = config.steamStandIn + "/items";
         sources.steamAssets = config.steamStandIn + "/assets/";
     }
-    const std::filesystem::path userFlatpaks = config.xdgDataHome / "flatpak" / "exports" / "share";
-    const std::filesystem::path systemFlatpaks = "/var/lib/flatpak/exports/share";
-    sources.iconThemes = {config.xdgDataHome / "icons", userFlatpaks / "icons",
-                          systemFlatpaks / "icons", "/usr/local/share/icons", "/usr/share/icons"};
-    sources.applications = {config.xdgDataHome / "applications", userFlatpaks / "applications",
-                            systemFlatpaks / "applications", "/usr/local/share/applications",
-                            "/usr/share/applications"};
+    sources.iconThemes = {config.xdgDataHome / "icons"};
+    sources.applications = {config.xdgDataHome / "applications"};
+    for (const std::filesystem::path& share : library::folder::flatpakExports(config.xdgDataHome)) {
+        sources.iconThemes.push_back(share / "icons");
+        sources.applications.push_back(share / "applications");
+    }
+    sources.iconThemes.insert(sources.iconThemes.end(),
+                              {"/usr/local/share/icons", "/usr/share/icons"});
+    sources.applications.insert(sources.applications.end(),
+                                {"/usr/local/share/applications", "/usr/share/applications"});
     return sources;
 }
 

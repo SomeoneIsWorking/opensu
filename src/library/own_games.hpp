@@ -24,7 +24,8 @@ enum class Origin : std::uint8_t {
     SteamShortcut,
     /// A Lutris game, started as its Lutris config says, or by Lutris for a runner openSU lacks.
     Lutris,
-    /// Found in a games folder (`folder::scan`) on this listing, and never kept in the records.
+    /// Found on this listing in a games folder (`folder::scan`) or among the installed Flatpaks
+    /// (`folder::flatpakGames`), and never kept in the records.
     Folder,
 };
 
@@ -131,16 +132,18 @@ class Records {
 /// under Wine, here or in Lutris's prefix.
 [[nodiscard]] bool nativeOwn(const Game& game) noexcept;
 
-/// Lists the entries and what the games folders hold as games; absent while there are none. A
-/// folder's game whose file is an entry's already is that entry. A Lutris entry takes how it starts
+/// Lists the entries, what the games folders hold as games and the Flatpak games `flatpakExports`
+/// export; absent while there are none. A found game whose file is an entry's already is that
+/// entry. A Lutris entry takes how it starts
 /// from `lutrisGames` on each listing, read from `lutrisData`, and, with no Steam app of its own,
 /// the app Lutris knows it as.
 class Provider final : public library::Provider {
   public:
     Provider(Records records, std::filesystem::path lutrisData,
-             std::vector<std::filesystem::path> gameFolders)
+             std::vector<std::filesystem::path> gameFolders,
+             std::vector<std::filesystem::path> flatpakExports)
         : records_{std::move(records)}, lutrisData_{std::move(lutrisData)},
-          gameFolders_{std::move(gameFolders)} {
+          gameFolders_{std::move(gameFolders)}, flatpakExports_{std::move(flatpakExports)} {
     }
 
     [[nodiscard]] Source source() const override {
@@ -152,6 +155,7 @@ class Provider final : public library::Provider {
     Records records_;
     std::filesystem::path lutrisData_;
     std::vector<std::filesystem::path> gameFolders_;
+    std::vector<std::filesystem::path> flatpakExports_;
 };
 
 } // namespace opensu::library::own

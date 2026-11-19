@@ -4,6 +4,7 @@
 #include <utility>
 #include <vector>
 
+#include "game_folder.hpp"
 #include "lutris_wine.hpp"
 
 namespace opensu::library {
@@ -43,7 +44,8 @@ Catalog makeCatalog(const config::Config& config, bool hidden,
         std::move(romRoots), std::move(emulators), roms::NameDb::under(config.cacheDir), &romsets,
         std::move(switchInfo), roms::RomsetConversions::shipped(config.assetsDir)));
     catalog.add(std::make_unique<own::Provider>(
-        own::Records{ownGames}, lutris::dataDir(config.xdgDataHome), config.gameFolders));
+        own::Records{ownGames}, lutris::dataDir(config.xdgDataHome), config.gameFolders,
+        folder::flatpakExports(config.xdgDataHome)));
     return catalog;
 }
 
