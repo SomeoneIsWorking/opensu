@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <system_error>
 
+#include "fileio/host_path.hpp"
 #include "launch/command.hpp"
 #include "vdf/node.hpp"
 
@@ -59,8 +60,9 @@ std::optional<Game> gameOf(const fs::path& record, const fs::path& program) {
     game.windowsInstall = true;
     game.fromFumarole = true;
     game.launch = LaunchSpec{.program = program.string(), .args = {"launch", *appId}};
-    // `fumarole launch` waits for the game and syncs its cloud after; the trailing NUL ends the id.
-    game.processHint = std::string{"launch"} + '\0' + *appId + '\0';
+    // Wine starts the game's programs outside fumarole's process group, named by their Windows
+    // path.
+    game.processHint = fileio::pathInWine(fs::path{*path} / "");
     return game;
 }
 

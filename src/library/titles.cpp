@@ -226,6 +226,10 @@ std::string versionPlatform(const Game& game) {
     case Source::Remote:
         return game.remote.platform;
     case Source::Steam:
+        if (game.fromFumarole) {
+            return "Steam \xC2\xB7 fumarole";
+        }
+        break;
     case Source::Epic:
     case Source::Gog:
         break;

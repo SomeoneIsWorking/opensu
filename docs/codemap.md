@@ -162,7 +162,7 @@ on the same rule.
 | `src/fileio/checked_bytes.*` | Reading a file nobody vouches for: every read bounds-checked, UTF-16 and single-byte text to UTF-8. |
 | `src/fileio/atomic_write.*` | Whole-file writes through a `.part` file and a rename |
 | `src/fileio/read_whole.*` | A file's bytes read whole (`readWhole`), or why not |
-| `src/fileio/host_path.*` | `pathOnHost`, the file a path written as text names here: UTF-8 on Windows, elsewhere Wine's `Z:` dropped and backslashes turned around |
+| `src/fileio/host_path.*` | `pathOnHost`, the file a path written as text names here: UTF-8 on Windows, elsewhere Wine's `Z:` dropped and backslashes turned around; `pathInWine`, the reverse, which names a fumarole game's processes |
 | `src/fileio/relative_path.*` | `staysInside`, the one rule for a path another openSU or a share names: relative, `/`-separated, no drive, `\`, `.` or `..` step (save bundles' slots, ROM import's files) |
 | `src/fileio/little_endian.hpp` | Unsigned integers as little-endian bytes, read from and appended to byte strings: the Switch's file formats and remote play's packets |
 | `src/fileio/owner_only_write.hpp`, `owner_only_write_posix.cpp` / `owner_only_write_win32.cpp` | A file only its owner may read (0600, folder 0700; on Windows the profile folder's own ACL), replaced atomically: sign-ins and keys |

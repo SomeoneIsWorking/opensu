@@ -19,4 +19,10 @@ std::filesystem::path pathOnHost(const std::string& text) {
 #endif
 }
 
+std::string pathInWine(const std::filesystem::path& path) {
+    std::string text = "Z:" + path.lexically_normal().generic_string();
+    std::ranges::replace(text, '/', '\\');
+    return text;
+}
+
 } // namespace opensu::fileio

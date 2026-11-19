@@ -381,6 +381,11 @@ void versionLabels() {
     exe.source = Source::Own;
     exe.windowsInstall = true;
     expect(versionLabel(exe) == "Windows \xC2\xB7 Wine", "an added .exe runs under Wine");
+    Game fumarole;
+    fumarole.source = Source::Steam;
+    fumarole.fromFumarole = true;
+    expect(versionLabel(fumarole) == "Steam \xC2\xB7 fumarole",
+           "a Steam game fumarole installed says fumarole runs it");
     opensu::library::Game remote;
     remote.source = opensu::library::Source::Remote;
     remote.hostName = "Desk";
