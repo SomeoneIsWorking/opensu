@@ -33,6 +33,7 @@
 #include "stream/link_rate.hpp"
 #include "stream/packet_seal.hpp"
 #include "stream/predicted_frames.hpp"
+#include "stream/pyrowave_fit.hpp"
 #include "stream/remote_reach.hpp"
 #include "stream/stream_wire.hpp"
 #include "stream/token_bucket.hpp"
@@ -712,6 +713,23 @@ void aCalmPictureKeepsItsRateAfterALoss() {
         "a loss on a calm picture backs off from the plan, not down to what it happened to send");
 }
 
+void aGuestThatMissesPyroWaveFramesGivesItUp() {
+    constexpr std::uint64_t second = 1'000'000;
+    stream::PyroWaveFit fit;
+    expect(!fit.take({}, 0), "the first counts only start a stretch");
+    expect(!fit.take({.decoded = 297, .dropped = 3, .late = 0}, 5 * second),
+           "1% missed keeps PyroWave");
+    expect(!fit.take({.decoded = 400, .dropped = 3, .late = 0}, 8 * second),
+           "a stretch is not judged before five seconds");
+    expect(!fit.take({.decoded = 300, .dropped = 3, .late = 0}, 10 * second + 1),
+           "a stretch of no frames is not judged");
+    expect(fit.take({.decoded = 552, .dropped = 27, .late = 24}, 15 * second + 1),
+           "16% missed over five seconds gives PyroWave up");
+    expect(fit.missed() > 0.15, "the share that gave it up is kept");
+    expect(!fit.take({.decoded = 600, .dropped = 100, .late = 100}, 30 * second),
+           "PyroWave is given up once a session");
+}
+
 void theLinkPicksTheCodec() {
     using stream::VideoCodec;
     const stream::VideoCodecs all = stream::codecBit(VideoCodec::PyroWave) |
@@ -750,6 +768,12 @@ void theLinkPicksTheCodec() {
     expect(planned(wired).codec == VideoCodec::PyroWave &&
                planned(wired).bitsPerSecond >= stream::pyroWaveFloor,
            "a link that carries the probe whole gets PyroWave");
+    const auto noPyroWave =
+        static_cast<stream::VideoCodecs>(all & ~stream::codecBit(VideoCodec::PyroWave));
+    wired.report(reported(1000, 1000, 1428, noPyroWave), 2'000'000);
+    expect(planned(wired).codec == VideoCodec::Hevc &&
+               planned(wired).bitsPerSecond <= stream::hardwareTop,
+           "a guest that stops offering PyroWave gets the best hardware codec");
 
     stream::LinkRate wifi{all};
     opening(wifi, 0.3, all);
@@ -951,6 +975,7 @@ int main(int argc, char** argv) try {
     picturesSurviveTheCodec();
 #endif
     picturesSurviveTheHardwareCodecs();
+    aGuestThatMissesPyroWaveFramesGivesItUp();
     theLinkPicksTheCodec();
     theCapQueuesAndDropsWhatTheRateHasNoRoomFor();
     theBucketHoldsBackWhatItsRateHasNoRoomFor();

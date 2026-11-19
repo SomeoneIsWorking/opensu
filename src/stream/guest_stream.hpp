@@ -77,6 +77,8 @@ class GuestStream {
     /// Asks the host for `framesPerSecond` frames a second, 0 for every one it captures. Any
     /// thread.
     void wantRate(std::uint8_t framesPerSecond);
+    /// Stops offering `codec` to the host, which codes another from then on. Any thread.
+    void withdraw(VideoCodec codec);
     /// Takes at most `bitsPerSecond` from the host from now on, 0 for all: a test run's slow link.
     void capLink(std::uint64_t bitsPerSecond) {
         cap_.set(bitsPerSecond);

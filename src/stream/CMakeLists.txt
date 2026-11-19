@@ -22,7 +22,7 @@ endif()
 
 add_library(opensu_stream STATIC stream_wire.cpp link_rate.cpp link_cap.cpp token_bucket.cpp
     host_stream.cpp audience.cpp guest_stream.cpp remote_reach.cpp video_codec.cpp picture_colour.cpp
-    frame_parity.cpp predicted_frames.cpp host_video.cpp guest_video.cpp host_audio.cpp guest_audio.cpp)
+    frame_parity.cpp predicted_frames.cpp pyrowave_fit.cpp host_video.cpp guest_video.cpp host_audio.cpp guest_audio.cpp)
 add_library(opensu::stream ALIAS opensu_stream)
 target_include_directories(opensu_stream PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/..")
@@ -74,6 +74,10 @@ if(OPENSU_BUILD_VAAPI AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
 elseif(ANDROID)
     target_sources(opensu_stream PRIVATE hardware_codec_mediacodec.cpp)
     target_link_libraries(opensu_stream PRIVATE mediandk)
+elseif(APPLE)
+    target_sources(opensu_stream PRIVATE hardware_codec_videotoolbox.cpp)
+    target_link_libraries(opensu_stream PRIVATE "-framework VideoToolbox" "-framework CoreMedia"
+        "-framework CoreVideo" "-framework CoreFoundation")
 else()
     target_sources(opensu_stream PRIVATE hardware_codec_none.cpp)
 endif()

@@ -154,6 +154,9 @@ void LinkRate::probed(std::uint32_t burst, std::uint32_t count) {
 
 void LinkRate::report(const wire::Report& report, std::uint64_t nowUs) {
     decoders_ = report.decoders;
+    if (plan_ && !holds(decoders_, plan_->codec)) {
+        choose(capacity_, nowUs, "the guest stopped decoding it");
+    }
     heard_.push_back(Heard{.atUs = nowUs, .report = report});
     while (heard_.size() > 1 && nowUs - heard_.front().atUs > 2 * windowUs) {
         heard_.pop_front();

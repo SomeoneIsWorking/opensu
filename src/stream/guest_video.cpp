@@ -86,6 +86,25 @@ void GuestVideo::decodeLoop(const std::stop_token& stop) {
         }
         batch.clear();
         collect();
+        noteFit();
+    }
+}
+
+void GuestVideo::noteFit() {
+    PyroWaveFit::Counts counts;
+    {
+        const std::lock_guard lock{mutex_};
+        if (codec_ != nameOf(VideoCodec::PyroWave)) {
+            fit_.restart();
+            return;
+        }
+        counts = {.decoded = decoded_, .dropped = dropped_, .late = late_};
+    }
+    if (fit_.take(counts, wire::nowMicros())) {
+        pyroWaveGivenUp_ = true;
+        lucent::warn("video",
+                     "PyroWave lost or skipped {:.0f}% of its frames: asking for a hardware codec",
+                     fit_.missed() * 100);
     }
 }
 

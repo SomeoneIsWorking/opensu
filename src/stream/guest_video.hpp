@@ -25,6 +25,7 @@
 #include <thread>
 #include <vector>
 
+#include "pyrowave_fit.hpp"
 #include "stream_wire.hpp"
 #include "video_codec.hpp"
 
@@ -73,6 +74,10 @@ class GuestVideo {
     /// How the frames went: counts, and the 50th and 95th percentile of each stage in
     /// milliseconds, as one line for the control channel.
     [[nodiscard]] std::string summary() const;
+    /// This guest lost or skipped too many PyroWave frames to keep it (`PyroWaveFit`). Any thread.
+    [[nodiscard]] bool pyroWaveGivenUp() const noexcept {
+        return pyroWaveGivenUp_.load();
+    }
 
   private:
     /// A frame's times on this clock, from the host's capture to the screen.
@@ -102,6 +107,8 @@ class GuestVideo {
     void decodeLoop(const std::stop_token& stop);
     /// Warns once a stretch with no picture lasts `silenceWarned`. Decoding thread.
     void noteSilence();
+    /// Judges the frames shown while PyroWave is. Decoding thread.
+    void noteFit();
     /// One packet into the decoder, and a frame out if one is ready. Decoding thread.
     void decode(const Queued& queued);
     /// `picture`, of the frame numbered in it or else `number`, as the newest decoded.
@@ -127,6 +134,8 @@ class GuestVideo {
     std::size_t packetsSincePicture_{0};
     /// The current stretch without a picture was warned about.
     bool silent_{false};
+    PyroWaveFit fit_;
+    std::atomic<bool> pyroWaveGivenUp_{false};
 
     std::mutex queueMutex_;
     std::condition_variable_any queued_;

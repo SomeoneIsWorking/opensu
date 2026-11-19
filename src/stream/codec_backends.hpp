@@ -1,7 +1,9 @@
 // codec_backends — the two ways `video_codec` codes, each built where it can be: PyroWave
 // (`pyrowave_codec.cpp`, else `pyrowave_codec_none.cpp`) and the hardware codecs through VA-API
-// (`hardware_codec_vaapi.cpp`), MediaCodec on Android (`hardware_codec_mediacodec.cpp`, which only
-// decodes), else `hardware_codec_none.cpp`. Only `video_codec.cpp` calls them.
+// (`hardware_codec_vaapi.cpp`), MediaCodec on Android (`hardware_codec_mediacodec.cpp`) and
+// VideoToolbox on macOS
+// (`hardware_codec_videotoolbox.cpp`), which only decode, else `hardware_codec_none.cpp`. Only
+// `video_codec.cpp` calls them.
 #pragma once
 
 #include <memory>

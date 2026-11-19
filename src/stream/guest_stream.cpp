@@ -205,6 +205,11 @@ void GuestStream::wantRate(std::uint8_t framesPerSecond) {
     received_.framesPerSecond = framesPerSecond;
 }
 
+void GuestStream::withdraw(VideoCodec codec) {
+    const std::lock_guard lock{mutex_};
+    received_.decoders = static_cast<VideoCodecs>(received_.decoders & ~codecBit(codec));
+}
+
 void GuestStream::sendReport() {
     wire::Report report;
     {

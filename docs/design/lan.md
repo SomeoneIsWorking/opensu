@@ -385,7 +385,15 @@ that profile's; the host's own active profile does not change.
   link's rate with the queue a few ms deep and the video intact, and brings PyroWave back once one
   reaches the top with under 2 % of its datagrams lost. A codec that will not open on the host is
   refused and the next planned. Every switch codes a key frame. With neither end's hardware codec
-  in common PyroWave codes whatever the link carries, and says so.
+  in common PyroWave codes whatever the link carries, and says so. The guest judges PyroWave too
+  (`stream::PyroWaveFit`): a frame that misses one datagram is dropped whole, and one decoded late
+  is skipped, neither of which the host's datagram loss shows, so once five seconds of PyroWave
+  frames lose or skip more than 5 % the guest leaves it out of its reports for the session
+  (`GuestStream::withdraw`) and the host plans again without it.
+- Hardware codecs on macOS (`hardware_codec_videotoolbox.cpp`, decode only): VideoToolbox's
+  hardware HEVC and H.264. Each key frame's parameter sets make the format description (the
+  session is opened again only when it cannot take a new one), the frame's other NAL units go in
+  length-prefixed, decoded synchronously into BGRA and read back as RGBA.
 - Hardware codecs on Android (`hardware_codec_mediacodec.cpp`, decode only): the vendor's
   decoder through `AMediaCodec`, the platform's software ones refused. It asks for `low-latency`
   and opens again without it where configure refuses (OMX.hisi does), since the NDK cannot ask
