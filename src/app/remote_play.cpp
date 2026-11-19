@@ -953,6 +953,7 @@ void RemotePlay::serviceGuest() {
         if (video_->pyroWaveGivenUp()) {
             guest_->withdraw(stream::VideoCodec::PyroWave);
         }
+        guest_->keepsUpWith(video_->framesPerSecondFit());
         if (const std::optional<std::string> over = guest_->over()) {
             hooks_.say(game_.title + " on " + game_.hostName + ": " + *over, !pictured_);
             drop();

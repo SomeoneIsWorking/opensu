@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include "guest_fit.hpp"
 #include "lucent/log.h"
 #include "secrets/secret.hpp"
 
@@ -202,7 +203,12 @@ void GuestStream::showsIn(int width, int height) {
 
 void GuestStream::wantRate(std::uint8_t framesPerSecond) {
     const std::lock_guard lock{mutex_};
-    received_.framesPerSecond = framesPerSecond;
+    wantedRate_ = framesPerSecond;
+}
+
+void GuestStream::keepsUpWith(std::uint8_t framesPerSecond) {
+    const std::lock_guard lock{mutex_};
+    keptUpRate_ = framesPerSecond;
 }
 
 void GuestStream::withdraw(VideoCodec codec) {
@@ -221,6 +227,7 @@ void GuestStream::sendReport() {
         probeQuickestSinceReport_.reset();
         reportedUs_ = wire::nowMicros();
         report = received_;
+        report.framesPerSecond = slowerRate(wantedRate_, keptUpRate_);
     }
     send(PacketKind::Report, wire::write(report));
 }

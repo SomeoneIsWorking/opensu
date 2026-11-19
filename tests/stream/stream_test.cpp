@@ -26,6 +26,7 @@
 #include "stream/audio_codec.hpp"
 #include "stream/frame_parity.hpp"
 #include "stream/guest_audio.hpp"
+#include "stream/guest_fit.hpp"
 #include "stream/guest_stream.hpp"
 #include "stream/host_stream.hpp"
 #include "stream/host_video.hpp"
@@ -33,7 +34,6 @@
 #include "stream/link_rate.hpp"
 #include "stream/packet_seal.hpp"
 #include "stream/predicted_frames.hpp"
-#include "stream/pyrowave_fit.hpp"
 #include "stream/remote_reach.hpp"
 #include "stream/stream_wire.hpp"
 #include "stream/token_bucket.hpp"
@@ -715,19 +715,55 @@ void aCalmPictureKeepsItsRateAfterALoss() {
 
 void aGuestThatMissesPyroWaveFramesGivesItUp() {
     constexpr std::uint64_t second = 1'000'000;
-    stream::PyroWaveFit fit;
-    expect(!fit.take({}, 0), "the first counts only start a stretch");
-    expect(!fit.take({.decoded = 297, .dropped = 3, .late = 0}, 5 * second),
+    stream::GuestFit fit;
+    expect(!fit.take({}, true, 0), "the first counts only start a stretch");
+    expect(!fit.take({.decoded = 297, .dropped = 3, .late = 0, .presented = 297}, true, 5 * second),
            "1% missed keeps PyroWave");
-    expect(!fit.take({.decoded = 400, .dropped = 3, .late = 0}, 8 * second),
+    expect(!fit.take({.decoded = 400, .dropped = 3, .late = 0, .presented = 400}, true, 8 * second),
            "a stretch is not judged before five seconds");
-    expect(!fit.take({.decoded = 300, .dropped = 3, .late = 0}, 10 * second + 1),
+    expect(!fit.take({.decoded = 300, .dropped = 3, .late = 0, .presented = 300}, true,
+                     10 * second + 1),
            "a stretch of no frames is not judged");
-    expect(fit.take({.decoded = 552, .dropped = 27, .late = 24}, 15 * second + 1),
+    expect(fit.take({.decoded = 552, .dropped = 27, .late = 24, .presented = 552}, true,
+                    15 * second + 1),
            "16% missed over five seconds gives PyroWave up");
-    expect(fit.missed() > 0.15, "the share that gave it up is kept");
-    expect(!fit.take({.decoded = 600, .dropped = 100, .late = 100}, 30 * second),
-           "PyroWave is given up once a session");
+    expect(fit.pyroWaveGivenUp() && fit.missed() > 0.15, "the share that gave it up is kept");
+    expect(fit.framesPerSecond() == 0, "giving PyroWave up keeps the frame rate");
+}
+
+void aGuestThatFallsBehindAsksForFewerFrames() {
+    constexpr std::uint64_t second = 1'000'000;
+    stream::GuestFit fit;
+    stream::GuestFit::Counts counts;
+    std::uint64_t now = 0;
+    // One five-second window in which `shown` of every 300 decoded frames reach the screen.
+    const auto window = [&](std::size_t shown) {
+        counts.decoded += 300;
+        counts.presented += shown;
+        now += 5 * second;
+        return fit.take(counts, false, now);
+    };
+    expect(!fit.take(counts, false, now), "the first counts only start a stretch");
+    expect(!window(295), "a guest that shows nearly every frame keeps every frame");
+    expect(window(240) && fit.framesPerSecond() == 45, "20% unshown steps down to 45");
+    expect(window(240) && fit.framesPerSecond() == 30, "and again to 30");
+    expect(!window(200) && fit.framesPerSecond() == 30, "30 is the floor");
+    expect(!window(300) && !window(300), "two calm windows are not enough to step up");
+    expect(window(300) && fit.framesPerSecond() == 45, "the third steps back up to 45");
+    expect(window(240) && fit.framesPerSecond() == 30, "falling behind again takes the raise back");
+    expect(!window(300) && !window(300) && !window(300) && !window(300) && !window(300),
+           "a raise taken back needs twice the calm windows");
+    expect(window(300) && fit.framesPerSecond() == 45, "the sixth calm window steps up");
+    expect(!fit.take(counts, true, now + 10 * second), "a codec change starts a new stretch");
+    stream::GuestFit quick;
+    expect(!quick.take({}, false, 0), "a new stretch");
+    expect(quick.take({.decoded = 600, .dropped = 0, .late = 0, .presented = 300}, false,
+                      5 * second) &&
+               quick.framesPerSecond() == 60,
+           "120 a second to a guest that shows 60 asks for 60");
+    expect(stream::slowerRate(0, 45) == 45 && stream::slowerRate(30, 0) == 30 &&
+               stream::slowerRate(45, 30) == 30 && stream::slowerRate(0, 0) == 0,
+           "the slower of two rates, 0 being all");
 }
 
 void theLinkPicksTheCodec() {
@@ -976,6 +1012,7 @@ int main(int argc, char** argv) try {
 #endif
     picturesSurviveTheHardwareCodecs();
     aGuestThatMissesPyroWaveFramesGivesItUp();
+    aGuestThatFallsBehindAsksForFewerFrames();
     theLinkPicksTheCodec();
     theCapQueuesAndDropsWhatTheRateHasNoRoomFor();
     theBucketHoldsBackWhatItsRateHasNoRoomFor();

@@ -91,21 +91,27 @@ void GuestVideo::decodeLoop(const std::stop_token& stop) {
 }
 
 void GuestVideo::noteFit() {
-    PyroWaveFit::Counts counts;
+    GuestFit::Counts counts;
+    bool pyroWave = false;
     {
         const std::lock_guard lock{mutex_};
-        if (codec_ != nameOf(VideoCodec::PyroWave)) {
-            fit_.restart();
-            return;
-        }
-        counts = {.decoded = decoded_, .dropped = dropped_, .late = late_};
+        counts = {.decoded = decoded_, .dropped = dropped_, .late = late_, .presented = presented_};
+        pyroWave = codec_ == nameOf(VideoCodec::PyroWave);
     }
-    if (fit_.take(counts, wire::nowMicros())) {
+    if (!fit_.take(counts, pyroWave, wire::nowMicros())) {
+        return;
+    }
+    if (fit_.pyroWaveGivenUp() && !pyroWaveGivenUp_) {
         pyroWaveGivenUp_ = true;
         lucent::warn("video",
                      "PyroWave lost or skipped {:.0f}% of its frames: asking for a hardware codec",
                      fit_.missed() * 100);
+        return;
     }
+    framesPerSecondFit_ = fit_.framesPerSecond();
+    lucent::info("video",
+                 "{:.0f}% of decoded frames went unshown: asking for {} frames a second (0 is all)",
+                 fit_.missed() * 100, fit_.framesPerSecond());
 }
 
 void GuestVideo::decode(const Queued& queued) {

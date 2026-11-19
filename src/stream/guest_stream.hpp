@@ -77,6 +77,9 @@ class GuestStream {
     /// Asks the host for `framesPerSecond` frames a second, 0 for every one it captures. Any
     /// thread.
     void wantRate(std::uint8_t framesPerSecond);
+    /// The frames a second this guest keeps up with (`GuestFit`), 0 for all; the host is asked
+    /// for the slower of this and `wantRate`'s. Any thread.
+    void keepsUpWith(std::uint8_t framesPerSecond);
     /// Stops offering `codec` to the host, which codes another from then on. Any thread.
     void withdraw(VideoCodec codec);
     /// Takes at most `bitsPerSecond` from the host from now on, 0 for all: a test run's slow link.
@@ -131,6 +134,8 @@ class GuestStream {
     std::optional<wire::PadMapping> mapping_;
     /// What came from the host, for the report; on the receiving thread, read under `mutex_`.
     wire::Report received_;
+    std::uint8_t wantedRate_{0};
+    std::uint8_t keptUpRate_{0};
     std::string stage_;
     std::string panel_;
     float shape_{0.0F};
