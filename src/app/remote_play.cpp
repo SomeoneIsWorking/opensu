@@ -1083,12 +1083,6 @@ void RemotePlay::readPicturesBack() {
     }
 }
 
-void RemotePlay::awaitPicture(std::chrono::nanoseconds timeout) {
-    if (video_ && !frameGen_) {
-        static_cast<void>(video_->awaitFrame(timeout));
-    }
-}
-
 std::optional<stream::GuestVideo::Frame> RemotePlay::takePicture(std::uint64_t nowUs,
                                                                  std::uint64_t refreshNs) {
     if (!video_) {

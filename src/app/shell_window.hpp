@@ -190,10 +190,6 @@ class ShellWindow {
     /// The swapchain waits for the display and `presentEvery` asks no less often, so `pace` adds no
     /// sleep of its own: two clocks beside each other drift, and a frame then misses its vsync.
     [[nodiscard]] bool displayPaces() const;
-    /// Waits until the swapchain has an image free, so a picture picked after it is drawn at once.
-    void waitForImage();
-    /// One frame in flight while `low` (a stream showing), SDL's two otherwise.
-    void lowLatency(bool low);
     /// Draws one frame the window's size into an offscreen target and reads it back
     /// (premultiplied RGBA).
     [[nodiscard]] gpu2d::image::Bitmap render(const Draw& draw);
@@ -244,7 +240,6 @@ class ShellWindow {
     bool screenKeyboard_{false};
     bool screenKeyboardHidden_{false};
     std::chrono::steady_clock::time_point nextFrame_{std::chrono::steady_clock::now()};
-    bool lowLatency_{false};
     std::chrono::nanoseconds interval_{std::chrono::nanoseconds{std::chrono::seconds{1}} / shellHz};
 };
 

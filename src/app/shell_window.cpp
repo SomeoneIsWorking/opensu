@@ -136,18 +136,6 @@ bool ShellWindow::watchLifecycle(void* self, SDL_Event* event) {
     return true;
 }
 
-void ShellWindow::waitForImage() {
-    window_.waitForImage();
-}
-
-void ShellWindow::lowLatency(bool low) {
-    if (low == lowLatency_) {
-        return;
-    }
-    lowLatency_ = low;
-    window_.framesInFlight(low ? 1 : 2);
-}
-
 bool ShellWindow::displayPaces() const {
     if (window_.presentMode() != SDL_GPU_PRESENTMODE_VSYNC) {
         return false;

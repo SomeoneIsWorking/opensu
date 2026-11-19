@@ -1883,13 +1883,6 @@ int ShellApp::run() {
         publishSnapshot();
         // An unmapped window draws nothing, and its artwork still streams in.
         shell_.loadArtwork();
-        // The stream is the clock while streaming: once the swapchain has an image free, each
-        // frame is drawn as it lands, so none waits on the swapchain after it is picked.
-        window_->lowLatency(remotePlay_.streaming());
-        if (remotePlay_.streaming()) {
-            window_->waitForImage();
-            remotePlay_.awaitPicture(presentInterval());
-        }
         // Taken once the swapchain gave a picture to draw into, so a remote frame does not sit
         // out the wait for the next vsync before it is drawn.
         bool pictured = false;

@@ -64,8 +64,6 @@ class GuestVideo {
     /// As `takeFrame`, waiting for a frame to be decoded; nothing once `stop` is asked. Any
     /// thread.
     [[nodiscard]] std::optional<Frame> waitFrame(const std::stop_token& stop);
-    /// Waits up to `timeout` for a decoded frame to be ready to take; true when one is. Any thread.
-    [[nodiscard]] bool awaitFrame(std::chrono::nanoseconds timeout);
     /// The frame showing frame `number` was submitted at `submittedUs`, into the window when
     /// `drawn` (a hidden window has no surface). Any thread.
     void presented(std::uint32_t number, std::uint64_t submittedUs, bool drawn);
