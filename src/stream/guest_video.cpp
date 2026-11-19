@@ -247,7 +247,7 @@ void GuestVideo::finish(VideoCodec codec, Picture picture, std::uint32_t number)
             codec_ = nameOf(codec);
         }
         last_ = frame;
-        fresh_ = std::move(frame);
+        fresh_.put(std::move(frame));
         waiting_.push_back(times);
         if (waiting_.size() > waitingKept) {
             waiting_.pop_front();
@@ -262,19 +262,20 @@ std::optional<GuestVideo::Frame> GuestVideo::takeFrame() {
 }
 
 std::optional<GuestVideo::Frame> GuestVideo::handOver() {
-    if (fresh_) {
-        const auto found = std::ranges::find(waiting_, fresh_->number, &Times::number);
+    std::optional<Frame> frame = fresh_.take();
+    if (frame) {
+        const auto found = std::ranges::find(waiting_, frame->number, &Times::number);
         if (found != waiting_.end()) {
             found->takenUs = static_cast<double>(wire::nowMicros());
         }
     }
-    return std::exchange(fresh_, std::nullopt);
+    return frame;
 }
 
 std::optional<GuestVideo::Frame> GuestVideo::waitFrame(const std::stop_token& stop) {
     std::unique_lock lock{mutex_};
     if (!decodedOne_.wait(lock, stop, [this] {
-            return fresh_.has_value();
+            return !fresh_.empty();
         })) {
         return std::nullopt;
     }
