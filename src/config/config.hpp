@@ -97,6 +97,9 @@ struct Config {
     /// name their read paths relative to these (`{xdg_cache}` and so on).
     std::filesystem::path xdgCacheHome;
     std::filesystem::path xdgDataHome;
+    /// fumarole's data folder, by the rule fumarole itself resolves it with (Lucent's data
+    /// directory: XDG on Linux, Application Support on macOS); empty when it cannot be resolved.
+    std::filesystem::path fumaroleDataDir;
     std::filesystem::path xdgConfigHome;
     std::filesystem::path xdgStateHome;
     /// `$XDG_CONFIG_HOME` as the session sets it, which every game openSU starts inherits; empty

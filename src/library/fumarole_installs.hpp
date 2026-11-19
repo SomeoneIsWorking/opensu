@@ -20,9 +20,9 @@ struct Installs {
     /// fumarole's data directory (`$XDG_DATA_HOME/fumarole`).
     std::filesystem::path dataDir;
 
-    /// `fumarole` on `executablePath`, with its data under `xdgDataHome`.
+    /// `fumarole` on `executablePath`, with its data in `dataDir` (`Config::fumaroleDataDir`).
     [[nodiscard]] static Installs find(const std::vector<std::filesystem::path>& executablePath,
-                                       const std::filesystem::path& xdgDataHome);
+                                       const std::filesystem::path& dataDir);
 
     /// Each complete Windows install as a Steam game, launched through fumarole; unreadable
     /// records are skipped.

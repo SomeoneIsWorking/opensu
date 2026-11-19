@@ -154,7 +154,8 @@ void windowsRunsInItsOwnPrefix(const fs::path& dir) {
                game.launch.args == std::vector<std::string>{exe.string()} &&
                game.launch.workingDirectory == exe.parent_path(),
            "plain Wine starts the .exe itself in its folder");
-    expect(prepared.environment == std::vector<std::string>{"WINEPREFIX=" + prefix.string()} &&
+    expect(prepared.environment == std::vector<std::string>{"WINEPREFIX=" + prefix.string(),
+                                                            "WINEDLLOVERRIDES=mscoree,mshtml="} &&
                fs::is_directory(prefix),
            "in the game's own prefix, never the shared one");
 

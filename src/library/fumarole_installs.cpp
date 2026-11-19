@@ -10,9 +10,9 @@ namespace opensu::library::fumarole {
 
 namespace fs = std::filesystem;
 
-Installs Installs::find(const std::vector<fs::path>& executablePath, const fs::path& xdgDataHome) {
+Installs Installs::find(const std::vector<fs::path>& executablePath, const fs::path& dataDir) {
     return Installs{.program = launch::resolveExecutable("fumarole", executablePath),
-                    .dataDir = xdgDataHome / "fumarole"};
+                    .dataDir = dataDir};
 }
 
 std::vector<Game> Installs::games() const {

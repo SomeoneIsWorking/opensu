@@ -26,7 +26,7 @@ Catalog makeCatalog(const config::Config& config, bool hidden,
     if (stores.steam) {
         catalog.add(std::make_unique<steam::Provider>(
             steam::Library::discover(config.home, config.steamRoots),
-            fumarole::Installs::find(config.executablePath, config.xdgDataHome)));
+            fumarole::Installs::find(config.executablePath, config.fumaroleDataDir)));
     }
     if (stores.epic) {
         catalog.add(std::make_unique<epic::Provider>());

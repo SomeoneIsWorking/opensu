@@ -240,7 +240,7 @@ Config read() {
     if (const std::filesystem::path set{env("XDG_CONFIG_HOME")}; set.is_absolute()) {
         value.sessionXdgConfigHome = set;
     }
-    const Locations locations = Locations::resolve({
+    const lucent::platform::Environment platformEnvironment{
         .home = env("HOME"),
         .xdg_config_home = env("XDG_CONFIG_HOME"),
         .appdata = env("APPDATA"),
@@ -250,7 +250,11 @@ Config read() {
         .local_appdata = env("LOCALAPPDATA"),
         .tmpdir = env("TMPDIR"),
         .xdg_state_home = env("XDG_STATE_HOME"),
-    });
+    };
+    const Locations locations = Locations::resolve(platformEnvironment);
+    value.fumaroleDataDir =
+        lucent::platform::resolve_data_directory("fumarole", platformEnvironment)
+            .value_or(std::filesystem::path{});
     value.cacheDir = locations.cacheDir;
     value.dataDir = locations.dataDir;
     value.configDir = locations.configDir;
