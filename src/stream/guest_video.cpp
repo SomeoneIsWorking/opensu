@@ -272,6 +272,11 @@ std::optional<GuestVideo::Frame> GuestVideo::handOver() {
     return frame;
 }
 
+void GuestVideo::passed() {
+    const std::lock_guard lock{mutex_};
+    ++passes_;
+}
+
 std::optional<GuestVideo::Frame> GuestVideo::waitFrame(const std::stop_token& stop) {
     std::unique_lock lock{mutex_};
     if (!decodedOne_.wait(lock, stop, [this] {
@@ -321,8 +326,9 @@ void GuestVideo::presented(std::uint32_t number, std::uint64_t submittedUs, bool
 std::string GuestVideo::summary() const {
     const std::lock_guard lock{mutex_};
     std::string out =
-        std::format("codec={} switches={} decoded={} dropped={} late={} submitted={} drawn={}",
-                    codec_, switches_, decoded_, dropped_, late_, presented_, drawn_);
+        std::format("codec={} switches={} decoded={} dropped={} late={} submitted={} drawn={} "
+                    "presents={}",
+                    codec_, switches_, decoded_, dropped_, late_, presented_, drawn_, passes_);
     const auto stage = [this, &out](const char* name, double Stages::* field) {
         std::vector<double> values;
         values.reserve(shown_.size());

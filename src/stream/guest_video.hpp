@@ -67,6 +67,8 @@ class GuestVideo {
     /// The frame showing frame `number` was submitted at `submittedUs`, into the window when
     /// `drawn` (a hidden window has no surface). Any thread.
     void presented(std::uint32_t number, std::uint64_t submittedUs, bool drawn);
+    /// The loop presented into the window, a new frame in it or not. Any thread.
+    void passed();
     /// The newest frame decoded, taken or not, and its number; nothing before the first.
     [[nodiscard]] std::optional<Frame> lastDecoded() const;
     /// Decodes into CPU memory from the next frame on: the screen could not sample a DMA-BUF
@@ -170,6 +172,8 @@ class GuestVideo {
     std::size_t late_{0};
     std::size_t presented_{0};
     std::size_t drawn_{0};
+    /// The loop's presents into the window while streaming.
+    std::size_t passes_{0};
     std::string codec_{"none"};
     std::size_t switches_{0};
     /// Last, so it stops before what it uses goes.
