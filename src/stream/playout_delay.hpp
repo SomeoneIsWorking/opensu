@@ -16,6 +16,9 @@ inline constexpr std::uint64_t playoutWindowUs = 3'000'000;
 inline constexpr double playoutShare = 0.98;
 /// How far the delay shrinks a refresh once fewer frames need it.
 inline constexpr std::uint64_t playoutShrinkUs = 1000;
+/// The longest delay: about what a guest holds (`framesHeldMost` at 60 a second), past which it
+/// shows its oldest frame anyway.
+inline constexpr std::uint64_t playoutMostUs = 200'000;
 
 class PlayoutDelay {
   public:

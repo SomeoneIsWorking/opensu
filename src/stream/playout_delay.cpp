@@ -25,7 +25,7 @@ std::uint64_t PlayoutDelay::refresh(std::uint64_t nowUs) {
         const auto at =
             static_cast<std::size_t>(static_cast<double>(late.size() - 1) * playoutShare);
         std::ranges::nth_element(late, late.begin() + static_cast<std::ptrdiff_t>(at));
-        wanted = late[at];
+        wanted = std::min(late[at], playoutMostUs);
     }
     delayUs_ = wanted >= delayUs_
                    ? wanted

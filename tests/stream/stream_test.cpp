@@ -777,6 +777,13 @@ void thePlayoutDelayRidesOutStalls() {
         shrunk = delay.refresh(now);
     }
     expect(shrunk == 60'000 - 21 * stream::playoutShrinkUs, "a step each refresh after");
+    stream::PlayoutDelay loaded;
+    for (int frame = 0; frame < 180; ++frame) {
+        now += refresh;
+        loaded.decoded(now - 700'000, now);
+    }
+    expect(loaded.refresh(now) == stream::playoutMostUs,
+           "a delay past what a guest holds stops at it, to come back sooner");
     for (int frame = 0; frame < 120; ++frame) {
         now += refresh;
         delay.decoded(now - 10'000, now);
