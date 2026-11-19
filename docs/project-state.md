@@ -161,7 +161,7 @@ Visible deltas from the baseline:
   frame generation, Alt+F4 handling); Managed or Isolated Steam (Steam is the player's own, Normal);
   virtual pads remapping another program's input; the Power, Bluetooth and brightness tabs. Windows
   runs a store's Windows builds itself, Linux under Wine, macOS not at all (it installs a store's
-  Mac builds; Wine on macOS is a non-goal). Android also has no Steam, Epic, GOG or sign-in
+  Mac builds; Windows builds under a Mac Wine are planned, waiting on a Wine for Apple silicon). Android also has no Steam, Epic, GOG or sign-in
   extension. On macOS a launched game's group is a process group, which a process that calls
   `setsid` leaves (a scope or a job keeps it).
 

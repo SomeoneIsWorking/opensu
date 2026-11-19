@@ -7,7 +7,6 @@
 #include "settings/core_option_settings.hpp"
 #include "settings/emulator_pick_migration.hpp"
 #include "settings/framegen_settings.hpp"
-#include "settings/remote_settings.hpp"
 #include "settings/scaling_settings.hpp"
 #include "settings/video_settings.hpp"
 
@@ -19,7 +18,6 @@ settings::Schema keptSchema() {
     settings::declareVideo(schema);
     settings::declareFrameGen(schema);
     settings::declareRemoteStreamRate(schema);
-    settings::declareRemote(schema);
     settings::declareScaling(schema, std::nullopt);
     settings::declareCoreOptionFamily(schema);
     schema.addOpen(std::string{library::emulatorKey});
@@ -99,7 +97,6 @@ library::KeptData GameSettings::keptData() {
 }
 
 void GameSettings::save() {
-    ++saves_;
     std::string error;
     if (!store_.save(layers_, error)) {
         lucent::error("settings", "{}", error);

@@ -1,5 +1,5 @@
-// playout_delay — how long after its send a guest shows a frame, when it rides out a link's stalls
-// rather than showing the newest frame: the 98th percentile of the last `playoutWindowUs` of
+// playout_delay — how long after its send a guest shows a frame, so a link's stalls cost a steady
+// delay instead of hitches: the 98th percentile of the last `playoutWindowUs` of
 // frames' send-to-decoded times, taken at once when it grows and let shrink `playoutShrinkUs` a
 // refresh, so a burst that came behind a stall plays out one frame a refresh. Pure state with the
 // times passed in, on the guest's clock.

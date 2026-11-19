@@ -73,9 +73,6 @@ class FakeShell final : public ControlTarget {
     void endRemotePlay() override {
         ++remoteEnds;
     }
-    void rideOutRemoteStalls(bool on) override {
-        stalls.push_back(on);
-    }
     [[nodiscard]] bool captureFrame(FrameKind /*kind*/, FramePixels& /*frame*/) override {
         return false;
     }
@@ -107,7 +104,6 @@ class FakeShell final : public ControlTarget {
     std::vector<PointerInjection> pointers;
     std::vector<std::uint64_t> linkCaps;
     int remoteEnds{0};
-    std::vector<bool> stalls;
     std::vector<RecordRequest> records;
     bool recording{false};
     std::vector<opensu::gamepad::Button> pressed;
@@ -437,13 +433,6 @@ void testPointer() {
            "each cap reaches the shell, a refused one none");
     expect(channel.handle(post("/remote/end", "")).status == 200 && shell.remoteEnds == 1,
            "POST /remote/end ends remote play");
-    expect(channel.handle(post("/remote/stalls", "ride-out")).status == 200 &&
-               channel.handle(post("/remote/stalls", "newest\n")).status == 200 &&
-               shell.stalls == std::vector<bool>{true, false},
-           "POST /remote/stalls sets riding out stalls on and off");
-    expect(channel.handle(post("/remote/stalls", "sometimes")).status == 400 &&
-               shell.stalls.size() == 2,
-           "any other body is refused");
 
     expect(channel.handle(post("/record", "fast /tmp/x")).status == 400 &&
                channel.handle(post("/record", "60")).status == 400 &&

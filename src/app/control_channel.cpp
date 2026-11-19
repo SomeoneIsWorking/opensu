@@ -425,18 +425,6 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
         return lucent::http::Response::json(200, "OK", "{\"ending\":true}");
     }
 
-    if (path == "/remote/stalls") {
-        if (request.method != "POST") {
-            return refuse("POST only");
-        }
-        const std::string_view choice = trimmed(request.body);
-        if (choice != "ride-out" && choice != "newest") {
-            return refuse("body must be ride-out or newest");
-        }
-        target_.rideOutRemoteStalls(choice == "ride-out");
-        return lucent::http::Response::json(200, "OK", "{\"stalls\":" + jsonString(choice) + "}");
-    }
-
     if (path == "/record") {
         if (request.method != "POST") {
             return refuse("POST only");

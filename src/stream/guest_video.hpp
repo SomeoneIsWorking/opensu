@@ -34,7 +34,7 @@ namespace opensu::stream {
 
 /// How long a stream goes without a picture before the guest warns that it shows none.
 inline constexpr std::chrono::seconds silenceWarned{5};
-/// The decoded frames a guest riding out stalls holds for its loop.
+/// The decoded frames a guest holds for its loop, enough for the longest stall it waits out.
 inline constexpr std::size_t framesHeldMost = 12;
 
 class GuestVideo {
@@ -62,15 +62,13 @@ class GuestVideo {
         std::uint64_t sentUs{0};
         std::uint64_t decodedUs{0};
     };
-    /// The frame to show at `nowUs`: the newest decoded, or while riding out stalls the newest
-    /// past the playout delay (`PlayoutDelay`); frames decoded before it are let go. Any thread.
+    /// The frame to show at `nowUs`: the newest sent at least the playout delay ago
+    /// (`PlayoutDelay`), so a burst after a link's stall plays out a frame a refresh; frames before
+    /// it are let go. Any thread.
     [[nodiscard]] std::optional<Frame> takeFrame(std::uint64_t nowUs);
     /// The newest decoded frame, waiting for one to be decoded; nothing once `stop` is asked.
     /// Frame generation paces its own, so it never waits out a stall. Any thread.
     [[nodiscard]] std::optional<Frame> waitFrame(const std::stop_token& stop);
-    /// Whether `takeFrame` holds frames by the playout delay to ride out a link's stalls, or shows
-    /// the newest. Any thread.
-    void rideOutStalls(bool on);
     /// The frame showing frame `number` was submitted at `submittedUs`, into the window when
     /// `drawn` (a hidden window has no surface). Any thread.
     void presented(std::uint32_t number, std::uint64_t submittedUs, bool drawn);
@@ -160,8 +158,6 @@ class GuestVideo {
     GuestFit fit_;
     std::atomic<bool> pyroWaveGivenUp_{false};
     std::atomic<std::uint8_t> framesPerSecondFit_{0};
-    /// `takeFrame` holds frames by `playout_`. Under `mutex_`.
-    bool ridesOutStalls_{false};
 
     std::mutex queueMutex_;
     std::condition_variable_any queued_;
@@ -170,7 +166,7 @@ class GuestVideo {
     mutable std::mutex mutex_;
     /// Notified when `fresh_` gets a frame.
     std::condition_variable_any decodedOne_;
-    /// Decoded frames not taken, oldest first: the newest alone unless riding out stalls.
+    /// Decoded frames not taken, oldest first.
     std::deque<Frame> fresh_;
     PlayoutDelay playout_;
     /// Hands over `fresh_`'s frame at `index`, letting the older go, and notes when. Under

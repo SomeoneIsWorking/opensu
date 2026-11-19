@@ -8,7 +8,6 @@
 #include "retro_launch.hpp"
 #include "settings/core_option_settings.hpp"
 #include "settings/framegen_settings.hpp"
-#include "settings/remote_settings.hpp"
 #include "settings/scaling_settings.hpp"
 #include "settings/video_settings.hpp"
 
@@ -154,7 +153,6 @@ settings::Schema LayeredSettings::schemaOf(const EditorContext& context) const {
         settings::declareVideo(schema);
     }
     if (game && !game->hostId.empty()) {
-        settings::declareRemote(schema);
         if (RemoteFrameGen::built()) {
             settings::declareFrameGen(schema);
             settings::declareRemoteStreamRate(schema);

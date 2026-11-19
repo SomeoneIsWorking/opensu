@@ -1,4 +1,4 @@
-# The Mac guest leaves a fifth of its frames unshown over Wi-Fi
+# A Mac guest's Wi-Fi stalls cost latency
 
 Seen 2026-11-19, MacBook Air M2 as guest of the Fedora host, Devoid over Wi-Fi, HEVC on
 VideoToolbox at 1782x1080: decoded about 600 per 10 s, drawn about 495, capture to screen 23 ms
@@ -15,17 +15,14 @@ hopping channels; the player keeps those on.
 
 ## What is done
 
-- `remote.stalls` set to Smooth over stalls holds frames by the stalls' length
-  (`stream::PlayoutDelay`): on the trace, repeats from 11 a second to 1.8, at about 99 ms from send
-  to screen against 15. Off by default.
-- A guest's lower frame rate now reaches the host (`stream::FramePace`); before, the host sent
-  every capture for any rate between 30 and 60, so whether 45 a second stalls less is not yet
-  measured.
+- The guest holds frames by the stalls' length (`stream::PlayoutDelay`), on every link: repeats
+  from 11.6 a second to 1.6, at about 110 ms from capture to screen against 26 (2026-11-19).
+- A guest's lower frame rate now reaches the host (`stream::FramePace`). At 45 a second the stalls
+  are as many per frame as at 60 (1.5 against 1.9 a second, p99 91 ms), so a lower rate does not
+  cure them.
 
 ## Open
 
-- Measure the stalls at 45 a second against 60 on the Mac, with Game settings, Frame generation,
-  Stream rate set to 45 fps.
 - Each bitrate step over 20 % reopens the host's VA-API encoder, since FFmpeg fixes its rate
   control at open (`hardware_codec_vaapi.cpp`, `reopenShare`); the key frame after carries new
   parameter sets, VideoToolbox will not take them into its session and builds a new one, about

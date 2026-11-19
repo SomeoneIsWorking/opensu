@@ -34,8 +34,6 @@ class ControlBridge final : public ControlTarget {
         std::optional<std::uint64_t> linkCap;
         /// Remote play was asked to end.
         bool endRemote{false};
-        /// The newest Wi-Fi stalls setting asked for, if any.
-        std::optional<bool> ridesOutStalls;
         /// The newest text to put on the system clipboard, if any.
         std::optional<std::string> clipboard;
     };
@@ -50,7 +48,6 @@ class ControlBridge final : public ControlTarget {
     void injectPointer(PointerInjection pointer) override;
     void capRemoteLink(std::uint64_t bitsPerSecond) override;
     void endRemotePlay() override;
-    void rideOutRemoteStalls(bool on) override;
     [[nodiscard]] bool captureFrame(FrameKind kind, FramePixels& frame) override;
     [[nodiscard]] std::optional<RecordStarted> startRecord(RecordRequest request) override;
     [[nodiscard]] std::optional<RecordTotals> stopRecord() override;

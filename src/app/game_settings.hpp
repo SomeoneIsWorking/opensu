@@ -5,7 +5,6 @@
 // layer and a value's source are shown with.
 #pragma once
 
-#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <optional>
@@ -43,11 +42,6 @@ class GameSettings {
 
     /// Writes the layers; on failure logs it and reports it, and keeps the old file.
     void save();
-    /// How many times the layers were saved, so a reader of a running game's settings sees a
-    /// change.
-    [[nodiscard]] std::uint64_t saves() const noexcept {
-        return saves_;
-    }
     /// A game's setting layer as data a title's copies share.
     [[nodiscard]] library::KeptData keptData();
     /// Deletes every setting `layer` keeps and saves; how many went.
@@ -60,7 +54,6 @@ class GameSettings {
     settings::GameSettingsStore store_;
     std::function<void(const std::string&)> onFailure_;
     settings::SettingLayers layers_;
-    std::uint64_t saves_{0};
 };
 
 } // namespace opensu::app

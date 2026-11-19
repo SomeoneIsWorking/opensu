@@ -250,7 +250,7 @@ void GuestVideo::finish(VideoCodec codec, Picture picture, std::uint32_t number)
         last_ = frame;
         playout_.decoded(frame.sentUs, frame.decodedUs);
         fresh_.push_back(std::move(frame));
-        while (fresh_.size() > (ridesOutStalls_ ? framesHeldMost : 1)) {
+        while (fresh_.size() > framesHeldMost) {
             letGo(times.decodedUs);
         }
         waiting_.push_back(times);
@@ -267,9 +267,6 @@ std::optional<GuestVideo::Frame> GuestVideo::takeFrame(std::uint64_t nowUs) {
         repeats_ += decoded_ > 0 ? 1 : 0;
         return std::nullopt;
     }
-    if (!ridesOutStalls_) {
-        return handOver(fresh_.size() - 1, static_cast<double>(nowUs));
-    }
     const std::uint64_t delayUs = playout_.refresh(nowUs);
     const auto due = std::ranges::find_if(fresh_, [nowUs, delayUs](const Frame& frame) {
         return frame.sentUs + delayUs > nowUs;
@@ -279,16 +276,6 @@ std::optional<GuestVideo::Frame> GuestVideo::takeFrame(std::uint64_t nowUs) {
         return std::nullopt;
     }
     return handOver(static_cast<std::size_t>(due - fresh_.begin()) - 1, static_cast<double>(nowUs));
-}
-
-void GuestVideo::rideOutStalls(bool on) {
-    const std::lock_guard lock{mutex_};
-    if (on != ridesOutStalls_) {
-        lucent::info("video", "{}",
-                     on ? "frames are held to ride out the link's stalls"
-                        : "the newest frame is shown, stalls or not");
-    }
-    ridesOutStalls_ = on;
 }
 
 std::optional<GuestVideo::Frame> GuestVideo::handOver(std::size_t index, double nowUs) {
