@@ -20,11 +20,16 @@ run by Wine with FEX emulating x86. Today Android has no Steam, Epic or GOG at a
      folders, and a game Steam has installed stays Steam's.
    - Its launch is `fumarole launch <appid>`; `wine::prepare` adds `--wine <runner's wine>` from
      Settings › Wine, as it adds GOG's and Epic's runner. fumarole keeps its own prefix per app and
-     syncs the cloud before and after, waiting for Wine, so the handoff follows its process tree.
-   - The `fumarole` program is found as the D-Bus proxy is (`Config`): beside openSU's own
-     programs, else on PATH; without it the records are not read.
-   - Proof: Snakebird (357300), installed by fumarole, started from openSU's shelf reaches its title
-     menu with no Steam client running, and a remote guest's pad moves its menu.
+     syncs the cloud before and after, waiting for Wine. It runs as openSU's own process, not
+     through Steam's handoff (`Handoff::start`), watched by the `fumarole launch <appid>` command
+     line (`processHint`).
+   - The `fumarole` program is found on PATH; without it the records are not read. fumarole's
+     `tools.fumarole_tools.install` puts it in `~/.local/bin`.
+   - Shown 2026-11-19: Zuma Deluxe (3330), installed only by fumarole, started from openSU's search
+     ran in openSU's game scope through GE-Proton, showed a window and closed from the Guide.
+     Snakebird and Upload Labs are installed by Steam here too, so they stay Steam's.
+   - Left: a remote guest's pad moving a fumarole game's menu; closing from the Guide stops the
+     scope, fumarole with it, so that session's saves go up at the next launch's sync instead.
 2. **GOG and Epic downloads without Python.** A C++ downloader per store in openSU: GOG's
    content-system v2 manifests and Epic's chunked manifests, signed in with the tokens openSU
    already holds (`gog-token.json`, Legendary's). It replaces `gogdl` and `legendary` on every
