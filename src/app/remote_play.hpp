@@ -281,6 +281,10 @@ class RemotePlay {
     /// The picture the present at `nowUs` shows, on a display refreshing every `refreshNs`: the
     /// newest from the host not taken yet, or with frame generation the one its pacer picks;
     /// nothing keeps the one shown. Main loop only.
+    /// Waits up to `timeout` for the host's next frame, so the loop draws each as it lands rather
+    /// than on a clock of its own; at once without a stream or with frame generation, which paces
+    /// itself. Main loop only.
+    void awaitPicture(std::chrono::nanoseconds timeout);
     [[nodiscard]] std::optional<stream::GuestVideo::Frame> takePicture(std::uint64_t nowUs,
                                                                        std::uint64_t refreshNs);
     /// Whether frames are generated here, so the loop presents at the display's rate. Main loop

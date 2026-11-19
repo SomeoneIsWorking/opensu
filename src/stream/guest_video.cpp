@@ -287,6 +287,13 @@ std::optional<GuestVideo::Frame> GuestVideo::waitFrame(const std::stop_token& st
     return handOver();
 }
 
+bool GuestVideo::awaitFrame(std::chrono::nanoseconds timeout) {
+    std::unique_lock lock{mutex_};
+    return decodedOne_.wait_for(lock, timeout, [this] {
+        return !fresh_.empty();
+    });
+}
+
 void GuestVideo::readBack() {
     memory_ = PictureMemory::Cpu;
     lucent::warn("video", "pictures are read back from the decoder from now on");
