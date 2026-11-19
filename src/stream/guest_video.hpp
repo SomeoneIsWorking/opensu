@@ -25,7 +25,6 @@
 #include <thread>
 #include <vector>
 
-#include "frame_hold.hpp"
 #include "guest_fit.hpp"
 #include "stream_wire.hpp"
 #include "video_codec.hpp"
@@ -59,7 +58,8 @@ class GuestVideo {
         std::uint64_t capturedUs{0};
         std::uint64_t decodedUs{0};
     };
-    /// The oldest decoded frame not yet taken (`FrameHold`). Any thread.
+    /// The newest decoded frame not yet taken; one decoded before it was taken is let go. Any
+    /// thread.
     [[nodiscard]] std::optional<Frame> takeFrame();
     /// As `takeFrame`, waiting for a frame to be decoded; nothing once `stop` is asked. Any
     /// thread.
@@ -161,7 +161,7 @@ class GuestVideo {
     mutable std::mutex mutex_;
     /// Notified when `fresh_` gets a frame.
     std::condition_variable_any decodedOne_;
-    FrameHold<Frame> fresh_;
+    std::optional<Frame> fresh_;
     /// Hands the fresh frame over and notes when. Under `mutex_`.
     std::optional<Frame> handOver();
     std::optional<Frame> last_;

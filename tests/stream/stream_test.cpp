@@ -24,7 +24,6 @@
 
 #include "lan/pairing_keys.hpp"
 #include "stream/audio_codec.hpp"
-#include "stream/frame_hold.hpp"
 #include "stream/frame_parity.hpp"
 #include "stream/guest_audio.hpp"
 #include "stream/guest_fit.hpp"
@@ -764,28 +763,6 @@ void aGuestThatLosesFramesAsksForFewer() {
            "the slower of two rates, 0 being all");
 }
 
-void aBunchedPairIsBothShown() {
-    stream::FrameHold<int> hold;
-    expect(!hold.take(), "nothing held");
-    hold.put(1);
-    hold.put(2);
-    expect(hold.take() == 1 && hold.take() == 2 && !hold.take(),
-           "two landing in one vsync are both shown, in order");
-    hold.put(3);
-    hold.put(4);
-    expect(hold.put(5) == 3 && hold.take() == 4, "a third lets the oldest go, and says which");
-    // A frame always waiting behind the one shown: the hold is let go of after trimAfter passes.
-    stream::FrameHold<int> steady;
-    steady.put(0);
-    for (int pass = 1; pass < stream::FrameHold<int>::trimAfter; ++pass) {
-        steady.put(pass);
-        expect(steady.take().has_value() && !steady.empty(), "each pass leaves one waiting");
-    }
-    steady.put(1000);
-    expect(steady.take().has_value() && steady.empty(),
-           "the pass that reaches trimAfter skips one, so the hold stops adding latency");
-}
-
 void theLinkPicksTheCodec() {
     using stream::VideoCodec;
     const stream::VideoCodecs all = stream::codecBit(VideoCodec::PyroWave) |
@@ -1033,7 +1010,6 @@ int main(int argc, char** argv) try {
     picturesSurviveTheHardwareCodecs();
     aGuestThatMissesPyroWaveFramesGivesItUp();
     aGuestThatLosesFramesAsksForFewer();
-    aBunchedPairIsBothShown();
     theLinkPicksTheCodec();
     theCapQueuesAndDropsWhatTheRateHasNoRoomFor();
     theBucketHoldsBackWhatItsRateHasNoRoomFor();

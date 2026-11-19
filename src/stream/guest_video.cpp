@@ -247,10 +247,11 @@ void GuestVideo::finish(VideoCodec codec, Picture picture, std::uint32_t number)
             codec_ = nameOf(codec);
         }
         last_ = frame;
-        if (const std::optional<Frame> let = fresh_.put(std::move(frame))) {
-            lucent::debug("videotrace", "frame {} let go untaken at {:.0f}", let->number,
-                          times.decodedUs);
+        if (fresh_) {
+            lucent::debug("videotrace", "frame {} decoded {} let go untaken at {:.0f}",
+                          fresh_->number, fresh_->decodedUs, times.decodedUs);
         }
+        fresh_ = std::move(frame);
         waiting_.push_back(times);
         if (waiting_.size() > waitingKept) {
             waiting_.pop_front();
@@ -265,7 +266,7 @@ std::optional<GuestVideo::Frame> GuestVideo::takeFrame() {
 }
 
 std::optional<GuestVideo::Frame> GuestVideo::handOver() {
-    std::optional<Frame> frame = fresh_.take();
+    std::optional<Frame> frame = std::exchange(fresh_, std::nullopt);
     if (frame) {
         const auto found = std::ranges::find(waiting_, frame->number, &Times::number);
         if (found != waiting_.end()) {
@@ -286,7 +287,7 @@ void GuestVideo::passed(std::uint64_t beganUs, std::uint64_t acquiredUs,
 std::optional<GuestVideo::Frame> GuestVideo::waitFrame(const std::stop_token& stop) {
     std::unique_lock lock{mutex_};
     if (!decodedOne_.wait(lock, stop, [this] {
-            return !fresh_.empty();
+            return fresh_.has_value();
         })) {
         return std::nullopt;
     }
@@ -311,8 +312,10 @@ void GuestVideo::presented(std::uint32_t number, std::uint64_t submittedUs, bool
     }
     const Times times = *found;
     waiting_.erase(waiting_.begin(), found + 1);
-    lucent::debug("videotrace", "frame {} decoded {:.0f} taken {:.0f} submitted {}", number,
-                  times.decodedUs, times.takenUs, submittedUs);
+    lucent::debug("videotrace",
+                  "frame {} sent {:.0f} received {:.0f} decoded {:.0f} taken {:.0f} submitted {}",
+                  number, times.sentUs, times.receivedUs, times.decodedUs, times.takenUs,
+                  submittedUs);
     const auto shown = static_cast<double>(submittedUs);
     shown_.push_back(Stages{.encode = (times.encodedUs - times.capturedUs) / microsPerMilli,
                             .send = (times.sentUs - times.encodedUs) / microsPerMilli,
