@@ -333,7 +333,10 @@ void theSwitchAppliesAChange(const fs::path& root) {
                                .romsChanged = {},
                                .play = {},
                                .playStatus = {},
+                               .close = {},
                                .invited = {},
+                               .joinAsked = {},
+                               .joinAnswered = {},
                                .frameGenModules = {}}};
     int emulatorChanges = 0;
     app::IntegrationSwitch integrationSwitch{

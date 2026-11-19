@@ -65,11 +65,11 @@ void testMarks() {
     const auto there = runnerMark(desk);
     expect(there && there->icon == Icon::Steam && there->remote,
            "another openSU's game carries its store's mark there, ringed");
-    desk.remote = {.platform = "PlayStation", .source = "rom", .option = "DuckStation"};
+    desk.remote = {.platform = "PlayStation", .source = "rom", .option = "DuckStation", .home = {}};
     const auto rom = runnerMark(desk);
     expect(rom && rom->letters == "DS" && rom->remote,
            "its ROM, the initials of its emulator there");
-    desk.remote = {.platform = "Windows \xC2\xB7 Wine", .source = "own", .option = {}};
+    desk.remote = {.platform = "Windows \xC2\xB7 Wine", .source = "own", .option = {}, .home = {}};
     const auto wine = runnerMark(desk);
     expect(wine && wine->icon == Icon::Wine, "its own game, by what it runs as there");
 }

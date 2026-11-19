@@ -1191,6 +1191,8 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
                                                         .playStatus = {},
                                                         .close = {},
                                                         .invited = {},
+                                                        .joinAsked = {},
+                                                        .joinAnswered = {},
                                                         .libraryNews = {},
                                                         .frameGenModules = {}},
                               0};
