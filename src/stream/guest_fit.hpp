@@ -16,6 +16,8 @@
 #include <cstdint>
 #include <optional>
 
+#include "playout_delay.hpp"
+
 namespace opensu::stream {
 
 /// How long a stretch of frames is judged over, and the frames it needs to be judged.
@@ -26,8 +28,9 @@ inline constexpr double pyroWaveFitLimit = 0.05;
 /// How long after their send PyroWave's frames may be decoded: past it the wire time of its large
 /// frames and its decode cost more than a hardware codec's frame takes.
 inline constexpr std::uint64_t pyroWaveArrivalLimitUs = 25'000;
-/// How soon into a stretch PyroWave's arrival is judged, sooner than its losses.
-inline constexpr std::uint64_t pyroWaveArrivalJudgedUs = 2'000'000;
+/// How soon into a stretch PyroWave's arrival is judged: once its decoder's first frames, slow
+/// while it starts, have left the playout window.
+inline constexpr std::uint64_t pyroWaveArrivalJudgedUs = playoutWindowUs + 500'000;
 /// The share of frames lost or late that asks for fewer, and under which a window is calm.
 inline constexpr double behindLimit = 0.10;
 inline constexpr double behindCalm = 0.02;
