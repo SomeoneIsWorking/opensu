@@ -156,6 +156,9 @@ class Decoder final : public VideoDecoder {
         return false;
     }
 
+    [[nodiscard]] std::string_view backend() const noexcept override {
+        return "MediaCodec";
+    }
     [[nodiscard]] bool awaitingKey() const noexcept override {
         return frames_.awaitingKey();
     }

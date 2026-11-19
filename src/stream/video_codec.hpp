@@ -127,6 +127,8 @@ class VideoDecoder {
     [[nodiscard]] virtual bool intraOnly() const noexcept = 0;
     /// Whether a loss left it waiting for a key frame, decoding nothing until one comes.
     [[nodiscard]] virtual bool awaitingKey() const noexcept = 0;
+    /// What decodes: the library or the platform's API, for the log.
+    [[nodiscard]] virtual std::string_view backend() const noexcept = 0;
 };
 /// Why this build decodes no video at all; empty when it has a decoder.
 [[nodiscard]] std::string decoderMissing();

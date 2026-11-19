@@ -1,4 +1,5 @@
 #include <stdexcept>
+#include <string_view>
 #include <utility>
 
 #include <vulkan/vulkan.h>
@@ -205,6 +206,9 @@ class Decoder final : public VideoDecoder {
         return true;
     }
 
+    [[nodiscard]] std::string_view backend() const noexcept override {
+        return "PyroWave on Vulkan";
+    }
     [[nodiscard]] bool awaitingKey() const noexcept override {
         return false;
     }

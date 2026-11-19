@@ -11,6 +11,7 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -348,6 +349,9 @@ class Decoder final : public VideoDecoder {
         return false;
     }
 
+    [[nodiscard]] std::string_view backend() const noexcept override {
+        return "VA-API";
+    }
     [[nodiscard]] bool awaitingKey() const noexcept override {
         return frames_.awaitingKey();
     }

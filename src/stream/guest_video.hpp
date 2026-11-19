@@ -11,6 +11,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
@@ -28,6 +29,9 @@
 #include "video_codec.hpp"
 
 namespace opensu::stream {
+
+/// How long a stream goes without a picture before the guest warns that it shows none.
+inline constexpr std::chrono::seconds silenceWarned{5};
 
 class GuestVideo {
   public:
@@ -96,6 +100,8 @@ class GuestVideo {
         std::int64_t hostAheadUs{0};
     };
     void decodeLoop(const std::stop_token& stop);
+    /// Warns once a stretch with no picture lasts `silenceWarned`. Decoding thread.
+    void noteSilence();
     /// One packet into the decoder, and a frame out if one is ready. Decoding thread.
     void decode(const Queued& queued);
     /// `picture`, of the frame numbered in it or else `number`, as the newest decoded.
@@ -116,6 +122,11 @@ class GuestVideo {
     /// The decoder last given a packet waits for a key frame.
     std::atomic<bool> keyWanted_{false};
     std::atomic<PictureMemory> memory_;
+    /// When the last picture came out, or the stream began; packets since; on the decoding thread.
+    std::chrono::steady_clock::time_point lastPictureAt_;
+    std::size_t packetsSincePicture_{0};
+    /// The current stretch without a picture was warned about.
+    bool silent_{false};
 
     std::mutex queueMutex_;
     std::condition_variable_any queued_;

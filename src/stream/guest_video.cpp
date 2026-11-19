@@ -20,11 +20,14 @@ constexpr std::size_t waitingKept = 8;
 constexpr double microsPerMilli = 1000.0;
 /// How often a decoder holding frames is asked for its pictures between packets.
 constexpr auto collectEvery = std::chrono::milliseconds{2};
+/// How often the decoding thread wakes without packets, to notice a stream with no pictures.
+constexpr auto silenceCheckedEvery = std::chrono::seconds{1};
 
 } // namespace
 
 GuestVideo::GuestVideo(PictureMemory memory)
-    : memory_{memory}, decoding_{[this](const std::stop_token& stop) {
+    : memory_{memory}, lastPictureAt_{std::chrono::steady_clock::now()},
+      decoding_{[this](const std::stop_token& stop) {
           decodeLoop(stop);
       }} {
 }
@@ -48,13 +51,14 @@ void GuestVideo::decodeLoop(const std::stop_token& stop) {
             const auto packets = [this] {
                 return !queue_.empty();
             };
-            if (behind()) {
-                queued_.wait_for(lock, stop, collectEvery, packets);
-            } else if (!queued_.wait(lock, stop, packets)) {
+            queued_.wait_for(lock, stop, behind() ? collectEvery : silenceCheckedEvery, packets);
+            if (stop.stop_requested()) {
                 return;
             }
             batch.swap(queue_);
         }
+        packetsSincePicture_ += batch.size();
+        noteSilence();
         // A PyroWave frame two newer ones have begun after would only be shown late; a frame
         // others build on is decoded anyway.
         std::uint32_t newest = 0;
@@ -117,6 +121,7 @@ void GuestVideo::decode(const Queued& queued) {
     try {
         if (!decoder) {
             decoder = openDecoder(codec);
+            lucent::info("video", "decoding {} with {}", nameOf(codec), decoder->backend());
         }
         whole = decoder->push(packet);
     } catch (const std::runtime_error& failure) {
@@ -145,6 +150,17 @@ void GuestVideo::decode(const Queued& queued) {
         lucent::warn("video", "frame {} did not decode: {}", packet.frame, failure.what());
         keyWanted_ = decoder->awaitingKey();
     }
+}
+
+void GuestVideo::noteSilence() {
+    const auto quiet = std::chrono::steady_clock::now() - lastPictureAt_;
+    if (silent_ || quiet < silenceWarned) {
+        return;
+    }
+    silent_ = true;
+    lucent::warn("video", "no picture for {} s: {} packets came in that time",
+                 std::chrono::duration_cast<std::chrono::seconds>(quiet).count(),
+                 packetsSincePicture_);
 }
 
 bool GuestVideo::behind() const {
@@ -179,12 +195,22 @@ void GuestVideo::finish(VideoCodec codec, Picture picture, std::uint32_t number)
     Times times = *found;
     inFlight_.erase(inFlight_.begin(), found + 1);
     times.decodedUs = static_cast<double>(wire::nowMicros());
+    if (silent_) {
+        lucent::info("video", "pictures again after {} packets without one", packetsSincePicture_);
+    }
+    silent_ = false;
+    lastPictureAt_ = std::chrono::steady_clock::now();
+    packetsSincePicture_ = 0;
     Frame frame{.number = shows,
                 .picture = std::move(picture),
                 .capturedUs = static_cast<std::uint64_t>(std::max(times.capturedUs, 0.0)),
                 .decodedUs = static_cast<std::uint64_t>(times.decodedUs)};
     {
         const std::lock_guard lock{mutex_};
+        if (decoded_ == 0) {
+            lucent::info("video", "first picture: {} {}x{}, frame {}", nameOf(codec),
+                         frame.picture.width, frame.picture.height, shows);
+        }
         ++decoded_;
         if (nameOf(codec) != codec_) {
             switches_ += codec_ != "none" ? 1 : 0;
