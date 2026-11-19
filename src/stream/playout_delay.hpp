@@ -23,6 +23,10 @@ class PlayoutDelay {
     void decoded(std::uint64_t sentUs, std::uint64_t decodedUs);
     /// The delay for this refresh at `nowUs`, which moves it toward what the window wants.
     [[nodiscard]] std::uint64_t refresh(std::uint64_t nowUs);
+    /// The delay the last refresh gave.
+    [[nodiscard]] std::uint64_t delayUs() const noexcept {
+        return delayUs_;
+    }
 
   private:
     struct Sample {

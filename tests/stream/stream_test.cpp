@@ -728,6 +728,19 @@ void aGuestThatMissesPyroWaveFramesGivesItUp() {
     expect(fit.take({.decoded = 552, .dropped = 27, .late = 24}, true, 15 * second + 1),
            "16% missed over five seconds gives PyroWave up");
     expect(fit.pyroWaveGivenUp() && fit.missed() > 0.15, "the share that gave it up is kept");
+
+    stream::GuestFit slow;
+    expect(!slow.take({}, true, 0), "a new stretch");
+    expect(!slow.take({.decoded = 300, .arrivalUs = 20'000}, true, 5 * second),
+           "PyroWave decoded 20 ms after its send keeps it");
+    expect(slow.take({.decoded = 600, .arrivalUs = 50'000}, true, 10 * second) &&
+               slow.pyroWaveGivenUp() && slow.arrivalUs() == 50'000,
+           "PyroWave decoded 50 ms after its send gives it up, none lost");
+    stream::GuestFit hardware;
+    expect(!hardware.take({}, false, 0), "a new stretch");
+    expect(!hardware.take({.decoded = 300, .arrivalUs = 90'000}, false, 5 * second) &&
+               !hardware.pyroWaveGivenUp(),
+           "a hardware codec's late frames give nothing up");
     expect(fit.framesPerSecond() == 0, "giving PyroWave up keeps the frame rate");
 }
 

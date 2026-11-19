@@ -388,7 +388,10 @@ that profile's; the host's own active profile does not change.
   in common PyroWave codes whatever the link carries, and says so. The guest judges PyroWave too
   (`stream::GuestFit`): a frame that misses one datagram is dropped whole, and one decoded late
   is skipped, neither of which the host's datagram loss shows, so once five seconds of PyroWave
-  frames lose or skip more than 5 % the guest leaves it out of its reports for the session
+  frames lose or skip more than 5 %, or end with its frames decoded more than 25 ms after their send
+  (the playout delay: its large frames' wire time on a link just over its floor, plus a slow
+  decoder; a Mac over Wi-Fi decoded it 50 ms after its send against HEVC's 8), the guest leaves it
+  out of its reports for the session
   (`GuestStream::withdraw`) and the host plans again without it. The same judgement
   (`stream::GuestFit`) watches any codec's frames lost or skipped late: past 10 % of a window
   it asks for the highest of 60, 45 and 30

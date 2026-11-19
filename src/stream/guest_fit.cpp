@@ -33,7 +33,9 @@ bool GuestFit::take(Counts totals, bool pyroWave, std::uint64_t nowUs) {
         return false;
     }
     missed_ = shareOf(lost, decoded + lost);
-    if (pyroWave && !pyroWaveGivenUp_ && missed_ > pyroWaveFitLimit) {
+    arrivalUs_ = totals.arrivalUs;
+    if (pyroWave && !pyroWaveGivenUp_ &&
+        (missed_ > pyroWaveFitLimit || arrivalUs_ > pyroWaveArrivalLimitUs)) {
         pyroWaveGivenUp_ = true;
         return true;
     }
