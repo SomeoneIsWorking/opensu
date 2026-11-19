@@ -820,6 +820,7 @@ void RemotePlay::serviceHost(const library::Game* running, const std::string& pr
         lucent::info("remote", "{} left {}: {}", (*it)->peer.name, hosted.title, *over);
         if (!(*it)->kicked && on) {
             left.emplace_back((*it)->peer.name, *over);
+            hosted.leftEmpty.left((*it)->own);
         }
         it = free(hosted, it);
     }
@@ -832,7 +833,9 @@ void RemotePlay::serviceHost(const library::Game* running, const std::string& pr
     if (!hosted.guests.empty()) {
         return;
     }
-    if (hosted.forGuest && hosted.launched && busy_) {
+    if (on && hosted.launched && hosted.leftEmpty.closes(hosted.forGuest, hosted.guests.size()) &&
+        (hosted.forGuest ? busy_.load() : runningId_ == hosted.gameId)) {
+        lucent::info("remote", "no one plays {} any more: closing it", hosted.title);
         hooks_.close();
     }
     for (Ask& ask : asks_) {

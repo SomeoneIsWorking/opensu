@@ -64,6 +64,11 @@ target_link_libraries(control_bridge_test PRIVATE opensu::app)
 opensu_warnings(control_bridge_test)
 add_test(NAME control_bridge COMMAND control_bridge_test)
 
+add_executable(game_left_empty_test game_left_empty_test.cpp)
+target_link_libraries(game_left_empty_test PRIVATE opensu::app)
+opensu_warnings(game_left_empty_test)
+add_test(NAME game_left_empty COMMAND game_left_empty_test)
+
 # The Linux services behind HostServices.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_executable(host_services_test host_services_test.cpp)

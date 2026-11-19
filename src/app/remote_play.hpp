@@ -9,7 +9,9 @@
 // `answerJoin`), on the device it plays from when that is another (`passAsks`, `answeredThere`),
 // and the guest is let in when it next asks how its ask stands (`playStatus`). A
 // guest leaving frees its pad and the game goes on; the game ending ends every guest's stream, and
-// a game started for a guest closes when its last guest leaves. As guest: Play on another openSU's
+// a game no one plays any more closes (`GameLeftEmpty`): one started for a guest when its last
+// guest leaves, the player's own once the device that took over its seat left cleanly and no
+// guest is still in it. As guest: Play on another openSU's
 // game asks that host (`start`), waiting while its player is asked when the game runs there, and
 // once it agrees a `GuestStream` carries the session, its pictures decoded by `GuestVideo` for the
 // loop to show and its sound by `GuestAudio` for the shell's device; with frame generation set for
@@ -39,6 +41,7 @@
 #include <vector>
 
 #include "audio/live_sound.hpp"
+#include "game_left_empty.hpp"
 #include "gamepad/virtual_pad.hpp"
 #include "lan/lan_listener.hpp"
 #include "lan/lan_node.hpp"
@@ -355,6 +358,8 @@ class RemotePlay {
         bool forGuest{false};
         /// Whether the game was started.
         bool launched{false};
+        /// Whether it closes once no one plays it.
+        GameLeftEmpty leftEmpty;
         /// The step its start is at, and when the guests last heard it.
         std::string stage;
         std::chrono::steady_clock::time_point stageSent;
