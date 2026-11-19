@@ -21,6 +21,14 @@ bool GuestFit::take(Counts totals, bool pyroWave, std::uint64_t nowUs) {
         start_ = Mark{.atUs = nowUs, .counts = totals, .pyroWave = pyroWave};
         return false;
     }
+    if (pyroWave && !pyroWaveGivenUp_ && nowUs - start_->atUs >= pyroWaveArrivalJudgedUs &&
+        totals.decoded - start_->counts.decoded >= guestFitLeast &&
+        totals.arrivalUs > pyroWaveArrivalLimitUs) {
+        arrivalUs_ = totals.arrivalUs;
+        missed_ = 0;
+        pyroWaveGivenUp_ = true;
+        return true;
+    }
     if (nowUs - start_->atUs < guestFitWindowUs) {
         return false;
     }

@@ -733,9 +733,11 @@ void aGuestThatMissesPyroWaveFramesGivesItUp() {
     expect(!slow.take({}, true, 0), "a new stretch");
     expect(!slow.take({.decoded = 300, .arrivalUs = 20'000}, true, 5 * second),
            "PyroWave decoded 20 ms after its send keeps it");
-    expect(slow.take({.decoded = 600, .arrivalUs = 50'000}, true, 10 * second) &&
+    expect(!slow.take({.decoded = 340, .arrivalUs = 50'000}, true, 6 * second),
+           "its arrival is not judged on under two seconds");
+    expect(slow.take({.decoded = 420, .arrivalUs = 50'000}, true, 7 * second) &&
                slow.pyroWaveGivenUp() && slow.arrivalUs() == 50'000,
-           "PyroWave decoded 50 ms after its send gives it up, none lost");
+           "PyroWave decoded 50 ms after its send gives it up two seconds in, none lost");
     stream::GuestFit hardware;
     expect(!hardware.take({}, false, 0), "a new stretch");
     expect(!hardware.take({.decoded = 300, .arrivalUs = 90'000}, false, 5 * second) &&
