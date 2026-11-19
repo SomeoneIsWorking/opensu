@@ -15,6 +15,9 @@
 #include <numbers>
 
 #include <libretro.h>
+#if defined(FAKE_CORE_CRASH) && defined(__APPLE__)
+#include <mach/mach.h>
+#endif
 #ifdef FAKE_CORE_VULKAN
 #include <libretro_vulkan.h>
 #endif
@@ -227,6 +230,12 @@ RETRO_API void retro_unload_game() {
 
 RETRO_API void retro_run() {
 #ifdef FAKE_CORE_CRASH
+#ifdef __APPLE__
+    // The crash is the test's: no exception port, so ReportCrash shows no dialog and files nothing.
+    task_set_exception_ports(mach_task_self(),
+                             EXC_MASK_CRASH | EXC_MASK_CORPSE_NOTIFY | EXC_MASK_BAD_ACCESS,
+                             MACH_PORT_NULL, EXCEPTION_DEFAULT, THREAD_STATE_NONE);
+#endif
     std::raise(SIGSEGV);
 #endif
     core.poll();
