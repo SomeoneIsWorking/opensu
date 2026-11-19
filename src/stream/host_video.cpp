@@ -87,7 +87,7 @@ void HostVideo::take(const CapturedFrame& frame) {
 
 void HostVideo::fit() {
     if (native_.width > 0) {
-        capture_.fitExactly(native_);
+        capture_.fit(native_);
         return;
     }
     PictureSize largest;
@@ -104,6 +104,7 @@ void HostVideo::fit() {
             largest.height = std::max(largest.height, wanted.height);
         }
     });
+    // The guests' shape, so a game that does not fill the host's screen fills theirs.
     if (largest.width > 0 && largest.height > 0) {
         capture_.fit(largest);
     }

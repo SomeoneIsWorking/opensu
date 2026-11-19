@@ -54,11 +54,10 @@ class ScreenCapture {
     ScreenCapture(ScreenCapture&&) = delete;
     ScreenCapture& operator=(ScreenCapture&&) = delete;
 
-    /// Asks Gamescope for frames that fit `size`, its aspect kept; it never scales up. Reconnects
-    /// when the size is new; throws `std::runtime_error` when that fails.
+    /// Asks Gamescope for frames of `size`'s shape, whatever the screen's, the focused window
+    /// fitted into them; no larger either way than the screen. Reconnects when the size is new;
+    /// throws `std::runtime_error` when that fails.
     void fit(PictureSize size);
-    /// As `fit`, for frames of exactly `size`, whatever the screen's shape.
-    void fitExactly(PictureSize size);
 
   private:
     class Stream;

@@ -335,17 +335,18 @@ that profile's; the host's own active profile does not change.
 - A game the player started here is streamed from the first guest on: the same capture, and the
   sound from the default output's monitor, so the guests hear what this computer plays.
 - Picture size: each report carries the pixels the guest shows the picture in. `HostVideo::fit`
-  asks Gamescope, through its `requested_size` format key, for the largest of those among its
-  planned guests, a hardware codec's held to 1920 on the longest side; Gamescope scales on the GPU
-  and the capture reconnects when the size changes.
+  asks Gamescope, through the fork's `exact_size` format key, for the largest of those among its
+  planned guests, a hardware codec's held to 1920 on the longest side: frames of the guests'
+  shape with the focused window fitted into them, so a 5:3 game on a 16:9 host fills a 5:3 guest
+  window; the fork scales a size larger than its output down to fit it, the shape kept. Gamescope
+  scales on the GPU and the capture reconnects when the size changes.
 - A game started for a guest: `HostVideo` sends nothing until it shows a window, so the first
   picture is the game's; until then the host sends each launch step as a `Stage` datagram, every
   500 ms, and the guest's launch card shows it. Touch controls wait for the first picture.
 - A low-res game: the runner reports the size of the frames the core draws, an internal
   resolution multiplier included, in `/status`; for a game started for a guest
   whose longest side is at most 640, the host posts `/native`, the runner's window takes the
-  picture's size, and `ScreenCapture::fitExactly` asks Gamescope for exactly that size through the
-  fork's `exact_size` key, so the stream holds the game's own pixels and no bars. The host repeats
+  picture's size, and `ScreenCapture::fit` asks Gamescope for exactly that size, so the stream holds the game's own pixels and no bars. The host repeats
   the shape shown as a `Shape` datagram every second. A picture the core turns keeps the screen's
   size.
 - A guest that asks again while its seat is held gets the seat back at once, unasked (`offer`).
