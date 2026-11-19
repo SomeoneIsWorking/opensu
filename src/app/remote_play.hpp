@@ -291,9 +291,10 @@ class RemotePlay {
     /// The loop submitted the frame showing the host's frame `number` at `submittedUs`; `drawn`
     /// says whether the window had a surface for it. Main loop only.
     void presented(std::uint32_t number, std::uint64_t submittedUs, bool drawn);
-    /// The loop presented into the window while streaming, whether or not a frame was new. Main
-    /// loop only.
-    void passed();
+    /// The loop presented into the window while streaming, whether or not a frame was new: it
+    /// began asking for the image at `beganUs`, had it at `acquiredUs` and submitted at
+    /// `submittedUs`. Main loop only.
+    void passed(std::uint64_t beganUs, std::uint64_t acquiredUs, std::uint64_t submittedUs);
     /// The newest remote picture and its number: on a guest the one decoded last, on a host the
     /// one sent last. Main loop only.
     [[nodiscard]] std::optional<stream::GuestVideo::Frame> picture() const;

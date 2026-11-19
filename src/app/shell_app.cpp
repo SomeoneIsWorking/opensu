@@ -1894,7 +1894,9 @@ int ShellApp::run() {
             });
         recordFrame();
         if (presented.drawn && remotePlay_.streaming()) {
-            remotePlay_.passed();
+            remotePlay_.passed(stream::wire::microsOf(presented.began),
+                               stream::wire::microsOf(presented.acquired),
+                               stream::wire::microsOf(presented.submitted));
         }
         if (const std::optional<std::uint32_t> shown = remotePicture_->takeFresh()) {
             remotePlay_.presented(*shown, stream::wire::microsOf(presented.submitted),

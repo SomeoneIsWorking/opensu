@@ -1100,9 +1100,10 @@ std::optional<stream::GuestVideo::Frame> RemotePlay::takePicture(std::uint64_t n
     return frame;
 }
 
-void RemotePlay::passed() {
+void RemotePlay::passed(std::uint64_t beganUs, std::uint64_t acquiredUs,
+                        std::uint64_t submittedUs) {
     if (video_) {
-        video_->passed();
+        video_->passed(beganUs, acquiredUs, submittedUs);
     }
 }
 

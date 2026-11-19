@@ -15,12 +15,15 @@ template <typename Frame> class FrameHold {
     static constexpr std::size_t kept = 2;
     static constexpr int trimAfter = 30;
 
-    /// A frame was decoded; the oldest is let go when more than `kept` wait.
-    void put(Frame frame) {
+    /// A frame was decoded; the oldest is let go, and returned, when more than `kept` wait.
+    std::optional<Frame> put(Frame frame) {
         frames_.push_back(std::move(frame));
-        if (frames_.size() > kept) {
-            frames_.pop_front();
+        if (frames_.size() <= kept) {
+            return std::nullopt;
         }
+        Frame let = std::move(frames_.front());
+        frames_.pop_front();
+        return let;
     }
     /// The oldest frame not yet taken.
     [[nodiscard]] std::optional<Frame> take() {

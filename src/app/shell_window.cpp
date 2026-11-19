@@ -485,13 +485,17 @@ void ShellWindow::submit(SDL_GPUCommandBuffer* commands) {
 }
 
 ShellWindow::Presented ShellWindow::present(const Draw& draw) {
+    const auto began = std::chrono::steady_clock::now();
     SDL_GPUCommandBuffer* commands = acquireCommands(device());
     const std::optional<gpu2d::Surface> surface = window_.acquire(commands);
+    const auto acquired = std::chrono::steady_clock::now();
     if (surface) {
         draw(canvas_, *surface);
     }
     submit(commands);
-    const Presented presented{.submitted = std::chrono::steady_clock::now(),
+    const Presented presented{.began = began,
+                              .acquired = acquired,
+                              .submitted = std::chrono::steady_clock::now(),
                               .drawn = surface.has_value()};
     pace();
     return presented;

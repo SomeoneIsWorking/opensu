@@ -773,8 +773,7 @@ void aBunchedPairIsBothShown() {
            "two landing in one vsync are both shown, in order");
     hold.put(3);
     hold.put(4);
-    hold.put(5);
-    expect(hold.take() == 4, "a third lets the oldest go");
+    expect(hold.put(5) == 3 && hold.take() == 4, "a third lets the oldest go, and says which");
     // A frame always waiting behind the one shown: the hold is let go of after trimAfter passes.
     stream::FrameHold<int> steady;
     steady.put(0);

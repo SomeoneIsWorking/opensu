@@ -247,7 +247,10 @@ void GuestVideo::finish(VideoCodec codec, Picture picture, std::uint32_t number)
             codec_ = nameOf(codec);
         }
         last_ = frame;
-        fresh_.put(std::move(frame));
+        if (const std::optional<Frame> let = fresh_.put(std::move(frame))) {
+            lucent::debug("videotrace", "frame {} let go untaken at {:.0f}", let->number,
+                          times.decodedUs);
+        }
         waiting_.push_back(times);
         if (waiting_.size() > waitingKept) {
             waiting_.pop_front();
@@ -272,9 +275,12 @@ std::optional<GuestVideo::Frame> GuestVideo::handOver() {
     return frame;
 }
 
-void GuestVideo::passed() {
+void GuestVideo::passed(std::uint64_t beganUs, std::uint64_t acquiredUs,
+                        std::uint64_t submittedUs) {
     const std::lock_guard lock{mutex_};
     ++passes_;
+    lucent::debug("videotrace", "pass began {} acquired {} submitted {}", beganUs, acquiredUs,
+                  submittedUs);
 }
 
 std::optional<GuestVideo::Frame> GuestVideo::waitFrame(const std::stop_token& stop) {
@@ -305,6 +311,8 @@ void GuestVideo::presented(std::uint32_t number, std::uint64_t submittedUs, bool
     }
     const Times times = *found;
     waiting_.erase(waiting_.begin(), found + 1);
+    lucent::debug("videotrace", "frame {} decoded {:.0f} taken {:.0f} submitted {}", number,
+                  times.decodedUs, times.takenUs, submittedUs);
     const auto shown = static_cast<double>(submittedUs);
     shown_.push_back(Stages{.encode = (times.encodedUs - times.capturedUs) / microsPerMilli,
                             .send = (times.sentUs - times.encodedUs) / microsPerMilli,

@@ -67,8 +67,9 @@ class GuestVideo {
     /// The frame showing frame `number` was submitted at `submittedUs`, into the window when
     /// `drawn` (a hidden window has no surface). Any thread.
     void presented(std::uint32_t number, std::uint64_t submittedUs, bool drawn);
-    /// The loop presented into the window, a new frame in it or not. Any thread.
-    void passed();
+    /// The loop presented into the window, a new frame in it or not, with when it began asking
+    /// for the image, had it and submitted; traced on the `videotrace` channel. Any thread.
+    void passed(std::uint64_t beganUs, std::uint64_t acquiredUs, std::uint64_t submittedUs);
     /// The newest frame decoded, taken or not, and its number; nothing before the first.
     [[nodiscard]] std::optional<Frame> lastDecoded() const;
     /// Decodes into CPU memory from the next frame on: the screen could not sample a DMA-BUF

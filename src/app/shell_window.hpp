@@ -176,6 +176,9 @@ class ShellWindow {
     /// A frame `present` submitted: when, and whether the window had a surface to draw it into
     /// (a hidden window has none).
     struct Presented {
+        /// When the pass began asking for the window's image, got it, and submitted.
+        std::chrono::steady_clock::time_point began;
+        std::chrono::steady_clock::time_point acquired;
         std::chrono::steady_clock::time_point submitted;
         bool drawn{false};
     };
