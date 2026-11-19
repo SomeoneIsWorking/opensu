@@ -160,7 +160,8 @@ void fumaroleInstallsAreSteamGames(const Fixture& fixture, const Library& librar
     const Game* snakebird = find(games, "steam:357300");
     expect(snakebird != nullptr && snakebird->installed && snakebird->windowsInstall &&
                snakebird->fromFumarole && snakebird->launch.program == program.string() &&
-               snakebird->launch.args == std::vector<std::string>{"launch", "357300"},
+               snakebird->launch.args == std::vector<std::string>{"launch", "357300"} &&
+               snakebird->processHint == std::string{"launch"} + '\0' + "357300" + '\0',
            "a Windows install fumarole made is a Steam game it launches");
     const Game* portal = find(games, "steam:440");
     expect(portal != nullptr && portal->launch.program == "steam" && !portal->fromFumarole,

@@ -537,7 +537,7 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
             known->windowsInstall = true;
             known->fromFumarole = true;
             known->launch = std::move(installed.launch);
-            known->processHint.clear();
+            known->processHint = std::move(installed.processHint);
         }
     }
     return games;

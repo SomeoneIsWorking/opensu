@@ -284,7 +284,8 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
         return false;
     }
 
-    const bool viaSteam = game.source == library::Source::Steam;
+    // fumarole runs its installs itself; Steam never sees them.
+    const bool viaSteam = game.source == library::Source::Steam && !game.fromFumarole;
     forced_.store(false);
     int baseline = 0;
     const Begun begun = viaSteam ? beginSteam(game, hooks, baseline, failure)

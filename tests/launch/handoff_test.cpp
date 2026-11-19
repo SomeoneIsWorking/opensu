@@ -405,6 +405,24 @@ void testStartBlocksUntilTheGameIsOver() {
     expect(shell.hiddenAt.load() < shell.shownAt.load(), "hide precedes show");
 }
 
+/// A Steam game fumarole installed runs as openSU's own process, Steam ready or not.
+void testFumaroleGameRunsWithoutSteam() {
+    const Fixture fixture;
+    RunningGame child = runningGame(fixture, "fumarole", 2);
+    child.game.source = Source::Steam;
+    child.game.fromFumarole = true;
+    Shell shell;
+    FakeSteam steam{SteamState::Initializing};
+    Handoff handoff{searchPath(), fixture.session(),      steam,
+                    nullptr,      fixture.base / "games", opensu::launch::chooseContainment()};
+    std::future<Outcome> pending = startOnWorker(handoff, child.game, shell);
+    const pid_t pid = awaitRecordedPid(child.pidFile, "fumarole's launch started at once");
+    expect(running(pid), "the game is running while Steam still initializes");
+    const Outcome outcome = awaitStart(pending, "start() returns when the game exits");
+    expect(outcome.ok && outcome.failure.empty(), "a fumarole game that ran reports success");
+    expect(!running(pid), "the game is gone when start() returns");
+}
+
 /// What the caller adds to the environment is in the game's.
 void testEnvironmentReachesTheGame() {
     const Fixture fixture;
@@ -1327,6 +1345,7 @@ void testTerminatedHintMatchesAWholeArgument() {
 int main() {
     testTerminatedHintMatchesAWholeArgument();
     testStartBlocksUntilTheGameIsOver();
+    testFumaroleGameRunsWithoutSteam();
     testStartWaitsAcrossAHandOff();
     testEmptyHintMatchesNothing();
     testMissingProgramReportsFailurePromptly();
