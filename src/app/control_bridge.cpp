@@ -63,9 +63,18 @@ void ControlBridge::setClipboard(std::string text) {
 ControlBridge::Input ControlBridge::takeInput(Clock::time_point now) {
     const std::lock_guard lock{inputMutex_};
     Input taken = std::exchange(input_, {});
-    // Edges leave in the order they were queued, so none overtakes a held button's release.
-    const auto waiting = std::ranges::find_if(edges_, [now](const Edge& edge) {
-        return edge.due > now;
+    // Edges leave in the order they were queued, so none overtakes a held button's release; a
+    // release waits for a frame after its press, so whatever reads the pad's state sees it down.
+    std::vector<gamepad::Button> pressed;
+    const auto waiting = std::ranges::find_if(edges_, [now, &pressed](const Edge& edge) {
+        if (edge.due > now) {
+            return true;
+        }
+        if (edge.event.pressed) {
+            pressed.push_back(edge.event.button);
+            return false;
+        }
+        return std::ranges::find(pressed, edge.event.button) != pressed.end();
     });
     for (auto edge = edges_.begin(); edge != waiting; ++edge) {
         taken.buttons.emplace_back(edge->event, edge->device);

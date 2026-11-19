@@ -2,8 +2,10 @@
 // the published state and the frame handshake.
 #include "control_bridge.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <iterator>
 #include <string>
 #include <thread>
 #include <utility>
@@ -23,9 +25,27 @@ using opensu::input::Device;
 using opensu::test::expect;
 using namespace std::chrono_literals;
 
-/// Long enough after any queued tap that every edge is due.
+/// Every frame's input, long enough after any queued tap that every edge is due.
 ControlBridge::Input takeLater(ControlBridge& bridge) {
-    return bridge.takeInput(ControlBridge::Clock::now() + 1s);
+    ControlBridge::Input all = bridge.takeInput(ControlBridge::Clock::now() + 1s);
+    for (;;) {
+        const ControlBridge::Input frame = bridge.takeInput(ControlBridge::Clock::now() + 1s);
+        if (frame.buttons.empty()) {
+            return all;
+        }
+        std::ranges::copy(frame.buttons, std::back_inserter(all.buttons));
+    }
+}
+
+void aTapIsDownForAFrame() {
+    ControlBridge bridge;
+    bridge.inject({Button::A}, Device::Pad, 0ms, false);
+    const ControlBridge::Input pressed = bridge.takeInput(ControlBridge::Clock::now() + 1s);
+    expect(pressed.buttons.size() == 1 && pressed.buttons[0].first.pressed,
+           "a tap's press leaves alone");
+    const ControlBridge::Input released = bridge.takeInput(ControlBridge::Clock::now() + 1s);
+    expect(released.buttons.size() == 1 && !released.buttons[0].first.pressed,
+           "and its release the frame after, so the pad's state shows it down");
 }
 
 void inputIsTakenOnceInOrder() {
@@ -87,8 +107,9 @@ void aHoldKeepsTheReleaseBack() {
                first.buttons[0].first.pressed,
            "a held button is pressed at once, and nothing queued after it overtakes its release");
     const ControlBridge::Input later = bridge.takeInput(start + 4s);
-    expect(later.buttons.size() == 3 && later.buttons[0].first.button == Button::Guide &&
-               !later.buttons[0].first.pressed && later.buttons[1].first.button == Button::A,
+    expect(later.buttons.size() == 2 && later.buttons[0].first.button == Button::Guide &&
+               !later.buttons[0].first.pressed && later.buttons[1].first.button == Button::A &&
+               later.buttons[1].first.pressed,
            "once the hold is over it is released, then the rest follows");
 }
 
@@ -161,6 +182,7 @@ void abandoningReleasesTheCaller() {
 
 int main() try {
     inputIsTakenOnceInOrder();
+    aTapIsDownForAFrame();
     heldButtonsAreAChord();
     stickMarksOnlyTheDirections();
     aHoldKeepsTheReleaseBack();
