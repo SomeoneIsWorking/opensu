@@ -358,8 +358,8 @@ ReadyPrefix readyPrefix(const fs::path& prefix, const Runner& runner) {
 
 Prepared prepare(Game& game, const Choice& choice) {
     const bool own = game.source == Source::Own;
-    // A Steam game with a Windows install is fumarole's, which keeps its own prefix.
-    const bool fumarole = game.source == Source::Steam;
+    // fumarole keeps its own prefix.
+    const bool fumarole = game.fromFumarole;
     if ((!isGameStore(game.source) && !own && !fumarole) || !game.windowsInstall ||
         game.launch.empty()) {
         return {};

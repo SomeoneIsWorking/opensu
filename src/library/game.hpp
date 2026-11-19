@@ -214,6 +214,8 @@ struct Game {
     bool fromGameFolder{false};
     /// A game imported from Lutris, whose config names its file: that is changed in Lutris.
     bool fromLutris{false};
+    /// A Steam game fumarole installed, started by `fumarole launch` under the player's Wine.
+    bool fromFumarole{false};
     /// One of the player's own games that is an AppImage.
     bool appImage{false};
 

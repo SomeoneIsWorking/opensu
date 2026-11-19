@@ -57,6 +57,7 @@ std::optional<Game> gameOf(const fs::path& record, const fs::path& program) {
     game.title = *name;
     game.installed = true;
     game.windowsInstall = true;
+    game.fromFumarole = true;
     game.launch = LaunchSpec{.program = program.string(), .args = {"launch", *appId}};
     return game;
 }

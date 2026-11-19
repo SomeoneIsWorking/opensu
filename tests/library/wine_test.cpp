@@ -250,6 +250,13 @@ void launchesGetTheRunnerAndPrefix(const fs::path& dir) {
     expect(wine::prepare(steam, choice).refusal.empty() &&
                steam.launch.args == std::vector<std::string>{"-applaunch", "10"},
            "a Steam game is left to Steam");
+    Game fumarole = windowsGame(Source::Steam, "357300");
+    fumarole.fromFumarole = true;
+    fumarole.launch = LaunchSpec{.program = "fumarole", .args = {"launch", "357300"}};
+    expect(wine::prepare(fumarole, choice).refusal.empty() &&
+               fumarole.launch.args ==
+                   std::vector<std::string>{"launch", "357300", "--wine", runner.string()},
+           "fumarole gets the runner's Wine and keeps its own prefix");
 
     const fs::path picked = binary(dir / "runners/proton-wine");
     choice.runner = picked;

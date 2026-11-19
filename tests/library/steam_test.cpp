@@ -159,11 +159,11 @@ void fumaroleInstallsAreSteamGames(const Fixture& fixture, const Library& librar
     const std::vector<Game> games = provider.list(std::stop_token{});
     const Game* snakebird = find(games, "steam:357300");
     expect(snakebird != nullptr && snakebird->installed && snakebird->windowsInstall &&
-               snakebird->launch.program == program.string() &&
+               snakebird->fromFumarole && snakebird->launch.program == program.string() &&
                snakebird->launch.args == std::vector<std::string>{"launch", "357300"},
            "a Windows install fumarole made is a Steam game it launches");
     const Game* portal = find(games, "steam:440");
-    expect(portal != nullptr && portal->launch.program == "steam",
+    expect(portal != nullptr && portal->launch.program == "steam" && !portal->fromFumarole,
            "a game Steam has installed stays Steam's");
     expect(find(games, "steam:357301") == nullptr && find(games, "steam:357302") == nullptr,
            "a Linux install, or one whose folder is gone, is not listed");
