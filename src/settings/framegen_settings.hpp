@@ -123,8 +123,9 @@ inline constexpr std::array<ChoiceKey, 8> frameGenKeys{{
     {"framegen.tolerance", "Tolerance", frameGenToleranceChoices, 0},
     {"framegen.performance", "Performance mode", frameGenPerformanceChoices, 0},
 }};
-inline constexpr std::array<ChoiceText, 2> remoteStreamRateChoices{{
+inline constexpr std::array<ChoiceText, 3> remoteStreamRateChoices{{
     {"game", "The game's own"},
+    {"45", "45 fps"},
     {"30", "30 fps"},
 }};
 /// The frames a second a remote game's host sends: fewer halve the link and the host's encoding,

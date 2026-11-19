@@ -234,6 +234,7 @@ void GuestVideo::finish(VideoCodec codec, Picture picture, std::uint32_t number)
     Frame frame{.number = shows,
                 .picture = std::move(picture),
                 .capturedUs = static_cast<std::uint64_t>(std::max(times.capturedUs, 0.0)),
+                .sentUs = static_cast<std::uint64_t>(std::max(times.sentUs, 0.0)),
                 .decodedUs = static_cast<std::uint64_t>(times.decodedUs)};
     {
         const std::lock_guard lock{mutex_};
@@ -247,11 +248,11 @@ void GuestVideo::finish(VideoCodec codec, Picture picture, std::uint32_t number)
             codec_ = nameOf(codec);
         }
         last_ = frame;
-        if (fresh_) {
-            lucent::debug("videotrace", "frame {} decoded {} let go untaken at {:.0f}",
-                          fresh_->number, fresh_->decodedUs, times.decodedUs);
+        playout_.decoded(frame.sentUs, frame.decodedUs);
+        fresh_.push_back(std::move(frame));
+        while (fresh_.size() > (ridesOutStalls_ ? framesHeldMost : 1)) {
+            letGo(times.decodedUs);
         }
-        fresh_ = std::move(frame);
         waiting_.push_back(times);
         if (waiting_.size() > waitingKept) {
             waiting_.pop_front();
@@ -260,20 +261,54 @@ void GuestVideo::finish(VideoCodec codec, Picture picture, std::uint32_t number)
     decodedOne_.notify_all();
 }
 
-std::optional<GuestVideo::Frame> GuestVideo::takeFrame() {
+std::optional<GuestVideo::Frame> GuestVideo::takeFrame(std::uint64_t nowUs) {
     const std::lock_guard lock{mutex_};
-    return handOver();
+    if (fresh_.empty()) {
+        repeats_ += decoded_ > 0 ? 1 : 0;
+        return std::nullopt;
+    }
+    if (!ridesOutStalls_) {
+        return handOver(fresh_.size() - 1, static_cast<double>(nowUs));
+    }
+    const std::uint64_t delayUs = playout_.refresh(nowUs);
+    const auto due = std::ranges::find_if(fresh_, [nowUs, delayUs](const Frame& frame) {
+        return frame.sentUs + delayUs > nowUs;
+    });
+    if (due == fresh_.begin()) {
+        ++repeats_;
+        return std::nullopt;
+    }
+    return handOver(static_cast<std::size_t>(due - fresh_.begin()) - 1, static_cast<double>(nowUs));
 }
 
-std::optional<GuestVideo::Frame> GuestVideo::handOver() {
-    std::optional<Frame> frame = std::exchange(fresh_, std::nullopt);
-    if (frame) {
-        const auto found = std::ranges::find(waiting_, frame->number, &Times::number);
-        if (found != waiting_.end()) {
-            found->takenUs = static_cast<double>(wire::nowMicros());
-        }
+void GuestVideo::rideOutStalls(bool on) {
+    const std::lock_guard lock{mutex_};
+    if (on != ridesOutStalls_) {
+        lucent::info("video", "{}",
+                     on ? "frames are held to ride out the link's stalls"
+                        : "the newest frame is shown, stalls or not");
+    }
+    ridesOutStalls_ = on;
+}
+
+std::optional<GuestVideo::Frame> GuestVideo::handOver(std::size_t index, double nowUs) {
+    for (std::size_t older = 0; older < index; ++older) {
+        letGo(nowUs);
+    }
+    Frame frame = std::move(fresh_.front());
+    fresh_.pop_front();
+    const auto found = std::ranges::find(waiting_, frame.number, &Times::number);
+    if (found != waiting_.end()) {
+        found->takenUs = nowUs;
     }
     return frame;
+}
+
+void GuestVideo::letGo(double atUs) {
+    const Frame& frame = fresh_.front();
+    lucent::debug("videotrace", "frame {} decoded {} let go untaken at {:.0f}", frame.number,
+                  frame.decodedUs, atUs);
+    fresh_.pop_front();
 }
 
 void GuestVideo::passed(std::uint64_t beganUs, std::uint64_t acquiredUs,
@@ -287,11 +322,11 @@ void GuestVideo::passed(std::uint64_t beganUs, std::uint64_t acquiredUs,
 std::optional<GuestVideo::Frame> GuestVideo::waitFrame(const std::stop_token& stop) {
     std::unique_lock lock{mutex_};
     if (!decodedOne_.wait(lock, stop, [this] {
-            return fresh_.has_value();
+            return !fresh_.empty();
         })) {
         return std::nullopt;
     }
-    return handOver();
+    return handOver(fresh_.size() - 1, static_cast<double>(wire::nowMicros()));
 }
 
 void GuestVideo::readBack() {
@@ -336,10 +371,10 @@ void GuestVideo::presented(std::uint32_t number, std::uint64_t submittedUs, bool
 
 std::string GuestVideo::summary() const {
     const std::lock_guard lock{mutex_};
-    std::string out =
-        std::format("codec={} switches={} decoded={} dropped={} late={} submitted={} drawn={} "
-                    "presents={}",
-                    codec_, switches_, decoded_, dropped_, late_, presented_, drawn_, passes_);
+    std::string out = std::format(
+        "codec={} switches={} decoded={} dropped={} late={} submitted={} drawn={} "
+        "presents={} repeats={}",
+        codec_, switches_, decoded_, dropped_, late_, presented_, drawn_, passes_, repeats_);
     const auto stage = [this, &out](const char* name, double Stages::* field) {
         std::vector<double> values;
         values.reserve(shown_.size());

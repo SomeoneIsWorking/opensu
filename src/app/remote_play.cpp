@@ -953,6 +953,11 @@ void RemotePlay::serviceGuest() {
     }
     serviceFrameGen();
     if (guest_) {
+        const std::uint64_t saves = hooks_.settingsSaves ? hooks_.settingsSaves() : 0;
+        if (stallsReadAt_ != saves) {
+            stallsReadAt_ = saves;
+            video_->rideOutStalls(hooks_.ridesOutStalls && hooks_.ridesOutStalls(game_));
+        }
         if (video_->pyroWaveGivenUp()) {
             guest_->withdraw(stream::VideoCodec::PyroWave);
         }
@@ -1003,6 +1008,7 @@ void RemotePlay::drop() {
     audio_.reset();
     speaker_.reset();
     video_.reset();
+    stallsReadAt_.reset();
     link_.reset();
     joined_ = false;
     pictured_ = false;
@@ -1095,7 +1101,7 @@ std::optional<stream::GuestVideo::Frame> RemotePlay::takePicture(std::uint64_t n
     }
     // The generator takes the frames itself as they are decoded.
     std::optional<stream::GuestVideo::Frame> frame =
-        frameGen_ ? frameGen_->present(nowUs, refreshNs) : video_->takeFrame();
+        frameGen_ ? frameGen_->present(nowUs, refreshNs) : video_->takeFrame(nowUs);
     pictured_ = pictured_ || frame.has_value();
     return frame;
 }

@@ -118,6 +118,7 @@
 #include "save_sharing.hpp"
 #include "search_controller.hpp"
 #include "session_install_controller.hpp"
+#include "settings/remote_settings.hpp"
 #include "settings_controller.hpp"
 #include "shared_saves.hpp"
 #include "shell_session.hpp"
@@ -1020,6 +1021,15 @@ class ShellApp final {
                 [this](const library::Game& game) {
                     return settings::resolveRemoteStreamRate(gameSettings_.layers(),
                                                              library::layerKeysOf(game));
+                },
+            .ridesOutStalls =
+                [this](const library::Game& game) {
+                    return settings::resolveRidesOutStalls(gameSettings_.layers(),
+                                                           library::layerKeysOf(game));
+                },
+            .settingsSaves =
+                [this] {
+                    return gameSettings_.saves();
                 },
             .frameGenModules =
                 [this](const std::string& hostId,

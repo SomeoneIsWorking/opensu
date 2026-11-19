@@ -245,6 +245,9 @@ class ControlTarget {
     virtual void capRemoteLink(std::uint64_t bitsPerSecond) = 0;
     /// Ends remote play as a guest, as the Guide's End remote play (or Leave game) does.
     virtual void endRemotePlay() = 0;
+    /// Sets the global Wi-Fi stalls setting of remote games (`remote.stalls`) to ride them out or
+    /// show the newest frame, as Game settings would; a playing guest takes it at once.
+    virtual void rideOutRemoteStalls(bool on) = 0;
 
     /// The next frame of `kind`'s pixels, which the caller encodes off the main loop. Blocks
     /// until the main loop has drawn or read it, or fails if it cannot.

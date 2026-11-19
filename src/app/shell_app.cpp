@@ -1509,6 +1509,11 @@ void ShellApp::serviceControlRequests() {
     if (queued.endRemote) {
         remotePlay_.end();
     }
+    if (queued.ridesOutStalls) {
+        gameSettings_.layers().set(settings::Layer{}, settings::remoteStallsKey.key,
+                                   std::string{*queued.ridesOutStalls ? "ride-out" : "newest"});
+        gameSettings_.save();
+    }
     if (queued.clipboard) {
         window_->setClipboard(*queued.clipboard);
     }

@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "audience.hpp"
+#include "frame_pace.hpp"
 #include "host_stream.hpp"
 #include "screen_capture.hpp"
 #include "video_codec.hpp"
@@ -66,7 +67,7 @@ class HostVideo {
         std::unique_ptr<VideoEncoder> encoder;
         std::vector<const HostStream*> guests;
         std::uint64_t bitsPerSecond{0};
-        std::uint64_t sentCapturedUs{0};
+        FramePace pace;
     };
     /// The guests planned onto one codec, the lowest of their rates and the most frames a second
     /// any of them wants (0 for every frame).

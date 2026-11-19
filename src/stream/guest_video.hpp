@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "guest_fit.hpp"
+#include "playout_delay.hpp"
 #include "stream_wire.hpp"
 #include "video_codec.hpp"
 
@@ -33,6 +34,8 @@ namespace opensu::stream {
 
 /// How long a stream goes without a picture before the guest warns that it shows none.
 inline constexpr std::chrono::seconds silenceWarned{5};
+/// The decoded frames a guest riding out stalls holds for its loop.
+inline constexpr std::size_t framesHeldMost = 12;
 
 class GuestVideo {
   public:
@@ -50,20 +53,24 @@ class GuestVideo {
     /// On the stream's thread.
     bool take(const wire::VideoPacket& packet, std::uint64_t receivedUs, std::int64_t hostAheadUs);
 
-    /// The newest decoded frame not taken yet, with when the host captured it and when it was
+    /// A decoded frame not taken yet, with when the host captured and sent it and when it was
     /// decoded, on this clock. Any thread.
     struct Frame {
         std::uint32_t number{0};
         Picture picture;
         std::uint64_t capturedUs{0};
+        std::uint64_t sentUs{0};
         std::uint64_t decodedUs{0};
     };
-    /// The newest decoded frame not yet taken; one decoded before it was taken is let go. Any
-    /// thread.
-    [[nodiscard]] std::optional<Frame> takeFrame();
-    /// As `takeFrame`, waiting for a frame to be decoded; nothing once `stop` is asked. Any
-    /// thread.
+    /// The frame to show at `nowUs`: the newest decoded, or while riding out stalls the newest
+    /// past the playout delay (`PlayoutDelay`); frames decoded before it are let go. Any thread.
+    [[nodiscard]] std::optional<Frame> takeFrame(std::uint64_t nowUs);
+    /// The newest decoded frame, waiting for one to be decoded; nothing once `stop` is asked.
+    /// Frame generation paces its own, so it never waits out a stall. Any thread.
     [[nodiscard]] std::optional<Frame> waitFrame(const std::stop_token& stop);
+    /// Whether `takeFrame` holds frames by the playout delay to ride out a link's stalls, or shows
+    /// the newest. Any thread.
+    void rideOutStalls(bool on);
     /// The frame showing frame `number` was submitted at `submittedUs`, into the window when
     /// `drawn` (a hidden window has no surface). Any thread.
     void presented(std::uint32_t number, std::uint64_t submittedUs, bool drawn);
@@ -153,6 +160,8 @@ class GuestVideo {
     GuestFit fit_;
     std::atomic<bool> pyroWaveGivenUp_{false};
     std::atomic<std::uint8_t> framesPerSecondFit_{0};
+    /// `takeFrame` holds frames by `playout_`. Under `mutex_`.
+    bool ridesOutStalls_{false};
 
     std::mutex queueMutex_;
     std::condition_variable_any queued_;
@@ -161,9 +170,14 @@ class GuestVideo {
     mutable std::mutex mutex_;
     /// Notified when `fresh_` gets a frame.
     std::condition_variable_any decodedOne_;
-    std::optional<Frame> fresh_;
-    /// Hands the fresh frame over and notes when. Under `mutex_`.
-    std::optional<Frame> handOver();
+    /// Decoded frames not taken, oldest first: the newest alone unless riding out stalls.
+    std::deque<Frame> fresh_;
+    PlayoutDelay playout_;
+    /// Hands over `fresh_`'s frame at `index`, letting the older go, and notes when. Under
+    /// `mutex_`.
+    std::optional<Frame> handOver(std::size_t index, double nowUs);
+    /// Lets the oldest fresh frame go untaken at `atUs`. Under `mutex_`.
+    void letGo(double atUs);
     std::optional<Frame> last_;
     /// Decoded frames not shown yet, oldest first.
     std::deque<Times> waiting_;
@@ -175,6 +189,8 @@ class GuestVideo {
     std::size_t drawn_{0};
     /// The loop's presents into the window while streaming.
     std::size_t passes_{0};
+    /// Takes after the first frame that had no new frame to show, so the screen showed one again.
+    std::size_t repeats_{0};
     std::string codec_{"none"};
     std::size_t switches_{0};
     /// Last, so it stops before what it uses goes.

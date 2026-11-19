@@ -138,9 +138,10 @@ void declareFrameGen(Schema& schema) {
 }
 
 void declareRemoteStreamRate(Schema& schema) {
-    schema.add(settings::choiceSetting(
-        remoteStreamRateKey, "30 fps halves what the host sends; frame generation fills it in here",
-        std::string{frameGenSection}, SettingType::Choice));
+    schema.add(settings::choiceSetting(remoteStreamRateKey,
+                                       "Fewer frames a second lighten the link and the host's "
+                                       "encoding; frame generation fills them in here",
+                                       std::string{frameGenSection}, SettingType::Choice));
 }
 
 std::uint8_t resolveRemoteStreamRate(const SettingLayers& layers, const LayerKeys& keys) {

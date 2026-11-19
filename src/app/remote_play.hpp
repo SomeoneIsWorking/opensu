@@ -133,6 +133,10 @@ class RemotePlay {
         /// The frame generation and the stream rate (0 for the game's own) set for a remote game.
         std::function<settings::FrameGenSettings(const library::Game&)> frameGen;
         std::function<std::uint8_t(const library::Game&)> streamRate;
+        /// Whether a remote game rides out the link's stalls, and how many times the settings
+        /// were saved, so a change made while it plays applies.
+        std::function<bool(const library::Game&)> ridesOutStalls;
+        std::function<std::uint64_t()> settingsSaves;
         /// Asks host `hostId` for its frame generation shaders, `answer` called off the loop with
         /// them or why not; false when it cannot be asked now.
         std::function<bool(const std::string& hostId,
@@ -496,6 +500,8 @@ class RemotePlay {
     /// The session's frame generation: as set, the host's answer for its shaders while asked, the
     /// generator, and why it is off when it was wanted.
     settings::FrameGenSettings generation_;
+    /// The settings saves `video_`'s stall riding was read at.
+    std::optional<std::uint64_t> stallsReadAt_;
     bool modulesAsked_{false};
     std::shared_ptr<std::mutex> modulesMutex_{std::make_shared<std::mutex>()};
     std::shared_ptr<std::optional<std::pair<std::optional<std::string>, std::string>>> modules_{

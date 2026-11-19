@@ -55,6 +55,11 @@ void ControlBridge::endRemotePlay() {
     input_.endRemote = true;
 }
 
+void ControlBridge::rideOutRemoteStalls(bool on) {
+    const std::lock_guard lock{inputMutex_};
+    input_.ridesOutStalls = on;
+}
+
 void ControlBridge::typeText(std::string text) {
     const std::lock_guard lock{inputMutex_};
     input_.keystrokes.emplace_back(std::move(text));

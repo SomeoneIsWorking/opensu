@@ -24,6 +24,7 @@
 
 #include "lan/pairing_keys.hpp"
 #include "stream/audio_codec.hpp"
+#include "stream/frame_pace.hpp"
 #include "stream/frame_parity.hpp"
 #include "stream/guest_audio.hpp"
 #include "stream/guest_fit.hpp"
@@ -33,6 +34,7 @@
 #include "stream/link_cap.hpp"
 #include "stream/link_rate.hpp"
 #include "stream/packet_seal.hpp"
+#include "stream/playout_delay.hpp"
 #include "stream/predicted_frames.hpp"
 #include "stream/remote_reach.hpp"
 #include "stream/stream_wire.hpp"
@@ -729,6 +731,65 @@ void aGuestThatMissesPyroWaveFramesGivesItUp() {
     expect(fit.framesPerSecond() == 0, "giving PyroWave up keeps the frame rate");
 }
 
+void thePlayoutDelayRidesOutStalls() {
+    constexpr std::uint64_t refresh = 16'667;
+    stream::PlayoutDelay delay;
+    std::uint64_t now = 1'000'000;
+    expect(delay.refresh(now) == 0, "no frames, no delay");
+    // A steady link: every frame decoded 10 ms after its send.
+    for (int frame = 0; frame < 180; ++frame) {
+        now += refresh;
+        delay.decoded(now - 10'000, now);
+    }
+    expect(delay.refresh(now) == 10'000, "a steady link waits as long as its frames take");
+    // Stalls: one frame in eight comes 60 ms late, more than a tenth of the window.
+    for (int frame = 0; frame < 180; ++frame) {
+        now += refresh;
+        delay.decoded(now - (frame % 8 == 0 || frame % 8 == 1 ? 60'000 : 10'000), now);
+    }
+    expect(delay.refresh(now) == 60'000, "frequent stalls raise the delay to their length at once");
+    // The stalls end: once they leave the window the delay shrinks a millisecond a refresh.
+    for (int frame = 0; frame < 190; ++frame) {
+        now += refresh;
+        delay.decoded(now - 10'000, now);
+    }
+    expect(delay.refresh(now) == 60'000 - stream::playoutShrinkUs,
+           "when no stall is left in the window the delay shrinks by one step");
+    std::uint64_t shrunk = 0;
+    for (int frame = 0; frame < 20; ++frame) {
+        now += refresh;
+        delay.decoded(now - 10'000, now);
+        shrunk = delay.refresh(now);
+    }
+    expect(shrunk == 60'000 - 21 * stream::playoutShrinkUs, "a step each refresh after");
+    for (int frame = 0; frame < 120; ++frame) {
+        now += refresh;
+        delay.decoded(now - 10'000, now);
+        shrunk = delay.refresh(now);
+    }
+    expect(shrunk == 10'000, "down to what the link needs, and no further");
+}
+
+void aHostSendsTheRateAGuestAskedFor() {
+    constexpr std::uint64_t capture = 16'667;
+    const auto sentOf = [](std::uint8_t framesPerSecond) {
+        stream::FramePace pace;
+        int sent = 0;
+        for (int frame = 0; frame < 600; ++frame) {
+            const std::uint64_t at = 1'000'000 + static_cast<std::uint64_t>(frame) * capture;
+            if (pace.due(at, framesPerSecond, 60)) {
+                pace.sent(at, framesPerSecond);
+                ++sent;
+            }
+        }
+        return sent;
+    };
+    expect(sentOf(0) == 600, "every captured frame when the guest asks for all");
+    expect(sentOf(60) == 600, "60 of 60 is every frame");
+    expect(sentOf(45) == 450, "45 sends three captures in four");
+    expect(sentOf(30) == 300, "30 every other");
+}
+
 void aGuestThatLosesFramesAsksForFewer() {
     constexpr std::uint64_t second = 1'000'000;
     stream::GuestFit fit;
@@ -1032,6 +1093,8 @@ int main(int argc, char** argv) try {
     picturesSurviveTheHardwareCodecs();
     aGuestThatMissesPyroWaveFramesGivesItUp();
     aGuestThatLosesFramesAsksForFewer();
+    aHostSendsTheRateAGuestAskedFor();
+    thePlayoutDelayRidesOutStalls();
     theLinkPicksTheCodec();
     theCapQueuesAndDropsWhatTheRateHasNoRoomFor();
     theBucketHoldsBackWhatItsRateHasNoRoomFor();

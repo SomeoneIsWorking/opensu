@@ -15,8 +15,6 @@
 namespace opensu::stream {
 namespace {
 
-constexpr std::uint64_t microsPerSecond = 1'000'000;
-
 /// The longest side a hardware codec is sent; the guest scales up from there.
 constexpr int hardwareSide = 1920;
 
@@ -158,14 +156,8 @@ void HostVideo::send(const CapturedFrame& frame) {
 
 bool HostVideo::due(const CapturedFrame& frame, VideoCodec codec, const Group& group) const {
     const auto found = encodings_.find(codec);
-    if (group.framesPerSecond == 0 || found == encodings_.end() ||
-        found->second.sentCapturedUs == 0) {
-        return true;
-    }
-    // Less half a captured frame, so a capture a little early is not put off a whole frame.
-    const std::uint64_t gapUs = (microsPerSecond / group.framesPerSecond) -
-                                (microsPerSecond / (std::uint64_t{2} * videoFramesPerSecond));
-    return frame.capturedUs >= found->second.sentCapturedUs + gapUs;
+    return found == encodings_.end() ||
+           found->second.pace.due(frame.capturedUs, group.framesPerSecond, videoFramesPerSecond);
 }
 
 bool HostVideo::code(const CapturedFrame& frame, VideoCodec codec, const Group& group,
@@ -246,7 +238,7 @@ bool HostVideo::code(const CapturedFrame& frame, VideoCodec codec, const Group& 
         group.guests[i]->sendFrame(payloads);
     }
     group.guests.back()->sendFrame(std::move(payloads));
-    encoding.sentCapturedUs = frame.capturedUs;
+    encoding.pace.sent(frame.capturedUs, group.framesPerSecond);
     return true;
 }
 
