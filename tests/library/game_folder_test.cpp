@@ -353,6 +353,9 @@ void aShortcutNamesItsBoxArt(const fs::path& root) {
                     std::string{folder::boxArtKey} + "=psx/Mega Man X4 (USA)\n");
     const std::optional<own::Entry> entry = folder::shortcutEntry(file);
     expect(entry && entry->boxArt == "psx/Mega Man X4 (USA)", "a port names the box art it shows");
+    if (!entry) {
+        return;
+    }
     expect(own::gameOf(*entry).boxArt == "psx/Mega Man X4 (USA)",
            "its game shows that box art whatever its own name");
     const own::Records records{root / "boxart" / "records.json"};
