@@ -258,6 +258,16 @@ void GuestVideo::finish(VideoCodec codec, Picture picture, std::uint32_t number)
 
 std::optional<GuestVideo::Frame> GuestVideo::takeFrame() {
     const std::lock_guard lock{mutex_};
+    return handOver();
+}
+
+std::optional<GuestVideo::Frame> GuestVideo::handOver() {
+    if (fresh_) {
+        const auto found = std::ranges::find(waiting_, fresh_->number, &Times::number);
+        if (found != waiting_.end()) {
+            found->takenUs = static_cast<double>(wire::nowMicros());
+        }
+    }
     return std::exchange(fresh_, std::nullopt);
 }
 
@@ -268,7 +278,7 @@ std::optional<GuestVideo::Frame> GuestVideo::waitFrame(const std::stop_token& st
         })) {
         return std::nullopt;
     }
-    return std::exchange(fresh_, std::nullopt);
+    return handOver();
 }
 
 void GuestVideo::readBack() {
@@ -295,6 +305,8 @@ void GuestVideo::presented(std::uint32_t number, std::uint64_t submittedUs, bool
                             .network = (times.receivedUs - times.sentUs) / microsPerMilli,
                             .decode = (times.decodedUs - times.receivedUs) / microsPerMilli,
                             .submit = (shown - times.decodedUs) / microsPerMilli,
+                            .wait = (times.takenUs - times.decodedUs) / microsPerMilli,
+                            .show = (shown - times.takenUs) / microsPerMilli,
                             .total = (shown - times.capturedUs) / microsPerMilli});
     if (shown_.size() > framesKept) {
         shown_.pop_front();
@@ -326,6 +338,8 @@ std::string GuestVideo::summary() const {
         stage("network", &Stages::network);
         stage("decode", &Stages::decode);
         stage("submit", &Stages::submit);
+        stage("wait", &Stages::wait);
+        stage("show", &Stages::show);
         stage("total", &Stages::total);
     }
     return out;

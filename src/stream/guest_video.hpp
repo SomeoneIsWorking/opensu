@@ -92,6 +92,8 @@ class GuestVideo {
         double sentUs{0};
         double receivedUs{0};
         double decodedUs{0};
+        /// When the loop took it to show; 0 before.
+        double takenUs{0};
     };
     /// One shown frame's stages, in milliseconds.
     struct Stages {
@@ -99,7 +101,10 @@ class GuestVideo {
         double send{0};
         double network{0};
         double decode{0};
+        /// Decoded to submitted, split at the loop taking it: `wait` before, `show` after.
         double submit{0};
+        double wait{0};
+        double show{0};
         double total{0};
     };
 
@@ -152,6 +157,8 @@ class GuestVideo {
     /// Notified when `fresh_` gets a frame.
     std::condition_variable_any decodedOne_;
     std::optional<Frame> fresh_;
+    /// Hands the fresh frame over and notes when. Under `mutex_`.
+    std::optional<Frame> handOver();
     std::optional<Frame> last_;
     /// Decoded frames not shown yet, oldest first.
     std::deque<Times> waiting_;
