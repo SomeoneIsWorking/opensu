@@ -195,17 +195,27 @@ def configure(plan: Plan, env: Mapping[str, str]) -> None:
             )
 
 
-def require_configured(cmake_dir: Path) -> None:
-    """Refuse a step that needs a configured tree before `deps` and `configure` have made it."""
-    if not (cmake_dir / "CMakeCache.txt").is_file():
+def require_configured(plan: Plan, env: Mapping[str, str]) -> None:
+    """Refuse a step that needs a configured tree before `deps` and `configure` have made it, or
+    while it is configured against a prefix other than the one the pins name now."""
+    cache = plan.cmake_dir / "CMakeCache.txt"
+    if not cache.is_file():
         raise RuntimeError(
-            f"{cmake_dir} is not configured: run the deps and configure steps first "
+            f"{plan.cmake_dir} is not configured: run the deps and configure steps first "
             "(or `all`, which runs every step)"
+        )
+    match = re.search(r"^CMAKE_PREFIX_PATH:[A-Z]+=(.*)$", cache.read_text(), re.MULTILINE)
+    configured = Path(match.group(1)) if match else None
+    wanted = thirdparty.prefix(plan.toolchain(env), env)
+    if configured != wanted:
+        raise RuntimeError(
+            f"{plan.cmake_dir} is configured against {configured or 'no'} third-party prefix, "
+            f"and the pins now name {wanted}: run the deps and configure steps"
         )
 
 
 def build(plan: Plan, env: Mapping[str, str]) -> None:
-    require_configured(plan.cmake_dir)
+    require_configured(plan, env)
     # cargo, which builds librashader under one ninja job, would otherwise start a job per core.
     process.run(
         ["cmake", "--build", plan.cmake_dir, "--parallel", str(plan.jobs)],
@@ -214,7 +224,7 @@ def build(plan: Plan, env: Mapping[str, str]) -> None:
 
 
 def test(plan: Plan, env: Mapping[str, str]) -> None:
-    require_configured(plan.cmake_dir)
+    require_configured(plan, env)
     if plan.platform == "windows":
         env = windows.lavapipe(plan.build_dir / "lavapipe", env)
     if plan.platform == "macos":
@@ -224,7 +234,7 @@ def test(plan: Plan, env: Mapping[str, str]) -> None:
 
 def install_to(plan: Plan, prefix: Path, component: str, env: Mapping[str, str]) -> None:
     """Install one component into `prefix` as it is, for a package that is its own prefix."""
-    require_configured(plan.cmake_dir)
+    require_configured(plan, env)
     process.run(
         ["cmake", "--install", plan.cmake_dir, "--component", component, "--prefix", prefix], env
     )
@@ -232,7 +242,7 @@ def install_to(plan: Plan, prefix: Path, component: str, env: Mapping[str, str])
 
 def install(plan: Plan, destdir: Path, component: str, env: Mapping[str, str]) -> None:
     """Install one component under `destdir`, stripped."""
-    require_configured(plan.cmake_dir)
+    require_configured(plan, env)
     process.run(
         ["cmake", "--install", plan.cmake_dir, "--component", component, "--strip"],
         {**env, "DESTDIR": str(destdir)},
