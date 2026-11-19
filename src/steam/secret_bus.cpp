@@ -18,9 +18,10 @@ bool SecretBus::start(const std::string& unit, const fs::path& proxy, const std:
     fs::create_directories(socket.parent_path(), error);
     fs::remove(socket, error);
     socket_ = socket;
-    if (!instance_.start(
-            unit, proxy.string(),
-            {desktopBus, socket.string(), "--filter", "--talk=org.freedesktop.secrets"}, failure)) {
+    if (!instance_.start(unit, proxy.string(),
+                         {desktopBus, socket.string(), "--filter", "--talk=org.freedesktop.secrets",
+                          "--own=" + std::string{launcherServiceNames}},
+                         failure)) {
         return false;
     }
     const Clock::time_point until = Clock::now() + secretBusWait;
