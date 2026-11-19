@@ -192,7 +192,8 @@ Records::Document Records::read() const {
                     .steamAppId = game.value("steamAppId", ""),
                     .icon = game.value("icon", ""),
                     .iconIndex = game.value("iconIndex", 0),
-                    .command = game.value("command", std::vector<std::string>{})};
+                    .command = game.value("command", std::vector<std::string>{}),
+                    .boxArt = game.value("boxArt", "")};
         read.entries.push_back(std::move(entry));
     }
     return read;
@@ -293,6 +294,9 @@ void Records::write(const Document& document) const {
         if (!entry.command.empty()) {
             game["command"] = entry.command;
         }
+        if (!entry.boxArt.empty()) {
+            game["boxArt"] = entry.boxArt;
+        }
         games.push_back(std::move(game));
     }
     std::string error;
@@ -314,6 +318,7 @@ Game gameOf(const Entry& entry) {
     game.title = entry.title;
     game.file = entry.file;
     game.artworkKey = entry.steamAppId;
+    game.boxArt = entry.boxArt;
     game.iconSource = entry.icon;
     game.iconIndex = entry.iconIndex;
     game.installed = true;

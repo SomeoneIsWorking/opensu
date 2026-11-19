@@ -288,7 +288,8 @@ std::optional<Entry> desktopEntry(const fs::path& file) {
                 .origin = own::Origin::Folder,
                 .originId = file.string(),
                 .icon = fs::path{value("Icon")},
-                .command = std::move(command)};
+                .command = std::move(command),
+                .boxArt = value(boxArtKey)};
     for (const std::string& word : entry.command) {
         if (std::string app = steamAppOf(word); !app.empty()) {
             entry.steamAppId = std::move(app);

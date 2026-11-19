@@ -28,6 +28,9 @@ enum class Host : std::uint8_t { Windows, Linux, Mac };
 /// other games. A word that is also a game's ("Crash Bandicoot") does not count alone.
 [[nodiscard]] bool notAGame(std::string_view name);
 
+/// The `.desktop` key naming the box art an entry shows (`own::Entry::boxArt`).
+inline constexpr std::string_view boxArtKey = "X-OpenSU-BoxArt";
+
 /// Whether `file` is a shortcut, `.lnk`, `.url` or `.desktop`, as `shortcutEntry` reads them.
 [[nodiscard]] bool isShortcut(const std::filesystem::path& file);
 

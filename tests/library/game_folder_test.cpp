@@ -346,6 +346,20 @@ void flatpakGamesAreTheirOwn(const fs::path& root) {
     expect(own::gameOf(found[0]).fromGameFolder, "found on the listing, never kept");
 }
 
+void aShortcutNamesItsBoxArt(const fs::path& root) {
+    const fs::path file = root / "boxart" / "port.desktop";
+    write(file, std::string{"[Desktop Entry]\nType=Application\nName=Mega Man X4 Revamped\n"
+                            "Exec=/bin/true\n"} +
+                    std::string{folder::boxArtKey} + "=psx/Mega Man X4 (USA)\n");
+    const std::optional<own::Entry> entry = folder::shortcutEntry(file);
+    expect(entry && entry->boxArt == "psx/Mega Man X4 (USA)", "a port names the box art it shows");
+    expect(own::gameOf(*entry).boxArt == "psx/Mega Man X4 (USA)",
+           "its game shows that box art whatever its own name");
+    const own::Records records{root / "boxart" / "records.json"};
+    records.add(*entry);
+    expect(records.all().front().boxArt == entry->boxArt, "an added shortcut keeps it");
+}
+
 } // namespace
 
 int main() try {
@@ -363,6 +377,7 @@ int main() try {
     aFolderGameLaunches(root);
     theProviderListsThisOsGames(root);
     flatpakGamesAreTheirOwn(root);
+    aShortcutNamesItsBoxArt(root);
     std::printf("game_folder: all checks passed\n");
     return 0;
 } catch (...) {

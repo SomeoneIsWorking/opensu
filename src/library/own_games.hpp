@@ -61,6 +61,9 @@ struct Entry {
     std::filesystem::path winePrefix{};
     /// "NAME=value" pairs its Lutris config sets; read from Lutris, never saved.
     std::vector<std::string> environment{};
+    /// The box art its shortcut names (`boxArtKey`), `<system>/<title>` in libretro-thumbnails, as
+    /// a port that is named otherwise says which game's cover it shows; empty for none.
+    std::string boxArt{};
 
     bool operator==(const Entry&) const = default;
 };

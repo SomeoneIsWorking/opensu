@@ -146,6 +146,11 @@ included, from each immediate subfolder; on macOS its `.app` bundles and those o
 game is named by its shortcut, else by its folder or the program's version info. Hide game works on
 these; Rename, Change file and Remove do not, as the file is what keeps the game there.
 
+A `.desktop` entry can name the box art its game shows with `X-OpenSU-BoxArt=<system>/<title>`,
+the libretro-thumbnails name, as `X-OpenSU-BoxArt=psx/Mega Man X4 (USA)`: a port named for itself
+("Mega Man X4 Revamped") then shows the cover of the game it ports and still stands apart from that
+game's disc. A cover picked in Choose artwork wins over it.
+
 On Linux the installed Flatpaks that are games are listed the same way, each as a game of its own,
 started with `flatpak run` as its menu entry says: an app in the Game category, not an emulator
 (Emulator category) and not a store client or launcher such as Steam, Lutris or Heroic. Uninstall
