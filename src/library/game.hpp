@@ -355,7 +355,8 @@ void order(std::vector<Game>& games);
 /// `text` as a Steam app number: digits only and not 0; nothing otherwise.
 [[nodiscard]] std::optional<std::uint32_t> steamAppNumber(std::string_view text) noexcept;
 
-/// The Steam app `game` is, here or on another openSU; nothing for any other game.
+/// The Steam app `game` is: a Steam game's, here or on another openSU, or the one a GOG, Epic or
+/// added game is matched to; nothing for any other game.
 [[nodiscard]] std::optional<std::uint32_t> steamAppOf(const Game& game);
 
 /// What `game` keeps its settings, controls and chosen cover under.

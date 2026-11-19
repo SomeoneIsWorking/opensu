@@ -14,7 +14,10 @@ Apocalypse"). They are to be one tile.
   Home, in All games and in a launcher's own shelf: ROMs of any console, a game added from a file or
   imported from Lutris or a shortcut, store copies, and the copies on paired openSUs. A console's
   shelf and a launcher's shelf still list their own versions, each standing for its group.
-- **Matching.** Two versions are one game when their titles compare equal: case, punctuation,
+- **Matching.** Two versions of one Steam app are one game whatever their titles, and versions of
+  two Steam apps never are: a Steam game is its app, and a GOG, Epic or added game the app it is
+  matched to (`steamAppOf`; a folder game's `steam_appid.txt` or the Match a different game pick).
+  Otherwise two versions are one game when their titles compare equal: case, punctuation,
   trademark signs do not count, "&" reads "and", and a ROM's region, disc and revision tags never
   reach its title (`roms::cleanTitle` at the scan). A title and the same title with a subtitle
   ("X-Men Legends II" and "X-Men Legends II - Rise of Apocalypse" or "…: Rise of Apocalypse") are

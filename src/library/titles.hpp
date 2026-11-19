@@ -40,18 +40,19 @@ struct Title {
     std::vector<const Game*> copies;
 };
 
-/// Every game grouped into its versions. Versions are one game when their `titleKey`s are equal
-/// (ROM titles lost their dump tags at the scan), or when one has only the `baseKey` of the other
-/// and no other subtitled game shares that base. A store or another openSU holds at most one
-/// version of a game, so two of one store with the same key stay apart. A version the player kept
-/// apart is a game of its own; one they grouped with another joins that one's game whatever its
-/// title. Ordered by the catalog position of each game's preferred version. The pointers refer to
-/// `games`.
 /// What `game` runs as, as its version's label and another openSU's listing name it: its
 /// console, "Windows · Wine", "Linux", "Linux · AppImage", or its store. A remote game's, as its
 /// host said.
 [[nodiscard]] std::string versionPlatform(const Game& game);
 
+/// Every game grouped into its versions. Versions are one game when they are one Steam app
+/// (`steamAppOf`), whatever their titles, and never when they are two; otherwise when their
+/// `titleKey`s are equal (ROM titles lost their dump tags at the scan), or when one has only the
+/// `baseKey` of the other and no other subtitled game shares that base. A store or another openSU
+/// holds at most one version of a game, so two of one store with the same key stay apart. A version
+/// the player kept apart is a game of its own; one they grouped with another joins that one's game
+/// whatever its title. Ordered by the catalog position of each game's preferred version. The
+/// pointers refer to `games`.
 [[nodiscard]] std::vector<Title> gameTitles(const std::vector<Game>& games);
 
 /// Every copy of `game`'s title in `games`, preferred first; `game` alone when it has no other.

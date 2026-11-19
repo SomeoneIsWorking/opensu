@@ -4,6 +4,7 @@
 #include <cctype>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <iterator>
 #include <optional>
@@ -120,10 +121,18 @@ class Grouping {
             return holderOf(games_[member]) == holder;
         });
     }
-    /// Whether two groups share a holder, so they cannot be one game unless the player says so.
+    /// Whether `group` holds a version of a Steam app other than `app`.
+    [[nodiscard]] bool otherApp(std::size_t group, std::optional<std::uint32_t> app) const {
+        return app && std::ranges::any_of(groups_[group], [&](std::size_t member) {
+                   const std::optional<std::uint32_t> theirs = steamAppOf(games_[member]);
+                   return theirs && *theirs != *app;
+               });
+    }
+    /// Whether two groups share a holder or are versions of two Steam apps, so they cannot be one
+    /// game unless the player says so.
     [[nodiscard]] bool clash(std::size_t a, std::size_t b) const {
         return std::ranges::any_of(groups_[b], [&](std::size_t member) {
-            return holds(a, holderOf(games_[member]));
+            return holds(a, holderOf(games_[member])) || otherApp(a, steamAppOf(games_[member]));
         });
     }
     /// Moves `from`'s members into `to`; `from` is left empty.
@@ -234,11 +243,13 @@ std::vector<Title> gameTitles(const std::vector<Game>& games) {
         keys[at] = game.versionApart ? std::string{} : titleKey(game.title);
         std::vector<std::size_t>& candidates = byKey[keys[at]];
         const std::string holder = holderOf(game);
-        const auto found = keys[at].empty()
-                               ? candidates.end()
-                               : std::ranges::find_if(candidates, [&](std::size_t group) {
-                                     return !grouping.holds(group, holder);
-                                 });
+        const std::optional<std::uint32_t> app = steamAppOf(game);
+        const auto found =
+            keys[at].empty()
+                ? candidates.end()
+                : std::ranges::find_if(candidates, [&](std::size_t group) {
+                      return !grouping.holds(group, holder) && !grouping.otherApp(group, app);
+                  });
         if (found != candidates.end()) {
             grouping.into(at, *found);
             continue;
@@ -271,6 +282,20 @@ std::vector<Title> gameTitles(const std::vector<Game>& games) {
             if (!grouping.clash(to, group)) {
                 grouping.merge(group, to);
             }
+        }
+    }
+    // One Steam app: one game, whatever the titles say.
+    std::unordered_map<std::uint32_t, std::size_t> firstOfApp;
+    for (std::size_t at = 0; at < games.size(); ++at) {
+        const std::optional<std::uint32_t> app = steamAppOf(games[at]);
+        if (!app || games[at].versionApart) {
+            continue;
+        }
+        const auto [first, fresh] = firstOfApp.emplace(*app, at);
+        const std::size_t from = grouping.groupOf(at);
+        const std::size_t to = grouping.groupOf(first->second);
+        if (!fresh && from != to && !grouping.clash(to, from)) {
+            grouping.merge(from, to);
         }
     }
     // The player's groupings, whatever the titles say.

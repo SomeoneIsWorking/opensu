@@ -153,6 +153,9 @@ std::optional<std::uint32_t> steamAppNumber(std::string_view text) noexcept {
 
 std::optional<std::uint32_t> steamAppOf(const Game& game) {
     constexpr std::string_view steamPrefix = "steam:";
+    if (game.source == Source::Gog || game.source == Source::Epic || game.source == Source::Own) {
+        return steamAppNumber(game.artworkKey);
+    }
     const bool steam = game.source == Source::Steam ||
                        (game.source == Source::Remote && game.remote.source == key(Source::Steam));
     const std::string_view id = game.source == Source::Steam ? game.id : game.sourceId;

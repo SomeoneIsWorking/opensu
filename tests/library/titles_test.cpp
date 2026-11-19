@@ -3,6 +3,7 @@
 #include "library/version_choices.hpp"
 #include "support/test_main.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -341,6 +342,30 @@ void testPlayerChoices() {
 
 } // namespace
 
+void testSteamApps() {
+    const auto own = [](std::string id, std::string title, std::string app) {
+        Game out = game(Source::Own, std::move(id), std::move(title), true);
+        out.artworkKey = std::move(app);
+        return out;
+    };
+    expect(opensu::library::steamAppOf(own("own:1", "Remake", "2050650")) == 2050650U,
+           "an added game is the Steam app it is matched to");
+    const std::vector<Game> games{
+        game(Source::Steam, "steam:254700", "Resident Evil 4"),
+        own("own:remake", "Resident Evil 4", "2050650"),
+        own("own:hd", "RE4 HD Project", "254700"),
+        game(Source::Rom, "rom:re4", "Resident Evil 4"),
+    };
+    const std::vector<opensu::library::Title> titles = gameTitles(games);
+    expect(titles.size() == 2, "the 2005 game and its remake share a title but are two Steam apps");
+    const auto remake = std::ranges::find_if(titles, [](const opensu::library::Title& title) {
+        return title.copies.front()->id == "own:remake";
+    });
+    expect(remake != titles.end() && remake->copies.size() == 1 &&
+               titles[remake == titles.begin() ? 1 : 0].copies.size() == 3,
+           "a folder copy named otherwise joins the Steam app it is, and the ROM goes by title");
+}
+
 int main() try {
     testKey();
     testMerge();
@@ -354,6 +379,7 @@ int main() try {
     testVersions();
     testRemoteVersions();
     testPlayerChoices();
+    testSteamApps();
     std::printf("titles: all checks passed\n");
     return 0;
 } catch (...) {
