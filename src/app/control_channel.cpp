@@ -417,6 +417,14 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
                                             "{\"cap\":" + std::to_string(bitsPerSecond) + "}");
     }
 
+    if (path == "/remote/end") {
+        if (request.method != "POST") {
+            return refuse("POST only");
+        }
+        target_.endRemotePlay();
+        return lucent::http::Response::json(200, "OK", "{\"ending\":true}");
+    }
+
     if (path == "/record") {
         if (request.method != "POST") {
             return refuse("POST only");

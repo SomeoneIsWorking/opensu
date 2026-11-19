@@ -32,6 +32,8 @@ class ControlBridge final : public ControlTarget {
         std::vector<PointerInjection> pointer;
         /// The newest remote link cap asked for, if any.
         std::optional<std::uint64_t> linkCap;
+        /// Remote play was asked to end.
+        bool endRemote{false};
         /// The newest text to put on the system clipboard, if any.
         std::optional<std::string> clipboard;
     };
@@ -45,6 +47,7 @@ class ControlBridge final : public ControlTarget {
     void injectKey(input::Combo combo) override;
     void injectPointer(PointerInjection pointer) override;
     void capRemoteLink(std::uint64_t bitsPerSecond) override;
+    void endRemotePlay() override;
     [[nodiscard]] bool captureFrame(FrameKind kind, FramePixels& frame) override;
     [[nodiscard]] std::optional<RecordStarted> startRecord(RecordRequest request) override;
     [[nodiscard]] std::optional<RecordTotals> stopRecord() override;

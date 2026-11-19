@@ -1506,6 +1506,9 @@ void ShellApp::serviceControlRequests() {
     if (queued.linkCap) {
         capRemoteLink(*queued.linkCap);
     }
+    if (queued.endRemote) {
+        remotePlay_.end();
+    }
     if (queued.clipboard) {
         window_->setClipboard(*queued.clipboard);
     }

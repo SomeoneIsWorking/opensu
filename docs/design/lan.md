@@ -676,4 +676,4 @@ decoder by `decode`. `/frame.png` draws the shell over the picture. `POST /remot
 with bits a second puts what a hidden guest takes through a slow link (`stream::LinkCap`: a queue
 of 20 ms at that rate in front of the guest, what it holds delayed and what it has no room for
 dropped; 0 lifts it, and the guests of one host each take their own), the slow link that makes the host fall back; the `stream` log lines name each
-probe, where a later one stopped and why, and each plan. `POST /pointer` `down X Y right` and `up X Y right` hold a button across frames.
+probe, where a later one stopped and why, and each plan. `POST /remote/end` ends the session as the Guide's End remote play does (Leave game when joined), so a run can end it cleanly. `POST /pointer` `down X Y right` and `up X Y right` hold a button across frames.

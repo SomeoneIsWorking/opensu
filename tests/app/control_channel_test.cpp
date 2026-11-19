@@ -70,6 +70,9 @@ class FakeShell final : public ControlTarget {
     void capRemoteLink(std::uint64_t bitsPerSecond) override {
         linkCaps.push_back(bitsPerSecond);
     }
+    void endRemotePlay() override {
+        ++remoteEnds;
+    }
     [[nodiscard]] bool captureFrame(FrameKind /*kind*/, FramePixels& /*frame*/) override {
         return false;
     }
@@ -100,6 +103,7 @@ class FakeShell final : public ControlTarget {
     std::vector<opensu::input::Combo> keys;
     std::vector<PointerInjection> pointers;
     std::vector<std::uint64_t> linkCaps;
+    int remoteEnds{0};
     std::vector<RecordRequest> records;
     bool recording{false};
     std::vector<opensu::gamepad::Button> pressed;
@@ -427,6 +431,8 @@ void testPointer() {
            "a remote link cap is bits a second");
     expect(shell.linkCaps == std::vector<std::uint64_t>{60000000, 0},
            "each cap reaches the shell, a refused one none");
+    expect(channel.handle(post("/remote/end", "")).status == 200 && shell.remoteEnds == 1,
+           "POST /remote/end ends remote play");
 
     expect(channel.handle(post("/record", "fast /tmp/x")).status == 400 &&
                channel.handle(post("/record", "60")).status == 400 &&

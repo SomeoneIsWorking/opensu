@@ -50,6 +50,11 @@ void ControlBridge::capRemoteLink(std::uint64_t bitsPerSecond) {
     input_.linkCap = bitsPerSecond;
 }
 
+void ControlBridge::endRemotePlay() {
+    const std::lock_guard lock{inputMutex_};
+    input_.endRemote = true;
+}
+
 void ControlBridge::typeText(std::string text) {
     const std::lock_guard lock{inputMutex_};
     input_.keystrokes.emplace_back(std::move(text));
