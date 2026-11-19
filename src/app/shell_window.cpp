@@ -137,7 +137,9 @@ bool ShellWindow::watchLifecycle(void* self, SDL_Event* event) {
 }
 
 bool ShellWindow::displayPaces() const {
-    if (window_.presentMode() != SDL_GPU_PRESENTMODE_VSYNC) {
+    // macOS stops holding an occluded window's presents to vsync.
+    if (window_.presentMode() != SDL_GPU_PRESENTMODE_VSYNC ||
+        (SDL_GetWindowFlags(window_.window()) & SDL_WINDOW_OCCLUDED) != 0) {
         return false;
     }
     const std::optional<display::Output> shown = output();

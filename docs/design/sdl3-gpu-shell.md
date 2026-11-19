@@ -72,6 +72,9 @@ through gpu2d.
 
 ## 4. Contracts kept
 
+- Pace: a vsync swapchain holds the loop to the display (`ShellWindow::displayPaces`), and the
+  loop waits out `presentEvery` itself otherwise, including while the window is occluded, whose
+  presents macOS stops holding to vsync (a covered Mac window presented 85 to 114 times a second).
 - `--hidden`: an unmapped window on the player's session, no vsync, no sound device unless `--sound`, errors logged.
   Its frames depend on no display: the window is `OPENSU_WIDTH` x `OPENSU_HEIGHT` pixels at
   `OPENSU_DISPLAY_SCALE` pixels per dp, or the recommended scale for that size when none is
