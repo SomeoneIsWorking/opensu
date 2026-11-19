@@ -136,6 +136,15 @@ bool ShellWindow::watchLifecycle(void* self, SDL_Event* event) {
     return true;
 }
 
+bool ShellWindow::displayPaces() const {
+    if (window_.presentMode() != SDL_GPU_PRESENTMODE_VSYNC) {
+        return false;
+    }
+    const std::optional<display::Output> shown = output();
+    return shown && shown->refreshHz > 0 &&
+           interval_ <= std::chrono::nanoseconds{std::chrono::seconds{1}} / shown->refreshHz;
+}
+
 std::optional<display::Output> ShellWindow::output() const {
     return display::displayOutput(SDL_GetDisplayForWindow(window_.window()));
 }
@@ -498,6 +507,10 @@ gpu2d::image::Bitmap ShellWindow::render(const Draw& draw) {
 
 void ShellWindow::pace() {
     const auto now = std::chrono::steady_clock::now();
+    if (displayPaces()) {
+        nextFrame_ = now;
+        return;
+    }
     if (now < nextFrame_) {
         SDL_DelayPrecise(static_cast<Uint64>((nextFrame_ - now).count()));
     }

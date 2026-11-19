@@ -1066,9 +1066,10 @@ std::optional<std::filesystem::path> ShellApp::losslessDll() const {
 }
 
 std::chrono::nanoseconds ShellApp::presentInterval() const {
-    // Generated frames go at the display's rate; the shell itself needs no more than 60.
+    // A remote picture, generated or not, is shown on the vsync after it lands; the shell itself
+    // needs no more than 60.
     const std::optional<display::Output> output = window_->output();
-    const int hz = remotePlay_.generating() && output && output->refreshHz > 0
+    const int hz = remotePlay_.streaming() && output && output->refreshHz > 0
                        ? output->refreshHz
                        : ShellWindow::shellHz;
     return std::chrono::nanoseconds{std::chrono::seconds{1}} / hz;

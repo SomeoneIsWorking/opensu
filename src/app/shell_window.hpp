@@ -187,6 +187,9 @@ class ShellWindow {
     void presentEvery(std::chrono::nanoseconds interval) noexcept {
         interval_ = interval;
     }
+    /// The swapchain waits for the display and `presentEvery` asks no less often, so `pace` adds no
+    /// sleep of its own: two clocks beside each other drift, and a frame then misses its vsync.
+    [[nodiscard]] bool displayPaces() const;
     /// Draws one frame the window's size into an offscreen target and reads it back
     /// (premultiplied RGBA).
     [[nodiscard]] gpu2d::image::Bitmap render(const Draw& draw);
