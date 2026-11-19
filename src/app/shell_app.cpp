@@ -558,8 +558,14 @@ void ShellApp::handleKeyboard() {
         std::ranges::copy_if(keys.events, std::back_inserter(guide), [](const gamepad::Event& e) {
             return e.button == gamepad::Button::Guide;
         });
+        if (!guide.empty()) {
+            remoteInput_.keepKeys();
+        }
         handleEvents(guide);
         return;
+    }
+    if (!keys.events.empty()) {
+        remoteInput_.keepKeys();
     }
     handleEvents(keys.events);
 }
@@ -1628,7 +1634,7 @@ void ShellApp::sendRemoteInput() {
     if (!remoteHasControls()) {
         remoteInput_.release();
         const RemoteInput::State released = remoteInput_.take();
-        remotePlay_.input(released.pad, {}, released.mouse);
+        remotePlay_.input(released.pad, released.keys, released.mouse);
         return;
     }
     remoteInput_.axes(pads_->axes());
@@ -1641,11 +1647,9 @@ void ShellApp::sendRemoteInput() {
             held.push_back(key);
         }
     }
-    stream::wire::KeyState keys;
-    keys.held.assign(held.begin(), held.begin() + static_cast<std::ptrdiff_t>(std::min(
-                                                      held.size(), stream::wire::heldKeys)));
+    remoteInput_.keys(held);
     const RemoteInput::State state = remoteInput_.take();
-    remotePlay_.input(state.pad, keys, state.mouse);
+    remotePlay_.input(state.pad, state.keys, state.mouse);
 }
 
 display::Placed ShellApp::remotePlacement() const {

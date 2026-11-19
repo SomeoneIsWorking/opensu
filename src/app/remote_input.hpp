@@ -1,15 +1,17 @@
 // remote_input — the player's controls as remote play sends them to the host: the pad's controls
 // held, from the shell's own pad events (a real pad and the control channel take one path), the
-// first pad's sticks and triggers' travel, and the pointer over the picture with the buttons held
-// and the wheel's notches. Each is sampled once a frame (`state`), so a press and its release in
-// one frame are sent held for that frame. Guide is never one of them: it opens this openSU's own
-// menu. The game's mapping is applied on the host (`stream::wire::PadMapping`).
+// first pad's sticks and triggers' travel, the pointer over the picture with the buttons held
+// and the wheel's notches, and the keyboard's keys held. Each is sampled once a frame (`state`), so
+// a press and its release in one frame are sent held for that frame. Guide is never one of them: it
+// opens this openSU's own menu. The game's mapping is applied on the host
+// (`stream::wire::PadMapping`).
 #pragma once
 
 #include <cstdint>
 #include <map>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "display/letterbox.hpp"
 #include "gamepad/event.hpp"
@@ -31,6 +33,11 @@ class RemoteInput {
     /// The Shooter's mouse buttons held, and its look moved `lookDp` across and down since the
     /// last frame, which moves the mouse by `touch::lookCountsPerDp` counts a dp.
     void touchMouse(std::uint8_t buttons, std::pair<float, float> lookDp);
+    /// The keyboard's keys held this frame (USB usages). A key held when a menu took the controls,
+    /// such as the Shift-Tab that closes it, stays here until it is let go.
+    void keys(const std::vector<std::uint8_t>& held);
+    /// The keys held now made a shortcut this openSU acted on: they stay here until let go.
+    void keepKeys();
     /// The pointer's frame, with the picture drawn at `picture` in the window.
     void pointer(const PointerFrame& frame, const display::Placed& picture);
     /// Lets go of the pointer's buttons, as when fingers play the touch controls, not the picture.
@@ -38,10 +45,11 @@ class RemoteInput {
     /// Lets go of everything, as when a menu takes the controls.
     void release();
 
-    /// The pad and pointer as they stand this frame; the presses this frame ended are let go
+    /// The pad, keys and pointer as they stand this frame; the presses this frame ended are let go
     /// from the next one.
     struct State {
         stream::wire::PadState pad;
+        stream::wire::KeyState keys;
         stream::wire::MouseState mouse;
     };
     [[nodiscard]] State take();
@@ -60,6 +68,11 @@ class RemoteInput {
     /// The motion's part counts, kept until they add up to one.
     std::pair<float, float> moveRest_{};
     stream::wire::MouseState mouse_;
+    /// The keys sent this frame, and those this openSU keeps until they are let go.
+    std::vector<std::uint8_t> keysSent_;
+    std::vector<std::uint8_t> keysKept_;
+    /// A shortcut or a menu took the keys: whatever is held at the next `keys` is kept.
+    bool keepHeld_{false};
     /// The pointer's buttons that went down this frame, held for it even when let go in it.
     std::uint8_t clicked_{0};
     /// The wheel's part notch, kept until it adds up to one.

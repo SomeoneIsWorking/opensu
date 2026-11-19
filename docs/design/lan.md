@@ -299,7 +299,9 @@ that profile's; the host's own active profile does not change.
   guests only, and a guest joining a codec starts it on a key frame. The frame number is the
   capture's, the same on every codec. `HostAudio` is one capture and one Opus encode to all.
   Keys and pointer reach the game only from the guest it was started for (`HostInput` opened with
-  an X display); every other guest plays its pad alone.
+  an X display); every other guest plays its pad alone. The guest sends only keys that went down
+  while the host's game had its controls: a shortcut the guest acted on (its Guide, Shift+Tab) and
+  a key held through its own menu stay with the guest until let go (`app::RemoteInput::keys`).
 - Joining: `/lan/play` for the game already running answers `waiting` and the host's
   `TogetherQuestions` asks its player, Decline focused, over the game; an ask lapses after 120 s.
   The guest polls `/lan/play/status` every second (`LanNode::askToPlay`, up to 130 s) and shows

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 
 namespace opensu::app {
 namespace {
@@ -121,10 +122,35 @@ RemoteInput::State RemoteInput::take() {
     }
     state.mouse = mouse_;
     state.mouse.buttons = static_cast<std::uint8_t>(mouse_.buttons | clicked_ | touchButtons_);
+    state.keys.held.assign(keysSent_.begin(),
+                           keysSent_.begin() + static_cast<std::ptrdiff_t>(std::min(
+                                                   keysSent_.size(), stream::wire::heldKeys)));
     pressedThisFrame_ = 0;
     endedThisFrame_ = 0;
     clicked_ = 0;
     return state;
+}
+
+void RemoteInput::keys(const std::vector<std::uint8_t>& held) {
+    std::erase_if(keysKept_, [&held](std::uint8_t key) {
+        return std::ranges::find(held, key) == held.end();
+    });
+    if (keepHeld_) {
+        keepHeld_ = false;
+        for (const std::uint8_t key : held) {
+            if (std::ranges::find(keysKept_, key) == keysKept_.end()) {
+                keysKept_.push_back(key);
+            }
+        }
+    }
+    keysSent_.clear();
+    std::ranges::copy_if(held, std::back_inserter(keysSent_), [this](std::uint8_t key) {
+        return std::ranges::find(keysKept_, key) == keysKept_.end();
+    });
+}
+
+void RemoteInput::keepKeys() {
+    keepHeld_ = true;
 }
 
 void RemoteInput::releasePointer() {
@@ -142,6 +168,8 @@ void RemoteInput::release() {
     moveRest_ = {};
     mouse_.buttons = 0;
     clicked_ = 0;
+    keysSent_.clear();
+    keepKeys();
 }
 
 } // namespace opensu::app

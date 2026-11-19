@@ -214,3 +214,8 @@ add_executable(pointing_pads_test pointing_pads_test.cpp)
 target_link_libraries(pointing_pads_test PRIVATE opensu::app)
 opensu_warnings(pointing_pads_test)
 add_test(NAME pointing_pads COMMAND pointing_pads_test)
+
+add_executable(remote_input_test remote_input_test.cpp)
+target_link_libraries(remote_input_test PRIVATE opensu::app)
+opensu_warnings(remote_input_test)
+add_test(NAME remote_input COMMAND remote_input_test)
