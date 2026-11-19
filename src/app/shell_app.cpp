@@ -1883,15 +1883,23 @@ int ShellApp::run() {
         publishSnapshot();
         // An unmapped window draws nothing, and its artwork still streams in.
         shell_.loadArtwork();
-        showGamePicture();
+        // Taken once the swapchain gave a picture to draw into, so a remote frame does not sit
+        // out the wait for the next vsync before it is drawn.
+        bool pictured = false;
         const ShellWindow::Presented presented =
-            window_->present([this](ui::Canvas& canvas, const gpu2d::Surface& target) {
+            window_->present([this, &pictured](ui::Canvas& canvas, const gpu2d::Surface& target) {
+                showGamePicture();
+                pictured = true;
                 shell_.draw(canvas, target);
             });
         recordFrame();
         if (const std::optional<std::uint32_t> shown = remotePicture_->takeFresh()) {
             remotePlay_.presented(*shown, stream::wire::microsOf(presented.submitted),
                                   presented.drawn);
+        }
+        // Nothing was drawn: the picture is taken for the next pass, which reports it.
+        if (!pictured) {
+            showGamePicture();
         }
         clock_.service(std::chrono::steady_clock::now());
     }
