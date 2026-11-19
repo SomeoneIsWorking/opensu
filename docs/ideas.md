@@ -53,3 +53,19 @@ context, its threads onto `retro_run`), kept in a fork pinned by revision. Until
 Fan-made native PC ports built from decompilations exist for some titles; openSU could offer one as
 another way to run a game it lists, beside the emulator, on the player's own game data. What exists
 for Super Mario Galaxy is in `docs/prior-art.md` ("Native ports of console games").
+
+## Game identity from IDs across stores and ROMs
+
+Asked 2026-11-19 and put off: the title rule (`library::gameTitles`) still links a GOG or Epic copy to
+its Steam copy, and a ROM to its game. What would replace it where IDs exist:
+
+- Stores: Wikidata, which needs no key and is CC0, links one game's Steam (P1733), GOG (P2725) and
+  Epic (P6278) ids; asked per unmatched GOG or Epic game and kept, so a GOG or Epic copy becomes the
+  Steam app it is (`steamAppOf`) and groups by it. IGDB was the other choice and was not taken: it
+  needs a Twitch developer key on every machine.
+- ROMs: the CRC or serial against the libretro database openSU already downloads, for the canonical
+  name, in place of the file name's.
+
+Why it waits: title grouping's real mistakes are fixed (an added game takes art only from its own
+Steam app; two Steam apps never group), and a store copy whose title differs from its Steam copy's is
+rare.
