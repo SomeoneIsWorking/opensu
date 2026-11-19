@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "containment.hpp"
+#include "process_id.hpp"
 
 namespace opensu::launch {
 
@@ -60,6 +61,10 @@ class ProcessLauncher {
     /// True until the started process itself exits. It keeps its pid through every exec, so this
     /// holds while its command line is being replaced.
     [[nodiscard]] bool startedRunning();
+
+    /// The processes in the group now, whatever the started one exec'd into: the scope's or the
+    /// keeper's (Linux), the job's (Windows), the process group's (macOS); none on Android.
+    [[nodiscard]] std::vector<ProcessId> members();
 
     /// Asks every process in the group to end and returns once the group is gone: on Linux
     /// SIGTERM, and systemd SIGKILLs whatever is left after TimeoutStopSec (5 s); on macOS SIGTERM

@@ -17,6 +17,7 @@
 #include "child_environment.hpp"
 #include "command.hpp"
 #include "lucent/log.h"
+#include "process_table.hpp"
 
 namespace opensu::launch {
 namespace {
@@ -148,6 +149,20 @@ bool ProcessLauncher::running() {
 bool ProcessLauncher::startedRunning() {
     const std::lock_guard lock{mutex_};
     return group_->leaderRunning(exitStatus_);
+}
+
+std::vector<ProcessId> ProcessLauncher::members() {
+    const std::lock_guard lock{mutex_};
+    std::vector<ProcessId> inGroup;
+    if (group_->leader <= 0) {
+        return inGroup;
+    }
+    for (const ProcessId pid : table::pids()) {
+        if (::getpgid(pid) == group_->leader) {
+            inGroup.push_back(pid);
+        }
+    }
+    return inGroup;
 }
 
 void ProcessLauncher::stop() {

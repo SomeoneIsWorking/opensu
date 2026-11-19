@@ -599,6 +599,48 @@ void testShellWaitsForTheWindow() {
     expect(shell.shown.load() == 1, "the shell was shown again, once");
 }
 
+/// A shortcut's `sh -c` that execs the game: the window's owner no longer matches the hint, and
+/// the launch's own group still names it.
+void testWrappedGameIsAskedAboutByItsGroup() {
+    const Fixture fixture;
+    const fs::path pidFile = fixture.base / "wrapped.pid";
+    const Game game = makeGame("wrapped", "/bin/sh",
+                               {"-c", "echo $$ > '" + pidFile.string() + "'; exec sleep 600"},
+                               fixture.marker("wrapped"));
+    Shell shell;
+    FakeSteam steam;
+    FakeWindows windows;
+    Handoff handoff{searchPath(), fixture.session(),      steam,
+                    &windows,     fixture.base / "games", opensu::launch::chooseContainment()};
+    std::future<Outcome> pending = startOnWorker(handoff, game, shell);
+
+    const pid_t pid = awaitRecordedPid(pidFile, "the wrapper started");
+    expect(waitUntil(
+               [pid] {
+                   return read("/proc/" + std::to_string(pid) + "/cmdline").starts_with("sleep");
+               },
+               std::chrono::seconds{5}),
+           "the wrapper exec'd into the game");
+    expect(waitUntil(
+               [&windows, pid] {
+                   const std::vector<pid_t> asked = windows.asked();
+                   return std::ranges::find(asked, pid) != asked.end();
+               },
+               std::chrono::seconds{5}),
+           "the display is asked about the process the wrapper became");
+
+    windows.show();
+    expect(waitUntil(
+               [&shell] {
+                   return shell.hidden.load() == 1;
+               },
+               std::chrono::seconds{5}),
+           "the wrapped game's window ends the wait");
+    handoff.forceClose();
+    const Outcome outcome = awaitStart(pending, "start() returns after forceClose()");
+    expect(outcome.ok, "a forced close is not a failure");
+}
+
 /// A game in the shell's own window has none for the display to find: its first frame ends the
 /// wait.
 void testFirstFrameEndsTheCard() {
@@ -1301,6 +1343,7 @@ int main() {
     testSteamLaunchErrorIsTheFailure();
     testSteamRunningGameIsReturnedTo();
     testShellWaitsForTheWindow();
+    testWrappedGameIsAskedAboutByItsGroup();
     testFirstFrameEndsTheCard();
     testGameLeavingBeforeAWindowFails();
     testSteamBlockedAndFailedAreRefused();

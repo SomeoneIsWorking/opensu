@@ -28,6 +28,7 @@
 #include "command.hpp"
 #include "descriptor.hpp"
 #include "lucent/log.h"
+#include "process_tree.hpp"
 
 namespace opensu::launch {
 namespace {
@@ -369,6 +370,7 @@ class Keeper final : public LaunchGroup {
                int& exitStatus) override;
     bool running(int& exitStatus) override;
     bool startedRunning(int& exitStatus) override;
+    std::vector<ProcessId> members() override;
     void stop(int& exitStatus) override;
 
   private:
@@ -490,6 +492,11 @@ bool Keeper::startedRunning(int& exitStatus) {
         gameEnded_ = gameEnded_ || event == gameEnded;
     }
     return !gameEnded_;
+}
+
+std::vector<ProcessId> Keeper::members() {
+    // A subreaper: what the game started and left stays below the keeper.
+    return keeper_ > 0 ? ProcessTree::descendants(keeper_) : std::vector<ProcessId>{};
 }
 
 void Keeper::stop(int& exitStatus) {

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "containment.hpp"
+#include "process_id.hpp"
 
 namespace opensu::launch {
 
@@ -29,6 +30,7 @@ class LaunchGroup {
                                      const std::filesystem::path& output, int& exitStatus) = 0;
     [[nodiscard]] virtual bool running(int& exitStatus) = 0;
     [[nodiscard]] virtual bool startedRunning(int& exitStatus) = 0;
+    [[nodiscard]] virtual std::vector<ProcessId> members() = 0;
     virtual void stop(int& exitStatus) = 0;
 };
 

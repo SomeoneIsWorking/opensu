@@ -19,6 +19,7 @@
 #include "command.hpp"
 #include "descriptor.hpp"
 #include "lucent/log.h"
+#include "process_table.hpp"
 #include "procfs.hpp"
 
 namespace opensu::launch {
@@ -56,6 +57,7 @@ class SystemdScope final : public LaunchGroup {
                int& exitStatus) override;
     bool running(int& exitStatus) override;
     bool startedRunning(int& exitStatus) override;
+    std::vector<ProcessId> members() override;
     void stop(int& exitStatus) override;
 
   private:
@@ -160,6 +162,19 @@ bool SystemdScope::running(int& exitStatus) {
 
 bool SystemdScope::startedRunning(int& exitStatus) {
     return childRunning(exitStatus);
+}
+
+std::vector<ProcessId> SystemdScope::members() {
+    std::vector<ProcessId> inScope;
+    if (unit_.empty()) {
+        return inScope;
+    }
+    for (const ProcessId pid : table::pids()) {
+        if (procfs::inUnit(pid, unit_)) {
+            inScope.push_back(pid);
+        }
+    }
+    return inScope;
 }
 
 void SystemdScope::stop(int& exitStatus) {

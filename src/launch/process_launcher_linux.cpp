@@ -50,6 +50,11 @@ bool ProcessLauncher::startedRunning() {
     return group_->held->startedRunning(exitStatus_);
 }
 
+std::vector<ProcessId> ProcessLauncher::members() {
+    const std::lock_guard lock{mutex_};
+    return group_->held->members();
+}
+
 void ProcessLauncher::stop() {
     const std::lock_guard lock{mutex_};
     group_->held->stop(exitStatus_);

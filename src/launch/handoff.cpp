@@ -1,7 +1,9 @@
 #include "handoff.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
+#include <iterator>
 #include <optional>
 #include <string>
 #include <thread>
@@ -175,15 +177,20 @@ Handoff::Shown Handoff::awaitScopeWindow(const library::Game& game, const Hooks&
     const Clock::time_point deadline = Clock::now() + Handoff::startTimeout;
     bool appeared = false;
     while (!forced_.load()) {
-        const std::vector<ProcessId> processes = ProcessTree::treesMatching(game.processHint);
+        const std::vector<ProcessId> hinted = ProcessTree::treesMatching(game.processHint);
+        // The group holds the game whatever a wrapper exec'd into (`sh -c`, `env`), which the
+        // hint may not name; only its window tells it from a launcher still waiting there.
+        std::vector<ProcessId> owners = instance_.members();
+        std::ranges::copy(hinted, std::back_inserter(owners));
+        const bool windowed = !hooks.shown && windows_ != nullptr && windows_->anyOwnedBy(owners);
         // Without a process table the started program is all there is to watch.
-        if (!processes.empty() || (!ProcessTree::available() && instance_.startedRunning())) {
+        if (windowed || !hinted.empty() ||
+            (!ProcessTree::available() && instance_.startedRunning())) {
             if (!appeared) {
                 lucent::info("launch", "{} is running", game.title);
             }
             appeared = true;
-            if (hooks.shown ? hooks.shown()
-                            : windows_ == nullptr || windows_->anyOwnedBy(processes)) {
+            if (hooks.shown ? hooks.shown() : windows_ == nullptr || windowed) {
                 return Shown::Window;
             }
             report(LaunchProgress{.stage = hooks.shown ? LaunchProgress::Stage::Starting

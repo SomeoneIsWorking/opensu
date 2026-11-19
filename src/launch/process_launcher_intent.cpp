@@ -103,6 +103,11 @@ bool ProcessLauncher::startedRunning() {
     return running();
 }
 
+std::vector<ProcessId> ProcessLauncher::members() {
+    // Another app's processes are not readable from here.
+    return {};
+}
+
 void ProcessLauncher::stop() {
     const std::lock_guard lock{mutex_};
     if (group_ == nullptr) {

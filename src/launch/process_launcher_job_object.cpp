@@ -227,6 +227,18 @@ bool ProcessLauncher::startedRunning() {
     return group_->childRunning(exitStatus_);
 }
 
+std::vector<ProcessId> ProcessLauncher::members() {
+    const std::lock_guard lock{mutex_};
+    std::vector<ProcessId> inJob;
+    if (!group_->job.valid()) {
+        return inJob;
+    }
+    for (const DWORD id : processesIn(group_->job.get())) {
+        inJob.push_back(static_cast<ProcessId>(id));
+    }
+    return inJob;
+}
+
 void ProcessLauncher::stop() {
     const std::lock_guard lock{mutex_};
     group_->end(exitStatus_);
