@@ -16,7 +16,7 @@ hopping channels; the player keeps those on.
 ## What is done
 
 - The guest holds frames by the stalls' length (`stream::PlayoutDelay`), on every link: repeats
-  from 11.6 a second to 1.6, at about 110 ms from capture to screen against 26 (2026-11-19).
+  from 11.6 a second to 0.8, every decoded frame drawn, at about 111 ms from capture to screen against 26 (b1d26da1, 2026-11-19).
 - A guest's lower frame rate now reaches the host (`stream::FramePace`). At 45 a second the stalls
   are as many per frame as at 60 (1.5 against 1.9 a second, p99 91 ms), so a lower rate does not
   cure them.
