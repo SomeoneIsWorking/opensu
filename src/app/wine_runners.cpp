@@ -96,6 +96,9 @@ std::string WineRunners::checkNow() {
     if (hidden_) {
         return std::string{hiddenRunRefusal};
     }
+    if (!library::ge_proton::publishedHere) {
+        return "GE-Proton has no build for this system";
+    }
     return check(CheckMode::Asked);
 }
 
@@ -451,7 +454,7 @@ void WineRunners::service(Clock::time_point now) {
     for (const Finished& finished : news) {
         hooks_.say(finished.text, finished.outcome == Outcome::Failed);
     }
-    const bool keepCurrent = !hidden_ && hooks_.keepCurrent();
+    const bool keepCurrent = !hidden_ && library::ge_proton::publishedHere && hooks_.keepCurrent();
     if (checked && keepCurrent) {
         rotate();
     }

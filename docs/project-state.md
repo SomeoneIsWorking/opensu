@@ -160,8 +160,9 @@ Visible deltas from the baseline:
   plays ROMs from folders picked through Android's folder picker on the built-in cores, with touch controls in the runner (hidden at a controller's press, back at a touch; Touch controls: Dynamic, Always, Never) and the shell's Guide menu over the running game (S042), and plays a paired PC's games by remote play (S052). A macOS (Apple silicon) app is built, signed ad hoc, as a launcher (S047). On each of them openSU has no: Gamescope (nested session, login session, FSR,
   frame generation, Alt+F4 handling); Managed or Isolated Steam (Steam is the player's own, Normal);
   virtual pads remapping another program's input; the Power, Bluetooth and brightness tabs. Windows
-  runs a store's Windows builds itself, Linux under Wine, macOS not at all (it installs a store's
-  Mac builds; Windows builds under a Mac Wine are planned, waiting on a Wine for Apple silicon). Android also has no Steam, Epic, GOG or sign-in
+  runs a store's Windows builds itself, Linux and macOS under Wine (macOS's a GE-Proton Wine
+  built for it, x86-64 under Rosetta 2, put in `<data>/wine/runners` by geproton-mac and found as
+  plain Wine; GE-Proton is not downloaded there; not yet run on the Mac). Android also has no Steam, Epic, GOG or sign-in
   extension. On macOS a launched game's group is a process group, which a process that calls
   `setsid` leaves (a scope or a job keeps it).
 

@@ -37,8 +37,8 @@ fs::path protonOf(const fs::path& wine) {
     return !build.empty() && fs::is_regular_file(build / "proton", error) ? build : fs::path{};
 }
 
-/// The Proton builds (and, for Lutris, plain Wine builds with `bin/wine`) directly inside
-/// `parent` whose name passes `accept`.
+/// The Proton builds (and, for Lutris and openSU, plain Wine builds with `bin/wine`) directly
+/// inside `parent` whose name passes `accept`.
 template <typename Accept>
 std::vector<Runner> buildsIn(const fs::path& parent, Origin origin, Accept accept) {
     std::vector<Runner> runners;
@@ -52,7 +52,7 @@ std::vector<Runner> buildsIn(const fs::path& parent, Origin origin, Accept accep
             const fs::path build = protonOf(binary);
             runners.push_back(
                 Runner{.name = name, .wine = std::move(binary), .proton = build, .origin = origin});
-        } else if (std::error_code ec; origin == Origin::Lutris &&
+        } else if (std::error_code ec; (origin == Origin::Lutris || origin == Origin::OpenSu) &&
                                        fs::is_regular_file(entry.path() / "bin" / "wine", ec)) {
             runners.push_back(
                 Runner{.name = name, .wine = entry.path() / "bin" / "wine", .origin = origin});
@@ -156,11 +156,21 @@ std::string displayName(std::string_view name) {
 
 std::vector<Runner> discover(const Search& search) {
     std::vector<Runner> runners;
-    for (const ge_proton::Build& build : ge_proton::installed(search.managed)) {
+    const std::vector<ge_proton::Build> managed = ge_proton::installed(search.managed);
+    runners.reserve(managed.size());
+    for (const ge_proton::Build& build : managed) {
         runners.push_back(Runner{.name = build.name,
                                  .wine = build.dir / "files" / "bin" / "wine",
                                  .proton = build.dir,
                                  .origin = Origin::OpenSu});
+    }
+    // A Wine build put there by hand, such as macOS's, which GE-Proton does not publish.
+    if (!search.managed.empty()) {
+        std::vector<Runner> ours =
+            buildsIn(search.managed, Origin::OpenSu, [&managed](const std::string& name) {
+                return std::ranges::find(managed, name, &ge_proton::Build::name) == managed.end();
+            });
+        addNew(runners, std::move(ours));
     }
     const auto any = [](const std::string&) {
         return true;

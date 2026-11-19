@@ -81,6 +81,13 @@ void runnersAreFound(const fs::path& dir) {
                                               {.name = "System Wine", .wine = system}},
            "Steam's Proton builds newest first, those added to its tools folder told apart, "
            "Lutris's Wine builds, then system Wine");
+    const fs::path runners = dir / "runners";
+    const fs::path mac = binary(runners / "GE-Proton11-12-macos-x86_64/bin/wine");
+    const std::vector<wine::Runner> ours = wine::discover(wine::Search{.managed = runners});
+    expect(ours == std::vector<wine::Runner>{{.name = "GE-Proton11-12-macos-x86_64",
+                                              .wine = mac,
+                                              .origin = wine::Origin::OpenSu}},
+           "a plain Wine build in openSU's runners folder is openSU's, run as plain Wine");
     expect(wine::discover(wine::Search{}).empty(), "nothing searched finds nothing");
     expect(wine::discover(wine::Search{.executablePath = {},
                                        .steamRoots = {root, root},

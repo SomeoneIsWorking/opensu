@@ -256,14 +256,17 @@ ui::SettingsCategory WineSettings::page() const {
     } else if (look.checking) {
         status = "Checking for updates…";
     }
-    page.rows.push_back(ui::makeToggle(keepId, "Keep GE-Proton up to date",
-                                       "Downloads the newest in the background and removes all "
-                                       "but the newest two",
-                                       v.keepGeProtonCurrent));
-    page.rows.push_back(ui::makeRow(checkId, RowKind::Action, "Check for GE-Proton now",
-                                    v.keepGeProtonCurrent ? "Also checked at start and every day"
-                                                          : "Downloads only when pressed",
-                                    status));
+    if (library::ge_proton::publishedHere) {
+        page.rows.push_back(ui::makeToggle(keepId, "Keep GE-Proton up to date",
+                                           "Downloads the newest in the background and removes "
+                                           "all but the newest two",
+                                           v.keepGeProtonCurrent));
+        page.rows.push_back(ui::makeRow(checkId, RowKind::Action, "Check for GE-Proton now",
+                                        v.keepGeProtonCurrent
+                                            ? "Also checked at start and every day"
+                                            : "Downloads only when pressed",
+                                        status));
+    }
     page.rows.push_back(ui::makeRow(testId, RowKind::Action, "Test the runner",
                                     "Starts a small Windows program with the runner",
                                     look.testing            ? "Running…"

@@ -42,6 +42,14 @@ struct Version {
 /// (Beta)", "GE-Proton11-5-x86_64"); nothing for one without ("Proton Experimental").
 [[nodiscard]] std::optional<Version> protonVersionOf(std::string_view name);
 
+/// Whether GE-Proton publishes a build that runs on this OS: none for macOS, whose Wine is put in
+/// `runnersDir` by hand.
+#ifdef __APPLE__
+inline constexpr bool publishedHere = false;
+#else
+inline constexpr bool publishedHere = true;
+#endif
+
 /// openSU's runners folder under its data dir.
 [[nodiscard]] std::filesystem::path runnersDir(const std::filesystem::path& dataDir);
 
