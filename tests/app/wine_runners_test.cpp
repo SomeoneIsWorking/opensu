@@ -13,6 +13,7 @@
 #include <thread>
 
 #include "host_services.hpp"
+#include "library/ge_proton.hpp"
 #include "support/loopback_server.hpp"
 #include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
@@ -88,6 +89,11 @@ int main() try {
     auto runners = std::make_unique<app::WineRunners>(
         shown.path(), release.base() + "/release.json", false, signedIn());
     settle(*runners);
+    if (!library::ge_proton::publishedHere) {
+        expect(!runners->checkNow().empty(), "Check now is refused where GE-Proton has no build");
+        std::puts("wine_runners: ok");
+        return 0;
+    }
     expect(runners->checkNow().empty(), "Check now starts a check in a shown run");
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{5};
     while (!asked && std::chrono::steady_clock::now() < deadline) {

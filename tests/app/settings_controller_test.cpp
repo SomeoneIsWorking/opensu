@@ -20,6 +20,7 @@
 #include "gpu2d/ui/widgets.hpp"
 #include "installs.hpp"
 #include "keyboard_pad.hpp"
+#include "library/ge_proton.hpp"
 #include "night_light.hpp"
 #include "online/zero_tier.hpp"
 #include "pad_owner.hpp"
@@ -1478,13 +1479,23 @@ void wineRunnerIsPicked(const fs::path& root) {
            "Left steps back, wrapping");
     expect(rig.rowOf("wine.runtime:" + ge.string()).value == "Not used",
            "a runner no game uses says so");
-    rig.focus("wine.keep");
-    rig.act(Button::A);
-    expect(!rig.onDisk().keepGeProtonCurrent &&
-               rig.rowOf("wine.check").note == "Downloads only when pressed",
-           "keeping GE-Proton up to date turns off, kept, and Check now says it is the only way");
-    rig.act(Button::A);
-    expect(rig.onDisk().keepGeProtonCurrent, "and back on");
+    if (library::ge_proton::publishedHere) {
+        rig.focus("wine.keep");
+        rig.act(Button::A);
+        expect(
+            !rig.onDisk().keepGeProtonCurrent &&
+                rig.rowOf("wine.check").note == "Downloads only when pressed",
+            "keeping GE-Proton up to date turns off, kept, and Check now says it is the only way");
+        rig.act(Button::A);
+        expect(rig.onDisk().keepGeProtonCurrent, "and back on");
+    } else {
+        const std::vector<ui::SettingsRow> wineRows = rig.rows();
+        expect(std::ranges::none_of(wineRows,
+                                    [](const ui::SettingsRow& row) {
+                                        return row.id == "wine.keep" || row.id == "wine.check";
+                                    }),
+               "no GE-Proton download rows where GE-Proton has no build");
+    }
     expect(treeOf(steamRoot) == steamBefore, "Steam's folders are only read");
 
     library::Game game;
