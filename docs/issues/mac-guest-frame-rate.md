@@ -11,7 +11,7 @@ stall arrives 28 ms median from its send against 5 ms otherwise, and the frames 
 one burst, of which the loop shows the newest (`docs/design/lan.md`, the guest's frame loop).
 Marking the stream as video (DSCP AF41, `NET_SERVICE_TYPE_VI`) cut the usual send-to-receive by a
 third and left the stalls as they were. The pattern is macOS's AWDL interface (AirDrop, Handoff)
-hopping channels; the player keeps those on.
+hopping channels: with AirDrop off the late arrivals went from 7.3 a second to none.
 
 ## What is done
 
@@ -20,6 +20,11 @@ hopping channels; the player keeps those on.
 - A guest's lower frame rate now reaches the host (`stream::FramePace`). At 45 a second the stalls
   are as many per frame as at 60 (1.5 against 1.9 a second, p99 91 ms), so a lower rate does not
   cure them.
+- With AirDrop off the link measures over PyroWave's floor, and PyroWave's 417 KB frames took
+  14 ms on the wire and 13 to 35 ms to decode on the Mac, 57 ms from send to taken. A guest now
+  gives PyroWave up when its frames are decoded over 25 ms after their send (`stream::GuestFit`):
+  HEVC from 5 s in, no repeats after, 20 ms from send to taken and 26 from capture to screen
+  (c481139c, 2026-11-19).
 
 ## Open
 
