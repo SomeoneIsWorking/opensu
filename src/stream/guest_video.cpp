@@ -276,6 +276,10 @@ std::optional<GuestVideo::Frame> GuestVideo::takeFrame(std::uint64_t nowUs) {
         return frame.sentUs + delayUs > nowUs;
     });
     if (due == fresh_.begin()) {
+        // A delay longer than the frames held would let every frame go unshown.
+        if (fresh_.size() >= framesHeldMost) {
+            return handOver(0, static_cast<double>(nowUs));
+        }
         ++repeats_;
         return std::nullopt;
     }

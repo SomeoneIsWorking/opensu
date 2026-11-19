@@ -64,7 +64,7 @@ class GuestVideo {
     };
     /// The frame to show at `nowUs`: the newest sent at least the playout delay ago
     /// (`PlayoutDelay`), so a burst after a link's stall plays out a frame a refresh; frames before
-    /// it are let go. Any thread.
+    /// it are let go; with `framesHeldMost` held and none due, the oldest. Any thread.
     [[nodiscard]] std::optional<Frame> takeFrame(std::uint64_t nowUs);
     /// The newest decoded frame, waiting for one to be decoded; nothing once `stop` is asked.
     /// Frame generation paces its own, so it never waits out a stall. Any thread.
