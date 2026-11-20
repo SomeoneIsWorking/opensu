@@ -128,8 +128,10 @@ sleep 60
                                .session = "downloads-test",
                                .steamRoots = {},
                                .containment = opensu::launch::chooseContainment()}};
-    app::Installs installs{steamClient, legendary.string(),
+    app::Installs installs{steamClient,
+                           legendary.string(),
                            app::GogInstallJob::Options{.dataDir = root / "data"},
+                           std::string{},
                            [](library::Source) {
                                return std::optional<fs::path>{};
                            },

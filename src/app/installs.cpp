@@ -10,12 +10,13 @@
 namespace opensu::app {
 
 Installs::Installs(steam::Client& steam, const std::string& legendary,
-                   const GogInstallJob::Options& gog, Folders folders, Playing playing)
+                   const GogInstallJob::Options& gog, const std::string& fumarole, Folders folders,
+                   Playing playing)
     : steamReady_{[&steam] {
           return steam.state() == launch::SteamState::Ready;
       }},
       steam_{steam}, steamUpdate_{steamReady_, steam.downloadControl()}, epic_{legendary},
-      gog_{gog}, uninstall_{steam, legendary, gog.dataDir},
+      gog_{gog}, fumarole_{fumarole}, uninstall_{steam, legendary, gog.dataDir},
       gogRecords_{library::gog::Paths::under(gog.dataDir).records}, folders_{std::move(folders)},
       playing_{std::move(playing)} {
 }
@@ -56,7 +57,9 @@ bool Installs::start(const library::Game& game) {
     }
     InstallJob* job = nullptr;
     const std::optional<std::filesystem::path> folder = folders_(game.source);
-    if (game.source == library::Source::Steam) {
+    if (game.source == library::Source::Steam && game.fromFumarole) {
+        job = &fumarole_;
+    } else if (game.source == library::Source::Steam) {
         steam_.setFolder(folder);
         job = &steam_;
     } else if (game.source == library::Source::Epic) {

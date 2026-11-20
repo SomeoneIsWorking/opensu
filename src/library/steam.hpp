@@ -61,8 +61,10 @@ class Library {
 };
 
 /// A Provider over a discovered installation and fumarole's installs: a game Steam has installed
-/// stays Steam's, one only fumarole installed starts through fumarole. Throws when neither has a
-/// game, which the catalog reports as a problem rather than a failure.
+/// stays Steam's, one only fumarole installed starts through fumarole. With no Steam here, the
+/// account's other owned games fumarole can install are listed too, not installed (asked once).
+/// Throws when there is neither Steam nor fumarole, which the catalog reports as a problem rather
+/// than a failure.
 class Provider final : public library::Provider {
   public:
     Provider(Library library, fumarole::Installs fumarole);
@@ -75,6 +77,8 @@ class Provider final : public library::Provider {
   private:
     Library library_;
     fumarole::Installs fumarole_;
+    /// fumarole's owned games, asked on the first listing without Steam.
+    std::optional<std::vector<Game>> owned_;
 };
 
 } // namespace opensu::library::steam

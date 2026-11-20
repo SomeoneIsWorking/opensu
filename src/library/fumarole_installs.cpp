@@ -1,7 +1,11 @@
 #include "fumarole_installs.hpp"
 
 #include <algorithm>
+#include <stdexcept>
 #include <system_error>
+
+#include "lucent/log.h"
+#include <nlohmann/json.hpp>
 
 #include "fileio/host_path.hpp"
 #include "launch/command.hpp"
@@ -32,6 +36,74 @@ std::vector<Game> Installs::games() const {
     }
     std::ranges::sort(found, {}, &Game::id);
     return found;
+}
+
+std::vector<Game> Installs::owned() const {
+    if (program.empty()) {
+        return {};
+    }
+    const std::optional<launch::Captured> result =
+        launch::runCaptured(program.string(), {"list", "--json"});
+    if (!result || result->status != 0) {
+        lucent::warn("fumarole", "the owned games could not be listed; is fumarole signed in?");
+        return {};
+    }
+    try {
+        return parseOwned(result->output);
+    } catch (const std::runtime_error& error) {
+        lucent::warn("fumarole", "the owned games list is unreadable: {}", error.what());
+        return {};
+    }
+}
+
+std::vector<Game> parseOwned(std::string_view text) {
+    const nlohmann::json list = nlohmann::json::parse(text, nullptr, false);
+    if (!list.is_array()) {
+        throw std::runtime_error{"not a JSON array"};
+    }
+    std::vector<Game> games;
+    for (const nlohmann::json& app : list) {
+        if (!app.is_object() || !app.value("app_id", nlohmann::json{}).is_number_unsigned() ||
+            !app.value("name", nlohmann::json{}).is_string()) {
+            continue;
+        }
+        const nlohmann::json systems = app.value("os", nlohmann::json::array());
+        const auto has = [&systems](std::string_view os) {
+            return systems.is_array() && std::ranges::find(systems, os) != systems.end();
+        };
+        Game game;
+        game.sourceId = std::to_string(app["app_id"].get<std::uint64_t>());
+        game.id = "steam:" + game.sourceId;
+        game.source = Source::Steam;
+        game.title = app["name"].get<std::string>();
+        game.builds = {.windows = has("windows"), .linuxNative = has("linux"), .mac = has("macos")};
+        game.fromFumarole = true;
+        if (game.builds.windows) {
+            games.push_back(std::move(game));
+        }
+    }
+    return games;
+}
+
+std::optional<double> installProgress(std::string_view line) {
+    const nlohmann::json event = nlohmann::json::parse(line, nullptr, false);
+    if (!event.is_object() || event.value("event", "") != "progress") {
+        return std::nullopt;
+    }
+    const double total = event.value("bytes_total", 0.0);
+    if (total <= 0) {
+        return std::nullopt;
+    }
+    return std::clamp(event.value("bytes_done", 0.0) / total, 0.0, 1.0);
+}
+
+std::optional<std::string> installFailure(std::string_view line) {
+    constexpr std::string_view marker = "[fumarole:error] ";
+    const std::size_t at = line.find(marker);
+    if (at == std::string_view::npos) {
+        return std::nullopt;
+    }
+    return std::string{line.substr(at + marker.size())};
 }
 
 std::optional<Game> gameOf(const fs::path& record, const fs::path& program) {

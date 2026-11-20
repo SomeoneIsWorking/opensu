@@ -468,7 +468,10 @@ void testInstalls(const fs::path& dir) {
                                        .steamRoots = {},
                                        .containment = opensu::launch::chooseContainment()}};
     std::vector<Source> asked;
-    Installs installs{steam, slow.string(), GogInstallJob::Options{.dataDir = dir / "data"},
+    Installs installs{steam,
+                      slow.string(),
+                      GogInstallJob::Options{.dataDir = dir / "data"},
+                      std::string{},
                       [&asked](Source store) -> std::optional<fs::path> {
                           asked.push_back(store);
                           return std::nullopt;
@@ -555,7 +558,10 @@ void testFolderRefusal(const fs::path& dir) {
     const fs::path good = dir / "good-games";
     fs::create_directories(good);
     std::optional<fs::path> chosen;
-    Installs installs{steam, stub.string(), GogInstallJob::Options{.dataDir = dir / "data"},
+    Installs installs{steam,
+                      stub.string(),
+                      GogInstallJob::Options{.dataDir = dir / "data"},
+                      std::string{},
                       [&chosen](Source) {
                           return chosen;
                       },

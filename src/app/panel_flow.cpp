@@ -22,9 +22,14 @@ class LicenceDialog final : public gpu2d::ui::Dialog {
 
 PanelFlow::PanelFlow(gpu2d::ui::Navigator& navigator, ui::ScreenImages& images,
                      audio::SdlSoundPlayer& sounds, steam::Client& steam,
-                     const std::filesystem::path& dataDir, Hooks hooks)
+                     const std::filesystem::path& dataDir, const std::filesystem::path& fumarole,
+                     Hooks hooks)
     : navigator_{navigator}, images_{images}, sounds_{sounds},
-      install_{steam, "legendary", GogInstallJob::Options{.dataDir = dataDir}, hooks.installFolder,
+      install_{steam,
+               "legendary",
+               GogInstallJob::Options{.dataDir = dataDir},
+               fumarole.string(),
+               hooks.installFolder,
                hooks.playing},
       hooks_{std::move(hooks)} {
 }

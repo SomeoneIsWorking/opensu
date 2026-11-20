@@ -11,6 +11,7 @@
 
 #include "config/config.hpp"
 #include "epic_install_job.hpp"
+#include "fumarole_install_job.hpp"
 #include "gog_install_job.hpp"
 #include "install_job.hpp"
 #include "library/game.hpp"
@@ -33,7 +34,7 @@ class Installs {
     /// Installs and uninstalls Epic titles with `legendary` and installs GOG titles with gogdl,
     /// each into the folder `folders` names for its store. `playing` says which game runs.
     Installs(steam::Client& steam, const std::string& legendary, const GogInstallJob::Options& gog,
-             Folders folders, Playing playing);
+             const std::string& fumarole, Folders folders, Playing playing);
 
     /// Where each store `integrations` lists installs when no folder is set: GOG under openSU's
     /// data dir (gogdl's `<data>/gog-games`), Epic where legendary's own default is, Steam its
@@ -110,6 +111,8 @@ class Installs {
     SteamUpdateJob steamUpdate_;
     EpicInstallJob epic_;
     GogInstallJob gog_;
+    /// A Steam game only fumarole lists, with no Steam here.
+    FumaroleInstallJob fumarole_;
     UninstallJob uninstall_;
     library::gog::InstallRecords gogRecords_;
     Folders folders_;

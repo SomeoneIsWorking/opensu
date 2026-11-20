@@ -227,7 +227,10 @@ sleep 0.5
 exit 0
 )");
     std::string playing;
-    Installs installs{steam, slow.string(), GogInstallJob::Options{.dataDir = dir / "data"},
+    Installs installs{steam,
+                      slow.string(),
+                      GogInstallJob::Options{.dataDir = dir / "data"},
+                      std::string{},
                       [](Source) -> std::optional<fs::path> {
                           return std::nullopt;
                       },

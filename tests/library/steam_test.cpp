@@ -8,10 +8,12 @@
 #include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <optional>
 #include <stop_token>
 #include <string>
@@ -176,8 +178,54 @@ void fumaroleInstallsAreSteamGames(const Fixture& fixture, const Library& librar
            "without the fumarole program its records are not read");
 }
 
+/// With no Steam here, fumarole's owned games it can install are listed, not installed, once.
+void fumaroleOwnedWithoutSteam(const Fixture& fixture) {
+    const fs::path data = fixture.base / "fumarole-owned";
+    const fs::path apps = data / "apps";
+    fs::create_directories(apps / "Snakebird");
+    writeRecord(data, "357300", "windows", apps / "Snakebird");
+    const fs::path program = fixture.base / "bin" / "fumarole-owned";
+    const fs::path asked = fixture.base / "owned-asked";
+    write(program, "#!/bin/sh\necho x >> '" + asked.string() +
+                       "'\necho '[{\"app_id\":357300,\"name\":\"Snakebird\",\"os\":[\"windows\"]},"
+                       "{\"app_id\":858710,\"name\":\"Gravity Circuit\",\"os\":[\"windows\","
+                       "\"macos\"]},{\"app_id\":9,\"name\":\"Mac Only\",\"os\":[\"macos\"]}]'\n");
+    fs::permissions(program, fs::perms::owner_exec, fs::perm_options::add);
+    const Library none = Library::discover(fixture.base / "no-steam-home", {});
+    opensu::library::steam::Provider provider{
+        none, opensu::library::fumarole::Installs{.program = program, .dataDir = data}};
+    std::vector<Game> games = provider.list(std::stop_token{});
+    const Game* gravity = find(games, "steam:858710");
+    expect(gravity != nullptr && !gravity->installed && gravity->fromFumarole &&
+               gravity->title == "Gravity Circuit" && gravity->builds.windows &&
+               gravity->builds.mac,
+           "an owned game fumarole can install is a Steam game not installed");
+    expect(find(games, "steam:357300") != nullptr && find(games, "steam:357300")->installed &&
+               std::ranges::count(games, std::string{"steam:357300"}, &Game::id) == 1,
+           "an owned game fumarole installed is listed once, installed");
+    expect(find(games, "steam:9") == nullptr, "a game with no Windows build is not offered");
+    games = provider.list(std::stop_token{});
+    std::ifstream calls{asked};
+    const auto count = std::count(std::istreambuf_iterator<char>{calls}, {}, '\n');
+    expect(count == 1 && find(games, "steam:858710") != nullptr,
+           "the owned list is asked once and kept");
+
+    using opensu::library::fumarole::installFailure;
+    using opensu::library::fumarole::installProgress;
+    expect(installProgress(
+               R"({"event":"progress","app_id":1,"bytes_done":25,"bytes_total":100})") == 0.25,
+           "a progress event is the fraction done");
+    expect(!installProgress(R"({"event":"installed","app_id":1})") &&
+               !installProgress("[2026-11-20T08:04:26.872Z] [licences] 448 licences"),
+           "other lines are no progress");
+    expect(installFailure("[2026-11-20T08:04:26.933Z] [fumarole:error] app 1 is not owned by this "
+                          "account") == "app 1 is not owned by this account",
+           "fumarole's error line is the failure");
+}
+
 int main() try {
     Fixture fixture;
+    fumaroleOwnedWithoutSteam(fixture);
 
     const Library library = Library::discover(fixture.base / "", {fixture.root});
     expect(library.roots().size() == 1, "one install root discovered");

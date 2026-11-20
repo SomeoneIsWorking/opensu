@@ -104,8 +104,12 @@ sleep 0.3
 exit 0
 )");
     std::string playing;
-    Installs installs{steam, legendary.string(), GogInstallJob::Options{.dataDir = dir / "data"},
-                      noFolders(), [&playing](const Game& game) {
+    Installs installs{steam,
+                      legendary.string(),
+                      GogInstallJob::Options{.dataDir = dir / "data"},
+                      std::string{},
+                      noFolders(),
+                      [&playing](const Game& game) {
                           return game.id == playing;
                       }};
     const Game fortnite = updatable(Source::Epic, "Fortnite", "Fortnite");
@@ -190,8 +194,11 @@ void testGog(const fs::path& dir) {
     opensu::library::gog::TokenStore::under(data).save(
         opensu::library::gog::Token{"ACCESS-1", "REFRESH-1", "4242", 4'000'000'000});
     const fs::path gogdl = writeGogdl(dir / "bin");
-    Installs installs{steam, "legendary",
-                      GogInstallJob::Options{.dataDir = data, .gogdl = gogdl.string()}, noFolders(),
+    Installs installs{steam,
+                      "legendary",
+                      GogInstallJob::Options{.dataDir = data, .gogdl = gogdl.string()},
+                      std::string{},
+                      noFolders(),
                       [](const Game&) {
                           return false;
                       }};
@@ -226,8 +233,12 @@ void testGog(const fs::path& dir) {
 
 void testSteam(const fs::path& dir) {
     opensu::steam::Client stopped{stoppedSteam(dir)};
-    Installs installs{stopped, "legendary", GogInstallJob::Options{.dataDir = dir / "data"},
-                      noFolders(), [](const Game&) {
+    Installs installs{stopped,
+                      "legendary",
+                      GogInstallJob::Options{.dataDir = dir / "data"},
+                      std::string{},
+                      noFolders(),
+                      [](const Game&) {
                           return false;
                       }};
     expect(installs.update(updatable(Source::Steam, "1628350", "Deep Game")) ==

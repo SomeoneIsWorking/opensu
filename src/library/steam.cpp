@@ -520,11 +520,24 @@ Provider::Provider(Library library, fumarole::Installs fumarole)
 std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
     std::vector<Game> fumarole = fumarole_.games();
     std::vector<Game> games;
+    bool steamHere = true;
     try {
         games = library_.list();
     } catch (const SourceAbsent&) {
-        if (fumarole.empty()) {
+        steamHere = false;
+        if (fumarole_.program.empty()) {
             throw;
+        }
+    }
+    // With no Steam here, fumarole is the store: every owned game it can install is listed.
+    if (!steamHere && !owned_) {
+        owned_ = fumarole_.owned();
+    }
+    if (!steamHere) {
+        for (const Game& game : *owned_) {
+            if (std::ranges::find(fumarole, game.id, &Game::id) == fumarole.end()) {
+                games.push_back(game);
+            }
         }
     }
     for (Game& installed : fumarole) {

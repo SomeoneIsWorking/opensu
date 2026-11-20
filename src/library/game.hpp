@@ -187,7 +187,7 @@ struct Game {
     std::string artworkUrl;
 
     /// The platforms the store lists builds for; set by GOG, which installs the one that runs here
-    /// (`gogInstallPlatform`).
+    /// (`gogInstallPlatform`), and for a Steam game fumarole lists as owned.
     struct Builds {
         bool windows{false};
         bool linuxNative{false};

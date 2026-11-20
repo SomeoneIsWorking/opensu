@@ -79,6 +79,7 @@
 #include "layered_settings.hpp"
 #include "library/catalog.hpp"
 #include "library/catalog_loader.hpp"
+#include "library/fumarole_installs.hpp"
 #include "library/game_saves.hpp"
 #include "library/lossless_scaling.hpp"
 #include "library/romset_convert.hpp"
@@ -1798,6 +1799,8 @@ class ShellApp final {
         sounds_,
         steam_,
         environment_.dataDir,
+        library::fumarole::Installs::find(environment_.executablePath, environment_.fumaroleDataDir)
+            .program,
         PanelFlow::Hooks{.cancelLaunch =
                              [this] {
                                  cancelLaunch();

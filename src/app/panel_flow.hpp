@@ -39,10 +39,12 @@ class PanelFlow {
     };
 
     /// The card and the questions go on `navigator`. Installs go through `steam` for Steam
-    /// titles, `legendary` for Epic's and gogdl for GOG's.
+    /// titles, `fumarole` (empty when there is none) for the Steam games only it lists, `legendary`
+    /// for Epic's and gogdl for GOG's.
     PanelFlow(gpu2d::ui::Navigator& navigator, ui::ScreenImages& images,
               audio::SdlSoundPlayer& sounds, steam::Client& steam,
-              const std::filesystem::path& dataDir, Hooks hooks);
+              const std::filesystem::path& dataDir, const std::filesystem::path& fumarole,
+              Hooks hooks);
 
     /// Whether the card is up for a launch or an install.
     [[nodiscard]] bool active() const;
