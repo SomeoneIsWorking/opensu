@@ -5,6 +5,7 @@
 #include <cmath>
 #include <fstream>
 #include <iterator>
+#include <set>
 #include <string>
 
 #include <nlohmann/json.hpp>
@@ -27,6 +28,7 @@ constexpr const char* sourceKey = "source";
 constexpr const char* hiddenKey = "hidden";
 constexpr const char* lastPlayedKey = "lastPlayed";
 constexpr const char* homeKey = "home";
+constexpr const char* versionsKey = "versions";
 constexpr const char* homeModeKey = "homeMode";
 constexpr const char* uiSoundsKey = "uiSounds";
 constexpr const char* romFoldersKey = "romFolders";
@@ -282,6 +284,23 @@ class Reader {
         }
     }
 
+    void versionDefaults(const char* name, library::VersionDefaults& out,
+                         const char* fallback) const {
+        const auto found = document_.find(name);
+        if (found == document_.end()) {
+            return;
+        }
+        const json ids = found->is_object() ? found->value("default", json::array()) : json{};
+        const bool strings = ids.is_array() && std::ranges::all_of(ids, [](const json& id) {
+                                 return id.is_string();
+                             });
+        if (strings) {
+            out = library::VersionDefaults{ids.get<std::set<std::string>>()};
+        } else {
+            reject(name, *found, fallback);
+        }
+    }
+
     void times(const char* name, library::PlayHistory::Entries& out, const char* fallback) const {
         const auto found = document_.find(name);
         if (found == document_.end()) {
@@ -429,6 +448,8 @@ Settings Store::load() const {
     read.texts(hiddenKey, hidden, "no game is hidden");
     settings.hidden = library::HiddenGames{std::move(hidden)};
     read.homeChoices(homeKey, settings.home, "Home holds the installed games and consoles");
+    read.versionDefaults(versionsKey, settings.versionDefaults,
+                         "each game's default follows what is installed and played");
     library::PlayHistory::Entries played;
     read.times(lastPlayedKey, played, "no launch is remembered");
     settings.lastPlayed = library::PlayHistory{std::move(played)};
@@ -561,6 +582,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {sourceKey, settings.view.source},
         {hiddenKey, settings.hidden.keys()},
         {homeKey, home},
+        {versionsKey, {{"default", settings.versionDefaults.ids()}}},
         {lastPlayedKey, settings.lastPlayed.entries()},
         {uiSoundsKey, settings.uiSounds},
         {romFoldersKey, listOf(settings.romFolders)},

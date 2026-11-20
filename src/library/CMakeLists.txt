@@ -57,6 +57,7 @@ add_library(opensu_library STATIC
     text_fold.cpp
     sections.cpp
     titles.cpp
+    version_defaults.cpp
     emulators.cpp
     emulator_catalog.cpp
     emulator_release.cpp

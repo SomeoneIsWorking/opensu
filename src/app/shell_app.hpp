@@ -49,6 +49,7 @@
 #include "game_screen.hpp"
 #include "game_settings.hpp"
 #include "game_typing.hpp"
+#include "game_versions.hpp"
 #include "gamepad/direction_repeat.hpp"
 #include "gamepad/pad_source.hpp"
 #include "giveaways/giveaway_board.hpp"
@@ -277,6 +278,8 @@ class ShellApp final {
     void showShelf(std::size_t focus);
     /// Updates the shelf in place as the catalogue fills in, without replaying the entrance.
     void refreshShelf();
+    /// Marks the library's games with the player's default versions and shows it again.
+    void applyVersions();
     /// The chrome the shelf's cards, title and status show, after either shelf update.
     void finishShelf(const settings::Settings& chosen);
     /// The folder open now as the tile that stands for it, or nothing in a section.
@@ -690,6 +693,10 @@ class ShellApp final {
                                   [this] {
                                       details_.refresh();
                                   }}};
+    /// A version a game's page made its default; the library is marked again at once.
+    GameVersions versions_{preferences_, games_, [this] {
+                               applyVersions();
+                           }};
     DetailsController details_{
         DetailsController::Place{shell_.screens().navigator(), shell_.screens().chrome(),
                                  shell_.screens().images()},
@@ -789,6 +796,9 @@ class ShellApp final {
             },
             [this](const library::Game& game) {
                 return downloadsScreen_.board().installing(game.id);
+            },
+            [this](const library::Game& version) {
+                versions_.makeDefault(version);
             }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),

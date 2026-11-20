@@ -432,18 +432,35 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
     std::vector<SettingsRow>& more = details.more;
     const bool versions = page.size() > 1;
     if (versions) {
-        // Every version's way to play on top, what removes one at the bottom.
-        for (const PageCopy& copy : page) {
-            const bool remote = copy.game.source == library::Source::Remote;
+        // What plays now on top, what installs in the middle, what removes at the bottom.
+        const auto wayToPlay = [&more, &top](const PageCopy& copy) {
             SettingsRow play = action(copy.game.installed ? detailsLaunchId : detailsInstallId,
                                       launchOf(copy).label);
             play.id = copyRowId(copy.game.id, play.id);
-            if (remote && !copy.game.unavailable.empty()) {
+            if (copy.game.source == library::Source::Remote && !copy.game.unavailable.empty()) {
                 play.note = copy.game.unavailable;
             }
             more.push_back(std::move(play));
             if (&copy != &top) {
                 add(more, copy, updateRows(copy.game));
+            }
+        };
+        const auto installed = [](const PageCopy& copy) {
+            return copy.game.installed || copy.game.source == library::Source::Remote;
+        };
+        for (const PageCopy& copy : page) {
+            if (installed(copy)) {
+                wayToPlay(copy);
+            }
+        }
+        for (const PageCopy& copy : page) {
+            if (!installed(copy)) {
+                wayToPlay(copy);
+            }
+        }
+        for (const PageCopy& copy : page) {
+            if (&copy != &top) {
+                more.push_back(copy.asNamed(action(detailsDefaultId, "Make default")));
             }
         }
         for (const PageCopy& copy : page) {

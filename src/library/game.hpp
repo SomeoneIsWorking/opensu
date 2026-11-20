@@ -230,6 +230,9 @@ struct Game {
     /// A tile of the title with an update on any copy. Set by `visibleShelf`.
     bool updateOnCopy{false};
 
+    /// The version the player made its game's default (`VersionDefaults`).
+    bool versionDefault{false};
+
     /// What the copies of its title keep their settings, controls and chosen cover under; empty
     /// for a game that keeps them under its id (`shareTitleData`).
     std::string sharedId;

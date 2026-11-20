@@ -109,6 +109,7 @@ void libraryTools(const fs::path& root) {
     saved.hidden.set(hades(), true);
     saved.home.set("console:gc", true, false);
     saved.home.set("title:hades", true, false);
+    saved.versionDefaults.makeDefault("rom:x", {"rom:x", "own:1"});
     saved.lastPlayed.record("epic:celeste", std::chrono::system_clock::from_time_t(1700000000));
     std::string error;
     expect(store.save(saved, error), "the tools save");
@@ -122,6 +123,9 @@ void libraryTools(const fs::path& root) {
            "hidden games and play history round trip");
     expect(loaded.home == saved.home && loaded.home.entries().size() == 2,
            "what the player added to Home and took off it round trips");
+    expect(loaded.versionDefaults == saved.versionDefaults &&
+               loaded.versionDefaults.ids().contains("rom:x"),
+           "the default versions round trip");
 
     write(
         file,

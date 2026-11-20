@@ -238,6 +238,9 @@ void DetailsController::run(const std::string& rowId, int /*step*/) {
         hooks_.launch(*game);
     } else if (id == ui::detailsUpdateId) {
         update_.request(*game);
+    } else if (id == ui::detailsDefaultId) {
+        hooks_.makeDefault(*game);
+        refresh();
     } else if (id == ui::detailsDownloadId) {
         downloadEmulator(*game);
     } else if (id == ui::detailsWinePrefixId) {

@@ -109,9 +109,10 @@ void ownedInTwoStores() {
                                                                  "Hide game", "Game settings",
                                                                  "Versions", "Back"},
            "the page's rows are the top copy's");
-    expect(labelsOf(details.more) ==
-               std::vector<std::string>{"Play (Steam)", "Install (Epic)", "Uninstall (Steam)"},
-           "Versions has each version's way to play, the top first, then the uninstalls");
+    expect(labelsOf(details.more) == std::vector<std::string>{"Play (Steam)", "Install (Epic)",
+                                                              "Make default (Epic)",
+                                                              "Uninstall (Steam)"},
+           "Versions has the plays, the installs, Make default, then the uninstalls");
     const CopyRow install = copyRowOf(details.more[1].id);
     expect(install.gameId == "epic:hades" && install.id == detailsInstallId,
            "a row names its copy");
@@ -123,8 +124,9 @@ void ownedInTwoStores() {
     const GameDetails nothing =
         detailsOf(away, GameMarks{.hidden = false}, now, {}, false, {}, uninstalled);
     expect(nothing.launch.label == "Install (Steam)" &&
-               labelsOf(nothing.more) ==
-                   std::vector<std::string>{"Install (Steam)", "Install (Epic)"},
+               labelsOf(nothing.more) == std::vector<std::string>{"Install (Steam)",
+                                                                  "Install (Epic)",
+                                                                  "Make default (Epic)"},
            "with nothing installed Versions offers each version's Install and nothing to remove");
     expect(valueOf(details, "Last played (Epic)") == "Never played" &&
                valueOf(details, "Last played (Steam)") == "3 hours ago" &&

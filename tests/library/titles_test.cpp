@@ -1,5 +1,6 @@
 // Version grouping: the keys titles are compared by, and which versions make one game.
 #include "library/titles.hpp"
+#include "library/version_defaults.hpp"
 #include "support/test_main.hpp"
 
 #include <algorithm>
@@ -272,6 +273,13 @@ void testVersions() {
     std::vector<Game> two = xmen();
     two.push_back(game(Source::Own, "own:other", "X-Men Legends II: Another Game", true));
     expect(gameTitles(two).size() == 4, "a base title shared by two subtitled games joins neither");
+
+    std::vector<Game> chosen = xmen();
+    opensu::library::VersionDefaults defaults;
+    defaults.makeDefault("rom:ps2", {"rom:ps2", "rom:xbox", "own:port", "own:lutris"});
+    defaults.apply(chosen);
+    expect(TitleCopies{chosen}.top(chosen[2])->id == "rom:ps2",
+           "the version the player made default leads its game");
 
     const std::vector<Game> remakes{game(Source::Steam, "steam:1", "Doom (2016)"),
                                     game(Source::Gog, "gog:2", "Doom")};

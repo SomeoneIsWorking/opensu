@@ -95,6 +95,8 @@ class DetailsController final : public ui::RowActions {
         std::function<std::vector<library::Game>(const library::Game& game)> copies;
         /// Whether `game` is being installed or downloaded.
         std::function<bool(const library::Game& game)> installing;
+        /// Makes `version` its game's default and shows the library again.
+        std::function<void(const library::Game& version)> makeDefault;
     };
 
     /// What the rows act on.

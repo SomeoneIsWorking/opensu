@@ -66,6 +66,9 @@ std::optional<std::chrono::system_clock::time_point> playedAt(const Game& copy) 
 
 /// Whether `a` goes before `b` among one game's versions, play history aside.
 bool before(const Game& a, const Game& b) {
+    if (a.versionDefault != b.versionDefault) {
+        return a.versionDefault;
+    }
     if (a.installed != b.installed) {
         return a.installed;
     }
@@ -416,7 +419,7 @@ std::vector<const Game*> TitleCopies::ordered(const Game& game) const {
     }
     std::vector<const Game*> copies = title->copies;
     std::ranges::stable_sort(copies, [](const Game* a, const Game* b) {
-        if (a->installed != b->installed ||
+        if (a->versionDefault != b->versionDefault || a->installed != b->installed ||
             (a->source == Source::Remote) != (b->source == Source::Remote)) {
             return before(*a, *b);
         }

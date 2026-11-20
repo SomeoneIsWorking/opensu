@@ -35,8 +35,8 @@ namespace opensu::library {
 
 /// One game and every version of it.
 struct Title {
-    /// Preferred first: installed before not, this machine's before another openSU's, then Steam,
-    /// GOG, Epic, the player's own, ROMs.
+    /// Preferred first: the player's default first, installed before not, this machine's before
+    /// another openSU's, then Steam, GOG, Epic, the player's own, ROMs.
     std::vector<const Game*> copies;
 };
 
@@ -80,9 +80,9 @@ class TitleCopies {
     /// `games` outlives this.
     explicit TitleCopies(const std::vector<Game>& games);
 
-    /// Every version of `game`'s game, top first: installed before not, this machine's before
-    /// another openSU's, within that by when they were last played, latest first, then Steam, GOG,
-    /// Epic, the player's own, ROMs. Empty for a game not in the catalog.
+    /// Every version of `game`'s game, top first: the player's default first, installed before not,
+    /// this machine's before another openSU's, within that by when they were last played, latest
+    /// first, then Steam, GOG, Epic, the player's own, ROMs. Empty for a game not in the catalog.
     [[nodiscard]] std::vector<const Game*> ordered(const Game& game) const;
 
     /// The first of `ordered`: what an entry shows, and what plays without the details page. Null

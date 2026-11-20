@@ -209,6 +209,9 @@ struct Rig {
                          },
                          [this](const library::Game& asked) {
                              return asked.id == installingId;
+                         },
+                         [this](const library::Game& version) {
+                             calls.push_back("default " + version.id);
                          }}} {
     }
 
@@ -310,9 +313,13 @@ void aRowPerStoreCopy(const fs::path& dir) {
     rig.press({Action::Accept});
     expect(rig.calls == std::vector<std::string>{"launch epic:h"}, "which plays that copy");
     rig.calls.clear();
+    rig.press({Action::Down, Action::Accept});
+    expect(rig.calls == std::vector<std::string>{"default epic:h"},
+           "Make default follows the plays and acts on its version");
+    rig.calls.clear();
     rig.press({Action::Down, Action::Down});
     expect(rig.focused() == ui::copyRowId("epic:h", ui::detailsUninstallId),
-           "the uninstalls come after every Play");
+           "the uninstalls come last");
     rig.press({Action::Accept});
     expect(rig.ui.navigator.top()->title() == "Uninstall the Epic copy of Hades?",
            "the confirmation names the copy");
@@ -348,7 +355,7 @@ void nothingInstalledLeadsWithInstall(const fs::path& dir) {
     rig.controller.openPage(std::string{ui::detailsMoreId});
     rig.ui.frame(1.0);
     const std::vector<ui::SettingsRow>& more = rig.controller.details()->more;
-    expect(more.size() == 2 && more[0].id == ui::copyRowId("steam:1", ui::detailsInstallId) &&
+    expect(more.size() == 3 && more[0].id == ui::copyRowId("steam:1", ui::detailsInstallId) &&
                more[1].id == ui::copyRowId("epic:h", ui::detailsInstallId),
            "Versions has each copy's Install, the top one first");
 }
