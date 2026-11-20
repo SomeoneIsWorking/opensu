@@ -25,21 +25,13 @@ Apocalypse"). They are to be one tile.
   so two same-titled games of one store stay two. A store or LAN game also matches by its store and
   store id; a ROM on a paired openSU by the key shared saves use (Switch by title id, others by ROM
   name).
-- **The player's fixes.** "Group with…" on a game's page picks another game to join; "Separate" on
-  a version takes it out into a game of its own. Both are kept by version id (`versions` in
-  `settings.json`), so a rescan does not undo them.
-- **The default version.** Play on the tile starts the group's default: the one the player made
-  default ("Make default" on its row), else installed before not, local before remote, most
-  recently played, then Steam, GOG, Epic, the player's own, ROMs. The tile's cover, title and
-  settings follow the default.
-- **Extras.** "Move to Extras" on a version keeps it installed and playable from the page's Extras
-  section, but it is never the tile, the default, or counted on Home and in Library. "Move back"
-  undoes it. A group whose versions are all in Extras but one is just that one; a group whose
-  versions are all in Extras shows its first. Kept per version id.
-- **The details page** lists the versions, the default first, each with where it comes from:
-  "PlayStation 2 · LRPS2", "Windows · Wine", "Linux · AppImage", "Linux", "Steam", "On Desk"; a
-  Lutris game by what it runs as, since openSU runs it from Lutris's settings itself. The default's Play is
-  the page's; each other version has Play, Make default, Move to Extras and Separate. A version on a
+- **The default version.** Play on the tile starts the group's default: installed before not,
+  local before remote, most recently played, then Steam, GOG, Epic, the player's own, ROMs. The
+  tile's cover, title and settings follow the default.
+- **The details page's Versions** lists every version's Play or Install on top, the default first,
+  each named by where it comes from: "PlayStation 2 · LRPS2", "Windows · Wine", "Linux · AppImage",
+  "Linux", "Steam", "On Desk"; a Lutris game by what it runs as, since openSU runs it from Lutris's
+  settings itself. Each version's Uninstall follows at the bottom. A version on a
   paired openSU reads "Play on Desk", or says why it cannot be played there (that openSU cannot
   stream: it is not Linux in Gamescope).
 - **What a paired openSU tells about its games.** Each game's platform and source (Steam, GOG,
@@ -57,10 +49,8 @@ Apocalypse"). They are to be one tile.
 ## Owners
 
 - `library/titles`: the one owner of "the same game". Its `Title` becomes the group of versions
-  across every source; matching, the player's fixes, the default and Extras are applied there and
-  nowhere else. `TitleCopies` is the details page's and launch's view of it.
-- `library/version_choices`: the player's groupings, separations, defaults and Extras by version id,
-  kept in `settings.json` (`versions`). `app/game_versions` applies a page's change to them.
+  across every source; matching and the default are applied there and nowhere else.
+  `TitleCopies` is the details page's and launch's view of it.
 - `lan/wire` `ListedGame`: gains `same` (the same-game key), its platform, source and launch
   options; the listing gains `hosting` (empty, or why that openSU cannot stream) and its Home order.
   `/lan/play` gains the launch option.
@@ -69,7 +59,7 @@ Apocalypse"). They are to be one tile.
 
 ## Order
 
-1. Versions here: matching, Group with, Separate, default, Extras, the details page. Shown on a
+1. Versions here: matching, the default, the details page. Shown on a
    fixture with the X-Men Legends II shapes: a PS2 and an Xbox ROM, a Lutris game and a `.desktop`
    port, one tile with four versions.
 2. LAN copies as versions: the same-game key, hosting, platform, source and launch options on the
@@ -81,7 +71,7 @@ Apocalypse"). They are to be one tile.
 
 ## State
 
-Step 1 built: grouping, Group with…, Separate, the default, Extras and the Versions card, shown
+Step 1 built: grouping, the default and the Versions card (plays on top, uninstalls below), shown
 on the X-Men Legends II fixture (two ROMs, a `.desktop` port, an AppImage and a Lutris install as
 one tile). Each tile carries one runner badge for its default version (`ui::runnerMark`): shown
 with xemu's icon from its desktop entry, Dolphin's from its theme icon and DuckStation's

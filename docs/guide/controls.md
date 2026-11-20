@@ -76,19 +76,13 @@ that subtitle. A store holds one version of a game, so two same-titled Steam gam
   entry or icon theme, or a Mac app's own icon, or its initials ("DS") when it has none, as an AppImage nothing names.
 - A game whose default version is on another openSU carries what runs it there, ringed, and its
   title reads "· On Desk". A game here that another openSU holds too reads "· Also on Desk".
-- The tile plays the game's default version: the one you made default, else an installed one before
-  one that is not, the one you last played, then Steam, GOG, Epic, your own, ROMs.
+- The tile plays the game's default version: an installed one before one that is not, the one you
+  last played, then Steam, GOG, Epic, your own, ROMs.
 - A console's shelf still lists its own ROMs, and All games lists each game once if any version is
   not a ROM.
-- A game with several versions has **Versions** on its details page in place of More: a heading per
-  version naming what it runs as ("PlayStation 2 · LRPS2", "Windows · Wine", "Linux · AppImage",
-  "Steam"), the
-  default first, each with Play or Install, **Make default**, **Move to Extras** and **Separate**.
-- **Move to Extras** keeps a version playable from Versions' Extras, but it is never the tile or the
-  default and does not count on Home or in Library. **Move back** undoes it.
-- **Separate** takes a version out into a game of its own. **Group with…** on Game settings joins
-  this game with another you pick.
-- The choices are kept in `settings.json` (`versions`) by version, so a rescan does not undo them.
+- A game with several versions has **Versions** on its details page in place of More: every
+  version's Play or Install on top, named by what it runs as ("Play (PlayStation 2 · LRPS2)",
+  "Install (Steam)"), the default first, then each version's Uninstall at the bottom.
 
 Settings › Controls › Shortcuts sets the key for every action (and the pad chord for those that
 take one); Restore default shortcuts puts them back. Its Keyboard row picks the on-screen keyboard

@@ -90,21 +90,11 @@ class DetailsController final : public ui::RowActions {
         std::function<void(const library::Game& game, const std::string& peerId)> playWith;
         /// Offers `game` to a friend over the internet.
         std::function<void(const library::Game& game)> playOnline;
-        /// The versions with rows of their own on `game`'s page, top first and Extras last; empty
-        /// for a page of `game` alone.
+        /// The versions with rows of their own on `game`'s page, top first; empty for a page of
+        /// `game` alone.
         std::function<std::vector<library::Game>(const library::Game& game)> copies;
         /// Whether `game` is being installed or downloaded.
         std::function<bool(const library::Game& game)> installing;
-        /// Makes `version` its game's default, moves it to its game's Extras or back, or takes it
-        /// out of its game, and shows the library again.
-        std::function<void(const library::Game& version)> makeDefault;
-        std::function<void(const library::Game& version, bool extra)> setExtra;
-        std::function<void(const library::Game& version)> separate;
-        /// The other games `game` can be grouped with, each as its preferred version, likeliest
-        /// first.
-        std::function<std::vector<library::Game>(const library::Game& game)> groupCandidates;
-        /// Groups every version of `game` with game `otherId`'s, and shows the library again.
-        std::function<void(const library::Game& game, const std::string& otherId)> groupWith;
     };
 
     /// What the rows act on.

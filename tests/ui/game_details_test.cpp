@@ -110,11 +110,9 @@ void ownedInTwoStores() {
                                                                  "Versions", "Back"},
            "the page's rows are the top copy's");
     expect(labelsOf(details.more) ==
-               std::vector<std::string>{"Steam \xC2\xB7 default", "Move to Extras", "Separate",
-                                        "Uninstall", "Epic", "Install", "Make default",
-                                        "Move to Extras", "Separate"},
-           "Versions has a heading per version, the default first, with its rows");
-    const CopyRow install = copyRowOf(details.more[5].id);
+               std::vector<std::string>{"Play (Steam)", "Install (Epic)", "Uninstall (Steam)"},
+           "Versions has each version's way to play, the top first, then the uninstalls");
+    const CopyRow install = copyRowOf(details.more[1].id);
     expect(install.gameId == "epic:hades" && install.id == detailsInstallId,
            "a row names its copy");
     expect(copyRowOf(std::string{detailsBackId}).gameId.empty(), "a row of the page names none");
@@ -125,11 +123,9 @@ void ownedInTwoStores() {
     const GameDetails nothing =
         detailsOf(away, GameMarks{.hidden = false}, now, {}, false, {}, uninstalled);
     expect(nothing.launch.label == "Install (Steam)" &&
-               labelsOf(nothing.more) == std::vector<std::string>{"Steam \xC2\xB7 default",
-                                                                  "Move to Extras", "Separate",
-                                                                  "Epic", "Install", "Make default",
-                                                                  "Move to Extras", "Separate"},
-           "with nothing installed the top Install leads and is not on Versions again");
+               labelsOf(nothing.more) ==
+                   std::vector<std::string>{"Install (Steam)", "Install (Epic)"},
+           "with nothing installed Versions offers each version's Install and nothing to remove");
     expect(valueOf(details, "Last played (Epic)") == "Never played" &&
                valueOf(details, "Last played (Steam)") == "3 hours ago" &&
                factOf(details, "Last played") == nullptr,
@@ -166,12 +162,11 @@ void storeGame() {
     expect(actionOf(details, detailsHomeId)->label == "Remove from Home",
            "a game on Home offers to be taken off it");
     const std::vector<SettingsRow> more = settingsPageRows(hades(), false);
-    expect(actionOf(details, detailsHiddenId)->label == "Hide game" && more.size() == 4 &&
+    expect(actionOf(details, detailsHiddenId)->label == "Hide game" && more.size() == 3 &&
                copyRowOf(more[0].id).id == detailsMatchId &&
                copyRowOf(more[1].id).id == detailsArtworkId &&
-               copyRowOf(more[2].id).id == detailsGroupWithId &&
-               copyRowOf(more[3].id).id == detailsControlsId,
-           "Hide acts; Match, Choose artwork, Group with and Controls are on Game settings");
+               copyRowOf(more[2].id).id == detailsControlsId,
+           "Hide acts; Match, Choose artwork and Controls are on Game settings");
     Game wide = hades();
     wide.artworkWide = "/covers/hades-wide.jpg";
     expect(detailsOf(wide, GameMarks{.hidden = false}, now).hero == "/covers/hades-wide.jpg",

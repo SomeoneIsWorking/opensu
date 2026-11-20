@@ -23,11 +23,11 @@ constexpr std::array<Source, 4> launcherOrder{Source::Steam, Source::Epic, Sourc
 constexpr std::array<Source, 3> iconOrder{Source::Steam, Source::Gog, Source::Epic};
 
 bool isRomOf(const Game& game, std::string_view system) {
-    return game.source == Source::Rom && game.sourceId == system && !game.inExtras;
+    return game.source == Source::Rom && game.sourceId == system;
 }
 
 bool holds(const Launcher& launcher, const Game& game) {
-    return game.source == launcher.source && !game.inExtras &&
+    return game.source == launcher.source &&
            (launcher.source != Source::Remote || game.hostId == launcher.hostId);
 }
 
@@ -85,13 +85,13 @@ Game entry(const Title& title, const Game& copy) {
 
 /// What a game of `versions` (preferred first) is kept under in `HomeChoices`, its first version
 /// that is no ROM or else its preferred, so a change of default keeps it; and whether it is on Home
-/// by default, as any of its versions not in Extras is.
+/// by default, as any of its versions is.
 std::pair<std::string, bool> homeSlot(std::span<const Game* const> versions) {
     const auto named = std::ranges::find_if(versions, [](const Game* version) {
         return version->source != Source::Rom;
     });
     const bool byDefault = std::ranges::any_of(versions, [](const Game* version) {
-        return !version->inExtras && onHomeByDefault(*version);
+        return onHomeByDefault(*version);
     });
     return {choiceKey(**(named == versions.end() ? versions.begin() : named)), byDefault};
 }
@@ -116,7 +116,7 @@ std::optional<std::pair<std::string, bool>> homeSlotOf(const std::vector<Game>& 
 
 std::size_t countOf(const std::vector<Game>& games, Source source) {
     return static_cast<std::size_t>(std::ranges::count_if(games, [source](const Game& game) {
-        return game.source == source && !game.inExtras;
+        return game.source == source;
     }));
 }
 

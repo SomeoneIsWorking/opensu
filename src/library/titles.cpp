@@ -66,12 +66,6 @@ std::optional<std::chrono::system_clock::time_point> playedAt(const Game& copy) 
 
 /// Whether `a` goes before `b` among one game's versions, play history aside.
 bool before(const Game& a, const Game& b) {
-    if (a.inExtras != b.inExtras) {
-        return b.inExtras;
-    }
-    if (a.versionDefault != b.versionDefault) {
-        return a.versionDefault;
-    }
     if (a.installed != b.installed) {
         return a.installed;
     }
@@ -129,7 +123,7 @@ class Grouping {
                });
     }
     /// Whether two groups share a holder or are versions of two Steam apps, so they cannot be one
-    /// game unless the player says so.
+    /// game.
     [[nodiscard]] bool clash(std::size_t a, std::size_t b) const {
         return std::ranges::any_of(groups_[b], [&](std::size_t member) {
             return holds(a, holderOf(games_[member])) || otherApp(a, steamAppOf(games_[member]));
@@ -244,7 +238,7 @@ std::vector<Title> gameTitles(const std::vector<Game>& games) {
     std::vector<std::string> keys(games.size());
     for (std::size_t at = 0; at < games.size(); ++at) {
         const Game& game = games[at];
-        keys[at] = game.versionApart ? std::string{} : titleKey(game.title);
+        keys[at] = titleKey(game.title);
         std::vector<std::size_t>& candidates = byKey[keys[at]];
         const std::string holder = holderOf(game);
         const std::optional<std::uint32_t> app = steamAppOf(game);
@@ -292,7 +286,7 @@ std::vector<Title> gameTitles(const std::vector<Game>& games) {
     std::unordered_map<std::uint32_t, std::size_t> firstOfApp;
     for (std::size_t at = 0; at < games.size(); ++at) {
         const std::optional<std::uint32_t> app = steamAppOf(games[at]);
-        if (!app || games[at].versionApart) {
+        if (!app) {
             continue;
         }
         const auto [first, fresh] = firstOfApp.emplace(*app, at);
@@ -300,24 +294,6 @@ std::vector<Title> gameTitles(const std::vector<Game>& games) {
         const std::size_t to = grouping.groupOf(first->second);
         if (!fresh && from != to && !grouping.clash(to, from)) {
             grouping.merge(from, to);
-        }
-    }
-    // The player's groupings, whatever the titles say.
-    std::unordered_map<std::string, std::size_t> indexOf;
-    for (std::size_t at = 0; at < games.size(); ++at) {
-        indexOf.emplace(games[at].id, at);
-    }
-    for (std::size_t at = 0; at < games.size(); ++at) {
-        if (const auto other = indexOf.find(games[at].versionWith);
-            !games[at].versionWith.empty() && other != indexOf.end()) {
-            const std::size_t from = grouping.groupOf(at);
-            const std::size_t to = grouping.groupOf(other->second);
-            if (grouping.groups()[from].size() == 1) {
-                grouping.merge(from, to);
-            } else {
-                grouping.groups()[from].erase(std::ranges::find(grouping.groups()[from], at));
-                grouping.into(at, to);
-            }
         }
     }
     std::vector<Title> titles;
@@ -440,8 +416,7 @@ std::vector<const Game*> TitleCopies::ordered(const Game& game) const {
     }
     std::vector<const Game*> copies = title->copies;
     std::ranges::stable_sort(copies, [](const Game* a, const Game* b) {
-        if (a->inExtras != b->inExtras || a->versionDefault != b->versionDefault ||
-            a->installed != b->installed ||
+        if (a->installed != b->installed ||
             (a->source == Source::Remote) != (b->source == Source::Remote)) {
             return before(*a, *b);
         }
@@ -462,7 +437,7 @@ bool TitleCopies::updatePending(const Game& game) const {
 std::vector<std::string> TitleCopies::hostsOf(const Game& game) const {
     std::vector<std::string> hosts;
     for (const Game* copy : ordered(game)) {
-        if (copy->source == Source::Remote && !copy->inExtras && copy->hostId != game.hostId &&
+        if (copy->source == Source::Remote && copy->hostId != game.hostId &&
             std::ranges::find(hosts, copy->hostName) == hosts.end()) {
             hosts.push_back(copy->hostName);
         }

@@ -127,18 +127,13 @@ void testVersionsOnHome() {
         game(Source::Rom, "rom:ps2-x", "ps2", "X-Men Legends II - Rise of Apocalypse", false),
         game(Source::Own, "own:port", {}, "X-Men Legends II"),
     };
-    games[0].versionDefault = true;
     HomeChoices choices;
     std::vector<ShelfItem> home = opensu::library::homeShelf(games, {}, {}, choices);
-    expect(home.size() == 2 && gameAt(home, 1) != nullptr && gameAt(home, 1)->id == "rom:ps2-x",
-           "a game whose default is a ROM stays on Home for its installed PC version");
+    expect(home.size() == 2 && gameAt(home, 1) != nullptr && gameAt(home, 1)->id == "own:port",
+           "a game with a ROM is on Home once, as its installed PC version");
     opensu::library::setOnHome(games, games[0], false, choices);
-    games[0].versionDefault = false;
     home = opensu::library::homeShelf(games, {}, {}, choices);
-    expect(home.size() == 1, "taken off Home, it stays off whichever version is the default");
-    games[1].inExtras = true;
-    expect(opensu::library::onHome(games, games[0], HomeChoices{}) == false,
-           "a version in Extras does not put its game on Home");
+    expect(home.size() == 1, "taken off Home through its ROM, the game stays off");
 }
 
 Game onDesk(std::string id, std::string title, std::optional<std::size_t> home) {

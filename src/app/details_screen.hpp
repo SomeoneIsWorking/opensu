@@ -1,8 +1,8 @@
 // details_screen — a game's details page on the interface toolkit, over its wide picture faded
 // when the store has one: its cover whole beside the title, the store or system and what is known
 // about it, and a pane of the launch button, focused, and the rows that act on it, each row naming
-// the copy it acts on; and a list card over it: More or Versions, with the rows of each version
-// and what removes the game, or Group with…'s games to pick.
+// the copy it acts on; and a list card over it: More, or Versions with every version's Play on top
+// and what removes each at the bottom.
 #pragma once
 
 #include <functional>

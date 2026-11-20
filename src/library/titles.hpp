@@ -1,6 +1,6 @@
 // titles — one game across every source: its versions (ROMs of any console, the player's own
-// games, store copies, copies on paired openSUs) grouped by title, the player's groupings and
-// separations (`VersionChoices`) applied. This is the one place that groups them, and the one rule
+// games, store copies, copies on paired openSUs) grouped by title. This is the one place that
+// groups them, and the one rule
 // for which version an entry uses (`TitleCopies`).
 #pragma once
 
@@ -35,8 +35,8 @@ namespace opensu::library {
 
 /// One game and every version of it.
 struct Title {
-    /// Preferred first: Extras last, the player's default first, installed before not, this
-    /// machine's before another openSU's, then Steam, GOG, Epic, the player's own, ROMs.
+    /// Preferred first: installed before not, this machine's before another openSU's, then Steam,
+    /// GOG, Epic, the player's own, ROMs.
     std::vector<const Game*> copies;
 };
 
@@ -80,24 +80,22 @@ class TitleCopies {
     /// `games` outlives this.
     explicit TitleCopies(const std::vector<Game>& games);
 
-    /// Every version of `game`'s game, top first: Extras last, the player's default first,
-    /// installed before not, this machine's before another openSU's, within that by when they were
-    /// last played, latest first, then Steam, GOG, Epic, the player's own, ROMs. Empty for a game
-    /// not in the catalog.
+    /// Every version of `game`'s game, top first: installed before not, this machine's before
+    /// another openSU's, within that by when they were last played, latest first, then Steam, GOG,
+    /// Epic, the player's own, ROMs. Empty for a game not in the catalog.
     [[nodiscard]] std::vector<const Game*> ordered(const Game& game) const;
 
     /// The first of `ordered`: what an entry shows, and what plays without the details page. Null
     /// for a game of no title, which is only itself.
     [[nodiscard]] const Game* top(const Game& game) const;
 
-    /// The versions the details page lists, top first and Extras last; empty for a game of one
-    /// version.
+    /// The versions the details page lists, top first; empty for a game of one version.
     [[nodiscard]] std::vector<Game> offered(const Game& game) const;
 
     /// Whether any copy of `game`'s title has an update.
     [[nodiscard]] bool updatePending(const Game& game) const;
 
-    /// The other openSUs holding a version of `game`'s game outside Extras, by name, each once,
+    /// The other openSUs holding a version of `game`'s game, by name, each once,
     /// in version order; `game`'s own host is left out.
     [[nodiscard]] std::vector<std::string> hostsOf(const Game& game) const;
 

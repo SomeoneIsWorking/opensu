@@ -331,8 +331,6 @@ std::vector<SettingsRow> settingsPageRows(const std::vector<PageCopy>& page) {
                                 "Match a different game", {}, {}));
     }
     rows.push_back(makePage(copyRowId(game.id, detailsArtworkId), "Choose artwork", {}, {}));
-    rows.push_back(
-        makePage(copyRowId(game.id, detailsGroupWithId), "Group with\xE2\x80\xA6", {}, {}));
     if (game.source != library::Source::Remote) {
         rows.push_back(makePage(copyRowId(game.id, detailsControlsId), "Controls", {}, {}));
     }
@@ -433,48 +431,26 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
     std::ranges::move(settingsRows(page), std::back_inserter(actions));
     std::vector<SettingsRow>& more = details.more;
     const bool versions = page.size() > 1;
-    const bool chosen = std::ranges::any_of(page, [](const PageCopy& copy) {
-        return copy.game.versionDefault;
-    });
-    bool extras = false;
-    for (const PageCopy& copy : page) {
-        std::vector<SettingsRow> rows;
-        const bool top = &copy == &page.front();
-        // The page keeps its order while open; the default is the one the player chose since.
-        const bool isDefault = chosen ? copy.game.versionDefault : top;
-        if (!top) {
-            // Another openSU's says where and how: "Play on Desk: DuckStation".
+    if (versions) {
+        // Every version's way to play on top, what removes one at the bottom.
+        for (const PageCopy& copy : page) {
             const bool remote = copy.game.source == library::Source::Remote;
-            rows.push_back(!copy.game.installed ? action(detailsInstallId, "Install")
-                           : remote             ? action(detailsLaunchId, launchOf(copy).label)
-                                                : action(detailsLaunchId, "Play"));
+            SettingsRow play = action(copy.game.installed ? detailsLaunchId : detailsInstallId,
+                                      launchOf(copy).label);
+            play.id = copyRowId(copy.game.id, play.id);
             if (remote && !copy.game.unavailable.empty()) {
-                rows.back().note = copy.game.unavailable;
+                play.note = copy.game.unavailable;
             }
-            std::ranges::move(updateRows(copy.game), std::back_inserter(rows));
+            more.push_back(std::move(play));
+            if (&copy != &top) {
+                add(more, copy, updateRows(copy.game));
+            }
         }
-        if (versions && !isDefault && !copy.game.inExtras) {
-            rows.push_back(action(detailsDefaultId, "Make default"));
+        for (const PageCopy& copy : page) {
+            add(more, copy, uninstallRows(copy.game));
         }
-        if (versions) {
-            rows.push_back(copy.game.inExtras ? action(detailsMoveBackId, "Move back")
-                                              : action(detailsExtrasId, "Move to Extras"));
-            rows.push_back(action(detailsSeparateId, "Separate"));
-        }
-        std::ranges::move(uninstallRows(copy.game), std::back_inserter(rows));
-        if (!versions) {
-            add(more, copy, std::move(rows));
-            continue;
-        }
-        if (copy.game.inExtras && !extras) {
-            extras = true;
-            more.push_back(makeHeading("Extras"));
-        }
-        more.push_back(makeHeading(copy.store() + (isDefault ? " \xC2\xB7 default" : "")));
-        for (SettingsRow& row : rows) {
-            row.id = copyRowId(copy.game.id, row.id);
-            more.push_back(std::move(row));
-        }
+    } else {
+        add(more, top, uninstallRows(top.game));
     }
     details.moreTitle = versions ? "Versions" : "More";
     details.settingsRows = settingsPageRows(page);

@@ -5,7 +5,6 @@
 #include <cmath>
 #include <fstream>
 #include <iterator>
-#include <set>
 #include <string>
 
 #include <nlohmann/json.hpp>
@@ -28,7 +27,6 @@ constexpr const char* sourceKey = "source";
 constexpr const char* hiddenKey = "hidden";
 constexpr const char* lastPlayedKey = "lastPlayed";
 constexpr const char* homeKey = "home";
-constexpr const char* versionsKey = "versions";
 constexpr const char* homeModeKey = "homeMode";
 constexpr const char* uiSoundsKey = "uiSounds";
 constexpr const char* romFoldersKey = "romFolders";
@@ -284,47 +282,6 @@ class Reader {
         }
     }
 
-    void versions(const char* name, library::VersionChoices& out, const char* fallback) const {
-        const auto found = document_.find(name);
-        if (found == document_.end()) {
-            return;
-        }
-        const auto ids = [](const json& list, std::set<std::string>& into) {
-            bool texts = list.is_array();
-            for (const json& id : texts ? list : json::array()) {
-                texts = texts && id.is_string();
-                if (id.is_string()) {
-                    into.insert(id.get<std::string>());
-                }
-            }
-            return texts;
-        };
-        library::VersionChoices::Joins with;
-        std::set<std::string> apart;
-        std::set<std::string> defaults;
-        std::set<std::string> extras;
-        bool valid = found->is_object();
-        if (valid) {
-            const json joins = found->value("with", json::object());
-            valid = joins.is_object();
-            for (const auto& [id, other] : joins.items()) {
-                valid = valid && other.is_string();
-                if (other.is_string()) {
-                    with.emplace(id, other.get<std::string>());
-                }
-            }
-            valid = ids(found->value("apart", json::array()), apart) && valid;
-            valid = ids(found->value("default", json::array()), defaults) && valid;
-            valid = ids(found->value("extras", json::array()), extras) && valid;
-        }
-        if (valid) {
-            out = library::VersionChoices{std::move(with), std::move(apart), std::move(defaults),
-                                          std::move(extras)};
-        } else {
-            reject(name, *found, fallback);
-        }
-    }
-
     void times(const char* name, library::PlayHistory::Entries& out, const char* fallback) const {
         const auto found = document_.find(name);
         if (found == document_.end()) {
@@ -472,7 +429,6 @@ Settings Store::load() const {
     read.texts(hiddenKey, hidden, "no game is hidden");
     settings.hidden = library::HiddenGames{std::move(hidden)};
     read.homeChoices(homeKey, settings.home, "Home holds the installed games and consoles");
-    read.versions(versionsKey, settings.versions, "games group their versions by title");
     library::PlayHistory::Entries played;
     read.times(lastPlayedKey, played, "no launch is remembered");
     settings.lastPlayed = library::PlayHistory{std::move(played)};
@@ -605,11 +561,6 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {sourceKey, settings.view.source},
         {hiddenKey, settings.hidden.keys()},
         {homeKey, home},
-        {versionsKey,
-         {{"with", settings.versions.with()},
-          {"apart", settings.versions.apart()},
-          {"default", settings.versions.defaults()},
-          {"extras", settings.versions.extras()}}},
         {lastPlayedKey, settings.lastPlayed.entries()},
         {uiSoundsKey, settings.uiSounds},
         {romFoldersKey, listOf(settings.romFolders)},

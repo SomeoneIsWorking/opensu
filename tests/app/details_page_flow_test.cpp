@@ -209,21 +209,6 @@ struct Rig {
                          },
                          [this](const library::Game& asked) {
                              return asked.id == installingId;
-                         },
-                         [this](const library::Game& version) {
-                             calls.push_back("default " + version.id);
-                         },
-                         [this](const library::Game& version, bool extra) {
-                             calls.push_back((extra ? "extra " : "back ") + version.id);
-                         },
-                         [this](const library::Game& version) {
-                             calls.push_back("separate " + version.id);
-                         },
-                         [](const library::Game&) {
-                             return std::vector<library::Game>{};
-                         },
-                         [this](const library::Game& game, const std::string& other) {
-                             calls.push_back("group " + game.id + " with " + other);
                          }}} {
     }
 
@@ -317,22 +302,17 @@ void aRowPerStoreCopy(const fs::path& dir) {
            "Versions follows it");
     rig.press({Action::Accept});
     expect(rig.top() == "details.more" &&
-               rig.focused() == ui::copyRowId("steam:1", ui::detailsExtrasId),
-           "Versions leads with the default's rows");
-    rig.press({Action::Down, Action::Down, Action::Down});
+               rig.focused() == ui::copyRowId("steam:1", ui::detailsLaunchId),
+           "Versions leads with the top version's Play");
+    rig.press({Action::Down});
     expect(rig.focused() == ui::copyRowId("epic:h", ui::detailsLaunchId),
            "then the other version's Play");
-    rig.press({Action::Down, Action::Accept});
-    expect(rig.calls == std::vector<std::string>{"default epic:h"},
-           "Make default acts on its version");
-    rig.calls.clear();
-    rig.press({Action::Up});
     rig.press({Action::Accept});
     expect(rig.calls == std::vector<std::string>{"launch epic:h"}, "which plays that copy");
     rig.calls.clear();
-    rig.press({Action::Down, Action::Down, Action::Down, Action::Down});
+    rig.press({Action::Down, Action::Down});
     expect(rig.focused() == ui::copyRowId("epic:h", ui::detailsUninstallId),
-           "Uninstall ends each version's rows");
+           "the uninstalls come after every Play");
     rig.press({Action::Accept});
     expect(rig.ui.navigator.top()->title() == "Uninstall the Epic copy of Hades?",
            "the confirmation names the copy");

@@ -229,17 +229,6 @@ void DetailsController::run(const std::string& rowId, int /*step*/) {
         close();
         return;
     }
-    if (id == ui::detailsJoinId) {
-        if (const std::optional<library::Game> page = rowGame({})) {
-            hooks_.groupWith(*page, gameId);
-            if (const gpu2d::ui::Screen* top = navigator_.top();
-                top != nullptr && top != this->page()) {
-                navigator_.closeFrom(*top);
-            }
-        }
-        refresh();
-        return;
-    }
     const std::optional<library::Game> game = rowGame(gameId);
     if (!game) {
         refresh();
@@ -249,15 +238,6 @@ void DetailsController::run(const std::string& rowId, int /*step*/) {
         hooks_.launch(*game);
     } else if (id == ui::detailsUpdateId) {
         update_.request(*game);
-    } else if (id == ui::detailsDefaultId) {
-        hooks_.makeDefault(*game);
-        refresh();
-    } else if (id == ui::detailsExtrasId || id == ui::detailsMoveBackId) {
-        hooks_.setExtra(*game, id == ui::detailsExtrasId);
-        refresh();
-    } else if (id == ui::detailsSeparateId) {
-        hooks_.separate(*game);
-        refresh();
     } else if (id == ui::detailsDownloadId) {
         downloadEmulator(*game);
     } else if (id == ui::detailsWinePrefixId) {
@@ -311,20 +291,6 @@ void DetailsController::openPage(const std::string& rowId) {
             *this, chrome_, std::string{ui::detailsMoreId},
             details_ ? details_->moreTitle : std::string{"More"}, [this] {
                 return details_ ? details_->more : std::vector<ui::SettingsRow>{};
-            }));
-    } else if (id == ui::detailsGroupWithId) {
-        sounds_.play(audio::Effect::Open);
-        std::vector<ui::SettingsRow> picks;
-        for (const library::Game& other : hooks_.groupCandidates(*game)) {
-            ui::SettingsRow row =
-                ui::makeRow(ui::copyRowId(other.id, ui::detailsJoinId), ui::RowKind::Action,
-                            other.title, {}, ui::versionLabel(other));
-            picks.push_back(std::move(row));
-        }
-        navigator_.push(std::make_unique<DetailsListScreen>(
-            *this, chrome_, std::string{ui::detailsGroupWithId}, "Group with\xE2\x80\xA6",
-            [picks = std::move(picks)] {
-                return picks;
             }));
     } else if (id == ui::detailsSettingsId) {
         hooks_.openGameSettings(*game, [this] {

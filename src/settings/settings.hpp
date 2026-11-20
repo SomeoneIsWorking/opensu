@@ -19,7 +19,6 @@
 #include "library/library_query.hpp"
 #include "library/play_history.hpp"
 #include "library/sections.hpp"
-#include "library/version_choices.hpp"
 #include "library/wine.hpp"
 #include "night_light_choice.hpp"
 #include "save_share_kind.hpp"
@@ -77,9 +76,6 @@ struct Settings {
 
     /// What the player put on Home or took off it.
     library::HomeChoices home;
-
-    /// How the player grouped games' versions, their defaults and Extras.
-    library::VersionChoices versions;
 
     /// When each game was last launched from opensu.
     library::PlayHistory lastPlayed;

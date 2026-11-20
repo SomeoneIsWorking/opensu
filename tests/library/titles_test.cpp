@@ -1,6 +1,5 @@
 // Version grouping: the keys titles are compared by, and which versions make one game.
 #include "library/titles.hpp"
-#include "library/version_choices.hpp"
 #include "support/test_main.hpp"
 
 #include <algorithm>
@@ -309,37 +308,6 @@ void testRemoteVersions() {
     expect(gameTitles(stores).size() == 2, "one store there holds one version of a game");
 }
 
-void testPlayerChoices() {
-    std::vector<Game> games = xmen();
-    opensu::library::VersionChoices choices;
-    choices.separate("rom:xbox");
-    choices.apply(games);
-    expect(gameTitles(games).size() == 3, "a separated version is a game of its own");
-
-    choices.groupWith("steam:other", "rom:ps2");
-    choices.apply(games);
-    std::vector<opensu::library::Title> titles = gameTitles(games);
-    expect(titles.size() == 2 && copiesOf(games, games[4]).size() == 4,
-           "a version grouped with another joins its game");
-
-    choices.groupWith("rom:xbox", "rom:ps2");
-    choices.apply(games);
-    expect(gameTitles(games).size() == 1, "grouping a separated version brings it back");
-
-    choices.makeDefault("rom:ps2",
-                        {"rom:ps2", "rom:xbox", "own:port", "own:lutris", "steam:other"});
-    choices.setExtra("own:port", true);
-    choices.apply(games);
-    const std::vector<const Game*> order = TitleCopies{games}.ordered(games[2]);
-    expect(order.front()->id == "rom:ps2", "the default leads its game");
-    expect(order.back()->id == "own:port", "a version in Extras goes last");
-
-    choices.setExtra("rom:ps2", true);
-    choices.apply(games);
-    expect(TitleCopies{games}.top(games[0])->id != "rom:ps2",
-           "a default moved to Extras is no longer the default");
-}
-
 } // namespace
 
 void testSteamApps() {
@@ -378,7 +346,6 @@ int main() try {
     testBaseKey();
     testVersions();
     testRemoteVersions();
-    testPlayerChoices();
     testSteamApps();
     std::printf("titles: all checks passed\n");
     return 0;
