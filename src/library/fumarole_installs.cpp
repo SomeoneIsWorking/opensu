@@ -69,7 +69,10 @@ std::vector<Game> parseOwned(std::string_view text) {
         }
         const nlohmann::json systems = app.value("os", nlohmann::json::array());
         const auto has = [&systems](std::string_view os) {
-            return systems.is_array() && std::ranges::find(systems, os) != systems.end();
+            return systems.is_array() &&
+                   std::ranges::any_of(systems, [os](const nlohmann::json& system) {
+                       return system.is_string() && system.get<std::string>() == os;
+                   });
         };
         Game game;
         game.sourceId = std::to_string(app["app_id"].get<std::uint64_t>());
