@@ -765,11 +765,11 @@ void LanRoms::importInto(const std::string& peerId, const fs::path& folder, cons
     lucent::info("lan", "importing {} games and {} BIOS files from {} into {}", games,
                  items.size() - games, host, tree_->label(folder));
     node->imports().add(std::move(items));
-    // What was imported is no longer picked on the host's page.
+    // What was imported is no longer picked on the host's page, which `picks` may be.
     if (const auto page = picks_.find(peerId); page != picks_.end()) {
-        for (const std::string& key : picks.games) {
-            page->second.games.erase(key);
-        }
+        std::erase_if(page->second.games, [&picks](const std::string& key) {
+            return picks.games.contains(key);
+        });
     }
     hooks_.say("Importing " + lucent::text::counted(games, "game") + " from " + host, false);
     hooks_.refresh();
