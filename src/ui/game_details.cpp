@@ -433,7 +433,7 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
     const bool versions = page.size() > 1;
     if (versions) {
         // What plays now on top, what installs in the middle, what removes at the bottom.
-        const auto wayToPlay = [&more, &top](const PageCopy& copy) {
+        const auto wayToPlay = [&more, &top, &add](const PageCopy& copy) {
             SettingsRow play = action(copy.game.installed ? detailsLaunchId : detailsInstallId,
                                       launchOf(copy).label);
             play.id = copyRowId(copy.game.id, play.id);
