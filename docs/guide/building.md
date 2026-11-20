@@ -161,7 +161,7 @@ icd=build/macos/package/stage/openSU.app/Contents/Resources/vulkan/icd.d/MoltenV
 VK_DRIVER_FILES=$icd VK_ICD_FILENAMES=$icd ./build/macos/cmake/src/opensu
 ```
 
-`tools.check package --platform macos` makes the staged app first.
+`uv run --frozen python -m tools.package macos --build-dir build/macos` makes the staged app first.
 
 ## The Gamescope fork
 
