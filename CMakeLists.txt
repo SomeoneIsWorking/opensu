@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.28)
 project(opensu LANGUAGES C CXX)
+# The macOS overlay hosts a Wine game's layers through AppKit (src/app/game_overlay_layer_host.mm).
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

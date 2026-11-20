@@ -4,11 +4,11 @@
 
 namespace opensu::app {
 
-void GameScreen::attachOverlay() {
+void GameScreen::attachOverlay(EmbedSocket& embed) {
     if (window_ == nullptr) {
         throw std::logic_error{"the overlay was attached before the window"};
     }
-    overlay_ = openGameOverlay(*window_);
+    overlay_ = openGameOverlay(*window_, embed);
 }
 
 void GameScreen::showWindow(bool shown) {

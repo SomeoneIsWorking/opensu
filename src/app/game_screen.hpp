@@ -30,9 +30,10 @@ class GameScreen {
     void attach(ShellWindow& window) noexcept {
         window_ = &window;
     }
-    /// Inside Gamescope: the attached window becomes the overlay and keys are watched in-game,
-    /// where the platform has the overlay (`openGameOverlay`).
-    void attachOverlay();
+    /// Inside the shell's session: the attached window becomes the overlay and keys are watched
+    /// in-game, where the platform has the overlay (`openGameOverlay`); a game it embeds talks to
+    /// it through `embed`.
+    void attachOverlay(EmbedSocket& embed);
 
     /// A game started or ended. The window and the overlay follow; nothing is shown.
     void setRunning(bool running);

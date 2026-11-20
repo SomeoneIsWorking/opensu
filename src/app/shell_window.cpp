@@ -9,8 +9,10 @@
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_touch.h>
+#include <SDL3/SDL_video.h>
 
 #include "gpu2d/gpu_error.hpp"
 #include "gpu2d/render_target.hpp"
@@ -145,6 +147,11 @@ bool ShellWindow::displayPaces() const {
     const std::optional<display::Output> shown = output();
     return shown && shown->refreshHz > 0 &&
            interval_ <= std::chrono::nanoseconds{std::chrono::seconds{1}} / shown->refreshHz;
+}
+
+void* ShellWindow::cocoaWindow() const {
+    return SDL_GetPointerProperty(SDL_GetWindowProperties(window_.window()),
+                                  SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
 }
 
 std::optional<display::Output> ShellWindow::output() const {

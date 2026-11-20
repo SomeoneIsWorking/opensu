@@ -95,6 +95,8 @@ class ShellWindow {
     [[nodiscard]] std::uint64_t x11Window() const {
         return window_.x11Window();
     }
+    /// The NSWindow on macOS, null elsewhere.
+    [[nodiscard]] void* cocoaWindow() const;
     /// The size and refresh rate of the monitor the window is on.
     [[nodiscard]] std::optional<display::Output> output() const;
 

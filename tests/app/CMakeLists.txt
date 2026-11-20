@@ -224,3 +224,11 @@ add_executable(remote_input_test remote_input_test.cpp)
 target_link_libraries(remote_input_test PRIVATE opensu::app)
 opensu_warnings(remote_input_test)
 add_test(NAME remote_input COMMAND remote_input_test)
+
+# The macOS embed socket's protocol; it needs Unix sockets.
+if(NOT WIN32)
+    add_executable(embed_socket_test embed_socket_test.cpp)
+    target_link_libraries(embed_socket_test PRIVATE opensu::app nlohmann_json::nlohmann_json)
+    opensu_warnings(embed_socket_test)
+    add_test(NAME embed_socket COMMAND embed_socket_test)
+endif()

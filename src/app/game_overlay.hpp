@@ -4,7 +4,11 @@
 // (`game_overlay_gamescope.cpp`); on Windows and macOS the window itself, lowered behind the game
 // and raised over it, see-through where the window is translucent
 // (`game_overlay_raised_window.cpp`); on Android the shell's translucent Activity brought over the
-// runner's, or a hosted game under the shell's own surface (`game_overlay_activity_task.cpp`).
+// runner's, or a hosted game under the shell's own surface (`game_overlay_activity_task.cpp`). On
+// macOS a Wine game's windows are hosted under the shell's own interface instead, their pictures
+// shared by the window server and the keyboard and mouse forwarded to them through the
+// `EmbedSocket`; a game that does not embed (a native one, or a runner without the socket) gets the
+// raised window (`game_overlay_layer_host.mm`).
 // Where none is opened (outside the shell's session) `GameScreen` hides and shows the window
 // instead.
 #pragma once
@@ -13,6 +17,7 @@
 #include <vector>
 
 #include "display/overlay_mode.hpp"
+#include "embed_socket.hpp"
 #include "input/shortcuts.hpp"
 #include "shell_window.hpp"
 
@@ -40,13 +45,22 @@ class GameOverlay {
     /// call. Never blocks.
     [[nodiscard]] virtual std::vector<input::Action>
     gameKeys(const input::Shortcuts& shortcuts) = 0;
+    /// Whether a Wine game can be shown inside the shell's window, so a launch opens the
+    /// `EmbedSocket` for it.
+    [[nodiscard]] virtual bool embedsWineGames() const {
+        return false;
+    }
+    /// Follows what an embedded game reported since the last call; each turn of the loop. Never
+    /// blocks.
+    virtual void service() {
+    }
 };
 
 /// Whether a built-in core's game can draw inside the shell's window here (`RunnerRelay`).
 [[nodiscard]] bool embedsGames() noexcept;
 
-/// The overlay over `window`, or null where the platform has none. Throws std::runtime_error when
-/// the platform has one that cannot be opened.
-[[nodiscard]] std::unique_ptr<GameOverlay> openGameOverlay(ShellWindow& window);
+/// The overlay over `window`, or null where the platform has none; a game it embeds talks to it
+/// through `embed`. Throws std::runtime_error when the platform has one that cannot be opened.
+[[nodiscard]] std::unique_ptr<GameOverlay> openGameOverlay(ShellWindow& window, EmbedSocket& embed);
 
 } // namespace opensu::app

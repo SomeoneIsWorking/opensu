@@ -3,9 +3,10 @@
 namespace opensu::app {
 namespace {
 
-/// The shell's own window kept behind the game: lowered while the game plays, raised in front of
-/// it for a menu or page and when the game is over. On a translucent window (macOS) the game shows
-/// through; on an opaque one (Windows) the menu needs a `GameBackdrop`. The game keeps the
+/// The shell's own window kept behind the game (Windows): lowered while the game plays, raised in
+/// front of it for a menu or page and when the game is over. On a translucent window the game shows
+/// through; on an opaque one the menu needs a `GameBackdrop`. macOS has the same for a game it does
+/// not embed (`game_overlay_layer_host.mm`). The game keeps the
 /// keyboard, so no key is watched in-game; the Guide button reaches the shell through its pads,
 /// which SDL reads in the background.
 class RaisedWindowOverlay final : public GameOverlay {
@@ -43,7 +44,7 @@ bool embedsGames() noexcept {
     return false;
 }
 
-std::unique_ptr<GameOverlay> openGameOverlay(ShellWindow& window) {
+std::unique_ptr<GameOverlay> openGameOverlay(ShellWindow& window, EmbedSocket& /*embed*/) {
     return std::make_unique<RaisedWindowOverlay>(window);
 }
 

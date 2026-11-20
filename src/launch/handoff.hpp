@@ -61,6 +61,10 @@ class Handoff {
         /// Whether a game drawing in the shell's own window has shown itself, asked in place of
         /// the display; empty otherwise.
         std::function<bool()> shown;
+        /// Whether a game shown inside the shell's window through another channel than the
+        /// display (macOS's embedded Wine windows) has reported a window, asked besides the
+        /// display; empty otherwise. Any thread.
+        std::function<bool()> embedded;
     };
 
     /// Starts a game, calls `hide` once it shows a window, waits for it to finish,

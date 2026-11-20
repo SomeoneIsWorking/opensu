@@ -11,23 +11,6 @@
 
 namespace opensu::session {
 
-std::optional<input::Combo> ShortcutChord::key(int key, bool pressed) {
-    if (const input::Modifier modifier = input::modifierOf(key);
-        modifier != input::Modifier::Neither) {
-        (modifier == input::Modifier::Ctrl ? ctrl_ : shift_) = pressed;
-        return std::nullopt;
-    }
-    if (!pressed) {
-        down_.erase(key);
-        return std::nullopt;
-    }
-    const bool repeat = !down_.insert(key).second;
-    if (repeat) {
-        return std::nullopt;
-    }
-    return input::Combo{key, ctrl_, shift_};
-}
-
 struct GameKeys::Connection {
     Display* display{};
     int xinputOpcode{};

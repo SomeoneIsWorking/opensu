@@ -72,7 +72,11 @@ bool GameLaunch::start(library::Game game, std::vector<std::string> environment,
                                                [&exitStatus](int status) {
                                                    exitStatus = status;
                                                },
-                                           .shown = std::move(shown)};
+                                           .shown = std::move(shown),
+                                           .embedded =
+                                               [this] {
+                                                   return embed_.sawWindow();
+                                               }};
         bool ready = true;
         if (copy.launch.conversion) {
             const library::RomConversion conversion = *std::exchange(copy.launch.conversion, {});

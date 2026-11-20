@@ -32,11 +32,11 @@ class XTestGameTyping final : public GameTyping {
 
 } // namespace
 
-bool typesIntoGames(bool insideGamescope) noexcept {
+bool typesIntoGames(bool insideGamescope, const EmbedSocket& /*embed*/) noexcept {
     return insideGamescope;
 }
 
-std::unique_ptr<GameTyping> openGameTyping(const std::string& x11Display) {
+std::unique_ptr<GameTyping> openGameTyping(const std::string& x11Display, EmbedSocket& /*embed*/) {
     return std::make_unique<XTestGameTyping>(x11Display);
 }
 

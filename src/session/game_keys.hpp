@@ -9,26 +9,12 @@
 
 #include <cstdint>
 #include <memory>
-#include <optional>
-#include <set>
 #include <vector>
 
+#include "input/shortcut_chord.hpp"
 #include "input/shortcuts.hpp"
 
 namespace opensu::session {
-
-/// Turns key edges into key combinations. A held key's repeats fire once, and a modifier alone
-/// fires nothing.
-class ShortcutChord {
-  public:
-    /// `key` is a key code; the combination it completes when it goes down.
-    [[nodiscard]] std::optional<input::Combo> key(int key, bool pressed);
-
-  private:
-    bool ctrl_{};
-    bool shift_{};
-    std::set<int> down_;
-};
 
 class GameKeys {
   public:
@@ -47,7 +33,7 @@ class GameKeys {
   private:
     struct Connection;
     std::unique_ptr<Connection> connection_;
-    ShortcutChord chord_;
+    input::ShortcutChord chord_;
 };
 
 } // namespace opensu::session

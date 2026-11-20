@@ -996,8 +996,18 @@ bool ShellApp::startLaunch(const library::Game& game, LaunchRequest request,
             };
         }
     }
+    // A Wine game on macOS shows its windows in the shell's through this socket.
+    if (const GameOverlay* overlay = gameScreen_.overlay();
+        overlay != nullptr && overlay->embedsWineGames()) {
+        if (std::optional<std::string> socket = embed_.open()) {
+            environment.push_back(std::move(*socket));
+        }
+    }
     const bool running = launches_.start(std::move(started), std::move(environment),
                                          std::move(convert), std::move(setup));
+    if (!running) {
+        embed_.close();
+    }
     if (running) {
         playingAs_ = std::move(request.profile);
     }
@@ -1140,13 +1150,13 @@ void ShellApp::openGameKeyboard() {
         shell_.setToast("the keyboard types only into a game running here", true);
         return;
     }
-    if (!typesIntoGames(environment_.insideGamescope)) {
-        shell_.setToast("the keyboard types into games only inside openSU's Gamescope", true);
+    if (!typesIntoGames(environment_.insideGamescope, embed_)) {
+        shell_.setToast("the keyboard can't type into this game here", true);
         return;
     }
     if (!gameTyping_) {
         try {
-            gameTyping_ = openGameTyping(environment_.x11Display);
+            gameTyping_ = openGameTyping(environment_.x11Display, embed_);
         } catch (const std::runtime_error& refused) {
             lucent::error("keyboard", "cannot type into the game: {}", refused.what());
             shell_.setToast(std::string{"cannot type into the game: "} + refused.what(), true);
@@ -1703,6 +1713,7 @@ void ShellApp::serviceRequests() {
     const bool launching = launches_.running();
     saveSharing_.playing(launching ? &launches_.game() : nullptr);
     if (const std::optional<library::Game> ended = launches_.takeEnded()) {
+        embed_.close();
         layered_.keepScreenTurn(*ended);
         lanNetplay_.ended(*ended);
         netplayRun_.ended(*ended);
@@ -1780,7 +1791,7 @@ int ShellApp::run() {
             const gpu2d::PixelSize size = window_->fillMonitor();
             shell_.setSize(size.width, size.height);
         }
-        gameScreen_.attachOverlay();
+        gameScreen_.attachOverlay(embed_);
         focusFollow_.attach(session_->focusSource(), window_->x11Window());
     }
     if (settings_.playSounds) {
@@ -1826,6 +1837,9 @@ int ShellApp::run() {
         handleKeyboard();
         handlePointer();
         handleGameKeys();
+        if (GameOverlay* overlay = gameScreen_.overlay()) {
+            overlay->service();
+        }
         volume_.poll(std::chrono::steady_clock::now());
         paths_.poll();
         if (const auto direction = repeat_.poll(std::chrono::steady_clock::now())) {

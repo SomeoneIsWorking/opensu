@@ -15,7 +15,7 @@ in front (any program launched from the library, a browser among them), which ke
 | Drawing | `ui/on_screen_keyboard_painter` |
 | The style chosen | `input/keyboard_style`, saved as `keyboard` (`daisy`, `regular`) in `settings.json`, Settings › Controls › Keyboard |
 | Docking it under the screens, pointer on its keys | `ui/shell` (`keyboard`, `aboveKeyboard`) |
-| Typing into the game in front | `app/game_typing` (`GameTyping`; XTest through `session/xtest_input` on Linux, none elsewhere) |
+| Typing into the game in front | `app/game_typing` (`GameTyping`; XTest through `session/xtest_input` on Linux, `key` messages through `app/embed_socket` to a Wine game shown inside openSU's window on macOS, none elsewhere) |
 | What the overlay is while it types into a game | `app/game_screen` (`display::OverlayMode::Typing`) |
 | Opening it over a game | `app/guide_menu_controller` (Keyboard), `input/shortcuts` (`Action::Keyboard`, Guide + X), `ShellApp::openGameKeyboard` |
 

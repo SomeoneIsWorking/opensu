@@ -185,7 +185,11 @@ Handoff::Shown Handoff::awaitScopeWindow(const library::Game& game, const Hooks&
         // hint may not name; only its window tells it from a launcher still waiting there.
         std::vector<ProcessId> owners = instance_.members();
         std::ranges::copy(hinted, std::back_inserter(owners));
-        const bool windowed = !hooks.shown && windows_ != nullptr && windows_->anyOwnedBy(owners);
+        // An embedded game's window may sit at any level, which the display's list does not
+        // count; its own report does.
+        const bool windowed =
+            !hooks.shown && windows_ != nullptr &&
+            ((hooks.embedded && hooks.embedded()) || windows_->anyOwnedBy(owners));
         // Without a process table the started program is all there is to watch.
         if (windowed || !hinted.empty() ||
             (!ProcessTree::available() && instance_.startedRunning())) {

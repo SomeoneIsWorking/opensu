@@ -66,7 +66,7 @@ bool embedsGames() noexcept {
     return true;
 }
 
-std::unique_ptr<GameOverlay> openGameOverlay(ShellWindow& /*window*/) {
+std::unique_ptr<GameOverlay> openGameOverlay(ShellWindow& /*window*/, EmbedSocket& /*embed*/) {
     return std::make_unique<ActivityTaskOverlay>();
 }
 

@@ -37,6 +37,7 @@
 #include "details_controller.hpp"
 #include "devices_controller.hpp"
 #include "downloads_controller.hpp"
+#include "embed_socket.hpp"
 #include "emulator_downloads.hpp"
 #include "emulator_settings.hpp"
 #include "fileio/frame_record.hpp"
@@ -72,6 +73,7 @@
 #include "lan_service.hpp"
 #include "lan_settings.hpp"
 #include "launch/handoff.hpp"
+#include "launch/process_table.hpp"
 #include "launch/process_tree.hpp"
 #include "launch_mailbox.hpp"
 #include "launch_request.hpp"
@@ -1567,7 +1569,8 @@ class ShellApp final {
                         .title = remote ? remotePlay_.game().title : launches_.game().title,
                         .gameSettings =
                             inGame && !remote && !layered_.sectionsOf(launches_.game()).empty(),
-                        .typesIntoGame = here && typesIntoGames(environment_.insideGamescope),
+                        .typesIntoGame =
+                            here && typesIntoGames(environment_.insideGamescope, embed_),
                         .loginSession = settings_.loginSession,
                         .sessionInstalled =
                             !settings_.loginSession && host_.session && host_.session->installed(),
@@ -1867,6 +1870,19 @@ class ShellApp final {
                                        [this] {
                                            reloadCatalog();
                                        }}};
+    /// The socket a Wine game on macOS shows its windows through, opened for each launch the
+    /// overlay can embed; before the overlay, which keeps it.
+    EmbedSocket embed_{environment_.runtimeDir, [this] {
+                           std::string tree;
+                           for (const launch::ProcessId pid :
+                                launch::ProcessTree::treesMatching(launches_.game().processHint)) {
+                               std::string line = launch::table::commandLine(pid);
+                               std::ranges::replace(line, '\0', ' ');
+                               tree +=
+                                   (tree.empty() ? "" : "; ") + std::to_string(pid) + " " + line;
+                           }
+                           return tree.empty() ? std::string{"no process found"} : tree;
+                       }};
     /// How the window relates to a running game: the overlay inside Gamescope, hidden elsewhere.
     GameScreen gameScreen_{settings_.hidden, [this](bool blocked) {
                                padOwner_.setBlocked(blocked);
@@ -1922,7 +1938,7 @@ class ShellApp final {
     LaunchMailbox mailbox_;
     /// The game the shell runs; after the handoff, the mailbox and the runner session its thread
     /// uses, so destroying it closes the game and joins that thread before they go.
-    GameLaunch launches_{handoff_, mailbox_, retro_};
+    GameLaunch launches_{handoff_, mailbox_, retro_, embed_};
     /// The profile the game `launches_` started last plays as: the active one, or a remote guest's.
     std::string playingAs_;
     /// openSU was asked to close and waits for the running game to end.

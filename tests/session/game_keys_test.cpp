@@ -1,5 +1,5 @@
-// Shift+Tab as Guide: the chord's edges, and the raw key path against a real X server (Xvfb,
-// keys injected with XTest).
+// Shift+Tab as Guide: the raw key path against a real X server (Xvfb, keys injected with XTest);
+// the chord's edges are tests/input/shortcut_chord_test.cpp.
 #include "session/game_keys.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
@@ -26,44 +26,16 @@ using opensu::input::Action;
 using opensu::input::Combo;
 using opensu::input::Shortcuts;
 using opensu::session::GameKeys;
-using opensu::session::ShortcutChord;
 
 int code(const char* name) {
     return opensu::test::need(opensu::input::comboNamed(name), "a key name").key;
 }
-
-const int leftShift = opensu::input::modifierKeys()[0];
-const int rightShift = opensu::input::modifierKeys()[1];
-const int leftControl = opensu::input::modifierKeys()[2];
 
 void expect(bool condition, const char* what) {
     if (!condition) {
         std::fprintf(stderr, "FAIL: %s\n", what);
         std::exit(1);
     }
-}
-
-void chordEdges() {
-    ShortcutChord chord;
-    const Combo shiftTab{code("tab"), false, true};
-    expect(chord.key(code("tab"), true) == Combo{code("tab")}, "Tab alone is a bare Tab");
-    expect(!chord.key(code("tab"), false), "Tab release fires nothing");
-    expect(!chord.key(leftShift, true), "Shift alone is no combination");
-    expect(chord.key(code("tab"), true) == shiftTab, "Shift+Tab");
-    expect(!chord.key(code("tab"), true), "a held Tab's repeat fires nothing");
-    expect(!chord.key(code("tab"), false), "releasing Tab fires nothing");
-    expect(chord.key(code("tab"), true) == shiftTab, "a second tap fires again");
-    expect(!chord.key(code("tab"), false), "Tab up");
-    expect(!chord.key(leftShift, false), "Shift up");
-    expect(chord.key(code("tab"), true) == Combo{code("tab")},
-           "Tab after Shift is released is bare");
-    expect(!chord.key(code("tab"), false), "Tab up");
-    expect(!chord.key(rightShift, true), "right Shift down");
-    expect(chord.key(code("tab"), true) == shiftTab, "right Shift+Tab");
-    expect(!chord.key(code("tab"), false), "Tab up");
-    expect(!chord.key(rightShift, false), "Shift up");
-    expect(!chord.key(leftControl, true), "Ctrl down");
-    expect(chord.key(code("up"), true) == Combo{code("up"), true, false}, "Ctrl+Up");
 }
 
 /// An Xvfb on a display it picks itself, ended on scope exit.
@@ -190,9 +162,6 @@ int rawKeysFromAServer() {
 
 } // namespace
 
-int main() try {
-    chordEdges();
-    return rawKeysFromAServer();
-} catch (...) {
+int main() try { return rawKeysFromAServer(); } catch (...) {
     return opensu::test::escaped();
 }

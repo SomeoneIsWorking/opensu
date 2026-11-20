@@ -40,7 +40,9 @@ not stall the game; the window server just composites nothing.
 
 ## The contract
 
-openSU and winemac.drv talk over one Unix socket per game.
+openSU and winemac.drv talk over one Unix socket per game: Lucent's `LineSocketServer`
+(`lucent/line_socket.h`), the title-neutral JSON-lines channel the AGENTS rule on local control
+channels points to, not `lucent::http::Server`, since winemac speaks raw lines.
 
 - **`OPENSU_EMBED_SOCKET`**: openSU creates a listening `SOCK_STREAM` socket (in its runtime
   directory, mode 0600) before it starts the game, and sets this variable to its path in the
@@ -123,6 +125,29 @@ by frames reaching openSU's view rather than by a Metal timestamp.
   with a test client that hosts the windows and sends keys.
 - **(c) openSU: the host view and input.** The backend, the socket, the fallback. Proven by the
   target above, with the Guide over each game and its commit-to-glass beside (a)'s.
+
+## Results of (c) so far (Mac, 2026-11-20)
+
+- **Vampire Survivors** (Unity 6000.0.62f1 through `fumarole launch`, from openSU's Play): hello
+  from `explorer.exe` 11 s after the game ran, then `VampireSurvivors.exe` and its 1280x800 window
+  2.4 s later, shown inside openSU's window at once. The player saw it live, and the mouse and the
+  keyboard reached it. The Guide drew over it; Close game ended it in 5 s with nothing left.
+  Without Screen Recording no picture of the composite can be taken here, so "frames reaching the
+  view" is the player's eye, not a number.
+- **Gravity Circuit**: hello and a 1280x800 window 1 min 52 s after launch, but winemac put the
+  hidden window at window level 21. The display's window list counts level 0 only, so the launch
+  never counted it shown; openSU now counts the socket's window report as well
+  (`Handoff::Hooks::embedded`). A level-21 transparent window also sits over every app and may take
+  clicks, so winemac is asked to keep embedded windows at the normal level and ignoring the mouse.
+  Retest pending on that.
+- **Point 4** (no Dock, Cmd-Tab or Mission Control presence): the game process is a UI element and
+  `explorer.exe` a background-only process, so neither has a Dock icon or a Cmd-Tab entry. Mission
+  Control and a click on the transparent window are not checked yet.
+- **Not yet done**: the 10 s fallback forced once (needs a winemac that says hello and never sends
+  a window), the on-screen keyboard typing into a game with a text field, and relative mouse for a
+  game that captures it (sent while the game hides its cursor; no game here tried it).
+- **Guide also opens the Games app**, with or without a game: an existing macOS problem, not the
+  embed's (`docs/issues/mac-guide-opens-games-app.md`).
 
 Not taken: ScreenCaptureKit or any capture (needs Screen Recording; a covered game window may
 be throttled); IOSurface frames passed over the socket (a copy per frame and a swapchain change

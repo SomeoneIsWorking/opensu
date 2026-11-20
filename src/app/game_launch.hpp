@@ -14,6 +14,7 @@
 #include <thread>
 #include <vector>
 
+#include "embed_socket.hpp"
 #include "launch/handoff.hpp"
 #include "launch_mailbox.hpp"
 #include "library/emulator_launch_config.hpp"
@@ -28,8 +29,10 @@ class GameLaunch {
     using Convert = std::function<std::optional<std::filesystem::path>(
         const library::RomConversion& conversion, std::string& error)>;
 
-    GameLaunch(launch::Handoff& handoff, LaunchMailbox& mailbox, RetroSession& retro) noexcept
-        : handoff_{handoff}, mailbox_{mailbox}, retro_{retro} {
+    /// `embed` tells a Wine game shown inside the shell's window apart from one still loading.
+    GameLaunch(launch::Handoff& handoff, LaunchMailbox& mailbox, RetroSession& retro,
+               const EmbedSocket& embed) noexcept
+        : handoff_{handoff}, mailbox_{mailbox}, retro_{retro}, embed_{embed} {
     }
     GameLaunch(const GameLaunch&) = delete;
     GameLaunch& operator=(const GameLaunch&) = delete;
@@ -62,6 +65,7 @@ class GameLaunch {
     launch::Handoff& handoff_;
     LaunchMailbox& mailbox_;
     RetroSession& retro_;
+    const EmbedSocket& embed_;
     library::Game game_;
     mutable std::mutex mutex_;
     bool running_{false};
