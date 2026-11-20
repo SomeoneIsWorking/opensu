@@ -150,8 +150,9 @@ by frames reaching openSU's view rather than by a Metal timestamp.
   game (through its confirmation) ended it in 2.6 s. That run's log claimed the game was shown
   inside openSU's window before any window came; the overlay now says it is waiting for one.
 - **Point 4** (no Dock, Cmd-Tab or Mission Control presence): the game process is a UI element and
-  `explorer.exe` a background-only process, so neither has a Dock icon or a Cmd-Tab entry. Mission
-  Control and a click on the transparent window are not checked yet.
+  `explorer.exe` a background-only process, so neither has a Dock icon or a Cmd-Tab entry. With
+  Vampire Survivors embedded, Mission Control showed only openSU's window, and clicks in the
+  game's picture reached the game while openSU stayed the front app.
 - **Not yet done**: the on-screen keyboard typing into a game with a text field, and relative mouse for a
   game that captures it (sent while the game hides its cursor; no game here tried it).
 - **Guide also opens the Games app**, with or without a game: an existing macOS problem, not the
