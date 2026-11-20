@@ -392,6 +392,38 @@ void versionLabels() {
            "another openSU's version says where, what it runs as and how");
 }
 
+/// The versions here lay out as if no other openSU had the game; another's copy has its own rows.
+void remoteBeside() {
+    Game here = hades();
+    here.installed = false;
+    here.lastPlayed.reset();
+    Game desk = hades();
+    desk.id = "lan:desk:steam:hades";
+    desk.source = Source::Remote;
+    desk.hostId = "desk";
+    desk.hostName = "Desk";
+    desk.remote.source = "steam";
+    desk.remote.platform = "Steam";
+    const GameMarks marks{.hidden = false, .copying = {{desk.id, ""}}};
+    const std::vector<CopyPart> copies{{desk, false, {}}, {here, false, {}}};
+    const GameDetails details = detailsOf(desk, marks, now, {}, false, {}, copies);
+    expect(details.launch.label == "Install", "Play is this device's version, named as when alone");
+    expect(labelsOf(details.actions) ==
+               std::vector<std::string>{"Play on Desk: Steam", "Copy to this device", "Add to Home",
+                                        "Hide game", "Game settings", "Back"},
+           "the other openSU's play and copy are rows of their own");
+    expect(copyRowOf(details.actions[0].id).gameId == desk.id &&
+               copyRowOf(details.actions[1].id).gameId == desk.id,
+           "they act on its copy");
+    expect(valueOf(details, "Also on") == "Desk" && valueOf(details, "Status") == "Not installed",
+           "the facts are this device's, with where else it is");
+
+    const std::vector<CopyPart> alone{{desk, false, {}}};
+    const GameDetails only = detailsOf(desk, marks, now, {}, false, {}, alone);
+    expect(only.launch.label == "Play on Desk: Steam",
+           "a game only another openSU has plays there");
+}
+
 } // namespace
 
 int main() try {
@@ -404,6 +436,7 @@ int main() try {
     romEmulator();
     arcadeRomset();
     winePrefix();
+    remoteBeside();
     std::puts("game_details: ok");
     return 0;
 } catch (...) {

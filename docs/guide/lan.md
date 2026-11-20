@@ -99,9 +99,11 @@ a save. Other games match by ROM name on the built-in emulators.
 
 ## Remote play
 
-Another openSU's copy of a game is a version of that game here, on its page's Versions card:
-"On Desk · PlayStation · DuckStation". A ROM there that it can run with more than one emulator
-is one version per emulator, and its Play says which: **Play on Desk: DuckStation**.
+A game's page lays out this device's versions as if no other openSU had it: Play, Install and
+Versions are this device's. Each other openSU's copy gets its own rows below Play: **Play on
+Desk: DuckStation**, and **Copy to this device** while none is installed here. The facts say
+where else it is ("Also on: Desk"). A ROM there that it can run with more than one emulator has
+one Play per emulator. A game only other openSUs have plays there from its Play button.
 
 Press Play on another openSU's game in Library. That openSU starts the game and sends its picture
 and sound here, and your controller, keyboard and mouse play it. A card says what it waits for until

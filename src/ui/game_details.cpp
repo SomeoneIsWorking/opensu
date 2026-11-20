@@ -409,13 +409,23 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
                       std::chrono::system_clock::time_point now, const std::string& download,
                       bool ownWinePrefix, const GameSettingsView& settings,
                       const std::vector<CopyPart>& copies) {
+    // The versions here make the page as if no other openSU had the game; theirs get rows of
+    // their own. A game only other openSUs have is theirs to show.
     std::vector<PageCopy> page;
-    page.reserve(std::max<std::size_t>(copies.size(), 1));
+    std::vector<PageCopy> elsewhere;
     for (const CopyPart& copy : copies) {
-        page.push_back(PageCopy{copy.game, copy.settings, copy.ownWinePrefix, true});
+        (copy.game.source == library::Source::Remote ? elsewhere : page)
+            .push_back(PageCopy{copy.game, copy.settings, copy.ownWinePrefix, true});
+    }
+    if (page.empty()) {
+        page = std::move(elsewhere);
+        elsewhere.clear();
     }
     if (page.empty()) {
         page.push_back(PageCopy{game, settings, ownWinePrefix, false});
+    }
+    if (page.size() == 1) {
+        page.front().named = false;
     }
     GameDetails details;
     details.gameId = game.id;
@@ -427,6 +437,15 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
     const std::span<const PageCopy> others = std::span{page}.subspan(1);
     details.launch = launchOf(top);
     details.facts = factsOf(page, marks, now);
+    if (!elsewhere.empty()) {
+        std::string hosts;
+        for (const PageCopy& copy : elsewhere) {
+            if (hosts.find(copy.game.hostName) == std::string::npos) {
+                hosts += (hosts.empty() ? "" : ", ") + copy.game.hostName;
+            }
+        }
+        details.facts.push_back(detailsFact("Also on", hosts));
+    }
     const auto add = [](std::vector<SettingsRow>& to, const PageCopy& copy,
                         std::vector<SettingsRow> rows) {
         for (SettingsRow& row : rows) {
@@ -438,6 +457,15 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
     add(actions, top, updateRows(top.game));
     if (page.size() == 1) {
         add(actions, top, copyHereRows(top.game, page, marks));
+    }
+    for (const PageCopy& copy : elsewhere) {
+        SettingsRow play = action(copyRowId(copy.game.id, detailsLaunchId), launchOf(copy).label);
+        play.note = copy.game.unavailable;
+        actions.push_back(std::move(play));
+        for (SettingsRow& row : copyHereRows(copy.game, page, marks)) {
+            row.id = copyRowId(copy.game.id, row.id);
+            actions.push_back(std::move(row));
+        }
     }
     if (const library::EmulatorOption* missing = emulatorToDownload(top.game)) {
         actions.push_back(action(detailsDownloadId, "Download " + missing->name, download));
