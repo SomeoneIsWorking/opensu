@@ -51,8 +51,8 @@ struct Title {
 /// `baseKey` of the other and no other subtitled game shares that base. A store or another openSU
 /// holds at most one version of a game, so two of one store with the same key stay apart. A version
 /// the player kept apart is a game of its own; one they grouped with another joins that one's game
-/// whatever its title. Ordered by the catalog position of each game's preferred version. The
-/// pointers refer to `games`.
+/// whatever its title. A game of an openSU that is offline is left out. Ordered by the catalog
+/// position of each game's preferred version. The pointers refer to `games`.
 [[nodiscard]] std::vector<Title> gameTitles(const std::vector<Game>& games);
 
 /// Every copy of `game`'s title in `games`, preferred first; `game` alone when it has no other.

@@ -314,6 +314,14 @@ void testRemoteVersions() {
     const std::vector<Game> stores{onDesk("lan:desk:steam:1", "Doom", "steam", ""),
                                    onDesk("lan:desk:steam:2", "DOOM", "steam", "")};
     expect(gameTitles(stores).size() == 2, "one store there holds one version of a game");
+
+    std::vector<Game> away = games;
+    away[1].hostOnline = false;
+    away[2].hostOnline = false;
+    const std::vector<opensu::library::Title> here = gameTitles(away);
+    expect(here.size() == 1 && here[0].copies.size() == 1,
+           "an openSU that is offline holds no version of a game");
+    expect(gameTitles({away[1]}).empty(), "its games alone are no game here");
 }
 
 } // namespace

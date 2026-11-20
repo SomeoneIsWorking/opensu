@@ -235,12 +235,19 @@ std::string versionPlatform(const Game& game) {
 }
 
 std::vector<Title> gameTitles(const std::vector<Game>& games) {
+    // A game on an openSU that is not on the LAN cannot be played: it is no version of anything.
+    const auto reachable = [](const Game& game) {
+        return game.source != Source::Remote || game.hostOnline;
+    };
     Grouping grouping{games};
     // Same key: one game, but a store or an openSU holds one version of it.
     std::unordered_map<std::string, std::vector<std::size_t>> byKey;
     std::vector<std::string> keys(games.size());
     for (std::size_t at = 0; at < games.size(); ++at) {
         const Game& game = games[at];
+        if (!reachable(game)) {
+            continue;
+        }
         keys[at] = titleKey(game.title);
         std::vector<std::size_t>& candidates = byKey[keys[at]];
         const std::string holder = holderOf(game);
@@ -289,7 +296,7 @@ std::vector<Title> gameTitles(const std::vector<Game>& games) {
     std::unordered_map<std::uint32_t, std::size_t> firstOfApp;
     for (std::size_t at = 0; at < games.size(); ++at) {
         const std::optional<std::uint32_t> app = steamAppOf(games[at]);
-        if (!app) {
+        if (!app || !reachable(games[at])) {
             continue;
         }
         const auto [first, fresh] = firstOfApp.emplace(*app, at);

@@ -510,6 +510,23 @@ void testRemoteHosts() {
            "it holds that openSU's games only");
     expect(opensu::library::homeShelf(games, {}, {}, {}).size() == 1,
            "Home leaves them to their launchers");
+
+    std::vector<Game> away = games;
+    away[2].hostOnline = false;
+    const std::vector<ShelfItem> offline = opensu::library::libraryShelf(
+        away, {{Source::Own, Availability::Ready, {}}, {Source::Remote, Availability::Ready, {}}},
+        oneAdd());
+    const Launcher* gone = launcherAt(offline, 1);
+    expect(gone != nullptr && gone->hostName == "Desk" && !gone->online && gone->games == 1 &&
+               opensu::library::launcherShelf(away, *gone).size() == 1,
+           "an offline openSU keeps its launcher, which still lists its games");
+    const std::vector<ShelfItem> every = opensu::library::everyGameShelf(away);
+    expect(std::ranges::none_of(every,
+                                [](const ShelfItem& item) {
+                                    const Game* found = std::get_if<Game>(&item);
+                                    return found != nullptr && found->hostId == "aa";
+                                }),
+           "nowhere else lists its games");
 }
 
 int main() try {

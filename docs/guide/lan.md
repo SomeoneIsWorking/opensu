@@ -25,8 +25,9 @@ and on Windows 10 version 1809 or newer through Windows' own DNS client.
 Once paired, each openSU lists the games installed on the other one. In Library they are a
 launcher named after that openSU, with its covers. They are not on Home unless you add one
 ([Home and Library](controls.md#home-and-library)). The tile says
-whether that openSU is Online or Offline. Its games stay listed while it is off the network, and
-Play says so; they are checked again every minute.
+whether that openSU is Online or Offline. While it is off the network its games stay only under
+its tile, where Play says so; Home, All games, search and other games' versions leave them out
+until it is back. They are checked again every minute.
 
 ## Settings › LAN
 
