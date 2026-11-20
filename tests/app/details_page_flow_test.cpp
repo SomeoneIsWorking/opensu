@@ -69,6 +69,8 @@ struct Rig {
     std::function<std::vector<ui::SettingsRow>()> settingsRows;
     /// The copy on its way.
     std::string installingId;
+    /// How copying a paired host's ROM here stands.
+    std::string copyState;
     /// The store copies with rows of their own.
     std::vector<library::Game> copies;
     /// Why `Installs` would refuse the uninstall; empty when it would not.
@@ -209,6 +211,12 @@ struct Rig {
                          },
                          [this](const library::Game& asked) {
                              return asked.id == installingId;
+                         },
+                         [this](const library::Game& wanted) {
+                             calls.push_back("copy " + wanted.id);
+                         },
+                         [this](const library::Game&) {
+                             return copyState;
                          },
                          [this](const library::Game& version) {
                              calls.push_back("default " + version.id);
@@ -389,6 +397,54 @@ void aStoreSectionFollowsItsInstall(const fs::path& dir) {
     rig.installingId.clear();
     rig.controller.refresh();
     expect(!heading("Epic"), "and it goes when the install does");
+}
+
+library::Game hostRom() {
+    library::Game game;
+    game.id = "lan:fedora:rom:/r/Ben10.iso";
+    game.title = "Ben 10";
+    game.source = library::Source::Remote;
+    game.hostId = "fedora";
+    game.hostName = "fedora";
+    game.remote.source = library::key(library::Source::Rom);
+    game.installed = true;
+    return game;
+}
+
+void copyToThisDevice(const fs::path& dir) {
+    Rig rig{dir};
+    rig.game = hostRom();
+    rig.open();
+    const ui::SettingsRow* row = ui::actionOf(*rig.controller.details(), ui::detailsCopyHereId);
+    expect(row != nullptr && row->label == "Copy to this device" && row->value.empty(),
+           "a paired host's ROM can be copied here");
+    rig.controller.run(row->id, 0);
+    expect((rig.calls == std::vector<std::string>{"copy lan:fedora:rom:/r/Ben10.iso"}),
+           "the row asks for the copy");
+    rig.copyState = "42 %";
+    rig.controller.refresh();
+    row = ui::actionOf(*rig.controller.details(), ui::detailsCopyHereId);
+    expect(row != nullptr && row->value == "42 %", "the row shows how the copy stands");
+
+    Rig both{dir};
+    library::Game here = rom("rom:/r/Ben10.iso");
+    here.title = "Ben 10";
+    both.copies = {here, hostRom()};
+    both.game = here;
+    both.open();
+    const auto copyRows = [&both] {
+        return std::ranges::count_if(both.controller.details()->more, [](const ui::SettingsRow& r) {
+            return ui::copyRowOf(r.id).id == ui::detailsCopyHereId;
+        });
+    };
+    expect(copyRows() == 0, "with a copy here there is nothing to copy");
+
+    Rig steam{dir};
+    steam.game = hostRom();
+    steam.game.remote.source = library::key(library::Source::Steam);
+    steam.open();
+    expect(ui::actionOf(*steam.controller.details(), ui::detailsCopyHereId) == nullptr,
+           "a host's store game is not copied as files");
 }
 
 void backClosesWithoutActing(const fs::path& dir) {
@@ -613,6 +669,7 @@ int main() try {
     aRowPerStoreCopy(dir / "store");
     nothingInstalledLeadsWithInstall(dir / "nothing-installed");
     aStoreSectionFollowsItsInstall(dir / "store-section");
+    copyToThisDevice(dir);
     backClosesWithoutActing(dir);
     refreshFollowsTheGame(dir);
     coverSpinnerFollowsTheGame(dir);

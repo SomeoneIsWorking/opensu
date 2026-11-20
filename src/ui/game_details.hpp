@@ -6,6 +6,8 @@
 
 #include <chrono>
 #include <filesystem>
+#include <functional>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -42,6 +44,8 @@ inline constexpr std::string_view detailsLinkedId = "details.linked";
 inline constexpr std::string_view detailsPlayWithPrefix = "details.playWith:";
 inline constexpr std::string_view detailsPlayOnlineId = "details.playOnline";
 inline constexpr std::string_view detailsMoreId = "details.more";
+/// A paired host's ROM game copied here.
+inline constexpr std::string_view detailsCopyHereId = "details.copyHere";
 /// A version's Make default on Versions.
 inline constexpr std::string_view detailsDefaultId = "details.default";
 inline constexpr std::string_view detailsBackId = "details.back";
@@ -165,6 +169,8 @@ struct GameMarks {
     bool hidden{false};
     /// Whether it is on Home.
     bool onHome{false};
+    /// How copying each of the page's paired hosts' ROM games here stands, by its id.
+    std::map<std::string, std::string, std::less<>> copying{};
 };
 
 /// What the page shows for `game`, as `marks` place it. `download` is what the Download row reads:

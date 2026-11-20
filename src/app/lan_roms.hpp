@@ -81,6 +81,12 @@ class LanRoms {
     void run(const std::string& id);
     /// The import's news and the listings that arrived. Every frame, main loop only.
     void service();
+    /// Copies `game`, a paired host's ROM game, here: asks the host for its ROMs, then imports the
+    /// one listed as it, with the BIOS files its console lacks here.
+    void copyHere(const library::Game& game);
+    /// How copying `game` here stands: "Asking <host>", the import's progress, or empty when it
+    /// is not being copied.
+    [[nodiscard]] std::string copyState(const library::Game& game) const;
     /// The imports as the control channel reports them: "title state done/total" each, `; `
     /// between.
     [[nodiscard]] std::string glance() const;
@@ -112,6 +118,16 @@ class LanRoms {
     };
 
     [[nodiscard]] static std::string gameKey(std::uint32_t root, const std::string& entry);
+    /// The import item of game `key` from `peerId`.
+    [[nodiscard]] static std::string itemId(const std::string& peerId, const std::string& key);
+    /// A game asked to be copied here, waiting for its host's listing.
+    struct Wanted {
+        std::string peerId;
+        std::string hostGameId;
+        std::string title;
+    };
+    /// Imports `wanted` from its host's listing, which has just arrived.
+    void copyListed(const Wanted& wanted);
     /// The paired hosts, each opening its page.
     [[nodiscard]] ui::SettingsCategory hostsPage() const;
     [[nodiscard]] ui::SettingsCategory hostPage(const std::string& peerId) const;
@@ -138,6 +154,10 @@ class LanRoms {
     Hooks hooks_;
     std::map<std::string, Listing, std::less<>> listings_;
     std::map<std::string, Picks, std::less<>> picks_;
+    /// Copies to this device by the remote game's id: waiting for the listing, and the import
+    /// item each one became.
+    std::map<std::string, Wanted, std::less<>> wanted_;
+    std::map<std::string, std::string, std::less<>> copies_;
     std::shared_ptr<std::atomic<bool>> news_{std::make_shared<std::atomic<bool>>(false)};
     std::chrono::steady_clock::time_point shown_{};
     /// How many imports were done when last looked, so each new one reloads the catalog.

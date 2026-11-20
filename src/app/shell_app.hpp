@@ -798,6 +798,12 @@ class ShellApp final {
             [this](const library::Game& game) {
                 return downloadsScreen_.board().installing(game.id);
             },
+            [this](const library::Game& game) {
+                lanRoms_.copyHere(game);
+            },
+            [this](const library::Game& game) {
+                return lanRoms_.copyState(game);
+            },
             [this](const library::Game& version) {
                 versions_.makeDefault(version);
             }}};
@@ -1217,6 +1223,7 @@ class ShellApp final {
                                     .refresh =
                                         [this] {
                                             settingsScreen_.refresh();
+                                            details_.refresh();
                                         }}};
     /// Profiles copied to and from paired openSUs, and their links.
     LanProfiles lanProfiles_{lan_,

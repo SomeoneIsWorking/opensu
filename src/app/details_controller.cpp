@@ -118,16 +118,22 @@ ui::GameDetails DetailsController::detailsOf(const library::Game& game) const {
     }
     const library::wine::OwnPrefixes& own = preferences_.values().ownWinePrefixes;
     std::vector<ui::CopyPart> copies;
+    ui::GameMarks marks{.hidden = preferences_.values().hidden.contains(game),
+                        .onHome = hooks_.onHome(game)};
+    const auto copying = [&marks, this](const library::Game& copy) {
+        if (std::string state = hooks_.copyState(copy); !state.empty()) {
+            marks.copying.emplace(copy.id, std::move(state));
+        }
+    };
+    copying(game);
     for (library::Game& copy : copiesOf(game)) {
+        copying(copy);
         const bool prefix = own.contains(copy.id);
         ui::GameSettingsView settings = settingsOf(copy);
         copies.push_back(ui::CopyPart{std::move(copy), prefix, std::move(settings)});
     }
-    return ui::detailsOf(game,
-                         ui::GameMarks{.hidden = preferences_.values().hidden.contains(game),
-                                       .onHome = hooks_.onHome(game)},
-                         std::chrono::system_clock::now(), download, own.contains(game.id),
-                         settingsOf(game), copies);
+    return ui::detailsOf(game, marks, std::chrono::system_clock::now(), download,
+                         own.contains(game.id), settingsOf(game), copies);
 }
 
 void DetailsController::open() {
@@ -249,6 +255,8 @@ void DetailsController::run(const std::string& rowId, int /*step*/) {
         if (details_ && !details_->more.empty()) {
             navigator_.focus(details_->more.front().id);
         }
+    } else if (id == ui::detailsCopyHereId) {
+        hooks_.copyHere(*game);
     } else if (id == ui::detailsDownloadId) {
         downloadEmulator(*game);
     } else if (id == ui::detailsWinePrefixId) {

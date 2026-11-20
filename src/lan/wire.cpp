@@ -783,7 +783,8 @@ std::string write(const std::vector<RomConsole>& consoles) {
             games.push_back(json{{"title", game.title},
                                  {"root", game.root},
                                  {"entry", game.entry},
-                                 {"files", filesOf(game.files)}});
+                                 {"files", filesOf(game.files)},
+                                 {"id", game.id}});
         }
         list.push_back(json{{"system", console.system},
                             {"folder", console.folder},
@@ -818,7 +819,11 @@ std::optional<std::vector<RomConsole>> readRomListing(std::string_view body) {
             }
             std::optional<std::vector<RomFile>> files = filesIn(listed, "files");
             const std::optional<std::uint64_t> root = countField(listed, "root");
-            RomGame game{textField(listed, "title"), 0, textField(listed, "entry"), {}};
+            RomGame game{textField(listed, "title"),
+                         0,
+                         textField(listed, "entry"),
+                         {},
+                         textField(listed, "id")};
             const std::string inside = game.entry + "/";
             if (!files || files->empty() || !root || *root > 0xffffffffU || game.title.empty() ||
                 game.entry.empty() || !fileio::staysInside(game.entry) ||

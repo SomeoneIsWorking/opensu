@@ -129,8 +129,8 @@ void RomShelf::build() {
             wire::RomConsole& console = grouped[{game.sourceId, folder.generic_string()}];
             console.system = game.sourceId;
             console.folder = folder.generic_string();
-            console.games.push_back(
-                wire::RomGame{game.title, index, entry.generic_string(), std::move(*files)});
+            console.games.push_back(wire::RomGame{game.title, index, entry.generic_string(),
+                                                  std::move(*files), game.id});
             break;
         }
     }

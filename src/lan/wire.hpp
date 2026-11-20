@@ -433,6 +433,8 @@ struct RomGame {
     /// The file or folder that is the game, inside that ROM folder.
     std::string entry;
     std::vector<RomFile> files;
+    /// The host's catalog id of it, as `/lan/library` lists it.
+    std::string id{};
 
     [[nodiscard]] std::uint64_t bytes() const;
     bool operator==(const RomGame&) const = default;
@@ -450,8 +452,8 @@ struct RomConsole {
     bool operator==(const RomConsole&) const = default;
 };
 
-/// `GET /lan/roms`: `{"consoles":[{"system","folder","games":[{"title","root","entry","files"}],
-/// "bios"}]}`, `files` and `bios` each `[{"path","bytes"}]`.
+/// `GET /lan/roms`: `{"consoles":[{"system","folder","games":[{"title","root","entry","files",
+/// "id"}],"bios"}]}`, `files` and `bios` each `[{"path","bytes"}]`.
 [[nodiscard]] std::string write(const std::vector<RomConsole>& consoles);
 /// A ROM listing read back; nothing when `body` is not one. A file whose path could step out of
 /// its folder, or a game's file outside its entry, drops the game; a console without a key or

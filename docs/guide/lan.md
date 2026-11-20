@@ -60,6 +60,10 @@ Play says so; they are checked again every minute.
 Each game shows its progress and the total under **Importing**. A game appears in your Library as
 soon as it arrives. Each file is checked against the other openSU's copy before it is kept.
 
+One game can be copied from its own page too: on a paired openSU's ROM game, **Copy to this
+device** imports it the same way, with the BIOS files its emulator needs and lacks here, and shows
+its progress on the row. The row goes once the game is here.
+
 - If the connection drops or the other openSU closes, the game waits and goes on from where it
   stopped once it is back. **Stop importing** drops what has not arrived.
 - Only the files the other openSU lists in its ROM folders, and its BIOS files, can be copied.

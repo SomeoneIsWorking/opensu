@@ -1075,6 +1075,8 @@ void romsComeOverInChunks(const fs::path& root) {
     expect(psx != consoles.end() && psx->games.size() == 1 && psx->games[0].files.size() == 2 &&
                psx->games[0].entry == "PSX/Disc",
            "a game folder is listed with every file in it");
+    expect(psx->games[0].id == "rom:" + (roms / "PSX" / "Disc" / "Disc.cue").string(),
+           "with the host's catalog id, which Copy to this device finds it by");
     expect(psx->bios.size() == 1 && psx->bios[0].path == "scph5501.bin" &&
                psx->bios[0].bytes == 512,
            "the BIOS files the host has for the console are listed, and no others");

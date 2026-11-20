@@ -265,6 +265,21 @@ std::vector<SettingsRow> factsOf(const std::vector<PageCopy>& copies, const Game
     return facts;
 }
 
+/// Copy to this device on a paired host's ROM game, while no copy of it is here.
+std::vector<SettingsRow> copyHereRows(const library::Game& game, std::span<const PageCopy> page,
+                                      const GameMarks& marks) {
+    const bool here = std::ranges::any_of(page, [](const PageCopy& copy) {
+        return copy.game.source == library::Source::Rom && copy.game.installed;
+    });
+    if (here || game.source != library::Source::Remote ||
+        game.remote.source != library::key(library::Source::Rom)) {
+        return {};
+    }
+    const auto state = marks.copying.find(game.id);
+    return {action(detailsCopyHereId, "Copy to this device",
+                   state == marks.copying.end() ? std::string{} : state->second)};
+}
+
 std::vector<SettingsRow> updateRows(const library::Game& game) {
     if (game.installed && game.updateAvailable && game.source != library::Source::Rom) {
         return {action(detailsUpdateId, "Update")};
@@ -423,6 +438,9 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
     std::vector<SettingsRow>& actions = details.actions;
     add(actions, top, playRows(top));
     add(actions, top, updateRows(top.game));
+    if (page.size() == 1) {
+        add(actions, top, copyHereRows(top.game, page, marks));
+    }
     if (const library::EmulatorOption* missing = emulatorToDownload(top.game)) {
         actions.push_back(action(detailsDownloadId, "Download " + missing->name, download));
     }
@@ -457,6 +475,9 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
             if (!installed(copy)) {
                 wayToPlay(copy);
             }
+        }
+        for (const PageCopy& copy : page) {
+            add(more, copy, copyHereRows(copy.game, page, marks));
         }
         for (const PageCopy& copy : page) {
             if (&copy != &top) {

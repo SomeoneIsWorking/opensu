@@ -128,6 +128,61 @@ std::string LanRoms::gameKey(std::uint32_t root, const std::string& entry) {
     return std::to_string(root) + ":" + entry;
 }
 
+std::string LanRoms::itemId(const std::string& peerId, const std::string& key) {
+    return "rom:" + peerId + ":" + key;
+}
+
+void LanRoms::copyHere(const library::Game& game) {
+    const std::string prefix = "lan:" + game.hostId + ":";
+    if (game.source != library::Source::Remote || !game.id.starts_with(prefix)) {
+        return;
+    }
+    copies_.erase(game.id);
+    wanted_[game.id] = Wanted{game.hostId, game.id.substr(prefix.size()), game.title};
+    ask(game.hostId);
+    hooks_.refresh();
+}
+
+void LanRoms::copyListed(const Wanted& wanted) {
+    const std::string host = lan_.peerName(wanted.peerId);
+    const Listing& listing = listings_[wanted.peerId];
+    if (!listing.error.empty()) {
+        hooks_.say("Cannot copy " + wanted.title + " from " + host + ": " + listing.error, true);
+        return;
+    }
+    for (const lan::wire::RomConsole& console : listing.consoles) {
+        for (const lan::wire::RomGame& game : console.games) {
+            if (game.id != wanted.hostGameId) {
+                continue;
+            }
+            Picks picks;
+            picks.games.insert(gameKey(game.root, game.entry));
+            copies_["lan:" + wanted.peerId + ":" + wanted.hostGameId] =
+                itemId(wanted.peerId, gameKey(game.root, game.entry));
+            startImport(wanted.peerId, picks);
+            return;
+        }
+    }
+    hooks_.say(host + " does not offer " + wanted.title + " to copy", true);
+}
+
+std::string LanRoms::copyState(const library::Game& game) const {
+    if (const auto waiting = wanted_.find(game.id); waiting != wanted_.end()) {
+        return "Asking " + lan_.peerName(waiting->second.peerId);
+    }
+    const auto copy = copies_.find(game.id);
+    const lan::LanNode* node = lan_.node();
+    if (copy == copies_.end() || node == nullptr) {
+        return {};
+    }
+    for (const RomImport::Progress& progress : node->imports().progress()) {
+        if (progress.id == copy->second) {
+            return valueOf(progress);
+        }
+    }
+    return {};
+}
+
 void LanRoms::opening(const std::string& id) {
     if (!id.starts_with(pagePrefix)) {
         return;
@@ -178,6 +233,15 @@ void LanRoms::service() {
                          listing.error);
         }
         listings_[peerId] = std::move(listing);
+        for (auto wanted = wanted_.begin(); wanted != wanted_.end();) {
+            if (wanted->second.peerId != peerId) {
+                ++wanted;
+                continue;
+            }
+            const Wanted copy = wanted->second;
+            wanted = wanted_.erase(wanted);
+            copyListed(copy);
+        }
     }
     const auto now = std::chrono::steady_clock::now();
     if (news_->load() && now - shown_ >= showEvery) {
@@ -544,7 +608,7 @@ void LanRoms::importInto(const std::string& peerId, const fs::path& folder, cons
             if (!picks.games.contains(gameKey(game.root, game.entry))) {
                 continue;
             }
-            RomImport::Item item{"rom:" + peerId + ":" + gameKey(game.root, game.entry),
+            RomImport::Item item{itemId(peerId, gameKey(game.root, game.entry)),
                                  peerId,
                                  host,
                                  game.title,
