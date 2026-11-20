@@ -348,11 +348,9 @@ void nothingInstalledLeadsWithInstall(const fs::path& dir) {
     rig.controller.openPage(std::string{ui::detailsMoreId});
     rig.ui.frame(1.0);
     const std::vector<ui::SettingsRow>& more = rig.controller.details()->more;
-    expect(std::ranges::count(more, ui::copyRowId("epic:h", ui::detailsInstallId),
-                              &ui::SettingsRow::id) == 1 &&
-               std::ranges::count(more, ui::copyRowId("steam:1", ui::detailsInstallId),
-                                  &ui::SettingsRow::id) == 0,
-           "Versions has the other copy's Install, not the top one again");
+    expect(more.size() == 2 && more[0].id == ui::copyRowId("steam:1", ui::detailsInstallId) &&
+               more[1].id == ui::copyRowId("epic:h", ui::detailsInstallId),
+           "Versions has each copy's Install, the top one first");
 }
 
 void aStoreSectionFollowsItsInstall(const fs::path& dir) {
