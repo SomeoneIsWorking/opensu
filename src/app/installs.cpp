@@ -207,6 +207,9 @@ InstallJob* Installs::current() {
     if (gog_.running()) {
         return &gog_;
     }
+    if (fumarole_.running()) {
+        return &fumarole_;
+    }
     return uninstall_.running() ? &uninstall_ : nullptr;
 }
 
