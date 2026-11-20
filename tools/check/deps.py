@@ -70,6 +70,15 @@ def vcpkg_pin() -> GitPin:
     return GitPin("vcpkg", "https://github.com/microsoft/vcpkg.git", baseline)
 
 
+def stale(deps: Deps, env: Mapping[str, str]) -> list[str]:
+    """The pinned sources every platform builds with whose checkout is not at its pin."""
+    return [
+        f"{pin.name} is at {_head(dest, env) or 'nothing'}, pinned {pin.commit}"
+        for pin, dest in ((LUCENT, deps.lucent), (GPU2D, deps.gpu2d))
+        if _head(dest, env) != pin.commit
+    ]
+
+
 def fetch(deps: Deps, env: Mapping[str, str], platform: str = "linux") -> None:
     """Every pinned source the platform builds with in place; on macOS also the manifest's ports
     and SDL_shadercross, in the build directory that holds `deps`."""

@@ -196,8 +196,9 @@ def configure(plan: Plan, env: Mapping[str, str]) -> None:
 
 
 def require_configured(plan: Plan, env: Mapping[str, str]) -> None:
-    """Refuse a step that needs a configured tree before `deps` and `configure` have made it, or
-    while it is configured against a prefix other than the one the pins name now."""
+    """Refuse a step that needs a configured tree before `deps` and `configure` have made it,
+    while it is configured against a prefix other than the one the pins name now, or while a
+    pinned source is checked out at another commit."""
     cache = plan.cmake_dir / "CMakeCache.txt"
     if not cache.is_file():
         raise RuntimeError(
@@ -212,6 +213,8 @@ def require_configured(plan: Plan, env: Mapping[str, str]) -> None:
             f"{plan.cmake_dir} is configured against {configured or 'no'} third-party prefix, "
             f"and the pins now name {wanted}: run the deps and configure steps"
         )
+    if moved := deps.stale(plan.deps, env):
+        raise RuntimeError(f"{'; '.join(moved)}: run the deps step")
 
 
 def build(plan: Plan, env: Mapping[str, str]) -> None:
