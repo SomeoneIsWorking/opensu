@@ -79,6 +79,14 @@ It needs a C compiler, for its xdelta3 extension. On Linux a game with a Linux b
 as that build; otherwise the Windows build is downloaded and run under Wine ([wine.md](wine.md)).
 Games land in `$XDG_DATA_HOME/opensu/gog-games/<id>/`.
 
+## Steam games without Steam
+
+On a machine with no Steam client and [fumarole](https://github.com/SomeoneIsWorking/fumarole) on
+`PATH`, signed in (`fumarole auth`), every Steam game you own that has a Windows build is listed,
+not installed. Install downloads its Windows build with `fumarole install`, into fumarole's own data
+folder, and Play starts it with `fumarole launch` under Wine ([wine.md](wine.md)). The owned list
+is read once per start of openSU.
+
 ## Downloads
 
 Guide › Downloads lists every download openSU knows of: Steam's queue (its updates too), the Epic,
