@@ -84,6 +84,7 @@ void Provider::applyInstall(Game& game,
                              .args = {"launch", install->second.path.string(), game.sourceId,
                                       "--platform", install->second.platform}};
     game.windowsInstall = !windowsBuildsNative && install->second.platform == "windows";
+    game.installFolder = install->second.path;
     // The install folder name identifies the running game.
     game.processHint = install->second.path.filename().string();
 }

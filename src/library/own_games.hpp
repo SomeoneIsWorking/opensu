@@ -64,6 +64,9 @@ struct Entry {
     /// The box art its shortcut names (`boxArtKey`), `<system>/<title>` in libretro-thumbnails, as
     /// a port that is named otherwise says which game's cover it shows; empty for none.
     std::string boxArt{};
+    /// The game's own folder, every file of it inside, when a games folder holds it as one: its
+    /// subfolder, or its `.app` bundle; never saved.
+    std::filesystem::path folder{};
 
     bool operator==(const Entry&) const = default;
 };

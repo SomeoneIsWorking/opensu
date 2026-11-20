@@ -60,6 +60,16 @@ std::string_view label(Source source) {
     return "Unknown";
 }
 
+std::optional<Source> sourceOfKey(std::string_view text) {
+    for (const Source source :
+         {Source::Steam, Source::Epic, Source::Gog, Source::Rom, Source::Own, Source::Remote}) {
+        if (key(source) == text) {
+            return source;
+        }
+    }
+    return std::nullopt;
+}
+
 std::string key(Source source) {
     if (source == Source::Own) {
         return "own";

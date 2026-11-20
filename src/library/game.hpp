@@ -32,6 +32,8 @@ enum class Source : std::uint8_t {
 
 /// The store's name as keys spell it: "steam", "epic", "gog", "emulator", "own", "lan".
 [[nodiscard]] std::string key(Source source);
+/// The source `key` spells; nothing for another text.
+[[nodiscard]] std::optional<Source> sourceOfKey(std::string_view text);
 
 /// The command that starts a game. Every source fills this in, so launching
 /// needs no knowledge of which store owns a title.
@@ -143,6 +145,10 @@ struct Game {
     /// A ROM's game file, the one its emulator starts, or the file of a game the player added;
     /// empty for a game of a store.
     std::filesystem::path file;
+    /// An installed game's own folder, every file of it inside: a store's install folder, a games
+    /// folder's subfolder or `.app` bundle; empty when it has none of its own (a ROM, a picked
+    /// file).
+    std::filesystem::path installFolder;
     /// The id a ROM's file gives itself (`DumpInfo::titleId`): a Switch game's title id; empty
     /// when it gives none.
     std::string titleId;

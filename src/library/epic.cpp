@@ -193,6 +193,7 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
         game.windowsInstall =
             !windowsBuildsNative && game.installed && install->second.platform == "Windows";
         if (game.installed && !install->second.installPath.empty()) {
+            game.installFolder = install->second.installPath;
             // The install folder name identifies the running game.
             game.processHint =
                 std::filesystem::path{install->second.installPath}.filename().string();

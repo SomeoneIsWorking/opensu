@@ -134,6 +134,7 @@ std::optional<Game> gameOf(const fs::path& record, const fs::path& program) {
     game.installed = true;
     game.windowsInstall = true;
     game.fromFumarole = true;
+    game.installFolder = *path;
     game.launch = LaunchSpec{.program = program.string(), .args = {"launch", *appId}};
     // Wine starts the game's programs outside fumarole's process group, named by their Windows
     // path.

@@ -283,6 +283,9 @@ std::optional<Game> readManifest(const LibraryLocation& library, const fs::path&
     game.title = *name;
     game.installed = installed;
     game.updateAvailable = installed && stateFlagsUpdatePending(*state);
+    if (installed && !installDir.empty()) {
+        game.installFolder = library.path / "steamapps" / "common" / installDir;
+    }
     game.launch = LaunchSpec{.program = "steam", .args = {"-applaunch", appId}};
     game.processHint = processHint(appId, installDir);
 

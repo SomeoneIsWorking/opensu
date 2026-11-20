@@ -323,6 +323,7 @@ Game gameOf(const Entry& entry) {
     game.iconIndex = entry.iconIndex;
     game.installed = true;
     game.fromGameFolder = entry.origin == Origin::Folder;
+    game.installFolder = entry.folder;
     game.fromLutris = entry.origin == Origin::Lutris;
     game.winePrefix = entry.winePrefix;
     if (game.fromLutris && entry.file.empty()) {

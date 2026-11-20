@@ -508,7 +508,9 @@ std::vector<Entry> scan(const fs::path& folder, Host host) {
             continue;
         }
         if (const std::optional<fs::path> program = programIn(entry.path(), host)) {
-            keep(games, started, programEntry(*program, folder));
+            Entry game = programEntry(*program, folder);
+            game.folder = entry.path();
+            keep(games, started, std::move(game));
         }
     }
     return games;
