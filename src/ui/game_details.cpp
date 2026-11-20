@@ -265,19 +265,17 @@ std::vector<SettingsRow> factsOf(const std::vector<PageCopy>& copies, const Game
     return facts;
 }
 
-/// Copy to this device on a paired host's ROM game, while no copy of it is here.
+/// Copy to this device on a paired host's game this device can copy, while no copy is here.
 std::vector<SettingsRow> copyHereRows(const library::Game& game, std::span<const PageCopy> page,
                                       const GameMarks& marks) {
     const bool here = std::ranges::any_of(page, [](const PageCopy& copy) {
-        return copy.game.source == library::Source::Rom && copy.game.installed;
+        return copy.game.source != library::Source::Remote && copy.game.installed;
     });
-    if (here || game.source != library::Source::Remote ||
-        game.remote.source != library::key(library::Source::Rom)) {
+    const auto state = marks.copying.find(game.id);
+    if (here || state == marks.copying.end()) {
         return {};
     }
-    const auto state = marks.copying.find(game.id);
-    return {action(detailsCopyHereId, "Copy to this device",
-                   state == marks.copying.end() ? std::string{} : state->second)};
+    return {action(detailsCopyHereId, "Copy to this device", state->second)};
 }
 
 std::vector<SettingsRow> updateRows(const library::Game& game) {

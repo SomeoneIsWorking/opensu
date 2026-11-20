@@ -8,6 +8,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "config/config.hpp"
 #include "epic_install_job.hpp"
@@ -54,6 +55,14 @@ class Installs {
     /// cannot install from.
     bool start(const library::Game& game);
 
+    /// Starts taking over a copy of `game` that another openSU's files filled `folder` with, built
+    /// for `platform` ("windows", "linux", "mac"): a Steam game with `fumarole install --path`,
+    /// which keeps every chunk on disk and fetches the rest; an Epic game with `legendary import`;
+    /// a GOG game by recording the install; a games-folder game needs nothing. Empty when it
+    /// started or was taken, else why not; nothing while another job runs.
+    [[nodiscard]] std::optional<std::string> adopt(const library::Game& game,
+                                                   const std::filesystem::path& folder,
+                                                   std::string_view platform);
     /// Starts updating `game` through its store: Epic with `legendary update`, GOG with
     /// `gogdl update` over its recorded install, Steam by queueing the update in Steam. Empty when
     /// it started, else why not: the refusals an uninstall has, no update known, Steam not

@@ -69,8 +69,8 @@ struct Rig {
     std::function<std::vector<ui::SettingsRow>()> settingsRows;
     /// The copy on its way.
     std::string installingId;
-    /// How copying a paired host's ROM here stands.
-    std::string copyState;
+    /// Whether a paired host's game can be copied here and how that stands.
+    std::optional<std::string> copyState{std::string{}};
     /// The store copies with rows of their own.
     std::vector<library::Game> copies;
     /// Why `Installs` would refuse the uninstall; empty when it would not.
@@ -215,8 +215,10 @@ struct Rig {
                          [this](const library::Game& wanted) {
                              calls.push_back("copy " + wanted.id);
                          },
-                         [this](const library::Game&) {
-                             return copyState;
+                         [this](const library::Game& game) {
+                             return game.source == library::Source::Remote
+                                        ? copyState
+                                        : std::optional<std::string>{};
                          },
                          [this](const library::Game& version) {
                              calls.push_back("default " + version.id);
@@ -442,9 +444,10 @@ void copyToThisDevice(const fs::path& dir) {
     Rig steam{dir};
     steam.game = hostRom();
     steam.game.remote.source = library::key(library::Source::Steam);
+    steam.copyState.reset();
     steam.open();
     expect(ui::actionOf(*steam.controller.details(), ui::detailsCopyHereId) == nullptr,
-           "a host's store game is not copied as files");
+           "a game nothing here can take over has no row");
 }
 
 void backClosesWithoutActing(const fs::path& dir) {

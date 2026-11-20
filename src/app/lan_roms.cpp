@@ -75,7 +75,21 @@ lan::RomImport::Setup LanRoms::importSetup(fs::path staging,
         .place =
             [tree = std::move(tree)](const RomImport::Item& /*item*/, const RomImport::File& file,
                                      const fs::path& staged, std::string& error) {
-                return tree->place(file.folder, file.place, staged, error);
+                if (!tree->place(file.folder, file.place, staged, error)) {
+                    return false;
+                }
+                if (file.executable) {
+                    std::error_code ec;
+                    fs::permissions(file.folder / file.place,
+                                    fs::perms::owner_exec | fs::perms::group_exec |
+                                        fs::perms::others_exec,
+                                    fs::perm_options::add, ec);
+                    if (ec) {
+                        error = "cannot let " + file.place + " run: " + ec.message();
+                        return false;
+                    }
+                }
+                return true;
             },
         .changed = {}};
 }
@@ -163,24 +177,127 @@ void LanRoms::copyListed(const Wanted& wanted) {
             return;
         }
     }
-    hooks_.say(host + " does not offer " + wanted.title + " to copy", true);
+    const auto install =
+        std::ranges::find(listing.installs, wanted.hostGameId, &lan::wire::InstallCopy::id);
+    if (install == listing.installs.end()) {
+        hooks_.say(host + " does not offer " + wanted.title + " to copy", true);
+        return;
+    }
+    std::string why;
+    const std::optional<fs::path> folder = hooks_.copyFolder(*install, why);
+    if (!folder) {
+        hooks_.say("Cannot copy " + wanted.title + " here: " + why, true);
+        return;
+    }
+    const std::string remoteId = "lan:" + wanted.peerId + ":" + wanted.hostGameId;
+    const bool asked = lan_.askInstallFiles(
+        wanted.peerId, install->id,
+        [arrived = arrived_, remoteId](std::optional<std::vector<lan::wire::RomFile>> files,
+                                       std::string error) {
+            const std::lock_guard lock{arrived->mutex};
+            arrived->files.emplace_back(remoteId, std::move(files), std::move(error));
+        });
+    if (!asked) {
+        hooks_.say("Another copy is being asked about; copy " + wanted.title + " again soon", true);
+        return;
+    }
+    listingFiles_[remoteId] = InstallCopy{wanted.peerId, *install, *folder};
 }
 
-std::string LanRoms::copyState(const library::Game& game) const {
+void LanRoms::copyFiles(const std::string& remoteId, const InstallCopy& copy,
+                        const std::vector<lan::wire::RomFile>& files) {
+    lan::LanNode* node = lan_.node();
+    if (node == nullptr) {
+        return;
+    }
+    const std::string host = lan_.peerName(copy.peerId);
+    RomImport::Item item{"copy:" + copy.peerId + ":" + copy.install.id,
+                         copy.peerId,
+                         host,
+                         copy.install.title,
+                         copy.install.store,
+                         {}};
+    for (const lan::wire::RomFile& file : files) {
+        item.files.push_back(RomImport::File{
+            lan::wire::RomKind::Install, 0, copy.install.id + "/" + file.path, file.bytes,
+            copy.folder.parent_path(), copy.folder.filename().generic_string() + "/" + file.path,
+            file.executable});
+    }
+    lucent::info("lan", "copying {} ({} files) from {} into {}", copy.install.title, files.size(),
+                 host, copy.folder.string());
+    copies_[remoteId] = item.id;
+    adopting_[item.id] = copy;
+    node->imports().add({std::move(item)});
+    hooks_.say("Copying " + copy.install.title + " from " + host, false);
+}
+
+void LanRoms::adoptCopies() {
+    const lan::LanNode* node = lan_.node();
+    if (adopting_.empty() || node == nullptr) {
+        return;
+    }
+    const std::vector<RomImport::Progress> all = node->imports().progress();
+    for (auto copy = adopting_.begin(); copy != adopting_.end();) {
+        const auto progress = std::ranges::find(all, copy->first, &RomImport::Progress::id);
+        if (progress == all.end() || progress->state == RomImport::State::Failed) {
+            copy = adopting_.erase(copy);
+            continue;
+        }
+        if (progress->state != RomImport::State::Done) {
+            ++copy;
+            continue;
+        }
+        const lan::wire::InstallCopy& install = copy->second.install;
+        library::Game game;
+        game.source = library::sourceOfKey(install.store).value_or(library::Source::Own);
+        game.sourceId = install.storeId;
+        game.id = install.store + ":" + install.storeId;
+        game.title = install.title;
+        game.fromFumarole = game.source == library::Source::Steam;
+        const std::optional<std::string> refused =
+            hooks_.adopt(game, copy->second.folder, install.platform);
+        if (!refused) {
+            // Another install runs; taken over once it ends.
+            ++copy;
+            continue;
+        }
+        if (refused->empty()) {
+            lucent::info("lan", "{} copied into {}, taken over here", install.title,
+                         copy->second.folder.string());
+            hooks_.say(install.title + " copied", false);
+            hooks_.reloadCatalog();
+        } else {
+            hooks_.say("Cannot take over " + install.title + ": " + *refused, true);
+        }
+        copy = adopting_.erase(copy);
+    }
+}
+
+std::optional<std::string> LanRoms::copyState(const library::Game& game) const {
+    if (game.source != library::Source::Remote ||
+        (game.remote.source != library::key(library::Source::Rom) &&
+         !hooks_.takesCopy(game.remote.source))) {
+        return std::nullopt;
+    }
     if (const auto waiting = wanted_.find(game.id); waiting != wanted_.end()) {
         return "Asking " + lan_.peerName(waiting->second.peerId);
+    }
+    if (listingFiles_.contains(game.id)) {
+        return "Asking " + game.hostName;
     }
     const auto copy = copies_.find(game.id);
     const lan::LanNode* node = lan_.node();
     if (copy == copies_.end() || node == nullptr) {
-        return {};
+        return std::string{};
     }
     for (const RomImport::Progress& progress : node->imports().progress()) {
         if (progress.id == copy->second) {
-            return valueOf(progress);
+            return progress.state == RomImport::State::Done && adopting_.contains(copy->second)
+                       ? std::string{"Taking over"}
+                       : valueOf(progress);
         }
     }
-    return {};
+    return std::string{};
 }
 
 void LanRoms::opening(const std::string& id) {
@@ -199,12 +316,13 @@ void LanRoms::ask(const std::string& peerId) {
     if (listing.asking) {
         return;
     }
-    const bool asked = lan_.askRoms(
-        peerId, [arrived = arrived_, peerId = peerId](
-                    std::optional<std::vector<lan::wire::RomConsole>> got, std::string error) {
+    const bool asked =
+        lan_.askRoms(peerId, [arrived = arrived_, peerId = peerId](
+                                 std::optional<lan::wire::Shelf> got, std::string error) {
             Listing answer;
             if (got) {
-                answer.consoles = std::move(*got);
+                answer.consoles = std::move(got->consoles);
+                answer.installs = std::move(got->installs);
             } else {
                 answer.error = error.empty() ? std::string{"it did not answer"} : std::move(error);
             }
@@ -219,11 +337,26 @@ void LanRoms::ask(const std::string& peerId) {
 
 void LanRoms::service() {
     std::vector<std::pair<std::string, Listing>> listings;
+    decltype(Arrived::files) files;
     {
         const std::lock_guard lock{arrived_->mutex};
         listings.swap(arrived_->listings);
+        files.swap(arrived_->files);
     }
-    bool show = !listings.empty();
+    bool show = !listings.empty() || !files.empty();
+    for (auto& [remoteId, got, error] : files) {
+        const auto copy = listingFiles_.find(remoteId);
+        if (copy == listingFiles_.end()) {
+            continue;
+        }
+        if (got) {
+            copyFiles(remoteId, copy->second, *got);
+        } else {
+            hooks_.say("Cannot copy " + copy->second.install.title + ": " + error, true);
+        }
+        listingFiles_.erase(copy);
+    }
+    adoptCopies();
     for (auto& [peerId, listing] : listings) {
         if (listing.error.empty()) {
             lucent::info("lan", "{} offers ROMs of {} consoles", lan_.peerName(peerId),

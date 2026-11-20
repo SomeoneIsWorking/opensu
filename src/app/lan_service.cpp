@@ -38,7 +38,7 @@ LanService::~LanService() {
 }
 
 void LanService::stopAskers() {
-    for (std::jthread* asker : {&asker_, &romAsker_, &peerAsker_, &coverAsker_}) {
+    for (std::jthread* asker : {&asker_, &romAsker_, &installAsker_, &peerAsker_, &coverAsker_}) {
         if (asker->joinable()) {
             asker->request_stop();
             asker->join();
@@ -142,11 +142,31 @@ bool LanService::askRoms(std::string hostId, RomsAnswer answer) {
     romAsker_ = std::jthread{[node = node_.get(), asking = askingRoms_, hostId = std::move(hostId),
                               answer = std::move(answer)](const std::stop_token& stop) {
         std::string error;
-        std::optional<std::vector<lan::wire::RomConsole>> consoles =
-            node->romsOf(stop, hostId, error);
+        std::optional<lan::wire::Shelf> shelf = node->romsOf(stop, hostId, error);
         asking->store(false);
         if (!stop.stop_requested()) {
-            answer(std::move(consoles), std::move(error));
+            answer(std::move(shelf), std::move(error));
+        }
+    }};
+    return true;
+}
+
+bool LanService::askInstallFiles(std::string hostId, std::string installId, FilesAnswer answer) {
+    if (node_ == nullptr || askingInstall_->exchange(true)) {
+        return false;
+    }
+    if (installAsker_.joinable()) {
+        installAsker_.join();
+    }
+    installAsker_ = std::jthread{[node = node_.get(), asking = askingInstall_,
+                                  hostId = std::move(hostId), installId = std::move(installId),
+                                  answer = std::move(answer)](const std::stop_token& stop) {
+        std::string error;
+        std::optional<std::vector<lan::wire::RomFile>> files =
+            node->installFilesOf(stop, hostId, installId, error);
+        asking->store(false);
+        if (!stop.stop_requested()) {
+            answer(std::move(files), std::move(error));
         }
     }};
     return true;

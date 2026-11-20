@@ -19,6 +19,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 #include "lan/rom_import.hpp"
@@ -50,6 +51,18 @@ class LanRoms {
         std::function<void()> reloadCatalog;
         /// What the pages show changed.
         std::function<void()> refresh;
+        /// Whether copies of a game of `store` (`library::key`) can be taken here at all.
+        std::function<bool(std::string_view store)> takesCopy;
+        /// Where a paired host's install goes here; nothing, with `why`, when it cannot be taken.
+        std::function<std::optional<std::filesystem::path>(const lan::wire::InstallCopy& install,
+                                                           std::string& why)>
+            copyFolder;
+        /// Has the store here take over `game`'s copy in `folder`, built for `platform`: empty when
+        /// it did or started to, else why not; nothing while another install runs.
+        std::function<std::optional<std::string>(const library::Game& game,
+                                                 const std::filesystem::path& folder,
+                                                 std::string_view platform)>
+            adopt;
     };
 
     /// `tree` is the one the import places with (`importSetup`); `home` is where a folder chooser
@@ -81,12 +94,13 @@ class LanRoms {
     void run(const std::string& id);
     /// The import's news and the listings that arrived. Every frame, main loop only.
     void service();
-    /// Copies `game`, a paired host's ROM game, here: asks the host for its ROMs, then imports the
-    /// one listed as it, with the BIOS files its console lacks here.
+    /// Copies `game`, a paired host's game, here: asks the host what it offers, then imports the
+    /// ROM listed as it, with the BIOS files its console lacks here, or the install listed as it
+    /// into the folder its store here keeps it in, which that store then takes over.
     void copyHere(const library::Game& game);
-    /// How copying `game` here stands: "Asking <host>", the import's progress, or empty when it
-    /// is not being copied.
-    [[nodiscard]] std::string copyState(const library::Game& game) const;
+    /// Whether `game` can be copied here and how that stands: nothing when it cannot; empty while
+    /// it is not being copied; "Asking <host>", the import's progress, or "Taking over".
+    [[nodiscard]] std::optional<std::string> copyState(const library::Game& game) const;
     /// The imports as the control channel reports them: "title state done/total" each, `; `
     /// between.
     [[nodiscard]] std::string glance() const;
@@ -101,6 +115,7 @@ class LanRoms {
         bool asking{false};
         std::string error;
         std::vector<lan::wire::RomConsole> consoles;
+        std::vector<lan::wire::InstallCopy> installs;
     };
     /// What the player picked from a host.
     struct Picks {
@@ -128,6 +143,17 @@ class LanRoms {
     };
     /// Imports `wanted` from its host's listing, which has just arrived.
     void copyListed(const Wanted& wanted);
+    /// An install being copied here: where it goes, and the game its store here takes over.
+    struct InstallCopy {
+        std::string peerId;
+        lan::wire::InstallCopy install;
+        std::filesystem::path folder;
+    };
+    /// Imports `copy`'s files, which its host just listed.
+    void copyFiles(const std::string& remoteId, const InstallCopy& copy,
+                   const std::vector<lan::wire::RomFile>& files);
+    /// Hands each finished install copy to its store here.
+    void adoptCopies();
     /// The paired hosts, each opening its page.
     [[nodiscard]] ui::SettingsCategory hostsPage() const;
     [[nodiscard]] ui::SettingsCategory hostPage(const std::string& peerId) const;
@@ -158,6 +184,10 @@ class LanRoms {
     /// item each one became.
     std::map<std::string, Wanted, std::less<>> wanted_;
     std::map<std::string, std::string, std::less<>> copies_;
+    /// Install copies by remote game id: waiting for their file lists, then by import item
+    /// waiting to be taken over.
+    std::map<std::string, InstallCopy, std::less<>> listingFiles_;
+    std::map<std::string, InstallCopy, std::less<>> adopting_;
     std::shared_ptr<std::atomic<bool>> news_{std::make_shared<std::atomic<bool>>(false)};
     std::chrono::steady_clock::time_point shown_{};
     /// How many imports were done when last looked, so each new one reloads the catalog.
@@ -166,6 +196,10 @@ class LanRoms {
     struct Arrived {
         std::mutex mutex;
         std::vector<std::pair<std::string, Listing>> listings;
+        /// Install file lists by remote game id, or why there is none.
+        std::vector<
+            std::tuple<std::string, std::optional<std::vector<lan::wire::RomFile>>, std::string>>
+            files;
     };
     std::shared_ptr<Arrived> arrived_{std::make_shared<Arrived>()};
 };

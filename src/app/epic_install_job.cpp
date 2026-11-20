@@ -20,6 +20,11 @@ EpicInstallJob::~EpicInstallJob() {
 
 std::vector<std::string> EpicInstallJob::arguments(const std::stop_token& /*stop*/,
                                                    const std::string& appName) {
+    if (import_) {
+        // --skip-dlcs answers the DLC question, as its stdin is closed.
+        return {"import",          "--skip-dlcs", "--platform",
+                import_->platform, appName,       import_->folder.string()};
+    }
     if (update_) {
         // An alias of install that refuses a game not installed (--update-only); legendary keeps
         // the install's folder, platform and chosen packs.

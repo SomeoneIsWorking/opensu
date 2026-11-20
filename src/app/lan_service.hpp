@@ -139,12 +139,19 @@ class LanService {
                                  std::string profile, std::function<void()> waiting,
                                  PlayAnswer answer);
 
-    /// What a host answered a request for its ROMs: the listing, or why there is none.
-    using RomsAnswer =
-        std::function<void(std::optional<std::vector<lan::wire::RomConsole>>, std::string)>;
-    /// Asks the paired openSU `hostId` for the ROMs it offers, off the loop; `answer` is called on
-    /// that thread. False while LAN is off or another request for ROMs is under way.
+    /// What a host answered a request for its ROMs and installs: the listing, or why there is
+    /// none.
+    using RomsAnswer = std::function<void(std::optional<lan::wire::Shelf>, std::string)>;
+    /// Asks the paired openSU `hostId` for the ROMs and installs it offers, off the loop; `answer`
+    /// is called on that thread. False while LAN is off or another request for ROMs is under way.
     [[nodiscard]] bool askRoms(std::string hostId, RomsAnswer answer);
+    /// What a host answered a request for an install's files: the files, or why there are none.
+    using FilesAnswer =
+        std::function<void(std::optional<std::vector<lan::wire::RomFile>>, std::string)>;
+    /// Asks `hostId` for the files of its install `installId`, off the loop; `answer` is called on
+    /// that thread. False while LAN is off or another such request is under way.
+    [[nodiscard]] bool askInstallFiles(std::string hostId, std::string installId,
+                                       FilesAnswer answer);
 
     /// Shows the question and the card as the pairings stand and passes on the node's news.
     /// Every frame, main loop only.
@@ -208,6 +215,8 @@ class LanService {
     /// A request for a host's ROMs under way; stopped and joined before the node goes.
     std::jthread romAsker_;
     std::shared_ptr<std::atomic<bool>> askingRoms_{std::make_shared<std::atomic<bool>>(false)};
+    std::jthread installAsker_;
+    std::shared_ptr<std::atomic<bool>> askingInstall_{std::make_shared<std::atomic<bool>>(false)};
     /// A call of `askPeers` under way; stopped and joined before the node goes.
     std::jthread peerAsker_;
     std::shared_ptr<std::atomic<bool>> askingPeers_{std::make_shared<std::atomic<bool>>(false)};

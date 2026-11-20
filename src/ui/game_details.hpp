@@ -169,7 +169,8 @@ struct GameMarks {
     bool hidden{false};
     /// Whether it is on Home.
     bool onHome{false};
-    /// How copying each of the page's paired hosts' ROM games here stands, by its id.
+    /// The page's paired hosts' games this device can copy, by id: how each copy stands, empty
+    /// while none runs.
     std::map<std::string, std::string, std::less<>> copying{};
 };
 

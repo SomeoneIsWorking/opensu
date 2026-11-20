@@ -40,6 +40,8 @@ class RomImport {
         std::uint64_t bytes{0};
         std::filesystem::path folder;
         std::string place;
+        /// Whether the host may run it, which the copy keeps.
+        bool executable{false};
     };
     /// A game, or a BIOS file, to import from `host`.
     struct Item {

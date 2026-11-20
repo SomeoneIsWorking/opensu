@@ -95,10 +95,11 @@ class DetailsController final : public ui::RowActions {
         std::function<std::vector<library::Game>(const library::Game& game)> copies;
         /// Whether `game` is being installed or downloaded.
         std::function<bool(const library::Game& game)> installing;
-        /// Copies `game`, a paired host's ROM game, to this device.
+        /// Copies `game`, a paired host's game, to this device.
         std::function<void(const library::Game& game)> copyHere;
-        /// How that copy stands, as its row reads it; empty when it is not being copied.
-        std::function<std::string(const library::Game& game)> copyState;
+        /// Whether `game` can be copied here and how that stands: nothing when it cannot, empty
+        /// while no copy runs.
+        std::function<std::optional<std::string>(const library::Game& game)> copyState;
         /// Makes `version` its game's default and shows the library again.
         std::function<void(const library::Game& version)> makeDefault;
     };

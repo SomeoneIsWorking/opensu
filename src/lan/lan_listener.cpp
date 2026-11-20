@@ -109,11 +109,12 @@ Response LanListener::handle(const Request& request) {
           path == wire::closeRoute || path == wire::inviteRoute || path == wire::joinAskRoute ||
           path == wire::joinAnswerRoute || path == wire::libraryNewsRoute ||
           path.starts_with(savesPrefix) || path == wire::romFileRoute ||
-          path == wire::romChunkRoute || path == wire::profileCopyRoute ||
-          path == wire::profileCopyStatusRoute || path == wire::profileUnlinkRoute ||
-          path == wire::netplayRoute || path == wire::netplayStatusRoute ||
-          path == wire::netplaySaveRoute || path == wire::coverOffersRoute ||
-          path == wire::coverPickRoute || path == wire::gameMatchRoute));
+          path == wire::romChunkRoute || path == wire::installFilesRoute ||
+          path == wire::profileCopyRoute || path == wire::profileCopyStatusRoute ||
+          path == wire::profileUnlinkRoute || path == wire::netplayRoute ||
+          path == wire::netplayStatusRoute || path == wire::netplaySaveRoute ||
+          path == wire::coverOffersRoute || path == wire::coverPickRoute ||
+          path == wire::gameMatchRoute));
     if (!peerPath) {
         return refused(notFound, "Not Found", "no such route");
     }
@@ -156,6 +157,8 @@ Response LanListener::handle(const Request& request) {
             answer = profilesRoute(path, *body, *verified);
         } else if (path == wire::romFileRoute || path == wire::romChunkRoute) {
             answer = romsRoute(path, *body, *verified);
+        } else if (path == wire::installFilesRoute) {
+            answer = installFilesRoute(*body, *verified);
         } else {
             answer = peerRoute(request, *verified);
         }
@@ -373,6 +376,18 @@ Response LanListener::romsRoute(std::string_view path, std::string_view body,
         return refused(forbidden, "Forbidden", error);
     }
     return Response::binary(ok, "OK", "application/octet-stream", std::move(*chunk));
+}
+
+Response LanListener::installFilesRoute(std::string_view body, const Signed& verified) {
+    const std::optional<std::string> id = wire::readInstallAsk(body);
+    std::optional<std::vector<wire::RomFile>> files =
+        id ? sources_.roms.installFiles(*id) : std::nullopt;
+    if (!files) {
+        lucent::info("lan", "refused {} the files of {}: no install of it is listed",
+                     verified.peer.name, id.value_or(""));
+        return refused(forbidden, "Forbidden", "no install here is listed by that id");
+    }
+    return Response::json(ok, "OK", wire::write(*files));
 }
 
 Response LanListener::playRoute(std::string_view body, const Signed& verified) {

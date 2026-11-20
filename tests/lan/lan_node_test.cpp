@@ -1069,7 +1069,8 @@ void romsComeOverInChunks(const fs::path& root) {
     std::string error;
     const std::vector<lan::wire::RomConsole> consoles =
         must(guest.node.romsOf(std::stop_token{}, host.node.id(), error),
-             "the guest lists the host's ROMs");
+             "the guest lists the host's ROMs")
+            .consoles;
     expect(consoles.size() == 2, "a console per folder of games");
     const auto psx = std::ranges::find(consoles, "psx", &lan::wire::RomConsole::system);
     expect(psx != consoles.end() && psx->games.size() == 1 && psx->games[0].files.size() == 2 &&
@@ -1130,6 +1131,79 @@ void romsComeOverInChunks(const fs::path& root) {
 
 /// A secret that cannot be cleared, as with no keyring to clear it from, does not keep a peer: it
 /// is forgotten all the same, so the other openSU is told.
+void installsComeOver(const fs::path& root) {
+    Directory directory;
+    Node host{root, "Install host", directory};
+    Node guest{root, "Install guest", directory};
+    expect(waitFor([&guest] {
+               return guest.node.sightings().size() == 1;
+           }),
+           "the guest finds the install host");
+    expect(pairUp(guest, host, true) == GuestPairing::Phase::Paired, "the two pair");
+
+    const fs::path game = root / "host-games" / "Cave Story";
+    const std::string program = noise(5000);
+    writeFile(game / "Doukutsu.exe", program);
+    writeFile(game / "data" / "Stage.pbm", noise(900));
+    writeFile(game / "run.sh", "#!/bin/sh\n");
+    fs::permissions(game / "run.sh", fs::perms::owner_exec, fs::perm_options::add);
+    writeFile(root / "private.txt", "private");
+    fs::create_symlink(root / "private.txt", game / "leak.txt");
+    library::Game cave;
+    cave.id = "own:cave";
+    cave.source = library::Source::Own;
+    cave.sourceId = "cave";
+    cave.title = "Cave Story";
+    cave.installed = true;
+    cave.installFolder = game;
+    library::Game picked = cave;
+    picked.id = "own:picked";
+    picked.installFolder.clear();
+    host.node.shareRoms(lan::RomShelf::Contents{
+        .roots = {}, .games = {cave, picked}, .biosFolder = {}, .bios = {}});
+
+    std::string error;
+    const lan::wire::Shelf shelf = must(guest.node.romsOf(std::stop_token{}, host.node.id(), error),
+                                        "the guest lists the host's installs");
+    expect(shelf.installs.size() == 1 && shelf.installs[0].id == "own:cave" &&
+               shelf.installs[0].store == "own" && shelf.installs[0].folder == "Cave Story" &&
+               !shelf.installs[0].platform.empty(),
+           "a game with a folder of its own is listed, by id, store, platform and folder name");
+    const std::vector<lan::wire::RomFile> files =
+        must(guest.node.installFilesOf(std::stop_token{}, host.node.id(), "own:cave", error),
+             "the guest asks for its files");
+    const auto named = [&files](std::string_view path) {
+        return std::ranges::find(files, path, &lan::wire::RomFile::path);
+    };
+    expect(files.size() == 3 && named("data/Stage.pbm") != files.end() &&
+               named("run.sh") != files.end() && named("run.sh")->executable &&
+               !named("Doukutsu.exe")->executable,
+           "every file of the folder is listed with whether it runs");
+    expect(named("leak.txt") == files.end(), "a link out of the folder is not listed");
+    expect(!guest.node.installFilesOf(std::stop_token{}, host.node.id(), "own:picked", error),
+           "a game without a folder of its own lists no files");
+
+    const fs::path mine = root / "guest-games";
+    lan::RomImport::Item copy{"copy:cave", host.node.id(), "Host", "Cave Story", "own", {}};
+    for (const lan::wire::RomFile& file : files) {
+        copy.files.push_back(lan::RomImport::File{lan::wire::RomKind::Install, 0,
+                                                  "own:cave/" + file.path, file.bytes, mine,
+                                                  "Cave Story/" + file.path, file.executable});
+    }
+    guest.node.imports().add({copy});
+    expect(importEnded(guest, copy.id).state == lan::RomImport::State::Done &&
+               readFile(mine / "Cave Story" / "Doukutsu.exe") == program,
+           "the install's files arrive in the guest's folder");
+
+    lan::RomImport::Item leak{"copy:leak", host.node.id(), "Host", "Cave Story", "own", {}};
+    leak.files.push_back(lan::RomImport::File{lan::wire::RomKind::Install, 0, "own:cave/leak.txt",
+                                              7, mine, "leak.txt"});
+    guest.node.imports().add({leak});
+    expect(importEnded(guest, leak.id).state == lan::RomImport::State::Failed &&
+               !fs::exists(mine / "leak.txt"),
+           "a link out of the install is refused when asked for by name");
+}
+
 void aStuckSecretDoesNotKeepAPeer(const fs::path& root) {
     const fs::path kept = root / "stuck" / "secrets";
     lan::PeerBook book{root / "stuck" / "lan.json", secrets::SecretStore{kept, false}};
@@ -1489,6 +1563,7 @@ int main(int argc, char** argv) try {
     bundlesStayInTheirSlots();
     sharedSavesFollowThePlayer(scratch.path());
     romsComeOverInChunks(scratch.path());
+    installsComeOver(scratch.path());
     std::printf("lan_node: all checks passed\n");
     return 0;
 } catch (...) {

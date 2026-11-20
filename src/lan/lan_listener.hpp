@@ -144,6 +144,9 @@ class LanListener {
     /// `/lan/roms/file` and `/chunk`, `body` opened.
     [[nodiscard]] lucent::http::Response romsRoute(std::string_view path, std::string_view body,
                                                    const Signed& verified);
+    /// `/lan/roms/install`, `body` opened: a listed install's files.
+    [[nodiscard]] lucent::http::Response installFilesRoute(std::string_view body,
+                                                           const Signed& verified);
     /// `/lan/profiles/copy`, `/copy/status` and `/unlink`, `body` opened.
     [[nodiscard]] lucent::http::Response profilesRoute(std::string_view path, std::string_view body,
                                                        const Signed& verified);

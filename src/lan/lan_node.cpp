@@ -477,18 +477,35 @@ std::optional<std::string> LanNode::askHost(const std::stop_token& stop, const s
     return std::move(answer->body);
 }
 
-std::optional<std::vector<wire::RomConsole>>
-LanNode::romsOf(const std::stop_token& stop, const std::string& hostId, std::string& error) const {
+std::optional<wire::Shelf> LanNode::romsOf(const std::stop_token& stop, const std::string& hostId,
+                                           std::string& error) const {
     const std::optional<std::string> body =
         askHost(stop, hostId, "GET", wire::romListRoute, {}, largestListing, error);
     if (!body) {
         return std::nullopt;
     }
-    std::optional<std::vector<wire::RomConsole>> consoles = wire::readRomListing(*body);
-    if (!consoles) {
+    std::optional<wire::Shelf> shelf = wire::readShelf(*body);
+    if (!shelf) {
         error = "its answer is not a ROM listing";
     }
-    return consoles;
+    return shelf;
+}
+
+std::optional<std::vector<wire::RomFile>> LanNode::installFilesOf(const std::stop_token& stop,
+                                                                  const std::string& hostId,
+                                                                  const std::string& installId,
+                                                                  std::string& error) const {
+    const std::optional<std::string> body =
+        askHost(stop, hostId, "POST", wire::installFilesRoute, wire::writeInstallAsk(installId),
+                largestListing, error);
+    if (!body) {
+        return std::nullopt;
+    }
+    std::optional<std::vector<wire::RomFile>> files = wire::readInstallFiles(*body);
+    if (!files) {
+        error = "its answer is not a file list";
+    }
+    return files;
 }
 
 std::optional<std::string> LanNode::frameGenModulesOf(const std::stop_token& stop,

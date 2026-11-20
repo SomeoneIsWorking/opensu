@@ -510,7 +510,10 @@ struct Rig {
                             .bios = {},
                             .biosFolder = {},
                             .reloadCatalog = {},
-                            .refresh = {}}};
+                            .refresh = {},
+                            .takesCopy = {},
+                            .copyFolder = {},
+                            .adopt = {}}};
     app::NetplayRun netplayRun{{}, {}};
     app::OnlinePlay online{screens.navigator, sounds, netplayRun, pad, preferences, {}, {}};
     app::LanProfiles lanProfiles{

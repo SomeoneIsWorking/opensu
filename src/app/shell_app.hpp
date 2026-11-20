@@ -34,6 +34,7 @@
 #include "control_bridge.hpp"
 #include "control_channel.hpp"
 #include "controller_roster.hpp"
+#include "copy_places.hpp"
 #include "details_controller.hpp"
 #include "devices_controller.hpp"
 #include "downloads_controller.hpp"
@@ -81,6 +82,7 @@
 #include "layered_settings.hpp"
 #include "library/catalog.hpp"
 #include "library/catalog_loader.hpp"
+#include "library/epic.hpp"
 #include "library/fumarole_installs.hpp"
 #include "library/game_saves.hpp"
 #include "library/lossless_scaling.hpp"
@@ -1196,37 +1198,71 @@ class ShellApp final {
         lan_, preferences_, shell_.screens().navigator(), keyboardPad_, sounds_, [this] {
             settingsScreen_.refresh();
         }};
+    /// Where a paired openSU's install copied here goes, and whether it can be taken over.
+    CopyPlaces copyPlaces_{CopyPlaces::Places{
+        .fumaroleApps =
+            [this] {
+                const library::fumarole::Installs fumarole = library::fumarole::Installs::find(
+                    environment_.executablePath, environment_.fumaroleDataDir);
+                return fumarole.program.empty() ? std::filesystem::path{}
+                                                : fumarole.dataDir / "apps";
+            }(),
+        .dataDir = environment_.dataDir,
+        .epicDefault =
+            library::epic::legendaryInstallDir(environment_.legendaryConfigDir, environment_.home),
+        .storeFolder =
+            [this](library::Source store) {
+                return preferences_.values().installFolders.effective(store);
+            },
+        .gameFolders =
+            [this] {
+                return resolved_.gameFolders;
+            }}};
     /// ROMs offered to paired openSUs, and those of theirs imported here.
-    LanRoms lanRoms_{lan_, paths_, romTree_, resolved_.home,
-                     LanRoms::Hooks{.say =
-                                        [this](const std::string& text, bool isError) {
-                                            shell_.setToast(text, isError);
-                                        },
-                                    .romFolders =
-                                        [this] {
-                                            return library::romRootsOf(resolved_);
-                                        },
-                                    .addRomFolder =
-                                        [this](const std::filesystem::path& folder) {
-                                            addRomFolder(folder);
-                                        },
-                                    .bios =
-                                        [this](std::string_view system) {
-                                            return emulatorSettings_.biosOf(system);
-                                        },
-                                    .biosFolder =
-                                        [this] {
-                                            return emulatorSettings_.biosFolder();
-                                        },
-                                    .reloadCatalog =
-                                        [this] {
-                                            reloadCatalog();
-                                        },
-                                    .refresh =
-                                        [this] {
-                                            settingsScreen_.refresh();
-                                            details_.refresh();
-                                        }}};
+    LanRoms lanRoms_{
+        lan_, paths_, romTree_, resolved_.home,
+        LanRoms::Hooks{.say =
+                           [this](const std::string& text, bool isError) {
+                               shell_.setToast(text, isError);
+                           },
+                       .romFolders =
+                           [this] {
+                               return library::romRootsOf(resolved_);
+                           },
+                       .addRomFolder =
+                           [this](const std::filesystem::path& folder) {
+                               addRomFolder(folder);
+                           },
+                       .bios =
+                           [this](std::string_view system) {
+                               return emulatorSettings_.biosOf(system);
+                           },
+                       .biosFolder =
+                           [this] {
+                               return emulatorSettings_.biosFolder();
+                           },
+                       .reloadCatalog =
+                           [this] {
+                               reloadCatalog();
+                           },
+                       .refresh =
+                           [this] {
+                               settingsScreen_.refresh();
+                               details_.refresh();
+                           },
+                       .takesCopy =
+                           [this](std::string_view store) {
+                               return copyPlaces_.takes(store);
+                           },
+                       .copyFolder =
+                           [this](const lan::wire::InstallCopy& install, std::string& why) {
+                               return copyPlaces_.folderFor(install, why);
+                           },
+                       .adopt =
+                           [this](const library::Game& game, const std::filesystem::path& folder,
+                                  std::string_view platform) {
+                               return panels_.installs().adopt(game, folder, platform);
+                           }}};
     /// Profiles copied to and from paired openSUs, and their links.
     LanProfiles lanProfiles_{lan_,
                              profiles_.book(),

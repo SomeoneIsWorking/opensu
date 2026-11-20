@@ -121,8 +121,8 @@ ui::GameDetails DetailsController::detailsOf(const library::Game& game) const {
     ui::GameMarks marks{.hidden = preferences_.values().hidden.contains(game),
                         .onHome = hooks_.onHome(game)};
     const auto copying = [&marks, this](const library::Game& copy) {
-        if (std::string state = hooks_.copyState(copy); !state.empty()) {
-            marks.copying.emplace(copy.id, std::move(state));
+        if (std::optional<std::string> state = hooks_.copyState(copy)) {
+            marks.copying.emplace(copy.id, std::move(*state));
         }
     };
     copying(game);

@@ -226,7 +226,7 @@ struct Rig {
             [](const library::Game&) {
             },
             [](const library::Game&) {
-                return std::string{};
+                return std::optional<std::string>{};
             },
             [](const library::Game&) {
             }}};

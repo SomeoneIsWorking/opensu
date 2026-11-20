@@ -57,6 +57,8 @@ bool Installs::start(const library::Game& game) {
     }
     InstallJob* job = nullptr;
     const std::optional<std::filesystem::path> folder = folders_(game.source);
+    fumarole_.setFolder(std::nullopt);
+    epic_.setImport(std::nullopt);
     if (game.source == library::Source::Steam && game.fromFumarole) {
         job = &fumarole_;
     } else if (game.source == library::Source::Steam) {
@@ -73,6 +75,45 @@ bool Installs::start(const library::Game& game) {
         job = &gog_;
     }
     return job != nullptr && begin(*job, game, Work::Install);
+}
+
+std::optional<std::string> Installs::adopt(const library::Game& game,
+                                           const std::filesystem::path& folder,
+                                           std::string_view platform) {
+    if (running()) {
+        return std::nullopt;
+    }
+    switch (game.source) {
+    case library::Source::Steam:
+        epic_.setImport(std::nullopt);
+        fumarole_.setFolder(folder);
+        return begin(fumarole_, game, Work::Install) ? std::optional<std::string>{std::string{}}
+                                                     : std::nullopt;
+    case library::Source::Epic:
+        fumarole_.setFolder(std::nullopt);
+        epic_.setUpdate(false);
+        epic_.setFolder(std::nullopt);
+        epic_.setImport(EpicInstallJob::Import{folder, platform == "mac" ? "Mac" : "Windows"});
+        return begin(epic_, game, Work::Install) ? std::optional<std::string>{std::string{}}
+                                                 : std::nullopt;
+    case library::Source::Gog: {
+        library::gog::Installed installed{folder,
+                                          platform == "mac" ? "osx" : std::string{platform}};
+        installed.build = library::gog::installedBuild(installed, game.sourceId);
+        try {
+            gogRecords_.add(game.sourceId, installed);
+        } catch (const std::runtime_error& error) {
+            return "cannot record the GOG install: " + std::string{error.what()};
+        }
+        return std::string{};
+    }
+    case library::Source::Own:
+        return std::string{};
+    case library::Source::Rom:
+    case library::Source::Remote:
+        break;
+    }
+    return "openSU does not take over copies of that game";
 }
 
 bool Installs::begin(InstallJob& job, const library::Game& game, Work work) {

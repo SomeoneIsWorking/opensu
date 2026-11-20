@@ -126,9 +126,10 @@ It never shares the loopback control channel's port.
 | `POST /lan/saves/get` | linked profile, signed | the same ask → the saves as a bundle (below), at most 512 MiB |
 | `POST /lan/saves/news` | linked profile, signed | the caller holds newer saves of the game (`picked`: the player there chose them in a conflict); this one pulls them |
 | `POST /lan/saves/synced` | linked profile, signed | the caller took `hash` (`counter`) of the game from here |
-| `GET /lan/roms` | paired, signed | the ROM listing (below), at most 8 MiB |
+| `GET /lan/roms` | paired, signed | the ROM listing (below) and `installs`, at most 8 MiB |
 | `POST /lan/roms/file` | paired, signed | `{"kind","root","path"}` → `{"bytes","sha256"}`; `sha256` is empty while the host still hashes the file |
 | `POST /lan/roms/chunk` | paired, signed | `{"kind","root","path","offset","length"}` → at most 2 MiB of the file from `offset`, as raw bytes |
+| `POST /lan/roms/install` | paired, signed | `{"id"}` → `{"files":[{"path","bytes","x"}]}`, every file of that listed install's folder, links out of it left out |
 | `POST /lan/play` | paired, signed | `{"game","profile","salt"}` → `{"port","salt","waiting","joined","continued"}`: the host streams that listed game to the caller, played as `profile` (the caller's active one) when it is linked with the caller, else as the host's first profile; `joined` when the game already ran there, `waiting` (no port yet) while its player is asked; 404 for a game it does not list, 409 with why when it will not (another game running, four guests, outside Gamescope, no capture) |
 | `POST /lan/invite` | paired, signed | `{"game","title"}` → `{}`: the caller invites this openSU to its game running now; 409 with why when this one is in a game |
 | `POST /lan/covers` | paired, signed | `{"game","fresh"}` → `{"game","status","complete","offers":[{"id","width","height","thumb"}],"own","choice"}`: what this openSU offers as covers of a game it lists, with `/lan/cover/<token>` thumbnails, and how the last pick stands. `fresh` starts the listing; the guest asks about once a second until `complete`. One listing at a time: the last game asked for |
@@ -686,3 +687,14 @@ with bits a second puts what a hidden guest takes through a slow link (`stream::
 of 20 ms at that rate in front of the guest, what it holds delayed and what it has no room for
 dropped; 0 lifts it, and the guests of one host each take their own), the slow link that makes the host fall back; the `stream` log lines name each
 probe, where a later one stopped and why, and each plan. `POST /remote/end` ends the session as the Guide's End remote play does (Leave game when joined), so a run can end it cleanly. `POST /pointer` `down X Y right` and `up X Y right` hold a button across frames.
+
+### Install copies
+
+`/lan/roms` also lists `installs`: each installed Steam, GOG, Epic or games-folder game with a
+folder of its own (`library::Game::installFolder`), by catalog id, store, store id, platform
+("windows", "linux", "mac") and folder name. Its files are asked for apart
+(`/lan/roms/install`), walked then, and fetched as kind `install` with the path
+`<install id>/<path inside>`: the host resolves it in the install's folder as the catalog has it
+now and refuses anything that resolves outside it, links included. The guest places them where
+its store keeps that game (`app::CopyPlaces`) and its store takes the folder over
+(`app::Installs::adopt`). Plan and the per-store table: `docs/plans/lan-game-copy.md`.

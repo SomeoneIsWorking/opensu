@@ -176,11 +176,15 @@ class LanNode {
     void shareRoms(RomShelf::Contents contents) {
         shelf_.share(std::move(contents));
     }
-    /// The ROMs the paired, announced openSU `hostId` offers. Blocks for the call, so never on the
-    /// loop. Nothing with `error` when it is gone, unpaired or refuses; nothing without one when
-    /// `stop` ended the call.
-    [[nodiscard]] std::optional<std::vector<wire::RomConsole>>
+    /// The ROMs and installs the paired, announced openSU `hostId` offers. Blocks for the call, so
+    /// never on the loop. Nothing with `error` when it is gone, unpaired or refuses; nothing
+    /// without one when `stop` ended the call.
+    [[nodiscard]] std::optional<wire::Shelf>
     romsOf(const std::stop_token& stop, const std::string& hostId, std::string& error) const;
+    /// The files of install `installId` that `hostId` lists; blocks and fails as `romsOf` does.
+    [[nodiscard]] std::optional<std::vector<wire::RomFile>>
+    installFilesOf(const std::stop_token& stop, const std::string& hostId,
+                   const std::string& installId, std::string& error) const;
     /// The ROMs being imported from paired peers.
     [[nodiscard]] RomImport& imports() noexcept {
         return *imports_;

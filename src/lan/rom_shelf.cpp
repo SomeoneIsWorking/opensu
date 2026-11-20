@@ -8,6 +8,7 @@
 
 #include "clock/file_time.hpp"
 #include "fileio/relative_path.hpp"
+#include "library/game_folder.hpp"
 #include "lucent/log.h"
 #include "secrets/crypto.hpp"
 #include "secrets/secret.hpp"
@@ -19,6 +20,37 @@ namespace fs = std::filesystem;
 
 /// How much of a file is read at once while it is hashed.
 constexpr std::size_t hashPiece = std::size_t{1} << 20;
+
+/// Whether openSU here can hand a copy of `game`'s install folder to another openSU to adopt.
+bool copyable(const library::Game& game) {
+    using library::Source;
+    return game.installed && !game.installFolder.empty() &&
+           (game.source == Source::Steam || game.source == Source::Gog ||
+            game.source == Source::Epic || game.source == Source::Own);
+}
+
+/// What `game`'s files were built for.
+std::string platformOf(const library::Game& game) {
+    if (game.windowsInstall) {
+        return "windows";
+    }
+    switch (library::folder::thisHost()) {
+    case library::folder::Host::Windows:
+        return "windows";
+    case library::folder::Host::Linux:
+        return "linux";
+    case library::folder::Host::Mac:
+        return "mac";
+    }
+    return "linux";
+}
+
+/// Whether `file` may be run by its owner.
+bool executableFile(const fs::path& file) {
+    std::error_code ec;
+    const fs::perms perms = fs::status(file, ec).permissions();
+    return !ec && (perms & fs::perms::owner_exec) != fs::perms::none;
+}
 
 std::string keyOf(wire::RomKind kind, std::uint32_t root, std::string_view path) {
     return std::string{kind == wire::RomKind::Bios ? "bios " : "rom "} + std::to_string(root) +
@@ -50,7 +82,8 @@ std::optional<std::vector<wire::RomFile>> filesOf(const fs::path& root, const fs
         if (ec || path.empty() || !fileio::staysInside(path)) {
             return false;
         }
-        files.push_back(wire::RomFile{path, static_cast<std::uint64_t>(size)});
+        files.push_back(
+            wire::RomFile{path, static_cast<std::uint64_t>(size), executableFile(file)});
         return true;
     };
     if (fs::is_regular_file(entry, ec)) {
@@ -97,7 +130,15 @@ void RomShelf::build() {
     }
     built_ = true;
     consoles_.clear();
+    installs_.clear();
     files_.clear();
+    for (const library::Game& game : contents_.games) {
+        if (copyable(game)) {
+            installs_.push_back(wire::InstallCopy{game.id, game.title, library::key(game.source),
+                                                  game.sourceId, platformOf(game),
+                                                  game.installFolder.filename().string()});
+        }
+    }
     std::map<std::pair<std::string, std::string>, wire::RomConsole> grouped;
     for (const library::Game& game : contents_.games) {
         if (game.source != library::Source::Rom || !game.installed || game.file.empty()) {
@@ -153,15 +194,71 @@ void RomShelf::build() {
                  consoles_.size());
 }
 
-std::vector<wire::RomConsole> RomShelf::listing() {
+wire::Shelf RomShelf::listing() {
     const std::lock_guard lock{mutex_};
     build();
-    return consoles_;
+    return wire::Shelf{consoles_, installs_};
+}
+
+std::optional<fs::path> RomShelf::installFolderOf(std::string_view id) {
+    build();
+    if (std::ranges::find(installs_, id, &wire::InstallCopy::id) == installs_.end()) {
+        return std::nullopt;
+    }
+    const auto game = std::ranges::find(contents_.games, id, &library::Game::id);
+    if (game == contents_.games.end()) {
+        return std::nullopt;
+    }
+    return game->installFolder;
+}
+
+std::optional<std::vector<wire::RomFile>> RomShelf::installFiles(std::string_view id) {
+    std::optional<fs::path> folder;
+    {
+        const std::lock_guard lock{mutex_};
+        folder = installFolderOf(id);
+    }
+    if (!folder) {
+        return std::nullopt;
+    }
+    std::optional<std::vector<wire::RomFile>> files = filesOf(*folder, *folder);
+    if (files) {
+        // A link out of the folder is not the game's; `find` refuses it too.
+        std::error_code ec;
+        const fs::path inside = fs::canonical(*folder, ec);
+        std::erase_if(*files, [&](const wire::RomFile& file) {
+            std::error_code fileError;
+            const fs::path real = fs::canonical(*folder / file.path, fileError);
+            return ec || fileError ||
+                   !fileio::staysInside(real.lexically_relative(inside).generic_string());
+        });
+    }
+    return files;
 }
 
 std::optional<RomShelf::Listed> RomShelf::find(const wire::RomAsk& ask) {
     const std::lock_guard lock{mutex_};
     build();
+    if (ask.kind == wire::RomKind::Install) {
+        const std::size_t slash = ask.path.find('/');
+        const std::optional<fs::path> folder =
+            slash == std::string::npos
+                ? std::nullopt
+                : installFolderOf(std::string_view{ask.path}.substr(0, slash));
+        if (!folder) {
+            return std::nullopt;
+        }
+        // Only a file inside the install as it is now, a link out of it refused.
+        std::error_code ec;
+        const fs::path inside = fs::canonical(*folder, ec);
+        const fs::path file = fs::canonical(*folder / ask.path.substr(slash + 1), ec);
+        const std::optional<std::pair<std::uint64_t, std::int64_t>> stamp =
+            ec ? std::nullopt : stampOf(file);
+        if (!stamp || !fileio::staysInside(file.lexically_relative(inside).generic_string())) {
+            return std::nullopt;
+        }
+        return Listed{file, stamp->first};
+    }
     const auto found =
         files_.find(keyOf(ask.kind, ask.kind == wire::RomKind::Bios ? 0 : ask.root, ask.path));
     if (found == files_.end()) {

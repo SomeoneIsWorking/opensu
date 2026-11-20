@@ -410,17 +410,22 @@ struct NetplayVerdict {
 inline constexpr std::string_view romListRoute = "/lan/roms";
 inline constexpr std::string_view romFileRoute = "/lan/roms/file";
 inline constexpr std::string_view romChunkRoute = "/lan/roms/chunk";
+/// One listed install's files, walked when asked.
+inline constexpr std::string_view installFilesRoute = "/lan/roms/install";
 /// The most one `/lan/roms/chunk` answer carries.
 inline constexpr std::uint64_t romChunkBytes = std::uint64_t{2} * 1024 * 1024;
 
-/// Which folder a ROM route's path is in: a ROM folder the host lists, or its BIOS folder.
-enum class RomKind : std::uint8_t { Rom, Bios };
+/// Which folder a ROM route's path is in: a ROM folder the host lists, its BIOS folder, or a listed
+/// install's folder (the path `<install id>/<path inside it>`).
+enum class RomKind : std::uint8_t { Rom, Bios, Install };
 
 /// One file a host offers: its path inside the ROM folder (`<console folder>/...`) or the BIOS
 /// folder, `/`-separated, and its size.
 struct RomFile {
     std::string path;
     std::uint64_t bytes{0};
+    /// Whether the host may run it, which a copy keeps.
+    bool executable{false};
 
     bool operator==(const RomFile&) const = default;
 };
@@ -452,13 +457,46 @@ struct RomConsole {
     bool operator==(const RomConsole&) const = default;
 };
 
+/// One installed game a host offers to copy, its files asked for apart (`installFilesRoute`).
+struct InstallCopy {
+    /// The host's catalog id of it, as `/lan/library` lists it.
+    std::string id;
+    std::string title;
+    /// Its source (`library::key`) and that source's id of it.
+    std::string store;
+    std::string storeId;
+    /// What its files were built for: "windows", "linux" or "mac".
+    std::string platform;
+    /// Its install folder's name.
+    std::string folder;
+
+    bool operator==(const InstallCopy&) const = default;
+};
+
+/// What a host offers to import: its ROMs by console and its installs.
+struct Shelf {
+    std::vector<RomConsole> consoles;
+    std::vector<InstallCopy> installs{};
+
+    bool operator==(const Shelf&) const = default;
+};
+
 /// `GET /lan/roms`: `{"consoles":[{"system","folder","games":[{"title","root","entry","files",
-/// "id"}],"bios"}]}`, `files` and `bios` each `[{"path","bytes"}]`.
-[[nodiscard]] std::string write(const std::vector<RomConsole>& consoles);
-/// A ROM listing read back; nothing when `body` is not one. A file whose path could step out of
+/// "id"}],"bios"}],"installs":[{"id","title","store","storeId","platform","folder"}]}`, `files`
+/// and `bios` each `[{"path","bytes","x"}]` (`x` only when executable).
+[[nodiscard]] std::string write(const Shelf& shelf);
+/// A listing read back; nothing when `body` is not one. A file whose path could step out of
 /// its folder, or a game's file outside its entry, drops the game; a console without a key or
-/// folder is left out.
-[[nodiscard]] std::optional<std::vector<RomConsole>> readRomListing(std::string_view body);
+/// folder, or an install without an id or a folder name that is one plain name, is left out.
+[[nodiscard]] std::optional<Shelf> readShelf(std::string_view body);
+
+/// `POST /lan/roms/install`: `{"id"}` asks for a listed install's files; the answer is
+/// `{"files":[...]}`, paths inside its folder.
+[[nodiscard]] std::string writeInstallAsk(std::string_view id);
+[[nodiscard]] std::optional<std::string> readInstallAsk(std::string_view body);
+[[nodiscard]] std::string write(const std::vector<RomFile>& files);
+/// Nothing when `body` is not a file list or a path could step out of the folder.
+[[nodiscard]] std::optional<std::vector<RomFile>> readInstallFiles(std::string_view body);
 
 /// `POST /lan/roms/file` and `/chunk`: one listed file, and for a chunk where it starts and how
 /// many bytes are asked for (at most `romChunkBytes` come back).
@@ -470,7 +508,8 @@ struct RomAsk {
     std::uint64_t length{0};
 };
 [[nodiscard]] std::string write(const RomAsk& ask);
-/// Nothing when `body` is not one or its path is empty or could step out of its folder.
+/// Nothing when `body` is not one or its path (an install's, after its id) is empty or could
+/// step out of its folder.
 [[nodiscard]] std::optional<RomAsk> readRomAsk(std::string_view body);
 
 /// The answer to `/lan/roms/file`: the file's size and its SHA-256 as hex, empty while the host

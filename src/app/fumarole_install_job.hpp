@@ -3,6 +3,7 @@
 // build, as fumarole launches only those (under Wine).
 #pragma once
 
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -18,11 +19,19 @@ class FumaroleInstallJob final : public CliInstallJob {
     explicit FumaroleInstallJob(std::string program);
     ~FumaroleInstallJob();
 
+    /// The folder the next install goes in (`--path`), where any chunk already on disk is kept;
+    /// none leaves fumarole's own. Call before start(), while idle.
+    void setFolder(std::optional<std::filesystem::path> folder) {
+        folder_ = std::move(folder);
+    }
+
   private:
     std::vector<std::string> arguments(const std::stop_token& stop,
                                        const std::string& appId) override;
     std::optional<double> progressIn(std::string_view line) const override;
     std::optional<std::string> failureIn(std::string_view line) const override;
+
+    std::optional<std::filesystem::path> folder_;
 };
 
 } // namespace opensu::app

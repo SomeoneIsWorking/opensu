@@ -60,9 +60,13 @@ Play says so; they are checked again every minute.
 Each game shows its progress and the total under **Importing**. A game appears in your Library as
 soon as it arrives. Each file is checked against the other openSU's copy before it is kept.
 
-One game can be copied from its own page too: on a paired openSU's ROM game, **Copy to this
-device** imports it the same way, with the BIOS files its emulator needs and lacks here, and shows
-its progress on the row. The row goes once the game is here.
+One game can be copied from its own page too: **Copy to this device** on a paired openSU's game.
+A ROM comes over with the BIOS files its emulator needs and lacks here. An installed game comes
+over as its whole folder and is taken over by the store here: a Steam game by fumarole (which then
+fetches only what differs), a GOG game by openSU's own GOG installs, an Epic game by legendary's
+import, a game from a games folder into your first games folder. A Windows build comes to any
+desktop; a Linux or Mac build only to the same OS. The row shows the progress and goes once the
+game is here; a Steam or Epic game finishes on the Downloads page.
 
 - If the connection drops or the other openSU closes, the game waits and goes on from where it
   stopped once it is back. **Stop importing** drops what has not arrived.

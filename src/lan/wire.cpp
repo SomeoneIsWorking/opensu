@@ -736,7 +736,11 @@ namespace {
 json filesOf(const std::vector<RomFile>& files) {
     json list = json::array();
     for (const RomFile& file : files) {
-        list.push_back(json{{"path", file.path}, {"bytes", file.bytes}});
+        json entry{{"path", file.path}, {"bytes", file.bytes}};
+        if (file.executable) {
+            entry["x"] = true;
+        }
+        list.push_back(std::move(entry));
     }
     return list;
 }
@@ -752,7 +756,10 @@ std::optional<std::vector<RomFile>> filesIn(const json& document, const char* ke
         if (!entry.is_object()) {
             return std::nullopt;
         }
-        RomFile file{textField(entry, "path"), countField(entry, "bytes").value_or(0)};
+        const auto executable = entry.find("x");
+        RomFile file{textField(entry, "path"), countField(entry, "bytes").value_or(0),
+                     executable != entry.end() && executable->is_boolean() &&
+                         executable->get<bool>()};
         if (file.path.empty() || !fileio::staysInside(file.path)) {
             return std::nullopt;
         }
@@ -762,7 +769,24 @@ std::optional<std::vector<RomFile>> filesIn(const json& document, const char* ke
 }
 
 constexpr std::string_view romKindKey(RomKind kind) noexcept {
-    return kind == RomKind::Bios ? "bios" : "rom";
+    switch (kind) {
+    case RomKind::Rom:
+        return "rom";
+    case RomKind::Bios:
+        return "bios";
+    case RomKind::Install:
+        return "install";
+    }
+    return "rom";
+}
+
+std::optional<RomKind> romKindOf(std::string_view key) noexcept {
+    for (const RomKind kind : {RomKind::Rom, RomKind::Bios, RomKind::Install}) {
+        if (romKindKey(kind) == key) {
+            return kind;
+        }
+    }
+    return std::nullopt;
 }
 
 } // namespace
@@ -775,9 +799,9 @@ std::uint64_t RomGame::bytes() const {
     return total;
 }
 
-std::string write(const std::vector<RomConsole>& consoles) {
+std::string write(const Shelf& shelf) {
     json list = json::array();
-    for (const RomConsole& console : consoles) {
+    for (const RomConsole& console : shelf.consoles) {
         json games = json::array();
         for (const RomGame& game : console.games) {
             games.push_back(json{{"title", game.title},
@@ -791,10 +815,19 @@ std::string write(const std::vector<RomConsole>& consoles) {
                             {"games", games},
                             {"bios", filesOf(console.bios)}});
     }
-    return json{{"consoles", list}}.dump();
+    json installs = json::array();
+    for (const InstallCopy& install : shelf.installs) {
+        installs.push_back(json{{"id", install.id},
+                                {"title", install.title},
+                                {"store", install.store},
+                                {"storeId", install.storeId},
+                                {"platform", install.platform},
+                                {"folder", install.folder}});
+    }
+    return json{{"consoles", list}, {"installs", installs}}.dump();
 }
 
-std::optional<std::vector<RomConsole>> readRomListing(std::string_view body) {
+std::optional<Shelf> readShelf(std::string_view body) {
     const std::optional<json> document = objectOf(body);
     if (!document || !document->contains("consoles") || !(*document)["consoles"].is_array()) {
         return std::nullopt;
@@ -842,7 +875,52 @@ std::optional<std::vector<RomConsole>> readRomListing(std::string_view body) {
         }
         consoles.push_back(std::move(console));
     }
-    return consoles;
+    Shelf shelf{std::move(consoles)};
+    if (const auto installs = document->find("installs");
+        installs != document->end() && installs->is_array()) {
+        for (const json& listed : *installs) {
+            if (!listed.is_object()) {
+                continue;
+            }
+            InstallCopy install{textField(listed, "id"),       textField(listed, "title"),
+                                textField(listed, "store"),    textField(listed, "storeId"),
+                                textField(listed, "platform"), textField(listed, "folder")};
+            if (install.id.empty() || install.id.find('/') != std::string::npos ||
+                install.store.empty() || !keyPart(install.folder)) {
+                continue;
+            }
+            shelf.installs.push_back(std::move(install));
+        }
+    }
+    return shelf;
+}
+
+std::string writeInstallAsk(std::string_view id) {
+    return json{{"id", std::string{id}}}.dump();
+}
+
+std::optional<std::string> readInstallAsk(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    std::string id = textField(*document, "id");
+    if (id.empty()) {
+        return std::nullopt;
+    }
+    return id;
+}
+
+std::string write(const std::vector<RomFile>& files) {
+    return json{{"files", filesOf(files)}}.dump();
+}
+
+std::optional<std::vector<RomFile>> readInstallFiles(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    return filesIn(*document, "files");
 }
 
 std::string write(const RomAsk& ask) {
@@ -859,13 +937,19 @@ std::optional<RomAsk> readRomAsk(std::string_view body) {
     if (!document) {
         return std::nullopt;
     }
-    const std::string kind = textField(*document, "kind");
+    const std::optional<RomKind> kind = romKindOf(textField(*document, "kind"));
     const std::optional<std::uint64_t> root = countField(*document, "root");
-    RomAsk ask{kind == romKindKey(RomKind::Bios) ? RomKind::Bios : RomKind::Rom, 0,
-               textField(*document, "path"), countField(*document, "offset").value_or(0),
+    RomAsk ask{kind.value_or(RomKind::Rom), 0, textField(*document, "path"),
+               countField(*document, "offset").value_or(0),
                countField(*document, "length").value_or(0)};
-    if ((kind != romKindKey(RomKind::Rom) && kind != romKindKey(RomKind::Bios)) || !root ||
-        *root > 0xffffffffU || ask.path.empty() || !fileio::staysInside(ask.path)) {
+    // An install's path leads with its catalog id, which may hold a ':'.
+    const std::size_t slash = ask.path.find('/');
+    const std::string_view inside = kind == RomKind::Install
+                                        ? (slash == 0 || slash == std::string::npos
+                                               ? std::string_view{}
+                                               : std::string_view{ask.path}.substr(slash + 1))
+                                        : std::string_view{ask.path};
+    if (!kind || !root || *root > 0xffffffffU || inside.empty() || !fileio::staysInside(inside)) {
         return std::nullopt;
     }
     ask.root = static_cast<std::uint32_t>(*root);

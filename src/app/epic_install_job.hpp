@@ -31,6 +31,17 @@ class EpicInstallJob final : public CliInstallJob {
         update_ = update;
     }
 
+    /// A copy of the game already in a folder, which the next start imports (`legendary import`)
+    /// instead of installing: the folder and legendary's platform name ("Windows", "Mac").
+    struct Import {
+        std::filesystem::path folder;
+        std::string platform;
+    };
+    /// Call before start(), while idle; nothing installs as usual.
+    void setImport(std::optional<Import> import) {
+        import_ = std::move(import);
+    }
+
   private:
     std::vector<std::string> arguments(const std::stop_token& stop,
                                        const std::string& appName) override;
@@ -39,6 +50,7 @@ class EpicInstallJob final : public CliInstallJob {
 
     std::optional<std::filesystem::path> folder_;
     bool update_{false};
+    std::optional<Import> import_;
 };
 
 } // namespace opensu::app

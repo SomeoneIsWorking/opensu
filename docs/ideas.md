@@ -64,3 +64,21 @@ its Steam copy, and a ROM to its game. What would replace it where IDs exist:
 Why it waits: title grouping's real mistakes are fixed (an added game takes art only from its own
 Steam app; two Steam apps never group), and a store copy whose title differs from its Steam copy's is
 rare.
+
+## A game manifest for copies and saves
+
+Raised 2026-11-20: a file in a game's folder saying which files make the game, where its saves
+are (for save sync) and what else it needs, such as the player's ROM a revamped port runs on, so
+Copy to this device brings those too. Shape: optional include/exclude over the install folder;
+save locations only where Ludusavi's community manifest does not know the game (check its
+licence before using it); required files by SHA-1 and size, matched against this device's ROMs
+first and fetched from the host's shelf otherwise, placed where the port's setup expects them.
+The host's install listing (`docs/plans/lan-game-copy.md`) would carry the manifest beside each
+install.
+
+The same manifest could declare the game's controls and multiplayer: its actions grouped into
+action sets and layers ("on foot", "menu", "bow equipped"), each with default pad and touch
+layouts, and its local seats, split screen and online play. Touch controls that change with the
+game's state follow Steam Input's model: the manifest holds every set, and the game names the
+active one at run time (one line on openSU's control channel, as Steam's `ActivateActionSet`),
+so the overlay swaps layouts; a game that says nothing keeps its one default set.
