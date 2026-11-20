@@ -95,21 +95,13 @@ lan::RomImport::Setup LanRoms::importSetup(fs::path staging,
 }
 
 void LanRoms::share(const std::vector<library::Game>& games) {
-    lan::RomShelf::Contents contents{
-        .roots = hooks_.romFolders(), .games = {}, .biosFolder = hooks_.biosFolder(), .bios = {}};
+    lan::RomShelf::Contents contents{.roots = hooks_.romFolders(), .games = {}, .bios = {}};
     for (const library::Game& game : games) {
         if (game.source != library::Source::Rom) {
             continue;
         }
         if (!contents.bios.contains(game.sourceId)) {
-            std::vector<std::string>& files = contents.bios[game.sourceId];
-            if (const std::optional<library::roms::CoreBios> bios = hooks_.bios(game.sourceId)) {
-                for (const library::roms::CoreBios::File& file : bios->files) {
-                    if (file.present) {
-                        files.push_back(file.firmware.path);
-                    }
-                }
-            }
+            contents.bios[game.sourceId] = hooks_.biosToShare(game.sourceId);
         }
         contents.games.push_back(game);
     }
@@ -420,9 +412,11 @@ std::vector<LanRoms::OfferedBios> LanRoms::offeredBios(const std::string& peerId
                 continue;
             }
             for (const lan::wire::RomFile& file : from.bios) {
+                // A core that takes any image of a folder lists the folder.
                 const auto wanted =
                     std::ranges::find_if(here->files, [&](const library::roms::CoreBios::File& f) {
-                        return f.firmware.path == file.path && !f.present;
+                        return !f.present && (f.firmware.path == file.path ||
+                                              file.path.starts_with(f.firmware.path + "/"));
                     });
                 if (wanted == here->files.end() ||
                     std::ranges::any_of(offered, [&](const OfferedBios& kept) {

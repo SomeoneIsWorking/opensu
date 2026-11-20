@@ -20,6 +20,7 @@
 #include <thread>
 #include <vector>
 
+#include "library/core_bios.hpp"
 #include "library/game.hpp"
 #include "wire.hpp"
 
@@ -33,10 +34,8 @@ class RomShelf {
         std::vector<std::filesystem::path> roots;
         /// The catalog's games; its ROMs in those folders are offered.
         std::vector<library::Game> games;
-        /// The runner's BIOS folder, and the files in it each console's runner takes, by console
-        /// key, inside that folder.
-        std::filesystem::path biosFolder;
-        std::map<std::string, std::vector<std::string>, std::less<>> bios;
+        /// The BIOS files offered for each console, by console key.
+        std::map<std::string, std::vector<library::roms::SharedBios>, std::less<>> bios;
     };
 
     RomShelf();

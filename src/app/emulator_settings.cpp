@@ -7,6 +7,7 @@
 
 #include "game_overlay.hpp"
 #include "library/core_bios.hpp"
+#include "library/pcsx2_config.hpp"
 #include "library/rom_systems.hpp"
 #include "library/shader_pack.hpp"
 #include "library/visual_presets.hpp"
@@ -210,6 +211,44 @@ std::optional<library::roms::CoreBios> EmulatorSettings::biosOf(std::string_view
         return std::nullopt;
     }
     return biosOf(*entry);
+}
+
+std::vector<library::roms::SharedBios>
+EmulatorSettings::biosToShare(std::string_view system) const {
+    using library::roms::SharedBios;
+    std::vector<SharedBios> shared;
+    const auto core =
+        std::ranges::find_if(found_.catalog().entries(), [system](const EmulatorEntry& entry) {
+            return entry.serves(system) && entry.builtIn() && entry.romsets.empty();
+        });
+    if (core == found_.catalog().entries().end()) {
+        return shared;
+    }
+    const auto add = [&shared](std::string path, std::filesystem::path file) {
+        std::error_code ec;
+        if (std::filesystem::is_regular_file(file, ec) &&
+            std::ranges::find(shared, path, &SharedBios::path) == shared.end()) {
+            shared.push_back(SharedBios{std::move(path), std::move(file)});
+        }
+    };
+    if (const std::optional<library::roms::CoreBios> bios = biosOf(*core)) {
+        for (const library::roms::CoreBios::File& file : bios->files) {
+            if (file.present) {
+                add(file.firmware.path, biosFolder() / file.firmware.path);
+            }
+        }
+    }
+    const library::roms::EmulatorInstall* pcsx2 = found_.installed(library::pcsx2Id);
+    const EmulatorEntry* standalone = found_.catalog().find(library::pcsx2Id);
+    if (core->biosScan == library::roms::BiosScan::Lrps2 && pcsx2 != nullptr &&
+        standalone != nullptr) {
+        const std::filesystem::path folder = library::pcsx2BiosFolder(
+            standalone->configOf(pcsx2->source == library::roms::InstallSource::Flatpak));
+        for (const library::roms::PickedBios& image : library::roms::ps2BiosImagesIn(folder)) {
+            add(image.file, folder / std::filesystem::path{image.file}.filename());
+        }
+    }
+    return shared;
 }
 
 const std::filesystem::path& EmulatorSettings::biosFolder() const noexcept {

@@ -1237,6 +1237,10 @@ class ShellApp final {
                            [this](std::string_view system) {
                                return emulatorSettings_.biosOf(system);
                            },
+                       .biosToShare =
+                           [this](std::string_view system) {
+                               return emulatorSettings_.biosToShare(system);
+                           },
                        .biosFolder =
                            [this] {
                                return emulatorSettings_.biosFolder();

@@ -1063,8 +1063,9 @@ void romsComeOverInChunks(const fs::path& root) {
         .roots = {roms},
         .games = {romGame(roms / "Game Boy" / "Big.gb", "gb", "Big"),
                   romGame(roms / "PSX" / "Disc" / "Disc.cue", "psx", "Disc")},
-        .biosFolder = bios,
-        .bios = {{"psx", {"scph5501.bin", "missing.bin"}}}});
+        .bios = {
+            {"psx",
+             {{"scph5501.bin", bios / "scph5501.bin"}, {"missing.bin", bios / "missing.bin"}}}}});
 
     std::string error;
     const std::vector<lan::wire::RomConsole> consoles =
@@ -1159,8 +1160,7 @@ void installsComeOver(const fs::path& root) {
     library::Game picked = cave;
     picked.id = "own:picked";
     picked.installFolder.clear();
-    host.node.shareRoms(lan::RomShelf::Contents{
-        .roots = {}, .games = {cave, picked}, .biosFolder = {}, .bios = {}});
+    host.node.shareRoms(lan::RomShelf::Contents{.roots = {}, .games = {cave, picked}, .bios = {}});
 
     std::string error;
     const lan::wire::Shelf shelf = must(guest.node.romsOf(std::stop_token{}, host.node.id(), error),
@@ -1373,7 +1373,6 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
     shelf.share(
         lan::RomShelf::Contents{.roots = {roms},
                                 .games = {romGame(roms / "NES" / "Listed.nes", "nes", "Listed")},
-                                .biosFolder = {},
                                 .bios = {}});
     const auto chunk = [&](const std::string& path) {
         const std::string route{lan::wire::romChunkRoute};

@@ -20,6 +20,7 @@ using opensu::library::IniKey;
 using opensu::library::iniKeysIn;
 using opensu::library::iniValueIn;
 using opensu::library::LaunchSetup;
+using opensu::library::pcsx2BiosFolder;
 using opensu::library::pcsx2Id;
 using opensu::library::pcsx2LaunchSettings;
 using opensu::library::pcsx2PadSettings;
@@ -97,9 +98,27 @@ void testWrites() {
     expect(rewriteWritesNothing(setup), "a second launch writes nothing");
 }
 
+void testBiosFolder() {
+    const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "pcsx2-bios"};
+    const std::filesystem::path& config = scratch.path();
+    expect(pcsx2BiosFolder(config) == config / "bios", "with no settings the BIOS is in bios/");
+    std::filesystem::create_directories(config / "inis");
+    const auto settle = [&config](std::string_view text) {
+        std::FILE* file = std::fopen((config / pcsx2SettingsFile).c_str(), "wb");
+        std::fwrite(text.data(), 1, text.size(), file);
+        std::fclose(file);
+    };
+    settle("[Folders]\nBios = firmware\n");
+    expect(pcsx2BiosFolder(config) == config / "firmware",
+           "a relative folder is under the settings");
+    settle("[Folders]\nBios = /srv/ps2\n");
+    expect(pcsx2BiosFolder(config) == "/srv/ps2", "an absolute folder is taken as it is");
+}
+
 } // namespace
 
 int main() try {
+    testBiosFolder();
     testWizard();
     testPads();
     testWrites();

@@ -178,9 +178,9 @@ void RomShelf::build() {
     for (auto& [key, console] : grouped) {
         std::ranges::sort(console.games, {}, &wire::RomGame::title);
         const auto bios = contents_.bios.find(console.system);
-        for (const std::string& path :
-             bios != contents_.bios.end() ? bios->second : std::vector<std::string>{}) {
-            const fs::path file = contents_.biosFolder / path;
+        for (const auto& [path, file] : bios != contents_.bios.end()
+                                            ? bios->second
+                                            : std::vector<library::roms::SharedBios>{}) {
             const std::optional<std::pair<std::uint64_t, std::int64_t>> stamp = stampOf(file);
             if (!stamp || !fileio::staysInside(path) || path.empty()) {
                 continue;

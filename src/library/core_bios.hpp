@@ -102,6 +102,18 @@ inline constexpr std::string_view lrps2BiosFolder = "pcsx2/bios";
 /// The files LRPS2 offers from `system`'s `pcsx2/bios`, in the order it lists them; the first is
 /// the one it boots unless its `pcsx2_bios` option names another.
 [[nodiscard]] std::vector<PickedBios> lrps2BiosIn(const std::filesystem::path& system);
+/// The PS2 BIOS images LRPS2 would take from `folder`, as it lists them, each filed under
+/// `lrps2BiosFolder`: another PS2 emulator's BIOS folder read for the core.
+[[nodiscard]] std::vector<PickedBios> ps2BiosImagesIn(const std::filesystem::path& folder);
+
+/// A BIOS file offered to another openSU: where the core there looks for it, under its system
+/// folder, and the file here.
+struct SharedBios {
+    std::string path;
+    std::filesystem::path file;
+
+    bool operator==(const SharedBios&) const = default;
+};
 
 /// A core's BIOS as the system folder has it now.
 struct CoreBios {

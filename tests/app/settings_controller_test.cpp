@@ -508,6 +508,7 @@ struct Rig {
                             .romFolders = {},
                             .addRomFolder = {},
                             .bios = {},
+                            .biosToShare = {},
                             .biosFolder = {},
                             .reloadCatalog = {},
                             .refresh = {},

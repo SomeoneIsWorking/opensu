@@ -45,6 +45,8 @@ class LanRoms {
         std::function<void(const std::filesystem::path& folder)> addRomFolder;
         /// The BIOS the runner here takes for a console; nothing when it is not known.
         std::function<std::optional<library::roms::CoreBios>(std::string_view system)> bios;
+        /// The BIOS files offered to paired openSUs for the console `system`.
+        std::function<std::vector<library::roms::SharedBios>(std::string_view system)> biosToShare;
         /// The runner's BIOS folder.
         std::function<std::filesystem::path()> biosFolder;
         /// ROMs arrived: the catalog reads them.

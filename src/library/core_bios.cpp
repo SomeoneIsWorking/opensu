@@ -350,10 +350,13 @@ std::vector<PickedBios> pcsxRearmedBiosIn(const fs::path& system) {
 }
 
 std::vector<PickedBios> lrps2BiosIn(const fs::path& system) {
+    return system.empty() ? std::vector<PickedBios>{} : ps2BiosImagesIn(system / lrps2BiosFolder);
+}
+
+std::vector<PickedBios> ps2BiosImagesIn(const fs::path& folder) {
     std::vector<PickedBios> picked;
-    const fs::path folder = system / lrps2BiosFolder;
     std::error_code ec;
-    if (system.empty() || !fs::is_directory(folder, ec)) {
+    if (folder.empty() || !fs::is_directory(folder, ec)) {
         return picked;
     }
     // The core lists the folder in readdir order, as directory_iterator does.

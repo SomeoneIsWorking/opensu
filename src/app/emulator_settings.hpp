@@ -50,6 +50,10 @@ class EmulatorSettings {
     [[nodiscard]] std::optional<library::roms::CoreBios> biosOf(std::string_view system) const;
     /// The runner's BIOS folder.
     [[nodiscard]] const std::filesystem::path& biosFolder() const noexcept;
+    /// The BIOS files this device can give another openSU's built-in core for `system`: those of
+    /// that core in the runner's BIOS folder, and, for LRPS2, the PS2 images of an installed
+    /// PCSX2's BIOS folder.
+    [[nodiscard]] std::vector<library::roms::SharedBios> biosToShare(std::string_view system) const;
     /// The category, with `layerRows` under their own heading.
     [[nodiscard]] ui::SettingsCategory page(std::vector<ui::SettingsRow> layerRows = {}) const;
     /// The Downloads or BIOS files page `id` opens, or nothing for another id.

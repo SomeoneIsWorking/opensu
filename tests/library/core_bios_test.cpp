@@ -210,6 +210,13 @@ void lrps2ScansItsFolder(const fs::path& root) {
            "of two images the core boots the first it lists; the other is there, not used");
     expect(biosIn(firmware, WithoutBios::Needed, BiosScan::Listed, two).mode() == "Missing",
            "a listing core finds no file named pcsx2/bios");
+
+    const fs::path standalone = root / "PCSX2" / "bios";
+    put(standalone / "SCPH-70004_BIOS_V12_PAL_200.BIN", ps2Image('E'));
+    put(standalone / "notes.txt", "not a BIOS");
+    expect(ps2BiosImagesIn(standalone) ==
+               std::vector<PickedBios>{{"pcsx2/bios/SCPH-70004_BIOS_V12_PAL_200.BIN", "Europe"}},
+           "another emulator's BIOS folder gives its images filed under the core's folder");
 }
 
 void catalogNamesTheMode() {

@@ -24,6 +24,10 @@ inline constexpr std::string_view pcsx2ProfilesFolder{"inputprofiles"};
 /// The pads PCSX2's settings bind, `[Pad1]` to `[Pad8]` with both multitaps.
 inline constexpr int pcsx2Pads{8};
 
+/// The folder PCSX2 with settings in `config` reads its BIOS from: `[Folders] Bios`, relative
+/// to `config`.
+[[nodiscard]] std::filesystem::path pcsx2BiosFolder(const std::filesystem::path& config);
+
 /// The pads of a settings file or input profile `ini` bound to the virtual pads.
 [[nodiscard]] std::string pcsx2PadSettings(std::string_view ini);
 

@@ -101,4 +101,10 @@ std::vector<SettingsWrite> pcsx2Writes(const LaunchSetup& setup) {
     return files;
 }
 
+std::filesystem::path pcsx2BiosFolder(const std::filesystem::path& config) {
+    const std::filesystem::path folder{
+        iniValue(config / pcsx2SettingsFile, "Folders", "Bios").value_or("bios")};
+    return folder.is_absolute() ? folder : config / folder;
+}
+
 } // namespace opensu::library

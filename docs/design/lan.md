@@ -524,8 +524,11 @@ Import from a PC on your network tile, shown while LAN is on, opens Settings ›
 there are several, nothing more when none is paired (`SettingsController::openLanImport`).
 
 - **Host.** `app::LanRoms::share`, called from `ShellApp::applyCatalog`, gives the node's
-  `lan::RomShelf` the ROM roots, the ROM games and, for each of their consoles, the BIOS files the
-  chosen built-in core lists and the system folder holds (`EmulatorSettings::biosOf`). A game is
+  `lan::RomShelf` the ROM roots, the ROM games and, for each of their consoles, the BIOS files a
+  guest's built-in core takes (`EmulatorSettings::biosToShare`): the ones that core lists and the
+  system folder holds, and for LRPS2 the PS2 images of an installed PCSX2's `[Folders] Bios`,
+  offered under `pcsx2/bios/`, so a host that plays on standalone PCSX2 still has them to give. A
+  guest takes a file it lacks, or one under a listed folder it has nothing in. A game is
   its catalog entry under a root: one file, or a folder (a disc's `.cue` and its tracks, a
   multi-file game) walked whole. The listing is
   `[{"system","folder","games":[{"title","root","entry","files":[{"path","bytes"}]}],"bios":[...]}]`,
