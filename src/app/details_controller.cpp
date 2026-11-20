@@ -240,7 +240,15 @@ void DetailsController::run(const std::string& rowId, int /*step*/) {
         update_.request(*game);
     } else if (id == ui::detailsDefaultId) {
         hooks_.makeDefault(*game);
+        // The player's own choice re-orders the page at once.
+        openOrder_.clear();
+        for (const library::Game& copy : hooks_.copies(*game)) {
+            openOrder_.push_back(copy.id);
+        }
         refresh();
+        if (details_ && !details_->more.empty()) {
+            navigator_.focus(details_->more.front().id);
+        }
     } else if (id == ui::detailsDownloadId) {
         downloadEmulator(*game);
     } else if (id == ui::detailsWinePrefixId) {

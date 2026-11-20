@@ -212,6 +212,9 @@ struct Rig {
                          },
                          [this](const library::Game& version) {
                              calls.push_back("default " + version.id);
+                             std::ranges::stable_partition(copies, [&](const library::Game& copy) {
+                                 return copy.id == version.id;
+                             });
                          }}} {
     }
 
@@ -317,14 +320,19 @@ void aRowPerStoreCopy(const fs::path& dir) {
     expect(rig.calls == std::vector<std::string>{"default epic:h"},
            "Make default follows the plays and acts on its version");
     rig.calls.clear();
-    rig.press({Action::Down, Action::Down});
+    expect(rig.focused() == ui::copyRowId("epic:h", ui::detailsLaunchId) &&
+               rig.controller.details()->launch.gameId == "epic:h" &&
+               rig.controller.details()->more[2].id ==
+                   ui::copyRowId("steam:1", ui::detailsDefaultId),
+           "the new default leads the page at once, its Play focused");
+    rig.press({Action::Down, Action::Down, Action::Down});
     expect(rig.focused() == ui::copyRowId("epic:h", ui::detailsUninstallId),
            "the uninstalls come last");
     rig.press({Action::Accept});
     expect(rig.ui.navigator.top()->title() == "Uninstall the Epic copy of Hades?",
            "the confirmation names the copy");
     rig.press({Action::Accept});
-    expect(rig.calls.front() == "uninstall epic:h", "the row acts on its copy, not the top one");
+    expect(rig.calls.front() == "uninstall epic:h", "the row acts on its own copy");
     rig.calls.clear();
     rig.press({Action::Back});
     expect(rig.top() == "details" && rig.focused() == ui::detailsMoreId,
@@ -333,11 +341,11 @@ void aRowPerStoreCopy(const fs::path& dir) {
     rig.game = rig.copies.back();
     rig.copies = {rig.copies.back(), rig.copies.front()};
     rig.controller.refresh();
-    expect(rig.controller.details()->launch.gameId == "steam:1",
-           "a new top copy moves no row while the page is open");
+    expect(rig.controller.details()->launch.gameId == "epic:h",
+           "a new top copy from elsewhere moves no row while the page is open");
     rig.press({Action::Back});
     rig.open();
-    expect(rig.controller.details()->launch.gameId == "epic:h",
+    expect(rig.controller.details()->launch.gameId == "steam:1",
            "it leads when the page opens again");
 }
 

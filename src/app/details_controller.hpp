@@ -174,7 +174,8 @@ class DetailsController final : public ui::RowActions {
     Hooks hooks_;
     /// What the page shows, as last read.
     std::optional<ui::GameDetails> details_;
-    /// The copies' ids as the page opened: buttons never swap under a pointer while it is up.
+    /// The copies' ids as the page opened, or as Make default left them: buttons never swap
+    /// under a pointer by themselves.
     std::vector<std::string> openOrder_;
 };
 
