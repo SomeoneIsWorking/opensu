@@ -134,17 +134,25 @@ by frames reaching openSU's view rather than by a Metal timestamp.
   keyboard reached it. The Guide drew over it; Close game ended it in 5 s with nothing left.
   Without Screen Recording no picture of the composite can be taken here, so "frames reaching the
   view" is the player's eye, not a number.
-- **Gravity Circuit**: hello and a 1280x800 window 1 min 52 s after launch, but winemac put the
-  hidden window at window level 21. The display's window list counts level 0 only, so the launch
-  never counted it shown; openSU now counts the socket's window report as well
-  (`Handoff::Hooks::embedded`). A level-21 transparent window also sits over every app and may take
-  clicks, so winemac is asked to keep embedded windows at the normal level and ignoring the mouse.
-  Retest pending on that.
+- **Gravity Circuit**: on the first runner winemac put the hidden window at window level 21. The
+  display's window list counts level 0 only, so the launch never counted it shown; openSU now
+  counts the socket's window report as well (`Handoff::Hooks::embedded`), and winemac keeps
+  embedded windows at level 0, ignoring the mouse and unable to become key (geproton 7b228e2).
+  Retested on that runner: hello from `explorer.exe` 10 s after the game ran, then
+  `GravityCircuit.exe` and its 1280x800 window 16 s later, counted shown 0.2 s after that and drawn
+  inside openSU's window. Its window sat at level 0 with alpha 0. The player saw it live, keyboard
+  and controller both drove it, and the Guide drew over it. Close game ended it in 2.5 s with no
+  Wine process left.
+- **Fallback, forced** with `WINEMAC_EMBED_TEST=hello-only` (hello, never a window) on Gravity
+  Circuit: hellos from `explorer.exe`, `tabtip.exe` and `GravityCircuit.exe`, embed entered, and
+  10 s later the warning named all three hellos and the launch's processes (`GravityCircuit.exe`,
+  `fumarole-launch.exe`) and the game played in its own raised window (level 21, 2560x1440). Close
+  game (through its confirmation) ended it in 2.6 s. That run's log claimed the game was shown
+  inside openSU's window before any window came; the overlay now says it is waiting for one.
 - **Point 4** (no Dock, Cmd-Tab or Mission Control presence): the game process is a UI element and
   `explorer.exe` a background-only process, so neither has a Dock icon or a Cmd-Tab entry. Mission
   Control and a click on the transparent window are not checked yet.
-- **Not yet done**: the 10 s fallback forced once (needs a winemac that says hello and never sends
-  a window), the on-screen keyboard typing into a game with a text field, and relative mouse for a
+- **Not yet done**: the on-screen keyboard typing into a game with a text field, and relative mouse for a
   game that captures it (sent while the game hides its cursor; no game here tried it).
 - **Guide also opens the Games app**, with or without a game: an existing macOS problem, not the
   embed's (`docs/issues/mac-guide-opens-games-app.md`).

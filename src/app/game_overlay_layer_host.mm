@@ -183,7 +183,12 @@ class LayerHostOverlay final : public GameOverlay {
             embed_.setFocus(shown_ != display::OverlayMode::Interactive);
             // The game's own window may have taken the front; the shell's is the one it plays in.
             window_.raise();
-            lucent::info("embed", "the game is shown inside openSU's window");
+            if (embed_.sawWindow()) {
+                lucent::info("embed", "the game is shown inside openSU's window");
+            } else {
+                lucent::info("embed", "the game said hello; its window shows inside openSU's "
+                                      "window when it sends one");
+            }
             return;
         }
         if (embed_.isOpen()) {
