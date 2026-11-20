@@ -380,6 +380,14 @@ std::vector<ShelfItem> allGamesShelf(const std::vector<Game>& games) {
     return shelf;
 }
 
+std::vector<ShelfItem> everyGameShelf(const std::vector<Game>& games) {
+    std::vector<ShelfItem> shelf;
+    for (const Title& title : gameTitles(games)) {
+        shelf.emplace_back(entry(title, *title.copies.front()));
+    }
+    return shelf;
+}
+
 std::vector<ShelfItem> folderShelf(const std::vector<Game>& games, const Folder& folder) {
     struct Visitor {
         const std::vector<Game>& games;

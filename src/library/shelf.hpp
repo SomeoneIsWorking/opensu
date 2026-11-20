@@ -144,6 +144,8 @@ void setOnHome(const std::vector<Game>& games, const ShelfItem& item, bool on,
 /// Every game with a version that is no ROM here, once as its preferred version, with every store
 /// it is owned in.
 [[nodiscard]] std::vector<ShelfItem> allGamesShelf(const std::vector<Game>& games);
+/// Every game once, as its title: All games' and those only ROMs hold.
+[[nodiscard]] std::vector<ShelfItem> everyGameShelf(const std::vector<Game>& games);
 
 /// The games a folder holds.
 [[nodiscard]] std::vector<ShelfItem> folderShelf(const std::vector<Game>& games,

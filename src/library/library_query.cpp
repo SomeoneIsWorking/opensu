@@ -199,13 +199,8 @@ std::vector<ShelfItem> searchShelf(const LibraryView& view, std::string_view tex
         const std::string tile = add != nullptr ? add->name : std::string{giveawaysName};
         consider(item, folder ? name(*folder) : tile, true);
     }
-    for (ShelfItem& item : allGamesShelf(view.games)) {
+    for (ShelfItem& item : everyGameShelf(view.games)) {
         consider(item, std::get<Game>(item).title, false);
-    }
-    for (const Game& game : view.games) {
-        if (game.source == Source::Rom) {
-            consider(game, game.title, false);
-        }
     }
     std::ranges::stable_sort(hits, [](const Hit& a, const Hit& b) {
         if (a.rank != b.rank) {

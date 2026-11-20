@@ -100,6 +100,22 @@ void searchRanksPrefixThenWordThenInside() {
     expect(has(gameTitles(searchShelf(view, "  LEGENDS ")), "Pok\xC3\xA9mon Legends"),
            "case and spaces do not matter");
     expect(searchShelf(view, "").empty(), "no text finds nothing");
+    std::vector<Game> copied = catalog();
+    Game here;
+    here.source = Source::Rom;
+    here.id = "rom:/roms/PS2/Ben 10 - Protector of Earth (USA).chd";
+    here.sourceId = "ps2";
+    here.title = "Ben 10 - Protector of Earth";
+    here.installed = true;
+    Game there = here;
+    there.source = Source::Remote;
+    there.id = "lan:desk:" + here.id;
+    there.hostId = "desk";
+    there.remote.source = "rom";
+    copied.push_back(here);
+    copied.push_back(there);
+    expect(gameTitles(searchShelf(LibraryView{copied, sources()}, "ben 10")).size() == 1,
+           "a ROM also on another openSU is found once");
     expect(searchShelf(view, "zzzz").empty(), "an unmatched text finds nothing");
 }
 
