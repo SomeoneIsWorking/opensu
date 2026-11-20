@@ -7,6 +7,7 @@
 #include "launch/command.hpp"
 #include "lucent/log.h"
 #include "secrets/secret.hpp"
+#include "steam/steamgriddb_openid.hpp"
 
 namespace opensu::app {
 namespace {
@@ -171,6 +172,14 @@ void SteamGridDbAccount::perform(const Connect& connect, const std::stop_token& 
                                         const std::lock_guard lock{mutex_};
                                         signIn_.request_stop();
                                     }};
+    if (std::optional<std::string> key = throughFumarole(cancelled)) {
+        keep(*key);
+        return;
+    }
+    if (cancelled.stop_requested()) {
+        finish(State::Disconnected, {"SteamGridDB sign-in cancelled", false});
+        return;
+    }
     if (connect.steam == nullptr) {
         askForKey("no Steam to sign in with", stop);
         return;
@@ -215,6 +224,23 @@ void SteamGridDbAccount::perform(const Connect& connect, const std::stop_token& 
         return;
     }
     keep(*key);
+}
+
+std::optional<std::string> SteamGridDbAccount::throughFumarole(const std::stop_token& cancelled) {
+    setState(State::ReadingKey);
+    std::optional<std::string> login = parts_.fumarole.webLogin();
+    if (!login) {
+        return std::nullopt;
+    }
+    lucent::info("steamgriddb", "signing in through fumarole's Steam web login");
+    std::string error;
+    std::optional<std::string> key =
+        steam::steamGridDbKeyThroughOpenId(web_, cancelled, *login, error);
+    secrets::wipe(*login);
+    if (!key) {
+        lucent::warn("steamgriddb", "sign-in through fumarole: {}", error);
+    }
+    return key;
 }
 
 std::optional<SteamGridDbAccount::News>

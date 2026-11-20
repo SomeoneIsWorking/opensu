@@ -12,7 +12,15 @@ its API key on `steamgriddb.com/profile/preferences/api`. Every API call carries
 token.
 
 Decided:
-- Getting the key: Settings › Artwork › "Connect SteamGridDB". openSU opens SteamGridDB's sign-in
+- First, with fumarole signed in (the player: "Can fumarole not do this?"): `fumarole web-session`
+  gives the account's Steam web login (`steamLoginSecure`), and `steam/steamgriddb_openid` runs
+  SteamGridDB's Steam OpenID sign-in over HTTP with it (Steam's form posted as multipart, the
+  redirect back read, not followed), then reads `data.user.api_key` from `/api/public/prefs`, or
+  makes one with `POST /api/v2/users/apikey` and its XSRF token. No client, no browser, nothing to
+  confirm; the login is held only for the sign-in and wiped. Checked: a hidden run with an empty
+  config and no Steam connected in 3 s. Not checked: the make-a-key step (the account has a key).
+  The Steam paths below remain for a device without fumarole.
+- Getting the key through Steam: Settings › Artwork › "Connect SteamGridDB". openSU opens SteamGridDB's sign-in
   in Steam's own browser through the DevTools channel it already drives (`steam/devtools`), so the
   Steam login the client already holds signs in; the player only confirms Steam's "Sign in" page.
   openSU then opens the API page in that view, makes the key if there is none, reads it, and closes

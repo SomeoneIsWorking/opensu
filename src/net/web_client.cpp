@@ -337,12 +337,18 @@ Result<WebClient::Answer> WebClient::request(const std::stop_token& stop, const 
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
         char* location = nullptr;
         curl_easy_getinfo(curl, CURLINFO_REDIRECT_URL, &location);
-        if (location == nullptr) {
+        if (location == nullptr || !sent.follow) {
             return Answer{status, std::move(body.bytes), std::move(received)};
         }
         next = location;
     }
     return Failure{"more than " + std::to_string(redirectLimit) + " redirects"};
+}
+
+Result<WebClient::Answer> WebClient::request(const std::stop_token& stop, const std::string& url,
+                                             const std::vector<std::string>& headers,
+                                             const Guard& guard) const {
+    return request(stop, url, headers, guard, Sent{});
 }
 
 Result<WebClient::BodyFacts> WebClient::head(const std::stop_token& stop, const std::string& url,

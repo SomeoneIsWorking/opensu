@@ -69,12 +69,14 @@ class WebClient {
     };
 
     /// What a request sends beyond a GET: its method (POST with a body, else GET, when empty),
-    /// its body, and Basic credentials when `user` is set.
+    /// its body, Basic credentials when `user` is set, and whether a redirect is followed or
+    /// answered as it came.
     struct Sent {
         std::string method;
         std::optional<std::string> body;
         std::string user;
         std::string password;
+        bool follow{true};
     };
 
     /// The response to `sent` of `url` with `headers` sent, following redirects that `guard`
@@ -82,7 +84,11 @@ class WebClient {
     /// fails; stopped when `stop` is requested or `guard.progress` cancels it.
     [[nodiscard]] Result<Answer> request(const std::stop_token& stop, const std::string& url,
                                          const std::vector<std::string>& headers,
-                                         const Guard& guard, const Sent& sent = {}) const;
+                                         const Guard& guard, const Sent& sent) const;
+    /// A GET of `url`, as `request` sends one.
+    [[nodiscard]] Result<Answer> request(const std::stop_token& stop, const std::string& url,
+                                         const std::vector<std::string>& headers,
+                                         const Guard& guard) const;
 
     /// What a 200 response says of its body.
     struct BodyFacts {

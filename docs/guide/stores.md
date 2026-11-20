@@ -188,7 +188,9 @@ SteamGridDB's covers kept per game.
 
 ![A details page with its SteamGridDB cover](../screenshots/details.webp)
 
-Settings › Artwork › Connect SteamGridDB gets the key through the Steam login: in Managed and
+Settings › Artwork › Connect SteamGridDB gets the key through the Steam login. With fumarole signed
+in, openSU signs in to SteamGridDB with fumarole's Steam web login over plain HTTP and reads (or
+makes) the key: no Steam client, no browser, nothing to confirm. Otherwise, in Managed and
 Isolated modes openSU opens SteamGridDB's Steam sign-in in Steam's own browser (Big Picture),
 makes the API key if there is none and reads it; you only confirm Steam's Sign In page. In Normal
 mode that needs the desktop Steam's DevTools (`-cef-enable-debugging`); otherwise, and with no

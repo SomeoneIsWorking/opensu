@@ -25,6 +25,8 @@
 
 #include "artwork/steamgriddb.hpp"
 #include "launch/steam_gate.hpp"
+#include "library/fumarole_installs.hpp"
+#include "net/web_client.hpp"
 #include "secrets/secret_store.hpp"
 #include "steam/steamgriddb_sign_in.hpp"
 
@@ -80,6 +82,8 @@ class SteamGridDbAccount {
         std::function<launch::SteamGate*()> steam{[] {
             return nullptr;
         }};
+        /// fumarole, whose signed-in account signs in to SteamGridDB with no Steam client.
+        library::fumarole::Installs fumarole{};
     };
 
     /// Starts the worker, which first reads the saved key.
@@ -88,8 +92,9 @@ class SteamGridDbAccount {
     SteamGridDbAccount(const SteamGridDbAccount&) = delete;
     SteamGridDbAccount& operator=(const SteamGridDbAccount&) = delete;
 
-    /// Gets the key through Steam's browser; when Steam cannot be asked, opens SteamGridDB's API
-    /// page in the default browser and asks for the key (`News::needsKey`).
+    /// Gets the key through fumarole's Steam web login, else through Steam's browser; when Steam
+    /// cannot be asked, opens SteamGridDB's API page in the default browser and asks for the key
+    /// (`News::needsKey`).
     void connect();
     /// Opens SteamGridDB's API page in the default browser, for a key typed in.
     void openKeyPage();
@@ -134,6 +139,9 @@ class SteamGridDbAccount {
     /// the player when it does not get there, nothing when it does.
     [[nodiscard]] std::optional<News> bringUp(launch::SteamGate& steam,
                                               const std::stop_token& cancelled);
+    /// The key through fumarole's Steam web login; nothing when fumarole has none or the sign-in
+    /// fails, which is logged.
+    [[nodiscard]] std::optional<std::string> throughFumarole(const std::stop_token& cancelled);
     /// No Steam to sign in with: the API page in the default browser and the key typed in.
     void askForKey(const std::string& why, const std::stop_token& stop);
     void perform(const OpenPage& page, const std::stop_token& stop);
@@ -148,6 +156,7 @@ class SteamGridDbAccount {
     void setState(State state);
 
     Parts parts_;
+    net::WebClient web_;
     mutable std::mutex mutex_;
     std::condition_variable_any wake_;
     std::vector<Work> queue_;

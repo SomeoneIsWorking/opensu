@@ -34,6 +34,10 @@ struct Installs {
     /// The account's owned games with a Windows build, as Steam games not installed here that
     /// `fumarole install` installs; empty when fumarole is not signed in or cannot be reached.
     [[nodiscard]] std::vector<Game> owned() const;
+
+    /// The account's Steam web login, the `steamLoginSecure` cookie `fumarole web-session`
+    /// prints; a secret, never logged. Nothing when fumarole is not signed in or cannot be reached.
+    [[nodiscard]] std::optional<std::string> webLogin() const;
 };
 
 /// The owned games with a Windows build in `fumarole list --json`'s array, as `Installs::owned`

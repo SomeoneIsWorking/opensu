@@ -1747,9 +1747,12 @@ class ShellApp final {
         .secrets = secrets::SecretStore{environment_.configDir / secrets::secretsFolder,
                                         environment_.keyring},
         .source = steamGridDb_,
-        .steam = [this] {
-            return integrationSwitch_.steamInUse();
-        }}};
+        .steam =
+            [this] {
+                return integrationSwitch_.steamInUse();
+            },
+        .fumarole = library::fumarole::Installs::find(environment_.executablePath,
+                                                      environment_.fumaroleDataDir)}};
     /// The stores' free-to-keep offers, read in the background and kept in the cache.
     giveaways::GiveawayBoard giveawayBoard_{resolved_.cacheDir};
     /// Claim on a giveaway; after the Steam client whose Big Picture it may show the page in.

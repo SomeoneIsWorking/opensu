@@ -56,6 +56,26 @@ std::vector<Game> Installs::owned() const {
     }
 }
 
+std::optional<std::string> Installs::webLogin() const {
+    if (program.empty()) {
+        return std::nullopt;
+    }
+    const std::optional<launch::Captured> result =
+        launch::runCaptured(program.string(), {"web-session"});
+    if (!result || result->status != 0) {
+        lucent::info("fumarole", "no Steam web login; is fumarole signed in?");
+        return std::nullopt;
+    }
+    const nlohmann::json session = nlohmann::json::parse(result->output, nullptr, false);
+    const auto login = session.is_object() ? session.find("steamLoginSecure") : session.end();
+    if (!session.is_object() || login == session.end() || !login->is_string() ||
+        login->get_ref<const std::string&>().empty()) {
+        lucent::warn("fumarole", "web-session printed no web login");
+        return std::nullopt;
+    }
+    return login->get<std::string>();
+}
+
 std::vector<Game> parseOwned(std::string_view text) {
     const nlohmann::json list = nlohmann::json::parse(text, nullptr, false);
     if (!list.is_array()) {
