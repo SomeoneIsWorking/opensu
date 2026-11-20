@@ -117,12 +117,15 @@ class LanRoms {
     [[nodiscard]] ui::SettingsCategory hostPage(const std::string& peerId) const;
     [[nodiscard]] ui::SettingsCategory consolePage(const std::string& peerId,
                                                    const std::string& system) const;
-    /// The BIOS files `peerId` has that the runner here lacks for the consoles picked.
-    [[nodiscard]] std::vector<OfferedBios> offeredBios(const std::string& peerId) const;
+    /// The BIOS files `peerId` has that the runner here lacks for the consoles `picks` has games
+    /// of.
+    [[nodiscard]] std::vector<OfferedBios> offeredBios(const std::string& peerId,
+                                                       const Picks& picks) const;
     void ask(const std::string& peerId);
-    /// Imports what is picked from `peerId`, asking for a folder first when none can be written.
-    void startImport(const std::string& peerId);
-    void importInto(const std::string& peerId, const std::filesystem::path& folder);
+    /// Imports `picks` from `peerId`, asking for a folder first when none can be written.
+    void startImport(const std::string& peerId, const Picks& picks);
+    void importInto(const std::string& peerId, const std::filesystem::path& folder,
+                    const Picks& picks);
     /// The folder `system`'s games go in under `folder`: one already there for it, else `host`'s.
     [[nodiscard]] std::string consoleFolder(const std::filesystem::path& folder,
                                             const std::string& system,

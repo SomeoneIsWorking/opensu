@@ -199,17 +199,17 @@ void LanRoms::service() {
     }
 }
 
-std::vector<LanRoms::OfferedBios> LanRoms::offeredBios(const std::string& peerId) const {
+std::vector<LanRoms::OfferedBios> LanRoms::offeredBios(const std::string& peerId,
+                                                       const Picks& picks) const {
     std::vector<OfferedBios> offered;
     const auto listing = listings_.find(peerId);
-    const auto picks = picks_.find(peerId);
-    if (listing == listings_.end() || picks == picks_.end()) {
+    if (listing == listings_.end()) {
         return offered;
     }
     std::set<std::string> systems;
     for (const lan::wire::RomConsole& console : listing->second.consoles) {
         const bool picked = std::ranges::any_of(console.games, [&](const lan::wire::RomGame& game) {
-            return picks->second.games.contains(gameKey(game.root, game.entry));
+            return picks.games.contains(gameKey(game.root, game.entry));
         });
         if (!picked || !systems.insert(console.system).second) {
             continue;
@@ -236,8 +236,8 @@ std::vector<LanRoms::OfferedBios> LanRoms::offeredBios(const std::string& peerId
                 // Picked unless the core starts without it.
                 const bool byDefault = here->without == library::roms::WithoutBios::Needed &&
                                        !wanted->firmware.optional;
-                const bool picked = byDefault ? !picks->second.biosOff.contains(file.path)
-                                              : picks->second.biosOn.contains(file.path);
+                const bool picked = byDefault ? !picks.biosOff.contains(file.path)
+                                              : picks.biosOn.contains(file.path);
                 offered.push_back(OfferedBios{console.system, file, picked});
             }
         }
@@ -315,7 +315,8 @@ ui::SettingsCategory LanRoms::hostPage(const std::string& peerId) const {
             page.rows.push_back(ui::makeRow("lanroms.none", RowKind::Info, "No ROMs",
                                             host + " lists no ROMs to import", ""));
         }
-        const std::vector<OfferedBios> bios = offeredBios(peerId);
+        const std::vector<OfferedBios> bios =
+            picks != picks_.end() ? offeredBios(peerId, picks->second) : std::vector<OfferedBios>{};
         if (!bios.empty()) {
             page.rows.push_back(ui::makeHeading("BIOS"));
         }
@@ -427,7 +428,8 @@ void LanRoms::run(const std::string& id) {
         return;
     }
     if (row.starts_with(importPrefix)) {
-        startImport(std::string{row.substr(importPrefix.size())});
+        const std::string peerId{row.substr(importPrefix.size())};
+        startImport(peerId, picks_[peerId]);
         return;
     }
     if (row.starts_with(cancelPrefix)) {
@@ -447,7 +449,7 @@ void LanRoms::run(const std::string& id) {
             picks.games.insert(rest);
         }
     } else if (prefix == biosPrefix) {
-        for (const OfferedBios& file : offeredBios(peerId)) {
+        for (const OfferedBios& file : offeredBios(peerId, picks)) {
             if (file.file.path != rest) {
                 continue;
             }
@@ -482,10 +484,10 @@ void LanRoms::run(const std::string& id) {
     hooks_.refresh();
 }
 
-void LanRoms::startImport(const std::string& peerId) {
+void LanRoms::startImport(const std::string& peerId, const Picks& picks) {
     for (const fs::path& folder : hooks_.romFolders()) {
         if (tree_->writeRefusal(folder).empty()) {
-            importInto(peerId, folder);
+            importInto(peerId, folder, picks);
             return;
         }
     }
@@ -496,7 +498,7 @@ void LanRoms::startImport(const std::string& peerId) {
     request.refusal = [](const fs::path& folder) {
         return settings::refusal(folder, settings::Need::Write);
     };
-    request.done = [this, peerId = peerId](const std::optional<fs::path>& folder) {
+    request.done = [this, peerId = peerId, picks](const std::optional<fs::path>& folder) {
         if (!folder) {
             return;
         }
@@ -505,7 +507,7 @@ void LanRoms::startImport(const std::string& peerId) {
             return;
         }
         hooks_.addRomFolder(*folder);
-        importInto(peerId, *folder);
+        importInto(peerId, *folder, picks);
     };
     paths_.begin(std::move(request));
 }
@@ -523,11 +525,10 @@ std::string LanRoms::consoleFolder(const fs::path& folder, const std::string& sy
     return host;
 }
 
-void LanRoms::importInto(const std::string& peerId, const fs::path& folder) {
+void LanRoms::importInto(const std::string& peerId, const fs::path& folder, const Picks& picks) {
     lan::LanNode* node = lan_.node();
     const auto listing = listings_.find(peerId);
-    const auto picks = picks_.find(peerId);
-    if (node == nullptr || listing == listings_.end() || picks == picks_.end()) {
+    if (node == nullptr || listing == listings_.end()) {
         return;
     }
     const std::string host = lan_.peerName(peerId);
@@ -540,7 +541,7 @@ void LanRoms::importInto(const std::string& peerId, const fs::path& folder) {
         }
         const std::string& mine = folders[key];
         for (const lan::wire::RomGame& game : console.games) {
-            if (!picks->second.games.contains(gameKey(game.root, game.entry))) {
+            if (!picks.games.contains(gameKey(game.root, game.entry))) {
                 continue;
             }
             RomImport::Item item{"rom:" + peerId + ":" + gameKey(game.root, game.entry),
@@ -558,7 +559,7 @@ void LanRoms::importInto(const std::string& peerId, const fs::path& folder) {
         }
     }
     const std::size_t games = items.size();
-    for (const OfferedBios& file : offeredBios(peerId)) {
+    for (const OfferedBios& file : offeredBios(peerId, picks)) {
         if (file.picked) {
             items.push_back(RomImport::Item{
                 "bios:" + peerId + ":" + file.file.path,
@@ -573,7 +574,12 @@ void LanRoms::importInto(const std::string& peerId, const fs::path& folder) {
     lucent::info("lan", "importing {} games and {} BIOS files from {} into {}", games,
                  items.size() - games, host, tree_->label(folder));
     node->imports().add(std::move(items));
-    picks->second.games.clear();
+    // What was imported is no longer picked on the host's page.
+    if (const auto page = picks_.find(peerId); page != picks_.end()) {
+        for (const std::string& key : picks.games) {
+            page->second.games.erase(key);
+        }
+    }
     hooks_.say("Importing " + lucent::text::counted(games, "game") + " from " + host, false);
     hooks_.refresh();
 }
