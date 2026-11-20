@@ -234,6 +234,17 @@ std::string versionPlatform(const Game& game) {
     return std::string{label(game.source)};
 }
 
+namespace {
+
+/// Whether `game`'s title may be a shortened name: one the player added, here or on another
+/// openSU. A ROM's dump name and a store's listing are full titles.
+bool mayBeShortened(const Game& game) {
+    return game.source == Source::Own ||
+           (game.source == Source::Remote && game.remote.source == key(Source::Own));
+}
+
+} // namespace
+
 std::vector<Title> gameTitles(const std::vector<Game>& games) {
     // A game on an openSU that is not on the LAN cannot be played: it is no version of anything.
     const auto reachable = [](const Game& game) {
@@ -287,7 +298,11 @@ std::vector<Title> gameTitles(const std::vector<Game>& games) {
             continue;
         }
         for (const std::size_t group : bare->second) {
-            if (!grouping.clash(to, group)) {
+            const bool shortened =
+                std::ranges::all_of(grouping.groups()[group], [&games](std::size_t member) {
+                    return mayBeShortened(games[member]);
+                });
+            if (shortened && !grouping.clash(to, group)) {
                 grouping.merge(group, to);
             }
         }

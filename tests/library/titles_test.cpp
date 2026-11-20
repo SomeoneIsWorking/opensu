@@ -262,6 +262,18 @@ std::vector<Game> xmen() {
     return games;
 }
 
+void testFullTitles() {
+    const std::vector<Game> digimon{
+        game(Source::Rom, "rom:digimon", "Digimon World"),
+        game(Source::Steam, "steam:1530160", "Digimon World: Next Order")};
+    expect(gameTitles(digimon).size() == 2,
+           "a ROM's title is its full title: it is no shortened name of a subtitled game");
+    Game there = game(Source::Remote, "lan:desk:rom:digimon", "Digimon World", true);
+    there.hostId = "desk";
+    there.remote.source = std::string{opensu::library::key(Source::Rom)};
+    expect(gameTitles({there, digimon[1]}).size() == 2, "nor is another openSU's ROM");
+}
+
 void testVersions() {
     const std::vector<Game> games = xmen();
     const std::vector<opensu::library::Title> titles = gameTitles(games);
@@ -361,6 +373,7 @@ int main() try {
     testOffered();
     testBaseKey();
     testVersions();
+    testFullTitles();
     testRemoteVersions();
     testSteamApps();
     std::printf("titles: all checks passed\n");
