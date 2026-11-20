@@ -6,6 +6,7 @@
 #include "fileio/relative_path.hpp"
 #include "library/catalog.hpp"
 #include "library/rom_systems.hpp"
+#include "library/titles.hpp"
 #include "lucent/log.h"
 #include "lucent/text.h"
 #include "settings/install_folders.hpp"
@@ -96,16 +97,22 @@ lan::RomImport::Setup LanRoms::importSetup(fs::path staging,
 
 void LanRoms::share(const std::vector<library::Game>& games) {
     lan::RomShelf::Contents contents{.roots = hooks_.romFolders(), .games = {}, .bios = {}};
+    romsHere_.clear();
     for (const library::Game& game : games) {
         if (game.source != library::Source::Rom) {
             continue;
         }
+        romsHere_.insert(game.sourceId + "\n" + library::titleKey(game.title));
         if (!contents.bios.contains(game.sourceId)) {
             contents.bios[game.sourceId] = hooks_.biosToShare(game.sourceId);
         }
         contents.games.push_back(game);
     }
     lan_.shareRoms(std::move(contents));
+}
+
+bool LanRoms::here(const std::string& system, const lan::wire::RomGame& game) const {
+    return romsHere_.contains(system + "\n" + library::titleKey(game.title));
 }
 
 std::string LanRoms::pageOf(const std::string& peerId) {
@@ -397,8 +404,10 @@ std::vector<LanRoms::OfferedBios> LanRoms::offeredBios(const std::string& peerId
     }
     std::set<std::string> systems;
     for (const lan::wire::RomConsole& console : listing->second.consoles) {
+        // Its games picked, or here already without their BIOS.
         const bool picked = std::ranges::any_of(console.games, [&](const lan::wire::RomGame& game) {
-            return picks.games.contains(gameKey(game.root, game.entry));
+            return picks.games.contains(gameKey(game.root, game.entry)) ||
+                   here(console.system, game);
         });
         if (!picked || !systems.insert(console.system).second) {
             continue;
@@ -486,7 +495,7 @@ ui::SettingsCategory LanRoms::hostPage(const std::string& peerId) const {
                 auto& [count, size] = consoles[console.system];
                 ++count;
                 size += game.bytes();
-                if (picks != picks_.end() &&
+                if (picks != picks_.end() && !here(console.system, game) &&
                     picks->second.games.contains(gameKey(game.root, game.entry))) {
                     ++picked[console.system];
                     ++games;
@@ -507,7 +516,8 @@ ui::SettingsCategory LanRoms::hostPage(const std::string& peerId) const {
                                             host + " lists no ROMs to import", ""));
         }
         const std::vector<OfferedBios> bios =
-            picks != picks_.end() ? offeredBios(peerId, picks->second) : std::vector<OfferedBios>{};
+            offeredBios(peerId, picks != picks_.end() ? picks->second : Picks{});
+        std::size_t biosPicked = 0;
         if (!bios.empty()) {
             page.rows.push_back(ui::makeHeading("BIOS"));
         }
@@ -519,13 +529,17 @@ ui::SettingsCategory LanRoms::hostPage(const std::string& peerId) const {
                 file.picked));
             if (file.picked) {
                 bytes += file.file.bytes;
+                ++biosPicked;
             }
         }
-        if (games > 0) {
-            page.rows.push_back(ui::makeRow(std::string{importPrefix} + peerId, RowKind::Action,
-                                            "Import " + lucent::text::counted(games, "game"),
-                                            ui::sizeText(bytes) + " into this openSU's ROM folder",
-                                            ""));
+        if (games > 0 || biosPicked > 0) {
+            page.rows.push_back(ui::makeRow(
+                std::string{importPrefix} + peerId, RowKind::Action,
+                "Import " + (games > 0 ? lucent::text::counted(games, "game")
+                                       : lucent::text::counted(biosPicked, "BIOS file")),
+                ui::sizeText(bytes) + (games > 0 ? " into this openSU's ROM folder"
+                                                 : " into the runner's BIOS folder"),
+                ""));
         }
     }
     const lan::LanNode* node = lan_.node();
@@ -577,14 +591,16 @@ ui::SettingsCategory LanRoms::consolePage(const std::string& peerId,
     }
     const auto picks = picks_.find(peerId);
     std::vector<const lan::wire::RomGame*> games;
+    std::vector<const lan::wire::RomGame*> already;
     for (const lan::wire::RomConsole& console : listing->second.consoles) {
         if (console.system == system) {
             for (const lan::wire::RomGame& game : console.games) {
-                games.push_back(&game);
+                (here(system, game) ? already : games).push_back(&game);
             }
         }
     }
     std::ranges::sort(games, {}, &lan::wire::RomGame::title);
+    std::ranges::sort(already, {}, &lan::wire::RomGame::title);
     const auto isPicked = [&](const lan::wire::RomGame& game) {
         return picks != picks_.end() &&
                picks->second.games.contains(gameKey(game.root, game.entry));
@@ -607,6 +623,14 @@ ui::SettingsCategory LanRoms::consolePage(const std::string& peerId,
                 (game->files.size() > 1 ? " · " + lucent::text::counted(game->files.size(), "file")
                                         : ""),
             isPicked(*game)));
+    }
+    if (!already.empty()) {
+        page.rows.push_back(ui::makeHeading("Already here"));
+    }
+    for (const lan::wire::RomGame* game : already) {
+        page.rows.push_back(
+            ui::makeRow(std::string{gamePrefix} + peerId + ":" + gameKey(game->root, game->entry),
+                        RowKind::Info, game->title, ui::sizeText(game->bytes()), ""));
     }
     return page;
 }
@@ -657,7 +681,9 @@ void LanRoms::run(const std::string& id) {
         for (const lan::wire::RomConsole& console : listing->second.consoles) {
             if (console.system == rest) {
                 for (const lan::wire::RomGame& game : console.games) {
-                    keys.push_back(gameKey(game.root, game.entry));
+                    if (!here(console.system, game)) {
+                        keys.push_back(gameKey(game.root, game.entry));
+                    }
                 }
             }
         }
@@ -732,7 +758,8 @@ void LanRoms::importInto(const std::string& peerId, const fs::path& folder, cons
         }
         const std::string& mine = folders[key];
         for (const lan::wire::RomGame& game : console.games) {
-            if (!picks.games.contains(gameKey(game.root, game.entry))) {
+            if (!picks.games.contains(gameKey(game.root, game.entry)) ||
+                here(console.system, game)) {
                 continue;
             }
             RomImport::Item item{itemId(peerId, gameKey(game.root, game.entry)),
@@ -762,8 +789,9 @@ void LanRoms::importInto(const std::string& peerId, const fs::path& folder, cons
                                  hooks_.biosFolder(), file.file.path}}});
         }
     }
-    lucent::info("lan", "importing {} games and {} BIOS files from {} into {}", games,
-                 items.size() - games, host, tree_->label(folder));
+    const std::size_t bios = items.size() - games;
+    lucent::info("lan", "importing {} games and {} BIOS files from {} into {}", games, bios, host,
+                 tree_->label(folder));
     node->imports().add(std::move(items));
     // What was imported is no longer picked on the host's page, which `picks` may be.
     if (const auto page = picks_.find(peerId); page != picks_.end()) {
@@ -771,7 +799,11 @@ void LanRoms::importInto(const std::string& peerId, const fs::path& folder, cons
             return picks.games.contains(key);
         });
     }
-    hooks_.say("Importing " + lucent::text::counted(games, "game") + " from " + host, false);
+    hooks_.say("Importing " +
+                   (games > 0 ? lucent::text::counted(games, "game")
+                              : lucent::text::counted(bios, "BIOS file")) +
+                   " from " + host,
+               false);
     hooks_.refresh();
 }
 

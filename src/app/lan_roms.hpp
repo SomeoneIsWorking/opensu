@@ -182,6 +182,10 @@ class LanRoms {
     Hooks hooks_;
     std::map<std::string, Listing, std::less<>> listings_;
     std::map<std::string, Picks, std::less<>> picks_;
+    /// This device's ROM games, as `console + "\n" + library::titleKey(title)`.
+    std::set<std::string, std::less<>> romsHere_;
+    /// Whether this device has `game` of the console `system` already.
+    [[nodiscard]] bool here(const std::string& system, const lan::wire::RomGame& game) const;
     /// Copies to this device by the remote game's id: waiting for the listing, and the import
     /// item each one became.
     std::map<std::string, Wanted, std::less<>> wanted_;
