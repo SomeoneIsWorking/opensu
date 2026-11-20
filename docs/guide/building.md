@@ -151,6 +151,18 @@ The build stages the assets beside the binary, so it runs from any directory:
 `opensu --help` lists every flag; [environment.md](environment.md) has the environment and the
 control channel.
 
+On macOS the build tree has the Vulkan loader on its rpath but not MoltenVK's driver file, which
+only the packaged app carries. Run from the tree, a libretro game's window fails with "Installed
+Vulkan Portability library doesn't implement the VK_KHR_surface extension". Point the loader at
+the staged app's driver, as `tools.check test` does (`tools/check/macos.py`):
+
+```sh
+icd=build/macos/package/stage/openSU.app/Contents/Resources/vulkan/icd.d/MoltenVK_icd.json
+VK_DRIVER_FILES=$icd VK_ICD_FILENAMES=$icd ./build/macos/cmake/src/opensu
+```
+
+`tools.check package --platform macos` makes the staged app first.
+
 ## The Gamescope fork
 
 The nested session (openSU started on a desktop) runs openSU's own pinned
