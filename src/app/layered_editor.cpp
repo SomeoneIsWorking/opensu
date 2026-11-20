@@ -213,7 +213,15 @@ void LayeredEditor::addCategories(tk::Column& rows,
             "empty", tk::Item::Text{"Nothing to set here", "None of these settings are kept for " +
                                                                phrased(settings_, scope())});
     }
-    if (!more.empty()) {
+    // With no settings to open, the game's own rows are the page.
+    if (values.empty() && !more.empty()) {
+        for (const ui::SettingsRow& row : more) {
+            if (firstRow_.empty()) {
+                firstRow_ = row.id;
+            }
+            ui::addRow(rows, row, *more_.actions);
+        }
+    } else if (!more.empty()) {
         const std::string id = pageRowId(std::string{thisGame}, {});
         if (firstRow_.empty()) {
             firstRow_ = id;
