@@ -53,12 +53,16 @@ openSU and winemac.drv talk over one Unix socket per game.
 
 winemac to openSU:
 
-- `{"hello": 1, "pid": <wine process id>}` on connect; one connection per Wine process that
-  makes a window (the game, and a launcher it starts if that makes windows).
+- `{"hello": 1, "pid": <wine process id>}` on connect. winemac connects at a process's first
+  display query (not its first window) and waits up to 2 s for `screen`, so the game's first look
+  at the display is already openSU's size. Every Wine process that asks connects, so Wine's own
+  `explorer.exe` says `hello` and never sends a window.
 - `{"window": <id>, "context": <contextId>, "x", "y", "width", "height", "scale",
   "title": "...", "z": <order>, "kind": "normal"|"dialog"|"popup"}` when a top-level window is
-  shown, moved, resized, restacked or its context changes. `x`/`y` are relative to the screen
-  Wine believes it has; openSU lays the windows out from them, in `z` order, the highest on top.
+  shown, moved, resized, restacked or its context changes. `x`/`y`/`width`/`height` are in Wine's
+  points, relative to the screen Wine believes it has; openSU scales each window to fit its view
+  and lays them out in `z` order, the highest on top. Sizes change as the game runs (a 640x400
+  splash grows to 1280x720), so the scale follows each message.
 - `{"window": <id>, "gone": true}` when it is hidden or destroyed.
 - `{"cursor": "shown"|"hidden"}` when the game hides or shows its cursor; openSU follows it over
   the game's area.
@@ -88,19 +92,29 @@ openSU to winemac:
   (A) the window's own layer tree's context, the window ordered in but transparent and behind
   openSU; (B) its content view's layer moved into a new `CAContext` and the window ordered out.
   (B) is the cleaner one if OpenGL views (an `NSOpenGLContext` on a view) still draw there.
+  Picked: (A).
 - **openSU (darwin only).** A `GameOverlay` backend, `game_overlay_layer_host.mm`: `seesGame`
   true; the shell window's content layer gets a game layer under the UI layers holding one
   `CALayerHost` per reported window, scaled to fit the view with letterboxing; `show` keeps the
   game layer and draws the menu over it. An `EmbedSocket` owned by the launch: made before a
   Wine game starts, its path added to the game's environment, read on the shell's loop, closed
   when the game is over. Keyboard and mouse events over the game's area, while the game has the
-  input, go to the socket instead of the shell. A Wine game whose winemac never says `hello`
-  within 10 s falls back to the raised window, and the log says so.
+  input, go to the socket instead of the shell. A Wine game that sends no `window` message
+  within 10 s falls back to the raised window, and the log says so (`hello` alone doesn't count:
+  `explorer.exe` says it for every game).
 - **Shared with Linux.** The Gamescope session already composites games; it needs no socket. What
   the two share is the launch's choice to embed a game and `GameOverlay` as the owner of what
   shows over and under it; the socket and the layer hosts are macOS's.
 
 ## Steps
+
+(a) and (b) are done in geproton-mac: (a) in b8fd0bf picked (A), the only one that shows OpenGL,
+Metal and GDI windows alike; (b) in 63ba3de, proven with `tests/embed/client.py` on Vampire
+Survivors (`-force-d3d11`, Player.log "Direct3D 11.0 [level 11.1]") and `tests/embed_input.c`.
+Under (A) Metal's frame stats count the frames as not shown, so (A) has no commit-to-glass number
+of its own. (B) with a separate CAMetalLayer measured 120 of 120 frames at p50 31.5–31.8 ms against
+31.5 ms in its own window; the hosting path is the same window-server composite, so (c) proves (A)
+by frames reaching openSU's view rather than by a Metal timestamp.
 
 - **(a) winemac: one window's context, measured.** (A) and (B) on Gravity Circuit (OpenGL) and a
   D3D11 game (DXMT), each shown in a stand-in host: frames shown, commit-to-glass against the game
