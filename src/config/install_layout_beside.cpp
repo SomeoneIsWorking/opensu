@@ -1,19 +1,20 @@
+#include <optional>
 #include <string>
-
-#include <SDL3/SDL_filesystem.h>
 
 #include "config.hpp"
 #include "install_layout.hpp"
+#include "lucent/platform.h"
 
 namespace opensu::config {
 namespace {
 
+/// Not SDL's base path, which is Contents/Resources in a macOS bundle.
 std::filesystem::path shellExecutable() {
-    const char* base = SDL_GetBasePath();
-    if (base == nullptr) {
+    const std::optional<std::filesystem::path> running = lucent::platform::executable_path();
+    if (!running) {
         return {};
     }
-    return std::filesystem::path{base} / (std::string{"opensu"} + OPENSU_EXECUTABLE_SUFFIX);
+    return running->parent_path() / (std::string{"opensu"} + OPENSU_EXECUTABLE_SUFFIX);
 }
 
 } // namespace
