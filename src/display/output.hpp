@@ -16,6 +16,9 @@ struct Output {
     /// The desktop's pixels per dp on it, which a nested Gamescope's windows are told
     /// (`scaleVariable`); zero where there is no desktop.
     float scale{0.0F};
+    /// Pixels per unit of `width` and `height`: above 1 where a scaled Wayland desktop gives its
+    /// modes in its own units (1920x1080 pixels at 150% is 1280x720).
+    float density{1.0F};
 
     [[nodiscard]] bool native() const noexcept {
         return width <= 0 || height <= 0;

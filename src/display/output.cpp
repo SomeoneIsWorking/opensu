@@ -17,7 +17,8 @@ std::optional<Output> displayOutput(std::uint32_t display) {
     return Output{.width = mode->w,
                   .height = mode->h,
                   .refreshHz = static_cast<int>(std::lround(mode->refresh_rate)),
-                  .scale = SDL_GetDisplayContentScale(display)};
+                  .scale = SDL_GetDisplayContentScale(display),
+                  .density = mode->pixel_density > 0.0F ? mode->pixel_density : 1.0F};
 }
 
 } // namespace opensu::display
