@@ -53,3 +53,8 @@ target_link_libraries(polkit_test PRIVATE opensu::host opensu::launch)
 opensu_warnings(polkit_test)
 target_compile_definitions(polkit_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME polkit COMMAND polkit_test)
+
+add_executable(input_plumber_test input_plumber_test.cpp)
+target_link_libraries(input_plumber_test PRIVATE opensu::host)
+opensu_warnings(input_plumber_test)
+add_test(NAME input_plumber COMMAND input_plumber_test)

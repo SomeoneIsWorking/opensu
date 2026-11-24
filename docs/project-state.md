@@ -622,6 +622,9 @@ On Linux the pads come from `gamepad::EvdevPads` (the `PadSource` `openPadSource
 other OSes get `SdlPads`, S042). It reads every evdev node that is a gamepad (`BTN_SOUTH` and a left
 stick), so a keyboard is never one, and watches `/dev/input` with inotify so a pad
 switched on later is picked up; it skips openSU's own and Steam Input's virtual pads.
+A handheld whose built-in controller InputPlumber presents as a Steam Deck HID device (a ROG Ally
+on Bazzite) has it shown as an Xbox 360 pad while openSU runs (`host::ReadablePads`), the targets
+put back as openSU ends; verified on the ROG Ally with an InputPlumber-injected press.
 `gamepad::PadTranslator` maps the kernel's gamepad codes to the shell's controls,
 the left stick and hat included, so any driver following them works (xpad, xone,
 hid-playstation, hid-nintendo). Held directions, from a pad or the keyboard, move
