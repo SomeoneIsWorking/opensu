@@ -1,6 +1,6 @@
 # A libretro core's Vulkan crashes in the macOS bundle
 
-Status: open. Packaged app at 06ff9430; Ben 10 (PS2, LRPS2) on the Mac.
+Status: fixed. Packaged app at 06ff9430; Ben 10 (PS2, LRPS2) on the Mac.
 
 Observed: `opensu-retro` dies with SIGSEGV, KERN_INVALID_ADDRESS at a garbage pointer ("possible
 pointer authentication failure"), stack MoltenVK `MVKInstance::getEntryPoint` ← MoltenVK
@@ -22,3 +22,15 @@ Next, on the Mac: which library the runner's `vkGetInstanceProcAddr` binds to in
 (`otool -L`, `DYLD_PRINT_BINDINGS=1`) and which Vulkan library the core opens itself
 (`DYLD_PRINT_LIBRARIES=1`), against the build tree. The package smoke's fake core has no Vulkan
 negotiation, so it cannot catch this; it needs one that negotiates.
+
+## Cause and fix (2026-11-24)
+
+LRPS2 opens Vulkan itself with `dlopen`, trying `<executable>/../Frameworks/libvulkan.dylib`, then
+`../Frameworks/libMoltenVK.dylib`, then `libvulkan.dylib` and `libMoltenVK.dylib` on the search path
+(the strings in `pcsx2_libretro.dylib`, in that order). The bundle carried the loader only as
+`libvulkan.1.4.357.dylib`, so the core's first candidate was missing and it opened MoltenVK
+directly. From the build tree there is no `../Frameworks`, and `libvulkan.dylib` is the loader.
+
+`add_moltenvk` (`tools/package/macos/bundle.py`) links `Frameworks/libvulkan.dylib` to the loader,
+the same file the runner already loaded, and `sign` skips links. The staged app runs Ben 10 with
+the core's device on the M2.

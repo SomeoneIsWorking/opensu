@@ -57,6 +57,16 @@ def add_moltenvk(contents: Path, root: Path) -> None:
     """MoltenVK in Frameworks and its ICD manifest where the loader looks inside a bundle."""
     icd = macos.moltenvk(root)
     shutil.copy2(icd.parent / "libMoltenVK.dylib", contents / "Frameworks" / "libMoltenVK.dylib")
+    # A libretro core opens Vulkan itself: LRPS2 tries ../Frameworks/libvulkan.dylib, then
+    # ../Frameworks/libMoltenVK.dylib. Without the first it gets MoltenVK directly and reads the
+    # loader's VkInstance that negotiation handed it as MoltenVK's own, and crashes. The link makes
+    # it open the loader the runner already loaded.
+    loaders = sorted((contents / "Frameworks").glob("libvulkan.1*.dylib"))
+    if not loaders:
+        raise RuntimeError("no Vulkan loader in Frameworks to link libvulkan.dylib to")
+    link = contents / "Frameworks" / "libvulkan.dylib"
+    link.unlink(missing_ok=True)
+    link.symlink_to(loaders[-1].name)
     manifest = json.loads(icd.read_text())
     manifest["ICD"]["library_path"] = "../../../Frameworks/libMoltenVK.dylib"
     folder = contents / config.ICD_FOLDER
@@ -89,7 +99,8 @@ def write_info(contents: Path, version: str) -> None:
 def sign(app: Path, env: Mapping[str, str]) -> None:
     """Ad-hoc signatures, inside out: every library, then the executables, then the app."""
     contents = app / "Contents"
-    inner = sorted((contents / "Frameworks").glob("*.dylib"))
+    # A link (libvulkan.dylib) is signed as the library it names.
+    inner = sorted(p for p in (contents / "Frameworks").glob("*.dylib") if not p.is_symlink())
     inner += [contents / "MacOS" / name for name in config.EXECUTABLES]
     for binary in inner:
         process.run(["codesign", "--force", "--sign", "-", "--timestamp=none", binary], env)
