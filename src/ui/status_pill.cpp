@@ -113,7 +113,7 @@ float StatusPillPainter::rowWidth(const StatusPillMetrics& metrics, float dp,
                                   std::string_view clock,
                                   const std::optional<device::BatteryStatus>& battery) const {
     const float size = metrics.fontSize * dp;
-    float width = text_.measure(std::string{clock}, size);
+    float width = text_.measure(clock, size);
     if (battery) {
         width += metrics.textSpacing * dp +
                  text_.measure(std::to_string(battery->percent) + "%", size) +

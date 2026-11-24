@@ -279,8 +279,8 @@ class FakeSteam {
             if (!need(4)) {
                 return std::nullopt;
             }
-            size = (static_cast<std::size_t>(static_cast<std::uint8_t>(buffer[2])) << 8) |
-                   static_cast<std::uint8_t>(buffer[3]);
+            size = (static_cast<std::size_t>(static_cast<std::uint8_t>(buffer[2])) << 8U) |
+                   static_cast<std::size_t>(static_cast<std::uint8_t>(buffer[3]));
             offset = 4;
         }
         if (!need(offset + 4 + size)) {
@@ -288,7 +288,8 @@ class FakeSteam {
         }
         std::string payload = buffer.substr(offset + 4, size);
         for (std::size_t i = 0; i < payload.size(); ++i) {
-            payload[i] = static_cast<char>(payload[i] ^ buffer[offset + i % 4]);
+            payload[i] = static_cast<char>(static_cast<unsigned char>(payload[i]) ^
+                                           static_cast<unsigned char>(buffer[offset + i % 4]));
         }
         buffer.erase(0, offset + 4 + size);
         if (opcode == 0x8) {
@@ -303,7 +304,7 @@ class FakeSteam {
             frame.push_back(static_cast<char>(payload.size()));
         } else {
             frame.push_back(static_cast<char>(126));
-            frame.push_back(static_cast<char>((payload.size() >> 8) & 0xffu));
+            frame.push_back(static_cast<char>((payload.size() >> 8U) & 0xffU));
             frame.push_back(static_cast<char>(payload.size() & 0xffu));
         }
         sendAll(client, frame + payload);

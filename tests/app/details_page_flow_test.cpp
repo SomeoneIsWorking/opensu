@@ -432,7 +432,7 @@ void copyToThisDevice(const fs::path& dir) {
     library::Game here = rom("rom:/r/Ben10.iso");
     here.title = "Ben 10";
     both.copies = {here, hostRom()};
-    both.game = here;
+    both.game = std::move(here);
     both.open();
     const auto copyRows = [&both] {
         return std::ranges::count_if(both.controller.details()->more, [](const ui::SettingsRow& r) {

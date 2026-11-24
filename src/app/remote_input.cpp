@@ -121,7 +121,8 @@ RemoteInput::State RemoteInput::take() {
         state.pad.rightY = narrowed(touchSticks_.rightY);
     }
     state.mouse = mouse_;
-    state.mouse.buttons = static_cast<std::uint8_t>(mouse_.buttons | clicked_ | touchButtons_);
+    state.mouse.buttons = static_cast<std::uint8_t>(unsigned{mouse_.buttons} | unsigned{clicked_} |
+                                                    unsigned{touchButtons_});
     state.keys.held.assign(keysSent_.begin(),
                            keysSent_.begin() + static_cast<std::ptrdiff_t>(std::min(
                                                    keysSent_.size(), stream::wire::heldKeys)));

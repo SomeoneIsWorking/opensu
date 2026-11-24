@@ -89,7 +89,7 @@ void writeSfo(const fs::path& path,
               const std::vector<std::pair<std::string, std::string>>& strings) {
     const auto le = [](std::string& out, std::uint32_t value, int width) {
         for (int i = 0; i < width; ++i) {
-            out.push_back(static_cast<char>((value >> (8 * i)) & 0xffU));
+            out.push_back(static_cast<char>((value >> (8U * static_cast<unsigned>(i))) & 0xffU));
         }
     };
     std::vector<std::pair<std::string, std::string>> entries = strings;

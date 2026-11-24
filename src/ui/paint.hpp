@@ -21,8 +21,8 @@ inline constexpr Colour black{0, 0, 0, 255};
 
 /// An opaque colour from 0xRRGGBB.
 [[nodiscard]] constexpr Colour unpack(std::uint32_t rgb) noexcept {
-    return Colour{static_cast<std::uint8_t>((rgb >> 16) & 0xffu),
-                  static_cast<std::uint8_t>((rgb >> 8) & 0xffu),
+    return Colour{static_cast<std::uint8_t>((rgb >> 16U) & 0xffu),
+                  static_cast<std::uint8_t>((rgb >> 8U) & 0xffu),
                   static_cast<std::uint8_t>(rgb & 0xffu), 255};
 }
 

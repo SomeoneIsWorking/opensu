@@ -19,13 +19,13 @@ struct FixtureEntry {
 };
 
 inline void put16(std::string& out, std::uint32_t value) {
-    out.push_back(static_cast<char>(value & 0xff));
-    out.push_back(static_cast<char>((value >> 8) & 0xff));
+    out.push_back(static_cast<char>(value & 0xffU));
+    out.push_back(static_cast<char>((value >> 8U) & 0xffU));
 }
 
 inline void put32(std::string& out, std::uint32_t value) {
-    put16(out, value & 0xffff);
-    put16(out, value >> 16);
+    put16(out, value & 0xffffU);
+    put16(out, value >> 16U);
 }
 
 inline std::uint32_t crcOf(const std::string& data) {
