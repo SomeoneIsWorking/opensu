@@ -659,6 +659,29 @@ std::string toText(const Settings& settings) {
     return documentOf(settings).dump();
 }
 
+namespace {
+
+// Whether `wanted`, given for `key` in a patch, reads back from `result`. An object only names
+// the keys it changes (merge-patch), so only those are compared, at every level; null removes
+// the key.
+bool readsBack(const json& wanted, const json& result, const std::string& key) {
+    if (wanted.is_null()) {
+        return !result.contains(key) || result[key].is_null();
+    }
+    if (!result.contains(key)) {
+        return false;
+    }
+    const json& found = result[key];
+    if (!wanted.is_object()) {
+        return found == wanted;
+    }
+    return found.is_object() && std::ranges::all_of(wanted.items(), [&found](const auto& item) {
+               return readsBack(item.value(), found, item.key());
+           });
+}
+
+} // namespace
+
 bool patch(Settings& settings, std::string_view changes, std::string& error) {
     const json wanted = json::parse(changes, nullptr, false);
     if (!wanted.is_object()) {
@@ -672,8 +695,7 @@ bool patch(Settings& settings, std::string_view changes, std::string& error) {
     // given was refused, and nothing is set.
     const json result = documentOf(next);
     for (const auto& [key, value] : wanted.items()) {
-        const bool dropped = value.is_null() && !result.contains(key);
-        if (!dropped && (!result.contains(key) || result[key] != value)) {
+        if (!readsBack(value, result, key)) {
             error = key + " is not a setting or " + value.dump() + " is not one of its values";
             return false;
         }

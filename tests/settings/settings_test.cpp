@@ -394,6 +394,12 @@ void patched() {
                settings.iconSize == 7,
            "an unknown key is refused with the rest of its patch");
     expect(!opensu::settings::patch(settings, "[1]", error), "a patch is an object");
+    expect(opensu::settings::patch(settings, R"({"integrations": {"lan": true}})", error) &&
+               settings.integrations.lan,
+           "a nested key is set without naming its siblings");
+    expect(!opensu::settings::patch(settings, R"({"integrations": {"noSuchIntegration": true}})",
+                                    error),
+           "an unknown nested key is refused");
 }
 
 } // namespace
