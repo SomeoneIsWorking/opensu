@@ -1,6 +1,7 @@
 // Install jobs: the store-neutral job's report handling through a fake installer, the Epic and GOG
 // jobs against stub `legendary` and `gogdl` programs, and which stores install.
 #include "epic_install_job.hpp"
+#include "fumarole_install_job.hpp"
 #include "gog_install_job.hpp"
 #include "install_job.hpp"
 #include "installs.hpp"
@@ -28,6 +29,7 @@ namespace {
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
 using opensu::app::EpicInstallJob;
+using opensu::app::FumaroleInstallJob;
 using opensu::app::GogInstallJob;
 using opensu::app::InstallJob;
 using opensu::app::Installs;
@@ -470,6 +472,31 @@ void testGog(const fs::path& dir) {
     expect(drain(missing).back().failure == "gogdl is not installed", "a missing gogdl says so");
 }
 
+void testFumarole(const fs::path& dir) {
+    const fs::path args = dir / "fumarole-args";
+    const fs::path stub = writeStub(dir / "fumarole", R"(echo "$@" > ')" + args.string() + R"('
+exit 0
+)");
+    const std::string own{opensu::library::fumaroleOwnOs.empty() ? std::string_view{"windows"}
+                                                                 : opensu::library::fumaroleOwnOs};
+    FumaroleInstallJob job{stub.string()};
+    job.setBuilds({.windows = true, .mac = true}, false);
+    expect(job.start("357300", "Snakebird"), "a fumarole install starts");
+    expect(drain(job).back().failure.empty(), "it finishes installed");
+    expect(firstLine(args) == "install 357300 --os " + own + " --json",
+           "fumarole installs this OS's own build where it can, the Windows one elsewhere");
+    job.setBuilds({.windows = true, .mac = true}, true);
+    expect(job.start("357300", "Snakebird"), "an install of the picked Windows build starts");
+    expect(drain(job).back().failure.empty(), "it finishes installed");
+    expect(firstLine(args) == "install 357300 --os windows --json",
+           "the picked Windows build is installed");
+    job.setBuilds({.windows = true}, false);
+    expect(job.start("357300", "Snakebird"), "a Windows-only install starts");
+    expect(drain(job).back().failure.empty(), "it finishes installed");
+    expect(firstLine(args) == "install 357300 --os windows --json",
+           "a game with only a Windows build installs that");
+}
+
 void testInstalls(const fs::path& dir) {
     const fs::path slow = writeStub(dir / "legendary-routed", "sleep 0.3\nexit 0\n");
     opensu::steam::Client steam{
@@ -612,6 +639,7 @@ int main() try {
     testCancelWhileAsking();
     testEpic(dir);
     testGog(dir);
+    testFumarole(dir);
     testInstalls(dir);
     testFolderRefusal(dir);
     testSupports();

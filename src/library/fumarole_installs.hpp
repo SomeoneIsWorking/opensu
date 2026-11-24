@@ -1,7 +1,8 @@
 // fumarole_installs — Steam games fumarole installed (`fumarole install`), read from its records
-// (`<data>/installed/<appid>.vdf`: appid, name, path, os, state). A complete Windows install is a
-// Steam game openSU starts with `fumarole launch <appid>`, which signs in, syncs the app's cloud
-// and runs it under Wine with fumarole's own steamclient, no Steam client running. Also the
+// (`<data>/installed/<appid>.vdf`: appid, name, path, os, state). A complete install is a Steam
+// game openSU starts with `fumarole launch <appid>`, which signs in, syncs the app's cloud and runs
+// it with fumarole's own steamclient, no Steam client running: a Windows build under Wine, a macOS
+// one as it is (`fumaroleOwnOs`). Also the
 // account's owned games (`fumarole list --json`), which `fumarole install` puts here, and what its
 // install prints.
 #pragma once
@@ -27,12 +28,13 @@ struct Installs {
     [[nodiscard]] static Installs find(const std::vector<std::filesystem::path>& executablePath,
                                        const std::filesystem::path& dataDir);
 
-    /// Each complete Windows install as a Steam game, launched through fumarole; unreadable
-    /// records are skipped.
+    /// Each complete install of a build that runs here (`gameOf`) as a Steam game, launched through
+    /// fumarole; unreadable records are skipped.
     [[nodiscard]] std::vector<Game> games() const;
 
-    /// The account's owned games with a Windows build, as Steam games not installed here that
-    /// `fumarole install` installs; empty when fumarole is not signed in or cannot be reached.
+    /// The account's owned games fumarole can install here (`parseOwned`), as Steam games not
+    /// installed here that `fumarole install` installs; empty when fumarole is not signed in or
+    /// cannot be reached.
     [[nodiscard]] std::vector<Game> owned() const;
 
     /// The account's Steam web login, the `steamLoginSecure` cookie `fumarole web-session`
@@ -40,7 +42,8 @@ struct Installs {
     [[nodiscard]] std::optional<std::string> webLogin() const;
 };
 
-/// The owned games with a Windows build in `fumarole list --json`'s array, as `Installs::owned`
+/// The owned games with a Windows build, or this OS's own where fumarole installs it, in
+/// `fumarole list --json`'s array, as `Installs::owned`
 /// lists them; throws std::runtime_error when `text` is not that array.
 [[nodiscard]] std::vector<Game> parseOwned(std::string_view text);
 
@@ -50,7 +53,8 @@ struct Installs {
 /// Why an install failed, from one line fumarole logs: its error.
 [[nodiscard]] std::optional<std::string> installFailure(std::string_view line);
 
-/// The game of one record, read from `record`; nothing when it is not a complete Windows install.
+/// The game of one record, read from `record`; nothing when it is not a complete Windows install
+/// or one of this OS's own build (`fumaroleOwnOs`), which fumarole launches without Wine.
 [[nodiscard]] std::optional<Game> gameOf(const std::filesystem::path& record,
                                          const std::filesystem::path& program);
 

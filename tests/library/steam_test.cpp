@@ -5,6 +5,7 @@
 // library folder reached both directly and through the install root.
 #include "library/steam.hpp"
 #include "library/steam_host.hpp"
+#include "library/store_builds.hpp"
 #include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
 
@@ -155,6 +156,8 @@ void fumaroleInstallsAreSteamGames(const Fixture& fixture, const Library& librar
     writeRecord(data, "440", "windows", apps / "Snakebird");
     writeRecord(data, "357301", "linux", apps / "Snakebird");
     writeRecord(data, "357302", "windows", apps / "Gone");
+    fs::create_directories(apps / "Mac");
+    writeRecord(data, "357303", "macos", apps / "Mac");
     const fs::path program = fixture.base / "bin" / "fumarole";
     opensu::library::steam::Provider provider{
         library, opensu::library::fumarole::Installs{.program = program, .dataDir = data}};
@@ -171,6 +174,15 @@ void fumaroleInstallsAreSteamGames(const Fixture& fixture, const Library& librar
            "a game Steam has installed stays Steam's");
     expect(find(games, "steam:357301") == nullptr && find(games, "steam:357302") == nullptr,
            "a Linux install, or one whose folder is gone, is not listed");
+    const Game* mac = find(games, "steam:357303");
+    if (opensu::library::fumaroleOwnOs.empty()) {
+        expect(mac == nullptr, "a macOS install is not listed where fumarole cannot run it");
+    } else {
+        expect(mac != nullptr && mac->installed && !mac->windowsInstall && mac->fromFumarole &&
+                   mac->launch.args == std::vector<std::string>{"launch", "357303"} &&
+                   mac->processHint == (apps / "Mac" / "").string(),
+               "a macOS install fumarole made runs as it is, watched by its folder");
+    }
     opensu::library::steam::Provider without{
         library, opensu::library::fumarole::Installs{.program = {}, .dataDir = data}};
     const std::vector<Game> plain = without.list(std::stop_token{});
@@ -203,7 +215,8 @@ void fumaroleOwnedWithoutSteam(const Fixture& fixture) {
     expect(find(games, "steam:357300") != nullptr && find(games, "steam:357300")->installed &&
                std::ranges::count(games, std::string{"steam:357300"}, &Game::id) == 1,
            "an owned game fumarole installed is listed once, installed");
-    expect(find(games, "steam:9") == nullptr, "a game with no Windows build is not offered");
+    expect((find(games, "steam:9") != nullptr) == !opensu::library::fumaroleOwnOs.empty(),
+           "a game with only a macOS build is offered where fumarole installs those");
     games = provider.list(std::stop_token{});
     std::ifstream calls{asked};
     const auto count = std::count(std::istreambuf_iterator<char>{calls}, {}, '\n');

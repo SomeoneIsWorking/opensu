@@ -1,7 +1,7 @@
 // store_builds — which of a store's builds this OS runs: its own (GOG's `linux`, `windows` or
-// `osx`), and a Windows build natively (Windows) or under Wine (Linux, macOS); and which one an
-// install takes, this OS's own unless the player picked the Windows one for the game. One set of
-// values per build, from src/library/CMakeLists.txt.
+// `osx`; fumarole's `macos`), and a Windows build natively (Windows) or under Wine (Linux, macOS);
+// and which one an install takes, this OS's own unless the player picked the Windows one for the
+// game. One set of values per build, from src/library/CMakeLists.txt.
 #pragma once
 
 #include <string_view>
@@ -20,6 +20,8 @@ inline constexpr std::string_view gogOwnPlatform = OPENSU_GOG_OWN_PLATFORM;
 inline constexpr std::string_view ownSystemName = gogOwnPlatform == "linux" ? "Linux"
                                                   : gogOwnPlatform == "osx" ? "macOS"
                                                                             : "Windows";
+/// fumarole's name for this OS's own builds where it installs them (macOS); empty elsewhere.
+inline constexpr std::string_view fumaroleOwnOs = gogOwnPlatform == "osx" ? "macos" : "";
 /// The builds a GOG install can take here, as a refusal names them.
 inline constexpr std::string_view gogPlatformsText = OPENSU_GOG_PLATFORMS_TEXT;
 
@@ -34,6 +36,24 @@ inline constexpr std::string_view gogPlatformsText = OPENSU_GOG_PLATFORMS_TEXT;
 /// both, and Windows builds are not this OS's own.
 [[nodiscard]] constexpr bool offersBuildChoice(const Game::Builds& builds) {
     return !windowsBuildsNative && windowsBuildsRun && builds.windows && hasOwnBuild(builds);
+}
+
+/// Whether `game`'s store installs either build here: GOG, and fumarole where it installs this
+/// OS's own; and the game offers the choice.
+[[nodiscard]] inline bool choosesBuild(const Game& game) {
+    const bool store = game.source == Source::Gog || (game.fromFumarole && !fumaroleOwnOs.empty());
+    return store && offersBuildChoice(game.builds);
+}
+
+/// The `--os` a fumarole install of a game with `builds` takes: this OS's own where fumarole
+/// installs it and the player did not pick Windows, else `windows`.
+[[nodiscard]] constexpr std::string_view fumaroleInstallOs(const Game::Builds& builds,
+                                                           bool windowsPicked) {
+    if (fumaroleOwnOs.empty() || !hasOwnBuild(builds) ||
+        (windowsPicked && offersBuildChoice(builds))) {
+        return "windows";
+    }
+    return fumaroleOwnOs;
 }
 
 /// The gogdl platform a GOG install of a game with `builds` takes: the Windows build when

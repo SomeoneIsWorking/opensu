@@ -360,6 +360,10 @@ void buildChoice() {
     steam.source = Source::Steam;
     expect(buildOf(settingsPageRows(steam, false)) == nullptr,
            "a store whose installs do not take the pick has no choice");
+    steam.fromFumarole = true;
+    expect((buildOf(settingsPageRows(steam, false)) != nullptr) ==
+               !opensu::library::fumaroleOwnOs.empty(),
+           "a fumarole game offers the choice where fumarole installs this OS's own build");
 }
 
 void ownGame() {

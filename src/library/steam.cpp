@@ -555,7 +555,7 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
         } else if (!known->installed) {
             known->installed = true;
             known->updateAvailable = false;
-            known->windowsInstall = true;
+            known->windowsInstall = installed.windowsInstall;
             known->fromFumarole = true;
             known->launch = std::move(installed.launch);
             known->processHint = std::move(installed.processHint);

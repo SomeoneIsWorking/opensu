@@ -60,6 +60,7 @@ bool Installs::start(const library::Game& game) {
     fumarole_.setFolder(std::nullopt);
     epic_.setImport(std::nullopt);
     if (game.source == library::Source::Steam && game.fromFumarole) {
+        fumarole_.setBuilds(game.builds, windowsBuild_(game));
         job = &fumarole_;
     } else if (game.source == library::Source::Steam) {
         steam_.setFolder(folder);
@@ -87,6 +88,7 @@ std::optional<std::string> Installs::adopt(const library::Game& game,
     case library::Source::Steam:
         epic_.setImport(std::nullopt);
         fumarole_.setFolder(folder);
+        fumarole_.setBuilds({}, false);
         return begin(fumarole_, game, Work::Install) ? std::optional<std::string>{std::string{}}
                                                      : std::nullopt;
     case library::Source::Epic:

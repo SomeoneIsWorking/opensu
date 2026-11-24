@@ -1,6 +1,7 @@
 #include "fumarole_install_job.hpp"
 
 #include "library/fumarole_installs.hpp"
+#include "library/store_builds.hpp"
 
 namespace opensu::app {
 
@@ -14,7 +15,9 @@ FumaroleInstallJob::~FumaroleInstallJob() {
 
 std::vector<std::string> FumaroleInstallJob::arguments(const std::stop_token& /*stop*/,
                                                        const std::string& appId) {
-    std::vector<std::string> arguments{"install", appId, "--os", "windows", "--json"};
+    std::vector<std::string> arguments{
+        "install", appId, "--os", std::string{library::fumaroleInstallOs(builds_, windowsPicked_)},
+        "--json"};
     if (folder_) {
         arguments.insert(arguments.end(), {"--path", folder_->string()});
     }

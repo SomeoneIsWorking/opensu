@@ -86,9 +86,11 @@ installed copy keeps its build until it is uninstalled. Games land in
 
 On a machine with no Steam client and [fumarole](https://github.com/SomeoneIsWorking/fumarole) on
 `PATH`, signed in (`fumarole auth`), every Steam game you own that has a Windows build is listed,
-not installed. Install downloads its Windows build with `fumarole install`, into fumarole's own data
-folder, and Play starts it with `fumarole launch` under Wine ([wine.md](wine.md)). The owned list
-is read once per start of openSU.
+not installed; on macOS, so is one with a macOS build. Install downloads it with `fumarole install`,
+into fumarole's own data folder, and Play starts it with `fumarole launch`: a Windows build under
+Wine ([wine.md](wine.md)), a macOS build as it is. On macOS a game with both takes its macOS build
+and shows the Build row described for GOG above; installing the other build replaces the install,
+and its saves stay. The owned list is read once per start of openSU.
 
 ## Downloads
 

@@ -9,6 +9,7 @@
 
 #include "fileio/host_path.hpp"
 #include "launch/command.hpp"
+#include "library/store_builds.hpp"
 #include "vdf/node.hpp"
 
 namespace opensu::library::fumarole {
@@ -101,7 +102,7 @@ std::vector<Game> parseOwned(std::string_view text) {
         game.title = app["name"].get<std::string>();
         game.builds = {.windows = has("windows"), .linuxNative = has("linux"), .mac = has("macos")};
         game.fromFumarole = true;
-        if (game.builds.windows) {
+        if (game.builds.windows || (!fumaroleOwnOs.empty() && hasOwnBuild(game.builds))) {
             games.push_back(std::move(game));
         }
     }
@@ -138,7 +139,10 @@ std::optional<Game> gameOf(const fs::path& record, const fs::path& program) {
     const std::optional<std::string> appId = install->str({"appid"});
     const std::optional<std::string> name = install->str({"name"});
     const std::optional<std::string> path = install->str({"path"});
-    if (!appId || appId->empty() || !name || !path || install->str({"os"}) != "windows" ||
+    const std::optional<std::string> os = install->str({"os"});
+    const bool windows = os == "windows";
+    if (!appId || appId->empty() || !name || !path ||
+        (!windows && (fumaroleOwnOs.empty() || os != fumaroleOwnOs)) ||
         install->str({"state"}) != "installed") {
         return std::nullopt;
     }
@@ -152,13 +156,14 @@ std::optional<Game> gameOf(const fs::path& record, const fs::path& program) {
     game.sourceId = *appId;
     game.title = *name;
     game.installed = true;
-    game.windowsInstall = true;
+    game.windowsInstall = windows;
     game.fromFumarole = true;
     game.installFolder = *path;
     game.launch = LaunchSpec{.program = program.string(), .args = {"launch", *appId}};
     // Wine starts the game's programs outside fumarole's process group, named by their Windows
     // path.
-    game.processHint = fileio::pathInWine(fs::path{*path} / "");
+    game.processHint =
+        windows ? fileio::pathInWine(fs::path{*path} / "") : (fs::path{*path} / "").string();
     return game;
 }
 
