@@ -82,7 +82,7 @@ that service in front of the card. It cannot answer polkit, so polkit then refus
 openSU listens on loopback only (port 7311, or the free port a hidden run logs). It is how the
 sign-in extension hands over codes and how maintainer tools drive the shell:
 
-The probes (`/game/*`, `/details/open`, `/search`, `/settings*`) do by name what the buttons do,
+The probes (`/game/*`, `/details/open`, `/details/settings`, `/search`, `/settings*`) do by name what the buttons do,
 through the same code. A run that needs to get somewhere or change something uses them, and a
 missing probe is added rather than walked to with `/input`. `/input`, `/key`, `/text` and
 `/pointer` are for testing input itself.
@@ -99,6 +99,7 @@ missing probe is added rather than walked to with `/input`. `/input`, `/key`, `/
 | `POST /game/launch` | A game id (`steam:504230`): launches it as its details page's Play does. 404 for an unknown id, 409 while a game runs or when the launch is refused (`/state`'s `toast` says why). `/state`'s `gameId` is the game launched or running. |
 | `POST /game/close` | Ends the running game, or remote play, as Guide › Close game does, without its question. 409 when none runs. |
 | `POST /details/open` | A game id: opens its details page, searching for its title when it is not on the shelf shown. |
+| `POST /details/settings` | A game id: opens its details page, then its Game settings page, as that row does. |
 | `POST /search` | Text: opens the search card with it typed; the answer says how many results. |
 | `POST /settings/open` | `Category` or `Category/Row`, each by id or label (`Appearance/Interface size`): opens Settings there. A 404 lists the categories, or the category's rows. |
 | `GET /settings`, `POST /settings` | The settings as `settings.json` holds them; a POST takes a JSON object of keys (`{"uiScale": 140}`, null for the default), saves and applies it as the Settings screen does, and answers with the result. A key or value the file would refuse is a 400 and nothing changes. |

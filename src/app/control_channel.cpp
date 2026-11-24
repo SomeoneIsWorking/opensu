@@ -54,6 +54,7 @@ constexpr ProbeRoute probeRoutes[] = {
     {"/game/launch", ControlCommand::Kind::LaunchGame, true},
     {"/game/close", ControlCommand::Kind::CloseGame, false},
     {"/details/open", ControlCommand::Kind::OpenDetails, true},
+    {"/details/settings", ControlCommand::Kind::OpenGameSettings, true},
     {"/search", ControlCommand::Kind::Search, false},
     {"/settings/open", ControlCommand::Kind::OpenSettings, true},
 };

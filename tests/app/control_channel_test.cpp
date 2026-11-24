@@ -215,6 +215,10 @@ void testProbes() {
     expect(channel.handle(post("/details/open", "steam:3330")).status == 200 &&
                shell.commands.back().kind == Kind::OpenDetails,
            "/details/open reaches the shell");
+    expect(channel.handle(post("/details/settings", "gog:1")).status == 200 &&
+               shell.commands.back().kind == Kind::OpenGameSettings &&
+               shell.commands.back().argument == "gog:1",
+           "/details/settings reaches the shell with the game");
     expect(channel.handle(post("/search")).status == 200 &&
                shell.commands.back().kind == Kind::Search && shell.commands.back().argument.empty(),
            "an empty search opens the card");

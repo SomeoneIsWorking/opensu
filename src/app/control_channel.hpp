@@ -221,6 +221,8 @@ struct ControlCommand {
         CloseGame,
         /// `argument` is a game id: open its details page.
         OpenDetails,
+        /// `argument` is a game id: open its details page, then its Game settings.
+        OpenGameSettings,
         /// `argument` is the text: open the search with it typed.
         Search,
         /// `argument` is "Category" or "Category/Row", by id or label: open Settings there.

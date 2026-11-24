@@ -85,7 +85,8 @@ ControlAnswer ShellApp::runProbe(const ControlCommand& command) {
         closeRunningGame();
         return done({{"closed", id}});
     }
-    case Kind::OpenDetails: {
+    case Kind::OpenDetails:
+    case Kind::OpenGameSettings: {
         const library::Game* own = ownGame(argument);
         if (own == nullptr) {
             return refused(404, "no game " + argument);
@@ -102,6 +103,11 @@ ControlAnswer ShellApp::runProbe(const ControlCommand& command) {
         }
         shell_.grid().focusTile(*tile);
         details_.open();
+        if (command.kind == Kind::OpenGameSettings) {
+            // Details' Game settings row.
+            details_.openPage(ui::copyRowId(argument, ui::detailsSettingsId));
+            return done({{"gameSettings", argument}});
+        }
         return done({{"details", argument}});
     }
     case Kind::Search: {
