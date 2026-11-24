@@ -51,6 +51,7 @@ class ControlBridge final : public ControlTarget {
     [[nodiscard]] bool captureFrame(FrameKind kind, FramePixels& frame) override;
     [[nodiscard]] std::optional<RecordStarted> startRecord(RecordRequest request) override;
     [[nodiscard]] std::optional<RecordTotals> stopRecord() override;
+    [[nodiscard]] ControlAnswer run(ControlCommand command) override;
     void requestClose() override;
     /// Asks the loop to read the library again; `toast` is shown when it is not empty.
     void requestCatalogReload(std::string toast) override;
@@ -70,8 +71,13 @@ class ControlBridge final : public ControlTarget {
     [[nodiscard]] std::optional<FrameKind> frameWanted() const;
     /// Hands the waiting caller its frame; empty `pixels` say it could not be drawn.
     void answerFrame(FramePixels frame);
-    /// The loop ended: nobody waiting will get a frame.
+    /// The loop ended: nobody waiting will get a frame, a record or a probe's answer.
     void abandonFrame();
+
+    /// The probe a caller waits on, or nothing.
+    [[nodiscard]] std::optional<ControlCommand> commandWanted() const;
+    /// Hands the waiting caller its probe's answer.
+    void answerCommand(ControlAnswer answer);
 
     /// A record asked for: one to begin, or the running one to end when `start` is empty.
     struct RecordCall {
@@ -113,6 +119,11 @@ class ControlBridge final : public ControlTarget {
     std::optional<RecordCall> recordPending_;
     std::optional<RecordStarted> recordStarted_;
     std::optional<RecordTotals> recordTotals_;
+
+    /// The probe handshake, on `stateMutex_` too.
+    std::condition_variable commandAnswered_;
+    std::optional<ControlCommand> commandPending_;
+    std::optional<ControlAnswer> commandAnswer_;
 };
 
 } // namespace opensu::app

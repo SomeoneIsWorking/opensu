@@ -196,6 +196,14 @@ struct Settings {
 /// the ROM and Steam roots.
 [[nodiscard]] config::Config resolved(config::Config base, const Settings& settings);
 
+/// The settings as their file writes them, on one line.
+[[nodiscard]] std::string toText(const Settings& settings);
+
+/// Sets the keys of the JSON object `changes` (a key set to null takes its default) as the file
+/// would read them. False with `error`, and `settings` untouched, when it is not an object or a
+/// value is refused.
+[[nodiscard]] bool patch(Settings& settings, std::string_view changes, std::string& error);
+
 class Store {
   public:
     explicit Store(std::filesystem::path file);

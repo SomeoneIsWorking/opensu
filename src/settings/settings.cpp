@@ -399,24 +399,9 @@ class Reader {
     std::string file_;
 };
 
-} // namespace
-
-Store::Store(std::filesystem::path file) : file_{std::move(file)} {
-}
-
-Settings Store::load() const {
+Settings readDocument(const json& document, const std::string& file) {
     Settings settings;
-    std::ifstream in{file_, std::ios::binary};
-    if (!in) {
-        return settings;
-    }
-    const std::string text{std::istreambuf_iterator<char>{in}, {}};
-    const json document = json::parse(text, nullptr, false);
-    if (!document.is_object()) {
-        lucent::warn("settings", "{} is not a settings file; using the defaults", file_.string());
-        return settings;
-    }
-    const Reader read{document, file_.string()};
+    const Reader read{document, file};
     read.boolean(pinLibraryDockKey, settings.pinLibraryDock, "the dock stays pinned");
     read.integer(iconSizeKey, minIconSize, maxIconSize, settings.iconSize, "using the default");
     read.boolean(uiSoundsKey, settings.uiSounds, "the sounds play");
@@ -460,8 +445,7 @@ Settings Store::load() const {
         if (const std::optional<library::SortKey> sort = library::sortKeyOf(spelling)) {
             settings.view.sort = *sort;
         } else {
-            lucent::warn("settings", "{}: {} is not a sort; using the default", file_.string(),
-                         spelling);
+            lucent::warn("settings", "{}: {} is not a sort; using the default", file, spelling);
         }
     }
     std::string keyboardSpelling;
@@ -471,8 +455,8 @@ Settings Store::load() const {
                 input::keyboardStyleOf(keyboardSpelling)) {
             settings.keyboardStyle = *style;
         } else {
-            lucent::warn("settings", "{}: {} is not a keyboard; using the daisy wheel",
-                         file_.string(), keyboardSpelling);
+            lucent::warn("settings", "{}: {} is not a keyboard; using the daisy wheel", file,
+                         keyboardSpelling);
         }
     }
     std::string nightLightSpelling;
@@ -482,7 +466,7 @@ Settings Store::load() const {
             settings.nightLight = *choice;
         } else {
             lucent::warn("settings", "{}: {} is not a night light choice; following the desktop",
-                         file_.string(), nightLightSpelling);
+                         file, nightLightSpelling);
         }
     }
     read.text(consoleThemeKey, settings.consoleTheme, "showing the default console art theme");
@@ -501,8 +485,8 @@ Settings Store::load() const {
         if (const std::optional<SaveShareKind> kind = saveShareKindOf(shareSpelling)) {
             settings.saveShare = *kind;
         } else {
-            lucent::warn("settings", "{}: {} is not a place to share saves; sharing none",
-                         file_.string(), shareSpelling);
+            lucent::warn("settings", "{}: {} is not a place to share saves; sharing none", file,
+                         shareSpelling);
         }
     }
     std::string shareFolder;
@@ -517,8 +501,8 @@ Settings Store::load() const {
     if (!homeSpelling.empty()) {
         settings.homeMode = config::homeModeOf(homeSpelling);
         if (!settings.homeMode) {
-            lucent::warn("settings", "{}: {} is not a scroll mode; using the environment's",
-                         file_.string(), homeSpelling);
+            lucent::warn("settings", "{}: {} is not a scroll mode; using the environment's", file,
+                         homeSpelling);
         }
     }
     const auto mode = document.find(libraryModeKey);
@@ -530,13 +514,13 @@ Settings Store::load() const {
     if (chosen) {
         settings.libraryMode = *chosen;
     } else {
-        lucent::warn("settings", "{}: {} is not a Library mode; using Standard", file_.string(),
+        lucent::warn("settings", "{}: {} is not a Library mode; using Standard", file,
                      mode->dump());
     }
     return settings;
 }
 
-bool Store::save(const Settings& settings, std::string& error) const {
+json documentOf(const Settings& settings) {
     json folders = json::object();
     if (!settings.installFolders.defaultFolder().empty()) {
         folders[defaultFolderKey] = settings.installFolders.defaultFolder().string();
@@ -644,7 +628,58 @@ bool Store::save(const Settings& settings, std::string& error) const {
     if (settings.interfaceSounds) {
         document[interfaceSoundsKey] = std::string{key(*settings.interfaceSounds)};
     }
-    return fileio::writeWhole(file_, document.dump(2) + "\n", error);
+    return document;
+}
+
+} // namespace
+
+Store::Store(std::filesystem::path file) : file_{std::move(file)} {
+}
+
+Settings Store::load() const {
+    Settings settings;
+    std::ifstream in{file_, std::ios::binary};
+    if (!in) {
+        return settings;
+    }
+    const std::string text{std::istreambuf_iterator<char>{in}, {}};
+    const json document = json::parse(text, nullptr, false);
+    if (!document.is_object()) {
+        lucent::warn("settings", "{} is not a settings file; using the defaults", file_.string());
+        return settings;
+    }
+    return readDocument(document, file_.string());
+}
+
+bool Store::save(const Settings& settings, std::string& error) const {
+    return fileio::writeWhole(file_, documentOf(settings).dump(2) + "\n", error);
+}
+
+std::string toText(const Settings& settings) {
+    return documentOf(settings).dump();
+}
+
+bool patch(Settings& settings, std::string_view changes, std::string& error) {
+    const json wanted = json::parse(changes, nullptr, false);
+    if (!wanted.is_object()) {
+        error = "the body is not a JSON object of settings";
+        return false;
+    }
+    json document = documentOf(settings);
+    document.merge_patch(wanted);
+    Settings next = readDocument(document, "the patch");
+    // The reader takes the default for a value it refuses, so a key that does not read back as
+    // given was refused, and nothing is set.
+    const json result = documentOf(next);
+    for (const auto& [key, value] : wanted.items()) {
+        const bool dropped = value.is_null() && !result.contains(key);
+        if (!dropped && (!result.contains(key) || result[key] != value)) {
+            error = key + " is not a setting or " + value.dump() + " is not one of its values";
+            return false;
+        }
+    }
+    settings = std::move(next);
+    return true;
 }
 
 void Settings::addRomFolder(const std::filesystem::path& folder) {

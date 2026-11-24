@@ -18,7 +18,9 @@ namespace {
 
 using lucent::http::Request;
 using lucent::http::Response;
+using opensu::app::ControlAnswer;
 using opensu::app::ControlChannel;
+using opensu::app::ControlCommand;
 using opensu::app::ControlTarget;
 using opensu::app::FrameKind;
 using opensu::app::FramePixels;
@@ -91,6 +93,10 @@ class FakeShell final : public ControlTarget {
         recording = false;
         return RecordTotals{120, 3, ""};
     }
+    [[nodiscard]] ControlAnswer run(ControlCommand command) override {
+        commands.push_back(command);
+        return answer;
+    }
     void requestClose() override {
     }
     void requestCatalogReload(std::string toast) override {
@@ -98,6 +104,8 @@ class FakeShell final : public ControlTarget {
     }
 
     std::vector<std::string> reloads;
+    std::vector<ControlCommand> commands;
+    ControlAnswer answer;
     std::vector<std::string> typed;
     std::string clipboard;
     std::vector<opensu::input::Combo> keys;
@@ -177,6 +185,51 @@ void testComplete() {
     shell.reloads.clear();
     expect(channel.handle(post("/signin/gog", "rejected")).status == 502 && shell.reloads.empty(),
            "a refused code is reported and reloads nothing");
+}
+
+void testProbes() {
+    FakeShell shell;
+    FakeSignIn signIn;
+    ControlChannel channel{shell, signIn, 0};
+    using Kind = ControlCommand::Kind;
+
+    shell.answer = {.status = 200, .body = "{\"launching\":\"steam:504230\"}"};
+    const Response launched = channel.handle(post("/game/launch", " steam:504230\n"));
+    expect(launched.status == 200 && contains(launched.body, "steam:504230"),
+           "a probe answers with the shell's JSON");
+    expect(shell.commands.size() == 1 && shell.commands[0].kind == Kind::LaunchGame &&
+               shell.commands[0].argument == "steam:504230",
+           "/game/launch hands the shell the trimmed id");
+    expect(channel.handle(post("/game/launch", "  ")).status == 400 && shell.commands.size() == 1,
+           "a launch names its game");
+    const Request getLaunch{.method = "GET", .target = "/game/launch", .headers = {}, .body = {}};
+    expect(channel.handle(getLaunch).status == 400, "a probe that acts is POST only");
+
+    shell.answer = {.status = 409, .body = "no game is running"};
+    const Response close = channel.handle(post("/game/close"));
+    expect(close.status == 409 && close.body == "no game is running" &&
+               shell.commands.back().kind == Kind::CloseGame,
+           "the shell's refusal comes back with its status and reason");
+
+    shell.answer = {};
+    expect(channel.handle(post("/details/open", "steam:3330")).status == 200 &&
+               shell.commands.back().kind == Kind::OpenDetails,
+           "/details/open reaches the shell");
+    expect(channel.handle(post("/search")).status == 200 &&
+               shell.commands.back().kind == Kind::Search && shell.commands.back().argument.empty(),
+           "an empty search opens the card");
+    expect(channel.handle(post("/settings/open", "Display/Interface size")).status == 200 &&
+               shell.commands.back().argument == "Display/Interface size",
+           "/settings/open passes the path");
+
+    const Request getSettings{.method = "GET", .target = "/settings", .headers = {}, .body = {}};
+    expect(channel.handle(getSettings).status == 200 &&
+               shell.commands.back().kind == Kind::GetSettings,
+           "GET /settings reads them");
+    expect(channel.handle(post("/settings", "{\"uiScale\":140}")).status == 200 &&
+               shell.commands.back().kind == Kind::SetSettings &&
+               shell.commands.back().argument == "{\"uiScale\":140}",
+           "POST /settings hands over the patch");
 }
 
 void testRefusals() {
@@ -472,6 +525,7 @@ void run() {
     testStart();
     testComplete();
     testRefusals();
+    testProbes();
 }
 
 } // namespace

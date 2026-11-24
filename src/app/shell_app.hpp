@@ -193,6 +193,10 @@ class ShellApp final {
     void serviceControlRequests();
     /// Begins or ends the control channel's record.
     void serviceRecord();
+    /// Runs a control-channel probe (shell_probes.cpp).
+    [[nodiscard]] ControlAnswer runProbe(const ControlCommand& command);
+    /// The grid's tile of game `id` or a copy of it on the shelf shown now.
+    [[nodiscard]] std::optional<std::size_t> tileOfGame(const std::string& id) const;
     /// Hands the record a frame when one is due. After the frame is presented.
     void recordFrame();
     void serviceRequests();

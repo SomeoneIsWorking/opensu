@@ -104,6 +104,8 @@ struct ShellSnapshot {
     bool launching{false};
     /// Whether the shell has given the screen to a running game, as the loop applied it.
     bool inGame{false};
+    /// The id of the game launched or running (`steam:504230`), empty for none.
+    std::string gameId;
     /// Whether the Guide menu is open, over the home screen or a running game.
     bool guideMenuOpen{false};
     /// The interface toolkit's top screen (`settings`, a page's id, `dialog`, `choice`) and its
@@ -209,6 +211,35 @@ struct RecordTotals {
     std::string error;
 };
 
+/// A probe: something the shell is asked to do by name rather than through presses, done on the
+/// main loop by the same code the player's buttons reach.
+struct ControlCommand {
+    enum class Kind : std::uint8_t {
+        /// `argument` is a game id: launch it as its details page's Play does.
+        LaunchGame,
+        /// End the running game as Guide › Close game does, without its question.
+        CloseGame,
+        /// `argument` is a game id: open its details page.
+        OpenDetails,
+        /// `argument` is the text: open the search with it typed.
+        Search,
+        /// `argument` is "Category" or "Category/Row", by id or label: open Settings there.
+        OpenSettings,
+        /// The settings as their file holds them.
+        GetSettings,
+        /// `argument` is a JSON object of settings keys: set them as the Settings screen would.
+        SetSettings,
+    };
+    Kind kind{Kind::CloseGame};
+    std::string argument;
+};
+
+/// How a probe went: an HTTP status, and its JSON body (or the reason, for a refusal).
+struct ControlAnswer {
+    int status{200};
+    std::string body{"{}"};
+};
+
 /// The longest `POST /input` may hold a button, so no injected button stays down for good.
 inline constexpr std::chrono::milliseconds longestHold{10000};
 
@@ -257,6 +288,10 @@ class ControlTarget {
 
     /// Ends the record, its file closed: what it wrote, or nothing when none ran.
     [[nodiscard]] virtual std::optional<RecordTotals> stopRecord() = 0;
+
+    /// Runs `command` on the main loop and waits for its answer; a 503 when the loop does not
+    /// answer in time or another probe is waiting.
+    [[nodiscard]] virtual ControlAnswer run(ControlCommand command) = 0;
 
     /// Asks the main loop to shut down cleanly.
     virtual void requestClose() = 0;

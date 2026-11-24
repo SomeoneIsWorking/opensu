@@ -1458,6 +1458,7 @@ void ShellApp::publishSnapshot() {
     // What the loop has applied, not what was asked for, so a request that never reached the
     // loop cannot read as in game.
     next.inGame = shell_.inGame();
+    next.gameId = launches_.running() ? launches_.game().id : std::string{};
     next.guideMenuOpen = guideMenu_.isOpen();
     next.devicesOpen = devicesScreen_.isOpen();
     next.devicesTab = devicesScreen_.tab();
@@ -1533,6 +1534,9 @@ void ShellApp::serviceControlRequests() {
     }
 
     serviceRecord();
+    if (const std::optional<ControlCommand> probe = bridge_.commandWanted()) {
+        bridge_.answerCommand(runProbe(*probe));
+    }
     const std::optional<FrameKind> wanted = bridge_.frameWanted();
     if (!wanted) {
         return;

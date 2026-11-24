@@ -33,6 +33,30 @@ lucent::http::Response notFound(std::string_view what) {
 lucent::http::Response serverError(std::string reason) {
     return lucent::http::Response::text(500, "Internal Server Error", std::move(reason));
 }
+/// A probe's answer as the caller gets it: its JSON on success, else its reason as text.
+lucent::http::Response answered(ControlAnswer answer) {
+    if (answer.status == 200) {
+        return lucent::http::Response::json(200, "OK", std::move(answer.body));
+    }
+    const char* reason = answer.status == 404   ? "Not Found"
+                         : answer.status == 409 ? "Conflict"
+                         : answer.status == 503 ? "Service Unavailable"
+                                                : "Bad Request";
+    return lucent::http::Response::text(answer.status, reason, std::move(answer.body));
+}
+/// The probe each `POST` route names, with whether its body is required.
+struct ProbeRoute {
+    std::string_view path;
+    ControlCommand::Kind kind;
+    bool needsBody;
+};
+constexpr ProbeRoute probeRoutes[] = {
+    {"/game/launch", ControlCommand::Kind::LaunchGame, true},
+    {"/game/close", ControlCommand::Kind::CloseGame, false},
+    {"/details/open", ControlCommand::Kind::OpenDetails, true},
+    {"/search", ControlCommand::Kind::Search, false},
+    {"/settings/open", ControlCommand::Kind::OpenSettings, true},
+};
 
 /// Quotes a JSON string, including the control characters a title may contain.
 std::string jsonString(std::string_view text) {
@@ -225,6 +249,7 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     flag("toastIsError", snapshot.toastIsError);
     flag("launching", snapshot.launching);
     flag("inGame", snapshot.inGame);
+    text("gameId", snapshot.gameId);
     flag("guideMenuOpen", snapshot.guideMenuOpen);
     text("screen", snapshot.screen);
     text("screenFocus", snapshot.screenFocus);
@@ -524,6 +549,31 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
             response.headers.push_back({"X-Opensu-Frame", std::to_string(frame.number)});
         }
         return response;
+    }
+
+    // Probes: what the shell does by name, without walking its screens with presses.
+    for (const ProbeRoute& probe : probeRoutes) {
+        if (path != probe.path) {
+            continue;
+        }
+        if (request.method != "POST") {
+            return refuse("POST only");
+        }
+        std::string argument{trimmed(request.body)};
+        if (probe.needsBody && argument.empty()) {
+            return refuse("the body names what " + std::string{probe.path} + " acts on");
+        }
+        return answered(target_.run({.kind = probe.kind, .argument = std::move(argument)}));
+    }
+    if (path == "/settings") {
+        if (request.method == "GET") {
+            return answered(target_.run({.kind = ControlCommand::Kind::GetSettings}));
+        }
+        if (request.method == "POST") {
+            return answered(target_.run({.kind = ControlCommand::Kind::SetSettings,
+                                         .argument = std::string{trimmed(request.body)}}));
+        }
+        return refuse("GET or POST");
     }
 
     if (path == "/quit") {

@@ -143,6 +143,38 @@ void ControlBridge::abandonFrame() {
     frameAnswered_.notify_all();
     recordPending_.reset();
     recordAnswered_.notify_all();
+    commandPending_.reset();
+    commandAnswered_.notify_all();
+}
+
+ControlAnswer ControlBridge::run(ControlCommand command) {
+    std::unique_lock lock{stateMutex_};
+    if (commandPending_) {
+        return {.status = 503, .body = "another probe is waiting for the shell"};
+    }
+    commandPending_ = std::move(command);
+    commandAnswer_.reset();
+    // A launch only starts within the frame; nothing a probe does waits for a game.
+    commandAnswered_.wait_for(lock, std::chrono::seconds{5}, [this] {
+        return !commandPending_;
+    });
+    if (commandPending_ || !commandAnswer_) {
+        commandPending_.reset();
+        return {.status = 503, .body = "the shell did not answer"};
+    }
+    return *std::exchange(commandAnswer_, std::nullopt);
+}
+
+std::optional<ControlCommand> ControlBridge::commandWanted() const {
+    const std::lock_guard lock{stateMutex_};
+    return commandPending_;
+}
+
+void ControlBridge::answerCommand(ControlAnswer answer) {
+    const std::lock_guard lock{stateMutex_};
+    commandAnswer_ = std::move(answer);
+    commandPending_.reset();
+    commandAnswered_.notify_all();
 }
 
 bool ControlBridge::awaitRecord(std::unique_lock<std::mutex>& lock) {

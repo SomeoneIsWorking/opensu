@@ -82,6 +82,11 @@ that service in front of the card. It cannot answer polkit, so polkit then refus
 openSU listens on loopback only (port 7311, or the free port a hidden run logs). It is how the
 sign-in extension hands over codes and how maintainer tools drive the shell:
 
+The probes (`/game/*`, `/details/open`, `/search`, `/settings*`) do by name what the buttons do,
+through the same code. A run that needs to get somewhere or change something uses them, and a
+missing probe is added rather than walked to with `/input`. `/input`, `/key`, `/text` and
+`/pointer` are for testing input itself.
+
 | Request | Meaning |
 | --- | --- |
 | `GET /state` | The shell's state as JSON: section, focus, open screens, downloads, `settingsOpen`, `folderPickerOpen`, `capturingShortcut`, `volumeShown`, `chordHint`, `mapping`, `volumePercent`, `volumeMuted`, `uiScale`, `artworkPending`, `imagesPending`, `inGame`, LAN's `lanOn`, `lanSeen`, `lanPaired`, `lanCode` (the code a pairing on either side shows) and `lanSaves` (the open details page's Saves fact), `profile` (the profile played as) and `profiles` (how many) and more. |
@@ -91,6 +96,12 @@ sign-in extension hands over codes and how maintainer tools drive the shell:
 | `GET /frame.png` | The next frame, as PNG. |
 | `POST /record`, `POST /record/stop` | `FPS PATH`: every frame from now on written raw (RGBA, the size the answer gives) to PATH at FPS a second, paced by the clock, the last repeated for a tick with none; for a named pipe an encoder reads. Stop closes it and says how many frames were written and repeated. `opensu-retro`'s channel takes the same two. |
 | `GET /frame.rgba` | The next frame as raw RGBA, its size in the `X-Opensu-Width` and `X-Opensu-Height` headers; for recordings, which grab frames faster than PNG compresses them. |
+| `POST /game/launch` | A game id (`steam:504230`): launches it as its details page's Play does. 404 for an unknown id, 409 while a game runs or when the launch is refused (`/state`'s `toast` says why). `/state`'s `gameId` is the game launched or running. |
+| `POST /game/close` | Ends the running game, or remote play, as Guide › Close game does, without its question. 409 when none runs. |
+| `POST /details/open` | A game id: opens its details page, searching for its title when it is not on the shelf shown. |
+| `POST /search` | Text: opens the search card with it typed; the answer says how many results. |
+| `POST /settings/open` | `Category` or `Category/Row`, each by id or label (`Appearance/Interface size`): opens Settings there. A 404 lists the categories, or the category's rows. |
+| `GET /settings`, `POST /settings` | The settings as `settings.json` holds them; a POST takes a JSON object of keys (`{"uiScale": 140}`, null for the default), saves and applies it as the Settings screen does, and answers with the result. A key or value the file would refuse is a 400 and nothing changes. |
 | `POST /quit` | Closes the shell. |
 | `POST /signin/gog/start`, `/signin/epic/start` | Opens the store's sign-in page ([stores.md](stores.md#signing-in-to-gog-and-epic)). |
 

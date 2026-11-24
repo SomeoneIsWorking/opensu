@@ -379,10 +379,28 @@ void interfaceSizeMultiplies(const fs::path& root) {
     expect(store.load().uiScale == 80, "a saved size is read as it is");
 }
 
+void patched() {
+    Settings settings;
+    std::string error;
+    expect(opensu::settings::patch(settings, R"({"uiScale": 140, "iconSize": 7})", error) &&
+               settings.uiScale == 140 && settings.iconSize == 7,
+           "a patch sets the keys it names");
+    expect(opensu::settings::toText(settings).find("\"uiScale\":140") != std::string::npos,
+           "toText writes them as the file does");
+    expect(!opensu::settings::patch(settings, R"({"uiScale": 400})", error) &&
+               settings.uiScale == 140 && error.find("uiScale") != std::string::npos,
+           "a value the file would refuse is refused, and nothing changes");
+    expect(!opensu::settings::patch(settings, R"({"noSuchSetting": 1, "iconSize": 5})", error) &&
+               settings.iconSize == 7,
+           "an unknown key is refused with the rest of its patch");
+    expect(!opensu::settings::patch(settings, "[1]", error), "a patch is an object");
+}
+
 } // namespace
 
 int main() try {
     steppedScale();
+    patched();
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "settings";
     fs::remove_all(root);
     defaults(root);
