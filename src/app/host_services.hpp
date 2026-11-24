@@ -1,9 +1,8 @@
 // host_services — the machine's own services the shell reaches: power (logind), session mode
-// (SDDM), Bluetooth (BlueZ), the backlight, InputPlumber's pads and openSU's own polkit agent. One
+// (SDDM), Bluetooth (BlueZ), the backlight and openSU's own polkit agent. One
 // place decides what a hidden run may touch: it may read the Bluetooth state, the brightness and
-// whether session mode is installed, and it never sleeps, changes InputPlumber's pads, restarts,
-// shuts down, installs or switches session mode, scans, pairs, connects, forgets or writes a
-// brightness.
+// whether session mode is installed, and it never sleeps, restarts, shuts down, installs or
+// switches session mode, scans, pairs, connects, forgets or writes a brightness.
 #pragma once
 
 #include <filesystem>
@@ -13,7 +12,6 @@
 #include "config/config.hpp"
 #include "host/backlight.hpp"
 #include "host/bluetooth.hpp"
-#include "host/input_plumber.hpp"
 #include "host/polkit_agent.hpp"
 #include "host/power.hpp"
 #include "host/session_mode.hpp"
@@ -33,9 +31,6 @@ struct HostServices {
     /// The agent polkit asks for what openSU's children start through pkexec; null where there is
     /// no polkit, and in services made `over` fakes.
     std::unique_ptr<host::PolkitAgent> polkit;
-    /// InputPlumber's Steam-only pads presented as ones openSU reads, put back as openSU ends;
-    /// null in a hidden run.
-    std::unique_ptr<host::ReadablePads> pads;
 
     /// The real services for this machine; with `hidden` they can be read but not changed.
     [[nodiscard]] static HostServices detect(const config::Config& config, bool hidden);

@@ -1,6 +1,7 @@
 #include "shell_session.hpp"
 
 #include "host/desktop_request.hpp"
+#include "host/input_plumber.hpp"
 #include "host/login_session_end.hpp"
 #include "host/runner.hpp"
 #include "host/session_mode.hpp"
@@ -65,6 +66,8 @@ std::optional<int> runInOwnSession(const config::Config& config, const config::A
                                    const std::vector<std::string>& args) {
     // Without a Gamescope of its own, opensu makes one and runs inside it, so that Steam and every
     // game share the one compositor that closing opensu ends.
+    // Held here, not by the shell: the shell dies with its display when the session is stopped.
+    const std::unique_ptr<host::ReadablePads> pads = host::makeReadablePads(host::systemRunner());
     session::CompositorSession session{config.session, config.gamescope, config.stateDir,
                                        launch::chooseContainment(),
                                        host::DesktopRequest{config.desktopRequest}};

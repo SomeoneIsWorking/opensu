@@ -51,8 +51,6 @@ HostServices HostServices::over(const host::Runner& run, const host::Spawner& sp
         if (services.backlight) {
             services.backlight = host::makeReadOnlyBacklight(std::move(services.backlight));
         }
-    } else {
-        services.pads = host::makeReadablePads(run);
     }
     return services;
 }
