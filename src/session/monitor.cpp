@@ -24,6 +24,8 @@ std::optional<display::Output> readMonitor() {
             static_cast<int>(std::lround(static_cast<float>(output->width) * output->density));
         output->height =
             static_cast<int>(std::lround(static_cast<float>(output->height) * output->density));
+        // Wayland gives a scaled desktop's scale as its density, the content scale on top of it.
+        output->scale *= output->density;
         output->density = 1.0F;
     }
     return output;
