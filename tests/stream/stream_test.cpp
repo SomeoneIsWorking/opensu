@@ -315,6 +315,26 @@ void theHostsEndReachesTheGuest() {
            "the host's end ends the guest's side, with its reason");
 }
 
+void withdrawingKeepsTheLastCodec() {
+    const std::optional<stream::UdpAddress> address = stream::udpAddress("127.0.0.1", 9);
+    if (!address) {
+        fail("a loopback address reads");
+    }
+    const auto pyroWave = stream::codecBit(stream::VideoCodec::PyroWave);
+    stream::GuestStream alone{stream::GuestStream::Setup{
+        .host = *address, .keys = keysFor(7), .video = {}, .audio = {}, .decoders = pyroWave}};
+    expect(!alone.withdraw(stream::VideoCodec::PyroWave),
+           "a guest that decodes only PyroWave keeps offering it");
+    stream::GuestStream both{
+        stream::GuestStream::Setup{.host = *address,
+                                   .keys = keysFor(8),
+                                   .video = {},
+                                   .audio = {},
+                                   .decoders = stream::adding(pyroWave, stream::VideoCodec::Hevc)}};
+    expect(both.withdraw(stream::VideoCodec::PyroWave),
+           "a guest with a hardware codec stops offering PyroWave");
+}
+
 void noCommonCodecEndsTheSession() {
     stream::HostStream host{
         stream::HostStream::Setup{.keys = keysFor(6),
@@ -1102,6 +1122,7 @@ int main(int argc, char** argv) try {
     datagramsOpenOnce();
     payloadsReadAsWritten();
     aSessionCarriesInputAndEnds();
+    withdrawingKeepsTheLastCodec();
     noCommonCodecEndsTheSession();
     lostPacketsComeBackFromParity();
     aCalmPictureKeepsItsRateAfterALoss();

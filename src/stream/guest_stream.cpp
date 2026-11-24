@@ -211,9 +211,17 @@ void GuestStream::keepsUpWith(std::uint8_t framesPerSecond) {
     keptUpRate_ = framesPerSecond;
 }
 
-void GuestStream::withdraw(VideoCodec codec) {
+bool GuestStream::withdraw(VideoCodec codec) {
     const std::lock_guard lock{mutex_};
-    received_.decoders = static_cast<VideoCodecs>(received_.decoders & ~codecBit(codec));
+    const VideoCodecs left = without(received_.decoders, codec);
+    if (left == 0) {
+        if (!std::exchange(keptLast_, true)) {
+            lucent::info("stream", "keeps {}: this device decodes no other codec", nameOf(codec));
+        }
+        return false;
+    }
+    received_.decoders = left;
+    return true;
 }
 
 void GuestStream::sendReport() {

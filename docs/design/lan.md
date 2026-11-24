@@ -393,7 +393,9 @@ that profile's; the host's own active profile does not change.
   (the playout delay: its large frames' wire time on a link just over its floor, plus a slow
   decoder; a Mac over Wi-Fi decoded it 50 ms after its send against HEVC's 8), the guest leaves it
   out of its reports for the session
-  (`GuestStream::withdraw`) and the host plans again without it. The same judgement
+  (`GuestStream::withdraw`) and the host plans again without it. A guest that decodes nothing
+  else keeps offering PyroWave, logging once that it does, since withdrawing its only codec would
+  end the session with no format both ends can use. The same judgement
   (`stream::GuestFit`) watches any codec's frames lost or skipped late: past 10 % of a window
   it asks for the highest of 60, 45 and 30
   frames a second under the rate that arrived (`GuestStream::keepsUpWith`, sent as the slower of

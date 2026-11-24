@@ -80,8 +80,9 @@ class GuestStream {
     /// The frames a second this guest keeps up with (`GuestFit`), 0 for all; the host is asked
     /// for the slower of this and `wantRate`'s. Any thread.
     void keepsUpWith(std::uint8_t framesPerSecond);
-    /// Stops offering `codec` to the host, which codes another from then on. Any thread.
-    void withdraw(VideoCodec codec);
+    /// Stops offering `codec` to the host, which codes another from then on; false, and `codec`
+    /// still offered, when it is the only one this guest decodes. Any thread.
+    bool withdraw(VideoCodec codec);
     /// Takes at most `bitsPerSecond` from the host from now on, 0 for all: a test run's slow link.
     void capLink(std::uint64_t bitsPerSecond) {
         cap_.set(bitsPerSecond);
@@ -136,6 +137,8 @@ class GuestStream {
     wire::Report received_;
     std::uint8_t wantedRate_{0};
     std::uint8_t keptUpRate_{0};
+    /// Whether a withdrawal was refused, as it left no codec; said once.
+    bool keptLast_{false};
     std::string stage_;
     std::string panel_;
     float shape_{0.0F};
