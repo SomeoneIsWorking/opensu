@@ -161,7 +161,7 @@ void Shell::tick(Clock::time_point now) {
     screens_.layout(now_, gpu2d::Rect{0.0f, 0.0f, width, height}, height - keyboardChrome_.top(),
                     Density{.dp = dp(), .display = displayDp_}, *theme_,
                     Chrome{.top = hud_.barHeight(), .width = width - safe_.left - safe_.right},
-                    prompts_.device.pointing(), safe_);
+                    prompts_.device.touching(), safe_);
 }
 
 void Shell::settle() {

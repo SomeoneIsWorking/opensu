@@ -1,5 +1,6 @@
 // last_device — which device produced the shell's most recent real input, so prompts can name the
-// controller's buttons or the keyboard's keys, and touch controls show while a pointer leads.
+// controller's buttons or the keyboard's keys, the shell follows a pointer while one leads, and
+// touch controls show while a finger does.
 #pragma once
 
 #include <cstdint>
@@ -26,9 +27,13 @@ class LastDevice {
     [[nodiscard]] Device current() const noexcept {
         return current_;
     }
-    /// Whether the latest input was a mouse or a finger, which shows the touch controls.
+    /// Whether the latest input was a mouse or a finger, which the shell follows.
     [[nodiscard]] bool pointing() const noexcept {
         return pointing_;
+    }
+    /// Whether the latest input was a finger, which has no B or Guide: the touch controls show.
+    [[nodiscard]] bool touching() const noexcept {
+        return current_ == Device::Touch;
     }
 
     /// A pad's event. Only a button change counts; a pad connecting or leaving is not input, and a

@@ -39,11 +39,13 @@ void switchesOnRealInput() {
     expect(device.current() == Device::Pad, "a pad button release is input too");
     device.notePointer(0.0f, 0.0f, true, false);
     expect(device.current() == Device::KeyboardMouse, "a click switches to the keyboard");
-    expect(device.pointing(), "a click shows the touch controls");
+    expect(device.pointing() && !device.touching(),
+           "a mouse leads the shell's pointer but shows no touch controls");
     device.notePointer(0.0f, 0.0f, true, true);
-    expect(device.current() == Device::Touch && device.pointing(), "a tap switches to touch");
+    expect(device.current() == Device::Touch && device.pointing() && device.touching(),
+           "a tap switches to touch and shows the touch controls");
     device.noteKey();
-    expect(!device.pointing(), "a key hides the touch controls");
+    expect(!device.pointing() && !device.touching(), "a key hides them");
 }
 
 void ignoresNoise() {

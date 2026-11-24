@@ -1386,8 +1386,7 @@ void ShellApp::syncChrome() {
     shell_.setTitle(navigator.atRoot() ? shell_.grid().pillTitle() : std::string{});
     shell_.setTrail(currentTrail());
     const bool free = !shell_.keyboard().isOpen() && !shell_.mappingPage().isOpen();
-    // A finger has no B or Guide: while a pointer leads, the top bar offers both.
-    const bool touch = shell_.inputDevice().pointing() && free;
+    const bool touch = shell_.inputDevice().touching() && free;
     shell_.setTouchButtons(ui::Hud::TouchButtons{
         .back = touch && (!navigator.atRoot() || corner.back || corner.clearSearch),
         .menu = touch && (guideMenu_.inFront() || !menusBlocked()),
