@@ -56,10 +56,11 @@ void multipart() {
 }
 
 void prefsKey() {
-    expect(opensu::steam::prefsApiKey(
-               R"({"success":true,"data":{"user":{"api_key":"0123456789abcdef0123456789abcdef"}}})") ==
-               "0123456789abcdef0123456789abcdef",
-           "a signed-in account's key");
+    expect(
+        opensu::steam::prefsApiKey(
+            R"({"success":true,"data":{"user":{"api_key":"0123456789abcdef0123456789abcdef"}}})") ==
+            "0123456789abcdef0123456789abcdef",
+        "a signed-in account's key");
     expect(opensu::steam::prefsApiKey(R"({"data":{"user":{"api_key":null}}})") == "",
            "an account with no key yet");
     expect(!opensu::steam::prefsApiKey(R"({"data":{"user":null}})") &&

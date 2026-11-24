@@ -74,7 +74,8 @@ std::string cookieHeader(const Pairs& cookies) {
 /// `fresh` set over `into`, a name set again keeping its new value.
 void setOver(Pairs& into, const Pairs& fresh) {
     for (const auto& [name, value] : fresh) {
-        const auto known = std::ranges::find(into, name, &std::pair<std::string, std::string>::first);
+        const auto known =
+            std::ranges::find(into, name, &std::pair<std::string, std::string>::first);
         if (known == into.end()) {
             into.emplace_back(name, value);
         } else {
@@ -94,8 +95,7 @@ std::string query(const Pairs& fields) {
 /// Only Steam's sign-in and SteamGridDB, over https.
 std::string refusal(const std::string& url) {
     const std::string origin = net::originOf(url);
-    return origin == "https://steamcommunity.com/" ||
-                   origin == std::string{steamGridDbOrigin} + "/"
+    return origin == "https://steamcommunity.com/" || origin == std::string{steamGridDbOrigin} + "/"
                ? std::string{}
                : "the sign-in went to " + origin;
 }
@@ -115,7 +115,8 @@ Pairs openIdFormFields(std::string_view page) {
         return {};
     }
     const std::size_t end = page.find("</form>", form);
-    const std::string_view body = page.substr(form, end == std::string_view::npos ? end : end - form);
+    const std::string_view body =
+        page.substr(form, end == std::string_view::npos ? end : end - form);
     Pairs fields;
     for (std::size_t at = body.find("<input"); at != std::string_view::npos;
          at = body.find("<input", at + 1)) {
@@ -208,14 +209,16 @@ std::optional<std::string> steamGridDbKeyThroughOpenId(const net::WebClient& web
     }
     const Pairs fields = openIdFormFields(page->body);
     if (page->status != 200 || fields.empty()) {
-        error = "Steam did not take fumarole's web login (HTTP " + std::to_string(page->status) + ")";
+        error =
+            "Steam did not take fumarole's web login (HTTP " + std::to_string(page->status) + ")";
         return std::nullopt;
     }
     setOver(steam, setCookies(page->headers));
 
     const net::Result<net::WebClient::Answer> confirmed = web.request(
         stop, std::string{openIdLogin},
-        {cookieHeader(steam), "Content-Type: multipart/form-data; boundary=" + std::string{boundary}},
+        {cookieHeader(steam),
+         "Content-Type: multipart/form-data; boundary=" + std::string{boundary}},
         guard, {.method = "POST", .body = multipartBody(fields, boundary), .follow = false});
     if (!confirmed) {
         return failed(confirmed, "Steam's sign-in", error);
