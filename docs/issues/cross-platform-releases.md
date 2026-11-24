@@ -566,8 +566,9 @@ in fewer rows (`HomeLayout`, every platform; a deliberate departure from iiSU, p
 picked ROM folder by its display name ("ROMs", `RomTree::label`), not its tree URI. Android has no Add a game tile (`library::addGameOffer` is empty there). The toast is sized in dp from the
 interface theme, so it reads the same on a dense phone screen.
 
-The shell's touch controls show while a finger or mouse gave the latest input and go with the
-next key or pad button (`LastDevice::pointing`, `ShellApp::syncChrome`): a Back button before the
+The shell's touch controls show while a finger gave the latest input and go with the next key,
+pad button or mouse movement (`LastDevice::touching`, `ShellApp::syncChrome`); a mouse leads the
+pointer and hides the dock's LB and RB badges (`LastDevice::pointing`) but shows no touch controls: a Back button before the
 trail and a Menu button before the status pill (52 dp glass, iiSU's `xe4.i`; iiSU itself has
 neither, the user asked for both), every hint bar's prompts as 48 dp buttons (a stepping pair, LB and RB or Left and Right, a chevron
 each side), the corner prompts side by side, each sending its button, no LB and RB badges on the

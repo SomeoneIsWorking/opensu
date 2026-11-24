@@ -27,7 +27,7 @@ left it, or Submit; `Navigator::editing`). While it is open the shell draws neit
 corner hints, toasts stand above it, it shows its own hints, and overlay cards lay out above it
 (`Navigator::layout`'s covered strip) so the field typed into stays in view.
 
-While touch controls show (a finger or mouse leads), a field types on the system's on-screen
+While touch controls show (a finger leads), a field types on the system's on-screen
 keyboard where the system has one (Android's IME, as iiSU does): `KeyboardPad::open` starts
 editing without opening openSU's keyboard (`systemTyping`), `ShellApp` shows the system's
 (`ShellWindow::showScreenKeyboard`), whose text and Backspace and Enter arrive as a physical
