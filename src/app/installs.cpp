@@ -11,14 +11,14 @@ namespace opensu::app {
 
 Installs::Installs(steam::Client& steam, const std::string& legendary,
                    const GogInstallJob::Options& gog, const std::string& fumarole, Folders folders,
-                   Playing playing)
+                   WindowsBuild windowsBuild, Playing playing)
     : steamReady_{[&steam] {
           return steam.state() == launch::SteamState::Ready;
       }},
       steam_{steam}, steamUpdate_{steamReady_, steam.downloadControl()}, epic_{legendary},
       gog_{gog}, fumarole_{fumarole}, uninstall_{steam, legendary, gog.dataDir},
       gogRecords_{library::gog::Paths::under(gog.dataDir).records}, folders_{std::move(folders)},
-      playing_{std::move(playing)} {
+      windowsBuild_{std::move(windowsBuild)}, playing_{std::move(playing)} {
 }
 
 bool Installs::supports(library::Source source) noexcept {
@@ -69,7 +69,7 @@ bool Installs::start(const library::Game& game) {
         epic_.setUpdate(false);
         job = &epic_;
     } else if (game.source == library::Source::Gog) {
-        gog_.setBuilds(game.builds);
+        gog_.setBuilds(game.builds, windowsBuild_(game));
         gog_.setFolder(folder);
         gog_.setUpdate(std::nullopt);
         job = &gog_;

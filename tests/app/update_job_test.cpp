@@ -109,6 +109,9 @@ exit 0
                       GogInstallJob::Options{.dataDir = dir / "data"},
                       std::string{},
                       noFolders(),
+                      [](const Game&) {
+                          return false;
+                      },
                       [&playing](const Game& game) {
                           return game.id == playing;
                       }};
@@ -201,6 +204,9 @@ void testGog(const fs::path& dir) {
                       noFolders(),
                       [](const Game&) {
                           return false;
+                      },
+                      [](const Game&) {
+                          return false;
                       }};
     const InstallRecords records{data / "gog-installs.json"};
 
@@ -238,6 +244,9 @@ void testSteam(const fs::path& dir) {
                       GogInstallJob::Options{.dataDir = dir / "data"},
                       std::string{},
                       noFolders(),
+                      [](const Game&) {
+                          return false;
+                      },
                       [](const Game&) {
                           return false;
                       }};

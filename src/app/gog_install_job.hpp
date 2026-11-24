@@ -37,9 +37,11 @@ class GogInstallJob final : public CliInstallJob {
     explicit GogInstallJob(Options options);
     ~GogInstallJob();
 
-    /// The builds GOG lists for the game about to be started. Call before start(), while idle.
-    void setBuilds(const library::Game::Builds& builds) {
+    /// The builds GOG lists for the game about to be started, and whether the player picked its
+    /// Windows build. Call before start(), while idle.
+    void setBuilds(const library::Game::Builds& builds, bool windowsPicked) {
         builds_ = builds;
+        windowsPicked_ = windowsPicked;
     }
 
     /// The folder the next install goes under, as `<folder>/<game id>/<gogdl's folder>`; none uses
@@ -72,6 +74,7 @@ class GogInstallJob final : public CliInstallJob {
     std::string handedRefreshToken_;
     /// The builds the listing gave for the install being started. Set while idle.
     library::Game::Builds builds_;
+    bool windowsPicked_{false};
     /// The folder the install being started goes under. Set while idle.
     std::optional<std::filesystem::path> folder_;
     /// The install being updated. Set while idle.

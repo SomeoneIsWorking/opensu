@@ -164,6 +164,8 @@ class DetailsController final : public ui::RowActions {
     void downloadEmulator(const library::Game& game);
     /// Moves a Windows install between its own Wine prefix and the shared one.
     void toggleOwnPrefix(const library::Game& game);
+    /// Switches which build `game`'s next install takes, this OS's own or the Windows one.
+    void toggleWindowsBuild(const library::Game& game);
     /// Asks before uninstalling `game`, saying what goes, or says why it cannot be.
     void uninstall(const library::Game& game);
 

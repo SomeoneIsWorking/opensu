@@ -327,6 +327,41 @@ void winePrefix() {
            "a store with nothing of its own has no section");
 }
 
+void buildChoice() {
+    Game both = hades();
+    both.id = "gog:3";
+    both.source = Source::Gog;
+    both.builds = {.windows = true, .linuxNative = true, .mac = true};
+    const auto buildOf = [](const std::vector<SettingsRow>& rows) -> const SettingsRow* {
+        const auto found = std::ranges::find(rows, "Build", &SettingsRow::label);
+        return found == rows.end() ? nullptr : &*found;
+    };
+    const std::vector<SettingsRow> own = settingsPageRows(both, false);
+    if (!opensu::library::offersBuildChoice(both.builds)) {
+        expect(buildOf(own) == nullptr,
+               "where Windows builds are this OS's own there is no choice");
+        return;
+    }
+    expect(buildOf(own) != nullptr &&
+               buildOf(own)->value == std::string{opensu::library::ownSystemName} &&
+               copyRowOf(buildOf(own)->id).gameId == "gog:3",
+           "a GOG game with this OS's build and a Windows one offers the choice, its own first");
+    opensu::ui::GameSettingsView windowsPicked;
+    windowsPicked.windowsBuild = true;
+    const std::vector<SettingsRow> picked =
+        detailsOf(both, GameMarks{.hidden = false}, now, {}, false, windowsPicked).settingsRows;
+    expect(buildOf(picked) != nullptr && buildOf(picked)->value == "Windows",
+           "a game whose Windows build was picked says so");
+    Game windowsOnly = both;
+    windowsOnly.builds = {.windows = true};
+    expect(buildOf(settingsPageRows(windowsOnly, false)) == nullptr,
+           "a game with one build has no choice");
+    Game steam = both;
+    steam.source = Source::Steam;
+    expect(buildOf(settingsPageRows(steam, false)) == nullptr,
+           "a store whose installs do not take the pick has no choice");
+}
+
 void ownGame() {
     Game game;
     game.id = "own:3";
@@ -436,6 +471,7 @@ int main() try {
     romEmulator();
     arcadeRomset();
     winePrefix();
+    buildChoice();
     remoteBeside();
     std::puts("game_details: ok");
     return 0;

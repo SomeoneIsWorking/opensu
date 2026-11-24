@@ -27,6 +27,8 @@ inline constexpr std::string_view detailsInstallId = "details.install";
 inline constexpr std::string_view detailsDownloadId = "details.download";
 inline constexpr std::string_view detailsSettingsId = "details.settings";
 inline constexpr std::string_view detailsWinePrefixId = "details.winePrefix";
+/// Which build an install takes, this OS's own or the Windows one.
+inline constexpr std::string_view detailsBuildId = "details.build";
 inline constexpr std::string_view detailsHomeId = "details.home";
 inline constexpr std::string_view detailsHiddenId = "details.hidden";
 inline constexpr std::string_view detailsUninstallId = "details.uninstall";
@@ -136,6 +138,8 @@ struct GameSettingsView {
     bool online{false};
     /// It is being installed or downloaded, so its store's section shows.
     bool installing{false};
+    /// The player picked its Windows build over this OS's own (`library::offersBuildChoice`).
+    bool windowsBuild{false};
 };
 
 /// One store copy of a title two stores own, with what its rows show.

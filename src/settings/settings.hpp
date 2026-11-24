@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -127,6 +128,9 @@ struct Settings {
 
     /// The games that run in a Wine prefix of their own instead of the shared one.
     library::wine::OwnPrefixes ownWinePrefixes;
+    /// The games whose next install takes their Windows build over this OS's own
+    /// (`library::gogInstallPlatform`), by game id.
+    std::set<std::string> windowsBuilds;
 
     /// How large the interface is drawn, in percent (`minUiScale` to `maxUiScale`).
     int uiScale{defaultUiScale};

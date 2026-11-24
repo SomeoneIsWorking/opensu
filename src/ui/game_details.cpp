@@ -312,6 +312,11 @@ std::vector<SettingsRow> playRows(const PageCopy& copy) {
 std::vector<SettingsRow> copyRows(const PageCopy& copy) {
     const library::Game& game = copy.game;
     std::vector<SettingsRow> rows;
+    if (game.source == library::Source::Gog && library::offersBuildChoice(game.builds)) {
+        rows.push_back(makeChoice(std::string{detailsBuildId}, "Build", {},
+                                  Options{{std::string{library::ownSystemName}, "Windows"},
+                                          copy.settings.windowsBuild ? 1U : 0U}));
+    }
     if (game.windowsInstall && game.source != library::Source::Own) {
         rows.push_back(makeChoice(std::string{detailsWinePrefixId}, "Wine prefix", {},
                                   Options{{std::string{sharedPrefix}, std::string{ownPrefix}},

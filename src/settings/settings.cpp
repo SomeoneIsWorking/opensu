@@ -66,6 +66,7 @@ constexpr const char* enabledKey = "enabled";
 constexpr const char* grantedKey = "granted";
 constexpr const char* wineRunnerKey = "wineRunner";
 constexpr const char* ownWinePrefixKey = "ownWinePrefix";
+constexpr const char* windowsBuildKey = "windowsBuild";
 constexpr const char* wineRunnerPinsKey = "wineRunnerPins";
 constexpr const char* keepGeProtonKey = "keepGeProtonCurrent";
 constexpr const char* integrationsKey = "integrations";
@@ -424,6 +425,9 @@ Settings readDocument(const json& document, const std::string& file) {
     std::vector<std::string> ownPrefixes;
     read.texts(ownWinePrefixKey, ownPrefixes, "every game shares the Wine prefix");
     settings.ownWinePrefixes = library::wine::OwnPrefixes{{ownPrefixes.begin(), ownPrefixes.end()}};
+    std::vector<std::string> windowsBuilds;
+    read.texts(windowsBuildKey, windowsBuilds, "every game installs this system's own build");
+    settings.windowsBuilds = {windowsBuilds.begin(), windowsBuilds.end()};
     read.shortcuts(shortcutsKey, settings.shortcuts);
     read.plugins(pluginsKey, settings.plugins);
     read.integrations(integrationsKey, settings.integrations);
@@ -594,6 +598,7 @@ json documentOf(const Settings& settings) {
         {menuMusicKey, settings.menuMusic},
         {wineRunnerKey, settings.wineRunner.string()},
         {ownWinePrefixKey, settings.ownWinePrefixes.ids()},
+        {windowsBuildKey, settings.windowsBuilds},
         {wineRunnerPinsKey, pins},
         {keepGeProtonKey, settings.keepGeProtonCurrent},
         {shortcutsKey, {{shortcutKeysKey, shortcutKeys}, {shortcutPadsKey, shortcutPads}}}};

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -12,6 +13,7 @@
 #include "library/emulator_choice.hpp"
 #include "library/linked_play.hpp"
 #include "library/rom_systems.hpp"
+#include "library/store_builds.hpp"
 #include "library/wine.hpp"
 #include "lucent/text.h"
 #include "retro/save_paths.hpp"
@@ -59,6 +61,7 @@ ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) co
     ui::GameSettingsView view;
     view.continues = hooks_.continues(game);
     view.installing = hooks_.installing(game);
+    view.windowsBuild = preferences_.values().windowsBuilds.contains(game.id);
     const settings::SettingLayers& layers = gameSettings_.layers();
     if (!game.emulatorOptions.empty()) {
         view.emulatorSource = emulatorSourceText(library::pickFor(layers, game).source, game);
@@ -261,6 +264,8 @@ void DetailsController::run(const std::string& rowId, int /*step*/) {
         downloadEmulator(*game);
     } else if (id == ui::detailsWinePrefixId) {
         toggleOwnPrefix(*game);
+    } else if (id == ui::detailsBuildId) {
+        toggleWindowsBuild(*game);
     } else if (id == ui::detailsHomeId) {
         // Off Home, the page closes with the tile it was opened over (`refresh`).
         hooks_.setOnHome(*game, !hooks_.onHome(*game));
@@ -347,6 +352,23 @@ void DetailsController::toggleOwnPrefix(const library::Game& game) {
     preferences_.save();
     hooks_.say(game.title + (nowOwn ? " gets a Wine prefix of its own"
                                     : " shares the Wine prefix again; its own is kept"),
+               false);
+    refresh();
+}
+
+void DetailsController::toggleWindowsBuild(const library::Game& game) {
+    std::set<std::string>& picked = preferences_.values().windowsBuilds;
+    const bool windows = !picked.contains(game.id);
+    if (windows) {
+        picked.insert(game.id);
+    } else {
+        picked.erase(game.id);
+    }
+    preferences_.save();
+    const std::string build = windows ? "Windows" : std::string{library::ownSystemName};
+    hooks_.say(game.installed ? game.title + " installs its " + build +
+                                    " build next time; uninstall it to switch now"
+                              : game.title + " installs its " + build + " build",
                false);
     refresh();
 }

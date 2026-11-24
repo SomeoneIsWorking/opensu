@@ -30,6 +30,8 @@ class PanelFlow {
         std::function<void()> reloadCatalog;
         /// Where a store installs now, from the settings; nothing leaves the store's choice.
         Installs::Folders installFolder;
+        /// Whether the player picked a game's Windows build, from the settings.
+        Installs::WindowsBuild windowsBuild;
         /// Whether a launch of this game runs now, which no uninstall may remove.
         Installs::Playing playing;
         /// Tells the player something; `error` marks a refusal.

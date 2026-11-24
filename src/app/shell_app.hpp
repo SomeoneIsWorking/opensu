@@ -1870,6 +1870,10 @@ class ShellApp final {
                              [this](library::Source store) {
                                  return preferences_.values().installFolders.effective(store);
                              },
+                         .windowsBuild =
+                             [this](const library::Game& game) {
+                                 return preferences_.values().windowsBuilds.contains(game.id);
+                             },
                          .playing =
                              [this](const library::Game& game) {
                                  return launches_.runs(game);

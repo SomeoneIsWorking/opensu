@@ -31,11 +31,15 @@ class Installs {
     using Folders = std::function<std::optional<std::filesystem::path>(library::Source)>;
     /// Whether a launch of this game runs now.
     using Playing = std::function<bool(const library::Game&)>;
+    /// Whether the player picked this game's Windows build over this OS's own.
+    using WindowsBuild = std::function<bool(const library::Game&)>;
 
     /// Installs and uninstalls Epic titles with `legendary` and installs GOG titles with gogdl,
-    /// each into the folder `folders` names for its store. `playing` says which game runs.
+    /// each into the folder `folders` names for its store, the build `windowsBuild` picks.
+    /// `playing` says which game runs.
     Installs(steam::Client& steam, const std::string& legendary, const GogInstallJob::Options& gog,
-             const std::string& fumarole, Folders folders, Playing playing);
+             const std::string& fumarole, Folders folders, WindowsBuild windowsBuild,
+             Playing playing);
 
     /// Where each store `integrations` lists installs when no folder is set: GOG under openSU's
     /// data dir (gogdl's `<data>/gog-games`), Epic where legendary's own default is, Steam its
@@ -125,6 +129,7 @@ class Installs {
     UninstallJob uninstall_;
     library::gog::InstallRecords gogRecords_;
     Folders folders_;
+    WindowsBuild windowsBuild_;
     Playing playing_;
     std::string title_;
     /// The job started last, its store and what it does.

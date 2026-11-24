@@ -234,6 +234,9 @@ exit 0
                       [](Source) -> std::optional<fs::path> {
                           return std::nullopt;
                       },
+                      [](const opensu::library::Game&) {
+                          return false;
+                      },
                       [&playing](const Game& game) {
                           return game.id == playing;
                       }};

@@ -75,9 +75,12 @@ it once, without root, pinned to the revision openSU was written against:
 uv tool install "git+https://github.com/Heroic-Games-Launcher/heroic-gogdl@ac1580aeb004dda75557c97be9cc3105d50eeecb"
 ```
 
-It needs a C compiler, for its xdelta3 extension. On Linux a game with a Linux build is downloaded
-as that build; otherwise the Windows build is downloaded and run under Wine ([wine.md](wine.md)).
-Games land in `$XDG_DATA_HOME/opensu/gog-games/<id>/`.
+It needs a C compiler, for its xdelta3 extension. On Linux and macOS a game with a build for that
+system is downloaded as that build; otherwise the Windows build is downloaded and run under Wine
+([wine.md](wine.md)). A game with both shows a Build row on its Game settings page: Windows there
+makes its next install take the Windows build, for a port that plays worse than the original; an
+installed copy keeps its build until it is uninstalled. Games land in
+`$XDG_DATA_HOME/opensu/gog-games/<id>/`.
 
 ## Steam games without Steam
 

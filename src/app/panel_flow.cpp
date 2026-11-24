@@ -30,6 +30,7 @@ PanelFlow::PanelFlow(gpu2d::ui::Navigator& navigator, ui::ScreenImages& images,
                GogInstallJob::Options{.dataDir = dataDir},
                fumarole.string(),
                hooks.installFolder,
+               hooks.windowsBuild,
                hooks.playing},
       hooks_{std::move(hooks)} {
 }

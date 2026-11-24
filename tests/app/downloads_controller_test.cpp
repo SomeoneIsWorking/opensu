@@ -137,6 +137,9 @@ sleep 60
                            },
                            [](const library::Game&) {
                                return false;
+                           },
+                           [](const library::Game&) {
+                               return false;
                            }};
     std::vector<std::pair<std::string, bool>> said;
     app::EmulatorDownloads emulators{

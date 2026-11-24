@@ -47,7 +47,8 @@ std::vector<std::string> GogInstallJob::arguments(const std::stop_token& stop,
                                                   const std::string& gameId) {
     if (updating_) {
         platform_ = updating_->platform;
-    } else if (const std::string_view platform = library::gogInstallPlatform(builds_);
+    } else if (const std::string_view platform =
+                   library::gogInstallPlatform(builds_, windowsPicked_);
                !platform.empty()) {
         platform_ = platform;
     } else {
