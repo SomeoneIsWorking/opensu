@@ -41,6 +41,7 @@ constexpr const char* powerId = "guide.power";
 constexpr const char* volumeId = "guide.volume";
 constexpr const char* muteId = "guide.mute";
 constexpr const char* brightnessId = "guide.brightness";
+constexpr const char* powerProfileId = "guide.powerProfile";
 constexpr const char* scaleId = "guide.scale";
 constexpr const char* screenId = "guide.screen";
 constexpr const char* profileId = "guide.profile";
@@ -61,6 +62,20 @@ SettingsRow asking(std::string id, std::string label, std::string what, std::str
     row.confirm = std::move(what);
     row.confirmVerb = std::move(verb);
     return row;
+}
+
+/// How a PowerStation profile reads in the Guide.
+std::string profileLabel(const std::string& profile) {
+    if (profile == "quiet") {
+        return "Quiet";
+    }
+    if (profile == "balanced") {
+        return "Balanced";
+    }
+    if (profile == "performance") {
+        return "Performance";
+    }
+    return profile;
 }
 
 std::string percentOf(int percent) {
@@ -137,6 +152,7 @@ void GuideMenuController::close() {
 void GuideMenuController::read() {
     retroStatus_ = context_.inGame && !context_.remote ? retro_.status() : std::nullopt;
     brightnessLevel_ = brightness_.percent();
+    powerProfile_ = powerProfiles_ != nullptr ? powerProfiles_->read() : std::nullopt;
 }
 
 std::string GuideMenuController::title() const {
@@ -230,6 +246,19 @@ std::vector<SettingsRow> GuideMenuController::quick() const {
     if (brightnessLevel_) {
         rows.push_back(ui::makeSlider(brightnessId, "Brightness", {},
                                       ui::SliderRange{*brightnessLevel_, 1, 100, brightnessStep}));
+    }
+    if (powerProfile_) {
+        const auto at = std::ranges::find(powerProfile_->profiles, powerProfile_->profile);
+        if (at != powerProfile_->profiles.end()) {
+            ui::Options profiles{
+                .labels = {},
+                .chosen = static_cast<std::size_t>(at - powerProfile_->profiles.begin())};
+            for (const std::string& profile : powerProfile_->profiles) {
+                profiles.labels.push_back(profileLabel(profile));
+            }
+            rows.push_back(
+                ui::makeChoice(powerProfileId, "Power profile", {}, std::move(profiles)));
+        }
     }
     const int scale = preferences_.values().uiScale;
     ui::Options scales;
@@ -365,6 +394,8 @@ void GuideMenuController::run(const std::string& id, int step) {
         hooks_.applyLayout();
     } else if (id == profileId) {
         stepProfile(step);
+    } else if (id == powerProfileId) {
+        stepPowerProfile(step);
     } else if (id == resumeId) {
         close();
     } else if (id == keyboardId) {
@@ -461,6 +492,19 @@ void GuideMenuController::stepProfile(int step) {
     const auto count = static_cast<std::ptrdiff_t>(all.size());
     const std::ptrdiff_t next = ((at - all.begin() + step) % count + count) % count;
     hooks_.playAs(all[static_cast<std::size_t>(next)].id);
+}
+
+void GuideMenuController::stepPowerProfile(int step) {
+    if (powerProfiles_ == nullptr || !powerProfile_ || powerProfile_->profiles.empty()) {
+        return;
+    }
+    const std::vector<std::string>& all = powerProfile_->profiles;
+    const auto at = std::ranges::find(all, powerProfile_->profile);
+    const auto count = static_cast<std::ptrdiff_t>(all.size());
+    const std::ptrdiff_t from = at == all.end() ? 0 : at - all.begin();
+    const std::ptrdiff_t next = ((from + (step == 0 ? 1 : step)) % count + count) % count;
+    refuse(powerProfiles_->set(all[static_cast<std::size_t>(next)]));
+    powerProfile_ = powerProfiles_->read();
 }
 
 void GuideMenuController::setLevel(const std::string& id, int level) {

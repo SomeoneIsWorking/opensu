@@ -627,6 +627,9 @@ on Bazzite) has it shown as an Xbox 360 pad while openSU's own Gamescope session
 (`host::ReadablePads`, held by the session process, which outlives the shell), the targets put back
 as the session ends, also when it is stopped from outside; verified on the ROG Ally with an
 InputPlumber-injected press and a SIGTERM to the session.
+With PowerStation (Bazzite, ChimeraOS) the Guide has a Power profile row: Quiet, Balanced or
+Performance set PowerStation's profile and a third, half or all of its most power
+(`host::PowerProfiles`); verified on the ROG Ally (Quiet: `quiet` at 10 W).
 `gamepad::PadTranslator` maps the kernel's gamepad codes to the shell's controls,
 the left stick and hat included, so any driver following them works (xpad, xone,
 hid-playstation, hid-nintendo). Held directions, from a pad or the keyboard, move

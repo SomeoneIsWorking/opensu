@@ -1598,7 +1598,8 @@ class ShellApp final {
     GuideMenuController guideMenu_{
         shell_.screens().navigator(),
         GuideMenuController::Services{host_.power.get(), host_.session.get(), volume_, brightness_,
-                                      retro_, preferences_, shelfOptions_, profiles_.book()},
+                                      host_.powerProfiles.get(), retro_, preferences_,
+                                      shelfOptions_, profiles_.book()},
         sounds_,
         GuideMenuController::Hooks{
             .context =

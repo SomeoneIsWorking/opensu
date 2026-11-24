@@ -1,8 +1,9 @@
 // host_services — the machine's own services the shell reaches: power (logind), session mode
-// (SDDM), Bluetooth (BlueZ), the backlight and openSU's own polkit agent. One
+// (SDDM), Bluetooth (BlueZ), the backlight, the power profile and openSU's own polkit agent. One
 // place decides what a hidden run may touch: it may read the Bluetooth state, the brightness and
-// whether session mode is installed, and it never sleeps, restarts, shuts down, installs or
-// switches session mode, scans, pairs, connects, forgets or writes a brightness.
+// whether session mode is installed and the power profile, and it never sleeps, restarts, shuts
+// down, installs or switches session mode, scans, pairs, connects, forgets or writes a brightness
+// or a power profile.
 #pragma once
 
 #include <filesystem>
@@ -14,6 +15,7 @@
 #include "host/bluetooth.hpp"
 #include "host/polkit_agent.hpp"
 #include "host/power.hpp"
+#include "host/power_profiles.hpp"
 #include "host/session_mode.hpp"
 
 namespace opensu::app {
@@ -28,6 +30,8 @@ struct HostServices {
     std::unique_ptr<host::Bluetooth> bluetooth;
     /// Null on a machine without a backlight device.
     std::unique_ptr<host::Backlight> backlight;
+    /// The power profile; null on a machine without PowerStation.
+    std::unique_ptr<host::PowerProfiles> powerProfiles;
     /// The agent polkit asks for what openSU's children start through pkexec; null where there is
     /// no polkit, and in services made `over` fakes.
     std::unique_ptr<host::PolkitAgent> polkit;

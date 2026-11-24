@@ -45,12 +45,15 @@ HostServices HostServices::over(const host::Runner& run, const host::Spawner& sp
     }
     services.bluetooth = host::makeBluez(run, spawn);
     services.backlight = host::makeLogindBacklight(run, backlightRoot);
+    services.powerProfiles = host::makePowerStationProfiles(run);
     if (hidden) {
         services.bluetooth = host::makeReadOnlyBluetooth(std::move(services.bluetooth),
                                                          std::string{hiddenRunRefusal});
         if (services.backlight) {
             services.backlight = host::makeReadOnlyBacklight(std::move(services.backlight));
         }
+        services.powerProfiles = host::makeReadOnlyPowerProfiles(std::move(services.powerProfiles),
+                                                                 std::string{hiddenRunRefusal});
     }
     return services;
 }

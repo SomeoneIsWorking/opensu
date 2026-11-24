@@ -58,3 +58,8 @@ add_executable(input_plumber_test input_plumber_test.cpp)
 target_link_libraries(input_plumber_test PRIVATE opensu::host)
 opensu_warnings(input_plumber_test)
 add_test(NAME input_plumber COMMAND input_plumber_test)
+
+add_executable(power_profiles_test power_profiles_test.cpp)
+target_link_libraries(power_profiles_test PRIVATE opensu::host)
+opensu_warnings(power_profiles_test)
+add_test(NAME power_profiles COMMAND power_profiles_test)

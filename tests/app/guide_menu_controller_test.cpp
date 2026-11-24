@@ -50,7 +50,7 @@ struct Rig {
                  }}},
           controller{ui.navigator,
                      {machine ? &power : nullptr, machine ? &session : nullptr, volume, brightness,
-                      retro, preferences, shelf, profiles},
+                      nullptr, retro, preferences, shelf, profiles},
                      sounds,
                      app::GuideMenuController::Hooks{
                          .context =
