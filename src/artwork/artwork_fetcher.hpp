@@ -27,6 +27,7 @@
 #include "library/game.hpp"
 #include "library/game_identify.hpp"
 #include "library/steam_items.hpp"
+#include "libretro_index.hpp"
 #include "net/web_client.hpp"
 #include "rom_systems.hpp"
 
@@ -51,6 +52,8 @@ struct RemoteSources {
 
     /// The real sources, but for the stand-ins `config` names.
     [[nodiscard]] static RemoteSources of(const config::Config& config);
+    /// Where libretro's box art comes from when `libretro` fails.
+    LibretroMirror libretroMirror{};
 };
 
 /// The hashed art of Steam app `appId`, portrait before header; empty when it has none.
@@ -142,6 +145,9 @@ class ArtworkFetcher {
     Outcome fetchBoxArt(const library::Game& game, const std::stop_token& stop);
     /// Reads the game's own icon from its files and hands it over.
     void keepIcon(const library::Game& game);
+    /// Box art `name` of `system`, from libretro-thumbnails or its GitHub mirror.
+    Outcome keepBoxArt(const library::Game& game, const library::roms::RomSystem& system,
+                       std::string_view name, const std::stop_token& stop);
     Outcome keep(const library::Game& game, const std::string& url, const std::stop_token& stop);
     /// A system's libretro listing from the store or the server; null when unreachable or stopped.
     const std::vector<std::string>* index(const library::roms::RomSystem& system,

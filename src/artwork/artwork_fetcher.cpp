@@ -339,7 +339,7 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetchBoxPick(const library::Game& game,
     if (system == nullptr) {
         return Outcome::Missing;
     }
-    return keep(game, boxArtUrl(sources_.libretro, *system, game.boxArt.substr(slash + 1)), stop);
+    return keepBoxArt(game, *system, game.boxArt.substr(slash + 1), stop);
 }
 
 ArtworkFetcher::Outcome ArtworkFetcher::fetchBoxArt(const library::Game& game,
@@ -361,7 +361,7 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetchBoxArt(const library::Game& game,
             continue;
         }
         lucent::info("artwork", "{} takes box art {} of {}", game.id, *match, key);
-        const Outcome outcome = keep(game, boxArtUrl(sources_.libretro, *system, *match), stop);
+        const Outcome outcome = keepBoxArt(game, *system, *match, stop);
         if (outcome != Outcome::Missing) {
             return outcome;
         }
@@ -479,7 +479,7 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetchRom(const library::Game& game,
     if (!match) {
         return Outcome::Missing;
     }
-    return keep(game, boxArtUrl(sources_.libretro, *system, *match), stop);
+    return keepBoxArt(game, *system, *match, stop);
 }
 
 ArtworkFetcher::Outcome ArtworkFetcher::keep(const library::Game& game, const std::string& url,
@@ -503,6 +503,30 @@ ArtworkFetcher::Outcome ArtworkFetcher::keep(const library::Game& game, const st
     return Outcome::Saved;
 }
 
+ArtworkFetcher::Outcome ArtworkFetcher::keepBoxArt(const library::Game& game,
+                                                   const library::roms::RomSystem& system,
+                                                   std::string_view name,
+                                                   const std::stop_token& stop) {
+    const net::Result<std::string> bytes =
+        boxArt(stop, web_, sources_.libretro, sources_.libretroMirror, system, name);
+    if (bytes.stopped()) {
+        return Outcome::Stopped;
+    }
+    if (!bytes) {
+        if (isNotFound(bytes.error())) {
+            return Outcome::Missing;
+        }
+        lucent::warn("artwork", "{}", bytes.error());
+        return Outcome::Unreachable;
+    }
+    std::string error;
+    if (!store_.save(game, *bytes, error)) {
+        lucent::warn("artwork", "{}", error);
+        return Outcome::Unreachable;
+    }
+    return Outcome::Saved;
+}
+
 const std::vector<std::string>* ArtworkFetcher::index(const library::roms::RomSystem& rom,
                                                       const std::stop_token& stop) {
     const std::string_view system = rom.key;
@@ -510,7 +534,7 @@ const std::vector<std::string>* ArtworkFetcher::index(const library::roms::RomSy
         return &found->second;
     }
     net::Result<std::vector<std::string>> names =
-        boxArtNames(stop, web_, store_, rom, sources_.libretro);
+        boxArtNames(stop, web_, store_, rom, sources_.libretro, sources_.libretroMirror);
     if (names.stopped()) {
         return nullptr;
     }

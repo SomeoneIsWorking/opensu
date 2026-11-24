@@ -38,7 +38,7 @@ std::unique_ptr<tk::Widget> GameMatchScreen::build(const tk::Theme& theme) {
     const std::vector<GameMatchController::Candidate>& candidates = controller_.candidates();
     for (std::size_t i = 0; i < candidates.size(); ++i) {
         const GameMatchController::Candidate& candidate = candidates[i];
-        const bool boxArt = !candidate.boxArtUrl.empty();
+        const bool boxArt = !candidate.boxArtSystem.empty();
         tk::CardButton& cell = grid.add<tk::CardButton>(
             "match/" + std::to_string(i),
             [this, i] {

@@ -18,6 +18,15 @@ namespace opensu::artwork {
 
 class ArtworkStore;
 
+/// libretro-thumbnails' GitHub repositories, which hold the same files as thumbnails.libretro.com
+/// and stand in for it when it fails (on 2026-11-24 it answered 404 for every system).
+struct LibretroMirror {
+    /// The repositories' API (`<api>/<repo>/git/trees/...`).
+    std::string api{"https://api.github.com/repos/libretro-thumbnails"};
+    /// Their raw files (`<raw>/<repo>/master/Named_Boxarts/<name>.png`).
+    std::string raw{"https://raw.githubusercontent.com/libretro-thumbnails"};
+};
+
 /// The systems a PC game's title may have box art on, likeliest first: those PC games were ported
 /// to and from.
 inline constexpr std::array<std::string_view, 9> boxArtSystems{
@@ -55,10 +64,24 @@ namesMatching(std::string_view term, std::span<const std::string> index, std::si
 [[nodiscard]] std::string boxArtUrl(std::string_view base, const library::roms::RomSystem& system,
                                     std::string_view name);
 
+/// `system`'s repository in libretro-thumbnails on GitHub: its folder name with `_` for spaces.
+[[nodiscard]] std::string mirrorRepository(const library::roms::RomSystem& system);
+
+/// The box art names in a GitHub tree listing of a Named_Boxarts folder: its `.png` files and
+/// symlinks, without `.png`.
+[[nodiscard]] std::vector<std::string> parseMirrorTree(std::string_view json);
+
 /// `system`'s box art names: the listing `store` keeps while it is fresh, else the one under
-/// `base` downloaded on `stop` and kept there.
+/// `base` downloaded on `stop`, else the one in `mirror`, kept in `store`.
 [[nodiscard]] net::Result<std::vector<std::string>>
 boxArtNames(const std::stop_token& stop, const net::WebClient& web, const ArtworkStore& store,
-            const library::roms::RomSystem& system, std::string_view base);
+            const library::roms::RomSystem& system, std::string_view base,
+            const LibretroMirror& mirror = {});
+
+/// Box art `name` of `system`: from under `base`, else from `mirror`, whose symlinks (a file that
+/// holds a sibling's name) are followed.
+[[nodiscard]] net::Result<std::string>
+boxArt(const std::stop_token& stop, const net::WebClient& web, std::string_view base,
+       const LibretroMirror& mirror, const library::roms::RomSystem& system, std::string_view name);
 
 } // namespace opensu::artwork

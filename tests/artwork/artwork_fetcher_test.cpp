@@ -46,6 +46,11 @@ Game game(Source source, std::string id, std::string sourceId, std::string key =
     return out;
 }
 
+/// The fake sources' stand-in for libretro-thumbnails' GitHub repositories.
+opensu::artwork::LibretroMirror mirrorAt(const std::string& base) {
+    return {.api = base + "/gh-api", .raw = base + "/gh-raw"};
+}
+
 std::string read(const fs::path& file) {
     std::ifstream in{file, std::ios::binary};
     return {std::istreambuf_iterator<char>{in}, {}};
@@ -181,6 +186,38 @@ class FakeSources {
         if (path.starts_with("/libretro/") && path.ends_with("/Named_Boxarts/")) {
             return lucent::http::Response::text(200, "OK", "");
         }
+        // libretro-thumbnails' GitHub mirror: SNES box art only there, a symlink to its sibling.
+        const std::string snes =
+            "/gh-api/Nintendo_-_Super_Nintendo_Entertainment_System/git/trees/";
+        if (path == snes + "master") {
+            return lucent::http::Response::json(
+                200, "OK",
+                R"({"tree":[{"path":"Named_Snaps","type":"tree","sha":"snaps"},)"
+                R"({"path":"Named_Boxarts","type":"tree","sha":"boxes"}]})");
+        }
+        if (path == snes + "boxes") {
+            return lucent::http::Response::json(
+                200, "OK",
+                R"({"tree":[{"path":"Super Metroid (Japan, USA) (En,Ja).png","type":"blob"},)"
+                R"({"path":"Super Metroid (USA).png","type":"blob"},)"
+                R"({"path":"extra","type":"tree"}]})");
+        }
+        const std::string snesRaw =
+            "/gh-raw/Nintendo_-_Super_Nintendo_Entertainment_System/master/Named_Boxarts/";
+        if (path == snesRaw + "Super%20Metroid%20(USA).png") {
+            return lucent::http::Response::text(200, "OK",
+                                                "Super Metroid (Japan, USA) (En,Ja).png");
+        }
+        if (path == snesRaw + "Super%20Metroid%20(Japan,%20USA)%20(En,Ja).png") {
+            return lucent::http::Response::binary(200, "OK", "image/png", "\x89PNG metroid box");
+        }
+        if (path.starts_with("/gh-api/") && path.ends_with("/git/trees/master")) {
+            return lucent::http::Response::json(
+                200, "OK", R"({"tree":[{"path":"Named_Boxarts","type":"tree","sha":"none"}]})");
+        }
+        if (path.starts_with("/gh-api/") && path.ends_with("/git/trees/none")) {
+            return lucent::http::Response::json(200, "OK", R"({"tree":[]})");
+        }
         return lucent::http::Response::text(404, "Not Found", "");
     }
 
@@ -208,15 +245,20 @@ void testFetches(const fs::path& root) {
         gogPortrait,
         gogTile,
         game(Source::Gog, "gog:1003", "1003"),
+        game(Source::Rom, "rom:metroid", "snes", "Super Metroid (USA)"),
     };
     {
         ArtworkFetcher fetcher{store,
                                {.libretro = sources.base() + "/libretro",
                                 .steam = sources.base() + "/steam",
-                                .gogdb = sources.base() + "/gogdb"}};
+                                .gogdb = sources.base() + "/gogdb",
+                                .libretroMirror = mirrorAt(sources.base())}};
         fetcher.request(games);
         const std::vector<Fetched> fetched = waitFor(fetcher);
-        expect(fetched.size() == 5, "the Steam, Epic and GOG games and the matched ROM arrive");
+        expect(fetched.size() == 6, "the Steam, Epic and GOG games and the matched ROMs arrive");
+        expect(read(store.pathFor(games[8])) == "\x89PNG metroid box",
+               "a ROM libretro's server lists nothing for gets its box art from GitHub, through "
+               "the symlink its title names");
         expect(read(store.pathFor(games[4])) == "epic tall",
                "an Epic game gets its key image from its URL");
         expect(read(store.pathFor(games[5])) == "gog portrait",
@@ -243,6 +285,7 @@ void testFetches(const fs::path& root) {
                !store.wanted(again[7], now),
            "neither a kept image nor a recent miss is asked for again");
     expect(store.index("gc", now).has_value(), "the listing is kept for the next run");
+    expect(store.index("snes", now).has_value(), "a listing from GitHub is kept too");
 }
 
 void testArcadeNames(const fs::path& root) {
@@ -255,7 +298,8 @@ void testArcadeNames(const fs::path& root) {
         ArtworkFetcher fetcher{store,
                                {.libretro = sources.base() + "/libretro",
                                 .libretroDatabase = sources.base() + "/ldb",
-                                .arcadeDats = {arcadePin}},
+                                .arcadeDats = {arcadePin},
+                                .libretroMirror = mirrorAt(sources.base())},
                                names};
         fetcher.request(games);
         const std::vector<Fetched> fetched = waitFor(fetcher);
@@ -272,7 +316,8 @@ void testArcadeNames(const fs::path& root) {
         ArtworkFetcher fetcher{store,
                                {.libretro = sources.base() + "/libretro",
                                 .libretroDatabase = sources.base() + "/ldb",
-                                .arcadeDats = {arcadePin}},
+                                .arcadeDats = {arcadePin},
+                                .libretroMirror = mirrorAt(sources.base())},
                                names};
         fetcher.request(games);
         expect(waitFor(fetcher).empty(), "kept names are not fetched again");
@@ -283,7 +328,8 @@ void testArcadeNames(const fs::path& root) {
     ArtworkFetcher fetcher{store,
                            {.libretro = sources.base() + "/libretro",
                             .libretroDatabase = sources.base() + "/ldb",
-                            .arcadeDats = {{arcadePin.path, arcadePin.size, 1}}},
+                            .arcadeDats = {{arcadePin.path, arcadePin.size, 1}},
+                            .libretroMirror = mirrorAt(sources.base())},
                            refused};
     fetcher.request(games);
     expect(waitFor(fetcher).empty() && !refused.cached(), "a listing off its pin is not kept");
@@ -294,7 +340,9 @@ void testArcadeBoxArt(const fs::path& root) {
     ArtworkStore store{root};
     const Game sf2 = game(Source::Rom, "rom:sf2", "arcade",
                           "Street Fighter II: The World Warrior (World 910522)");
-    ArtworkFetcher fetcher{store, {.libretro = sources.base() + "/libretro"}};
+    ArtworkFetcher fetcher{
+        store,
+        {.libretro = sources.base() + "/libretro", .libretroMirror = mirrorAt(sources.base())}};
     fetcher.request({sf2});
     expect(waitFor(fetcher).size() == 1 && read(store.pathFor(sf2)) == "sf2 flyer",
            "an arcade game gets the MAME box art its listed description names");
@@ -303,7 +351,11 @@ void testArcadeBoxArt(const fs::path& root) {
 void testUnreachable(const fs::path& root) {
     ArtworkStore store{root};
     // Port 9 is discard; nothing listens on loopback there.
-    ArtworkFetcher fetcher{store, {"http://127.0.0.1:9/libretro", "http://127.0.0.1:9/steam"}};
+    ArtworkFetcher fetcher{store,
+                           {.libretro = "http://127.0.0.1:9/libretro",
+                            .steam = "http://127.0.0.1:9/steam",
+                            .libretroMirror = {.api = "http://127.0.0.1:9/gh-api",
+                                               .raw = "http://127.0.0.1:9/gh-raw"}}};
     const Game steam = game(Source::Steam, "steam:1", "1");
     fetcher.request({steam, game(Source::Steam, "steam:2", "2")});
     expect(waitFor(fetcher).empty(), "nothing arrives from a source that cannot be reached");
@@ -319,7 +371,8 @@ void testOwnGames(const fs::path& root) {
                            {.libretro = base + "/libretro",
                             .steam = base + "/steam",
                             .steamItems = base + "/items",
-                            .steamAssets = base + "/assets/"}};
+                            .steamAssets = base + "/assets/",
+                            .libretroMirror = mirrorAt(base)}};
     const auto own = [](const std::string& id, std::string title, std::string key = {}) {
         Game out = game(Source::Own, "own:" + id, id, std::move(key));
         out.title = std::move(title);

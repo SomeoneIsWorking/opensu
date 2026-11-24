@@ -6,6 +6,8 @@
 #include <cstddef>
 #include <limits>
 
+#include <nlohmann/json.hpp>
+
 #include "artwork_store.hpp"
 #include "lucent/log.h"
 #include "rom_titles.hpp"
@@ -271,9 +273,71 @@ std::string boxArtUrl(std::string_view base, const library::roms::RomSystem& sys
            encodeSegment(name) + ".png";
 }
 
+std::string mirrorRepository(const library::roms::RomSystem& system) {
+    std::string repository{system.libretroName};
+    std::ranges::replace(repository, ' ', '_');
+    return repository;
+}
+
+std::vector<std::string> parseMirrorTree(std::string_view json) {
+    std::vector<std::string> names;
+    const nlohmann::json document = nlohmann::json::parse(json, nullptr, false);
+    if (!document.is_object() || !document.contains("tree") || !document["tree"].is_array()) {
+        return names;
+    }
+    for (const nlohmann::json& entry : document["tree"]) {
+        const std::string path = entry.value("path", "");
+        if (entry.value("type", "") == "blob" && path.size() > pngSuffix.size() &&
+            path.ends_with(pngSuffix)) {
+            names.push_back(path.substr(0, path.size() - pngSuffix.size()));
+        }
+    }
+    return names;
+}
+
+namespace {
+
+/// The names in `mirror`'s Named_Boxarts folder of `system`: the repository's root tree names the
+/// folder's tree, which lists its files.
+net::Result<std::vector<std::string>> mirrorNames(const std::stop_token& stop,
+                                                  const net::WebClient& web,
+                                                  const LibretroMirror& mirror,
+                                                  const library::roms::RomSystem& system) {
+    const std::string trees = mirror.api + "/" + mirrorRepository(system) + "/git/trees/";
+    const net::Result<std::string> root = web.get(stop, trees + "master");
+    if (!root) {
+        return root.as<std::vector<std::string>>(trees + "master: ");
+    }
+    const nlohmann::json document = nlohmann::json::parse(*root, nullptr, false);
+    std::string folder;
+    if (document.is_object() && document.contains("tree") && document["tree"].is_array()) {
+        for (const nlohmann::json& entry : document["tree"]) {
+            if (entry.value("path", "") == "Named_Boxarts" && entry.value("type", "") == "tree") {
+                folder = entry.value("sha", "");
+            }
+        }
+    }
+    if (folder.empty()) {
+        return net::Failure{trees + "master: no Named_Boxarts folder"};
+    }
+    const net::Result<std::string> listing = web.get(stop, trees + folder);
+    if (!listing) {
+        return listing.as<std::vector<std::string>>(trees + folder + ": ");
+    }
+    return parseMirrorTree(*listing);
+}
+
+/// Whether `bytes` are a PNG's.
+bool isPng(std::string_view bytes) {
+    return bytes.starts_with("\x89PNG");
+}
+
+} // namespace
+
 net::Result<std::vector<std::string>>
 boxArtNames(const std::stop_token& stop, const net::WebClient& web, const ArtworkStore& store,
-            const library::roms::RomSystem& system, std::string_view base) {
+            const library::roms::RomSystem& system, std::string_view base,
+            const LibretroMirror& mirror) {
     if (std::optional<std::vector<std::string>> kept =
             store.index(system.key, ArtworkStore::Clock::now())) {
         return std::move(*kept);
@@ -281,13 +345,51 @@ boxArtNames(const std::stop_token& stop, const net::WebClient& web, const Artwor
     const std::string url =
         std::string{base} + "/" + encodeSegment(system.libretroName) + "/Named_Boxarts/";
     const net::Result<std::string> html = web.get(stop, url);
-    if (!html) {
-        return html.as<std::vector<std::string>>(url + ": ");
+    if (html.stopped()) {
+        return net::Stopped{};
     }
-    std::vector<std::string> names = parseIndex(*html);
+    std::vector<std::string> names = html ? parseIndex(*html) : std::vector<std::string>{};
+    if (names.empty()) {
+        net::Result<std::vector<std::string>> mirrored = mirrorNames(stop, web, mirror, system);
+        if (!mirrored) {
+            return mirrored.as<std::vector<std::string>>(
+                url + ": " + (html ? std::string{"no box art listed"} : html.error()) + "; ");
+        }
+        lucent::info("artwork", "{} lists no box art ({}); took {}'s listing from GitHub", url,
+                     html ? std::string{"empty"} : html.error(), system.libretroName);
+        names = *std::move(mirrored);
+    }
     store.saveIndex(system.key, names);
     lucent::info("artwork", "{} box art names listed for {}", names.size(), system.libretroName);
     return names;
+}
+
+net::Result<std::string> boxArt(const std::stop_token& stop, const net::WebClient& web,
+                                std::string_view base, const LibretroMirror& mirror,
+                                const library::roms::RomSystem& system, std::string_view name) {
+    const std::string url = boxArtUrl(base, system, name);
+    net::Result<std::string> bytes = web.get(stop, url);
+    if (bytes || bytes.stopped() || mirror.raw.empty()) {
+        return bytes;
+    }
+    const std::string folder =
+        mirror.raw + "/" + mirrorRepository(system) + "/master/Named_Boxarts/";
+    std::string file = std::string{name} + ".png";
+    // A symlink comes back as its target's name; one hop is all libretro's repositories use.
+    constexpr int mostHops = 2;
+    for (int hop = 0; hop <= mostHops; ++hop) {
+        net::Result<std::string> mirrored = web.get(stop, folder + encodeSegment(file));
+        if (!mirrored || isPng(*mirrored)) {
+            return mirrored;
+        }
+        const std::string_view target = *mirrored;
+        if (target.size() > 512 || !target.ends_with(pngSuffix) ||
+            target.find('\n') != std::string_view::npos) {
+            return net::Failure{folder + file + ": neither a PNG nor a symlink"};
+        }
+        file = std::string{target.substr(target.find_last_of('/') + 1)};
+    }
+    return net::Failure{folder + std::string{name} + ".png: too many symlinks"};
 }
 
 } // namespace opensu::artwork

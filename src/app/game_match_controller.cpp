@@ -110,6 +110,32 @@ fs::path GameMatchController::cached(const std::stop_token& stop, const std::str
     return file;
 }
 
+fs::path GameMatchController::cachedBoxArt(const std::stop_token& stop,
+                                           const Candidate& candidate) const {
+    fs::path file = places_.covers / candidate.boxArtFile;
+    std::error_code ec;
+    if (fs::is_regular_file(file, ec)) {
+        return file;
+    }
+    const library::roms::RomSystem* system = library::roms::systemByKey(candidate.boxArtSystem);
+    if (system == nullptr) {
+        return {};
+    }
+    const net::WebClient web;
+    const net::Result<std::string> bytes =
+        artwork::boxArt(stop, web, places_.sources.libretro, places_.sources.libretroMirror,
+                        *system, candidate.title);
+    if (!bytes) {
+        return {};
+    }
+    std::string error;
+    if (!fileio::writeWhole(file, *bytes, error)) {
+        lucent::warn("match", "{}", error);
+        return {};
+    }
+    return file;
+}
+
 void GameMatchController::find(const std::stop_token& stop, const std::string& term,
                                std::uint64_t generation) {
     Found found{.generation = generation};
@@ -174,8 +200,8 @@ void GameMatchController::findBoxArt(const std::stop_token& stop, const std::str
         return;
     }
     const net::WebClient web;
-    net::Result<std::vector<std::string>> names =
-        artwork::boxArtNames(stop, web, listings_, *system, places_.sources.libretro);
+    net::Result<std::vector<std::string>> names = artwork::boxArtNames(
+        stop, web, listings_, *system, places_.sources.libretro, places_.sources.libretroMirror);
     if (names.stopped()) {
         return;
     }
@@ -192,11 +218,11 @@ void GameMatchController::findBoxArt(const std::stop_token& stop, const std::str
         asked.resize(space == std::string::npos ? 0 : space);
     }
     for (std::string& title : titles) {
-        found.candidates.push_back(Candidate{
-            .key = title,
-            .title = title,
-            .boxArtUrl = artwork::boxArtUrl(places_.sources.libretro, *system, title),
-            .boxArtFile = std::string{system->key} + "-" + artwork::thumbnailName(title) + ".png"});
+        found.candidates.push_back(Candidate{.key = title,
+                                             .title = title,
+                                             .boxArtSystem = std::string{system->key},
+                                             .boxArtFile = std::string{system->key} + "-" +
+                                                           artwork::thumbnailName(title) + ".png"});
     }
     publish(found);
 }
@@ -214,7 +240,8 @@ void GameMatchController::findOwnBoxArt(const std::stop_token& stop, const std::
             continue;
         }
         const net::Result<std::vector<std::string>> names =
-            artwork::boxArtNames(stop, web, listings_, *system, places_.sources.libretro);
+            artwork::boxArtNames(stop, web, listings_, *system, places_.sources.libretro,
+                                 places_.sources.libretroMirror);
         if (names.stopped()) {
             return;
         }
@@ -227,7 +254,7 @@ void GameMatchController::findOwnBoxArt(const std::stop_token& stop, const std::
             found.candidates.push_back(Candidate{
                 .key = std::string{library::boxArtPick} + std::string{key} + "/" + title,
                 .title = title,
-                .boxArtUrl = artwork::boxArtUrl(places_.sources.libretro, *system, title),
+                .boxArtSystem = std::string{system->key},
                 .boxArtFile = std::string{key} + "-" + artwork::thumbnailName(title) + ".png",
                 .system = std::string{system->label}});
             ++offered;
@@ -262,7 +289,7 @@ void GameMatchController::complete(const std::stop_token& stop, Found& found) {
         if (stop.stop_requested()) {
             return;
         }
-        if (candidate.boxArtUrl.empty()) {
+        if (candidate.boxArtSystem.empty()) {
             if (const net::Result<std::string> details =
                     web.get(stop, library::matches::releaseDateUrl(candidate.key,
                                                                    places_.sources.steamStore))) {
@@ -270,7 +297,7 @@ void GameMatchController::complete(const std::stop_token& stop, Found& found) {
             }
             candidate.cover = steamCover(stop, candidate.key);
         } else {
-            candidate.cover = cached(stop, candidate.boxArtUrl, candidate.boxArtFile);
+            candidate.cover = cachedBoxArt(stop, candidate);
         }
         if (stop.stop_requested()) {
             return;

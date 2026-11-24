@@ -68,8 +68,9 @@ class GameMatchController {
         /// `boxArtPick` and `<system>/<title>`.
         std::string key;
         std::string title;
-        /// Box art's URL and the name its file is cached under; empty for a Steam app.
-        std::string boxArtUrl;
+        /// The libretro system key of box art named `title`, and the name its file is cached
+        /// under; empty for a Steam app.
+        std::string boxArtSystem;
         std::string boxArtFile;
         /// The system of an added game's box art, as the player reads it.
         std::string system;
@@ -145,6 +146,9 @@ class GameMatchController {
                                                    const std::string& app) const;
     /// The file at `url` kept in the cache as `name`, downloaded when it is not there; empty when
     /// there is none or `stop` ended its download.
+    /// A box art candidate's cover, downloaded once into the covers folder.
+    [[nodiscard]] std::filesystem::path cachedBoxArt(const std::stop_token& stop,
+                                                     const Candidate& candidate) const;
     [[nodiscard]] std::filesystem::path cached(const std::stop_token& stop, const std::string& url,
                                                const std::string& name) const;
     /// Where the candidates are searched, as the player reads it.
