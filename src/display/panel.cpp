@@ -13,8 +13,8 @@ constexpr std::size_t timingBytes = 18;
 constexpr std::size_t timings = 4;
 constexpr float shapeTolerance = 0.1F;
 
-int twelveBits(std::uint8_t low, int high) noexcept {
-    return static_cast<int>(low) | (high << 8);
+int twelveBits(std::uint8_t low, unsigned high) noexcept {
+    return static_cast<int>(unsigned{low} | (high << 8U));
 }
 
 } // namespace
@@ -31,10 +31,10 @@ Panel panelOf(std::span<const std::uint8_t> edid, bool builtIn) noexcept {
         if (timing[0] == 0 && timing[1] == 0) {
             continue;
         }
-        const int widthPx = twelveBits(timing[2], timing[4] >> 4);
-        const int heightPx = twelveBits(timing[5], timing[7] >> 4);
-        const int widthMm = twelveBits(timing[12], timing[14] >> 4);
-        const int heightMm = twelveBits(timing[13], timing[14] & 0x0F);
+        const int widthPx = twelveBits(timing[2], unsigned{timing[4]} >> 4U);
+        const int heightPx = twelveBits(timing[5], unsigned{timing[7]} >> 4U);
+        const int widthMm = twelveBits(timing[12], unsigned{timing[14]} >> 4U);
+        const int heightMm = twelveBits(timing[13], unsigned{timing[14]} & 0x0FU);
         if (widthPx <= 0 || heightPx <= 0 || widthMm <= 0 || heightMm <= 0) {
             continue;
         }

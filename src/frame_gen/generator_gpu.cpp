@@ -411,9 +411,10 @@ GeneratorImage::GeneratorImage(const GeneratorDevice& gpu, std::uint32_t width,
                                  .arrayLayers = 1,
                                  .samples = VK_SAMPLE_COUNT_1_BIT,
                                  .tiling = VK_IMAGE_TILING_OPTIMAL,
-                                 .usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
-                                          VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-                                          VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                                 .usage = VkImageUsageFlags{VK_IMAGE_USAGE_STORAGE_BIT} |
+                                          VkImageUsageFlags{VK_IMAGE_USAGE_SAMPLED_BIT} |
+                                          VkImageUsageFlags{VK_IMAGE_USAGE_TRANSFER_DST_BIT} |
+                                          VkImageUsageFlags{VK_IMAGE_USAGE_TRANSFER_SRC_BIT},
                                  .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
                                  .queueFamilyIndexCount = 0,
                                  .pQueueFamilyIndices = nullptr,
@@ -446,22 +447,23 @@ GeneratorImage::~GeneratorImage() {
 }
 
 void GeneratorImage::toGeneral(VkCommandBuffer cmd) const {
-    const VkImageMemoryBarrier barrier{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .pNext = nullptr,
-        .srcAccessMask = 0,
-        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT |
-                         VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .newLayout = VK_IMAGE_LAYOUT_GENERAL,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = image_,
-        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                             .baseMipLevel = 0,
-                             .levelCount = 1,
-                             .baseArrayLayer = 0,
-                             .layerCount = 1}};
+    const VkImageMemoryBarrier barrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                                       .pNext = nullptr,
+                                       .srcAccessMask = 0,
+                                       .dstAccessMask = VkAccessFlags{VK_ACCESS_SHADER_READ_BIT} |
+                                                        VkAccessFlags{VK_ACCESS_SHADER_WRITE_BIT} |
+                                                        VkAccessFlags{VK_ACCESS_TRANSFER_READ_BIT} |
+                                                        VkAccessFlags{VK_ACCESS_TRANSFER_WRITE_BIT},
+                                       .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                                       .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+                                       .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                       .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                       .image = image_,
+                                       .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                                            .baseMipLevel = 0,
+                                                            .levelCount = 1,
+                                                            .baseArrayLayer = 0,
+                                                            .layerCount = 1}};
     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
                          0, 0, nullptr, 0, nullptr, 1, &barrier);
 }

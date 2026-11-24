@@ -29,7 +29,7 @@ constexpr std::uint32_t bytesPerPixel = 4;
 
 void put(std::string& out, std::uint64_t value, int bytes) {
     for (int i = 0; i < bytes; ++i) {
-        out.push_back(static_cast<char>((value >> (8 * i)) & 0xFFU));
+        out.push_back(static_cast<char>((value >> (8U * static_cast<unsigned>(i))) & 0xFFU));
     }
 }
 
@@ -46,7 +46,7 @@ class Unpacker {
         std::uint64_t value = 0;
         for (int i = 0; i < bytes; ++i) {
             value |= std::uint64_t{static_cast<unsigned char>(rest_[static_cast<std::size_t>(i)])}
-                     << (8 * i);
+                     << (8U * static_cast<unsigned>(i));
         }
         rest_.remove_prefix(static_cast<std::size_t>(bytes));
         return value;
@@ -198,7 +198,7 @@ class VulkanFrameGen final : public RemoteFrameGen {
     }
 
     /// A real frame in CPU RGBA; false, with why logged, when generation failed.
-    bool real(stream::GuestVideo::Frame frame, std::uint64_t refreshNs) {
+    bool real(stream::GuestVideo::Frame&& frame, std::uint64_t refreshNs) {
         const stream::Picture& picture = frame.picture;
         const auto width = static_cast<std::uint32_t>(picture.width);
         const auto height = static_cast<std::uint32_t>(picture.height);

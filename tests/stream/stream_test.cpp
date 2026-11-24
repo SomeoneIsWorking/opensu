@@ -93,7 +93,7 @@ void datagramsOpenOnce() {
     expect(!opener.open(first), "and only once");
 
     std::string changed = seal.seal(PacketKind::Pad, "pad");
-    changed.back() = static_cast<char>(changed.back() ^ 1);
+    changed.back() = static_cast<char>(static_cast<unsigned char>(changed.back()) ^ 1U);
     expect(!opener.open(changed), "a changed datagram does not open");
     std::string relabelled = seal.seal(PacketKind::Pad, "pad");
     relabelled[1] = static_cast<char>(PacketKind::End);
@@ -491,7 +491,7 @@ void writeCodedPicture(const char* path) {
     for (const stream::wire::VideoPacket& packet :
          packetsOf(coded, 1, source, stream::VideoCodec::PyroWave)) {
         const std::string bytes = stream::wire::write(packet);
-        for (int shift = 0; shift < 32; shift += 8) {
+        for (unsigned shift = 0; shift < 32U; shift += 8U) {
             file.put(static_cast<char>((bytes.size() >> shift) & 0xffU));
         }
         file.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
@@ -870,9 +870,8 @@ void aGuestThatLosesFramesAsksForFewer() {
 
 void theLinkPicksTheCodec() {
     using stream::VideoCodec;
-    const stream::VideoCodecs all = stream::codecBit(VideoCodec::PyroWave) |
-                                    stream::codecBit(VideoCodec::Hevc) |
-                                    stream::codecBit(VideoCodec::H264);
+    const stream::VideoCodecs all = stream::adding(
+        stream::adding(stream::codecBit(VideoCodec::PyroWave), VideoCodec::Hevc), VideoCodec::H264);
     // The opening probe: sent as asked, and the guest's word on it once it is over.
     const auto opening = [](stream::LinkRate& link, double share, stream::VideoCodecs decoders) {
         constexpr std::uint64_t start = 1'000'000;
@@ -906,8 +905,7 @@ void theLinkPicksTheCodec() {
     expect(planned(wired).codec == VideoCodec::PyroWave &&
                planned(wired).bitsPerSecond >= stream::pyroWaveFloor,
            "a link that carries the probe whole gets PyroWave");
-    const auto noPyroWave =
-        static_cast<stream::VideoCodecs>(all & ~stream::codecBit(VideoCodec::PyroWave));
+    const auto noPyroWave = stream::without(all, VideoCodec::PyroWave);
     wired.report(reported(1000, 1000, 1428, noPyroWave), 2'000'000);
     expect(planned(wired).codec == VideoCodec::Hevc &&
                planned(wired).bitsPerSecond <= stream::hardwareTop,

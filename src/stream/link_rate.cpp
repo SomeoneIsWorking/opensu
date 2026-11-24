@@ -340,7 +340,7 @@ void LinkRate::adopt(LinkPlan plan, std::uint64_t nowUs, const char* why) {
 }
 
 void LinkRate::refuse(VideoCodec codec) {
-    encoders_ = static_cast<VideoCodecs>(encoders_ & ~codecBit(codec));
+    encoders_ = without(encoders_, codec);
     choose(capacity_, changedUs_, "a codec could not open");
 }
 

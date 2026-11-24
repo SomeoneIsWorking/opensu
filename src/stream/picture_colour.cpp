@@ -6,6 +6,8 @@ namespace opensu::stream {
 namespace {
 
 constexpr int half = 1 << 15;
+/// Fixed point's one; a quotient rounds toward zero, which the clamp to 0 hides.
+constexpr int fixedUnit = 1 << 16;
 constexpr float fixedOne = 65536.0F;
 /// Chroma's zero, as a sample in [0, 1].
 constexpr float chromaZero = 128.0F / 255.0F;
@@ -33,10 +35,10 @@ void rgbaFromYcbcr(const YcbcrPlanes& planes, std::vector<std::uint8_t>& rgba) {
             const std::size_t chroma = chromaRow + (x / 2) * step;
             const int cb = blue[chroma] - 128;
             const int cr = red[chroma] - 128;
-            out[0] = clamped((lumaValue + bt709.redFromCr * cr + half) >> 16);
-            out[1] =
-                clamped((lumaValue - bt709.greenFromCb * cb - bt709.greenFromCr * cr + half) >> 16);
-            out[2] = clamped((lumaValue + bt709.blueFromCb * cb + half) >> 16);
+            out[0] = clamped((lumaValue + bt709.redFromCr * cr + half) / fixedUnit);
+            out[1] = clamped((lumaValue - bt709.greenFromCb * cb - bt709.greenFromCr * cr + half) /
+                             fixedUnit);
+            out[2] = clamped((lumaValue + bt709.blueFromCb * cb + half) / fixedUnit);
             out[3] = 255;
             out += 4;
         }

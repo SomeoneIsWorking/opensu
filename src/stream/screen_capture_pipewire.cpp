@@ -242,7 +242,8 @@ class ScreenCapture::Stream {
         spa_pod_builder_push_object(&builder, &object, SPA_TYPE_OBJECT_ParamBuffers,
                                     SPA_PARAM_Buffers);
         spa_pod_builder_prop(&builder, SPA_PARAM_BUFFERS_dataType, 0);
-        spa_pod_builder_int(&builder, (1 << SPA_DATA_MemFd) | (1 << SPA_DATA_MemPtr));
+        spa_pod_builder_int(&builder,
+                            static_cast<int>((1U << SPA_DATA_MemFd) | (1U << SPA_DATA_MemPtr)));
         std::array<const spa_pod*, 1> params{
             static_cast<const spa_pod*>(spa_pod_builder_pop(&builder, &object))};
         pw_stream_update_params(self.stream_, params.data(), params.size());
@@ -279,7 +280,9 @@ class ScreenCapture::Stream {
         }
         const spa_data& plane = buffer.datas[0];
         const spa_chunk& chunk = *plane.chunk;
-        if ((chunk.flags & SPA_CHUNK_FLAG_CORRUPTED) != 0 || chunk.stride <= 0) {
+        if ((static_cast<std::uint32_t>(chunk.flags) & std::uint32_t{SPA_CHUNK_FLAG_CORRUPTED}) !=
+                0U ||
+            chunk.stride <= 0) {
             return;
         }
         const auto width = static_cast<std::size_t>(format_.size.width);

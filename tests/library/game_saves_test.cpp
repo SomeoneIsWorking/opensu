@@ -600,8 +600,7 @@ void convertsMgbasSaveForTheRunner() {
            "mGBA's save copies to the runner");
     expect(read(rig.runner / "gba/Minish Cap.srm") == ram,
            "the runner's .srm is the save RAM, the clock's footer dropped");
-    expect(copier.undo(key, std::string{runnerSavesId}, progress).empty() &&
-               tree(rig.runner) == before,
+    expect(copier.undo(key, runnerSavesId, progress).empty() && tree(rig.runner) == before,
            "undo removes the .srm it made");
 
     write(rig.runner / "gba/Minish Cap.srm", std::string(0x8000, 'r'));

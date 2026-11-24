@@ -18,7 +18,7 @@ std::string_view trimmed(std::string_view text) {
 }
 
 bool isSection(std::string_view line, std::string_view section) {
-    return line.size() == section.size() + 2 && line.starts_with("[") && line.ends_with("]") &&
+    return line.size() == section.size() + 2 && line.starts_with('[') && line.ends_with(']') &&
            line.substr(1, section.size()) == section;
 }
 
@@ -41,7 +41,7 @@ Found find(std::string_view text, const IniKey& wanted) {
         end = end == std::string_view::npos ? text.size() : end;
         const std::string_view line = trimmed(text.substr(at, end - at));
         const std::size_t next = end == text.size() ? end : end + 1;
-        if (line.starts_with("[")) {
+        if (line.starts_with('[')) {
             inSection = isSection(line, section);
             if (inSection) {
                 found.sectionEnd = next;
@@ -92,7 +92,7 @@ std::vector<std::string> iniKeysIn(std::string_view text, std::string_view secti
         end = end == std::string_view::npos ? text.size() : end;
         const std::string_view line = trimmed(text.substr(at, end - at));
         at = end == text.size() ? end : end + 1;
-        if (line.starts_with("[")) {
+        if (line.starts_with('[')) {
             inSection = isSection(line, section);
             continue;
         }

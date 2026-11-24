@@ -32,8 +32,8 @@ constexpr int rate = 22050;
 constexpr int frames = 2205;
 
 void put32(std::string& out, std::uint32_t value) {
-    for (int i = 0; i < 4; ++i) {
-        out.push_back(static_cast<char>((value >> (8 * i)) & 0xFFU));
+    for (unsigned i = 0; i < 4; ++i) {
+        out.push_back(static_cast<char>((value >> (8U * i)) & 0xFFU));
     }
 }
 

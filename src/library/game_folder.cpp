@@ -359,7 +359,7 @@ std::vector<fs::directory_entry> listed(const fs::path& folder) {
     std::error_code error;
     for (const fs::directory_entry& entry :
          fs::directory_iterator{folder, fs::directory_options::skip_permission_denied, error}) {
-        if (!entry.path().filename().string().starts_with(".")) {
+        if (!entry.path().filename().string().starts_with('.')) {
             entries.push_back(entry);
         }
     }

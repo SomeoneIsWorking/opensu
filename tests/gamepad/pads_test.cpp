@@ -1013,7 +1013,7 @@ int main() try {
                }),
                "a Classic Controller plugged into it is set up");
         std::array<std::uint8_t, 6> bytes = FakeBarRemote::classicIdle();
-        bytes[5] = static_cast<std::uint8_t>(bytes[5] & ~0x08);
+        bytes[5] = static_cast<std::uint8_t>(bytes[5] & ~0x08U);
         remote.report(0x00, 0x00, bytes);
         expect(serveUntil([&] {
                    return pressed(heard, Button::Y);

@@ -171,7 +171,7 @@ std::int16_t Joypad::state(unsigned port, unsigned id) const {
     if (id >= buttons) {
         return 0;
     }
-    return static_cast<std::int16_t>((bits >> id) & 1U);
+    return static_cast<std::int16_t>((unsigned{bits} >> id) & 1U);
 }
 
 std::int16_t Joypad::analog(unsigned port, unsigned index, unsigned id) const {

@@ -13,3 +13,6 @@ CheckOptions:
     value: '0'
   - key: bugprone-easily-swappable-parameters.MinimumLength
     value: '3'
+  # A positive literal mask or shift count carries no sign; signed variables still count.
+  - key: bugprone-signed-bitwise.IgnorePositiveIntegerLiterals
+    value: 'true'

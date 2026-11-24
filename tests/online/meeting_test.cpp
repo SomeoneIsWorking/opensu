@@ -64,7 +64,8 @@ class StunServer {
             }
             std::string answer{"\x01\x01\x00\x0C", 4};
             answer.append(buffer.data() + 4, 16);
-            const auto port = static_cast<std::uint16_t>((from.port + shift_) ^ 0x2112U);
+            const auto port =
+                static_cast<std::uint16_t>(static_cast<unsigned>(from.port + shift_) ^ 0x2112U);
             answer.append("\x00\x20\x00\x08\x00\x01", 6);
             answer.push_back(static_cast<char>(port >> 8U));
             answer.push_back(static_cast<char>(port & 0xFFU));

@@ -224,7 +224,8 @@ void WiiSlot::takeStatus(std::span<const std::uint8_t> report) {
     if (!remote_) {
         remote_ = true;
         const std::array<std::uint8_t, 2> lights{
-            setLights, static_cast<std::uint8_t>(firstLight << std::clamp(index_, 0, 3))};
+            setLights, static_cast<std::uint8_t>(unsigned{firstLight} << static_cast<unsigned>(
+                                                     std::clamp(index_, 0, 3)))};
         static_cast<void>(send(lights));
     }
     plugged_ = (report[3] & extensionPlugged) != 0;
@@ -313,11 +314,16 @@ void WiiSlot::takeExtension(WiiRemotePart part, std::span<const std::uint8_t> by
             key(part, held.code, (bytes[held.byte] & held.bit) == 0, out);
         }
     } else {
-        const std::int32_t rightX =
-            (((bytes[0] >> 3) & 0x18) | ((bytes[1] >> 5) & 0x06) | ((bytes[2] >> 7) & 0x01)) << 1;
-        const std::int32_t rightY = (bytes[2] & 0x1f) << 1;
-        const std::int32_t rightTrigger = (bytes[3] & 0x1f) << 1;
-        const std::int32_t leftTrigger = (((bytes[2] >> 2) & 0x18) | ((bytes[3] >> 5) & 0x07)) << 1;
+        const unsigned b0 = bytes[0];
+        const unsigned b1 = bytes[1];
+        const unsigned b2 = bytes[2];
+        const unsigned b3 = bytes[3];
+        const auto rightX = static_cast<std::int32_t>(
+            (((b0 >> 3U) & 0x18U) | ((b1 >> 5U) & 0x06U) | ((b2 >> 7U) & 0x01U)) << 1U);
+        const auto rightY = static_cast<std::int32_t>((b2 & 0x1fU) << 1U);
+        const auto rightTrigger = static_cast<std::int32_t>((b3 & 0x1fU) << 1U);
+        const auto leftTrigger =
+            static_cast<std::int32_t>((((b2 >> 2U) & 0x18U) | ((b3 >> 5U) & 0x07U)) << 1U);
         axis(part, ABS_HAT1X, (bytes[0] & 0x3f) - classicMiddle, out);
         axis(part, ABS_HAT1Y, (bytes[1] & 0x3f) - classicMiddle, out);
         axis(part, ABS_HAT2X, rightX - classicMiddle, out);

@@ -270,8 +270,8 @@ class Decoder final : public VideoDecoder {
         CVPixelBufferLockBaseAddress(image, kCVPixelBufferLock_ReadOnly);
         const auto* base = static_cast<const std::uint8_t*>(CVPixelBufferGetBaseAddress(image));
         const std::size_t stride = CVPixelBufferGetBytesPerRow(image);
-        const auto width = static_cast<int>(CVPixelBufferGetWidth(image)) & ~1;
-        const auto height = static_cast<int>(CVPixelBufferGetHeight(image)) & ~1;
+        const auto width = codedSide(static_cast<int>(CVPixelBufferGetWidth(image)));
+        const auto height = codedSide(static_cast<int>(CVPixelBufferGetHeight(image)));
         picture.width = width;
         picture.height = height;
         picture.dmabuf.reset();

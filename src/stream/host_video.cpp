@@ -146,8 +146,8 @@ void HostVideo::send(const CapturedFrame& frame) {
         frames_ = number;
         const std::lock_guard lock{lastMutex_};
         lastNumber_ = number;
-        lastWidth_ = frame.width & ~1;
-        lastHeight_ = frame.height & ~1;
+        lastWidth_ = codedSide(frame.width);
+        lastHeight_ = codedSide(frame.height);
         lastStride_ = frame.stride;
         last_.assign(frame.luma.begin(), frame.luma.end());
         last_.insert(last_.end(), frame.chroma.begin(), frame.chroma.end());
@@ -213,8 +213,8 @@ bool HostVideo::code(const CapturedFrame& frame, VideoCodec codec, const Group& 
         parity = parityOf(coded.packets);
     }
     wire::VideoPacket packet{.frame = number,
-                             .width = static_cast<std::uint16_t>(frame.width & ~1),
-                             .height = static_cast<std::uint16_t>(frame.height & ~1),
+                             .width = static_cast<std::uint16_t>(codedSide(frame.width)),
+                             .height = static_cast<std::uint16_t>(codedSide(frame.height)),
                              .codec = static_cast<std::uint8_t>(codec),
                              .key = coded.key,
                              .part = 0,

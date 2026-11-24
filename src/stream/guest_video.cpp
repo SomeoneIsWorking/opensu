@@ -159,7 +159,7 @@ void GuestVideo::decode(const Queued& queued) {
         whole = decoder->push(packet);
     } catch (const std::runtime_error& failure) {
         lucent::warn("video", "cannot decode {}: {}", nameOf(codec), failure.what());
-        undecodable_ = static_cast<VideoCodecs>(undecodable_ | codecBit(codec));
+        undecodable_ = adding(undecodable_, codec);
         decoders_.erase(codec);
         building_.reset();
         return;

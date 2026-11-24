@@ -305,7 +305,7 @@ void checkLauncher(Containment containment, const fs::path& scratch) {
         std::string bits;
         in >> label >> bits;
         expect(label == "SigBlk:", "the probe recorded its blocked signals");
-        constexpr unsigned long termBit = 1UL << (SIGTERM - 1);
+        constexpr unsigned long termBit = 1UL << static_cast<unsigned>(SIGTERM - 1);
         expect((std::stoul(bits, nullptr, 16) & termBit) == 0,
                "the started program does not inherit a blocked SIGTERM");
     }

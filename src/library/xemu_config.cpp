@@ -21,7 +21,7 @@ std::string xemuLaunchSettings(std::string_view toml, std::string_view padGuid) 
     }
     const std::string quoted = "'" + std::string{padGuid} + "'";
     for (int port = 1; port <= xemuPorts; ++port) {
-        out = withIniValue(out, {std::string{bindings}, "port" + std::to_string(port)}, quoted);
+        out = withIniValue(out, {bindings, "port" + std::to_string(port)}, quoted);
     }
     lucent::info("xemu", "ports 1 to {} bound to the virtual pads, {}", xemuPorts, padGuid);
     return out;

@@ -132,18 +132,23 @@ bool isSteamComponent(const std::string& installDir) {
 /// Steam's own install flag, authoritative even when the game directory has been
 /// moved or is a symlink.
 /// StateFlags bits: the app is fully installed; an update must be applied before it runs.
-constexpr long long kFullyInstalled = 4;
-constexpr long long kUpdateRequired = 2;
+constexpr unsigned long long kFullyInstalled = 4;
+constexpr unsigned long long kUpdateRequired = 2;
+
+/// Whether Steam's StateFlags `flags` carry `bit`.
+bool hasStateFlag(long long flags, unsigned long long bit) {
+    return (static_cast<unsigned long long>(flags) & bit) != 0;
+}
 
 bool stateFlagsInstalled(const Node& state) {
     const std::optional<long long> flags = state.integer({"StateFlags"});
-    return flags.has_value() && (*flags & kFullyInstalled) != 0;
+    return flags.has_value() && hasStateFlag(*flags, kFullyInstalled);
 }
 
 /// StateUpdateRequired: Steam has a newer build (TargetBuildID) to apply over buildid.
 bool stateFlagsUpdatePending(const Node& state) {
     const std::optional<long long> flags = state.integer({"StateFlags"});
-    return flags.has_value() && (*flags & kUpdateRequired) != 0;
+    return flags.has_value() && hasStateFlag(*flags, kUpdateRequired);
 }
 
 /// Merges every user profile's app data. Later profiles win, which matches how
@@ -470,7 +475,7 @@ long long Library::stateFlags(std::string_view appId) const {
 
 bool Library::installed(std::string_view appId) const {
     const long long flags = stateFlags(appId);
-    return (flags & kFullyInstalled) != 0 && (flags & kUpdateRequired) == 0;
+    return hasStateFlag(flags, kFullyInstalled) && !hasStateFlag(flags, kUpdateRequired);
 }
 
 std::vector<Game> Library::list() const {

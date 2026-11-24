@@ -119,8 +119,8 @@ class HostInput::Devices {
             display_->nudge(state.moveX - before.moveX, state.moveY - before.moveY);
         }
         for (std::size_t i = 0; i < pointerButtons.size(); ++i) {
-            const bool was = (before.buttons >> i & 1U) != 0;
-            const bool is = (state.buttons >> i & 1U) != 0;
+            const bool was = (unsigned{before.buttons} >> i & 1U) != 0;
+            const bool is = (unsigned{state.buttons} >> i & 1U) != 0;
             if (was != is) {
                 display_->button(pointerButtons[i], is);
             }

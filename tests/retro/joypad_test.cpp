@@ -59,7 +59,8 @@ void state() {
     expect(joypad.state(0, RETRO_DEVICE_ID_JOYPAD_A) == 0, "another button reads 0");
     joypad.key(SDL_SCANCODE_RETURN, true);
     expect(joypad.state(0, RETRO_DEVICE_ID_JOYPAD_MASK) ==
-               ((1 << RETRO_DEVICE_ID_JOYPAD_B) | (1 << RETRO_DEVICE_ID_JOYPAD_START)),
+               static_cast<std::int16_t>((1U << RETRO_DEVICE_ID_JOYPAD_B) |
+                                         (1U << RETRO_DEVICE_ID_JOYPAD_START)),
            "the mask holds pad and keyboard buttons");
     joypad.key(SDL_SCANCODE_RETURN, false);
     joypad.apply(press(Button::A, false, "/dev/input/event3"));

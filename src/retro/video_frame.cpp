@@ -29,12 +29,12 @@ void convertRow(const std::uint8_t* in, std::uint8_t* out, unsigned width,
             std::uint16_t value = 0;
             std::memcpy(&value, in + static_cast<std::size_t>(x) * 2, sizeof(value));
             if (format == RETRO_PIXEL_FORMAT_RGB565) {
-                pixel[0] = widen5((value >> 11U) & 0x1FU);
-                pixel[1] = widen6((value >> 5U) & 0x3FU);
+                pixel[0] = widen5((unsigned{value} >> 11U) & 0x1FU);
+                pixel[1] = widen6((unsigned{value} >> 5U) & 0x3FU);
                 pixel[2] = widen5(value & 0x1FU);
             } else {
-                pixel[0] = widen5((value >> 10U) & 0x1FU);
-                pixel[1] = widen5((value >> 5U) & 0x1FU);
+                pixel[0] = widen5((unsigned{value} >> 10U) & 0x1FU);
+                pixel[1] = widen5((unsigned{value} >> 5U) & 0x1FU);
                 pixel[2] = widen5(value & 0x1FU);
             }
         }

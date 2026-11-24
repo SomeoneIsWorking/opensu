@@ -18,16 +18,16 @@ constexpr std::string_view unbound{"-1"};
 
 /// melonDS's joystick code: a button's index, or `0x100 | hat << 4 | direction` for a hat, either
 /// with `0x10000 | axis << 24 | direction << 20` for an axis (direction 0 positive, 1 negative).
-constexpr int hat(int direction) {
-    return 0x100 | direction;
+constexpr unsigned hat(unsigned direction) {
+    return 0x100U | direction;
 }
-constexpr int axis(int index, int direction) {
-    return 0x10000 | (index << 24) | (direction << 20);
+constexpr unsigned axis(unsigned index, unsigned direction) {
+    return 0x10000U | (index << 24U) | (direction << 20U);
 }
 
 struct DefaultBinding {
     std::string_view key;
-    int code;
+    unsigned code;
 };
 
 // The virtual pad as SDL's joystick reads xpad: A b0, B b1, X b2, Y b3, LB b4, RB b5, Back b6,

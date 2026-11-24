@@ -239,7 +239,7 @@ std::int16_t NetplayLink::state(unsigned port, unsigned id) const {
     if (id == RETRO_DEVICE_ID_JOYPAD_MASK) {
         return static_cast<std::int16_t>(bits);
     }
-    return id < 16 ? static_cast<std::int16_t>((bits >> id) & 1U) : std::int16_t{0};
+    return id < 16 ? static_cast<std::int16_t>((unsigned{bits} >> id) & 1U) : std::int16_t{0};
 }
 
 std::int16_t NetplayLink::analog(unsigned port, unsigned index, unsigned id) const {

@@ -45,10 +45,6 @@ class Device {
 constexpr int probeWidth = 1280;
 constexpr int probeHeight = 720;
 
-int even(int value) {
-    return value & ~1;
-}
-
 /// The bytes a frame may code to at `bitsPerSecond`.
 std::size_t frameBytes(std::uint64_t bitsPerSecond) {
     return static_cast<std::size_t>(bitsPerSecond / 8 / videoFramesPerSecond);
@@ -67,8 +63,8 @@ class Encoder final : public VideoEncoder {
 
     CodedFrame encode(const CapturedFrame& frame, std::uint64_t bitsPerSecond,
                       bool /*key*/) override {
-        const int width = even(frame.width);
-        const int height = even(frame.height);
+        const int width = codedSide(frame.width);
+        const int height = codedSide(frame.height);
         if (encoder_ == nullptr || width != width_ || height != height_) {
             drop();
             const pyrowave_encoder_create_info info{.device = device_.get(),

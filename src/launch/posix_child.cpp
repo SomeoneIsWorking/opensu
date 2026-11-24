@@ -291,7 +291,9 @@ std::unique_ptr<Conversation> Conversation::start(const std::string& program,
     inReader.close();
     outWriter.close();
     // Read only what is there, so the caller's poll loop never blocks on the child.
-    fcntl(outReader.get(), F_SETFL, fcntl(outReader.get(), F_GETFL) | O_NONBLOCK);
+    fcntl(outReader.get(), F_SETFL,
+          static_cast<int>(static_cast<unsigned>(fcntl(outReader.get(), F_GETFL)) |
+                           unsigned{O_NONBLOCK}));
     return std::make_unique<Conversation>(
         pid, Conversation::Ends{.input = inWriter.release(), .output = outReader.release()});
 }

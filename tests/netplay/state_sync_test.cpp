@@ -140,7 +140,7 @@ void aTamperedStateNeverReachesTheCaller() {
     Pair pair;
     pair.offers.tamper = [](std::string& message) {
         if (message.front() == chunkKind && message.size() > 100) {
-            message[100] = static_cast<char>(message[100] ^ 1);
+            message[100] = static_cast<char>(static_cast<unsigned char>(message[100]) ^ 1U);
         }
     };
     const auto theirs = stateOf(5000, 1);

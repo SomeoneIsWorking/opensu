@@ -38,7 +38,8 @@ std::optional<std::vector<std::uint8_t>> hexBytes(std::string_view hex) {
             wipeBytes(bytes.data(), bytes.size());
             return std::nullopt;
         }
-        bytes.push_back(static_cast<std::uint8_t>((high << 4) | low));
+        bytes.push_back(static_cast<std::uint8_t>((static_cast<unsigned>(high) << 4U) |
+                                                  static_cast<unsigned>(low)));
     }
     return bytes;
 }

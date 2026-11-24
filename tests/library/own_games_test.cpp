@@ -190,8 +190,8 @@ std::string shortcut(const std::string& index, std::int32_t appId, const std::st
     };
     std::string out = std::string{"\x00", 1} + index + '\0';
     out += std::string{"\x02"} + "appid" + '\0';
-    for (int i = 0; i < 4; ++i) {
-        out += static_cast<char>((static_cast<std::uint32_t>(appId) >> (8 * i)) & 0xFFU);
+    for (unsigned i = 0; i < 4; ++i) {
+        out += static_cast<char>((static_cast<std::uint32_t>(appId) >> (8U * i)) & 0xFFU);
     }
     out += text("AppName", name) + text("Exe", exe) + text("StartDir", start) +
            text("LaunchOptions", options);

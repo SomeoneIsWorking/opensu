@@ -277,8 +277,8 @@ class Decoder final : public VideoDecoder {
             return false;
         }
         YcbcrPlanes planes{.luma = bytes.first(lumaBytes),
-                           .width = layout_.width & ~1,
-                           .height = layout_.height & ~1,
+                           .width = codedSide(layout_.width),
+                           .height = codedSide(layout_.height),
                            .lumaStride = layout_.stride};
         const std::span<const std::uint8_t> chroma = bytes.subspan(lumaBytes);
         if (layout_.colour == colourNv12) {

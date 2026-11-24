@@ -730,7 +730,8 @@ void EvdevPads::run(const std::stop_token& stop) {
             if (fd.revents == 0) {
                 continue;
             }
-            const bool hungUp = (fd.revents & (POLLHUP | POLLERR)) != 0;
+            const bool hungUp =
+                (static_cast<unsigned>(fd.revents) & unsigned{POLLHUP | POLLERR}) != 0U;
             const Polled& source = polled[at];
             std::vector<PadEvent> read;
             if (source.kind == Polled::Kind::Loose) {
@@ -876,7 +877,7 @@ void EvdevPads::run(const std::stop_token& stop) {
         // A batch is forwarded before its controls are reported.
         publish(events);
 
-        if ((fds[1].revents & POLLIN) != 0) {
+        if ((static_cast<unsigned>(fds[1].revents) & unsigned{POLLIN}) != 0U) {
             std::array<char, 4096> buffer{};
             const ssize_t got = ::read(watch_, buffer.data(), buffer.size());
             bool hidrawChanged = false;

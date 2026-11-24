@@ -84,7 +84,7 @@ void checkPattern(const std::string& pattern, const std::string& where,
 ReleaseSource releaseOf(const json& object, const std::string& where, std::string asset) {
     ReleaseSource release{text(object, "api", where, true), std::move(asset),
                           text(object, "downloads", where, true)};
-    if (release.downloads.find("://") == std::string::npos || !release.downloads.ends_with("/")) {
+    if (release.downloads.find("://") == std::string::npos || !release.downloads.ends_with('/')) {
         throw Malformed{where + ": \"downloads\" must be an origin and path ending in /"};
     }
     return release;

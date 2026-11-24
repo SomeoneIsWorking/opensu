@@ -46,7 +46,13 @@ using VideoCodecs = std::uint8_t;
     return static_cast<VideoCodecs>(1U << static_cast<unsigned>(codec));
 }
 [[nodiscard]] constexpr bool holds(VideoCodecs codecs, VideoCodec codec) noexcept {
-    return (codecs & codecBit(codec)) != 0;
+    return (unsigned{codecs} & unsigned{codecBit(codec)}) != 0U;
+}
+[[nodiscard]] constexpr VideoCodecs adding(VideoCodecs codecs, VideoCodec codec) noexcept {
+    return static_cast<VideoCodecs>(unsigned{codecs} | unsigned{codecBit(codec)});
+}
+[[nodiscard]] constexpr VideoCodecs without(VideoCodecs codecs, VideoCodec codec) noexcept {
+    return static_cast<VideoCodecs>(unsigned{codecs} & ~unsigned{codecBit(codec)});
 }
 /// "pyrowave", "h264", "hevc" or "av1".
 [[nodiscard]] std::string_view nameOf(VideoCodec codec) noexcept;
@@ -79,6 +85,11 @@ class VideoEncoder {
     [[nodiscard]] virtual CodedFrame encode(const CapturedFrame& frame, std::uint64_t bitsPerSecond,
                                             bool key) = 0;
 };
+/// A picture side as a 4:2:0 codec takes it: even, its odd pixel dropped.
+[[nodiscard]] constexpr int codedSide(int pixels) noexcept {
+    return pixels - pixels % 2;
+}
+
 /// An encoder for `codec`; throws `std::runtime_error` saying why there is none.
 [[nodiscard]] std::unique_ptr<VideoEncoder> openEncoder(VideoCodec codec);
 

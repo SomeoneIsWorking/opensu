@@ -23,7 +23,7 @@ using test::expect;
 std::string playtimeBin(const std::vector<std::pair<std::uint64_t, std::uint64_t>>& records) {
     std::string bytes;
     const auto put = [&bytes](std::uint64_t value) {
-        for (int shift = 0; shift < 64; shift += 8) {
+        for (unsigned shift = 0; shift < 64; shift += 8) {
             bytes.push_back(static_cast<char>((value >> shift) & 0xFFU));
         }
     };

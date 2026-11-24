@@ -121,8 +121,8 @@ void testClassic() {
     expect(bar.slot.remote() && bar.slot.extension() == WiiRemotePart::Classic,
            "a remote that arrives with its Classic Controller has it named");
     std::array<std::uint8_t, 6> bytes = FakeBarRemote::classicIdle();
-    bytes[5] = static_cast<std::uint8_t>(bytes[5] & ~0x40);          // B
-    bytes[0] = static_cast<std::uint8_t>((bytes[0] & ~0x3f) | 0x3f); // left stick fully right
+    bytes[5] = static_cast<std::uint8_t>(bytes[5] & ~0x40U);           // B
+    bytes[0] = static_cast<std::uint8_t>((bytes[0] & ~0x3fU) | 0x3fU); // left stick fully right
     remote.report(0x00, 0x00, bytes);
     const std::vector<WiiPartEvent> events = talk(bar.slot, remote);
     expect(has(events, WiiRemotePart::Classic, EV_KEY, BTN_B, 1), "its B comes as BTN_B");

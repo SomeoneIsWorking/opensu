@@ -170,8 +170,8 @@ class Encoder final : public VideoEncoder {
     }
 
     CodedFrame encode(const CapturedFrame& frame, std::uint64_t bitsPerSecond, bool key) override {
-        const int width = frame.width & ~1;
-        const int height = frame.height & ~1;
+        const int width = codedSide(frame.width);
+        const int height = codedSide(frame.height);
         const double change =
             std::abs(static_cast<double>(bitsPerSecond) - static_cast<double>(bitsPerSecond_)) /
             static_cast<double>(std::max<std::uint64_t>(bitsPerSecond_, 1));
@@ -207,7 +207,8 @@ class Encoder final : public VideoEncoder {
             check(got, "take a coded picture");
             data.append(reinterpret_cast<const char*>(packet->data),
                         static_cast<std::size_t>(packet->size));
-            out.key = out.key || (packet->flags & AV_PKT_FLAG_KEY) != 0;
+            out.key =
+                out.key || (static_cast<unsigned>(packet->flags) & unsigned{AV_PKT_FLAG_KEY}) != 0U;
             av_packet_unref(packet.get());
         }
         for (std::size_t at = 0; at < data.size(); at += videoPacketBytes) {
@@ -288,7 +289,8 @@ class Decoder final : public VideoDecoder {
         context_->hw_device_ctx = av_buffer_ref(device_.get());
         context_->get_format = vaapiFormat;
         context_->thread_count = 1;
-        context_->flags |= AV_CODEC_FLAG_LOW_DELAY;
+        context_->flags = static_cast<int>(static_cast<unsigned>(context_->flags) |
+                                           unsigned{AV_CODEC_FLAG_LOW_DELAY});
         context_->extra_hw_frames = surfacesHeld;
         check(avcodec_open2(context_.get(), decoder, nullptr), "open its decoder");
         lucent::info("video", "decoding {} through VA-API", names_.decoder);
@@ -322,8 +324,8 @@ class Decoder final : public VideoDecoder {
         Frame planes{av_frame_alloc()};
         planes->format = AV_PIX_FMT_NV12;
         check(av_hwframe_transfer_data(planes.get(), surface.get(), 0), "read a picture back");
-        const int width = planes->width & ~1;
-        const int height = planes->height & ~1;
+        const int width = codedSide(planes->width);
+        const int height = codedSide(planes->height);
         const auto lumaStride = static_cast<std::size_t>(planes->linesize[0]);
         const auto chromaStride = static_cast<std::size_t>(planes->linesize[1]);
         const std::span<const std::uint8_t> luma{planes->data[0],
@@ -385,8 +387,8 @@ class Decoder final : public VideoDecoder {
         if (planes.size() != 2) {
             return false;
         }
-        picture.width = surface.width & ~1;
-        picture.height = surface.height & ~1;
+        picture.width = codedSide(surface.width);
+        picture.height = codedSide(surface.height);
         picture.rgba.clear();
         picture.dmabuf =
             gpu2d::DmabufYcbcr{.luma = planes[0],

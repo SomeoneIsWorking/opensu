@@ -344,12 +344,12 @@ void signalTree(pid_t game, bool gameReaped, int signal) {
         if (::poll(watched.data(), watched.size(), timeout) < 0 && errno != EINTR) {
             beginStop();
         }
-        if ((watched[1].revents & (POLLERR | POLLHUP)) != 0) {
+        if ((static_cast<unsigned>(watched[1].revents) & unsigned{POLLERR | POLLHUP}) != 0U) {
             // openSU's end is closed only when openSU is gone.
             watched[1].fd = -1;
             beginStop();
         }
-        if ((watched[0].revents & POLLIN) != 0) {
+        if ((static_cast<unsigned>(watched[0].revents) & unsigned{POLLIN}) != 0U) {
             signalfd_siginfo taken{};
             if (::read(signals, &taken, sizeof taken) == sizeof taken &&
                 taken.ssi_signo != SIGCHLD) {
@@ -473,7 +473,9 @@ bool Keeper::start(const std::string& group, const std::string& program,
         failure = "could not start " + programName(program) + ": " + std::strerror(error);
         return false;
     }
-    ::fcntl(eventsReader.get(), F_SETFL, ::fcntl(eventsReader.get(), F_GETFL) | O_NONBLOCK);
+    ::fcntl(eventsReader.get(), F_SETFL,
+            static_cast<int>(static_cast<unsigned>(::fcntl(eventsReader.get(), F_GETFL)) |
+                             unsigned{O_NONBLOCK}));
     events_.emplace(eventsReader.release());
     lucent::info("launch", "{} started under keeper {} for {}", program, pid, group);
     return true;

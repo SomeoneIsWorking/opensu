@@ -229,7 +229,7 @@ std::string frameGenSummary(const FrameGenSettings& settings) {
             }
             text += "." + decimals;
         }
-        text += "x";
+        text += 'x';
         break;
     }
     case FrameGenMode::Adaptive:

@@ -16,6 +16,11 @@ using gamepad::Button;
 /// In assets, beside the touch art.
 constexpr std::string_view fontName = "CalSans-Regular.ttf";
 
+/// `eighths` of a turn from east as a sector 0 to 7.
+int sectorOf(long eighths) {
+    return static_cast<int>(((eighths % 8) + 8) % 8);
+}
+
 std::vector<Button> eightWay(int sector) {
     switch (sector) {
     case 0:
@@ -85,10 +90,10 @@ std::vector<Button> stickButtons(const Stick& stick, float x, float y) {
     constexpr float eighth = std::numbers::pi_v<float> / 4.0F;
     const float angle = std::atan2(dy, dx);
     if (stick.ways == 4) {
-        return eightWay((static_cast<int>(std::lround(angle / (eighth * 2.0F))) * 2) & 7);
+        return eightWay(sectorOf(std::lround(angle / (eighth * 2.0F)) * 2));
     }
     // A diagonal holds both of its directions.
-    return eightWay(static_cast<int>(std::lround(angle / eighth)) & 7);
+    return eightWay(sectorOf(std::lround(angle / eighth)));
 }
 
 } // namespace

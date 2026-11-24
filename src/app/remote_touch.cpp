@@ -99,7 +99,7 @@ void RemoteTouch::noteHeld(std::vector<gamepad::Event>& events) {
             note(button, true);
         }
     }
-    held_ = held;
+    held_ = std::move(held);
 }
 
 std::optional<gpu2d::TextureView> RemoteTouch::view() {
