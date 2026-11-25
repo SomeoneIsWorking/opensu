@@ -57,6 +57,7 @@ constexpr ProbeRoute probeRoutes[] = {
     {"/details/settings", ControlCommand::Kind::OpenGameSettings, true},
     {"/search", ControlCommand::Kind::Search, false},
     {"/settings/open", ControlCommand::Kind::OpenSettings, true},
+    {"/devices/open", ControlCommand::Kind::OpenDevices, true},
 };
 
 /// Quotes a JSON string, including the control characters a title may contain.

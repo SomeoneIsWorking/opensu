@@ -1576,7 +1576,10 @@ class ShellApp final {
                                                        }}};
     /// The handheld's stick lights, set to the saved choice at start.
     RingLightSettings ringLights_{
-        preferences_, device::RingLights::find(), host_.ringLights.get(),
+        preferences_,
+        resolved_.ledsStandIn.empty() ? device::RingLights::find()
+                                      : device::RingLights::find(resolved_.ledsStandIn),
+        host_.ringLights.get(),
         RingLightSettings::Hooks{.refused =
                                      [this](const std::string& why) {
                                          shell_.setToast("Stick lights: " + why, true);

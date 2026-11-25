@@ -227,6 +227,7 @@ struct ControlCommand {
         Search,
         /// `argument` is "Category" or "Category/Row", by id or label: open Settings there.
         OpenSettings,
+        OpenDevices,
         /// The settings as their file holds them.
         GetSettings,
         /// `argument` is a JSON object of settings keys: set them as the Settings screen would.

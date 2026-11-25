@@ -316,6 +316,7 @@ Config read() {
     }
     value.rootStepStandIn = std::filesystem::path{env("OPENSU_ROOT_STEP")};
     value.sessionRootStandIn = std::filesystem::path{env("OPENSU_SESSION_ROOT")};
+    value.ledsStandIn = std::filesystem::path{env("OPENSU_LEDS")};
     value.polkitHelperStandIn = std::filesystem::path{env("OPENSU_POLKIT_HELPER")};
     return value;
 }

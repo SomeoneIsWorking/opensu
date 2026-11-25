@@ -154,6 +154,38 @@ ControlAnswer ShellApp::runProbe(const ControlCommand& command) {
         return refused(404, "Settings has no category " + std::string{wantedCategory} +
                                 "; its categories: " + categories);
     }
+    case Kind::OpenDevices: {
+        const std::string_view whole{argument};
+        const std::size_t slash = whole.find('/');
+        const std::string_view wantedTab = whole.substr(0, slash);
+        const std::string_view wantedRow =
+            slash == std::string_view::npos ? std::string_view{} : whole.substr(slash + 1);
+        std::string tabs;
+        for (const ui::SettingsCategory& tab : devicesScreen_.tabs()) {
+            tabs += (tabs.empty() ? "" : ", ") + tab.label;
+            if (tab.id != wantedTab && !sameWords(tab.label, wantedTab)) {
+                continue;
+            }
+            const std::string tabId = tab.id;
+            std::string rowId;
+            std::string rows;
+            for (const ui::SettingsRow& row : tab.rows) {
+                rows += (rows.empty() ? "" : ", ") + row.label;
+                if (!wantedRow.empty() && rowId.empty() &&
+                    (row.id == wantedRow || sameWords(row.label, wantedRow))) {
+                    rowId = row.id;
+                }
+            }
+            if (!wantedRow.empty() && rowId.empty()) {
+                return refused(404, "Devices › " + tab.label + " has no row " +
+                                        std::string{wantedRow} + "; its rows: " + rows);
+            }
+            closePages();
+            devicesScreen_.openAt(tabId, rowId);
+            return done({{"devices", tabId}, {"row", rowId}});
+        }
+        return refused(404, "Devices has no tab " + std::string{wantedTab} + "; its tabs: " + tabs);
+    }
     case Kind::GetSettings:
         return {.status = 200, .body = settings::toText(preferences_.values())};
     case Kind::SetSettings: {

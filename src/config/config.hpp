@@ -238,6 +238,10 @@ struct Config {
     /// machine has installed; empty for `/`.
     std::filesystem::path sessionRootStandIn;
 
+    /// A folder standing in for `/sys/class/leds` where the stick lights are looked for, from
+    /// OPENSU_LEDS, so a test run sees a handheld's lights; empty for `/sys/class/leds`.
+    std::filesystem::path ledsStandIn;
+
     /// What openSU's polkit agent runs in place of polkit-agent-helper-1, from
     /// OPENSU_POLKIT_HELPER, so a test run scripts PAM's side; empty for the installed helper.
     std::filesystem::path polkitHelperStandIn;

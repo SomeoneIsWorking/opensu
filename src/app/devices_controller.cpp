@@ -245,6 +245,14 @@ void DevicesController::open() {
     navigator_.push(std::make_unique<DevicesScreen>(*this, chrome_));
 }
 
+void DevicesController::openAt(const std::string& tab, const std::string& row) {
+    open();
+    choose(tab);
+    if (!row.empty()) {
+        static_cast<void>(navigator_.focus(row));
+    }
+}
+
 void DevicesController::close() {
     const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
     const auto found = std::ranges::find_if(open, [](const gpu2d::ui::Screen* screen) {

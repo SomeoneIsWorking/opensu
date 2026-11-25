@@ -44,6 +44,7 @@ All optional.
 | `OPENSU_GE_PROTON_RELEASE` | The GE-Proton release to install, as GitHub release JSON, for a test run; the latest when unset. |
 | `OPENSU_ROOT_STEP` | A harmless program session mode's install runs through pkexec in place of its installer, for a test run: polkit still asks openSU's agent, nothing is installed. |
 | `OPENSU_POLKIT_HELPER` | A program openSU's polkit agent runs in place of `polkit-agent-helper-1`, for a test run: it gets the user as its argument and polkit's cookie on stdin and writes the helper's lines (`PAM_TEXT_INFO`, `PAM_ERROR_MSG`, `PAM_PROMPT_ECHO_OFF`/`ON`, `SUCCESS`, `FAILURE`). It cannot answer polkit, so the action itself is refused. |
+| `OPENSU_LEDS` | A folder standing in for `/sys/class/leds` where the stick lights are looked for, for a test run: a `x:rgb:joystick_rings` folder there shows Devices › Controllers' stick light rows. |
 | `OPENSU_SESSION_ROOT` | A folder standing in for `/` where session mode looks for its entry (`usr/local/share/wayland-sessions`, `usr/share/wayland-sessions`) and its selector (`usr/local/libexec/opensu-session-select`), for a test run: an empty folder shows Install session mode whatever this machine has installed. |
 | `LEGENDARY_CONFIG_PATH` | Legendary's configuration, as Legendary itself reads it. |
 
@@ -102,6 +103,7 @@ missing probe is added rather than walked to with `/input`. `/input`, `/key`, `/
 | `POST /details/settings` | A game id: opens its details page, then its Game settings page, as that row does. |
 | `POST /search` | Text: opens the search card with it typed; the answer says how many results. |
 | `POST /settings/open` | `Category` or `Category/Row`, each by id or label (`Appearance/Interface size`): opens Settings there. A 404 lists the categories, or the category's rows. |
+| `POST /devices/open` | `Tab` or `Tab/Row`, each by id or label (`Controllers/Stick lights`): opens Devices there. A 404 lists the tabs, or the tab's rows. |
 | `GET /settings`, `POST /settings` | The settings as `settings.json` holds them; a POST takes a JSON object of keys (`{"uiScale": 140}`, null for the default), saves and applies it as the Settings screen does, and answers with the result. A key or value the file would refuse is a 400 and nothing changes. |
 | `POST /quit` | Closes the shell. |
 | `POST /signin/gog/start`, `/signin/epic/start` | Opens the store's sign-in page ([stores.md](stores.md#signing-in-to-gog-and-epic)). |

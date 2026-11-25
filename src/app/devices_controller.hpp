@@ -69,6 +69,8 @@ class DevicesController final : public ui::RowActions {
 
     /// Opens the screen on its first tab.
     void open();
+    /// Opens the screen on `tab`, focused on `row` when it is not empty.
+    void openAt(const std::string& tab, const std::string& row);
     /// Closes the screen and what is over it with iiSU's Close sound; a scan it started ends.
     void close();
     [[nodiscard]] bool isOpen() const;
