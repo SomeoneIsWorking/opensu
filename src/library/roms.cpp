@@ -75,7 +75,15 @@ std::string listedName(const std::string& name, const NameMap* arcade) {
     return name;
 }
 
-std::string missingEmulator(const RomSystem& system, const Emulators& emulators) {
+std::string missingEmulator(const RomSystem& system, const Emulators& emulators,
+                            const EmulatorSetup& setup) {
+    if (!setup.standalone && std::ranges::any_of(setup.catalog.entries(),
+                                                 [&system](const EmulatorEntry& entry) {
+                                                     return entry.serves(system.key);
+                                                 })) {
+        return std::string{system.label} +
+               " games need a standalone emulator: turn on Emulators in Settings › Integrations";
+    }
     for (const EmulatorEntry& entry : emulators.catalog().entries()) {
         if (const EmulatorInstall* install = emulators.installed(entry.id);
             install != nullptr && entry.serves(system.key) && !install->problem.empty()) {
@@ -197,7 +205,7 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
             game.launch = std::move(*spec);
             game.emulator = emulators.chosenName(system.key);
         } else {
-            game.unavailable = missingEmulator(system, emulators);
+            game.unavailable = missingEmulator(system, emulators, emulators_);
         }
         bool isGame = true;
         if (system.key == "arcade" && !entry.folder) {

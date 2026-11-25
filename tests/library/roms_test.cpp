@@ -425,6 +425,18 @@ void looseFilesArePlaced(const Fixture& f) {
     expect(find(games, "Super Metroid")->sourceId == "snes",
            "a loose .sfc is a Super Nintendo game");
     expect(find(games, "Minish Cap")->sourceId == "gba", "a console folder still works");
+
+    const fs::path switchRoot = f.base / "switch-off";
+    write(switchRoot / "Switch" / "Kirby Star Allies.nsp");
+    EmulatorSetup builtInOnly{shipped(), EmulatorSearch{}, {}};
+    builtInOnly.standalone = false;
+    Provider off{{switchRoot}, builtInOnly, NameDb::under(f.base / "cache-switch-off"), {}, {}};
+    const std::vector<Game> offGames = off.list(std::stop_token{});
+    const Game* kirby = find(offGames, "Kirby Star Allies");
+    expect(kirby != nullptr && kirby->unavailable == "Nintendo Switch games need a standalone "
+                                                     "emulator: turn on Emulators in Settings › "
+                                                     "Integrations",
+           "with standalone emulators off, a Switch game says to turn them on");
 }
 
 /// `value` as `size` little-endian bytes at `at`.
