@@ -1,6 +1,7 @@
 #include "devices_controller.hpp"
 
 #include <algorithm>
+#include <iterator>
 #include <memory>
 
 #include "devices_screen.hpp"
@@ -189,6 +190,7 @@ ui::SettingsCategory DevicesController::controllersTab() const {
         tab.rows.push_back(ui::makeRow(padPrefix + pad.id, RowKind::Info, pad.name,
                                        joined(parts, " · "), heldText(pad.held)));
     }
+    std::ranges::move(lights_.rows(), std::back_inserter(tab.rows));
     addWiiRemoteRows(tab.rows, hooks_.wiiRemotes());
     tab.rows.push_back(ui::makeRow(remapId, RowKind::Action, "Shortcut remapping",
                                    "Buttons and chords, the Guide menu's included", "Open"));
@@ -302,14 +304,21 @@ void DevicesController::refuse(const std::string& reason) {
     }
 }
 
-void DevicesController::run(const std::string& id, int /*step*/) {
-    if (id == remapId) {
+void DevicesController::run(const std::string& id, int step) {
+    if (RingLightSettings::owns(id)) {
+        lights_.run(id, step);
+    } else if (id == remapId) {
         hooks_.openShortcuts();
     } else if (id.starts_with("bluetooth") || id.starts_with(devicePrefix)) {
         runBluetooth(id);
     } else if (id.starts_with(sinkPrefix)) {
         refuse(outputs_.choose(id.substr(std::string_view{sinkPrefix}.size())));
     }
+    refresh();
+}
+
+void DevicesController::setLevel(const std::string& id, int level) {
+    lights_.setLevel(id, level);
     refresh();
 }
 

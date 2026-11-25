@@ -39,6 +39,8 @@ constexpr const char* uiScaleKey = "uiScale";
 constexpr const char* portraitKey = "portrait";
 constexpr const char* keyboardStyleKey = "keyboard";
 constexpr const char* realWiiRemotesKey = "realWiiRemotes";
+constexpr const char* ringLightColourKey = "ringLightColour";
+constexpr const char* ringLightBrightnessKey = "ringLightBrightness";
 constexpr const char* wiiPointerKey = "wiiPointer";
 constexpr const char* stickCorrectionKey = "stickCorrection";
 constexpr std::array<std::pair<gamepad::HallMode, const char*>, 3> hallModes{
@@ -458,6 +460,8 @@ Settings readDocument(const json& document, const std::string& file) {
     read.pointerRange(wiiPointerKey, settings.wiiPointer, "the camera's whole view is the screen");
     read.stickCorrection(stickCorrectionKey, settings.stickCorrection, settings.stickTerms,
                          "the sticks are not corrected");
+    read.text(ringLightColourKey, settings.ringLightColour, "the ring lights are left alone");
+    read.integer(ringLightBrightnessKey, 0, 100, settings.ringLightBrightness, "at full brightness");
     std::string runner;
     read.text(wineRunnerKey, runner, "using the newest GE-Proton");
     settings.wineRunner = runner;
@@ -623,6 +627,8 @@ json documentOf(const Settings& settings) {
         {portraitKey, settings.portrait},
         {keyboardStyleKey, std::string{input::key(settings.keyboardStyle)}},
         {realWiiRemotesKey, settings.realWiiRemotes},
+        {ringLightColourKey, settings.ringLightColour},
+        {ringLightBrightnessKey, settings.ringLightBrightness},
         {nightLightKey, std::string{key(settings.nightLight)}},
         {consoleThemeKey, settings.consoleTheme},
         {interfaceThemeKey, settings.interfaceTheme},

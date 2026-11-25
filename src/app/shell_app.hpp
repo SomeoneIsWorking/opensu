@@ -1570,9 +1570,14 @@ class ShellApp final {
                                                            return pads_->battery(pad);
                                                        }}};
     /// The Devices page, reached from the Guide menu.
+    /// The handheld's stick lights, set to the saved choice at start.
+    RingLightSettings ringLights_{preferences_, device::RingLights::find(),
+                                  [this](const std::string& why) {
+                                      shell_.setToast("Stick lights: " + why, true);
+                                  }};
     DevicesController devicesScreen_{
         shell_.screens().navigator(), shell_.screens().chrome(),
-        DevicesController::Services{bluetooth_.get(), roster_, outputs_}, sounds_,
+        DevicesController::Services{bluetooth_.get(), roster_, outputs_, ringLights_}, sounds_,
         DevicesController::Hooks{[this](const std::string& text, bool isError) {
                                      shell_.setToast(text, isError);
                                  },

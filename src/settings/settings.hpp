@@ -123,6 +123,11 @@ struct Settings {
     bool realWiiRemotes{true};
     /// The ROG Ally's stick correction (`gamepad::HallTerms`).
     gamepad::HallMode stickCorrection{gamepad::HallMode::Off};
+    /// The stick ring lights' colour by name (`app::RingLightSettings`' palette), "off", or empty
+    /// to leave them as the system set them.
+    std::string ringLightColour;
+    /// The stick ring lights' brightness, in percent.
+    int ringLightBrightness{100};
     /// Where the screen is in a Wii Remote's camera view, from pointing at its corners; the
     /// camera's whole view until then.
     std::optional<gamepad::WiiPointerRange> wiiPointer;

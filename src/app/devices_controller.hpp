@@ -1,7 +1,8 @@
 // devices_controller — what the Devices screen holds and does. Four tabs: Bluetooth (the adapter,
 // a scan, shown only where the machine has a Bluetooth service; and each device to pair, connect,
 // disconnect or forget), Controllers (the connected pads with player order, battery and a live
-// button test, a DolphinBar's mode and Bluetooth Wii Remotes, and the way to the shortcut
+// button test, the stick lights where the handheld has them, a DolphinBar's mode and Bluetooth
+// Wii Remotes, and the way to the shortcut
 // remapping), Audio output (the outputs to choose between)
 // and Display (the output's size). Volume, brightness and the interface size are the Guide menu's.
 // Everything it changes goes through the owner of that thing: `BluetoothSession` and
@@ -21,6 +22,7 @@
 #include "bluetooth_session.hpp"
 #include "controller_roster.hpp"
 #include "device/wii_remotes.hpp"
+#include "ring_light_settings.hpp"
 #include "ui/row_widgets.hpp"
 #include "ui/screen_stack.hpp"
 #include "ui/setting_row.hpp"
@@ -52,13 +54,16 @@ class DevicesController final : public ui::RowActions {
         BluetoothSession* bluetooth;
         ControllerRoster& controllers;
         AudioOutputs& outputs;
+        /// The stick lights' rows on the Controllers tab.
+        RingLightSettings& lights;
     };
 
     /// The screen goes on `navigator`'s stack, under `chrome`.
     DevicesController(gpu2d::ui::Navigator& navigator, const ui::Chrome& chrome, Services services,
                       audio::SdlSoundPlayer& sounds, Hooks hooks)
         : navigator_{navigator}, chrome_{chrome}, bluetooth_{services.bluetooth},
-          controllers_{services.controllers}, outputs_{services.outputs}, sounds_{sounds},
+          controllers_{services.controllers}, outputs_{services.outputs},
+          lights_{services.lights}, sounds_{sounds},
           hooks_{std::move(hooks)} {
     }
 
@@ -90,6 +95,7 @@ class DevicesController final : public ui::RowActions {
     }
     void choose(const std::string& tab);
     void run(const std::string& id, int step) override;
+    void setLevel(const std::string& id, int level) override;
     /// X on a paired device: forgets it, asking first.
     void secondary(const std::string& id) override;
 
@@ -109,6 +115,7 @@ class DevicesController final : public ui::RowActions {
     BluetoothSession* bluetooth_;
     ControllerRoster& controllers_;
     AudioOutputs& outputs_;
+    RingLightSettings& lights_;
     audio::SdlSoundPlayer& sounds_;
     Hooks hooks_;
     std::string chosen_;

@@ -635,6 +635,12 @@ pad's virtual pad (`gamepad::HallTerms`, Off by default, Default or Manual): the
 is taken off the left stick's x, each stick's rest offset is faded out near centre and a deadzone
 hides what is left; verified on the Ally's virtual pad (Off: the stick rests at -11% and jitters;
 Default: it reads 0, and a full injected trigger adds the 28% that cancels the magnet's pull).
+Where the kernel exposes a handheld's stick ring lights (`*:rgb:joystick_rings`, writable by the
+user), Devices › Controllers sets them: As the system set them (the default, nothing written),
+Off, or one of nine colours at a brightness (`device::RingLights`); written on the ROG Ally,
+whose four zones each take 0xRRGGBB.
+Guide › Power ends with Quit openSU, asking first, outside the login session (a pad alone cannot
+reach the OS's close); as the login session it has Switch to desktop instead.
 `gamepad::PadTranslator` maps the kernel's gamepad codes to the shell's controls,
 the left stick and hat included, so any driver following them works (xpad, xone,
 hid-playstation, hid-nintendo). Held directions, from a pad or the keyboard, move

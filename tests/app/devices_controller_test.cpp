@@ -4,6 +4,7 @@
 // rows to the tabs, then out.
 #include <chrono>
 #include <cstdio>
+#include <filesystem>
 #include <thread>
 
 #include "devices_controller.hpp"
@@ -27,9 +28,13 @@ struct Rig {
                   [](const gamepad::PadInfo&) {
                       return std::optional{device::BatteryStatus{90, false}};
                   }}},
+          preferences{settings::Store{std::filesystem::path{OPENSU_TEST_SCRATCH} /
+                                      "devices_controller" / "settings.json"},
+                      [](const std::string&) {
+                      }},
           controller{ui.navigator,
                      chrome,
-                     {withBluetooth ? &bluetooth : nullptr, roster, outputs},
+                     {withBluetooth ? &bluetooth : nullptr, roster, outputs, lights},
                      sounds,
                      {[this](const std::string& text, bool) {
                           said.push_back(text);
@@ -111,6 +116,9 @@ struct Rig {
     audio::SdlSoundPlayer sounds;
     std::vector<std::string> calls;
     std::vector<std::string> said;
+    app::Preferences preferences;
+    app::RingLightSettings lights{preferences, std::nullopt, [](const std::string&) {
+                                  }};
     app::DevicesController controller;
 };
 

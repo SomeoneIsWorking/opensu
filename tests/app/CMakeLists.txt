@@ -107,6 +107,7 @@ add_test(NAME guide_menu_controller COMMAND guide_menu_controller_test)
 add_executable(devices_controller_test devices_controller_test.cpp)
 target_link_libraries(devices_controller_test PRIVATE opensu::app gpu2d::ui)
 opensu_warnings(devices_controller_test)
+target_compile_definitions(devices_controller_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME devices_controller COMMAND devices_controller_test)
 
 add_executable(shortcut_router_test shortcut_router_test.cpp)
