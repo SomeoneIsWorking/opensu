@@ -117,8 +117,9 @@ struct Rig {
     std::vector<std::string> calls;
     std::vector<std::string> said;
     app::Preferences preferences;
-    app::RingLightSettings lights{preferences, std::nullopt, [](const std::string&) {
-                                  }};
+    app::RingLightSettings lights{preferences, std::nullopt, nullptr,
+                                  {.refused = [](const std::string&) {},
+                                   .allowColours = [] {}}};
     app::DevicesController controller;
 };
 

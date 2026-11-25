@@ -1098,6 +1098,7 @@ const library::Game* ShellApp::gameInFront() const {
 bool ShellApp::menusBlocked() {
     return panels_.active() || paths_.active() || artworkSettings_.typing() || mappings_.active() ||
            (sessionInstall_ && sessionInstall_->active()) ||
+           (lightsInstall_ && lightsInstall_->active()) ||
            (polkitPrompt_ && polkitPrompt_->asking()) || shortcutEditor_.capturing() ||
            search_.isOpen();
 }
@@ -1874,6 +1875,10 @@ int ShellApp::run() {
         serviceDevices(std::chrono::steady_clock::now());
         if (sessionInstall_) {
             static_cast<void>(sessionInstall_->service());
+        }
+        if (lightsInstall_ && lightsInstall_->service()) {
+            ringLights_.applySaved();
+            devicesScreen_.refresh();
         }
         if (polkitPrompt_) {
             polkitPrompt_->service();

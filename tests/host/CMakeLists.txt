@@ -63,3 +63,12 @@ add_executable(power_profiles_test power_profiles_test.cpp)
 target_link_libraries(power_profiles_test PRIVATE opensu::host)
 opensu_warnings(power_profiles_test)
 add_test(NAME power_profiles COMMAND power_profiles_test)
+
+add_executable(ring_light_scripts_test ring_light_scripts_test.cpp)
+target_link_libraries(ring_light_scripts_test PRIVATE opensu::host)
+opensu_warnings(ring_light_scripts_test)
+target_compile_definitions(ring_light_scripts_test PRIVATE
+    OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch"
+    OPENSU_PACKAGING_DIR="${CMAKE_SOURCE_DIR}/packaging")
+add_test(NAME ring_light_scripts COMMAND ring_light_scripts_test)
+set_tests_properties(ring_light_scripts PROPERTIES SKIP_RETURN_CODE 77)

@@ -9,5 +9,7 @@ namespace opensu::host {
 inline constexpr std::string_view rootInstallScript = R"opensu_sh(@OPENSU_ROOT_INSTALL_SH@)opensu_sh";
 inline constexpr std::string_view installSessionScript = R"opensu_sh(@OPENSU_INSTALL_SESSION_SH@)opensu_sh";
 inline constexpr std::string_view sessionSelectScript = R"opensu_sh(@OPENSU_SESSION_SELECT_SH@)opensu_sh";
+inline constexpr std::string_view installRingLightsScript = R"opensu_sh(@OPENSU_INSTALL_RING_LIGHTS_SH@)opensu_sh";
+inline constexpr std::string_view ringLightsScript = R"opensu_sh(@OPENSU_RING_LIGHTS_SH@)opensu_sh";
 
 } // namespace opensu::host

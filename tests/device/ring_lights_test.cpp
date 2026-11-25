@@ -1,4 +1,5 @@
-// RingLights against a fake /sys/class/leds: the Ally's packed zones and the red/green/blue layout.
+// RingLights against a fake /sys/class/leds: the Ally's packed zones, capped or not, and the
+// red/green/blue layout.
 #include "device/ring_lights.hpp"
 #include "support/test_main.hpp"
 
@@ -51,6 +52,7 @@ void allyZonesArePacked() {
     const fs::path dir = led(root, "ally:rgb:joystick_rings", "rgb rgb rgb rgb", "255");
     const std::optional<RingLights> lights = RingLights::find(root);
     expect(lights && lights->zones() == 4, "the Ally's rings are four packed zones");
+    expect(lights->colours(), "without a cap on a zone, the files carry a colour");
     expect(lights->set(RingColour{255, 96, 0}, 50).empty(), "the colour is written");
     expect(contents(dir / "multi_intensity") == "16736256 16736256 16736256 16736256",
            "each zone holds 0xRRGGBB");
@@ -58,11 +60,20 @@ void allyZonesArePacked() {
     expect(lights->set({}, 0).empty() && contents(dir / "brightness") == "0", "0 turns them off");
 }
 
+void aCappedZoneCarriesNoColour() {
+    const fs::path root = freshRoot("ally-capped");
+    const fs::path dir = led(root, "ally:rgb:joystick_rings", "rgb rgb rgb rgb", "255");
+    std::ofstream{dir / "multi_max_intensity"} << "255 255 255 255\n";
+    const std::optional<RingLights> lights = RingLights::find(root);
+    expect(lights && !lights->colours(), "a zone capped at 255 carries blue alone, so no colour");
+}
+
 void separateChannels() {
     const fs::path root = freshRoot("legion");
     const fs::path dir = led(root, "go:rgb:joystick_rings", "red green blue", "100");
     const std::optional<RingLights> lights = RingLights::find(root);
     expect(lights && lights->zones() == 1, "red green blue is one zone");
+    expect(lights->colours(), "one channel per colour always carries a colour");
     expect(lights->set(RingColour{0, 255, 160}, 100).empty(), "the colour is written");
     expect(contents(dir / "multi_intensity") == "0 255 160", "one value per channel");
     expect(contents(dir / "brightness") == "100", "full brightness is the LED's maximum");
@@ -80,6 +91,7 @@ void noneWithoutTheLed() {
 
 int main() try {
     allyZonesArePacked();
+    aCappedZoneCarriesNoColour();
     separateChannels();
     noneWithoutTheLed();
     std::printf("ring_lights: all checks passed\n");

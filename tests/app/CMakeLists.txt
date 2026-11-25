@@ -110,6 +110,12 @@ opensu_warnings(devices_controller_test)
 target_compile_definitions(devices_controller_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME devices_controller COMMAND devices_controller_test)
 
+add_executable(ring_light_settings_test ring_light_settings_test.cpp)
+target_link_libraries(ring_light_settings_test PRIVATE opensu::app)
+opensu_warnings(ring_light_settings_test)
+target_compile_definitions(ring_light_settings_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME ring_light_settings COMMAND ring_light_settings_test)
+
 add_executable(shortcut_router_test shortcut_router_test.cpp)
 target_link_libraries(shortcut_router_test PRIVATE opensu::app)
 opensu_warnings(shortcut_router_test)

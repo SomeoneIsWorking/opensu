@@ -1,9 +1,9 @@
 // host_services — the machine's own services the shell reaches: power (logind), session mode
-// (SDDM), Bluetooth (BlueZ), the backlight, the power profile and openSU's own polkit agent. One
-// place decides what a hidden run may touch: it may read the Bluetooth state, the brightness and
-// whether session mode is installed and the power profile, and it never sleeps, restarts, shuts
-// down, installs or switches session mode, scans, pairs, connects, forgets or writes a brightness
-// or a power profile.
+// (SDDM), Bluetooth (BlueZ), the backlight, the power profile, the stick lights' helper and openSU's
+// own polkit agent. One place decides what a hidden run may touch: it may read the Bluetooth state,
+// the brightness, whether session mode or the lights' helper is installed and the power profile,
+// and it never sleeps, restarts, shuts down, installs or switches session mode, installs or runs
+// the lights' helper, scans, pairs, connects, forgets or writes a brightness or a power profile.
 #pragma once
 
 #include <filesystem>
@@ -16,6 +16,7 @@
 #include "host/polkit_agent.hpp"
 #include "host/power.hpp"
 #include "host/power_profiles.hpp"
+#include "host/ring_light_helper.hpp"
 #include "host/session_mode.hpp"
 
 namespace opensu::app {
@@ -32,6 +33,8 @@ struct HostServices {
     std::unique_ptr<host::Backlight> backlight;
     /// The power profile; null on a machine without PowerStation.
     std::unique_ptr<host::PowerProfiles> powerProfiles;
+    /// The stick lights' colour where the kernel cannot carry it; null off Linux.
+    std::unique_ptr<host::RingLightHelper> ringLights;
     /// The agent polkit asks for what openSU's children start through pkexec; null where there is
     /// no polkit, and in services made `over` fakes.
     std::unique_ptr<host::PolkitAgent> polkit;
@@ -43,11 +46,16 @@ struct HostServices {
     /// the root step and for the root session mode is looked for under.
     [[nodiscard]] static host::SessionPaths sessionPaths(const config::Config& config);
 
-    /// The services over `run` and `spawn`, with the backlight under `backlightRoot` and session
-    /// mode found by `paths`.
+    /// Where the stick lights' helper is: its root step staged under the runtime dir, pkexec from
+    /// PATH and a test run's stand-in for the root step.
+    [[nodiscard]] static host::RingLightHelperPaths ringLightPaths(const config::Config& config);
+
+    /// The services over `run` and `spawn`, with the backlight under `backlightRoot`, session mode
+    /// found by `paths` and the lights' helper by `lights`.
     [[nodiscard]] static HostServices over(const host::Runner& run, const host::Spawner& spawn,
                                            const std::filesystem::path& backlightRoot, bool hidden,
-                                           host::SessionPaths paths = {});
+                                           host::SessionPaths paths = {},
+                                           host::RingLightHelperPaths lights = {});
 };
 
 } // namespace opensu::app

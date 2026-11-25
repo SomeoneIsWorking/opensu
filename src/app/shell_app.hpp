@@ -1570,12 +1570,20 @@ class ShellApp final {
                                                        [this](const gamepad::PadInfo& pad) {
                                                            return pads_->battery(pad);
                                                        }}};
-    /// The Devices page, reached from the Guide menu.
     /// The handheld's stick lights, set to the saved choice at start.
-    RingLightSettings ringLights_{preferences_, device::RingLights::find(),
-                                  [this](const std::string& why) {
-                                      shell_.setToast("Stick lights: " + why, true);
-                                  }};
+    RingLightSettings ringLights_{
+        preferences_, device::RingLights::find(), host_.ringLights.get(),
+        RingLightSettings::Hooks{.refused =
+                                     [this](const std::string& why) {
+                                         shell_.setToast("Stick lights: " + why, true);
+                                     },
+                                 .allowColours =
+                                     [this] {
+                                         if (lightsInstall_) {
+                                             lightsInstall_->begin();
+                                         }
+                                     }}};
+    /// The Devices page, reached from the Guide menu.
     DevicesController devicesScreen_{
         shell_.screens().navigator(), shell_.screens().chrome(),
         DevicesController::Services{bluetooth_.get(), roster_, outputs_, ringLights_}, sounds_,
@@ -1599,6 +1607,17 @@ class ShellApp final {
             ? std::make_unique<RootInstallController>(
                   shell_.screens().navigator(), *host_.session, sessionModeWords(),
                   host_.polkit.get(), sounds_,
+                  [this](const std::string& text, bool isError) {
+                      shell_.setToast(text, isError);
+                  })
+            : nullptr};
+    /// Installing the stick lights' helper: its question and the root step through polkit. Null
+    /// where there is no helper.
+    std::unique_ptr<RootInstallController> lightsInstall_{
+        host_.ringLights
+            ? std::make_unique<RootInstallController>(
+                  shell_.screens().navigator(), *host_.ringLights,
+                  RingLightSettings::installWords(), host_.polkit.get(), sounds_,
                   [this](const std::string& text, bool isError) {
                       shell_.setToast(text, isError);
                   })

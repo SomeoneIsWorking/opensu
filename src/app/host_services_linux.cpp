@@ -24,16 +24,25 @@ host::SessionPaths HostServices::sessionPaths(const config::Config& config) {
     return paths;
 }
 
+host::RingLightHelperPaths HostServices::ringLightPaths(const config::Config& config) {
+    host::RingLightHelperPaths paths;
+    paths.stage = config.runtimeDir / "ring-lights-install";
+    paths.pkexec = launch::resolveExecutable("pkexec", config.executablePath);
+    paths.rootStepStandIn = config.rootStepStandIn;
+    return paths;
+}
+
 HostServices HostServices::detect(const config::Config& config, bool hidden) {
     HostServices services = over(host::systemRunner(), host::systemSpawner(config.executablePath),
-                                 "/sys/class/backlight", hidden, sessionPaths(config));
+                                 "/sys/class/backlight", hidden, sessionPaths(config),
+                                 ringLightPaths(config));
     services.polkit = host::startPolkitAgent(config.messageLocale, config.polkitHelperStandIn);
     return services;
 }
 
 HostServices HostServices::over(const host::Runner& run, const host::Spawner& spawn,
                                 const std::filesystem::path& backlightRoot, bool hidden,
-                                host::SessionPaths paths) {
+                                host::SessionPaths paths, host::RingLightHelperPaths lights) {
     HostServices services;
     const bool standInStep = !paths.rootStepStandIn.empty();
     services.power = hidden ? host::makeRefusingPower(std::string{hiddenRunRefusal})
@@ -46,7 +55,11 @@ HostServices HostServices::over(const host::Runner& run, const host::Spawner& sp
     services.bluetooth = host::makeBluez(run, spawn);
     services.backlight = host::makeLogindBacklight(run, backlightRoot);
     services.powerProfiles = host::makePowerStationProfiles(run);
+    const bool standInLights = !lights.rootStepStandIn.empty();
+    services.ringLights = host::makeSudoRingLightHelper(run, std::move(lights));
     if (hidden) {
+        services.ringLights = host::makeReadOnlyRingLightHelper(
+            std::move(services.ringLights), std::string{hiddenRunRefusal}, standInLights);
         services.bluetooth = host::makeReadOnlyBluetooth(std::move(services.bluetooth),
                                                          std::string{hiddenRunRefusal});
         if (services.backlight) {

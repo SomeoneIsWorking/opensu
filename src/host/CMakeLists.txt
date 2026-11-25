@@ -2,7 +2,7 @@
 # interface plus a real backend that runs the system's own tools through a `Runner`. openSU's
 # polkit agent serves an object on the system bus, which needs sd-bus.
 add_library(opensu_host STATIC runner.cpp bluetooth.cpp desktop_request.cpp login_session_end.cpp power.cpp
-            root_install.cpp session_mode.cpp backlight.cpp desktop_night_light.cpp polkit_helper.cpp
+            root_install.cpp session_mode.cpp ring_light_helper.cpp backlight.cpp desktop_night_light.cpp polkit_helper.cpp
             polkit_authentication.cpp polkit_agent.cpp sd_bus.cpp input_plumber.cpp power_profiles.cpp)
 add_library(opensu::host ALIAS opensu_host)
 target_link_libraries(opensu_host PRIVATE nlohmann_json::nlohmann_json)
@@ -22,10 +22,14 @@ opensu_warnings(opensu_host)
 # The root-run scripts, built in so the root steps are staged from the binary itself.
 set(opensu_session_scripts "${CMAKE_SOURCE_DIR}/packaging/root-install.sh"
     "${CMAKE_SOURCE_DIR}/packaging/install-session.sh"
-    "${CMAKE_SOURCE_DIR}/packaging/opensu-session-select.sh")
+    "${CMAKE_SOURCE_DIR}/packaging/opensu-session-select.sh"
+    "${CMAKE_SOURCE_DIR}/packaging/install-ring-lights.sh"
+    "${CMAKE_SOURCE_DIR}/packaging/opensu-ring-lights.sh")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${opensu_session_scripts})
 file(READ "${CMAKE_SOURCE_DIR}/packaging/root-install.sh" OPENSU_ROOT_INSTALL_SH)
 file(READ "${CMAKE_SOURCE_DIR}/packaging/install-session.sh" OPENSU_INSTALL_SESSION_SH)
 file(READ "${CMAKE_SOURCE_DIR}/packaging/opensu-session-select.sh" OPENSU_SESSION_SELECT_SH)
+file(READ "${CMAKE_SOURCE_DIR}/packaging/install-ring-lights.sh" OPENSU_INSTALL_RING_LIGHTS_SH)
+file(READ "${CMAKE_SOURCE_DIR}/packaging/opensu-ring-lights.sh" OPENSU_RING_LIGHTS_SH)
 configure_file(session_scripts.hpp.in "${CMAKE_CURRENT_BINARY_DIR}/generated/session_scripts.hpp" @ONLY)
 target_include_directories(opensu_host PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
