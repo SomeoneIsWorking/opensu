@@ -166,6 +166,7 @@ ControlAnswer ShellApp::runProbe(const ControlCommand& command) {
         // As the Settings screen applies a change.
         preferences_.save();
         applyLayout();
+        integrations_.choose(values.integrations);
         applyIntegrations();
         stickCorrectionSettings_.applySaved();
         if (values.romFolders != before.romFolders || values.gameFolders != before.gameFolders ||
