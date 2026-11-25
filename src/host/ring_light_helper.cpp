@@ -1,7 +1,10 @@
 #include "ring_light_helper.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstdio>
+#include <fstream>
+#include <iterator>
 #include <utility>
 
 #include "session_scripts.hpp"
@@ -19,6 +22,11 @@ class SudoRingLightHelper final : public RingLightHelper {
     }
 
     bool installed() const override {
+        std::ifstream in{paths_.helper, std::ios::binary};
+        const std::string bytes{std::istreambuf_iterator<char>{in}, {}};
+        return bytes == ringLightsScript;
+    }
+    bool runs() const override {
         std::error_code error;
         return std::filesystem::is_regular_file(paths_.helper, error);
     }
@@ -39,6 +47,12 @@ class SudoRingLightHelper final : public RingLightHelper {
         return refusalOf("sudo", run_("sudo", {"-n", paths_.helper.string(), hex.data()}),
                          "set the stick lights");
     }
+    std::string rainbow(int level) override {
+        return refusalOf("sudo",
+                         run_("sudo", {"-n", paths_.helper.string(), "rainbow",
+                                       std::to_string(std::clamp(level, 1, 3))}),
+                         "set the stick lights");
+    }
 
   private:
     Runner run_;
@@ -55,6 +69,9 @@ class ReadOnlyRingLightHelper final : public RingLightHelper {
     bool installed() const override {
         return inner_->installed();
     }
+    bool runs() const override {
+        return inner_->runs();
+    }
     std::string installBlocker() const override {
         return inner_->installBlocker();
     }
@@ -68,6 +85,9 @@ class ReadOnlyRingLightHelper final : public RingLightHelper {
         return {InstallResult::Kind::Failed, reason_};
     }
     std::string set(std::uint32_t /*rgb*/) override {
+        return reason_;
+    }
+    std::string rainbow(int /*level*/) override {
         return reason_;
     }
 

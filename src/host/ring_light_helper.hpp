@@ -31,11 +31,16 @@ struct RingLightHelperPaths {
 /// The root step that installs the helper and its sudoers rule, staged in `paths.stage`.
 [[nodiscard]] RootStepPlan ringLightInstallPlan(const RingLightHelperPaths& paths);
 
-/// Installed when the helper is in place.
+/// Installed when the helper in place is the one this openSU carries; an older one still runs
+/// `set` but not `rainbow`, and installing again replaces it.
 class RingLightHelper : public RootInstall {
   public:
+    /// Whether a helper of any version is in place.
+    [[nodiscard]] virtual bool runs() const = 0;
     /// Sets every ring to `rgb` (0xRRGGBB; 0 turns them off). Empty when done, else why not.
     virtual std::string set(std::uint32_t rgb) = 0;
+    /// The controller's own rainbow at `level`, 1 to 3. Empty when done, else why not.
+    virtual std::string rainbow(int level) = 0;
 };
 
 /// The helper over `run`: pkexec to install it, `sudo -n` to run it.

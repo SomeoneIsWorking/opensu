@@ -125,7 +125,17 @@ void theHelperWritesFiveReportsToTheConfigurationInterface() {
                slurp(root / "dev/hidraw3").substr(reportSize, reportSize) ==
                    report({0x5a, 0xba, 0xc5, 0xc4, 0x00}),
            "black turns the brightness off");
-    for (const char* bad : {"FF6000", "ff600", "ff60000", "../x", ""}) {
+    write(root / "dev/hidraw3", "");
+    expect(runSh({script, "rainbow", "2"}).status == 0 &&
+               slurp(root / "dev/hidraw3").substr(reportSize, 3 * reportSize) ==
+                   report({0x5a, 0xba, 0xc5, 0xc4, 0x02}) +
+                       report({0x5a, 0xb3, 0x00, 0x03, 0x00, 0x00, 0x00, 0xeb}) +
+                       report({0x5a, 0xb5}),
+           "rainbow 2 sets level 2 and the rainbow at medium speed");
+    for (const char* level : {"0", "4", "x"}) {
+        expect(runSh({script, "rainbow", level}).status == 1, "the rainbow's level is 1 to 3");
+    }
+    for (const char* bad : {"FF6000", "ff600", "ff60000", "../x", "", "rainbow"}) {
         expect(runSh({script, bad}).status == 1, "anything but six lower-case hex digits is refused");
     }
     expect(runSh({script, "ff6000", "x"}).status == 1, "and so is a second argument");

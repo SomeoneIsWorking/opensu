@@ -3,8 +3,10 @@
 // brightness, saved in `settings::Settings::ringLightColour` and `ringLightBrightness` and set on
 // the lights, as the saved choice is at start. Where the kernel's files carry no colour (the ROG
 // Ally) the colour and its brightness go through the root helper (`host::RingLightHelper`), the
-// brightness folded into the colour; until it is installed only off is offered, with a row that
-// starts its install (`Hooks::allowColours`). Without the lights it has no rows and sets nothing.
+// brightness folded into the colour, and Rainbow, the controller's own, is offered too; until the
+// helper is installed only off is offered, and while an older one is in place no Rainbow, each
+// with a row that starts its install (`Hooks::allowColours`). Without the lights it has no rows
+// and sets nothing.
 #pragma once
 
 #include <functional>
@@ -53,6 +55,8 @@ class RingLightSettings {
     [[nodiscard]] bool throughHelper() const;
     /// Whether a colour can be set now.
     [[nodiscard]] bool colourful() const;
+    /// Whether the controller's rainbow can be set now: the helper in place is this openSU's.
+    [[nodiscard]] bool rainbow() const;
 
     Preferences& preferences_;
     std::optional<device::RingLights> lights_;

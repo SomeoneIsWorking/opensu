@@ -36,6 +36,9 @@ class FakeHelper final : public host::RingLightHelper {
     bool installed() const override {
         return isInstalled;
     }
+    bool runs() const override {
+        return isInstalled || olderInPlace;
+    }
     std::string installBlocker() const override {
         return {};
     }
@@ -50,8 +53,14 @@ class FakeHelper final : public host::RingLightHelper {
         sent.push_back(rgb);
         return {};
     }
+    std::string rainbow(int level) override {
+        rainbows.push_back(level);
+        return {};
+    }
 
     bool isInstalled{false};
+    bool olderInPlace{false};
+    std::vector<int> rainbows;
     std::vector<std::uint32_t> sent;
 };
 
@@ -97,7 +106,8 @@ void filesThatCarryAColourAreWrittenDirectly() {
     FakeHelper helper;
     app::RingLightSettings lights = rig.settings(&helper);
     const std::vector<ui::SettingsRow> rows = lights.rows();
-    expect(rowOf(rows, "lights.colour")->choices.size() == 11, "leave, off and nine colours");
+    expect(rowOf(rows, "lights.colour")->choices.size() == 11,
+           "leave, off and nine colours; the files have no rainbow");
     expect(rowOf(rows, "lights.allow") == nullptr, "no helper is asked for");
     lights.run("lights.colour", 4);
     expect(contents(rig.led / "multi_intensity") == "16736256 16736256 16736256 16736256",
@@ -127,7 +137,8 @@ void theInstalledHelperCarriesEveryColour() {
     helper.isInstalled = true;
     app::RingLightSettings lights = rig.settings(&helper);
     expect(rowOf(lights.rows(), "lights.allow") == nullptr, "nothing left to allow");
-    expect(rowOf(lights.rows(), "lights.colour")->choices.size() == 11, "every colour is offered");
+    expect(rowOf(lights.rows(), "lights.colour")->choices.size() == 12,
+           "every colour is offered, and Rainbow");
     lights.run("lights.colour", 4);
     lights.setLevel("lights.brightness", 50);
     expect(helper.sent == std::vector<std::uint32_t>{0xFF6000, 0x7F3000},
@@ -138,12 +149,42 @@ void theInstalledHelperCarriesEveryColour() {
     expect(helper.sent.back() == 0, "Off is black through the helper");
 }
 
+void anOlderHelperSetsColoursAndAsksForAnUpdate() {
+    Rig rig{"older", "255 255 255 255"};
+    FakeHelper helper;
+    helper.olderInPlace = true;
+    app::RingLightSettings lights = rig.settings(&helper);
+    const std::vector<ui::SettingsRow> rows = lights.rows();
+    expect(rowOf(rows, "lights.colour")->choices.size() == 11, "the colours, without Rainbow");
+    const ui::SettingsRow* update = rowOf(rows, "lights.allow");
+    expect(update != nullptr && update->value == "Update", "with a row to update the helper");
+    lights.run("lights.colour", 4);
+    expect(helper.sent == std::vector<std::uint32_t>{0xFF6000}, "the older helper sets Orange");
+}
+
+void rainbowGoesToTheHelperAtALevel() {
+    Rig rig{"rainbow", "255 255 255 255"};
+    FakeHelper helper;
+    helper.isInstalled = true;
+    app::RingLightSettings lights = rig.settings(&helper);
+    lights.run("lights.colour", 11);
+    expect(rowOf(lights.rows(), "lights.colour")->value.empty() ||
+               rowOf(lights.rows(), "lights.colour")->chosen == 11,
+           "Rainbow is chosen");
+    expect(helper.rainbows == std::vector<int>{3}, "at full brightness, the top level");
+    lights.setLevel("lights.brightness", 30);
+    expect(helper.rainbows.back() == 1, "at 30%, the lowest");
+    expect(helper.sent.empty(), "no colour is sent for it");
+}
+
 } // namespace
 
 int main() try {
     filesThatCarryAColourAreWrittenDirectly();
     cappedZonesOfferOffAndTheHelper();
     theInstalledHelperCarriesEveryColour();
+    anOlderHelperSetsColoursAndAsksForAnUpdate();
+    rainbowGoesToTheHelperAtALevel();
     std::printf("ring_light_settings: all checks passed\n");
     return 0;
 } catch (...) {

@@ -1,10 +1,11 @@
 #!/bin/sh
-# opensu-ring-lights RRGGBB
+# opensu-ring-lights RRGGBB | opensu-ring-lights rainbow LEVEL
 #
 # Installed root-owned as /usr/local/libexec/opensu-ring-lights and run by the user through one
 # sudoers rule (see install-ring-lights.sh). Sets the ROG Ally's (and Ally X's) stick rings to one
-# solid colour with the controller's own RGB command; 000000 turns them off. The kernel's LED class
-# cannot do it: it caps each zone's packed 0xRRGGBB at 255, so only blue gets through.
+# solid colour, or to the controller's own rainbow at LEVEL (1 to 3), with its own RGB command;
+# 000000 turns them off. The kernel's LED class cannot do it: it caps each zone's packed 0xRRGGBB
+# at 255, so only blue gets through.
 # POSIX sh on purpose: it runs as root on a machine openSU does not control.
 #
 # The controller's configuration interface is the hidraw node of ASUS's 0b05:1abe or 0b05:1b4c
@@ -13,6 +14,7 @@
 #   5a "ASUS Tech.Inc."        start talking to the light controller
 #   5a ba c5 c4 LEVEL          the hardware brightness, 0 (off) to 3
 #   5a b3 00 00 RR GG BB       every zone, static, this colour
+#   5a b3 00 03 00 00 00 eb    every zone, the rainbow at medium speed
 #   5a b5, then 5a b4          set, then apply
 # OPENSU_SELECT_ROOT prefixes /sys and /dev, but only for a non-root caller (tests): sudo drops it.
 
@@ -27,11 +29,23 @@ fail() {
     exit 1
 }
 
-[ "$#" -eq 1 ] || fail "usage: opensu-ring-lights RRGGBB"
-case $1 in
-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) colour=$1 ;;
-*) fail "the colour must be six lower-case hex digits" ;;
-esac
+usage="usage: opensu-ring-lights RRGGBB | opensu-ring-lights rainbow LEVEL"
+colour=
+level=03
+if [ "$#" -eq 2 ] && [ "$1" = rainbow ]; then
+    case $2 in
+    [1-3]) level=0$2 ;;
+    *) fail "the rainbow's level must be 1, 2 or 3" ;;
+    esac
+elif [ "$#" -eq 1 ]; then
+    case $1 in
+    [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) colour=$1 ;;
+    *) fail "the colour must be six lower-case hex digits" ;;
+    esac
+    [ "$colour" != 000000 ] || level=00
+else
+    fail "$usage"
+fi
 
 root=
 if [ "$(id -u)" -eq 0 ]; then
@@ -72,15 +86,16 @@ report() {
         status=none
 }
 
-red=${colour%????}
-green=${colour#??}
-green=${green%??}
-blue=${colour#????}
-level=03
-[ "$colour" != 000000 ] || level=00
-
 report 5a 41 53 55 53 20 54 65 63 68 2e 49 6e 63 2e
 report 5a ba c5 c4 "$level"
-report 5a b3 00 00 "$red" "$green" "$blue"
+if [ -n "$colour" ]; then
+    red=${colour%????}
+    green=${colour#??}
+    green=${green%??}
+    blue=${colour#????}
+    report 5a b3 00 00 "$red" "$green" "$blue"
+else
+    report 5a b3 00 03 00 00 00 eb
+fi
 report 5a b5
 report 5a b4
