@@ -57,7 +57,7 @@ RingLightSettings::RingLightSettings(Preferences& preferences,
                                      std::optional<device::RingLights> lights,
                                      std::function<void(const std::string& why)> refused)
     : preferences_{preferences}, lights_{std::move(lights)}, refused_{std::move(refused)} {
-    apply();
+    applySaved();
 }
 
 std::vector<ui::SettingsRow> RingLightSettings::rows() const {
@@ -92,7 +92,7 @@ void RingLightSettings::run(const std::string& id, int step) {
                                             : to == 1 ? std::string{off}
                                                       : std::string{palette[to - 2].name};
     preferences_.save();
-    apply();
+    applySaved();
 }
 
 void RingLightSettings::setLevel(const std::string& id, int level) {
@@ -101,10 +101,10 @@ void RingLightSettings::setLevel(const std::string& id, int level) {
     }
     preferences_.values().ringLightBrightness = std::clamp(level, 5, 100);
     preferences_.save();
-    apply();
+    applySaved();
 }
 
-void RingLightSettings::apply() {
+void RingLightSettings::applySaved() {
     const settings::Settings& values = preferences_.values();
     const std::size_t chosen = chosenOf(values.ringLightColour);
     if (!lights_ || chosen == 0) {

@@ -28,9 +28,10 @@ class RingLightSettings {
     void run(const std::string& id, int step);
     /// Sets the brightness, in percent.
     void setLevel(const std::string& id, int level);
+    /// Sets the saved choice on the lights, as after a change made outside its rows.
+    void applySaved();
 
   private:
-    void apply();
 
     Preferences& preferences_;
     std::optional<device::RingLights> lights_;
