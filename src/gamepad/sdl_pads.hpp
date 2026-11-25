@@ -67,6 +67,7 @@ class SdlPads final : public PadSource {
     void claim(Claim claim) override;
     void setBlocked(bool blocked) override;
     void setChords(ChordTriggers chords) override;
+    void setHallTerms(std::optional<HallTerms> terms) override;
     /// SDL reads no Wii Remote's camera.
     void setWiiPointerRange(const WiiPointerRange& range) override;
     std::shared_ptr<VirtualPad> lendPad() override;

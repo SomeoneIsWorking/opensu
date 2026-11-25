@@ -152,6 +152,10 @@ bool EvdevDevice::isPad(OwnVirtualPads own) const {
            !(vendor_ == valve && product_ == steamVirtualGamepad);
 }
 
+bool EvdevDevice::xbox360() const {
+    return vendor_ == VirtualPad::vendor && product_ == VirtualPad::product;
+}
+
 std::optional<WiiRemotePart> EvdevDevice::wiiRemotePart() const {
     return wiiRemotePartOf(vendor_, product_, name_);
 }

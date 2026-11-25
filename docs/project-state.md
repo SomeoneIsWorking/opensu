@@ -630,6 +630,11 @@ InputPlumber-injected press and a SIGTERM to the session.
 With PowerStation (Bazzite, ChimeraOS) the Guide has a Power profile row: Quiet, Balanced or
 Performance set PowerStation's profile and a third, half or all of its most power
 (`host::PowerProfiles`); verified on the ROG Ally (Quiet: `quiet` at 10 W).
+On a ROG Ally, Settings › Controls › Sticks corrects the hall-effect interference on the built-in
+pad's virtual pad (`gamepad::HallTerms`, Off by default, Default or Manual): the left trigger's pull
+is taken off the left stick's x, each stick's rest offset is faded out near centre and a deadzone
+hides what is left; verified on the Ally's virtual pad (Off: the stick rests at -11% and jitters;
+Default: it reads 0, and a full injected trigger adds the 28% that cancels the magnet's pull).
 `gamepad::PadTranslator` maps the kernel's gamepad codes to the shell's controls,
 the left stick and hat included, so any driver following them works (xpad, xone,
 hid-playstation, hid-nintendo). Held directions, from a pad or the keyboard, move

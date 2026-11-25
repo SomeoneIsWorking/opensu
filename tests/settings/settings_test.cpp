@@ -267,6 +267,26 @@ void nightLight(const fs::path& root) {
            "an unknown night light choice follows the desktop");
 }
 
+void stickCorrection(const fs::path& root) {
+    using opensu::gamepad::HallMode;
+    const Store store{root / "sticks" / "settings.json"};
+    expect(store.load().stickCorrection == HallMode::Off,
+           "the sticks are not corrected by default");
+    Settings saved;
+    saved.stickCorrection = HallMode::Manual;
+    saved.stickTerms.triggerPullX = -0.3f;
+    saved.stickTerms.remapDeadzone = false;
+    std::string error;
+    expect(store.save(saved, error), "the stick correction is saved");
+    const Settings loaded = store.load();
+    expect(loaded.stickCorrection == HallMode::Manual && loaded.stickTerms.triggerPullX == -0.3f &&
+               !loaded.stickTerms.remapDeadzone,
+           "its mode and the player's terms read back");
+    write(store.file(), R"({"stickCorrection": {"mode": "sideways"}})");
+    expect(store.load().stickCorrection == HallMode::Off,
+           "an unknown mode leaves them uncorrected");
+}
+
 void interfaceSounds(const fs::path& root) {
     using opensu::settings::SoundSet;
     const Store store{root / "sounds" / "settings.json"};
@@ -419,6 +439,7 @@ int main() try {
     interfaceSizeMultiplies(root);
     wineChoices(root);
     nightLight(root);
+    stickCorrection(root);
     interfaceSounds(root);
     formerCopyChoices(root);
     integrationChoices(root);

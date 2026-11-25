@@ -275,6 +275,7 @@ ui::SettingsCategory SettingsController::controlsPage() const {
                                      [](input::KeyboardStyle style) {
                                          return std::string{input::label(style)};
                                      })));
+    std::ranges::move(sticks_.rows(), std::back_inserter(page.rows));
     std::ranges::move(wiiRemotes_.rows(), std::back_inserter(page.rows));
     page.rows.push_back(ui::makeHeading("Shortcuts"));
     for (const input::Action action : input::allActions) {
@@ -518,6 +519,8 @@ void SettingsController::openPage(const std::string& id) {
 void SettingsController::setLevel(const std::string& id, int level) {
     if (shelf_.setLevel(id, level)) {
         refresh();
+    } else if (StickCorrectionSettings::owns(id)) {
+        sticks_.setLevel(id, level);
     }
 }
 
@@ -540,6 +543,10 @@ void SettingsController::run(const std::string& id, int step) {
     }
     if (WiiRemoteSettings::owns(id)) {
         wiiRemotes_.run(id, step);
+        return;
+    }
+    if (StickCorrectionSettings::owns(id)) {
+        sticks_.run(id, step);
         return;
     }
     if (MappingEditor::owns(id)) {

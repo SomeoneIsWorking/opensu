@@ -49,6 +49,8 @@ class EvdevDevice {
     [[nodiscard]] const std::string& uniq() const {
         return uniq_;
     }
+    /// Whether it has the Xbox 360 pad's identity, as xpad and the handheld daemons' pads do.
+    [[nodiscard]] bool xbox360() const;
     [[nodiscard]] const PadCapabilities& capabilities() const {
         return capabilities_;
     }

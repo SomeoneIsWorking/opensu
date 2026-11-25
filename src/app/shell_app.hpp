@@ -36,6 +36,7 @@
 #include "controller_roster.hpp"
 #include "copy_places.hpp"
 #include "details_controller.hpp"
+#include "device/handheld.hpp"
 #include "devices_controller.hpp"
 #include "downloads_controller.hpp"
 #include "embed_socket.hpp"
@@ -1476,6 +1477,7 @@ class ShellApp final {
                                      profileSettings_,
                                      shelfOptions_,
                                      wiiRemoteSettings_,
+                                     stickCorrectionSettings_,
                                      integrations_},
         sounds_,
         preferences_,
@@ -1539,6 +1541,11 @@ class ShellApp final {
     WiiRemoteSettings wiiRemoteSettings_{preferences_, *pads_, [this] {
                                              settingsScreen_.refresh();
                                          }};
+    /// Settings › Controls › Sticks on a ROG Ally, which sets the stick correction on the pads.
+    StickCorrectionSettings stickCorrectionSettings_{preferences_, *pads_, device::rogAlly(),
+                                                     [this] {
+                                                         settingsScreen_.refresh();
+                                                     }};
     /// A Wii Remote pointing at the screen as the shell's pointer.
     PointingPads pointingPads_{
         PointingPads::Hooks{[this](float x, float y) {

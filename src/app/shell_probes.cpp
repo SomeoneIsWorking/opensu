@@ -167,6 +167,7 @@ ControlAnswer ShellApp::runProbe(const ControlCommand& command) {
         preferences_.save();
         applyLayout();
         applyIntegrations();
+        stickCorrectionSettings_.applySaved();
         if (values.romFolders != before.romFolders || values.gameFolders != before.gameFolders ||
             values.steamRoots != before.steamRoots) {
             libraryFoldersChanged();

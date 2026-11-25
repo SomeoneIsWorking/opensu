@@ -33,12 +33,12 @@ std::system_error lastError(const char* what) {
 EvdevPads::Pad::Pad(EvdevDevice opened)
     : device{std::move(opened)}, layout{layoutNow()}, translator{capabilities()} {
     // The translator starts from the pad's present state, so the first resume is right.
-    restart({}, {});
+    restart({}, {}, {});
 }
 
 EvdevPads::Pad::Pad(WiiSlot& remote)
     : slot{&remote}, layout{layoutNow()}, translator{capabilities()} {
-    restart({}, {});
+    restart({}, {}, {});
 }
 
 std::string EvdevPads::Pad::id() const {
@@ -97,10 +97,16 @@ std::vector<PadEvent> EvdevPads::Pad::translatable(const std::vector<WiiPartEven
     return mapped;
 }
 
-void EvdevPads::Pad::restart(const ChordTriggers& chords, const ForwardMap& map) {
+bool EvdevPads::Pad::builtIn() const {
+    return device && device->xbox360() && device->uniq().empty();
+}
+
+void EvdevPads::Pad::restart(const ChordTriggers& chords, const ForwardMap& map,
+                             const std::optional<HallTerms>& hall) {
     translator = PadTranslator{capabilities()};
     translator.setChords(chords);
     translator.setForwardMap(map);
+    translator.setHallTerms(builtIn() ? hall : std::nullopt);
     std::vector<PadEvent> ignored;
     std::vector<Event> controls;
     const auto feed = [&](const std::vector<PadEvent>& events) {
@@ -233,6 +239,12 @@ void EvdevPads::setChords(ChordTriggers chords) {
     awaitApplied(lock, ++wanted_.serial);
 }
 
+void EvdevPads::setHallTerms(std::optional<HallTerms> terms) {
+    std::unique_lock lock{mutex_};
+    wanted_.hall = terms;
+    awaitApplied(lock, ++wanted_.serial);
+}
+
 void EvdevPads::setWiiPointerRange(const WiiPointerRange& range) {
     const std::lock_guard lock{mutex_};
     wanted_.pointer = range;
@@ -361,6 +373,7 @@ void EvdevPads::add(const std::filesystem::path& node) {
 void EvdevPads::connect(std::unique_ptr<Pad> pad) {
     pad->translator.setChords(applied_.chords);
     pad->translator.setForwardMap(applied_.map);
+    pad->translator.setHallTerms(pad->builtIn() ? applied_.hall : std::nullopt);
     pad->pointer.setRange(applied_.pointer);
     lucent::info("gamepad", "controller connected: {} ({})", pad->name(), pad->id());
     if (!apply(*pad, applied_)) {
@@ -432,7 +445,7 @@ void EvdevPads::relayout(Pad& pad) {
         write(pad, pad.translator.rest());
     }
     pad.layout = pad.layoutNow();
-    pad.restart(applied_.chords, applied_.map);
+    pad.restart(applied_.chords, applied_.map, applied_.hall);
     if (pad.live) {
         write(pad, pad.translator.resume());
     }
@@ -682,6 +695,11 @@ void EvdevPads::run(const std::stop_token& stop) {
             // Before a hold, so a new virtual pad resumes from the mapped state.
             for (const auto& pad : pads_) {
                 pad->translator.setForwardMap(wanted.map);
+            }
+        }
+        if (wanted.hall != applied_.hall) {
+            for (const auto& pad : pads_) {
+                pad->translator.setHallTerms(pad->builtIn() ? wanted.hall : std::nullopt);
             }
         }
         if (wanted.pointer != applied_.pointer) {

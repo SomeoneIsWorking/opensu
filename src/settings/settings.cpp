@@ -40,6 +40,11 @@ constexpr const char* portraitKey = "portrait";
 constexpr const char* keyboardStyleKey = "keyboard";
 constexpr const char* realWiiRemotesKey = "realWiiRemotes";
 constexpr const char* wiiPointerKey = "wiiPointer";
+constexpr const char* stickCorrectionKey = "stickCorrection";
+constexpr std::array<std::pair<gamepad::HallMode, const char*>, 3> hallModes{
+    {{gamepad::HallMode::Off, "off"},
+     {gamepad::HallMode::Default, "default"},
+     {gamepad::HallMode::Manual, "manual"}}};
 constexpr std::array<const char*, 4> wiiPointerEdges{"left", "right", "top", "bottom"};
 constexpr const char* nightLightKey = "nightLight";
 constexpr const char* consoleThemeKey = "consoleTheme";
@@ -116,6 +121,40 @@ class Reader {
                                        .right = found->at("right").get<float>(),
                                        .top = found->at("top").get<float>(),
                                        .bottom = found->at("bottom").get<float>()};
+    }
+
+    /// The stick correction: an object of its mode and the player's terms, each term optional.
+    void stickCorrection(const char* name, gamepad::HallMode& mode, gamepad::HallTerms& terms,
+                         const char* fallback) const {
+        const auto found = document_.find(name);
+        if (found == document_.end()) {
+            return;
+        }
+        const auto spelled =
+            found->is_object() && found->contains("mode") && found->at("mode").is_string()
+                ? std::ranges::find(hallModes, found->at("mode").get<std::string>(),
+                                    [](const auto& entry) {
+                                        return std::string{entry.second};
+                                    })
+                : hallModes.end();
+        if (spelled == hallModes.end()) {
+            reject(name, *found, fallback);
+            return;
+        }
+        mode = spelled->first;
+        const auto number = [&found](const char* term, float& out) {
+            if (found->contains(term) && found->at(term).is_number()) {
+                out = std::clamp(found->at(term).get<float>(), -1.0f, 1.0f);
+            }
+        };
+        number("leftIdleX", terms.leftIdleX);
+        number("rightIdleX", terms.rightIdleX);
+        number("triggerPullX", terms.triggerPullX);
+        number("leftDeadzone", terms.leftDeadzone);
+        number("rightDeadzone", terms.rightDeadzone);
+        if (found->contains("remapDeadzone") && found->at("remapDeadzone").is_boolean()) {
+            terms.remapDeadzone = found->at("remapDeadzone").get<bool>();
+        }
     }
 
     void integer(const char* name, int low, int high, int& out, const char* fallback) const {
@@ -417,6 +456,8 @@ Settings readDocument(const json& document, const std::string& file) {
     read.boolean(portraitKey, settings.portrait, "standing in landscape");
     read.boolean(realWiiRemotesKey, settings.realWiiRemotes, "Wii games play real remotes");
     read.pointerRange(wiiPointerKey, settings.wiiPointer, "the camera's whole view is the screen");
+    read.stickCorrection(stickCorrectionKey, settings.stickCorrection, settings.stickTerms,
+                         "the sticks are not corrected");
     std::string runner;
     read.text(wineRunnerKey, runner, "using the newest GE-Proton");
     settings.wineRunner = runner;
@@ -630,6 +671,18 @@ json documentOf(const Settings& settings) {
                                    {"top", range->top},
                                    {"bottom", range->bottom}};
     }
+    const gamepad::HallTerms& terms = settings.stickTerms;
+    document[stickCorrectionKey] = {{"mode", std::ranges::find(hallModes, settings.stickCorrection,
+                                                               [](const auto& entry) {
+                                                                   return entry.first;
+                                                               })
+                                                 ->second},
+                                    {"leftIdleX", terms.leftIdleX},
+                                    {"rightIdleX", terms.rightIdleX},
+                                    {"triggerPullX", terms.triggerPullX},
+                                    {"leftDeadzone", terms.leftDeadzone},
+                                    {"rightDeadzone", terms.rightDeadzone},
+                                    {"remapDeadzone", terms.remapDeadzone}};
     if (settings.interfaceSounds) {
         document[interfaceSoundsKey] = std::string{key(*settings.interfaceSounds)};
     }

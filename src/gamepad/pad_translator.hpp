@@ -22,6 +22,7 @@
 #include "chord_gate.hpp"
 #include "event.hpp"
 #include "forward_map.hpp"
+#include "hall_correction.hpp"
 
 namespace opensu::gamepad {
 
@@ -94,6 +95,10 @@ class PadTranslator {
     /// kept from the virtual pad as `setChords`'s are.
     void setForwardMap(ForwardMap map);
 
+    /// Corrects the sticks the virtual pad gets for hall-effect interference (`HallTerms`), or
+    /// passes them as read without terms.
+    void setHallTerms(std::optional<HallTerms> terms);
+
     /// Translates one physical event read at `at`: what the virtual pad should receive goes to
     /// `forward`, control presses and releases for opensu to `controls`.
     void translate(const PadEvent& in, std::vector<PadEvent>& forward, std::vector<Event>& controls,
@@ -111,6 +116,8 @@ class PadTranslator {
   private:
     void forwardKey(std::uint16_t code, std::int32_t value, std::vector<PadEvent>& forward);
     void forwardAxis(std::uint16_t code, std::int32_t value, std::vector<PadEvent>& forward);
+    /// Gives the virtual pad the sticks as `terms` correct them.
+    void forwardSticks(const HallTerms& terms, std::vector<PadEvent>& forward);
     /// Hears `edges` through the chord gate: each goes to `controls`, and the virtual pad follows
     /// what the gate lets pass.
     void gate(const std::vector<Event>& edges, std::vector<PadEvent>& forward,
@@ -155,6 +162,7 @@ class PadTranslator {
     std::map<Button, bool> hatHeld_;
     std::map<Button, bool> stickHeld_;
     Sticks sticks_;
+    std::optional<HallTerms> hall_;
 };
 
 } // namespace opensu::gamepad

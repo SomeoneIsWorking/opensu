@@ -297,6 +297,10 @@ void SdlPads::claim(Claim /*claim*/) {
 void SdlPads::setBlocked(bool /*blocked*/) {
 }
 
+void SdlPads::setHallTerms(std::optional<HallTerms> /*terms*/) {
+    // SDL's pads give games no virtual pad to correct.
+}
+
 void SdlPads::setChords(ChordTriggers /*chords*/) {
 }
 

@@ -47,6 +47,7 @@
 #include "shelf_options.hpp"
 #include "shortcut_editor.hpp"
 #include "steam_library_settings.hpp"
+#include "stick_correction_settings.hpp"
 #include "ui/row_widgets.hpp"
 #include "ui/screen_stack.hpp"
 #include "ui/setting_row.hpp"
@@ -101,6 +102,7 @@ class SettingsController final : public ui::RowActions {
         ProfileSettings& profiles;
         ShelfOptions& shelf;
         WiiRemoteSettings& wiiRemotes;
+        StickCorrectionSettings& sticks;
         /// Which pages and rows show: those of the integrations in force.
         const IntegrationsInForce& inForce;
     };
@@ -119,9 +121,9 @@ class SettingsController final : public ui::RowActions {
           interfaceSounds_{services.interfaceSounds}, interfaceThemes_{services.interfaceThemes},
           lan_{services.lan}, online_{services.online}, lanRoms_{services.lanRoms},
           lanProfiles_{services.lanProfiles}, saves_{services.saves}, profiles_{services.profiles},
-          shelf_{services.shelf}, wiiRemotes_{services.wiiRemotes}, inForce_{services.inForce},
-          sounds_{sounds}, preferences_{preferences}, defaults_{defaults},
-          hooks_{std::move(hooks)} {
+          shelf_{services.shelf}, wiiRemotes_{services.wiiRemotes}, sticks_{services.sticks},
+          inForce_{services.inForce}, sounds_{sounds}, preferences_{preferences},
+          defaults_{defaults}, hooks_{std::move(hooks)} {
     }
 
     /// Opens the screen on its first category.
@@ -220,6 +222,7 @@ class SettingsController final : public ui::RowActions {
     ProfileSettings& profiles_;
     ShelfOptions& shelf_;
     WiiRemoteSettings& wiiRemotes_;
+    StickCorrectionSettings& sticks_;
     const IntegrationsInForce& inForce_;
     audio::SdlSoundPlayer& sounds_;
     Preferences& preferences_;

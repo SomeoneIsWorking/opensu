@@ -90,6 +90,7 @@ class EvdevPads final : public PadSource {
 
     /// The chords whose buttons never reach the game (`ChordGate`); returns once applied.
     void setChords(ChordTriggers chords) override;
+    void setHallTerms(std::optional<HallTerms> terms) override;
     void setWiiPointerRange(const WiiPointerRange& range) override;
 
     /// Keeps `count` virtual pads, making or ending them, and returns their nodes once applied;
@@ -111,8 +112,12 @@ class EvdevPads final : public PadSource {
         [[nodiscard]] const std::string& name() const;
         /// The layout for what the remote has plugged in now; nothing for another pad.
         [[nodiscard]] std::optional<WiiRemoteLayout> layoutNow() const;
+        /// The handheld's own pad, which the stick correction is for: an Xbox 360 pad not on
+        /// Bluetooth, as the ROG Ally's xpad pad and the pad InputPlumber or HHD presents are.
+        [[nodiscard]] bool builtIn() const;
         /// The translator started again from the devices' present state, as `layout` reads them.
-        void restart(const ChordTriggers& chords, const ForwardMap& map);
+        void restart(const ChordTriggers& chords, const ForwardMap& map,
+                     const std::optional<HallTerms>& hall);
         /// The events `read` from `part` as the translator reads them.
         [[nodiscard]] std::vector<PadEvent> translatable(const std::vector<PadEvent>& read,
                                                          WiiRemotePart part) const;
@@ -147,6 +152,8 @@ class EvdevPads final : public PadSource {
         bool blocked{false};
         ChordTriggers chords;
         ForwardMap map;
+        /// The built-in pad's stick correction; none passes the sticks as read.
+        std::optional<HallTerms> hall;
         WiiRemoteHold remotes{WiiRemoteHold::AsPads};
         WiiPointerRange pointer;
         /// How many virtual pads are kept.

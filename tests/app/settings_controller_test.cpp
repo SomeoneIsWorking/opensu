@@ -183,6 +183,7 @@ struct Rig {
                                                        profileSettings,
                                                        shelf,
                                                        wiiRemotes,
+                                                       sticks,
                                                        inForce},
                      sounds,
                      preferences,
@@ -622,6 +623,9 @@ struct Rig {
     app::WiiRemoteSettings wiiRemotes{preferences, *pads, [this] {
                                           controller.refresh();
                                       }};
+    app::StickCorrectionSettings sticks{preferences, *pads, true, [this] {
+                                            controller.refresh();
+                                        }};
     app::SettingsController controller;
     bool steamReady{false};
     int applied{0};

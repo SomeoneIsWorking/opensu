@@ -345,6 +345,42 @@ void aMappedStartTapSendsItsOutput() {
 
 } // namespace
 
+/// The ROG Ally's pad as InputPlumber presents it: xpad's ranges.
+PadCapabilities allyPad() {
+    PadCapabilities caps;
+    caps.keys = {BTN_SOUTH, BTN_EAST, BTN_NORTH, BTN_WEST, BTN_TL, BTN_TR, BTN_SELECT, BTN_START};
+    for (const auto axis : {ABS_X, ABS_Y, ABS_RX, ABS_RY}) {
+        caps.axes[static_cast<std::uint16_t>(axis)] = {-32768, 32767};
+    }
+    caps.axes[ABS_Z] = {0, 255};
+    caps.axes[ABS_RZ] = {0, 255};
+    return caps;
+}
+
+/// The left stick's x as last given to the virtual pad.
+std::int32_t lastLeftX(const Run& run) {
+    std::int32_t x = 0;
+    for (const PadEvent& event : run.forward) {
+        if (event.type == EV_ABS && event.code == ABS_X) {
+            x = event.value;
+        }
+    }
+    return x;
+}
+
+void hallCorrectionTakesOutTheTriggerPull() {
+    // The left trigger held, the untouched left stick read 0.43 to the left.
+    const Events pulled{{EV_ABS, ABS_Z, 255}, {EV_ABS, ABS_X, -14090}};
+    PadTranslator plain{allyPad()};
+    expect(lastLeftX(feed(plain, pulled)) == -14090, "without terms the pull reaches the game");
+    PadTranslator ally{allyPad()};
+    ally.setHallTerms(opensu::gamepad::HallTerms{});
+    expect(lastLeftX(feed(ally, pulled)) == 0,
+           "with them the stick the trigger pulled reads centred");
+    expect(lastLeftX(feed(ally, {{EV_ABS, ABS_X, 32767}})) == 32767,
+           "a full push still reaches the edge");
+}
+
 int main() try {
     faceButtonsPassThrough();
     guideStaysWithOpensu();
@@ -363,6 +399,7 @@ int main() try {
     guideIsNeverMapped();
     aGameChordHoldsItsButtons();
     aMappedStartTapSendsItsOutput();
+    hallCorrectionTakesOutTheTriggerPull();
     std::printf("pad_translator: all checks passed\n");
     return 0;
 } catch (...) {

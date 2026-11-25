@@ -112,6 +112,9 @@ class PadSource {
     virtual void setBlocked(bool blocked) = 0;
     /// The chords whose buttons never reach the game (`ChordGate`); returns once applied.
     virtual void setChords(ChordTriggers chords) = 0;
+    /// The stick correction the built-in pad's virtual pad gets (`HallTerms`); none passes its
+    /// sticks as read. Returns once applied.
+    virtual void setHallTerms(std::optional<HallTerms> terms) = 0;
     /// Where the screen is in the Wii Remotes' camera views (`WiiPointer::setRange`), for every
     /// remote now and to come. Any thread.
     virtual void setWiiPointerRange(const WiiPointerRange& range) = 0;
