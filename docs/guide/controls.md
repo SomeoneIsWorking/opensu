@@ -11,7 +11,7 @@ everywhere, and on Android touch: a click or tap focuses and presses.
 | --- | --- | --- |
 | D-pad or left stick | arrows, WASD | Move focus |
 | A | Enter, Space, click | Open a game's details page; Play, Install, change a ROM's emulator or Hide from there |
-| B | Escape | Back |
+| B | Escape | Back; on Home with nothing to go back to, the Guide menu |
 | Y | Y | Details page |
 | X | F | Refresh the library |
 | Select | Tab, Menu key, Shift+F10, right click | The focused tile's menu |
