@@ -443,15 +443,21 @@ void pageRowsChangeAndKeep() {
     rig.press(Action::Down);
     rig.press(Action::Accept);
     expect(onDisk().view.sort == library::SortKey::Name, "picking the next sort keeps it");
-    rig.press(Action::Left);
-    expect(onDisk().view.sort == library::SortKey::Recent, "Left steps back");
+    rig.press(Action::Accept);
+    rig.press(Action::Up);
+    rig.press(Action::Accept);
+    expect(onDisk().view.sort == library::SortKey::Recent, "picking the one before puts it back");
 
     rig.at(app::optionSourceId);
-    rig.press(Action::Right);
-    expect(onDisk().view.source == "launcher:epic", "Right moves to the next source");
-    rig.press(Action::Left);
-    rig.press(Action::Left);
-    expect(onDisk().view.source == "gc", "Left wraps to the last source");
+    rig.press(Action::Accept);
+    rig.press(Action::Down);
+    rig.press(Action::Accept);
+    expect(onDisk().view.source == "launcher:epic", "picking the next source keeps it");
+    rig.press(Action::Accept);
+    rig.press(Action::Up);
+    rig.press(Action::Up);
+    rig.press(Action::Accept);
+    expect(onDisk().view.source == "gc", "Up past the list's top goes round to the last source");
 
     rig.at(app::optionInstalledId);
     rig.press(Action::Accept);

@@ -809,7 +809,9 @@ void togglesChoicesAndSliderPersist(const fs::path& root) {
         expect(night.choices.size() == 3 && night.choices[night.chosen] == "Same as desktop" &&
                    night.note == "For session mode; here the desktop's own night light applies",
                "the night light follows the desktop, and says where it applies");
-        rig.act(Button::Right);
+        rig.act(Button::A);
+        rig.act(Button::Down);
+        rig.act(Button::A);
         expect(rig.onDisk().nightLight == settings::NightLightChoice::Off &&
                    rig.rowOf("nightLight").choices[rig.rowOf("nightLight").chosen] == "Off",
                "a night light choice is kept");
