@@ -211,8 +211,9 @@ RootInstallWords RingLightSettings::installWords() {
                         "openSU sends the controller's own light command as root.\n\n"
                         "This installs a small helper at "} +
             host::ringLightHelperPath + " and a sudo rule in " + host::ringLightRulePath +
-            " that lets you run only that helper without a password. It takes a colour and "
-            "writes nothing but the lights.\n\npolkit then asks for the administrator password.",
+            " that lets you run only that helper without a password. It takes a colour or the "
+            "rainbow and writes nothing but the lights.\n\npolkit then asks for the "
+            "administrator password.",
         .installed = "Stick light colours allowed"};
 }
 
