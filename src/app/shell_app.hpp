@@ -1590,10 +1590,16 @@ class ShellApp final {
                                              lightsInstall_->begin();
                                          }
                                      }}};
+    /// Each pad's calibration, handed to the pads at start.
+    PadCalibrationFlow padCalibration_{shell_.screens().navigator(), preferences_, *pads_, sounds_,
+                                       [this](const std::string& text, bool isError) {
+                                           shell_.setToast(text, isError);
+                                       }};
     /// The Devices page, reached from the Guide menu.
     DevicesController devicesScreen_{
         shell_.screens().navigator(), shell_.screens().chrome(),
-        DevicesController::Services{bluetooth_.get(), roster_, outputs_, ringLights_}, sounds_,
+        DevicesController::Services{bluetooth_.get(), roster_, outputs_, ringLights_,
+                                    padCalibration_}, sounds_,
         DevicesController::Hooks{[this](const std::string& text, bool isError) {
                                      shell_.setToast(text, isError);
                                  },

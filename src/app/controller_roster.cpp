@@ -28,6 +28,7 @@ std::vector<ControllerStatus> ControllerRoster::controllers(Clock::time_point no
         ControllerStatus status;
         status.id = pad.id;
         status.name = pad.name;
+        status.uniq = pad.uniq;
         status.player = list.size() + 1;
         if (const auto held = held_.find(pad.id); held != held_.end()) {
             status.held = held->second;

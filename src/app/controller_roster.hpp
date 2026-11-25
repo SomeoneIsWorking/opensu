@@ -23,6 +23,8 @@ struct ControllerStatus {
     /// The pad layer's id for it, which button events name as their source.
     std::string id;
     std::string name;
+    /// The device's unique id (a Bluetooth pad's address), or empty.
+    std::string uniq;
     /// 1 for the first pad connected.
     std::size_t player{1};
     std::optional<device::BatteryStatus> battery;

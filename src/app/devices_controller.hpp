@@ -21,6 +21,7 @@
 #include "audio_outputs.hpp"
 #include "bluetooth_session.hpp"
 #include "controller_roster.hpp"
+#include "pad_calibration_flow.hpp"
 #include "device/wii_remotes.hpp"
 #include "ring_light_settings.hpp"
 #include "ui/row_widgets.hpp"
@@ -56,6 +57,8 @@ class DevicesController final : public ui::RowActions {
         AudioOutputs& outputs;
         /// The stick lights' rows on the Controllers tab.
         RingLightSettings& lights;
+        /// Each pad's Calibrate row.
+        PadCalibrationFlow& calibration;
     };
 
     /// The screen goes on `navigator`'s stack, under `chrome`.
@@ -63,7 +66,7 @@ class DevicesController final : public ui::RowActions {
                       audio::SdlSoundPlayer& sounds, Hooks hooks)
         : navigator_{navigator}, chrome_{chrome}, bluetooth_{services.bluetooth},
           controllers_{services.controllers}, outputs_{services.outputs},
-          lights_{services.lights}, sounds_{sounds},
+          lights_{services.lights}, calibration_{services.calibration}, sounds_{sounds},
           hooks_{std::move(hooks)} {
     }
 
@@ -118,6 +121,7 @@ class DevicesController final : public ui::RowActions {
     ControllerRoster& controllers_;
     AudioOutputs& outputs_;
     RingLightSettings& lights_;
+    PadCalibrationFlow& calibration_;
     audio::SdlSoundPlayer& sounds_;
     Hooks hooks_;
     std::string chosen_;

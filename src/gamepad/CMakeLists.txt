@@ -3,7 +3,7 @@
 # gamepads elsewhere. The SDL backend is portable, so it is compiled on Linux too.
 add_library(opensu_pad STATIC
     event.cpp chord_gate.cpp forward_map.cpp direction_repeat.cpp sdl_pads.cpp sdl_guid.cpp
-    wii_pointer_range.cpp hall_correction.cpp)
+    wii_pointer_range.cpp hall_correction.cpp pad_calibration.cpp)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(opensu_pad PRIVATE pad_translator.cpp evdev_device.cpp virtual_pad.cpp evdev_pads.cpp
         pad_source_evdev.cpp remote_pad.cpp wii_remote_layout.cpp wii_slot.cpp)

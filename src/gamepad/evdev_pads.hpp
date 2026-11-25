@@ -98,6 +98,7 @@ class EvdevPads final : public PadSource {
     std::shared_ptr<VirtualPad> lendPad() override;
     void returnPad() override;
     std::shared_ptr<VirtualPad> seatPad() override;
+    void setCalibrations(PadCalibrations calibrations) override;
     std::vector<std::filesystem::path> keepVirtualPads(std::size_t count) override;
 
   private:
@@ -117,7 +118,9 @@ class EvdevPads final : public PadSource {
         [[nodiscard]] bool builtIn() const;
         /// The translator started again from the devices' present state, as `layout` reads them.
         void restart(const ChordTriggers& chords, const ForwardMap& map,
-                     const std::optional<HallTerms>& hall);
+                     const std::optional<HallTerms>& hall, const PadCalibrations& calibrations);
+        /// Its measured axes among `calibrations`, or none.
+        [[nodiscard]] PadCalibration calibrationIn(const PadCalibrations& calibrations) const;
         /// The events `read` from `part` as the translator reads them.
         [[nodiscard]] std::vector<PadEvent> translatable(const std::vector<PadEvent>& read,
                                                          WiiRemotePart part) const;
@@ -154,6 +157,7 @@ class EvdevPads final : public PadSource {
         ForwardMap map;
         /// The built-in pad's stick correction; none passes the sticks as read.
         std::optional<HallTerms> hall;
+        PadCalibrations calibrations;
         WiiRemoteHold remotes{WiiRemoteHold::AsPads};
         WiiPointerRange pointer;
         /// How many virtual pads are kept.

@@ -190,6 +190,7 @@ ui::SettingsCategory DevicesController::controllersTab() const {
         }
         tab.rows.push_back(ui::makeRow(padPrefix + pad.id, RowKind::Info, pad.name,
                                        joined(parts, " · "), heldText(pad.held)));
+        tab.rows.push_back(calibration_.row(pad));
     }
     std::ranges::move(lights_.rows(), std::back_inserter(tab.rows));
     addWiiRemoteRows(tab.rows, hooks_.wiiRemotes());
@@ -316,6 +317,8 @@ void DevicesController::refuse(const std::string& reason) {
 void DevicesController::run(const std::string& id, int step) {
     if (RingLightSettings::owns(id)) {
         lights_.run(id, step);
+    } else if (PadCalibrationFlow::owns(id)) {
+        calibration_.run(id, controllers_.controllers(Clock::now()));
     } else if (id == remapId) {
         hooks_.openShortcuts();
     } else if (id.starts_with("bluetooth") || id.starts_with(devicePrefix)) {
@@ -353,6 +356,11 @@ void DevicesController::runBluetooth(const std::string& id) {
 }
 
 void DevicesController::secondary(const std::string& id) {
+    if (PadCalibrationFlow::owns(id)) {
+        calibration_.reset(id, controllers_.controllers(Clock::now()));
+        refresh();
+        return;
+    }
     const host::BluetoothDevice* device = deviceOf(id);
     if (device == nullptr || !device->paired) {
         return;

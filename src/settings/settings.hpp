@@ -12,6 +12,7 @@
 
 #include "config/config.hpp"
 #include "gamepad/hall_correction.hpp"
+#include "gamepad/pad_calibration.hpp"
 #include "gamepad/wii_pointer_range.hpp"
 #include "input/keyboard_style.hpp"
 #include "input/shortcuts.hpp"
@@ -133,6 +134,8 @@ struct Settings {
     std::optional<gamepad::WiiPointerRange> wiiPointer;
     /// The player's terms for the ROG Ally's stick correction when it is Manual.
     gamepad::HallTerms stickTerms;
+    /// Each calibrated pad's measured axes, by `gamepad::calibrationKey`.
+    gamepad::PadCalibrations padCalibrations;
     /// The games pinned to a runner of their own, by game id: its Wine binary.
     std::map<std::string, std::filesystem::path> wineRunnerPins;
 

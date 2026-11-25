@@ -59,6 +59,12 @@ bool PadCapabilities::isGamepad() const {
 }
 
 PadTranslator::PadTranslator(PadCapabilities physical) : physical_{std::move(physical)} {
+    for (const auto& [code, range] : physical_.axes) {
+        const std::uint16_t measured = triggerAxis(code);
+        if (measured < raw_.range.size()) {
+            raw_.range.at(measured) = range;
+        }
+    }
 }
 
 PadAxes PadTranslator::axes() const {
@@ -67,7 +73,10 @@ PadAxes PadTranslator::axes() const {
         return found != triggers_.end() ? found->second : 0;
     };
     return PadAxes{
-        .sticks = sticks_, .leftTrigger = travel(Button::L2), .rightTrigger = travel(Button::R2)};
+        .sticks = sticks_,
+        .leftTrigger = travel(Button::L2),
+        .rightTrigger = travel(Button::R2),
+        .raw = raw_};
 }
 
 void PadTranslator::setChords(ChordTriggers chords) {
@@ -139,8 +148,16 @@ void PadTranslator::translate(const PadEvent& in, std::vector<PadEvent>& forward
         if (range == physical_.axes.end()) {
             return;
         }
+        const std::uint16_t measured = triggerAxis(in.code);
+        const auto calibrated = calibration_.axes.find(measured);
+        if (measured < raw_.value.size()) {
+            raw_.value.at(measured) = in.value;
+        }
         if (isStick(in.code)) {
-            const std::int32_t value = rescale(in.value, range->second, virtualStick);
+            const std::int32_t value =
+                calibrated != calibration_.axes.end()
+                    ? stickValue(in.value, calibrated->second, virtualStick)
+                    : rescale(in.value, range->second, virtualStick);
             stickAxis(sticks_, in.code) = value;
             if (hall_) {
                 forwardSticks(*hall_, forward);
@@ -151,7 +168,10 @@ void PadTranslator::translate(const PadEvent& in, std::vector<PadEvent>& forward
         } else if (in.code == ABS_Z || in.code == ABS_RZ || in.code == ABS_BRAKE ||
                    in.code == ABS_GAS) {
             const Button button = triggerAxis(in.code) == ABS_Z ? Button::L2 : Button::R2;
-            const std::int32_t value = rescale(in.value, range->second, virtualTrigger);
+            const std::int32_t value =
+                calibrated != calibration_.axes.end()
+                    ? triggerValue(in.value, calibrated->second, virtualTrigger)
+                    : rescale(in.value, range->second, virtualTrigger);
             triggers_[button] = value;
             if (hall_ && button == Button::L2) {
                 forwardSticks(*hall_, forward);
@@ -348,6 +368,10 @@ void PadTranslator::forwardAxis(std::uint16_t code, std::int32_t value,
 
 void PadTranslator::setHallTerms(std::optional<HallTerms> terms) {
     hall_ = terms;
+}
+
+void PadTranslator::setCalibration(PadCalibration calibration) {
+    calibration_ = std::move(calibration);
 }
 
 void PadTranslator::forwardSticks(const HallTerms& terms, std::vector<PadEvent>& forward) {

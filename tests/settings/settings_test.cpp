@@ -287,6 +287,22 @@ void stickCorrection(const fs::path& root) {
            "an unknown mode leaves them uncorrected");
 }
 
+void padCalibrations(const fs::path& root) {
+    const Store store{root / "calibrations" / "settings.json"};
+    expect(store.load().padCalibrations.empty(), "no pad is calibrated by default");
+    Settings saved;
+    saved.padCalibrations["Microsoft X-Box 360 pad"].axes[3] = {-25220, 2700, 31862};
+    saved.padCalibrations["Microsoft X-Box 360 pad"].axes[5] = {0, 0, 221};
+    std::string error;
+    expect(store.save(saved, error), "the calibrations are saved");
+    expect(store.load().padCalibrations == saved.padCalibrations, "and read back");
+    write(store.file(), R"({"padCalibrations": {"pad": {"3": [1, 2], "9": [0, 0, 1], "5": [0, 0, 200]}}})");
+    const Settings partial = store.load();
+    expect(partial.padCalibrations.at("pad").axes.size() == 1 &&
+               partial.padCalibrations.at("pad").axes.at(5).high == 200,
+           "a damaged axis is dropped and the rest kept");
+}
+
 void interfaceSounds(const fs::path& root) {
     using opensu::settings::SoundSet;
     const Store store{root / "sounds" / "settings.json"};
@@ -440,6 +456,7 @@ int main() try {
     wineChoices(root);
     nightLight(root);
     stickCorrection(root);
+    padCalibrations(root);
     interfaceSounds(root);
     formerCopyChoices(root);
     integrationChoices(root);

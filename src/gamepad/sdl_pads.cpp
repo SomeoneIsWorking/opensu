@@ -301,6 +301,9 @@ void SdlPads::setHallTerms(std::optional<HallTerms> /*terms*/) {
     // SDL's pads give games no virtual pad to correct.
 }
 
+void SdlPads::setCalibrations(PadCalibrations /*calibrations*/) {
+}
+
 void SdlPads::setChords(ChordTriggers /*chords*/) {
 }
 

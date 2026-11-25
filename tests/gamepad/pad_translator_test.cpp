@@ -2,6 +2,8 @@
 #include "pad_translator.hpp"
 
 #include <algorithm>
+#include <array>
+#include <string>
 #include <chrono>
 #include <cstdio>
 #include <vector>
@@ -381,6 +383,67 @@ void hallCorrectionTakesOutTheTriggerPull() {
            "a full push still reaches the edge");
 }
 
+/// The last value the virtual pad got on `code`.
+std::int32_t lastOn(const Run& run, std::uint16_t code) {
+    std::int32_t value = 0;
+    for (const PadEvent& event : run.forward) {
+        if (event.type == EV_ABS && event.code == code) {
+            value = event.value;
+        }
+    }
+    return value;
+}
+
+void calibrationStretchesAShortStickAndTrigger() {
+    // The Ally measured: its right stick rests at 2700 and stops at -26000 to the left, its right
+    // trigger ends at 228.
+    opensu::gamepad::PadCalibration measured;
+    measured.axes[ABS_RX] = {-26000, 2700, 32767};
+    measured.axes[ABS_RZ] = {0, 0, 228};
+    PadTranslator ally{allyPad()};
+    ally.setCalibration(measured);
+    expect(lastOn(feed(ally, {{EV_ABS, ABS_RX, 2700}}), ABS_RX) == 0, "its rest reads centred");
+    expect(lastOn(feed(ally, {{EV_ABS, ABS_RX, -26000}}), ABS_RX) == -32768,
+           "its short end reaches full travel");
+    expect(lastOn(feed(ally, {{EV_ABS, ABS_RX, 32767}}), ABS_RX) == 32767,
+           "its other end stays full travel");
+    expect(lastOn(feed(ally, {{EV_ABS, ABS_RZ, 228}}), ABS_RZ) == 255,
+           "the trigger's end is a full pull");
+    expect(ally.axes().raw.value.at(ABS_RZ) == 228, "the raw reading stays as the pad read it");
+    PadTranslator plain{allyPad()};
+    expect(lastOn(feed(plain, {{EV_ABS, ABS_RZ, 228}}), ABS_RZ) == 228,
+           "without a calibration the trigger reads as reported");
+}
+
+void captureMeasuresWhatWasSwept() {
+    using opensu::gamepad::RawAxes;
+    RawAxes raw;
+    raw.range = {opensu::gamepad::AxisRange{-32768, 32767},
+                 {-32768, 32767},
+                 {0, 255},
+                 {-32768, 32767},
+                 {-32768, 32767},
+                 {0, 255}};
+    opensu::gamepad::CalibrationCapture capture;
+    raw.value = {-3000, -1800, 0, 2700, 0, 0};
+    capture.still(raw);
+    capture.still(raw);
+    for (const std::array<std::int32_t, 6> value :
+         {std::array<std::int32_t, 6>{32767, 32767, 0, -26000, 32767, 0},
+          std::array<std::int32_t, 6>{-32768, -32768, 0, 32767, -32768, 228}}) {
+        raw.value = value;
+        capture.sweep(raw);
+    }
+    const opensu::gamepad::PadCalibration result = capture.result();
+    expect(result.axes.at(ABS_RX).rest == 2700, "a stick's rest is where it was left");
+    expect(result.axes.at(ABS_RX).low > -26000 && result.axes.at(ABS_RX).low < -24000,
+           "its end is brought a little in, so a full push always reaches it");
+    expect(result.axes.at(ABS_RZ).high > 210 && result.axes.at(ABS_RZ).high < 228,
+           "the right trigger's end is measured");
+    expect(!result.axes.contains(ABS_Z), "the left trigger never pulled is left out");
+    expect(capture.missed() == std::vector<std::string>{"left trigger"}, "and named as missed");
+}
+
 int main() try {
     faceButtonsPassThrough();
     guideStaysWithOpensu();
@@ -400,6 +463,8 @@ int main() try {
     aGameChordHoldsItsButtons();
     aMappedStartTapSendsItsOutput();
     hallCorrectionTakesOutTheTriggerPull();
+    calibrationStretchesAShortStickAndTrigger();
+    captureMeasuresWhatWasSwept();
     std::printf("pad_translator: all checks passed\n");
     return 0;
 } catch (...) {

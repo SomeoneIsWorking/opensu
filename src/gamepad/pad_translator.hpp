@@ -23,6 +23,7 @@
 #include "event.hpp"
 #include "forward_map.hpp"
 #include "hall_correction.hpp"
+#include "pad_calibration.hpp"
 
 namespace opensu::gamepad {
 
@@ -33,11 +34,6 @@ struct PadEvent {
     std::int32_t value{};
 
     friend bool operator==(const PadEvent&, const PadEvent&) = default;
-};
-
-struct AxisRange {
-    std::int32_t min{};
-    std::int32_t max{};
 };
 
 /// What a physical pad reports: its keys and its absolute axes with their ranges.
@@ -68,6 +64,8 @@ struct PadAxes {
     Sticks sticks;
     std::int32_t leftTrigger{};
     std::int32_t rightTrigger{};
+    /// The sticks and triggers as the pad read them, before its calibration.
+    RawAxes raw;
 
     friend bool operator==(const PadAxes&, const PadAxes&) = default;
 };
@@ -98,6 +96,8 @@ class PadTranslator {
     /// Corrects the sticks the virtual pad gets for hall-effect interference (`HallTerms`), or
     /// passes them as read without terms.
     void setHallTerms(std::optional<HallTerms> terms);
+    /// The pad's measured axes, applied before everything else; empty reads them as reported.
+    void setCalibration(PadCalibration calibration);
 
     /// Translates one physical event read at `at`: what the virtual pad should receive goes to
     /// `forward`, control presses and releases for opensu to `controls`.
@@ -163,6 +163,8 @@ class PadTranslator {
     std::map<Button, bool> stickHeld_;
     Sticks sticks_;
     std::optional<HallTerms> hall_;
+    PadCalibration calibration_;
+    RawAxes raw_;
 };
 
 } // namespace opensu::gamepad

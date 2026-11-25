@@ -115,6 +115,9 @@ class PadSource {
     /// The stick correction the built-in pad's virtual pad gets (`HallTerms`); none passes its
     /// sticks as read. Returns once applied.
     virtual void setHallTerms(std::optional<HallTerms> terms) = 0;
+    /// Each pad's measured axes, found by its `calibrationKey`, for every pad now and to come.
+    /// Returns once applied.
+    virtual void setCalibrations(PadCalibrations calibrations) = 0;
     /// Where the screen is in the Wii Remotes' camera views (`WiiPointer::setRange`), for every
     /// remote now and to come. Any thread.
     virtual void setWiiPointerRange(const WiiPointerRange& range) = 0;

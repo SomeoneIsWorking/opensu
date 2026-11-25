@@ -43,6 +43,7 @@ constexpr const char* ringLightColourKey = "ringLightColour";
 constexpr const char* ringLightBrightnessKey = "ringLightBrightness";
 constexpr const char* wiiPointerKey = "wiiPointer";
 constexpr const char* stickCorrectionKey = "stickCorrection";
+constexpr const char* padCalibrationsKey = "padCalibrations";
 constexpr std::array<std::pair<gamepad::HallMode, const char*>, 3> hallModes{
     {{gamepad::HallMode::Off, "off"},
      {gamepad::HallMode::Default, "default"},
@@ -156,6 +157,42 @@ class Reader {
         number("rightDeadzone", terms.rightDeadzone);
         if (found->contains("remapDeadzone") && found->at("remapDeadzone").is_boolean()) {
             terms.remapDeadzone = found->at("remapDeadzone").get<bool>();
+        }
+    }
+
+    /// The calibrated pads: each pad's axes by evdev code, each `[low, rest, high]`.
+    void padCalibrations(const char* name, gamepad::PadCalibrations& out,
+                         const char* fallback) const {
+        const auto found = document_.find(name);
+        if (found == document_.end()) {
+            return;
+        }
+        if (!found->is_object()) {
+            reject(name, *found, fallback);
+            return;
+        }
+        for (const auto& [key, axes] : found->items()) {
+            if (!axes.is_object()) {
+                reject(name, axes, fallback);
+                continue;
+            }
+            gamepad::PadCalibration calibration;
+            for (const auto& [code, ends] : axes.items()) {
+                const bool valid = ends.is_array() && ends.size() == 3 &&
+                                   std::ranges::all_of(ends, [](const json& end) {
+                                       return end.is_number_integer();
+                                   }) &&
+                                   code.size() == 1 && code[0] >= '0' && code[0] <= '5';
+                if (!valid) {
+                    reject(name, ends, fallback);
+                    continue;
+                }
+                calibration.axes[static_cast<std::uint16_t>(code[0] - '0')] =
+                    gamepad::AxisCalibration{ends[0].get<std::int32_t>(),
+                                             ends[1].get<std::int32_t>(),
+                                             ends[2].get<std::int32_t>()};
+            }
+            out[key] = std::move(calibration);
         }
     }
 
@@ -460,6 +497,8 @@ Settings readDocument(const json& document, const std::string& file) {
     read.pointerRange(wiiPointerKey, settings.wiiPointer, "the camera's whole view is the screen");
     read.stickCorrection(stickCorrectionKey, settings.stickCorrection, settings.stickTerms,
                          "the sticks are not corrected");
+    read.padCalibrations(padCalibrationsKey, settings.padCalibrations,
+                         "that pad reads as it reports");
     read.text(ringLightColourKey, settings.ringLightColour, "the ring lights are left alone");
     read.integer(ringLightBrightnessKey, 0, 100, settings.ringLightBrightness, "at full brightness");
     std::string runner;
@@ -689,6 +728,17 @@ json documentOf(const Settings& settings) {
                                     {"leftDeadzone", terms.leftDeadzone},
                                     {"rightDeadzone", terms.rightDeadzone},
                                     {"remapDeadzone", terms.remapDeadzone}};
+    if (!settings.padCalibrations.empty()) {
+        json pads = json::object();
+        for (const auto& [key, calibration] : settings.padCalibrations) {
+            json axes = json::object();
+            for (const auto& [code, axis] : calibration.axes) {
+                axes[std::to_string(code)] = {axis.low, axis.rest, axis.high};
+            }
+            pads[key] = std::move(axes);
+        }
+        document[padCalibrationsKey] = std::move(pads);
+    }
     if (settings.interfaceSounds) {
         document[interfaceSoundsKey] = std::string{key(*settings.interfaceSounds)};
     }

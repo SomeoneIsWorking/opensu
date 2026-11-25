@@ -1206,6 +1206,7 @@ void ShellApp::serviceDevices(std::chrono::steady_clock::time_point now) {
         }
     }
     devicesScreen_.tick(now);
+    padCalibration_.service(now);
 }
 
 void ShellApp::setHidden(const library::Game& game, bool hidden) {

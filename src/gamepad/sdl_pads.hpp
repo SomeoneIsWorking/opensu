@@ -68,6 +68,8 @@ class SdlPads final : public PadSource {
     void setBlocked(bool blocked) override;
     void setChords(ChordTriggers chords) override;
     void setHallTerms(std::optional<HallTerms> terms) override;
+    /// SDL applies its own calibration and gives games no virtual pad.
+    void setCalibrations(PadCalibrations calibrations) override;
     /// SDL reads no Wii Remote's camera.
     void setWiiPointerRange(const WiiPointerRange& range) override;
     std::shared_ptr<VirtualPad> lendPad() override;

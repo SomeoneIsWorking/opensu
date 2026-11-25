@@ -33,12 +33,12 @@ std::system_error lastError(const char* what) {
 EvdevPads::Pad::Pad(EvdevDevice opened)
     : device{std::move(opened)}, layout{layoutNow()}, translator{capabilities()} {
     // The translator starts from the pad's present state, so the first resume is right.
-    restart({}, {}, {});
+    restart({}, {}, {}, {});
 }
 
 EvdevPads::Pad::Pad(WiiSlot& remote)
     : slot{&remote}, layout{layoutNow()}, translator{capabilities()} {
-    restart({}, {}, {});
+    restart({}, {}, {}, {});
 }
 
 std::string EvdevPads::Pad::id() const {
@@ -101,9 +101,19 @@ bool EvdevPads::Pad::builtIn() const {
     return device && device->xbox360() && device->uniq().empty();
 }
 
+PadCalibration EvdevPads::Pad::calibrationIn(const PadCalibrations& calibrations) const {
+    if (!device) {
+        return {};
+    }
+    const auto found = calibrations.find(calibrationKey(device->name(), device->uniq()));
+    return found != calibrations.end() ? found->second : PadCalibration{};
+}
+
 void EvdevPads::Pad::restart(const ChordTriggers& chords, const ForwardMap& map,
-                             const std::optional<HallTerms>& hall) {
+                             const std::optional<HallTerms>& hall,
+                             const PadCalibrations& calibrations) {
     translator = PadTranslator{capabilities()};
+    translator.setCalibration(calibrationIn(calibrations));
     translator.setChords(chords);
     translator.setForwardMap(map);
     translator.setHallTerms(builtIn() ? hall : std::nullopt);
@@ -245,6 +255,12 @@ void EvdevPads::setHallTerms(std::optional<HallTerms> terms) {
     awaitApplied(lock, ++wanted_.serial);
 }
 
+void EvdevPads::setCalibrations(PadCalibrations calibrations) {
+    std::unique_lock lock{mutex_};
+    wanted_.calibrations = std::move(calibrations);
+    awaitApplied(lock, ++wanted_.serial);
+}
+
 void EvdevPads::setWiiPointerRange(const WiiPointerRange& range) {
     const std::lock_guard lock{mutex_};
     wanted_.pointer = range;
@@ -380,6 +396,7 @@ void EvdevPads::connect(std::unique_ptr<Pad> pad) {
     pad->translator.setChords(applied_.chords);
     pad->translator.setForwardMap(applied_.map);
     pad->translator.setHallTerms(pad->builtIn() ? applied_.hall : std::nullopt);
+    pad->translator.setCalibration(pad->calibrationIn(applied_.calibrations));
     pad->pointer.setRange(applied_.pointer);
     lucent::info("gamepad", "controller connected: {} ({})", pad->name(), pad->id());
     if (!apply(*pad, applied_)) {
@@ -451,7 +468,7 @@ void EvdevPads::relayout(Pad& pad) {
         write(pad, pad.translator.rest());
     }
     pad.layout = pad.layoutNow();
-    pad.restart(applied_.chords, applied_.map, applied_.hall);
+    pad.restart(applied_.chords, applied_.map, applied_.hall, applied_.calibrations);
     if (pad.live) {
         write(pad, pad.translator.resume());
     }
@@ -715,6 +732,11 @@ void EvdevPads::run(const std::stop_token& stop) {
         if (wanted.hall != applied_.hall) {
             for (const auto& pad : pads_) {
                 pad->translator.setHallTerms(pad->builtIn() ? wanted.hall : std::nullopt);
+            }
+        }
+        if (wanted.calibrations != applied_.calibrations) {
+            for (const auto& pad : pads_) {
+                pad->translator.setCalibration(pad->calibrationIn(wanted.calibrations));
             }
         }
         if (wanted.pointer != applied_.pointer) {

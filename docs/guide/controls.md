@@ -109,6 +109,17 @@ settings, for a built-in core's game Save state, Load state and Reset game
 ([libretro.md](libretro.md)), then Devices, Downloads, Settings and Power. The game gets no
 controller input while it is open.
 
+## Calibrating a controller
+
+Devices › Controllers has a Calibrate row under each controller. A card asks you to let go of both
+sticks and both triggers for two seconds, then to turn both sticks round their edges and pull both
+triggers all the way for ten. openSU then reads each stick's resting point as the centre and the
+farthest it reached each way, and each trigger's farthest pull, as full travel, for that controller
+by its name (and unique id) from then on: in the shell, in games here and in games streamed from
+another openSU. An axis not swept at least halfway to each end is left as the controller reports
+it, and the card's message names it. B on the card measures nothing; X on a calibrated
+controller's row (Reset) forgets its calibration.
+
 ## Guide chords
 
 Chords are set on Settings › Guide chords: Quick menu, the volume, Close game, Save state, Load

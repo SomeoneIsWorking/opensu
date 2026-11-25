@@ -34,7 +34,7 @@ struct Rig {
                       }},
           controller{ui.navigator,
                      chrome,
-                     {withBluetooth ? &bluetooth : nullptr, roster, outputs, lights},
+                     {withBluetooth ? &bluetooth : nullptr, roster, outputs, lights, calibration},
                      sounds,
                      {[this](const std::string& text, bool) {
                           said.push_back(text);
@@ -120,6 +120,13 @@ struct Rig {
     app::RingLightSettings lights{preferences, std::nullopt, nullptr,
                                   {.refused = [](const std::string&) {},
                                    .allowColours = [] {}}};
+    std::unique_ptr<gamepad::PadSource> padSource{gamepad::openPadSource(
+        {.hiddenInputs = std::filesystem::path{OPENSU_TEST_SCRATCH} / "devices_controller" /
+                         "pads"})};
+    app::PadCalibrationFlow calibration{ui.navigator, preferences, *padSource, sounds,
+                                        [this](const std::string& text, bool) {
+                                            said.push_back(text);
+                                        }};
     app::DevicesController controller;
 };
 
@@ -222,10 +229,24 @@ void controllersShowTheLiveButtonTest() {
     expect(rig.calls == std::vector<std::string>{"shortcuts"}, "the remapping link opens");
 }
 
+void aPadIsCalibratedFromItsRow() {
+    Rig rig;
+    rig.openOn("controllers");
+    const std::string id = "calibrate:/dev/input/event5";
+    expect(rig.row(id).value == "Calibrate" && rig.row(id).secondary.empty(),
+           "an uncalibrated pad offers calibration and nothing to reset");
+    rig.on(id, Action::Accept);
+    expect(rig.calibration.measuring(), "Calibrate starts measuring the pad");
+    rig.calibration.service(app::PadCalibrationFlow::Clock::now());
+    expect(!rig.calibration.measuring() && !rig.said.empty() &&
+               rig.said.back().find("left before") != std::string::npos,
+           "a pad the source no longer reads ends the measuring and says so");
+}
+
 void wiiRemotesSayWhatWiiGamesPlay() {
     Rig rig;
     rig.openOn("controllers");
-    expect(rig.controller.tabs()[1].rows.size() == 2, "no Wii Remote, no line for one");
+    expect(rig.controller.tabs()[1].rows.size() == 3, "no Wii Remote, no line for one");
     rig.wiiRemotes = device::WiiRemotes{.dolphinBars = 1, .barSlots = {}};
     rig.controller.refresh();
     expect(rig.row("wii.bar").label == "DolphinBar (Wii Remote mode)" &&
@@ -277,6 +298,7 @@ int main() try {
     forgettingAsksFirst();
     aRefusalIsSaid();
     controllersShowTheLiveButtonTest();
+    aPadIsCalibratedFromItsRow();
     wiiRemotesSayWhatWiiGamesPlay();
     audioChoosesTheOutput();
     displayShowsTheOutput();
