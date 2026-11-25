@@ -78,9 +78,10 @@ void addRow(tk::Column& rows, const SettingsRow& row, RowActions& actions) {
         return;
     case RowKind::Action: {
         tk::Item& item =
-            rows.add<tk::Item>(row.id, text).value(row.value).onPress([&actions, id = row.id] {
-                actions.run(id, 0);
-            });
+            rows.add<tk::Item>(row.id, text).value(row.value).asButton().onPress(
+                [&actions, id = row.id] {
+                    actions.run(id, 0);
+                });
         if (!row.confirm.empty()) {
             item.confirmFirst(row.label + "?", row.confirm,
                               row.confirmVerb.empty() ? verbOf(row.label) : row.confirmVerb);

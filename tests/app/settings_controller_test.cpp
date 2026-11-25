@@ -793,7 +793,9 @@ void togglesChoicesAndSliderPersist(const fs::path& root) {
     expect(rig.onDisk().iconSize == ui::maxIconLevel, "a click clamps to the top level");
 
     rig.focus("scrollMode");
-    rig.act(Button::Right);
+    rig.act(Button::A);
+    rig.act(Button::Down);
+    rig.act(Button::A);
     expect(rig.onDisk().homeMode.has_value(), "choosing a scroll mode overrides the environment");
     const config::HomeMode first = need(rig.onDisk().homeMode, "a scroll mode");
     rig.act(Button::Right);

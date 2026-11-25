@@ -121,6 +121,8 @@ class DevicesController final : public ui::RowActions {
     std::string chosen_;
     /// The tabs as last built; emptied by `refresh`.
     std::optional<std::vector<ui::SettingsCategory>> tabs_;
+    /// The tabs are rebuilt at the next `tabs()`; until then the old ones name the open tab.
+    bool stale_{false};
     Clock::time_point refreshedAt_{};
 };
 

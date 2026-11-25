@@ -416,11 +416,13 @@ void pageRowsChangeAndKeep() {
     rig.calls.clear();
 
     rig.at(app::optionLayoutId);
-    rig.press(Action::Right);
+    rig.press(Action::Accept);
+    rig.press(Action::Down);
+    rig.press(Action::Accept);
     expect(kept.values().libraryMode == library::LibraryMode::Xmb &&
                onDisk().libraryMode == library::LibraryMode::Xmb &&
                rig.calls == std::vector<std::string>{"layout", "reshow"},
-           "Right steps the layout, kept and shown at once, the menu still up");
+           "picking the next layout keeps and shows it at once, the menu still up");
     expect(rig.controller.isOpen(), "the menu stays over the page");
 
     rig.at(app::optionIconSizeId);

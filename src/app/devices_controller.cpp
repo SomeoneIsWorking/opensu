@@ -119,8 +119,9 @@ const host::BluetoothDevice* DevicesController::deviceOf(const std::string& id) 
 }
 
 const std::vector<ui::SettingsCategory>& DevicesController::tabs() {
-    if (!tabs_) {
+    if (!tabs_ || stale_) {
         refreshedAt_ = Clock::now();
+        stale_ = false;
         tabs_.emplace();
         if (bluetooth_ != nullptr) {
             tabs_->push_back(bluetoothTab());
@@ -261,7 +262,7 @@ void DevicesController::close() {
 }
 
 void DevicesController::refresh() {
-    tabs_.reset();
+    stale_ = true;
 }
 
 void DevicesController::choose(const std::string& tab) {
