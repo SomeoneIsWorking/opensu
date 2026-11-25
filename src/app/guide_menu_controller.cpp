@@ -51,6 +51,7 @@ constexpr const char* shutDownId = "power.shutDown";
 constexpr const char* toDesktopId = "power.toDesktop";
 constexpr const char* toSessionId = "power.toSession";
 constexpr const char* installSessionId = "power.installSession";
+constexpr const char* quitId = "power.quit";
 
 SettingsRow action(std::string id, std::string label, std::string note = {}) {
     return ui::makeRow(std::move(id), RowKind::Action, std::move(label), std::move(note), {});
@@ -313,6 +314,8 @@ std::vector<SettingsRow> GuideMenuController::power() const {
     } else if (session_ != nullptr) {
         rows.push_back(action(installSessionId, "Install session mode"));
     }
+    // A pad alone cannot reach the OS's close.
+    rows.push_back(asking(quitId, "Quit openSU", "openSU closes; a running game ends.", "Quit"));
     return rows;
 }
 
@@ -479,6 +482,8 @@ void GuideMenuController::runPower(const std::string& id) {
         refuse(session_->switchToSession(), "Switch to session mode");
     } else if (id == installSessionId) {
         leave(hooks_.installSession);
+    } else if (id == quitId) {
+        leave(hooks_.quit);
     }
 }
 

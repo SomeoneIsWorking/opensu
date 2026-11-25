@@ -328,7 +328,7 @@ class ShellApp final {
     /// Ends the running game from a menu.
     void closeRunningGame();
     /// Whether the loop goes on, `closeAsked` when the OS asked openSU to close: a close, from the
-    /// OS or the control channel, ends the running game first and openSU once it is gone; a
+    /// OS, the Guide's Quit openSU or the control channel, ends the running game first and openSU once it is gone; a
     /// second one while it ends leaves at once.
     [[nodiscard]] bool stillOpen(bool closeAsked);
     /// Shows the newest picture of a remote game and hands it to the shell to draw.
@@ -1711,6 +1711,10 @@ class ShellApp final {
                         sessionInstall_->begin();
                     }
                 },
+            .quit =
+                [this] {
+                    quitAsked_ = true;
+                },
             .say =
                 [this](const std::string& text, bool isError) {
                     shell_.setToast(text, isError);
@@ -2002,6 +2006,8 @@ class ShellApp final {
     std::string playingAs_;
     /// openSU was asked to close and waits for the running game to end.
     bool quitting_{false};
+    /// The Guide's Quit openSU, taken by the next `stillOpen` as the OS's close.
+    bool quitAsked_{false};
     /// Opens a store's sign-in page; after the mailbox it posts to, so it is joined first.
     std::jthread signInOpener_;
 };

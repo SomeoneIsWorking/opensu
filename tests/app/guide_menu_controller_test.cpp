@@ -92,6 +92,10 @@ struct Rig {
                              [this] {
                                  calls.emplace_back("install");
                              },
+                         .quit =
+                             [this] {
+                                 calls.emplace_back("quit");
+                             },
                          .say =
                              [this](const std::string& text, bool error) {
                                  said.push_back((error ? "error: " : "") + text);
@@ -500,15 +504,32 @@ void sessionInstalledOffersTheSwitch() {
     login.choose("power.toDesktop");
     expect(login.session.calls == std::vector<std::string>{"desktop"},
            "as the login session, Switch to desktop ends it");
+    const std::vector<ui::SettingsRow> loginPower = login.controller.power();
+    expect(std::ranges::none_of(loginPower,
+                                [](const ui::SettingsRow& row) {
+                                    return row.id == "power.quit";
+                                }),
+           "as the login session there is no Quit openSU: the display manager would start it again");
 }
 
-void withoutPowerOrSessionThereIsNoPower() {
+void quitAsksFirst() {
+    Rig rig;
+    rig.open();
+    rig.choose("guide.power");
+    rig.choose("power.quit");
+    expect(rig.calls.empty(), "Quit openSU asks before it closes anything");
+    rig.confirm();
+    expect(rig.calls == std::vector<std::string>{"quit"} && !rig.controller.isOpen(),
+           "confirmed, Quit openSU closes the menu and quits");
+}
+
+void withoutPowerOrSessionPowerOnlyQuits() {
     Rig rig{{}, true, false};
     rig.open();
-    const std::vector<std::string> places = rig.places();
-    expect(rig.controller.power().empty() &&
-               std::ranges::find(places, "guide.power") == places.end(),
-           "without power or session mode, Power has nothing and is left out: the OS quits openSU");
+    const std::vector<ui::SettingsRow> power = rig.controller.power();
+    expect(power.size() == 1 && power.front().id == "power.quit" &&
+               std::ranges::count(rig.places(), "guide.power") == 1,
+           "without power or session mode, Power holds Quit openSU alone");
 }
 
 } // namespace
@@ -526,7 +547,8 @@ int main() try {
     withoutAMixerVolumeSaysWhy();
     powerAsksAndSaysRefusals();
     sessionInstalledOffersTheSwitch();
-    withoutPowerOrSessionThereIsNoPower();
+    withoutPowerOrSessionPowerOnlyQuits();
+    quitAsksFirst();
     std::printf("guide menu controller: all checks passed\n");
     return 0;
 } catch (...) {

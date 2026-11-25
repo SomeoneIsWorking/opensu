@@ -1109,7 +1109,8 @@ void ShellApp::closeRunningGame() {
 
 bool ShellApp::stillOpen(bool closeAsked) {
     // The control channel's close stays asked, so it counts once.
-    const bool asked = closeAsked || (bridge_.closeRequested() && !quitting_);
+    const bool guideQuit = std::exchange(quitAsked_, false);
+    const bool asked = closeAsked || guideQuit || (bridge_.closeRequested() && !quitting_);
     if (asked && quitting_) {
         return false;
     }

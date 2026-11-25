@@ -100,6 +100,8 @@ class GuideMenuController final : public ui::RowActions {
         std::function<void()> applyLayout;
         /// Opens the Install session mode dialog.
         std::function<void()> installSession;
+        /// Closes openSU as the OS's close does: a running game ends first.
+        std::function<void()> quit;
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
         /// Plays as the profile `id` from now on (`ShellApp::switchProfile`).

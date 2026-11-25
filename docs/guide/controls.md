@@ -23,11 +23,12 @@ everywhere, and on Android touch: a click or tap focuses and presses.
 | Guide + Up / Down / Left | Ctrl+Up / Ctrl+Down / Ctrl+M | Volume up / down / mute |
 | Hold Guide (or any chord's held button) | | After half a second, a list of that button's chords, also over a game in session mode; it goes when you let go or play a chord |
 
-openSU has no Quit of its own: it closes the way your system closes an app (Alt+F4, ⌘Q on a Mac,
-the window's close button). A game that is running closes first, as Close game closes it, and
-openSU closes once it is gone; closing again while it goes closes openSU at once. Inside openSU's
-Gamescope, Alt+F4 closes whichever window is in front, so over a game it closes the game and
-openSU stays.
+Guide › Power › Quit openSU closes openSU, asking first; as the login session Power has Switch to
+desktop instead. openSU also closes the way your system closes an app (Alt+F4, ⌘Q on a Mac, the
+window's close button). Either way a game that is running closes first, as Close game closes it,
+and openSU closes once it is gone; closing again while it goes closes openSU at once. Inside
+openSU's Gamescope, Alt+F4 closes whichever window is in front, so over a game it closes the game
+and openSU stays.
 
 ## Typing and pasting
 
