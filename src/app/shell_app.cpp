@@ -464,11 +464,14 @@ void ShellApp::openFolder(const library::Folder& folder) {
 }
 
 void ShellApp::startSignIn(Store store) {
-    shell_.setToast("opening the sign-in page in your browser");
+    const std::string name = store == Store::Gog ? "GOG" : "Epic";
+    shell_.setToast("Opening " + name + "'s sign-in page in your browser");
     // The opener can take seconds to start a browser, so it runs off the loop.
-    signInOpener_ = std::jthread{[this, store] {
+    signInOpener_ = std::jthread{[this, store, name] {
         const SignInResult result = signIn_.open(store);
-        mailbox_.postToast(result.ok ? "sign in there; the opensu sign-in extension finishes it"
+        mailbox_.postToast(result.ok ? "Sign in to " + name +
+                                           " in your browser. openSU's sign-in add-on for "
+                                           "Firefox or Zen brings the sign-in back here"
                                      : result.message,
                            !result.ok);
     }};
