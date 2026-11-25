@@ -246,6 +246,14 @@ struct Rig {
         controller.act(button);
         frame();
     }
+    /// Picks the option `step` places from the focused choice's, through the list A opens.
+    void pick(int step) {
+        act(Button::A);
+        for (int i = 0; i < std::abs(step); ++i) {
+            act(step > 0 ? Button::Down : Button::Up);
+        }
+        act(Button::A);
+    }
     /// A frame of the loop: the stack laid out, the keyboard following the focus.
     void frame() {
         screens.frame();
@@ -854,7 +862,7 @@ void togglesChoicesAndSliderPersist(const fs::path& root) {
     rig.act(Button::A);
     expect(rig.onDisk().view.installedOnly, "a view filter is kept");
     rig.focus("source");
-    rig.act(Button::Right);
+    rig.pick(1);
     expect(rig.onDisk().view.source == "launcher:epic", "the source choice is kept");
     expect(rig.failures.empty(), "nothing failed to save");
 }
@@ -1483,12 +1491,12 @@ void wineRunnerIsPicked(const fs::path& root) {
     rig.focus("wine.runner");
     std::vector<fs::path> picked;
     for (int press = 0; press < 4; ++press) {
-        rig.act(Button::Right);
+        rig.pick(1);
         picked.push_back(rig.onDisk().wineRunner);
     }
     expect(picked == std::vector<fs::path>{ge, proton, system, {}},
            "Right steps through every runner found and back to Automatic, each kept");
-    rig.act(Button::Left);
+    rig.pick(-1);
     expect(rig.onDisk().wineRunner == system && rig.rowOf("wine.runner").value == "System Wine",
            "Left steps back, wrapping");
     expect(rig.rowOf("wine.runtime:" + ge.string()).value == "Not used",
@@ -1650,17 +1658,17 @@ void consoleThemeIsChosen(const fs::path& root) {
            "iiSU's file placed offers its theme after the shipped ones");
     rig.screens.frame();
     rig.focus("artwork.consoleart");
-    rig.act(Button::Right);
+    rig.pick(1);
     expect(rig.onDisk().consoleTheme == "drawings" && rig.consoleArtChanges == 1,
            "stepping keeps the next theme");
-    rig.act(Button::Right);
+    rig.pick(1);
     const ui::SettingsRow chosen = rig.rowOf("artwork.consoleart");
     expect(rig.onDisk().consoleTheme == "iisu" && chosen.choices[chosen.chosen] == "iiSU" &&
                chosen.note == "iiSU's, from iiSU_StarterPack.zip" && rig.consoleArtChanges == 2,
            "iiSU's theme is chosen straight away, naming its file");
-    rig.act(Button::Right);
+    rig.pick(1);
     expect(rig.onDisk().consoleTheme == "user/mine", "the player's own theme follows");
-    rig.act(Button::Right);
+    rig.pick(1);
     expect(rig.onDisk().consoleTheme.empty() && rig.consoleArtChanges == 4,
            "and the default comes round again");
 }
@@ -1683,13 +1691,13 @@ void interfaceThemeIsChosen(const fs::path& root) {
            "iiSU's look leads and is chosen, the player's own theme is offered, a broken one not");
     rig.preferences.values().interfaceSounds = settings::SoundSet::Pluck;
     rig.focus("appearance.interfacetheme");
-    rig.act(Button::Left);
+    rig.pick(-1);
     expect(!rig.onDisk().interfaceSounds, "choosing a theme gives its sounds back to it");
     expect(rig.onDisk().interfaceTheme == "user/mine" && rig.themeChanges == 1 &&
                rig.interfaceThemeSettings.current()->name == "Mine" &&
                rig.rowOf("appearance.interfacetheme").note == "ours",
            "Left wraps to the player's theme, which is the one in force");
-    rig.act(Button::Right);
+    rig.pick(1);
     expect(rig.onDisk().interfaceTheme.empty() &&
                rig.interfaceThemeSettings.current()->id == "iisu",
            "Right wraps back to the default, kept as no choice");
@@ -1708,8 +1716,8 @@ void interfaceSoundsAreChosen(const fs::path& root) {
                sounds.chosen == 0 && sounds.note == "As iiSU brings them",
            "with no sounds placed the theme's and openSU's sets are offered, the theme's chosen");
     rig.focus("audio.interfacesounds");
-    rig.act(Button::Right);
-    rig.act(Button::Right);
+    rig.pick(1);
+    rig.pick(1);
     expect(rig.onDisk().interfaceSounds == settings::SoundSet::Glass && rig.soundChanges == 2 &&
                rig.rowOf("audio.interfacesounds").note == "openSU's own sounds",
            "Right takes Marimba, then Glass");
@@ -1718,17 +1726,17 @@ void interfaceSoundsAreChosen(const fs::path& root) {
     rig.controller.refresh();
     rig.screens.frame();
     rig.focus("audio.interfacesounds");
-    rig.act(Button::Right);
-    rig.act(Button::Right);
+    rig.pick(1);
+    rig.pick(1);
     const ui::SettingsRow chosen = rig.rowOf("audio.interfacesounds");
     expect(rig.onDisk().interfaceSounds == settings::SoundSet::Iisu && chosen.choices.size() == 5 &&
                chosen.choices[chosen.chosen] == "iiSU" &&
                chosen.note == "iiSU's, from iiSU-Alpha-7.4.apk" && rig.soundChanges == 4,
            "the release placed offers iiSU's sounds after Pluck, which are taken");
-    rig.act(Button::Right);
+    rig.pick(1);
     expect(!rig.onDisk().interfaceSounds && rig.soundChanges == 5,
            "the choice wraps to the theme's");
-    rig.act(Button::Left);
+    rig.pick(-1);
     expect(rig.onDisk().interfaceSounds == settings::SoundSet::Iisu && rig.soundChanges == 6,
            "Left steps back to iiSU's");
 
@@ -1762,7 +1770,7 @@ void profilesAreAddedAndPlayedAs(const fs::path& root) {
            "it adds Ana with the next picture");
     const std::string ana = all[1].id;
     rig.focus("profiles.picture." + ana);
-    rig.act(Button::Left);
+    rig.pick(-1);
     expect(rig.profiles.find(ana).value_or(profiles::Profile{}).picture == 0 &&
                rig.rowOf("profiles.picture." + ana).chosen == 0,
            "Left steps the picture back");
