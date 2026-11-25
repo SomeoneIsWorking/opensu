@@ -334,8 +334,7 @@ class ShellApp final {
     [[nodiscard]] bool stillOpen(bool closeAsked);
     /// Shows the newest picture of a remote game and hands it to the shell to draw.
     void showGamePicture();
-    /// How often the window presents: the display's refresh while a remote game's frames are
-    /// generated, else `ShellWindow::shellHz`.
+    /// How often the window presents: the display's refresh, else `ShellWindow::shellHz`.
     [[nodiscard]] std::chrono::nanoseconds presentInterval() const;
     /// The player's Lossless.dll in their Steam libraries, or nothing.
     [[nodiscard]] std::optional<std::filesystem::path> losslessDll() const;

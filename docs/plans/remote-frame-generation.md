@@ -83,8 +83,7 @@ device samples through gpu2d's DMA-BUF import (the SDL fork's), an RGBA single-p
   change; its arrival time is when its decode finished, which places it on the output timeline.
 - The vblank grid is the shell window's presents: each loop pass asks the pacer for the output of
   the present it is about to make. A hidden run's 60 Hz tick stands in for the vblank.
-- `ShellWindow` presents at most 60 a second today; while a remote game generates, the cap follows
-  the display's refresh so a 90 or 120 Hz screen gets its rate.
+- `ShellWindow` presents at the display's refresh, so a 90 or 120 Hz screen gets its rate.
 - Added latency, by the pacer's design: one real interval held back (33.3 ms at 30 fps, 16.7 ms at
   60), the largest recent arrival lag, the generator's ready need and up to a refresh, and the
   generation itself. The ready need (`frame_gen::ReadyNeed`) is how long after a real frame
