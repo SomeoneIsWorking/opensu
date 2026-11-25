@@ -19,6 +19,8 @@ namespace opensu::host {
 inline constexpr int pkexecDismissed = 126;
 /// The first line every installer prints, which tells openSU that polkit let it run.
 inline constexpr const char* installerMarker = "opensu-install: start";
+/// The shared steps every installer sources from its stage (`packaging/root-install.sh`).
+inline constexpr const char* rootInstallName = "root-install.sh";
 
 /// The root step as it runs: the program (pkexec) and its arguments, over the staged files.
 struct RootStep {
@@ -57,7 +59,7 @@ struct RootStepPlan {
     /// Where the files are put together, and polkit's pkexec (empty when there is none).
     std::filesystem::path stage;
     std::filesystem::path pkexec;
-    /// The files, the installer among them by `installer`.
+    /// The files, the installer among them by `installer`; `root-install.sh` is staged beside them.
     std::vector<StagedFile> files;
     std::string installer;
     /// What pkexec runs in place of the installer, for a test run; empty for the installer.

@@ -3,9 +3,11 @@
 #include <cctype>
 #include <optional>
 #include <stdexcept>
+#include <vector>
 
 #include "fileio/owner_only_write.hpp"
 #include "lucent/log.h"
+#include "session_scripts.hpp"
 
 namespace opensu::host {
 namespace {
@@ -48,7 +50,9 @@ std::string rootStepBlocker(const RootStepPlan& plan) {
 }
 
 RootStep stageRootStep(const RootStepPlan& plan) {
-    for (const StagedFile& file : plan.files) {
+    std::vector<StagedFile> files = plan.files;
+    files.push_back({rootInstallName, std::string{rootInstallScript}});
+    for (const StagedFile& file : files) {
         const std::filesystem::path path = plan.stage / file.name;
         std::string error;
         if (!fileio::writeOwnerOnly(path, file.bytes, error)) {
