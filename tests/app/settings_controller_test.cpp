@@ -798,8 +798,10 @@ void togglesChoicesAndSliderPersist(const fs::path& root) {
     rig.act(Button::A);
     expect(rig.onDisk().homeMode.has_value(), "choosing a scroll mode overrides the environment");
     const config::HomeMode first = need(rig.onDisk().homeMode, "a scroll mode");
-    rig.act(Button::Right);
-    expect(need(rig.onDisk().homeMode, "a scroll mode") != first, "and stepping changes it");
+    rig.act(Button::A);
+    rig.act(Button::Down);
+    rig.act(Button::A);
+    expect(need(rig.onDisk().homeMode, "a scroll mode") != first, "and picking again changes it");
 
     if (app::nightLightSupported()) {
         rig.focus("nightLight");

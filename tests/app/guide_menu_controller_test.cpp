@@ -439,8 +439,10 @@ void pageRowsChangeAndKeep() {
     expect(!onDisk().pinLibraryDock, "A toggles the pin, kept");
 
     rig.at(app::optionSortId);
-    rig.press(Action::Right);
-    expect(onDisk().view.sort == library::SortKey::Name, "Right steps the sort, kept");
+    rig.press(Action::Accept);
+    rig.press(Action::Down);
+    rig.press(Action::Accept);
+    expect(onDisk().view.sort == library::SortKey::Name, "picking the next sort keeps it");
     rig.press(Action::Left);
     expect(onDisk().view.sort == library::SortKey::Recent, "Left steps back");
 
