@@ -352,7 +352,9 @@ that profile's; the host's own active profile does not change.
   size.
 - A guest that asks again while its seat is held gets the seat back at once, unasked (`offer`).
 - A guest's pad is one of the kept virtual pads (`PadSource::seatPad`), which Steam and Proton
-  already read; a pad made later is not seen by a game they run. None kept, it gets its own.
+  already read; a pad made later is not seen by a game they run. It is the first one no
+  controller here drives, since a game with one player reads only the first controller. None
+  kept, it gets its own.
 - A game Steam starts misses the sink's environment, so every second the host moves the audio
   streams of the game's processes, read from each node's info, into the sink (`GameSound::adopt`, the `default` metadata's
   `target.object`).

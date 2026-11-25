@@ -275,9 +275,9 @@ std::vector<std::filesystem::path> EvdevPads::keepVirtualPads(std::size_t count)
 
 std::shared_ptr<VirtualPad> EvdevPads::seatPad() {
     const std::lock_guard lock{mutex_};
-    // From the last: controllers take the first.
-    for (const auto& seat : std::views::reverse(seats_)) {
-        if (seat.use_count() == unseated) {
+    // The first free one: a game with one player reads the first controller.
+    for (const auto& seat : seats_) {
+        if (seat.use_count() == unseated && std::ranges::find(driven_, seat.get()) == driven_.end()) {
             return seat;
         }
     }
@@ -289,6 +289,7 @@ void EvdevPads::keep(std::size_t count) {
         const VirtualPad* going = kept_.back().get();
         for (const auto& pad : pads_) {
             if (pad->output == going) {
+                undrive(pad->output);
                 pad->output = nullptr;
                 pad->live = false;
             }
@@ -313,6 +314,11 @@ void EvdevPads::keep(std::size_t count) {
     const std::lock_guard lock{mutex_};
     keptNodes_ = std::move(nodes);
     seats_ = kept_;
+}
+
+void EvdevPads::undrive(const VirtualPad* output) {
+    const std::lock_guard lock{mutex_};
+    std::erase(driven_, output);
 }
 
 VirtualPad* EvdevPads::freeKept() const {
@@ -516,6 +522,7 @@ void EvdevPads::drop(std::size_t index, std::vector<Event>& events) {
             .kind = Event::Kind::Pointer, .device = pad.name(), .source = id, .onScreen = false});
     }
     events.push_back(Event{.kind = Event::Kind::Disconnected, .device = pad.name(), .source = id});
+    undrive(pad.output);
     {
         const std::lock_guard lock{mutex_};
         std::erase_if(connected_, [&id](const PadInfo& info) {
@@ -569,11 +576,19 @@ bool EvdevPads::apply(Pad& pad, const Wanted& wanted) {
         if (pad.live) {
             write(pad, pad.translator.rest());
         }
+        undrive(pad.output);
         pad.output = nullptr;
         pad.made.reset();
         pad.live = false;
     } else if (pad.output == nullptr) {
-        pad.output = freeKept();
+        {
+            // With the mutex, so a guest's seat and a controller never take the same pad.
+            const std::lock_guard lock{mutex_};
+            pad.output = freeKept();
+            if (pad.output != nullptr) {
+                driven_.push_back(pad.output);
+            }
+        }
         if (pad.output == nullptr) {
             try {
                 pad.made = std::make_unique<VirtualPad>();

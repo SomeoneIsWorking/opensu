@@ -201,6 +201,8 @@ class EvdevPads final : public PadSource {
     void keep(std::size_t count);
     /// A kept virtual pad no pad drives, or null.
     [[nodiscard]] VirtualPad* freeKept() const;
+    /// `output` is no longer driven by a controller (`driven_`).
+    void undrive(const VirtualPad* output);
     void write(Pad& pad, const std::vector<PadEvent>& events);
     void publish(std::vector<Event>& events);
 
@@ -225,6 +227,8 @@ class EvdevPads final : public PadSource {
     std::vector<std::shared_ptr<VirtualPad>> kept_;
     /// `kept_` for `seatPad`, under the mutex.
     std::vector<std::shared_ptr<VirtualPad>> seats_;
+    /// The kept pads a controller drives, under the mutex.
+    std::vector<const VirtualPad*> driven_;
     Wanted applied_;
     bool missed_{false};
 
