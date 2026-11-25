@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "build_version.hpp"
+#include "interface_size_setting.hpp"
 #include "layered_editor.hpp"
 #include "library/add_game_offer.hpp"
 #include "library/steam.hpp"
@@ -23,6 +24,7 @@ using ui::SettingsRow;
 
 constexpr const char* scrollModeId = "scrollMode";
 constexpr const char* nightLightId = "nightLight";
+constexpr const char* interfaceSizeId = "appearance.scale";
 constexpr const char* shortcutId = "shortcut.";
 constexpr const char* shortcutsResetId = "shortcuts.reset";
 constexpr const char* keyboardId = "keyboard";
@@ -189,8 +191,7 @@ ui::SettingsCategory SettingsController::appearancePage() const {
                                              return std::string{settings::label(choice)};
                                          })));
     }
-    page.rows.push_back(
-        ui::makeRow("appearance.scale", RowKind::Info, "Interface size", "In the Guide menu", ""));
+    page.rows.push_back(interfaceSizeRow(interfaceSizeId, v));
     return page;
 }
 
@@ -630,7 +631,8 @@ void SettingsController::run(const std::string& id, int step) {
     } else if (id == RomFolderSettings::addId || id == steamAddId || id == gameAddId ||
                id.starts_with(installStoreId)) {
         chooseFolder(id);
-    } else if (id == scrollModeId || id == nightLightId || id == soundsId) {
+    } else if (id == scrollModeId || id == nightLightId || id == soundsId ||
+               id == interfaceSizeId) {
         runAppearance(id, step);
         return;
     } else {
@@ -646,6 +648,8 @@ void SettingsController::runAppearance(const std::string& id, int step) {
         v.homeMode = interfaceThemes_.homeMode(defaults_.homeMode) == config::HomeMode::WiiSu
                          ? config::HomeMode::Standard
                          : config::HomeMode::WiiSu;
+    } else if (id == interfaceSizeId) {
+        stepInterfaceSize(preferences_, step);
     } else if (id == nightLightId) {
         v.nightLight = settings::allNightLightChoices[around(
             static_cast<std::size_t>(v.nightLight), step, settings::allNightLightChoices.size())];

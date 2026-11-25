@@ -9,7 +9,7 @@ everywhere, and on Android touch: a click or tap focuses and presses.
 
 | Pad | Keyboard | Action |
 | --- | --- | --- |
-| D-pad or left stick | arrows, WASD | Move focus |
+| D-pad or left stick | arrows, WASD | Move focus; Up or Down past a list's end goes round to its other end; A opens a choice's list |
 | A | Enter, Space, click | Open a game's details page; Play, Install, change a ROM's emulator or Hide from there |
 | B | Escape | Back; on Home with nothing to go back to, the Guide menu |
 | Y | Y | Details page |

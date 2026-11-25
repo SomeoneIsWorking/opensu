@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "guide_menu_screen.hpp"
+#include "interface_size_setting.hpp"
 #include "lucent/log.h"
 #include "screen_orientation.hpp"
 #include "settings/settings.hpp"
@@ -77,10 +78,6 @@ std::string profileLabel(const std::string& profile) {
         return "Performance";
     }
     return profile;
-}
-
-std::string percentOf(int percent) {
-    return std::to_string(percent) + "%";
 }
 
 } // namespace
@@ -261,16 +258,7 @@ std::vector<SettingsRow> GuideMenuController::quick() const {
                 ui::makeChoice(powerProfileId, "Power profile", {}, std::move(profiles)));
         }
     }
-    const int scale = preferences_.values().uiScale;
-    ui::Options scales;
-    for (int percent = settings::minUiScale; percent <= settings::maxUiScale;
-         percent += settings::uiScaleStep) {
-        if (percent <= scale) {
-            scales.chosen = scales.labels.size();
-        }
-        scales.labels.push_back(percentOf(percent));
-    }
-    rows.push_back(ui::makeChoice(scaleId, "Interface size", {}, std::move(scales)));
+    rows.push_back(interfaceSizeRow(scaleId, preferences_.values()));
     if (screen_orientation::turnable() && !context_.inGame) {
         rows.push_back(ui::makeChoice(
             screenId, "Screen", {},
@@ -386,9 +374,7 @@ void GuideMenuController::run(const std::string& id, int step) {
     if (id == muteId) {
         refuse(volume_.system().toggleMute());
     } else if (id == scaleId) {
-        settings::Settings& values = preferences_.values();
-        values.uiScale = settings::steppedUiScale(values.uiScale, step);
-        preferences_.save();
+        stepInterfaceSize(preferences_, step);
         hooks_.applyLayout();
     } else if (id == screenId) {
         settings::Settings& values = preferences_.values();

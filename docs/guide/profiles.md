@@ -8,7 +8,7 @@ openSU starts with one profile, *Player 1*, and asks nothing until you add anoth
 ## Settings › Profiles
 
 - **Name**: how the profile is shown here and on the LAN. A opens a card to type it.
-- **Picture**: the profile's colour; Left and Right step through eight.
+- **Picture**: the profile's colour; A lists the eight.
 - **Play as** *name*: makes it the profile games play as from now on. The one you play as reads
   *Playing now*.
 - **Add profile**: names a new profile, with saves of its own, empty until it plays.
@@ -29,8 +29,8 @@ with that openSU, else as that openSU's first profile.
 
 ## Switching
 
-- The Guide menu's **Profile** row, beside Volume and Interface size: Left and Right step to the
-  next profile. It is refused while a game runs; close the game first.
+- The Guide menu's **Profile** row, beside Volume and Interface size: A lists the profiles and
+  picking one plays as it. It is refused while a game runs; close the game first.
 - With two or more profiles, openSU asks *Who is playing?* when it starts, the last one played as
   focused. B keeps it.
 

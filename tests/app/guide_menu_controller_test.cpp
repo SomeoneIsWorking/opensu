@@ -336,11 +336,11 @@ void quickChangesSitBesideThePlaces() {
     rig.choose("guide.scale");
     expect(rig.ui.navigator.top() != nullptr && rig.ui.navigator.top()->id() == "choice",
            "A on the interface size lists the sizes");
-    rig.press(Action::Back);
-    rig.press(Action::Right);
+    rig.press(Action::Down);
+    rig.press(Action::Accept);
     expect(rig.preferences.values().uiScale == settings::defaultUiScale + settings::uiScaleStep &&
                rig.calls == std::vector<std::string>{"layout"},
-           "Right on the interface size steps it and the screen follows");
+           "picking the next size steps it and the screen follows");
     rig.press(Action::Back);
     rig.open(Landing::Volume);
     expect(rig.ui.navigator.focused() == "guide.volume", "the quick menu shortcut lands on Volume");
@@ -355,9 +355,11 @@ void profileRowPlaysAsTheNextProfile() {
         rig.press(Action::Down);
     }
     expect(rig.ui.navigator.focused() == "guide.profile", "the quick card has the profile");
-    rig.press(Action::Right);
+    rig.press(Action::Accept);
+    rig.press(Action::Down);
+    rig.press(Action::Accept);
     expect(rig.calls == std::vector<std::string>{"playAs " + ana.id},
-           "Right on Profile plays as the next profile");
+           "picking the next profile plays as it");
 }
 
 void pageRowsFollowThePage() {

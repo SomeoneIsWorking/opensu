@@ -817,9 +817,13 @@ class ShellApp final {
             [this](const library::Game& version) {
                 versions_.makeDefault(version);
             }}};
-    /// The volume shortcuts and the display that follows every change of the volume.
+    /// The volume shortcuts and the display that follows every change of the volume; the Guide
+    /// menu's Volume row is the display while the menu is open.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),
                           VolumeControl::Hooks{[this](const audio::VolumeState& state) {
+                                                   if (guideMenu_.isOpen()) {
+                                                       return;
+                                                   }
                                                    shell_.showVolume(
                                                        ui::VolumeLevel{state.percent, state.muted});
                                                },
