@@ -640,7 +640,9 @@ user), Devices › Controllers sets them: As the system set them (the default, n
 Off, or one of nine colours at a brightness (`device::RingLights`). The ROG Ally's driver caps
 each packed zone at 255, so its files can only turn the lights off; its colours go through a root
 helper (`host::RingLightHelper`) that Stick light colours › Allow installs with one polkit
-password, sending the controller's own RGB command to its configuration hidraw.
+password, sending the controller's own RGB command to its configuration hidraw; through it the
+Ally also has Rainbow, the controller's own, and an older helper is offered as Update. Colours
+verified on the Ally by the player.
 Guide › Power ends with Quit openSU, asking first, outside the login session (a pad alone cannot
 reach the OS's close); as the login session it has Switch to desktop instead.
 `gamepad::PadTranslator` maps the kernel's gamepad codes to the shell's controls,
