@@ -1,4 +1,4 @@
-// Installing session mode: the question on the interface toolkit, Cancel and B, the card while the
+// Installing with one root step, as session mode does: the question on the interface toolkit, Cancel and B, the card while the
 // system asks for the password, and what is said when it is installed, cancelled or fails.
 #include <chrono>
 #include <cstdio>
@@ -8,7 +8,8 @@
 #include "gpu2d/ui/screen.hpp"
 
 #include "host_fakes.hpp"
-#include "session_install_controller.hpp"
+#include "root_install_controller.hpp"
+#include "session_mode_words.hpp"
 #include "support/fake_interface_text.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
@@ -22,7 +23,7 @@ using test::expect;
 
 struct Rig {
     Rig()
-        : controller{ui.navigator, session, nullptr, sounds,
+        : controller{ui.navigator, session, app::sessionModeWords(), nullptr, sounds,
                      [this](const std::string& text, bool error) {
                          said.push_back((error ? "error: " : "") + text);
                      }} {
@@ -58,7 +59,7 @@ struct Rig {
     audio::SdlSoundPlayer sounds;
     test::FakeSessionMode session;
     std::vector<std::string> said;
-    app::SessionInstallController controller;
+    app::RootInstallController controller;
 };
 
 void aBlockedInstallSaysWhyAndOpensNothing() {

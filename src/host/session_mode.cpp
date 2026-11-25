@@ -4,7 +4,6 @@
 #include <stdexcept>
 #include <utility>
 
-#include "fileio/owner_only_write.hpp"
 #include "lucent/log.h"
 #include "session_scripts.hpp"
 
@@ -88,23 +87,6 @@ bool samePath(const fs::path& a, const fs::path& b) {
            fs::weakly_canonical(a, error) == fs::weakly_canonical(b, error);
 }
 
-std::string lastLine(const std::string& output) {
-    const std::size_t end = output.find_last_not_of('\n');
-    if (end == std::string::npos) {
-        return {};
-    }
-    const std::size_t newline = output.find_last_of('\n', end);
-    const std::size_t start = newline == std::string::npos ? 0 : newline + 1;
-    return output.substr(start, end - start + 1);
-}
-
-void stageFile(const fs::path& file, std::string_view bytes) {
-    std::string error;
-    if (!fileio::writeOwnerOnly(file, bytes, error)) {
-        throw std::runtime_error{"could not write " + file.string() + ": " + error};
-    }
-}
-
 class SddmSessionMode final : public SessionMode {
   public:
     SddmSessionMode(Runner run, SessionPaths paths)
@@ -128,53 +110,20 @@ class SddmSessionMode final : public SessionMode {
         if (paths_.program.empty()) {
             return "openSU cannot tell where it runs from, so no session can start it";
         }
-        if (paths_.pkexec.empty()) {
-            return "Installing session mode needs polkit's pkexec: sudo dnf install polkit "
-                   "(Fedora), "
-                   "sudo apt install pkexec (Debian, Ubuntu), sudo pacman -S polkit (Arch)";
-        }
-        return {};
+        return rootStepBlocker(installPlan(paths_));
     }
 
     RootStep stage() override {
-        return stageInstall(paths_);
+        return stageRootStep(installPlan(paths_));
     }
 
     InstallResult install() override {
-        if (const std::string blocked = installBlocker(); !blocked.empty()) {
-            return {InstallResult::Kind::Failed, blocked};
+        if (paths_.program.empty()) {
+            return {InstallResult::Kind::Failed, installBlocker()};
         }
-        RootStep step;
-        try {
-            step = stage();
-        } catch (const std::runtime_error& error) {
-            lucent::warn("session", "staging session mode failed: {}", error.what());
-            return {InstallResult::Kind::Failed,
-                    std::string{"The session files could not be put together: "} + error.what()};
-        }
-        lucent::info("session", "installing session mode: {}", step.shown());
-        const std::optional<launch::Captured> out = run_(step.program, step.args);
-        if (!out) {
-            return {InstallResult::Kind::Failed, "pkexec could not be run"};
-        }
-        if (out->status == 0) {
-            if (!installed()) {
-                lucent::warn("session", "the installer finished, but session mode is not in place");
-                return {InstallResult::Kind::Failed,
-                        "The installer finished, but session mode is not in place"};
-            }
-            lucent::info("session", "session mode installed");
-            return {};
-        }
-        const bool began = out->output.find(installerMarker) != std::string::npos;
-        if (!began && out->status == pkexecDismissed) {
-            lucent::info("session", "installing session mode was cancelled at authentication");
-            return {InstallResult::Kind::Cancelled, "Session mode was not installed"};
-        }
-        const std::string reason = lastLine(out->output);
-        lucent::warn("session", "installing session mode failed ({}): {}", out->status, reason);
-        return {InstallResult::Kind::Failed,
-                reason.empty() ? std::string{"pkexec refused to install session mode"} : reason};
+        return runRootStep(run_, installPlan(paths_), [this] {
+            return installed();
+        });
     }
 
     std::string switchToSession() override {
@@ -267,15 +216,6 @@ class ReadOnlySessionMode final : public SessionMode {
 
 } // namespace
 
-std::string RootStep::shown() const {
-    std::string line = program;
-    for (const std::string& arg : args) {
-        line += ' ';
-        line += arg;
-    }
-    return line;
-}
-
 std::string sessionEntry(const fs::path& program) {
     return "[Desktop Entry]\n"
            "Type=Application\n"
@@ -287,15 +227,17 @@ std::string sessionEntry(const fs::path& program) {
            "DesktopNames=gamescope\n";
 }
 
-RootStep stageInstall(const SessionPaths& paths) {
-    stageFile(paths.stage / installerName, installSessionScript);
-    stageFile(paths.stage / stagedSelectorName, sessionSelectScript);
-    stageFile(paths.stage / sessionEntryName, sessionEntry(paths.program));
-    if (!paths.rootStepStandIn.empty()) {
-        return RootStep{.program = paths.pkexec.string(), .args = {paths.rootStepStandIn.string()}};
-    }
-    return RootStep{.program = paths.pkexec.string(),
-                    .args = {"/bin/sh", (paths.stage / installerName).string()}};
+RootStepPlan installPlan(const SessionPaths& paths) {
+    return RootStepPlan{
+        .tag = "session",
+        .what = "session mode",
+        .stage = paths.stage,
+        .pkexec = paths.pkexec,
+        .files = {{installerName, std::string{installSessionScript}},
+                  {stagedSelectorName, std::string{sessionSelectScript}},
+                  {sessionEntryName, sessionEntry(paths.program)}},
+        .installer = installerName,
+        .standIn = paths.rootStepStandIn};
 }
 
 std::string runSelector(const Runner& run, const fs::path& selector, const char* argument) {

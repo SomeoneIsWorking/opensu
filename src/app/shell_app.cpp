@@ -1873,7 +1873,7 @@ int ShellApp::run() {
         serveGuests();
         serviceDevices(std::chrono::steady_clock::now());
         if (sessionInstall_) {
-            sessionInstall_->service();
+            static_cast<void>(sessionInstall_->service());
         }
         if (polkitPrompt_) {
             polkitPrompt_->service();

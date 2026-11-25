@@ -216,7 +216,7 @@ void theInstallerPlacesTheThreeFilesAndAValidSudoersRule() {
     paths.program = machine.root / "my games" / "openSU.AppImage";
     paths.stage = machine.root / "run" / "session-install";
     paths.pkexec = "/usr/bin/pkexec";
-    const host::RootStep step = host::stageInstall(paths);
+    const host::RootStep step = host::stageRootStep(host::installPlan(paths));
     expect(step.shown() ==
                "/usr/bin/pkexec /bin/sh " + (paths.stage / "install-session.sh").string(),
            "the root step is pkexec running the staged installer through /bin/sh");

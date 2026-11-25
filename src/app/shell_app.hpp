@@ -123,7 +123,8 @@
 #include "save_copy_controller.hpp"
 #include "save_sharing.hpp"
 #include "search_controller.hpp"
-#include "session_install_controller.hpp"
+#include "root_install_controller.hpp"
+#include "session_mode_words.hpp"
 #include "settings_controller.hpp"
 #include "shared_saves.hpp"
 #include "shell_session.hpp"
@@ -1593,10 +1594,11 @@ class ShellApp final {
                                  }}};
     /// Installing session mode: its question and the root step through polkit. Null where there
     /// is no session mode.
-    std::unique_ptr<SessionInstallController> sessionInstall_{
+    std::unique_ptr<RootInstallController> sessionInstall_{
         host_.session
-            ? std::make_unique<SessionInstallController>(
-                  shell_.screens().navigator(), *host_.session, host_.polkit.get(), sounds_,
+            ? std::make_unique<RootInstallController>(
+                  shell_.screens().navigator(), *host_.session, sessionModeWords(),
+                  host_.polkit.get(), sounds_,
                   [this](const std::string& text, bool isError) {
                       shell_.setToast(text, isError);
                   })

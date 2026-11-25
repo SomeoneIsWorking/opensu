@@ -10,17 +10,17 @@ wait ends 20 s later. Expected: the quit cancels the authentication and openSU e
 
 Reproduced 2026-11-04 on a323100 with `OPENSU_POLKIT_HELPER` (`phone-wait`: `PAM_TEXT_INFO`, then
 `sleep 20`): after `POST /quit`, and separately after SIGTERM, still running 5 s later. gdb on the
-hung pid, both ways: the main thread in `ShellApp::~ShellApp` → `~SessionInstallController` →
+hung pid, both ways: the main thread in `ShellApp::~ShellApp` → `~RootInstallController` →
 `std::future` waiting for the install's `std::async`; that thread in `SddmSessionMode::install`
 running pkexec; the agent's thread in `SdBusPolkitAgent::run` polling with the authentication
 pending.
 
-Cause: `src/app/session_install_controller.hpp` `SessionInstallController::~SessionInstallController`
+Cause: `src/app/root_install_controller.hpp` `RootInstallController::~RootInstallController`
 waited (through its `std::async` future) for pkexec, which waits for polkit, which waits for the
 reply from openSU's agent in `HostServices::polkit`, and the agent replies only when the player
 answers or cancels, or when it is itself destroyed, after the controller.
 
-Fix: the install flow names its dependency on the agent (`SessionInstallController` takes the
+Fix: the install flow names its dependency on the agent (`RootInstallController` takes the
 `host::PolkitAgent`), and its destructor calls `PolkitAgent::shutDown` before it waits.
 `shutDown` cancels the authentication under way through the path Cancel takes (polkit gets
 `Cancelled`, the helper's process group is ended, pkexec exits 126) and cancels every
