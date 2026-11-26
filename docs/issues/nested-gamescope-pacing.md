@@ -6,7 +6,8 @@ Reported by the player (2026-11-24, Ally, desktop mode): "UI also seems laggy li
 smooth, Ally is 120hz supposedly but these menu selection box movements look 30fps"; then
 "sometimes framerate goes back to normal but sometimes it's visibly low but try to test over the
 120hz Ally's own screen"; and (2026-11-26) "I said openSU UI feels like 30fps and you traced it to
-kwin and gamescope".
+kwin and gamescope"; and, on being told running nested costs smoothness, "which should be fixed"
+(2026-11-26, Fedora).
 
 On a KDE desktop (the Ally in Bazzite's desktop mode), openSU's nested Gamescope hands KWin some
 frames in pairs: one present waits two refreshes and the next returns at once, so motion steps at
