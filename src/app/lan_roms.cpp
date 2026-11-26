@@ -99,6 +99,8 @@ void LanRoms::share(const std::vector<library::Game>& games) {
     lan::RomShelf::Contents contents{.roots = hooks_.romFolders(), .games = {}, .bios = {}};
     romsHere_.clear();
     for (const library::Game& game : games) {
+        // Every game: the shelf offers ROMs and, apart, the installs a store here can take over.
+        contents.games.push_back(game);
         if (game.source != library::Source::Rom) {
             continue;
         }
@@ -106,7 +108,6 @@ void LanRoms::share(const std::vector<library::Game>& games) {
         if (!contents.bios.contains(game.sourceId)) {
             contents.bios[game.sourceId] = hooks_.biosToShare(game.sourceId);
         }
-        contents.games.push_back(game);
     }
     lan_.shareRoms(std::move(contents));
 }
@@ -151,7 +152,8 @@ void LanRoms::copyHere(const library::Game& game) {
         return;
     }
     copies_.erase(game.id);
-    wanted_[game.id] = Wanted{game.hostId, game.id.substr(prefix.size()), game.title};
+    // The host's own id: a game it runs more than one way is listed here once per way.
+    wanted_[game.id] = Wanted{game.hostId, game.sourceId, game.id, game.title};
     ask(game.hostId);
     hooks_.refresh();
 }
@@ -170,8 +172,7 @@ void LanRoms::copyListed(const Wanted& wanted) {
             }
             Picks picks;
             picks.games.insert(gameKey(game.root, game.entry));
-            copies_["lan:" + wanted.peerId + ":" + wanted.hostGameId] =
-                itemId(wanted.peerId, gameKey(game.root, game.entry));
+            copies_[wanted.remoteId] = itemId(wanted.peerId, gameKey(game.root, game.entry));
             startImport(wanted.peerId, picks);
             return;
         }
@@ -188,7 +189,7 @@ void LanRoms::copyListed(const Wanted& wanted) {
         hooks_.say("Cannot copy " + wanted.title + " here: " + why, true);
         return;
     }
-    const std::string remoteId = "lan:" + wanted.peerId + ":" + wanted.hostGameId;
+    const std::string& remoteId = wanted.remoteId;
     const bool asked = lan_.askInstallFiles(
         wanted.peerId, install->id,
         [arrived = arrived_, remoteId](std::optional<std::vector<lan::wire::RomFile>> files,

@@ -140,7 +140,10 @@ class LanRoms {
     /// A game asked to be copied here, waiting for its host's listing.
     struct Wanted {
         std::string peerId;
+        /// The game's id on its host, as the host's listing names it.
         std::string hostGameId;
+        /// The game the player asked to copy, as this openSU lists it.
+        std::string remoteId;
         std::string title;
     };
     /// Imports `wanted` from its host's listing, which has just arrived.

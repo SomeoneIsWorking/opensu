@@ -32,7 +32,8 @@ class RomShelf {
     struct Contents {
         /// The ROM folders the catalog reads, in its order.
         std::vector<std::filesystem::path> roots;
-        /// The catalog's games; its ROMs in those folders are offered.
+        /// The catalog's games: its ROMs in those folders are offered, and apart its installs a
+        /// store on another openSU can take over.
         std::vector<library::Game> games;
         /// The BIOS files offered for each console, by console key.
         std::map<std::string, std::vector<library::roms::SharedBios>, std::less<>> bios;
