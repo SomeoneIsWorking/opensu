@@ -1,8 +1,11 @@
 #include "row_widgets.hpp"
 
 #include <cstddef>
+#include <utility>
 
 #include "gpu2d/ui/widgets.hpp"
+
+#include "icon_widgets.hpp"
 
 namespace opensu::ui {
 namespace {
@@ -26,9 +29,30 @@ void addSecondary(tk::Item& item, const SettingsRow& row, RowActions& actions) {
     }
 }
 
+/// The row's item: with the stream icon for a Play that streams, when the screen has icons.
+tk::Item& itemOf(tk::Column& rows, const SettingsRow& row, ScreenImages* images) {
+    tk::Item::Text text{row.label, row.note};
+    if (row.streams && images != nullptr) {
+        return rows.add<IconItem>(row.id, std::move(text), *images, Icon::Stream);
+    }
+    return rows.add<tk::Item>(row.id, std::move(text));
+}
+
+void add(tk::Column& rows, const SettingsRow& row, RowActions& actions, ScreenImages* images);
+
 } // namespace
 
 void addRow(tk::Column& rows, const SettingsRow& row, RowActions& actions) {
+    add(rows, row, actions, nullptr);
+}
+
+void addRow(tk::Column& rows, const SettingsRow& row, RowActions& actions, ScreenImages& images) {
+    add(rows, row, actions, &images);
+}
+
+namespace {
+
+void add(tk::Column& rows, const SettingsRow& row, RowActions& actions, ScreenImages* images) {
     const tk::Item::Text text{row.label, row.note};
     switch (row.kind) {
     case RowKind::Heading:
@@ -80,10 +104,9 @@ void addRow(tk::Column& rows, const SettingsRow& row, RowActions& actions) {
         return;
     case RowKind::Action: {
         tk::Item& item =
-            rows.add<tk::Item>(row.id, text).value(row.value).asButton().onPress(
-                [&actions, id = row.id] {
-                    actions.run(id, 0);
-                });
+            itemOf(rows, row, images).value(row.value).asButton().onPress([&actions, id = row.id] {
+                actions.run(id, 0);
+            });
         if (!row.confirm.empty()) {
             item.confirmFirst(row.label + "?", row.confirm,
                               row.confirmVerb.empty() ? verbOf(row.label) : row.confirmVerb);
@@ -96,5 +119,7 @@ void addRow(tk::Column& rows, const SettingsRow& row, RowActions& actions) {
         return;
     }
 }
+
+} // namespace
 
 } // namespace opensu::ui

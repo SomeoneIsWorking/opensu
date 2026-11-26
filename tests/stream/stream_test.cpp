@@ -37,6 +37,7 @@
 #include "stream/playout_delay.hpp"
 #include "stream/predicted_frames.hpp"
 #include "stream/remote_reach.hpp"
+#include "stream/stream_meter.hpp"
 #include "stream/stream_wire.hpp"
 #include "stream/token_bucket.hpp"
 #include "stream/udp_socket.hpp"
@@ -1112,6 +1113,32 @@ void thisSystemReachesWhatItBuilds() {
 #endif
 }
 
+void theMeterReadsEachSecond() {
+    stream::StreamMeter meter;
+    expect(!meter.take({.shown = 100, .lost = 2}, 1'000'000), "the first counts only start it");
+    expect(!meter.take({.shown = 130, .lost = 2}, 1'500'000), "nothing before a second passed");
+    const std::optional<stream::StreamReading> calm = meter.take({.shown = 160,
+                                                                  .lost = 2,
+                                                                  .latencyMs = 17.6,
+                                                                  .roundTripUs = 2'400,
+                                                                  .bytesPerSecond = 3'000'000},
+                                                                 2'000'000);
+    expect(calm && calm->framesPerSecond == 60 && calm->lostPerSecond == 0 &&
+               calm->latencyMs == 18 && calm->roundTripMs == 2 && calm->tenthsOfMegabits == 240 &&
+               calm->quality == stream::StreamQuality::Good,
+           "a second's frames, latency, round trip and bitrate, graded Good");
+    const std::optional<stream::StreamReading> lossy =
+        meter.take({.shown = 214, .lost = 8, .latencyMs = 30, .roundTripUs = 5'000}, 3'000'000);
+    expect(lossy && lossy->framesPerSecond == 54 && lossy->lostPerSecond == 6 &&
+               lossy->quality == stream::StreamQuality::Poor,
+           "a tenth of the frames lost reads Poor");
+    expect(stream::qualityOf({.latencyMs = 70, .framesPerSecond = 60}) ==
+                   stream::StreamQuality::Fair &&
+               stream::qualityOf({.latencyMs = 20, .roundTripMs = 80, .framesPerSecond = 60}) ==
+                   stream::StreamQuality::Poor,
+           "a slow picture reads Fair, a slow link Poor");
+}
+
 } // namespace
 
 int main(int argc, char** argv) try {
@@ -1141,6 +1168,7 @@ int main(int argc, char** argv) try {
     theBucketHoldsBackWhatItsRateHasNoRoomFor();
     thisSystemReachesWhatItBuilds();
     soundSurvivesTheCodec();
+    theMeterReadsEachSecond();
     std::printf("stream: all checks passed\n");
     return 0;
 } catch (...) {

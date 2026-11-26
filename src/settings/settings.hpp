@@ -164,6 +164,8 @@ struct Settings {
     std::string interfaceTheme;
     /// The name other openSUs on the LAN list this one by; empty for the machine's host name.
     std::string lanName;
+    /// Whether a game streamed from another openSU shows the stream's meter over its picture.
+    bool streamMeter{true};
     /// The STUN servers Play online asks, `host:port` and comma-separated; empty for the default.
     std::string onlineStunServers;
     /// The Nostr relays public games are listed on, `wss://` URLs comma-separated; empty for

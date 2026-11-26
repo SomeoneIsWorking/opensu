@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <utility>
 #include <variant>
 
 #include "context_menu_screen.hpp"
@@ -31,8 +32,10 @@ std::vector<ui::SettingsRow> contextEntriesFor(const library::ShelfItem& item, b
                        : entry(menuAddHomeId, "Add to Home");
     };
     if (const auto* game = std::get_if<library::Game>(&item)) {
-        entries.push_back(game->installed ? entry(menuLaunchId, "Launch")
-                                          : entry(menuInstallId, "Install"));
+        ui::SettingsRow play =
+            game->installed ? entry(menuLaunchId, "Launch") : entry(menuInstallId, "Install");
+        play.streams = library::playsStreamed(*game);
+        entries.push_back(std::move(play));
         if (game->installed && game->updateAvailable && game->source != library::Source::Rom) {
             entries.push_back(entry(menuUpdateId, "Update"));
         }

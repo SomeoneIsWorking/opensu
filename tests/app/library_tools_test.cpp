@@ -19,6 +19,7 @@
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
 #include "ui/interface_input.hpp"
+#include "ui/screen_images.hpp"
 
 namespace {
 
@@ -49,6 +50,9 @@ struct Rig {
     audio::SdlSoundPlayer sounds;
     std::vector<std::string> failures;
     Preferences preferences;
+    gpu2d::ImageLoader loader;
+    ui::IconAtlas icons{{}, loader};
+    ui::ScreenImages images{loader, icons};
 };
 
 std::vector<std::string> idsOf(const std::vector<ui::SettingsRow>& rows) {
@@ -117,6 +121,13 @@ void menuEntriesFollowTheTile() {
     expect(idsOf(app::contextEntriesFor(library::Console{}, false, false)) ==
                ids({app::menuOpenId, app::menuConfigureId, app::menuAddHomeId, app::menuRefreshId}),
            "a console can be added to Home");
+    library::Game remote = hades();
+    remote.source = library::Source::Remote;
+    const std::vector<ui::SettingsRow> streamed = app::contextEntriesFor(remote, false, false);
+    expect(streamed.front().id == app::menuLaunchId && streamed.front().streams,
+           "another openSU's game launches as a stream, and its entry says so");
+    expect(!app::contextEntriesFor(installed, false, false).front().streams,
+           "a game here does not stream");
 }
 
 void hidingPersistsAndMenuRoutes(const fs::path& root) {
@@ -151,6 +162,7 @@ void hidingPersistsAndMenuRoutes(const fs::path& root) {
                                        log.push_back((error ? "refused " : "said ") + text);
                                    }}};
     ContextMenuController controller{ui.navigator,
+                                     rig.images,
                                      rig.sounds,
                                      {rig.preferences, uninstall, update},
                                      {.focused = [&]() -> const library::ShelfItem* {

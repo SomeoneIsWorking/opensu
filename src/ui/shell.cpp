@@ -206,6 +206,16 @@ void Shell::drawPicture(Canvas& canvas, const gpu2d::TextureView& picture,
     }
 }
 
+void Shell::setStreamMeter(const std::optional<stream::StreamReading>& reading) {
+    if (!reading) {
+        streamMeter_.reset();
+        return;
+    }
+    if (!streamMeter_ || streamMeter_->reading != *reading) {
+        streamMeter_ = streamMeterLine(*reading);
+    }
+}
+
 void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
     // The previous frame was submitted, so the labels it did not draw can go.
     text_.retire();
@@ -221,6 +231,13 @@ void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
             if (pictureControls_) {
                 const gpu2d::Rect whole{0.0F, 0.0F, size.x, size.y};
                 canvas.image(*pictureControls_, whole, whole, white);
+            }
+            if (streamMeter_) {
+                streamMeterPainter_.paint(canvas, *streamMeter_,
+                                          gpu2d::Rect{safe_.left, safe_.top,
+                                                      size.x - safe_.left - safe_.right,
+                                                      size.y - safe_.top - safe_.bottom},
+                                          dp());
             }
         } else if (standsIn_) {
             hud_.drawGround(canvas);

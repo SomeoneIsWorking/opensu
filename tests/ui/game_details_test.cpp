@@ -457,6 +457,8 @@ void remoteBeside() {
                std::vector<std::string>{"Play on Desk: Steam", "Copy to this device", "Add to Home",
                                         "Hide game", "Game settings", "Back"},
            "the other openSU's play and copy are rows of their own");
+    expect(details.actions[0].streams && !details.actions[1].streams && !details.launch.streams,
+           "only the play on the other openSU streams");
     expect(copyRowOf(details.actions[0].id).gameId == desk.id &&
                copyRowOf(details.actions[1].id).gameId == desk.id,
            "they act on its copy");
@@ -465,8 +467,8 @@ void remoteBeside() {
 
     const std::vector<CopyPart> alone{{desk, false, {}}};
     const GameDetails only = detailsOf(desk, marks, now, {}, false, {}, alone);
-    expect(only.launch.label == "Play on Desk: Steam",
-           "a game only another openSU has plays there");
+    expect(only.launch.label == "Play on Desk: Steam" && only.launch.streams,
+           "a game only another openSU has plays there, streamed");
 }
 
 } // namespace

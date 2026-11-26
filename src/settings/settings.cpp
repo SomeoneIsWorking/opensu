@@ -54,6 +54,7 @@ constexpr const char* nightLightKey = "nightLight";
 constexpr const char* consoleThemeKey = "consoleTheme";
 constexpr const char* interfaceThemeKey = "interfaceTheme";
 constexpr const char* lanNameKey = "lanName";
+constexpr const char* streamMeterKey = "streamMeter";
 constexpr const char* onlineStunServersKey = "onlineStunServers";
 constexpr const char* onlineLobbyRelaysKey = "onlineLobbyRelays";
 constexpr const char* onlineLobbyServerKey = "onlineLobbyServer";
@@ -582,6 +583,7 @@ Settings readDocument(const json& document, const std::string& file) {
     read.text(consoleThemeKey, settings.consoleTheme, "showing the default console art theme");
     read.text(interfaceThemeKey, settings.interfaceTheme, "showing the default interface theme");
     read.text(lanNameKey, settings.lanName, "going by the machine's name on the LAN");
+    read.boolean(streamMeterKey, settings.streamMeter, "the stream meter shows");
     read.text(onlineStunServersKey, settings.onlineStunServers, "asking the default STUN servers");
     read.text(onlineLobbyRelaysKey, settings.onlineLobbyRelays, "listing on the default relays");
     read.text(onlineLobbyServerKey, settings.onlineLobbyServer, "listing on the relays");
@@ -694,6 +696,7 @@ json documentOf(const Settings& settings) {
         {consoleThemeKey, settings.consoleTheme},
         {interfaceThemeKey, settings.interfaceTheme},
         {lanNameKey, settings.lanName},
+        {streamMeterKey, settings.streamMeter},
         {onlineStunServersKey, settings.onlineStunServers},
         {onlineLobbyRelaysKey, settings.onlineLobbyRelays},
         {onlineLobbyServerKey, settings.onlineLobbyServer},

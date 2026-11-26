@@ -25,7 +25,7 @@ std::unique_ptr<tk::Widget> ContextMenuScreen::build(const tk::Theme& theme) {
     tk::Column& rows = card.add<tk::Column>();
     rows.space(spacing.gap);
     for (const ui::SettingsRow& row : controller_.entries()) {
-        ui::addRow(rows, row, controller_);
+        ui::addRow(rows, row, controller_, controller_.images());
     }
     card.add<tk::HintBar>();
     return root;

@@ -24,15 +24,15 @@ add_library(opensu_ui STATIC
     shell.cpp home_grid.cpp home_dock.cpp chrome_panel.cpp top_bar_chrome.cpp corner_hints_chrome.cpp touch_button.cpp keyboard_chrome.cpp mapping_chrome.cpp hud.cpp breadcrumb_painter.cpp launcher_badges.cpp vector_icon.cpp runner_mark.cpp status_pill.cpp progress_spinner.cpp glass.cpp tile_painter.cpp console_art.cpp page_pill.cpp page_arrow.cpp
     button_glyph.cpp tile_artwork.cpp dock_painter.cpp on_screen_keyboard_painter.cpp rail_painter.cpp
     round_shape.cpp
-    volume_osd_painter.cpp chord_hint_painter.cpp
+    volume_osd_painter.cpp chord_hint_painter.cpp stream_meter_painter.cpp
     mapping_page_painter.cpp hint_row.cpp
-    interface_input.cpp interface_theme.cpp interface_text.cpp screen_stack.cpp row_widgets.cpp page_frame.cpp screen_images.cpp image_view.cpp progress_screen.cpp entry_screen.cpp authentication_screen.cpp offer_card.cpp
+    interface_input.cpp interface_theme.cpp interface_text.cpp screen_stack.cpp row_widgets.cpp icon_widgets.cpp page_frame.cpp screen_images.cpp image_view.cpp progress_screen.cpp entry_screen.cpp authentication_screen.cpp offer_card.cpp
     platform.cpp)
 add_library(opensu::ui ALIAS opensu_ui)
 target_include_directories(opensu_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_ui
     PUBLIC opensu::grid opensu::hud_model opensu::library opensu::device opensu::input opensu::artwork
-        opensu::config opensu::svg opensu::theme gpu2d::render gpu2d::ui
+        opensu::config opensu::svg opensu::theme opensu::stream_meter gpu2d::render gpu2d::ui
     PRIVATE lucent::lucent
 )
 target_compile_features(opensu_ui PUBLIC cxx_std_20)

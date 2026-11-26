@@ -8,6 +8,7 @@
 
 #include "gpu2d/ui/layout.hpp"
 
+#include "screen_images.hpp"
 #include "setting_row.hpp"
 
 namespace opensu::ui {
@@ -37,5 +38,8 @@ class RowActions {
 
 /// Adds the widget `row` stands for to `rows`.
 void addRow(gpu2d::ui::Column& rows, const SettingsRow& row, RowActions& actions);
+/// The same on a screen that lists Plays: a row that `streams` shows the stream icon from `images`.
+void addRow(gpu2d::ui::Column& rows, const SettingsRow& row, RowActions& actions,
+            ScreenImages& images);
 
 } // namespace opensu::ui

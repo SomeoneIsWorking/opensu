@@ -312,7 +312,7 @@ void DetailsController::openPage(const std::string& rowId) {
         // input-sound.md 3.4 Open: a panel appears.
         sounds_.play(audio::Effect::Open);
         navigator_.push(std::make_unique<DetailsListScreen>(
-            *this, chrome_, std::string{ui::detailsMoreId},
+            *this, chrome_, images_, std::string{ui::detailsMoreId},
             details_ ? details_->moreTitle : std::string{"More"}, [this] {
                 return details_ ? details_->more : std::vector<ui::SettingsRow>{};
             }));

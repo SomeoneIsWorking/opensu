@@ -38,6 +38,7 @@ enum class Icon : std::uint8_t {
     Downloads,
     Windows,
     MacOs,
+    Stream,
 };
 
 /// The store's icon, or nothing for a ROM.

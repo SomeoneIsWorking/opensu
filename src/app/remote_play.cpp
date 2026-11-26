@@ -957,6 +957,14 @@ void RemotePlay::serviceGuest() {
             guest_->withdraw(stream::VideoCodec::PyroWave);
         }
         guest_->keepsUpWith(video_->framesPerSecondFit());
+        stream::StreamCounts counts = video_->counts();
+        const stream::GuestStream::Timing timing = guest_->timing();
+        counts.roundTripUs = timing.roundTripUs;
+        counts.bytesPerSecond = timing.bytesPerSecond;
+        if (std::optional<stream::StreamReading> reading =
+                meter_.take(counts, stream::wire::nowMicros())) {
+            reading_ = *reading;
+        }
         if (const std::optional<std::string> over = guest_->over()) {
             hooks_.say(game_.title + " on " + game_.hostName + ": " + *over, !pictured_);
             drop();
@@ -1006,6 +1014,8 @@ void RemotePlay::drop() {
     link_.reset();
     joined_ = false;
     pictured_ = false;
+    meter_ = {};
+    reading_.reset();
 }
 
 void RemotePlay::tellGuests(Hosted& hosted, const GameFacts& facts) {

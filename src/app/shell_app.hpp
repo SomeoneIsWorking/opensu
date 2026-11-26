@@ -584,7 +584,7 @@ class ShellApp final {
                                  shell_.setToast(text, isError);
                              }}};
     ContextMenuController contextMenu_{
-        shell_.screens().navigator(), sounds_,
+        shell_.screens().navigator(), shell_.screens().images(), sounds_,
         ContextMenuController::Services{preferences_, uninstallPrompt_, updateRequest_},
         ContextMenuController::Hooks{
             [this] {

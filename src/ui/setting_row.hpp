@@ -61,6 +61,9 @@ struct SettingsRow {
     std::string confirmVerb;
     /// What X does to the row, as its hint names it ("Forget"); empty when nothing.
     std::string secondary;
+    /// An action that plays a game streamed from another openSU (`library::playsStreamed`): it
+    /// shows the stream icon.
+    bool streams{false};
 
     bool operator==(const SettingsRow&) const = default;
 };

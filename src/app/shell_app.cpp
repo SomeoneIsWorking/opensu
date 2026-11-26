@@ -855,7 +855,7 @@ bool ShellApp::launch(const library::Game& game, LaunchRequest request) {
         shell_.setToast("a game is already running", true);
         return false;
     }
-    if (game.source == library::Source::Remote) {
+    if (library::playsStreamed(game)) {
         if (!game.hostOnline) {
             shell_.setToast(game.hostName + " is offline; start openSU there", true);
             return false;
@@ -1708,6 +1708,7 @@ void ShellApp::showGamePicture() {
         shell_.setPicture(gameBackdrop_->view());
         shell_.setPictureBand(0);
         shell_.setPictureControls(std::nullopt);
+        shell_.setStreamMeter(std::nullopt);
         return;
     }
     const gpu2d::PixelSize window = window_->size();
@@ -1727,6 +1728,9 @@ void ShellApp::showGamePicture() {
                 : std::nullopt);
     shell_.setPictureBand(remoteTouch_->band());
     shell_.setPictureControls(remoteTouch_->view());
+    shell_.setStreamMeter(preferences_.values().streamMeter
+                              ? remotePlay_.reading()
+                              : std::optional<stream::StreamReading>{});
 }
 
 /// Applies what the launch thread and the control channel asked for. Everything

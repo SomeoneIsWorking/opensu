@@ -2,10 +2,12 @@
 
 #include <filesystem>
 #include <memory>
+#include <utility>
 
 #include "gpu2d/ui/layout.hpp"
 #include "gpu2d/ui/widgets.hpp"
 
+#include "ui/icon_widgets.hpp"
 #include "ui/image_view.hpp"
 #include "ui/page_frame.hpp"
 #include "ui/row_widgets.hpp"
@@ -84,14 +86,19 @@ std::unique_ptr<tk::Widget> DetailsScreen::build(const tk::Theme& theme) {
     pane.pad(tk::Insets::all(theme.spacing.gap * 2.0f));
     tk::List& list = pane.add<tk::List>("details/actions", theme.spacing.gap);
     list.grow();
-    list.rows().add<tk::Button>(
-        std::string{ui::detailsLaunchId}, details->launch.label,
-        [this, game = details->launch.gameId] {
-            controller_.launch(game);
-        },
-        tk::ButtonKind::Primary);
+    auto launch = [this, game = details->launch.gameId] {
+        controller_.launch(game);
+    };
+    if (details->launch.streams) {
+        list.rows().add<ui::IconButton>(std::string{ui::detailsLaunchId}, details->launch.label,
+                                        std::move(launch), tk::ButtonKind::Primary, images_,
+                                        ui::Icon::Stream);
+    } else {
+        list.rows().add<tk::Button>(std::string{ui::detailsLaunchId}, details->launch.label,
+                                    std::move(launch), tk::ButtonKind::Primary);
+    }
     for (const ui::SettingsRow& row : details->actions) {
-        ui::addRow(list.rows(), row, controller_);
+        ui::addRow(list.rows(), row, controller_, images_);
     }
     return std::move(frame.root);
 }
@@ -124,7 +131,7 @@ std::unique_ptr<tk::Widget> DetailsListScreen::build(const tk::Theme& theme) {
     tk::List& list = card.add<tk::List>(id() + "/list", theme.spacing.gap);
     list.grow();
     for (const ui::SettingsRow& row : rows) {
-        ui::addRow(list.rows(), row, controller_);
+        ui::addRow(list.rows(), row, controller_, images_);
     }
     card.add<tk::HintBar>();
     return std::move(frame.root);

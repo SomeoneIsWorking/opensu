@@ -4,5 +4,6 @@ their owners and identify the launcher whose state the top bar shows, and (`linu
 
 `home.svg`, `home_selected.svg`, `library.svg`, `library_selected.svg`, `downloads.svg` (the top
 bar's Downloads badge), `windows.svg` and `macos.svg` (the marks of the player's own Windows and
-macOS games' libraries) and `libretro.svg` (the mark of a game openSU's own runner plays) are openSU's own
+macOS games' libraries), `stream.svg` (a play that streams the game from another openSU) and
+`libretro.svg` (the mark of a game openSU's own runner plays) are openSU's own
 drawings, under the repository's MIT licence (`LICENSE`).

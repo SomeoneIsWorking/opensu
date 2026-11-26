@@ -18,6 +18,7 @@ namespace {
 using ui::RowKind;
 
 constexpr std::string_view nameId = "lan.name";
+constexpr std::string_view streamMeterId = "lan.streamMeter";
 constexpr std::string_view pairPrefix = "lan.pair.";
 constexpr std::string_view forgetPrefix = "lan.forget.";
 constexpr std::string_view nameCardId = "lan-name";
@@ -33,6 +34,10 @@ ui::SettingsCategory LanSettings::page() const {
     const lan::LanNode* node = lan_.node();
     page.rows.push_back(ui::makeRow(std::string{nameId}, RowKind::Action, "Name",
                                     "How other openSUs on the LAN list this one", lan_.name()));
+    page.rows.push_back(
+        ui::makeToggle(std::string{streamMeterId}, "Stream meter",
+                       "Latency, bitrate and frames over a game streamed from another openSU",
+                       preferences_.values().streamMeter));
     if (node == nullptr) {
         page.rows.push_back(ui::makeRow("lan.status", RowKind::Info, "Not running",
                                         "LAN could not start; see the log", "Off"));
@@ -87,7 +92,8 @@ ui::SettingsCategory LanSettings::page() const {
 }
 
 bool LanSettings::owns(const std::string& id) {
-    return id == nameId || id.starts_with(pairPrefix) || id.starts_with(forgetPrefix);
+    return id == nameId || id == streamMeterId || id.starts_with(pairPrefix) ||
+           id.starts_with(forgetPrefix);
 }
 
 void LanSettings::run(const std::string& id, int step) {
@@ -96,6 +102,12 @@ void LanSettings::run(const std::string& id, int step) {
     }
     if (id == nameId) {
         askName();
+        return;
+    }
+    if (id == streamMeterId) {
+        preferences_.values().streamMeter = !preferences_.values().streamMeter;
+        preferences_.save();
+        changed_();
         return;
     }
     if (id.starts_with(pairPrefix)) {

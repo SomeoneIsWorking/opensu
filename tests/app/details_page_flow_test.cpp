@@ -52,7 +52,8 @@ library::Game rom(const std::string& id) {
 struct Rig {
     test::InterfaceRig ui;
     gpu2d::ImageLoader loader;
-    ui::ScreenImages images{loader};
+    ui::IconAtlas icons{{}, loader};
+    ui::ScreenImages images{loader, icons};
     const ui::Chrome chrome{.width = 1280.0f};
     audio::SdlSoundPlayer sounds;
     app::Preferences preferences;

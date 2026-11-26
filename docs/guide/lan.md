@@ -139,6 +139,12 @@ Fedora, RPM Fusion's `mesa-va-drivers-freeworld`).
   and a mouse instead of a pad, so its prompts stay on the keyboard: a stick for WASD, Jump, Crouch,
   Reload, Use, Fire, Aim, Sprint, Q, G, Tab and Esc, and a swipe on the right half of the screen
   moves the mouse to aim. Keys and the mouse reach a game whose host has an X display.
+- Every Play that streams a game from another openSU (the details page, Versions, a tile's menu)
+  shows the stream icon.
+- While you play, a meter in the top right corner shows the stream: the picture's latency from
+  the other openSU's screen to yours, the network's round trip (ping), the bitrate, the frames a
+  second and any frames lost, with a dot that is green, amber or red as the stream goes. Settings ›
+  LAN › **Stream meter** turns it off.
 - Guide opens this openSU's menu. **End remote play** closes the game over there; anything it has
   not saved is lost.
 - The other openSU runs one game at a time. While a different game runs there, it refuses.

@@ -98,7 +98,8 @@ struct Rig {
     std::vector<std::string> launched;
     test::InterfaceRig face;
     gpu2d::ImageLoader loader;
-    ui::ScreenImages images{loader};
+    ui::IconAtlas icons{{}, loader};
+    ui::ScreenImages images{loader, icons};
     const ui::Chrome chrome{.width = 1280.0f};
     int changes{0};
     audio::SdlSoundPlayer sounds;

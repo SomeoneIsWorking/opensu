@@ -18,6 +18,7 @@
 #include "library/shelf.hpp"
 #include "preferences.hpp"
 #include "ui/row_widgets.hpp"
+#include "ui/screen_images.hpp"
 #include "ui/setting_row.hpp"
 #include "uninstall_prompt.hpp"
 #include "update_request.hpp"
@@ -83,11 +84,12 @@ class ContextMenuController final : public ui::RowActions {
         UpdateRequest& update;
     };
 
-    /// The menu goes on `navigator`'s stack.
-    ContextMenuController(gpu2d::ui::Navigator& navigator, audio::SdlSoundPlayer& sounds,
-                          Services services, Hooks hooks)
-        : navigator_{navigator}, sounds_{sounds}, preferences_{services.preferences},
-          uninstall_{services.uninstall}, update_{services.update}, hooks_{std::move(hooks)} {
+    /// The menu goes on `navigator`'s stack, its icons from `images`.
+    ContextMenuController(gpu2d::ui::Navigator& navigator, ui::ScreenImages& images,
+                          audio::SdlSoundPlayer& sounds, Services services, Hooks hooks)
+        : navigator_{navigator}, images_{images}, sounds_{sounds},
+          preferences_{services.preferences}, uninstall_{services.uninstall},
+          update_{services.update}, hooks_{std::move(hooks)} {
     }
 
     /// Opens the menu for the focused tile; nothing when no tile has focus.
@@ -104,6 +106,9 @@ class ContextMenuController final : public ui::RowActions {
     [[nodiscard]] const std::vector<ui::SettingsRow>& entries() const noexcept {
         return entries_;
     }
+    [[nodiscard]] ui::ScreenImages& images() const noexcept {
+        return images_;
+    }
     /// Closes the menu and does what entry `id` says to the tile it was opened for.
     void run(const std::string& id, int step) override;
 
@@ -116,6 +121,7 @@ class ContextMenuController final : public ui::RowActions {
     void remove(const library::Launcher& launcher);
 
     gpu2d::ui::Navigator& navigator_;
+    ui::ScreenImages& images_;
     audio::SdlSoundPlayer& sounds_;
     const Preferences& preferences_;
     UninstallPrompt& uninstall_;

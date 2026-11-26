@@ -20,6 +20,14 @@ else()
     target_sources(opensu_datagram PRIVATE udp_socket_posix.cpp)
 endif()
 
+# How a stream goes for its player, apart so the shell's painters take it without the codecs.
+add_library(opensu_stream_meter STATIC stream_meter.cpp)
+add_library(opensu::stream_meter ALIAS opensu_stream_meter)
+target_include_directories(opensu_stream_meter PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/..")
+target_compile_features(opensu_stream_meter PUBLIC cxx_std_20)
+opensu_warnings(opensu_stream_meter)
+
 add_library(opensu_stream STATIC stream_wire.cpp link_rate.cpp link_cap.cpp token_bucket.cpp
     host_stream.cpp audience.cpp guest_stream.cpp remote_reach.cpp video_codec.cpp picture_colour.cpp
     frame_parity.cpp predicted_frames.cpp guest_fit.cpp frame_pace.cpp playout_delay.cpp host_video.cpp guest_video.cpp host_audio.cpp guest_audio.cpp)
@@ -27,7 +35,7 @@ add_library(opensu::stream ALIAS opensu_stream)
 target_include_directories(opensu_stream PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_link_libraries(opensu_stream
-    PUBLIC opensu::datagram opensu::lan opensu::pad lucent::lucent gpu2d::render
+    PUBLIC opensu::datagram opensu::stream_meter opensu::lan opensu::pad lucent::lucent gpu2d::render
     PRIVATE opensu::secrets opensu::clock)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     pkg_check_modules(PIPEWIRE IMPORTED_TARGET libpipewire-0.3)

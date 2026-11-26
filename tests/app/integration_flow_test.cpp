@@ -154,7 +154,8 @@ void wizardAddsIntegrations(const fs::path& root, bool loginSession) {
     app::IntegrationsInForce inForce{preferences, loginSession};
     test::InterfaceRig screens;
     gpu2d::ImageLoader loader;
-    ui::ScreenImages images{loader};
+    ui::IconAtlas icons{{}, loader};
+    ui::ScreenImages images{loader, icons};
     const ui::Chrome chrome{.width = 1280.0f};
     app::FumaroleSignIn fumarole{fakeFumarole(root / "wizard-bin"), root / "wizard-qr" / "qr.png"};
     std::vector<std::string> toasts;

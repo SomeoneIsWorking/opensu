@@ -261,9 +261,11 @@ be reached, In sync with X.
 
 ## Remote play
 
-Play on another openSU's game (`ShellApp::launch`, `Source::Remote`) goes to
+Play on another openSU's game (`ShellApp::launch`, `library::playsStreamed`) goes to
 `app::RemotePlay::start`, which asks that host over `/lan/play` with the active profile; the shell
-shows the host's picture until the session ends. A host runs one game at a time, and a guest plays
+shows the host's picture until the session ends. Every Play of such a game (the details page's button
+and Versions, `ui::launchOf`; a tile's menu, `contextEntriesFor`) is marked `streams` by the same
+predicate and shows the stream icon (`ui::IconButton`, `ui::IconItem` through `ui::addRow`). A host runs one game at a time, and a guest plays
 one remote game. The host's listener picks the profile the game plays as (the asked
 one while it is linked with the guest, else the first) and `RemotePlay` launches with it, so the
 runner's save folder and the saves synced before and after (`SaveSharing::before`, `ended`) are
@@ -460,7 +462,12 @@ that profile's; the host's own active profile does not change.
   frame, which the guest asks for while the decoder waits (KeyFrame, at most every 100 ms); a whole PyroWave frame two
   newer ones began after is skipped as late. The loop
   shows the newest picture (`app::RemotePicture`: uploaded, or drawn from its DMA-BUFs) and
-  `ui::Shell` draws it letterboxed over black. `stream::GuestAudio`
+  `ui::Shell` draws it letterboxed over black. Once a second `app::RemotePlay` reads
+  `stream::StreamMeter` from `GuestVideo::counts` (frames shown, lost or skipped late, the median
+  capture-to-submit latency of the last 30 shown) and `GuestStream::timing` (round trip, bytes
+  received in the last second); with `streamMeter` on, the shell draws it top right
+  (`ui::StreamMeterPainter`), its line written again only when the reading changed. Good up to
+  50 ms latency, 20 ms round trip and 1% lost; Poor past 100 ms, 60 ms or 5%; Fair between. `stream::GuestAudio`
   decodes each Opus packet, conceals up to ten lost ones, and plays on the shell's device
   (`audio::LiveSound`, at most 60 ms queued) when the shell plays sounds.
 - Input: while the remote game has the controls (streaming, no Guide menu or other menu open), the

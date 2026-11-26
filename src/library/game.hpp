@@ -372,4 +372,10 @@ void order(std::vector<Game>& games);
     return game.sharedId.empty() ? game.id : game.sharedId;
 }
 
+/// Whether playing `game` streams it from the openSU it is installed on (remote play) rather
+/// than starting it here; every Play of such a game shows the stream icon.
+[[nodiscard]] inline bool playsStreamed(const Game& game) noexcept {
+    return game.source == Source::Remote;
+}
+
 } // namespace opensu::library

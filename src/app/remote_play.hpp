@@ -57,6 +57,7 @@
 #include "stream/host_stream.hpp"
 #include "stream/host_video.hpp"
 #include "stream/link_hold.hpp"
+#include "stream/stream_meter.hpp"
 
 namespace opensu::app {
 
@@ -295,6 +296,11 @@ class RemotePlay {
     /// began asking for the image at `beganUs`, had it at `acquiredUs` and submitted at
     /// `submittedUs`. Main loop only.
     void passed(std::uint64_t beganUs, std::uint64_t acquiredUs, std::uint64_t submittedUs);
+    /// How the stream played here went over its last second (`stream::StreamMeter`); nothing
+    /// before its first second or while none streams. Main loop only.
+    [[nodiscard]] const std::optional<stream::StreamReading>& reading() const noexcept {
+        return reading_;
+    }
     /// The newest remote picture and its number: on a guest the one decoded last, on a host the
     /// one sent last. Main loop only.
     [[nodiscard]] std::optional<stream::GuestVideo::Frame> picture() const;
@@ -509,6 +515,8 @@ class RemotePlay {
     std::unique_ptr<audio::LiveSound> speaker_;
     std::unique_ptr<stream::GuestAudio> audio_;
     std::unique_ptr<stream::GuestStream> guest_;
+    stream::StreamMeter meter_;
+    std::optional<stream::StreamReading> reading_;
 };
 
 } // namespace opensu::app

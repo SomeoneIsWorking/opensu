@@ -60,6 +60,8 @@ struct LaunchButton {
     std::string label;
     /// The game it plays or installs.
     std::string gameId;
+    /// It plays the game streamed from another openSU, and shows the stream icon.
+    bool streams{false};
 
     bool operator==(const LaunchButton&) const = default;
 };

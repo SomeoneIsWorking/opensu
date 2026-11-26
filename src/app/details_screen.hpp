@@ -41,10 +41,10 @@ class DetailsListScreen final : public gpu2d::ui::Screen {
     /// The rows the card lists now; it closes when there are none.
     using Rows = std::function<std::vector<ui::SettingsRow>()>;
 
-    DetailsListScreen(DetailsController& controller, const ui::Chrome& chrome, std::string id,
-                      std::string title, Rows rows)
+    DetailsListScreen(DetailsController& controller, const ui::Chrome& chrome,
+                      ui::ScreenImages& images, std::string id, std::string title, Rows rows)
         : Screen{std::move(id), std::move(title)}, controller_{controller}, chrome_{chrome},
-          rows_{std::move(rows)} {
+          images_{images}, rows_{std::move(rows)} {
     }
 
     [[nodiscard]] std::unique_ptr<gpu2d::ui::Widget> build(const gpu2d::ui::Theme& theme) override;
@@ -57,6 +57,7 @@ class DetailsListScreen final : public gpu2d::ui::Screen {
   private:
     DetailsController& controller_;
     const ui::Chrome& chrome_;
+    ui::ScreenImages& images_;
     Rows rows_;
 };
 

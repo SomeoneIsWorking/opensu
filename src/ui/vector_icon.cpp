@@ -69,6 +69,8 @@ std::string_view iconFile(Icon icon) noexcept {
         return "icons/windows.svg";
     case Icon::MacOs:
         return "icons/macos.svg";
+    case Icon::Stream:
+        return "icons/stream.svg";
     }
     return {};
 }

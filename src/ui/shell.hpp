@@ -41,6 +41,7 @@
 #include "on_screen_keyboard.hpp"
 #include "paint.hpp"
 #include "screen_stack.hpp"
+#include "stream_meter_painter.hpp"
 #include "theme/interface_theme.hpp"
 #include "top_bar_chrome.hpp"
 #include "vector_icon.hpp"
@@ -225,6 +226,10 @@ class Shell {
         pictureControls_ = controls;
     }
 
+    /// The remote stream's meter over its picture: the last reading, the line written again only
+    /// when it changed; nothing hides it.
+    void setStreamMeter(const std::optional<stream::StreamReading>& reading);
+
     [[nodiscard]] const std::string& status() const noexcept {
         return hud_.status();
     }
@@ -303,7 +308,7 @@ class Shell {
     ChordHint chordHint_;
     /// Before the screens, whose prompts give way to it.
     OnScreenKeyboard keyboard_;
-    ScreenStack screens_{prompts_, text_, keyboard_, images_};
+    ScreenStack screens_{prompts_, text_, keyboard_, images_, icons_};
     MappingPage mapping_;
     Hud hud_{prompts_, text_, icons_};
     HomeGrid grid_;
@@ -317,6 +322,8 @@ class Shell {
 
     VolumeOsdPainter volumeOsdPainter_{text_};
     ChordHintPainter chordHintPainter_{prompts_, text_};
+    StreamMeterPainter streamMeterPainter_{text_};
+    std::optional<StreamMeterLine> streamMeter_;
     /// The frame up to the dock, which the dock's glass blurs.
     std::optional<gpu2d::RenderTarget> scene_;
     SDL_GPUDevice* device_{};

@@ -176,12 +176,14 @@ LaunchButton launchOf(const PageCopy& copy) {
         // "Play on Desk: DuckStation", or by what it runs as there when it has one way.
         const std::string way =
             game.remote.option.empty() ? library::versionPlatform(game) : game.remote.option;
-        return LaunchButton{"Play on " + game.hostName + (way.empty() ? "" : ": " + way), game.id};
+        return LaunchButton{"Play on " + game.hostName + (way.empty() ? "" : ": " + way), game.id,
+                            library::playsStreamed(game)};
     }
     const std::string verb = !copy.game.installed      ? "Install"
                              : copy.settings.continues ? "Continue here"
                                                        : "Play";
-    return LaunchButton{copy.named ? verb + " (" + copy.store() + ")" : verb, copy.game.id};
+    return LaunchButton{copy.named ? verb + " (" + copy.store() + ")" : verb, copy.game.id,
+                        library::playsStreamed(copy.game)};
 }
 
 std::vector<SettingsRow> factsOf(const library::Game& game, const GameMarks& marks,
@@ -465,7 +467,9 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
         add(actions, top, copyHereRows(top.game, page, marks));
     }
     for (const PageCopy& copy : elsewhere) {
-        SettingsRow play = action(copyRowId(copy.game.id, detailsLaunchId), launchOf(copy).label);
+        const LaunchButton launch = launchOf(copy);
+        SettingsRow play = action(copyRowId(copy.game.id, detailsLaunchId), launch.label);
+        play.streams = launch.streams;
         play.note = copy.game.unavailable;
         actions.push_back(std::move(play));
         for (SettingsRow& row : copyHereRows(copy.game, page, marks)) {
@@ -484,9 +488,11 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
     if (versions) {
         // What plays now on top, what installs in the middle, what removes at the bottom.
         const auto wayToPlay = [&more, &top, &add](const PageCopy& copy) {
-            SettingsRow play = action(copy.game.installed ? detailsLaunchId : detailsInstallId,
-                                      launchOf(copy).label);
+            const LaunchButton launch = launchOf(copy);
+            SettingsRow play =
+                action(copy.game.installed ? detailsLaunchId : detailsInstallId, launch.label);
             play.id = copyRowId(copy.game.id, play.id);
+            play.streams = launch.streams;
             if (copy.game.source == library::Source::Remote && !copy.game.unavailable.empty()) {
                 play.note = copy.game.unavailable;
             }

@@ -60,6 +60,7 @@ std::string_view name(ui::Icon icon) {
     case ui::Icon::LibrarySelected:
     case ui::Icon::Windows:
     case ui::Icon::MacOs:
+    case ui::Icon::Stream:
         break;
     }
     return "unknown";

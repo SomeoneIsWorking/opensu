@@ -27,6 +27,7 @@
 
 #include "guest_fit.hpp"
 #include "playout_delay.hpp"
+#include "stream_meter.hpp"
 #include "stream_wire.hpp"
 #include "video_codec.hpp"
 
@@ -84,6 +85,9 @@ class GuestVideo {
     /// How the frames went: counts, and the 50th and 95th percentile of each stage in
     /// milliseconds, as one line for the control channel.
     [[nodiscard]] std::string summary() const;
+    /// The frames shown and lost or skipped late so far, and the latency of those shown last, for
+    /// the stream's meter (`StreamCounts`; the link's fields left 0). Any thread.
+    [[nodiscard]] StreamCounts counts() const;
     /// This guest lost or skipped too many PyroWave frames to keep it (`GuestFit`). Any thread.
     [[nodiscard]] bool pyroWaveGivenUp() const noexcept {
         return pyroWaveGivenUp_.load();

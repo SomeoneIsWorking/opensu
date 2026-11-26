@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <format>
 #include <stdexcept>
 #include <utility>
@@ -15,6 +16,8 @@ namespace {
 
 /// The shown frames the percentiles are taken over: the last ten seconds at 60 a second.
 constexpr std::size_t framesKept = 600;
+/// The shown frames the meter's latency is the median of: half a second at 60 a second.
+constexpr std::size_t latencyFrames = 30;
 /// Decoded frames waiting to be shown that are remembered; older ones were never shown.
 constexpr std::size_t waitingKept = 8;
 constexpr double microsPerMilli = 1000.0;
@@ -391,6 +394,24 @@ std::string GuestVideo::summary() const {
         stage("total", &Stages::total);
     }
     return out;
+}
+
+StreamCounts GuestVideo::counts() const {
+    const std::lock_guard lock{mutex_};
+    StreamCounts counts{.shown = presented_, .lost = dropped_ + late_};
+    const std::size_t taken = std::min(latencyFrames, shown_.size());
+    if (taken == 0) {
+        return counts;
+    }
+    std::vector<double> totals;
+    totals.reserve(taken);
+    for (auto stages = shown_.end() - static_cast<std::ptrdiff_t>(taken); stages != shown_.end();
+         ++stages) {
+        totals.push_back(stages->total);
+    }
+    std::ranges::sort(totals);
+    counts.latencyMs = clock::percentile(totals, 0.5);
+    return counts;
 }
 
 } // namespace opensu::stream
