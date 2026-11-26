@@ -1,6 +1,6 @@
 # Lua plugins
 
-Plugins are an integration, off until turned on in Settings › Integrations
+Plugins are an integration, off until added from Library's Add page
 ([stores.md](stores.md#integrations)). openSU runs small Lua plugins in a sandbox: no file access
 beyond the paths a plugin's `plugin.json` declares, no network beyond its declared HTTPS hosts, no
 processes, and limits on memory and run time. A plugin that keeps failing is stopped; openSU

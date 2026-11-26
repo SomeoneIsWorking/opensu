@@ -1,6 +1,6 @@
 # LAN
 
-The LAN integration (Settings › Integrations › LAN, off by default) makes this openSU findable by
+The LAN integration (added from Library's Add page, off by default) makes this openSU findable by
 the other openSUs on the network, pairs with them, lists the installed games of each paired one in
 Library under that openSU's name, shares the games' saves with the ones the player chose, and
 plays such a game remotely: it runs on the host and streams here (see [Remote play](#remote-play)),

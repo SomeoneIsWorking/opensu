@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <vector>
 
+#include "gpu2d/ui/screen.hpp"
+
 #include "integration_options.hpp"
 
 namespace opensu::app {
@@ -16,8 +18,33 @@ using ui::RowKind;
 constexpr std::string_view prefix = "integrations.";
 constexpr const char* modeId = "integrations.steamMode";
 constexpr const char* padsId = "integrations.steamPads";
-constexpr const char* alwaysId = "integrations.always";
-constexpr const char* applyId = "integrations.apply";
+/// A Remove row is this and its entry's id.
+constexpr std::string_view removePrefix = "integrations.remove.";
+
+/// The entry `entry`'s name, as Library's Add page shows it.
+std::string labelOf(std::string_view entry) {
+    for (const IntegrationEntry& offered : integrationEntries()) {
+        if (offered.id == entry) {
+            return std::string{offered.label};
+        }
+    }
+    return std::string{entry};
+}
+
+/// What removing `entry` does, for the question Remove asks.
+std::string removalOf(std::string_view entry) {
+    if (entry == "emulators") {
+        return "openSU stops finding and downloading standalone emulators; ROMs keep playing on "
+               "libretro.";
+    }
+    if (entry == "plugins") {
+        return "Lua plugins stop running, and what they add goes.";
+    }
+    if (entry == "lan") {
+        return "openSU stops finding other openSUs here; their games leave the library.";
+    }
+    return "Its games leave the library.";
+}
 
 SteamMode modeOf(SteamUse use) {
     switch (use) {
@@ -46,103 +73,64 @@ template <typename T> ui::Options optionsOf(const std::vector<T>& offered, T now
 
 } // namespace
 
-bool IntegrationSettings::applies(const std::string& id) {
-    return id == applyId;
+std::vector<ui::SettingsRow> IntegrationSettings::steamRows() const {
+    std::vector<ui::SettingsRow> rows;
+    const settings::Integrations& now = integrations_.current();
+    if (now.steam == SteamUse::Off || now.steam == SteamUse::Fumarole) {
+        return rows;
+    }
+    const SteamMode mode = modeOf(now.steam);
+    // A build whose Steam has one mode has nothing to choose.
+    if (integrations_.modesOffered().size() > 1) {
+        rows.push_back(ui::makeChoice(modeId, "Steam mode", std::string{steamModeNote(mode)},
+                                      optionsOf(integrations_.modesOffered(), mode)));
+    }
+    if (mode == SteamMode::Isolated) {
+        rows.push_back(
+            ui::makeChoice(padsId, "Steam sees", std::string{settings::note(now.steamPads)},
+                           optionsOf(settings::Integrations::padsOffered(), now.steamPads)));
+    }
+    return rows;
 }
 
-std::size_t IntegrationSettings::apply() {
-    const std::size_t count = pendingCount();
-    if (pending_) {
-        integrations_.choose(*pending_);
-        pending_.reset();
-        changed_();
-    }
-    return count;
-}
-
-std::size_t IntegrationSettings::pendingCount() const {
-    if (!pending_) {
-        return 0;
-    }
-    const settings::IntegrationChoices& now = integrations_.choices();
-    const settings::IntegrationChoices& edit = *pending_;
-    return static_cast<std::size_t>(now.steam != edit.steam) +
-           static_cast<std::size_t>(now.steamKind != edit.steamKind) +
-           static_cast<std::size_t>(now.steamMode != edit.steamMode) +
-           static_cast<std::size_t>(now.steamPads != edit.steamPads) +
-           static_cast<std::size_t>(now.epic != edit.epic) +
-           static_cast<std::size_t>(now.gog != edit.gog) +
-           static_cast<std::size_t>(now.emulators != edit.emulators) +
-           static_cast<std::size_t>(now.plugins != edit.plugins) +
-           static_cast<std::size_t>(now.lan != edit.lan);
-}
-
-std::string IntegrationSettings::rowId(std::string_view entry) {
-    return std::string{prefix} + std::string{entry};
-}
-
-ui::SettingsCategory IntegrationSettings::page() const {
-    const settings::IntegrationChoices choices = effective();
-    const settings::Integrations& now = integrations_.preview(choices);
-    ui::SettingsCategory page{std::string{categoryId}, "Integrations", {}};
-    page.rows.push_back(ui::makeRow(alwaysId, RowKind::Info, "ROMs and libretro",
-                                    "ROM folders, played on libretro", "Always on"));
-    for (const IntegrationEntry& entry : integrationEntries()) {
-        page.rows.push_back(ui::makeToggle(rowId(entry.id), std::string{entry.label},
-                                           std::string{entry.note}, switchOf(choices, entry.id)));
-        if (entry.id != "steam" || !choices.steam || now.steam == SteamUse::Fumarole) {
-            continue;
-        }
-        const SteamMode mode = modeOf(now.steam);
-        // A build whose Steam has one mode has nothing to choose.
-        if (integrations_.modesOffered().size() > 1) {
-            page.rows.push_back(ui::makeChoice(modeId, "Steam mode",
-                                               std::string{steamModeNote(mode)},
-                                               optionsOf(integrations_.modesOffered(), mode)));
-        }
-        if (mode == SteamMode::Isolated) {
-            page.rows.push_back(
-                ui::makeChoice(padsId, "Steam sees", std::string{settings::note(now.steamPads)},
-                               optionsOf(settings::Integrations::padsOffered(), now.steamPads)));
-        }
-    }
-    const std::size_t waiting = pendingCount();
-    if (waiting > 0) {
-        page.rows.push_back(ui::makeRow(applyId, RowKind::Action, "Apply changes",
-                                        std::to_string(waiting) +
-                                            (waiting == 1 ? " change is" : " changes are") +
-                                            " waiting to be applied",
-                                        "Apply"));
-    } else {
-        page.rows.push_back(ui::makeRow(applyId, RowKind::Info, "Apply changes",
-                                        "Every change is already in effect", "Saved"));
-    }
-    return page;
+ui::SettingsRow IntegrationSettings::removeRow(std::string_view entry) {
+    return ui::makeRow(std::string{removePrefix} + std::string{entry}, RowKind::Action,
+                       "Remove " + labelOf(entry), "Add it again from Library's Add tile",
+                       "Remove");
 }
 
 bool IntegrationSettings::owns(const std::string& id) {
     return id.starts_with(prefix);
 }
 
-void IntegrationSettings::run(const std::string& id, int step) {
-    if (id == applyId) {
-        if (step == 0) {
-            apply();
-        }
-        return;
+void IntegrationSettings::keep(const settings::IntegrationChoices& choices) {
+    if (integrations_.choose(choices)) {
+        changed_();
     }
-    settings::IntegrationChoices choices = effective();
-    const settings::Integrations& now = integrations_.preview(choices);
+}
+
+void IntegrationSettings::run(const std::string& id, int step) {
+    settings::IntegrationChoices choices = integrations_.choices();
+    const settings::Integrations& now = integrations_.current();
     if (id == modeId) {
         choices.steamMode = ui::stepped(integrations_.modesOffered(), modeOf(now.steam), step);
+        keep(choices);
     } else if (id == padsId) {
         choices.steamPads = ui::stepped(settings::Integrations::padsOffered(), now.steamPads, step);
-    } else if (bool* on = switchOf(choices, id.substr(prefix.size())); on != nullptr && step == 0) {
-        *on = !*on;
-    } else {
-        return;
+        keep(choices);
+    } else if (id.starts_with(removePrefix) && step == 0) {
+        const std::string entry = id.substr(removePrefix.size());
+        if (switchOf(choices, entry) == nullptr) {
+            return;
+        }
+        navigator_.push(gpu2d::ui::confirm(
+            "Remove " + labelOf(entry) + "?",
+            removalOf(entry) + " Add it again from Library's Add tile.", "Remove", [this, entry] {
+                settings::IntegrationChoices off = integrations_.choices();
+                *switchOf(off, entry) = false;
+                keep(off);
+            }));
     }
-    pending_ = choices;
 }
 
 } // namespace opensu::app

@@ -5,7 +5,7 @@ lists their installed games in your Library under their names, can keep your sav
 both, plays their games here: the game runs over there and streams to this screen (remote
 play), and copies their ROMs into this openSU, so a phone can play the games on your PC.
 
-LAN is an integration, off until you turn it on in Settings › Integrations
+LAN is an integration, off until you add it from Library's Add page
 ([stores.md](stores.md#integrations)). Finding other openSUs works on Linux with Avahi running
 (`avahi-daemon`, on by default on most desktops), on Android over Wi-Fi, on macOS through Bonjour
 and on Windows 10 version 1809 or newer through Windows' own DNS client.

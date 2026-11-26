@@ -69,7 +69,7 @@ std::string EmulatorDownloads::start(std::string_view id) {
         return "openSU cannot download " + std::string{entry == nullptr ? id : entry->name};
     }
     if (!setup_.counts(*entry)) {
-        return "standalone emulators are off in Settings > Integrations";
+        return "standalone emulators are not added; add them from Library's Add tile";
     }
     if (entry->builtIn() && cores_.root().empty()) {
         return "openSU has no folder to keep " + entry->name + "'s core in";

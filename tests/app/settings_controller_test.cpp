@@ -354,10 +354,10 @@ struct Rig {
     std::vector<library::steam::LibraryFolder> recorded;
     app::Preferences preferences;
     app::IntegrationsInForce inForce{everyIntegration(preferences), false};
-    app::IntegrationSettings integrationSettings{inForce, [this] {
+    test::InterfaceRig screens;
+    app::IntegrationSettings integrationSettings{inForce, screens.navigator, [this] {
                                                      controller.refresh();
                                                  }};
-    test::InterfaceRig screens;
     const ui::Chrome chrome{.width = 1280.0f};
     ui::OnScreenKeyboard keyboard;
     app::KeyboardPad pad{keyboard, screens.navigator, sounds};
@@ -645,8 +645,19 @@ struct Rig {
     int themeChanges{0};
 };
 
-/// With an integration off its pages and rows are gone; turning it on in Settings > Integrations
-/// brings them back at once.
+/// The Steam page's rows of the client's libraries, past its mode and controllers.
+std::vector<ui::SettingsRow> libraryRows(const Rig& rig) {
+    std::vector<ui::SettingsRow> rows;
+    for (const ui::SettingsRow& row : rig.rows()) {
+        if (row.id.starts_with("steamLibraries.")) {
+            rows.push_back(row);
+        }
+    }
+    return rows;
+}
+
+/// With an integration off its pages and rows are gone; added, they come back at once, its own
+/// settings on its own page.
 void pagesFollowTheIntegrations(const fs::path& root) {
     Rig rig{root / "integrations"};
     rig.inForce.choose(settings::IntegrationChoices{});
@@ -655,11 +666,11 @@ void pagesFollowTheIntegrations(const fs::path& root) {
     for (const ui::SettingsCategory& category : rig.controller.categories()) {
         names.push_back(category.label);
     }
-    expect(names == std::vector<std::string>{"Appearance", "Library", "Integrations", "Emulators",
-                                             "Audio", "Controls", "Guide chords", "Install folders",
+    expect(names == std::vector<std::string>{"Appearance", "Library", "Emulators", "Audio",
+                                             "Controls", "Guide chords", "Install folders",
                                              "Artwork", "Play online", "Profiles", "Saves",
                                              "About"},
-           "no Steam libraries, Wine or Plugins with their integrations off");
+           "no Integrations page, and no Steam, Wine or Plugins with their integrations off");
     rig.enter("Library");
     expect(std::ranges::none_of(rig.rows(),
                                 [](const ui::SettingsRow& row) {
@@ -667,36 +678,34 @@ void pagesFollowTheIntegrations(const fs::path& root) {
                                 }),
            "no Steam folders on the Library page");
     rig.controller.showCategories();
-    rig.enter("Install folders");
-    expect(rig.rows().size() == 1, "only the default install folder");
-    rig.controller.showCategories();
-    rig.enter("Integrations");
-    rig.focus("integrations.steam");
-    rig.act(Button::A);
-    const settings::IntegrationChoices staged = rig.onDisk().integrations;
-    expect(!staged.steam, "a staged switch is not kept until Apply");
-    if (rig.inForce.modesOffered().size() > 1) {
-        expect(rig.rowOf("integrations.steamMode").value == "Normal", "its mode shows");
-    } else {
-        expect(std::ranges::none_of(rig.rows(),
-                                    [](const ui::SettingsRow& row) {
-                                        return row.id == "integrations.steamMode";
-                                    }),
-               "with one Steam mode there is none to pick");
-    }
-    rig.focus("integrations.apply");
-    rig.act(Button::A);
-    const settings::IntegrationChoices kept = rig.onDisk().integrations;
-    expect(kept.steam, "Steam on is kept once applied");
-    expect(!rig.said.empty() && !rig.said.back().error &&
-               rig.said.back().text == "Integrations: 1 change applied",
-           "Apply says how many changes it put in effect");
+    rig.enter("Emulators");
+    expect(rig.rows().front().id != "integrations.remove.emulators",
+           "no Remove while standalone emulators are not added");
+    rig.controller.close();
+
+    rig.inForce.choose(settings::IntegrationChoices{.steam = true, .emulators = true});
+    rig.controller.open();
     const auto& categories = rig.controller.categories();
     expect(std::ranges::any_of(categories,
                                [](const ui::SettingsCategory& category) {
-                                   return category.label == "Steam libraries";
+                                   return category.label == "Steam";
                                }),
-           "Steam libraries is back");
+           "Steam's page is back once it is added");
+    rig.enter("Steam");
+    if (rig.inForce.modesOffered().size() > 1) {
+        expect(rig.rowOf("integrations.steamMode").value == "Normal", "its mode heads its page");
+    }
+    rig.controller.showCategories();
+    rig.enter("Emulators");
+    expect(rig.rows().front().id == "integrations.remove.emulators",
+           "Remove heads the page of an integration with no Library tile");
+    rig.focus("integrations.remove.emulators");
+    rig.act(Button::A);
+    expect(rig.top() == "dialog" && rig.onDisk().integrations.emulators, "Remove asks first");
+    rig.focus("dialog/1");
+    rig.act(Button::A);
+    expect(!rig.onDisk().integrations.emulators && rig.onDisk().integrations.steam,
+           "confirmed, that integration alone is off and kept");
 }
 
 bool saidExactly(const Rig& rig, const std::string& text) {
@@ -705,47 +714,12 @@ bool saidExactly(const Rig& rig, const std::string& text) {
     });
 }
 
-/// Leaving Settings with Integrations' changes staged asks whether to apply them.
-void leavingAsksAboutStagedIntegrations(const fs::path& root) {
+/// Back on the tabs closes Settings: there is nothing staged to ask about.
+void leavingJustCloses(const fs::path& root) {
     Rig rig{root / "leave"};
-    rig.inForce.choose(settings::IntegrationChoices{});
-    rig.controller.open();
-    rig.enter("Integrations");
-    rig.focus("integrations.steam");
-    rig.act(Button::A);
-    expect(rig.integrationSettings.pendingCount() == 1, "a switch is staged");
-    rig.act(Button::B);
-    expect(rig.focused() == "categories/integrations", "Back goes to the tabs first");
-    rig.act(Button::B);
-    expect(rig.top() == "dialog" && rig.focused() == "dialog/0" && rig.controller.isOpen(),
-           "Back on the tabs asks first, Apply focused");
-    rig.focus("dialog/2");
-    rig.act(Button::A);
-    expect(rig.top() == "settings" && rig.integrationSettings.pendingCount() == 1,
-           "Keep editing stays with the change staged");
-    rig.act(Button::Start);
-    expect(rig.top() == "dialog", "the menu button asks too");
-    rig.act(Button::A);
-    const settings::IntegrationChoices kept = rig.onDisk().integrations;
-    expect(!rig.controller.isOpen() && kept.steam && rig.integrationSettings.pendingCount() == 0,
-           "Apply puts the change in effect and closes Settings");
-    expect(saidExactly(rig, "Integrations: 1 change applied"), "and says so");
-
-    rig.controller.open();
-    rig.enter("Integrations");
-    rig.focus("integrations.steam");
-    rig.act(Button::A);
-    rig.act(Button::B);
-    rig.act(Button::B);
-    rig.focus("dialog/1");
-    rig.act(Button::A);
-    const settings::IntegrationChoices after = rig.onDisk().integrations;
-    expect(!rig.controller.isOpen() && after.steam && rig.integrationSettings.pendingCount() == 0,
-           "Discard drops the staged change and closes Settings");
-
     rig.controller.open();
     rig.act(Button::B);
-    expect(!rig.controller.isOpen(), "with nothing staged Back on the tabs just closes");
+    expect(!rig.controller.isOpen(), "Back on the tabs just closes");
 }
 
 void categoriesFollowTheSavedSettings(const fs::path& root) {
@@ -756,18 +730,17 @@ void categoriesFollowTheSavedSettings(const fs::path& root) {
     for (const ui::SettingsCategory& category : rig.controller.categories()) {
         names.push_back(category.label);
     }
-    expect(names == std::vector<std::string>{"Appearance", "Library", "Integrations", "Emulators",
-                                             "Steam libraries", "Audio", "Controls", "Guide chords",
-                                             "Install folders", "Artwork", "Wine", "Plugins",
-                                             "Play online", "Profiles", "Saves", "About"},
-           "the sixteen categories");
+    expect(names == std::vector<std::string>{"Appearance", "Library", "Emulators", "Steam", "Audio",
+                                             "Controls", "Guide chords", "Install folders",
+                                             "Artwork", "Wine", "Plugins", "Play online",
+                                             "Profiles", "Saves", "About"},
+           "the fifteen categories");
     expect(rig.controller.isOpen() && rig.top() == "settings" &&
                rig.controller.category() == "Appearance" &&
                rig.focused() == "categories/appearance",
            "opens on Appearance with its tab focused");
-    rig.enter("Steam libraries");
-    expect(rig.focused().starts_with("categories/"), "a page of facts has no row to focus");
-    const auto& rows = rig.rows();
+    rig.enter("Steam");
+    const std::vector<ui::SettingsRow> rows = libraryRows(rig);
     expect(rows.size() == 2 && rows[0].label == "Steam is not running" &&
                rows[1].kind == ui::RowKind::Info && rows[1].label == "/mnt/games/SteamLibrary" &&
                rows[1].note == "1 game, 2.0 KB" && rows[1].value == "Not mounted",
@@ -1389,9 +1362,9 @@ void steamLibrariesWhileSteamRuns(const fs::path& root) {
     Rig rig{root, true, steam.port()};
     rig.steamReady = true;
     rig.controller.open();
-    rig.enter("Steam libraries");
+    rig.enter("Steam");
     settle(rig, [&rig] {
-        return rig.rows().size() == 6;
+        return libraryRows(rig).size() == 6;
     });
     expect(rig.rowOf("steamLibraries.library.0").note == "1 game, 1.0 KB · 2.0 KB free of 4.0 KB" &&
                rig.rowOf("steamLibraries.library.1").value == "Default" &&
@@ -1414,9 +1387,9 @@ void steamLibrariesWhileSteamRuns(const fs::path& root) {
            "the Install folders page shows Steam's default library as Steam's own");
     rig.controller.close();
     rig.controller.open();
-    rig.enter("Steam libraries");
+    rig.enter("Steam");
     settle(rig, [&rig] {
-        return rig.rows().size() == 6;
+        return libraryRows(rig).size() == 6;
     });
 
     rig.focus("steamLibraries.remove.2");
@@ -1985,7 +1958,7 @@ int main() try {
     const fs::path& root = scratch.path();
     categoriesFollowTheSavedSettings(root);
     pagesFollowTheIntegrations(root);
-    leavingAsksAboutStagedIntegrations(root);
+    leavingJustCloses(root);
     togglesChoicesAndSliderPersist(root);
     backAndStartLeave(root);
     installFoldersPersistPerStore(root);

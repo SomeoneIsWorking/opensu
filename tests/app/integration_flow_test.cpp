@@ -1,6 +1,6 @@
 // The opt-in integrations through the shipping owners on a scratch settings file: all off on a
-// fresh start, listed on Library's Add page, Settings > Integrations
-// (switches, Steam's mode, no Normal in a login session, Isolated's controllers) and the switch
+// fresh start, listed on Library's Add page and added through its wizard, Steam's rows in Settings
+// (its mode, no Normal in a login session, Isolated's controllers), Remove, and the switch
 // that puts a change into effect (the catalog's stores, standalone emulators, Lua plugins, the
 // Steam client's mode), with no Steam started.
 #include <algorithm>
@@ -10,6 +10,7 @@
 #include <fstream>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -239,92 +240,80 @@ void wizardAddsIntegrations(const fs::path& root, bool loginSession) {
            "Epic is added and its sign-in opens");
 }
 
-/// Steam's modes on a build that offers several: Linux's Normal, Managed and Isolated.
-void settingsStagesThenApplies(const fs::path& root) {
-    app::Preferences preferences = preferencesIn(root / "page");
-    app::IntegrationsInForce inForce{preferences, false};
-    int changes = 0;
-    app::IntegrationSettings page{inForce, [&changes] {
-                                      ++changes;
-                                  }};
-    ui::SettingsCategory shown = page.page();
-    expect(shown.rows.front().value == "Always on", "ROMs and libretro are always on");
-    expect(rowOf(shown, "integrations.steamMode") == nullptr, "no mode while Steam is off");
-    page.run("integrations.steam", 0);
-    shown = page.page();
-    const ui::SettingsRow* mode = rowOf(shown, "integrations.steamMode");
-    expect(changes == 0 && inForce.current().steam == SteamUse::Off,
-           "a switch is staged: nothing is in force until Apply");
-    expect(mode != nullptr && mode->kind == ui::RowKind::Choice && mode->value == "Normal",
-           "Steam on: its mode is a choice, Normal by default on a desktop");
-    expect(rowOf(shown, "integrations.steamPads") == nullptr, "controllers only for Isolated");
-    page.run("integrations.steamMode", 1);
-    page.run("integrations.steamMode", 1);
-    expect(inForce.current().steam == SteamUse::Off, "Left and Right stage the mode");
-    shown = page.page();
-    const ui::SettingsRow* pads = rowOf(shown, "integrations.steamPads");
-    expect(pads != nullptr && pads->kind == ui::RowKind::Choice &&
-               pads->value == "openSU's virtual pads",
-           "Isolated shows what Steam sees, openSU's virtual pads by default");
-    page.run("integrations.steamPads", 1);
-    page.run("integrations.epic", 0);
-    expect(rowOf(page.page(), "integrations.apply")->value == "Apply",
-           "the Apply row says there is something to apply");
-    page.run("integrations.apply", 0);
-    expect(changes == 1 && inForce.current().steam == SteamUse::Isolated &&
-               inForce.current().steamPads == settings::SteamPads::All && inForce.current().epic,
-           "Apply keeps every staged choice at once");
-    expect(rowOf(page.page(), "integrations.apply")->value == "Saved",
-           "and nothing is left to apply");
-    page.run("integrations.epic", 1);
-    expect(inForce.current().epic, "Left and Right do not flip a switch");
-    page.run("integrations.epic", 0);
-    page.run("integrations.apply", 0);
-    expect(!inForce.current().epic, "A stages the flip, applied on Apply");
-
-    app::Preferences session = preferencesIn(root / "session");
-    session.values().integrations = IntegrationChoices{.steam = true,
-                                                       .steamMode = settings::SteamMode::Normal,
-                                                       .epic = false,
-                                                       .gog = false,
-                                                       .emulators = false,
-                                                       .plugins = false};
-    app::IntegrationsInForce sessionForce{session, true};
-    app::IntegrationSettings sessionPage{sessionForce, [] {
-                                         }};
-    const ui::SettingsCategory sessionShown = sessionPage.page();
-    const ui::SettingsRow* sessionMode = rowOf(sessionShown, "integrations.steamMode");
-    expect(sessionMode != nullptr && sessionMode->value == "Managed" &&
-               sessionForce.current().steam == SteamUse::Managed,
-           "a login session runs Managed in place of Normal");
-    sessionPage.run("integrations.steamMode", 1);
-    expect(rowOf(sessionPage.page(), "integrations.steamMode")->value == "Isolated",
-           "and offers Managed and Isolated alone");
-    sessionPage.run("integrations.steamMode", 1);
-    expect(rowOf(sessionPage.page(), "integrations.steamMode")->value == "Managed",
-           "wrapping within the offered modes");
-    sessionPage.sync();
-    expect(rowOf(sessionPage.page(), "integrations.apply")->value == "Saved",
-           "sync drops a staged edit that was never applied");
+std::optional<ui::SettingsRow> rowIn(const std::vector<ui::SettingsRow>& rows,
+                                     const std::string& id) {
+    const auto found = std::ranges::find(rows, id, &ui::SettingsRow::id);
+    return found == rows.end() ? std::nullopt : std::optional{*found};
 }
 
-/// A build whose Steam has one mode (Normal) offers no choice; the switches still stage.
-void oneModeStagesThenApplies(const fs::path& root) {
-    app::Preferences preferences = preferencesIn(root / "one-mode");
+/// Steam's rows on a build that offers several modes (Linux's Normal, Managed and Isolated): a
+/// pick takes effect at once; Remove asks first.
+void steamRowsTakeEffect(const fs::path& root) {
+    app::Preferences preferences = preferencesIn(root / "page");
     app::IntegrationsInForce inForce{preferences, false};
+    test::InterfaceRig screens;
     int changes = 0;
-    app::IntegrationSettings page{inForce, [&changes] {
+    app::IntegrationSettings rows{inForce, screens.navigator, [&changes] {
                                       ++changes;
                                   }};
-    page.run("integrations.steam", 0);
-    expect(rowOf(page.page(), "integrations.steamMode") == nullptr,
+    expect(rows.steamRows().empty(), "no Steam rows while Steam is off");
+    inForce.choose(IntegrationChoices{.steam = true, .steamKind = settings::SteamKind::Fumarole});
+    expect(rows.steamRows().empty(), "none through fumarole: there is no client to run");
+    inForce.choose(IntegrationChoices{.steam = true});
+    const std::optional<ui::SettingsRow> mode = rowIn(rows.steamRows(), "integrations.steamMode");
+    expect(
+        mode && mode->kind == ui::RowKind::Choice && mode->value == "Normal" && !mode->note.empty(),
+        "the client: its mode is a choice, Normal by default on a desktop, saying what it means");
+    expect(!rowIn(rows.steamRows(), "integrations.steamPads"), "controllers only for Isolated");
+    rows.run("integrations.steamMode", 2);
+    expect(changes == 1 && inForce.current().steam == SteamUse::Isolated,
+           "a picked mode is in force at once");
+    const std::optional<ui::SettingsRow> pads = rowIn(rows.steamRows(), "integrations.steamPads");
+    expect(pads && pads->value == "openSU's virtual pads",
+           "Isolated shows what Steam sees, openSU's virtual pads by default");
+    rows.run("integrations.steamPads", 1);
+    expect(changes == 2 && inForce.current().steamPads == settings::SteamPads::All,
+           "and its pick is in force at once");
+
+    inForce.choose(IntegrationChoices{.steam = true, .emulators = true});
+    const ui::SettingsRow remove = app::IntegrationSettings::removeRow("emulators");
+    expect(remove.label == "Remove Standalone emulators", "Remove names the integration");
+    rows.run(remove.id, 0);
+    expect(inForce.current().emulators && screens.navigator.top() != nullptr,
+           "Remove asks before it turns anything off");
+    screens.frame();
+    screens.navigator.act(gpu2d::ui::Action::Accept);
+    screens.frame();
+    expect(!inForce.current().emulators && inForce.current().steam == SteamUse::Normal,
+           "confirmed, only that integration is off");
+
+    app::Preferences session = preferencesIn(root / "session");
+    session.values().integrations =
+        IntegrationChoices{.steam = true, .steamMode = settings::SteamMode::Normal};
+    app::IntegrationsInForce sessionForce{session, true};
+    app::IntegrationSettings sessionRows{sessionForce, screens.navigator, [] {
+                                         }};
+    const std::optional<ui::SettingsRow> sessionMode =
+        rowIn(sessionRows.steamRows(), "integrations.steamMode");
+    expect(sessionMode && sessionMode->value == "Managed" &&
+               sessionForce.current().steam == SteamUse::Managed,
+           "a login session runs Managed in place of Normal");
+    sessionRows.run("integrations.steamMode", 1);
+    expect(sessionForce.current().steam == SteamUse::Isolated,
+           "and offers Managed and Isolated alone");
+}
+
+/// A build whose Steam has one mode (Normal) offers no choice.
+void oneModeHasNoChoice(const fs::path& root) {
+    app::Preferences preferences = preferencesIn(root / "one-mode");
+    app::IntegrationsInForce inForce{preferences, false};
+    test::InterfaceRig screens;
+    app::IntegrationSettings rows{inForce, screens.navigator, [] {
+                                  }};
+    inForce.choose(IntegrationChoices{.steam = true});
+    expect(!rowIn(rows.steamRows(), "integrations.steamMode") &&
+               inForce.current().steam == SteamUse::Normal,
            "Steam on: one mode has nothing to choose");
-    page.run("integrations.epic", 0);
-    expect(changes == 0 && inForce.current().steam == SteamUse::Off,
-           "a switch is staged: nothing is in force until Apply");
-    page.run("integrations.apply", 0);
-    expect(changes == 1 && inForce.current().steam == SteamUse::Normal && inForce.current().epic,
-           "Apply keeps every staged choice at once, Steam in its one mode");
 }
 
 /// A provider that only records that it was read.
@@ -530,9 +519,9 @@ int main() try {
     wizardAddsIntegrations(root, false);
     wizardAddsIntegrations(root, true);
     if (steam::clientModes().size() > 1) {
-        settingsStagesThenApplies(root);
+        steamRowsTakeEffect(root);
     } else {
-        oneModeStagesThenApplies(root);
+        oneModeHasNoChoice(root);
     }
     theSwitchAppliesAChange(root);
     fs::remove_all(root);

@@ -1,6 +1,6 @@
 # Library as integrations
 
-Status: stages 1 to 3 built (2026-11-26); 4 and 5 planned.
+Status: stages 1 to 4 built (2026-11-26); 5 planned.
 
 The player: "first we don't show any games in library view, only sub libraries like steam and
 consoles and such then remove all the add buttons there and just put one add button at the end,
@@ -70,9 +70,12 @@ tile:
 
 ## Settings
 
-Settings › Integrations goes. Its rows move to each integration's Configure page. Until then
-Configure leads to the integration's switch there, LAN for another openSU, Library's game folders
-for the player's own games, and the console's settings for a console.
+There is no Settings › Integrations. Each integration's settings are on its own page and take
+effect when picked: Steam's page leads with its mode and, for Isolated, what Steam sees, then the
+client's libraries (through fumarole it has neither). Standalone emulators, Lua plugins and the LAN
+have no Library tile of their own, so a Remove row heads their pages, asking first. Configure on a
+tile opens the Steam page for Steam, Wine for Epic and GOG, LAN for another openSU, Library's game
+folders for the player's own games, and the console's settings for a console.
 
 ## Order of work
 

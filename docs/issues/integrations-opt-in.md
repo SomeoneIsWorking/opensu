@@ -13,13 +13,13 @@ normally, no isolation".
 ## Integrations
 
 - Built in and always on: the ROM library and the libretro runner.
-- Opt-in, each a switch in Settings › Integrations: Steam, Epic (legendary), GOG (gogdl),
+- Opt-in, each added from Library's Add page through its wizard and removed from its tile's menu or its settings page: Steam, Epic (legendary), GOG (gogdl),
   standalone emulators (downloads and launcher discovery), Lua plugins.
 - An integration that is off starts nothing, reads nothing (no Steam client, no `legendary`, no
   library scan of that store), and its section, tiles, dock badge and Settings pages are absent.
 - First run: no chooser ("I also don't think we need first run things, we can add tiles like add
   ROM dir and add <some> integration tiles"). A fresh start opens Home with every integration off;
-  Library has a Set up tile for each one that is off, opening its switch in Settings › Integrations.
+  Library's Add page lists each one that is off.
 
 ## Steam modes
 
@@ -131,7 +131,7 @@ was kept for the devices and the desktop, with the real HOME. The Docker idea is
   `replace`, plugins host, standalone emulator discovery and downloads, pad and Big Picture guards,
   Steam stopped and started in its mode on a worker).
 - Library's Add page: `app::LibraryAdditions` lists each offered integration whose switch is off.
-- Settings › Integrations: `app::IntegrationSettings`. Steam libraries, the Library page's Steam
+- Each integration's settings rows (Steam's mode, the Remove rows): `app::IntegrationSettings`; adding: `app::IntegrationWizard`. Steam libraries, the Library page's Steam
   rows, Wine (Epic or GOG), Plugins and each store's install folder show only with their
   integration on.
 - Normal mode (`steam::Client::startNormal`): attaches to a desktop Steam found by

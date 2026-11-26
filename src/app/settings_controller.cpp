@@ -5,7 +5,6 @@
 #include <variant>
 
 #include "build_version.hpp"
-#include "integration_options.hpp"
 #include "interface_size_setting.hpp"
 #include "layered_editor.hpp"
 #include "library/add_game_offer.hpp"
@@ -143,12 +142,23 @@ bool SettingsController::isOpen() const {
     });
 }
 
+namespace {
+
+/// Puts `row` first on `page`.
+void headWith(ui::SettingsCategory& page, ui::SettingsRow row) {
+    page.rows.insert(page.rows.begin(), std::move(row));
+}
+
+} // namespace
+
 std::vector<ui::SettingsCategory> SettingsController::build() const {
     const settings::Integrations& in = inForce_.current();
-    std::vector<ui::SettingsCategory> pages{appearancePage(), libraryPage(), integrations_.page(),
-                                            emulatorsPage()};
-    if (in.lists(library::Source::Steam)) {
-        pages.push_back(steamLibraries_.page());
+    std::vector<ui::SettingsCategory> pages{appearancePage(), libraryPage(), emulatorsPage()};
+    if (in.emulators) {
+        headWith(pages.back(), IntegrationSettings::removeRow("emulators"));
+    }
+    if (in.steam != settings::SteamUse::Off) {
+        pages.push_back(steamPage());
     }
     pages.push_back(audioPage());
     pages.push_back(controlsPage());
@@ -161,9 +171,11 @@ std::vector<ui::SettingsCategory> SettingsController::build() const {
     }
     if (in.plugins) {
         pages.push_back(plugins_.page());
+        headWith(pages.back(), IntegrationSettings::removeRow("plugins"));
     }
     if (in.lan) {
         pages.push_back(lan_.page());
+        headWith(pages.back(), IntegrationSettings::removeRow("lan"));
     }
     pages.push_back(online_.page());
     pages.push_back(profiles_.page());
@@ -252,6 +264,28 @@ ui::SettingsCategory SettingsController::libraryPage() const {
     page.rows.push_back(ui::makeRow(steamResetId, RowKind::Action, "Find Steam automatically",
                                     "Forgets the folders you added", ""));
     return page;
+}
+
+ui::SettingsCategory SettingsController::steamPage() const {
+    // Through fumarole there is no client, so no mode and no libraries of its own.
+    ui::SettingsCategory page = clientSteam() ? steamLibraries_.page() : ui::SettingsCategory{};
+    page.id = std::string{SteamLibrarySettings::categoryId};
+    page.label = "Steam";
+    std::vector<ui::SettingsRow> rows = integrations_.steamRows();
+    if (!rows.empty() && !page.rows.empty()) {
+        rows.push_back(ui::makeHeading("Libraries"));
+    }
+    page.rows.insert(page.rows.begin(), rows.begin(), rows.end());
+    if (page.rows.empty()) {
+        page.rows.push_back(ui::makeRow("steam.fumarole", RowKind::Info, "Through fumarole",
+                                        "Steam's games without the Steam client", ""));
+    }
+    return page;
+}
+
+bool SettingsController::clientSteam() const {
+    const settings::SteamUse steam = inForce_.current().steam;
+    return steam != settings::SteamUse::Off && steam != settings::SteamUse::Fumarole;
 }
 
 ui::SettingsCategory SettingsController::emulatorsPage() const {
@@ -374,8 +408,7 @@ void SettingsController::openAt(const std::string& id, const std::string& row) {
 
 void SettingsController::show(const std::string& category, const std::string& row) {
     emulators_.rescan();
-    integrations_.sync();
-    if (inForce_.current().lists(library::Source::Steam)) {
+    if (clientSteam()) {
         steamLibraries_.reload();
     }
     if (inForce_.current().epic || inForce_.current().gog) {
@@ -423,40 +456,8 @@ void SettingsController::dropScreens() {
 }
 
 Screen::BackReply SettingsController::leave() {
-    const std::size_t waiting = integrations_.pendingCount();
-    if (waiting == 0) {
-        closeAll();
-        return Screen::BackReply::Stay;
-    }
-    std::vector<gpu2d::ui::Dialog::Choice> choices{
-        {"Apply",
-         [this] {
-             applyIntegrations();
-             closeAll();
-         },
-         gpu2d::ui::ButtonKind::Primary},
-        {"Discard",
-         [this] {
-             integrations_.sync();
-             closeAll();
-         },
-         gpu2d::ui::ButtonKind::Danger},
-        {"Keep editing", {}, gpu2d::ui::ButtonKind::Normal},
-    };
-    navigator_.push(std::make_unique<gpu2d::ui::Dialog>(
-        "Apply integration changes?",
-        lucent::text::counted(waiting, "change") + " on Integrations " +
-            (waiting == 1 ? "is" : "are") + " not applied yet. Discarded changes are lost.",
-        std::move(choices)));
+    closeAll();
     return Screen::BackReply::Stay;
-}
-
-void SettingsController::applyIntegrations() {
-    const std::size_t applied = integrations_.apply();
-    if (applied > 0) {
-        hooks_.say("Integrations: " + lucent::text::counted(applied, "change") + " applied", false);
-    }
-    refresh();
 }
 
 void SettingsController::act(gamepad::Button button) {
@@ -516,8 +517,10 @@ void SettingsController::configure(const library::Folder& folder) {
     const library::Source source = std::get<library::Launcher>(folder).source;
     if (source == library::Source::Remote) {
         show(std::string{LanSettings::categoryId}, {});
-    } else if (const std::string_view entry = integrationOf(source); !entry.empty()) {
-        show(std::string{IntegrationSettings::categoryId}, IntegrationSettings::rowId(entry));
+    } else if (source == library::Source::Steam) {
+        show(std::string{SteamLibrarySettings::categoryId}, {});
+    } else if (source == library::Source::Epic || source == library::Source::Gog) {
+        show(std::string{WineSettings::categoryId}, {});
     } else {
         show(libraryCategoryId, gameAddId);
     }
@@ -580,10 +583,6 @@ void SettingsController::run(const std::string& id, int step) {
     if (ChordSettings::owns(id)) {
         chords_.run(id, step);
         refresh();
-        return;
-    }
-    if (IntegrationSettings::applies(id)) {
-        applyIntegrations();
         return;
     }
     if (IntegrationSettings::owns(id)) {

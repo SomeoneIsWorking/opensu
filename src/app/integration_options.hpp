@@ -1,6 +1,6 @@
-// integration_options — the opt-in integrations as the player reads them, in the order
-// Settings > Integrations and Library's Set up tiles list them: what each does and needs, and which
-// switch of `settings::IntegrationChoices` it is.
+// integration_options — the opt-in integrations as the player reads them, in the order Library's
+// Add page lists them: what each does and needs, and which switch of `settings::IntegrationChoices`
+// it is.
 #pragma once
 
 #include <string_view>

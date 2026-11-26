@@ -37,7 +37,7 @@ are only read, never copied, logged or sent.
 ## The emulator for each game
 
 Built-in cores ([libretro.md](libretro.md)) are always available. Standalone emulators are an
-integration, off until turned on in Settings › Integrations. Then they are found on PATH, as
+integration, off until added from Library's Add page. Then they are found on PATH, as
 AppImages in `~/Applications`, `~/AppImages` or `~/.local/bin`, or as Flatpaks: Dolphin, Cemu,
 Eden, Ryujinx, Citron, sudachi, PCSX2, RPCS3, shadPS4, DuckStation, PPSSPP, melonDS, Azahar, mGBA, xemu and Xenia
 Canary. On Windows openSU finds and launches the installed ones; on macOS it finds their app

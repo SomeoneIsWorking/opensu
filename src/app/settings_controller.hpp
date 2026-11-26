@@ -164,11 +164,10 @@ class SettingsController final : public ui::RowActions {
     /// Library › Import from a PC on your network: Settings › LAN, with the page `LanRoms::entry`
     /// names over it when there is one.
     void openLanImport();
-    /// Where a Library tile's Configure leads: a store's switch in Integrations, LAN for another
-    /// openSU, Library's game folders for the player's own games, a console's settings.
+    /// Where a Library tile's Configure leads: the Steam page, Wine for Epic and GOG, LAN for
+    /// another openSU, Library's game folders for the player's own games, a console's settings.
     void configure(const library::Folder& folder);
-    /// Back on the categories, or the menu button anywhere: closes Settings, asking first when
-    /// Integrations has changes not applied. Stays when it asked.
+    /// Back on the categories, or the menu button anywhere: closes Settings.
     [[nodiscard]] gpu2d::ui::Screen::BackReply leave();
 
   private:
@@ -176,6 +175,10 @@ class SettingsController final : public ui::RowActions {
     [[nodiscard]] ui::SettingsCategory appearancePage() const;
     [[nodiscard]] ui::SettingsCategory libraryPage() const;
     [[nodiscard]] ui::SettingsCategory emulatorsPage() const;
+    /// Steam: its mode and controllers, then the client's libraries; through fumarole, a line.
+    [[nodiscard]] ui::SettingsCategory steamPage() const;
+    /// Whether Steam comes through its client.
+    [[nodiscard]] bool clientSteam() const;
     [[nodiscard]] ui::SettingsCategory audioPage() const;
     [[nodiscard]] ui::SettingsCategory controlsPage() const;
     [[nodiscard]] ui::SettingsCategory installPage() const;
@@ -191,8 +194,6 @@ class SettingsController final : public ui::RowActions {
     void dropScreens();
     /// Keeps the preferences and shows the change.
     void changed();
-    /// Puts Integrations' staged changes in effect and says so.
-    void applyIntegrations();
     void runAppearance(const std::string& id, int step);
     void runLibrary(const std::string& id, int step);
     void runControls(const std::string& id);

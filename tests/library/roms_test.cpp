@@ -434,9 +434,9 @@ void looseFilesArePlaced(const Fixture& f) {
     const std::vector<Game> offGames = off.list(std::stop_token{});
     const Game* kirby = find(offGames, "Kirby Star Allies");
     expect(kirby != nullptr && kirby->unavailable == "Nintendo Switch games need a standalone "
-                                                     "emulator: turn on Emulators in Settings › "
-                                                     "Integrations",
-           "with standalone emulators off, a Switch game says to turn them on");
+                                                     "emulator: add Standalone emulators from "
+                                                     "Library's Add tile",
+           "with standalone emulators off, a Switch game says to add them");
 }
 
 /// `value` as `size` little-endian bytes at `at`.

@@ -1437,8 +1437,8 @@ class ShellApp final {
                                 [this] {
                                     return launches_.running();
                                 }}};
-    /// Settings › Integrations.
-    IntegrationSettings integrationSettings_{integrations_, [this] {
+    /// Each added integration's rows in Settings: Steam's mode, the Remove rows.
+    IntegrationSettings integrationSettings_{integrations_, shell_.screens().navigator(), [this] {
                                                  applyIntegrations();
                                              }};
     /// Settings › Artwork and its key keyboard.
