@@ -44,6 +44,7 @@ constexpr const char* ringLightBrightnessKey = "ringLightBrightness";
 constexpr const char* wiiPointerKey = "wiiPointer";
 constexpr const char* stickCorrectionKey = "stickCorrection";
 constexpr const char* padCalibrationsKey = "padCalibrations";
+constexpr const char* triggerPullKey = "triggerPull";
 constexpr std::array<std::pair<gamepad::HallMode, const char*>, 3> hallModes{
     {{gamepad::HallMode::Off, "off"},
      {gamepad::HallMode::Default, "default"},
@@ -160,7 +161,8 @@ class Reader {
         }
     }
 
-    /// The calibrated pads: each pad's axes by evdev code, each `[low, rest, high]`.
+    /// The calibrated pads: each pad's axes by evdev code, each `[low, rest, high]`, and its
+    /// left trigger's pull on the left stick as `triggerPull`.
     void padCalibrations(const char* name, gamepad::PadCalibrations& out,
                          const char* fallback) const {
         const auto found = document_.find(name);
@@ -178,6 +180,14 @@ class Reader {
             }
             gamepad::PadCalibration calibration;
             for (const auto& [code, ends] : axes.items()) {
+                if (code == triggerPullKey) {
+                    if (ends.is_number() && std::abs(ends.get<double>()) <= 1.0) {
+                        calibration.triggerPullX = ends.get<float>();
+                    } else {
+                        reject(name, ends, fallback);
+                    }
+                    continue;
+                }
                 const bool valid = ends.is_array() && ends.size() == 3 &&
                                    std::ranges::all_of(ends, [](const json& end) {
                                        return end.is_number_integer();
@@ -734,6 +744,9 @@ json documentOf(const Settings& settings) {
             json axes = json::object();
             for (const auto& [code, axis] : calibration.axes) {
                 axes[std::to_string(code)] = {axis.low, axis.rest, axis.high};
+            }
+            if (calibration.triggerPullX) {
+                axes[triggerPullKey] = *calibration.triggerPullX;
             }
             pads[key] = std::move(axes);
         }

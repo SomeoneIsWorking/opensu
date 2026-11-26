@@ -5,7 +5,6 @@
 #include <string_view>
 #include <utility>
 
-#include "ui/progress_screen.hpp"
 
 namespace opensu::app {
 namespace {
@@ -30,9 +29,9 @@ float share(PadCalibrationFlow::Clock::duration done, PadCalibrationFlow::Clock:
 
 PadCalibrationFlow::PadCalibrationFlow(gpu2d::ui::Navigator& navigator, Preferences& preferences,
                                        gamepad::PadSource& pads, audio::SdlSoundPlayer& sounds,
-                                       Say say)
+                                       Say say, bool hallOffered)
     : navigator_{navigator}, preferences_{preferences}, pads_{pads}, sounds_{sounds},
-      say_{std::move(say)} {
+      say_{std::move(say)}, hallOffered_{hallOffered} {
     applySaved();
 }
 
@@ -74,7 +73,8 @@ void PadCalibrationFlow::run(const std::string& id, const std::vector<Controller
     measured_ = Measured{.padId = pad->id,
                          .name = pad->name,
                          .key = gamepad::calibrationKey(pad->name, pad->uniq),
-                         .step = Step::Still,
+                         .step = hallOffered_ ? Step::Choose : Step::Still,
+                         .hall = false,
                          .started = now_,
                          .stepAt = now_,
                          .capture = {}};
@@ -83,23 +83,61 @@ void PadCalibrationFlow::run(const std::string& id, const std::vector<Controller
     navigator_.push(std::make_unique<ui::ProgressScreen>(
         cardId,
         [this] {
-            if (!measured_) {
-                return ui::ProgressCard{};
-            }
-            const bool still = measured_->step == Step::Still;
-            return ui::ProgressCard{
-                .title = "Calibrating " + measured_->name,
-                .line = still ? "Let go of both sticks and both triggers"
-                              : "Turn both sticks round their edges, and pull both triggers all "
-                                "the way, until the bar is full",
-                .fraction = share(now_ - measured_->stepAt, still ? Clock::duration{stillFor}
-                                                                  : Clock::duration{sweepFor}),
-                .leave = "Cancel",
-                .cover = {}};
+            return measured_ ? card() : ui::ProgressCard{};
         },
         [this] {
             stop("Calibration cancelled: nothing changed", false);
         }));
+}
+
+ui::ProgressCard PadCalibrationFlow::card() {
+    const Measured& now = *measured_;
+    ui::ProgressCard shown{.title = "Calibrating " + now.name,
+                           .line = {},
+                           .fraction = {},
+                           .leave = "Cancel",
+                           .cover = {},
+                           .choices = {}};
+    const auto done = [this, &now](Clock::duration whole) {
+        return share(now_ - now.stepAt, whole);
+    };
+    switch (now.step) {
+    case Step::Choose:
+        shown.line = "Also measure how far the left trigger pulls the left stick, so the hall-effect "
+                     "correction takes off exactly that?";
+        shown.choices = {
+            ui::ProgressChoice{.id = "calibrate.hall",
+                               .label = "With hall-effect correction",
+                               .pressed = [this] { begin(true); }},
+            ui::ProgressChoice{.id = "calibrate.plain",
+                               .label = "Sticks and triggers only",
+                               .pressed = [this] { begin(false); }}};
+        break;
+    case Step::Still:
+        shown.line = "Let go of both sticks and both triggers";
+        shown.fraction = done(stillFor);
+        break;
+    case Step::Sweep:
+        shown.line = "Turn both sticks round their edges, and pull both triggers all the way, until "
+                     "the bar is full";
+        shown.fraction = done(sweepFor);
+        break;
+    case Step::Pull:
+        shown.line = "Hold the left trigger all the way down and turn the left stick round its edge, "
+                     "until the bar is full";
+        shown.fraction = done(pullFor);
+        break;
+    }
+    return shown;
+}
+
+void PadCalibrationFlow::begin(bool hall) {
+    if (!measured_ || measured_->step != Step::Choose) {
+        return;
+    }
+    measured_->hall = hall;
+    measured_->step = Step::Still;
+    measured_->stepAt = now_;
 }
 
 void PadCalibrationFlow::reset(const std::string& id, const std::vector<ControllerStatus>& pads) {
@@ -125,17 +163,34 @@ void PadCalibrationFlow::service(Clock::time_point now) {
         stop(measured_->name + " left before it was calibrated", true);
         return;
     }
-    if (measured_->step == Step::Still) {
+    switch (measured_->step) {
+    case Step::Choose:
+        return;
+    case Step::Still:
         measured_->capture.still(found->second.raw);
         if (now - measured_->stepAt >= stillFor) {
             measured_->step = Step::Sweep;
             measured_->stepAt = now;
         }
         return;
-    }
-    measured_->capture.sweep(found->second.raw);
-    if (now - measured_->stepAt >= sweepFor) {
+    case Step::Sweep:
+        measured_->capture.sweep(found->second.raw);
+        if (now - measured_->stepAt < sweepFor) {
+            return;
+        }
+        if (measured_->hall) {
+            measured_->step = Step::Pull;
+            measured_->stepAt = now;
+            return;
+        }
         finish();
+        return;
+    case Step::Pull:
+        measured_->capture.pull(found->second.raw);
+        if (now - measured_->stepAt >= pullFor) {
+            finish();
+        }
+        return;
     }
 }
 

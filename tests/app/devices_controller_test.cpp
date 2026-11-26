@@ -126,7 +126,8 @@ struct Rig {
     app::PadCalibrationFlow calibration{ui.navigator, preferences, *padSource, sounds,
                                         [this](const std::string& text, bool) {
                                             said.push_back(text);
-                                        }};
+                                        },
+                                        false};
     app::DevicesController controller;
 };
 

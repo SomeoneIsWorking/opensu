@@ -120,6 +120,13 @@ another openSU. An axis not swept at least halfway to each end is left as the co
 it, and the card's message names it. B on the card measures nothing; X on a calibrated
 controller's row (Reset) forgets its calibration.
 
+On a ROG Ally the card first asks whether to calibrate for the hall-effect correction too. With it,
+a last step of eight seconds asks you to hold the left trigger all the way down and turn the left
+stick round its edge; how far that circle sits from the one without the trigger is the trigger's
+pull on the stick, which the correction then takes off for that controller even with Stick
+correction off (with the correction's own deadzones then). A calibrated stick's rest is already
+its centre, so Stick correction's rest offsets no longer apply to it.
+
 ## Guide chords
 
 Chords are set on Settings › Guide chords: Quick menu, the volume, Close game, Save state, Load

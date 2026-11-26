@@ -1,6 +1,7 @@
 // progress_screen — a card over the dimmed screen saying what is under way: its title, a line on
-// how it goes and a bar, filled when the work has a measure and sweeping when it has none. Back
-// does the one thing the card offers (cancel, hide) or nothing while the work cannot be left.
+// how it goes and a bar, filled when the work has a measure and sweeping when it has none, or in
+// the bar's place the choices the work waits on. Back does the one thing the card offers (cancel,
+// hide) or nothing while the work cannot be left.
 #pragma once
 
 #include <filesystem>
@@ -16,6 +17,13 @@
 
 namespace opensu::ui {
 
+/// A button the work waits on.
+struct ProgressChoice {
+    std::string id;
+    std::string label;
+    std::function<void()> pressed;
+};
+
 /// What the card shows now.
 struct ProgressCard {
     std::string title;
@@ -26,6 +34,8 @@ struct ProgressCard {
     std::string leave;
     /// A picture beside the words; empty for none.
     std::filesystem::path cover;
+    /// Shown in place of the bar; empty for the bar.
+    std::vector<ProgressChoice> choices;
 };
 
 class ProgressScreen final : public gpu2d::ui::Screen {

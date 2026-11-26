@@ -293,14 +293,17 @@ void padCalibrations(const fs::path& root) {
     Settings saved;
     saved.padCalibrations["Microsoft X-Box 360 pad"].axes[3] = {-25220, 2700, 31862};
     saved.padCalibrations["Microsoft X-Box 360 pad"].axes[5] = {0, 0, 221};
+    saved.padCalibrations["Microsoft X-Box 360 pad"].triggerPullX = -0.28f;
     std::string error;
     expect(store.save(saved, error), "the calibrations are saved");
     expect(store.load().padCalibrations == saved.padCalibrations, "and read back");
-    write(store.file(), R"({"padCalibrations": {"pad": {"3": [1, 2], "9": [0, 0, 1], "5": [0, 0, 200]}}})");
+    write(store.file(),
+          R"({"padCalibrations": {"pad": {"3": [1, 2], "9": [0, 0, 1], "5": [0, 0, 200], "triggerPull": 4}}})");
     const Settings partial = store.load();
     expect(partial.padCalibrations.at("pad").axes.size() == 1 &&
-               partial.padCalibrations.at("pad").axes.at(5).high == 200,
-           "a damaged axis is dropped and the rest kept");
+               partial.padCalibrations.at("pad").axes.at(5).high == 200 &&
+               !partial.padCalibrations.at("pad").triggerPullX,
+           "a damaged axis or pull is dropped and the rest kept");
 }
 
 void interfaceSounds(const fs::path& root) {

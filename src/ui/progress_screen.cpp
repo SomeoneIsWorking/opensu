@@ -27,7 +27,15 @@ std::unique_ptr<tk::Widget> ProgressScreen::build(const tk::Theme& theme) {
     }
     card.add<tk::Label>(now.title, tk::TextRole::Title, true);
     card.add<tk::Label>(now.line, tk::TextRole::Body, true).colour(theme.colours.inkMuted);
-    card.add<tk::Progress>(now.fraction);
+    if (now.choices.empty()) {
+        card.add<tk::Progress>(now.fraction);
+    } else {
+        tk::ButtonRow& buttons = card.add<tk::ButtonRow>();
+        buttons.space(spacing.gap * 2.0f);
+        for (const ProgressChoice& choice : now.choices) {
+            buttons.add<tk::Button>(choice.id, choice.label, choice.pressed);
+        }
+    }
     if (!now.leave.empty()) {
         card.add<tk::HintBar>();
     }

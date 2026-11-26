@@ -94,9 +94,10 @@ class PadTranslator {
     void setForwardMap(ForwardMap map);
 
     /// Corrects the sticks the virtual pad gets for hall-effect interference (`HallTerms`), or
-    /// passes them as read without terms.
+    /// passes them as read without terms unless the calibration measured the trigger's pull.
     void setHallTerms(std::optional<HallTerms> terms);
-    /// The pad's measured axes, applied before everything else; empty reads them as reported.
+    /// The pad's measured axes, applied before everything else, and the trigger's pull, which
+    /// takes the place of the hall terms' own; empty reads them as reported.
     void setCalibration(PadCalibration calibration);
 
     /// Translates one physical event read at `at`: what the virtual pad should receive goes to
@@ -118,6 +119,9 @@ class PadTranslator {
     void forwardAxis(std::uint16_t code, std::int32_t value, std::vector<PadEvent>& forward);
     /// Gives the virtual pad the sticks as `terms` correct them.
     void forwardSticks(const HallTerms& terms, std::vector<PadEvent>& forward);
+    /// The correction the sticks get: the player's terms, or the defaults when only the
+    /// calibration measured the trigger's pull, with what the calibration measured in their place.
+    [[nodiscard]] std::optional<HallTerms> hallInForce() const;
     /// Hears `edges` through the chord gate: each goes to `controls`, and the virtual pad follows
     /// what the gate lets pass.
     void gate(const std::vector<Event>& edges, std::vector<PadEvent>& forward,
@@ -164,6 +168,7 @@ class PadTranslator {
     Sticks sticks_;
     std::optional<HallTerms> hall_;
     PadCalibration calibration_;
+    std::optional<HallTerms> sticksTerms_;
     RawAxes raw_;
 };
 

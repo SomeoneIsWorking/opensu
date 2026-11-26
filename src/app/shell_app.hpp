@@ -1590,10 +1590,14 @@ class ShellApp final {
                                          }
                                      }}};
     /// Each pad's calibration, handed to the pads at start.
-    PadCalibrationFlow padCalibration_{shell_.screens().navigator(), preferences_, *pads_, sounds_,
+    PadCalibrationFlow padCalibration_{shell_.screens().navigator(),
+                                       preferences_,
+                                       *pads_,
+                                       sounds_,
                                        [this](const std::string& text, bool isError) {
                                            shell_.setToast(text, isError);
-                                       }};
+                                       },
+                                       device::rogAlly()};
     /// The Devices page, reached from the Guide menu.
     DevicesController devicesScreen_{
         shell_.screens().navigator(), shell_.screens().chrome(),

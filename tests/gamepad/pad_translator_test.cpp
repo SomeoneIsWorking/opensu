@@ -444,6 +444,67 @@ void captureMeasuresWhatWasSwept() {
     expect(capture.missed() == std::vector<std::string>{"left trigger"}, "and named as missed");
 }
 
+void captureMeasuresTheTriggersPull() {
+    using opensu::gamepad::RawAxes;
+    RawAxes raw;
+    raw.range = {opensu::gamepad::AxisRange{-32768, 32767},
+                 {-32768, 32767},
+                 {0, 255},
+                 {-32768, 32767},
+                 {-32768, 32767},
+                 {0, 255}};
+    opensu::gamepad::CalibrationCapture capture;
+    raw.value = {0, 0, 0, 0, 0, 0};
+    capture.still(raw);
+    for (const std::array<std::int32_t, 6> value :
+         {std::array<std::int32_t, 6>{30000, 32767, 0, 32767, 32767, 255},
+          std::array<std::int32_t, 6>{-30000, -32768, 220, -32768, -32768, 0}}) {
+        raw.value = value;
+        capture.sweep(raw);
+    }
+    // Held down, the circle moves 9000 left and its left end stops at the axis' limit.
+    for (const std::array<std::int32_t, 6> value :
+         {std::array<std::int32_t, 6>{32767, 0, 100, 0, 0, 0},
+          std::array<std::int32_t, 6>{-32768, 0, 220, 0, 0, 0},
+          std::array<std::int32_t, 6>{21000, 0, 218, 0, 0, 0}}) {
+        raw.value = value;
+        capture.pull(raw);
+    }
+    const std::optional<float> pull = capture.result().triggerPullX;
+    expect(pull && *pull > -0.31f && *pull < -0.29f,
+           "the pull is the uncut end's shift, and a half pressed trigger does not count");
+    expect(capture.missed().empty(), "nothing is missed");
+    opensu::gamepad::CalibrationCapture shy;
+    shy.still(raw);
+    raw.value = {0, 0, 0, 0, 0, 0};
+    shy.pull(raw);
+    const std::vector<std::string> missed = shy.missed();
+    expect(!shy.result().triggerPullX &&
+               std::ranges::find(missed, "the left trigger's pull on the left stick") !=
+                   missed.end(),
+           "a pull step with nothing measured is named as missed");
+}
+
+void calibrationTakesTheHallTermsPlace() {
+    opensu::gamepad::PadCalibration measured;
+    measured.axes[ABS_X] = {-30000, 0, 30000};
+    measured.axes[ABS_Z] = {0, 0, 220};
+    measured.axes[ABS_RX] = {-30000, 2700, 32767};
+    measured.triggerPullX = -0.3f;
+    PadTranslator ally{allyPad()};
+    ally.setCalibration(measured);
+    expect(lastOn(feed(ally, {{EV_ABS, ABS_Z, 220}, {EV_ABS, ABS_X, -9000}}), ABS_X) == 0,
+           "the measured pull is taken off with the stick correction off");
+    PadTranslator plain{allyPad()};
+    measured.triggerPullX.reset();
+    plain.setCalibration(measured);
+    expect(lastOn(feed(plain, {{EV_ABS, ABS_Z, 220}, {EV_ABS, ABS_X, -9000}}), ABS_X) < 0,
+           "without a measured pull nothing is taken off");
+    plain.setHallTerms(opensu::gamepad::HallTerms{});
+    expect(lastOn(feed(plain, {{EV_ABS, ABS_Z, 0}, {EV_ABS, ABS_RX, 2700}}), ABS_RX) == 0,
+           "a calibrated stick's rest is not taken off a second time");
+}
+
 int main() try {
     faceButtonsPassThrough();
     guideStaysWithOpensu();
@@ -465,6 +526,8 @@ int main() try {
     hallCorrectionTakesOutTheTriggerPull();
     calibrationStretchesAShortStickAndTrigger();
     captureMeasuresWhatWasSwept();
+    captureMeasuresTheTriggersPull();
+    calibrationTakesTheHallTermsPlace();
     std::printf("pad_translator: all checks passed\n");
     return 0;
 } catch (...) {

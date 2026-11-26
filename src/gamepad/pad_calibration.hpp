@@ -32,6 +32,9 @@ struct AxisCalibration {
 /// A pad's measured axes, by evdev code (`ABS_X` to `ABS_RZ`); an axis missing reads as reported.
 struct PadCalibration {
     std::map<std::uint16_t, AxisCalibration> axes;
+    /// How far a fully pressed left trigger moves the left stick's x, as a fraction of its half
+    /// travel (`HallTerms::triggerPullX`); nothing when not measured.
+    std::optional<float> triggerPullX;
 
     friend bool operator==(const PadCalibration&, const PadCalibration&) = default;
 };
@@ -58,19 +61,24 @@ struct RawAxes {
     friend bool operator==(const RawAxes&, const RawAxes&) = default;
 };
 
-/// Measures a pad from its raw readings: the rests while it is left alone, then the ends while the
-/// sticks go round their edges and the triggers are pulled.
+/// Measures a pad from its raw readings: the rests while it is left alone, the ends while the
+/// sticks go round their edges and the triggers are pulled, and, when asked, the left stick's
+/// circle again while the left trigger is held down, whose shift is the trigger's pull.
 class CalibrationCapture {
   public:
     void still(const RawAxes& raw);
     void sweep(const RawAxes& raw);
-    /// The axes measured; an axis not swept at least halfway to each end is left out.
+    /// A reading of the step with the left trigger held; only readings with it fully down count.
+    void pull(const RawAxes& raw);
+    /// The axes measured; an axis not swept at least halfway to each end is left out, and so is
+    /// the trigger's pull when its circle was not.
     [[nodiscard]] PadCalibration result() const;
-    /// The names of the axes left out of `result`.
+    /// The names of what was left out of `result`.
     [[nodiscard]] std::vector<std::string> missed() const;
 
   private:
     [[nodiscard]] std::optional<AxisCalibration> measured(std::size_t axis) const;
+    [[nodiscard]] std::optional<float> measuredPull() const;
 
     std::array<std::int64_t, 6> restSum_{};
     std::size_t restCount_{0};
@@ -78,6 +86,10 @@ class CalibrationCapture {
     std::array<std::int32_t, 6> high_{};
     std::array<AxisRange, 6> range_{};
     bool swept_{false};
+    bool pullAsked_{false};
+    std::int32_t pullLow_{};
+    std::int32_t pullHigh_{};
+    bool pulled_{false};
 };
 
 } // namespace opensu::gamepad

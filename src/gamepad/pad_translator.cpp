@@ -159,8 +159,8 @@ void PadTranslator::translate(const PadEvent& in, std::vector<PadEvent>& forward
                     ? stickValue(in.value, calibrated->second, virtualStick)
                     : rescale(in.value, range->second, virtualStick);
             stickAxis(sticks_, in.code) = value;
-            if (hall_) {
-                forwardSticks(*hall_, forward);
+            if (sticksTerms_) {
+                forwardSticks(*sticksTerms_, forward);
             } else {
                 forwardAxis(in.code, value, forward);
             }
@@ -173,8 +173,8 @@ void PadTranslator::translate(const PadEvent& in, std::vector<PadEvent>& forward
                     ? triggerValue(in.value, calibrated->second, virtualTrigger)
                     : rescale(in.value, range->second, virtualTrigger);
             triggers_[button] = value;
-            if (hall_ && button == Button::L2) {
-                forwardSticks(*hall_, forward);
+            if (sticksTerms_ && button == Button::L2) {
+                forwardSticks(*sticksTerms_, forward);
             }
             const float travel = static_cast<float>(value) / virtualTrigger.max;
             bool& held = triggerHeld_[button];
@@ -368,10 +368,30 @@ void PadTranslator::forwardAxis(std::uint16_t code, std::int32_t value,
 
 void PadTranslator::setHallTerms(std::optional<HallTerms> terms) {
     hall_ = terms;
+    sticksTerms_ = hallInForce();
 }
 
 void PadTranslator::setCalibration(PadCalibration calibration) {
     calibration_ = std::move(calibration);
+    sticksTerms_ = hallInForce();
+}
+
+std::optional<HallTerms> PadTranslator::hallInForce() const {
+    if (!hall_ && !calibration_.triggerPullX) {
+        return std::nullopt;
+    }
+    HallTerms terms = hall_.value_or(HallTerms{});
+    // A calibrated stick already rests at centre.
+    if (calibration_.axes.contains(ABS_X)) {
+        terms.leftIdleX = 0.0f;
+    }
+    if (calibration_.axes.contains(ABS_RX)) {
+        terms.rightIdleX = 0.0f;
+    }
+    if (calibration_.triggerPullX) {
+        terms.triggerPullX = *calibration_.triggerPullX;
+    }
+    return terms;
 }
 
 void PadTranslator::forwardSticks(const HallTerms& terms, std::vector<PadEvent>& forward) {

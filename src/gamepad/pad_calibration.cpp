@@ -16,6 +16,10 @@ constexpr std::array<const char*, 6> axisNames{"left stick across", "left stick 
 constexpr double sweptEnough = 0.5;
 /// The measured ends are brought this far in, so a full push reaches full travel every time.
 constexpr double endReach = 0.97;
+/// How far down the left trigger must be, of its swept travel, for the pull step to count.
+constexpr double pulledEnough = 0.9;
+constexpr std::size_t leftX = 0;
+constexpr std::size_t leftTrigger = 2;
 
 std::int32_t along(std::int32_t from, std::int32_t to, double share) {
     return from + static_cast<std::int32_t>(std::lround(share * (static_cast<double>(to) - from)));
@@ -75,6 +79,43 @@ void CalibrationCapture::sweep(const RawAxes& raw) {
     range_ = raw.range;
 }
 
+void CalibrationCapture::pull(const RawAxes& raw) {
+    pullAsked_ = true;
+    const std::optional<AxisCalibration> trigger = measured(leftTrigger);
+    if (!trigger || raw.value[leftTrigger] - trigger->rest <
+                        pulledEnough * (trigger->high - trigger->rest)) {
+        return;
+    }
+    const std::int32_t x = raw.value[leftX];
+    pullLow_ = pulled_ ? std::min(pullLow_, x) : x;
+    pullHigh_ = pulled_ ? std::max(pullHigh_, x) : x;
+    pulled_ = true;
+}
+
+std::optional<float> CalibrationCapture::measuredPull() const {
+    const std::optional<AxisCalibration> x = measured(leftX);
+    if (!x || !pulled_) {
+        return std::nullopt;
+    }
+    // The circles' ends as reached, not brought in, so both are compared alike.
+    const double half = (static_cast<double>(high_[leftX]) - low_[leftX]) / 2.0;
+    if (half <= 0.0 || (static_cast<double>(pullHigh_) - pullLow_) / 2.0 < sweptEnough * half) {
+        return std::nullopt;
+    }
+    // An end the pull pushes against the axis' limit is cut short; only the other one shifts true.
+    const AxisRange range = range_[leftX];
+    const double margin = 0.01 * (static_cast<double>(range.max) - range.min);
+    const bool lowCut = pullLow_ <= range.min + margin;
+    const bool highCut = pullHigh_ >= range.max - margin;
+    const double lowShift = static_cast<double>(pullLow_) - low_[leftX];
+    const double highShift = static_cast<double>(pullHigh_) - high_[leftX];
+    if (lowCut && highCut) {
+        return std::nullopt;
+    }
+    const double shift = lowCut ? highShift : highCut ? lowShift : (lowShift + highShift) / 2.0;
+    return static_cast<float>(shift / half);
+}
+
 std::optional<AxisCalibration> CalibrationCapture::measured(std::size_t axis) const {
     const AxisRange range = range_[axis];
     if (restCount_ == 0 || !swept_ || range.max <= range.min) {
@@ -106,6 +147,7 @@ PadCalibration CalibrationCapture::result() const {
             calibration.axes[static_cast<std::uint16_t>(axis)] = *found;
         }
     }
+    calibration.triggerPullX = measuredPull();
     return calibration;
 }
 
@@ -115,6 +157,9 @@ std::vector<std::string> CalibrationCapture::missed() const {
         if (range_[axis].max > range_[axis].min && !measured(axis)) {
             names.emplace_back(axisNames[axis]);
         }
+    }
+    if (pullAsked_ && !measuredPull()) {
+        names.emplace_back("the left trigger's pull on the left stick");
     }
     return names;
 }
