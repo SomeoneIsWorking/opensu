@@ -115,6 +115,7 @@
 #include "polkit_prompt_controller.hpp"
 #include "preferences.hpp"
 #include "profile_settings.hpp"
+#include "quick_settings_panel.hpp"
 #include "remote_frame_gen.hpp"
 #include "remote_input.hpp"
 #include "remote_picture.hpp"
@@ -351,8 +352,10 @@ class ShellApp final {
     void postPointer(const PointerInjection& injected);
     /// Caps remote play's link for a test run; refused outside a hidden one.
     void capRemoteLink(std::uint64_t bitsPerSecond);
-    /// Guide, or Guide + A on Volume: opens the Guide menu, or closes it.
-    void toggleGuide(GuideMenuController::Landing landing);
+    /// Guide: opens the Guide menu, Quick settings closed first, or closes it.
+    void toggleGuide();
+    /// The Quick settings shortcut: opens the panel, the Guide menu closed first, or closes it.
+    void toggleQuickSettings();
     /// Closes the details, Settings, Devices and Downloads pages, which a Guide menu entry leaves.
     void closePages();
     /// Shows the window over a running game while a menu or page is up, and only then.
@@ -832,19 +835,19 @@ class ShellApp final {
             [this](const library::Game& version) {
                 versions_.makeDefault(version);
             }}};
-    /// The volume shortcuts and the display that follows every change of the volume; the Guide
-    /// menu's Volume row is the display while the menu is open.
-    VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),
-                          VolumeControl::Hooks{[this](const audio::VolumeState& state) {
-                                                   if (guideMenu_.isOpen()) {
-                                                       return;
-                                                   }
-                                                   shell_.showVolume(
-                                                       ui::VolumeLevel{state.percent, state.muted});
-                                               },
-                                               [this](const std::string& text, bool isError) {
-                                                   shell_.setToast(text, isError);
-                                               }}};
+    /// The volume shortcuts and the display that follows every change of the volume; a Volume row
+    /// is the display while the Guide menu or Quick settings is open.
+    VolumeControl volume_{
+        VolumeControl::detect(environment_, settings_.hidden),
+        VolumeControl::Hooks{[this](const audio::VolumeState& state) {
+                                 if (guideMenu_.isOpen() || quickPanel_.isOpen()) {
+                                     return;
+                                 }
+                                 shell_.showVolume(ui::VolumeLevel{state.percent, state.muted});
+                             },
+                             [this](const std::string& text, bool isError) {
+                                 shell_.setToast(text, isError);
+                             }}};
     /// Power, Bluetooth and the backlight; a hidden run reads them and changes nothing.
     HostServices host_{HostServices::detect(resolved_, settings_.hidden)};
     /// Null where the machine has no Bluetooth service.
@@ -867,8 +870,7 @@ class ShellApp final {
     ShortcutRouter router_{shell_.shortcuts(), shell_.chords(), volume_, retro_,
                            ShortcutRouter::Hooks{.quickMenu =
                                                      [this] {
-                                                         toggleGuide(
-                                                             GuideMenuController::Landing::Volume);
+                                                         toggleQuickSettings();
                                                      },
                                                  .gameRunning =
                                                      [this] {
@@ -1498,6 +1500,7 @@ class ShellApp final {
                                      shelfOptions_,
                                      wiiRemoteSettings_,
                                      stickCorrectionSettings_,
+                                     quickSettings_,
                                      integrations_},
         sounds_,
         preferences_,
@@ -1681,12 +1684,34 @@ class ShellApp final {
         host_.polkit ? std::make_unique<PolkitPromptController>(
                            shell_.screens().navigator(), keyboardPad_, sounds_, *host_.polkit)
                      : nullptr};
+    /// The settings Quick settings and the Guide menu's card can hold, and the player's pick.
+    QuickSettings quickSettings_{QuickSettings::Services{.volume = volume_,
+                                                         .brightness = brightness_,
+                                                         .powerProfiles = host_.powerProfiles.get(),
+                                                         .preferences = preferences_,
+                                                         .lights = ringLights_,
+                                                         .nightLight = nightLightSupported(),
+                                                         .loginSession = settings_.loginSession},
+                                 QuickSettings::Hooks{.applyLayout =
+                                                          [this] {
+                                                              applyLayout();
+                                                          },
+                                                      .refused =
+                                                          [this](const std::string& text) {
+                                                              shell_.setToast(text, true);
+                                                          }}};
+    /// The Quick settings panel at the right edge, over the home screen or a running game.
+    QuickSettingsPanel quickPanel_{shell_.screens().navigator(), quickSettings_, sounds_,
+                                   QuickSettingsPanel::Hooks{.choose = [this] {
+                                       closePages();
+                                       settingsScreen_.openCategory(
+                                           std::string{QuickSettings::categoryId});
+                                   }}};
     /// The menu Guide opens, over the home screen or a running game.
     GuideMenuController guideMenu_{
         shell_.screens().navigator(),
-        GuideMenuController::Services{host_.power.get(), host_.session.get(), volume_, brightness_,
-                                      host_.powerProfiles.get(), retro_, preferences_,
-                                      shelfOptions_, profiles_.book()},
+        GuideMenuController::Services{host_.power.get(), host_.session.get(), quickSettings_,
+                                      retro_, preferences_, shelfOptions_, profiles_.book()},
         sounds_,
         GuideMenuController::Hooks{
             .context =

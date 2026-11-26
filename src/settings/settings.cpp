@@ -51,6 +51,7 @@ constexpr std::array<std::pair<gamepad::HallMode, const char*>, 3> hallModes{
      {gamepad::HallMode::Manual, "manual"}}};
 constexpr std::array<const char*, 4> wiiPointerEdges{"left", "right", "top", "bottom"};
 constexpr const char* nightLightKey = "nightLight";
+constexpr const char* quickSettingsKey = "quickSettings";
 constexpr const char* consoleThemeKey = "consoleTheme";
 constexpr const char* interfaceThemeKey = "interfaceTheme";
 constexpr const char* lanNameKey = "lanName";
@@ -253,14 +254,31 @@ class Reader {
         if (found == document_.end()) {
             return;
         }
-        const bool strings = found->is_array() && std::ranges::all_of(*found, [](const json& item) {
-                                 return item.is_string();
-                             });
-        if (strings) {
+        if (isTexts(*found)) {
             out = found->get<std::vector<std::string>>();
         } else {
             reject(name, *found, fallback);
         }
+    }
+
+    /// A list of strings that is there only when the file has it.
+    void texts(const char* name, std::optional<std::vector<std::string>>& out,
+               const char* fallback) const {
+        const auto found = document_.find(name);
+        if (found == document_.end()) {
+            return;
+        }
+        if (isTexts(*found)) {
+            out = found->get<std::vector<std::string>>();
+        } else {
+            reject(name, *found, fallback);
+        }
+    }
+
+    static bool isTexts(const json& value) {
+        return value.is_array() && std::ranges::all_of(value, [](const json& item) {
+                   return item.is_string();
+               });
     }
 
     void pathsByName(const char* name, std::map<std::string, std::filesystem::path>& out,
@@ -580,6 +598,7 @@ Settings readDocument(const json& document, const std::string& file) {
                          file, nightLightSpelling);
         }
     }
+    read.texts(quickSettingsKey, settings.quickSettings, "showing the default quick settings");
     read.text(consoleThemeKey, settings.consoleTheme, "showing the default console art theme");
     read.text(interfaceThemeKey, settings.interfaceTheme, "showing the default interface theme");
     read.text(lanNameKey, settings.lanName, "going by the machine's name on the LAN");
@@ -735,6 +754,9 @@ json documentOf(const Settings& settings) {
         integrations[steamPadsKey] = std::string{key(*chosen.steamPads)};
     }
     document[integrationsKey] = integrations;
+    if (settings.quickSettings) {
+        document[quickSettingsKey] = *settings.quickSettings;
+    }
     if (settings.homeMode) {
         document[homeModeKey] = std::string{config::key(*settings.homeMode)};
     }

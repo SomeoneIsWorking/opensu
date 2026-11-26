@@ -4,7 +4,7 @@
 // button test, the stick lights where the handheld has them, a DolphinBar's mode and Bluetooth
 // Wii Remotes, and the way to the shortcut
 // remapping), Audio output (the outputs to choose between)
-// and Display (the output's size). Volume, brightness and the interface size are the Guide menu's.
+// and Display (the output's size). Volume, brightness and the interface size are `QuickSettings`'.
 // Everything it changes goes through the owner of that thing: `BluetoothSession` and
 // `AudioOutputs`.
 #pragma once
@@ -21,8 +21,8 @@
 #include "audio_outputs.hpp"
 #include "bluetooth_session.hpp"
 #include "controller_roster.hpp"
-#include "pad_calibration_flow.hpp"
 #include "device/wii_remotes.hpp"
+#include "pad_calibration_flow.hpp"
 #include "ring_light_settings.hpp"
 #include "ui/row_widgets.hpp"
 #include "ui/screen_stack.hpp"
@@ -65,9 +65,8 @@ class DevicesController final : public ui::RowActions {
     DevicesController(gpu2d::ui::Navigator& navigator, const ui::Chrome& chrome, Services services,
                       audio::SdlSoundPlayer& sounds, Hooks hooks)
         : navigator_{navigator}, chrome_{chrome}, bluetooth_{services.bluetooth},
-          controllers_{services.controllers}, outputs_{services.outputs},
-          lights_{services.lights}, calibration_{services.calibration}, sounds_{sounds},
-          hooks_{std::move(hooks)} {
+          controllers_{services.controllers}, outputs_{services.outputs}, lights_{services.lights},
+          calibration_{services.calibration}, sounds_{sounds}, hooks_{std::move(hooks)} {
     }
 
     /// Opens the screen on its first tab.

@@ -6,7 +6,6 @@
 #include <memory>
 
 #include "guide_menu_screen.hpp"
-#include "interface_size_setting.hpp"
 #include "lucent/log.h"
 #include "screen_orientation.hpp"
 #include "settings/settings.hpp"
@@ -39,11 +38,6 @@ constexpr const char* devicesId = "guide.devices";
 constexpr const char* downloadsId = "guide.downloads";
 constexpr const char* settingsId = "guide.settings";
 constexpr const char* powerId = "guide.power";
-constexpr const char* volumeId = "guide.volume";
-constexpr const char* muteId = "guide.mute";
-constexpr const char* brightnessId = "guide.brightness";
-constexpr const char* powerProfileId = "guide.powerProfile";
-constexpr const char* scaleId = "guide.scale";
 constexpr const char* screenId = "guide.screen";
 constexpr const char* profileId = "guide.profile";
 constexpr const char* sleepId = "power.sleep";
@@ -64,20 +58,6 @@ SettingsRow asking(std::string id, std::string label, std::string what, std::str
     row.confirm = std::move(what);
     row.confirmVerb = std::move(verb);
     return row;
-}
-
-/// How a PowerStation profile reads in the Guide.
-std::string profileLabel(const std::string& profile) {
-    if (profile == "quiet") {
-        return "Quiet";
-    }
-    if (profile == "balanced") {
-        return "Balanced";
-    }
-    if (profile == "performance") {
-        return "Performance";
-    }
-    return profile;
 }
 
 } // namespace
@@ -120,7 +100,7 @@ void GuideMenuController::service() {
     }
 }
 
-void GuideMenuController::toggle(Landing landing) {
+void GuideMenuController::toggle() {
     if (isOpen()) {
         close();
         return;
@@ -131,7 +111,7 @@ void GuideMenuController::toggle(Landing landing) {
     context_ = hooks_.context();
     hooks_.keepScreenTurn();
     read();
-    navigator_.push(std::make_unique<GuideMenuScreen>(*this, landing));
+    navigator_.push(std::make_unique<GuideMenuScreen>(*this));
 }
 
 void GuideMenuController::close() {
@@ -149,8 +129,7 @@ void GuideMenuController::close() {
 
 void GuideMenuController::read() {
     retroStatus_ = context_.inGame && !context_.remote ? retro_.status() : std::nullopt;
-    brightnessLevel_ = brightness_.percent();
-    powerProfile_ = powerProfiles_ != nullptr ? powerProfiles_->read() : std::nullopt;
+    quick_.read();
 }
 
 std::string GuideMenuController::title() const {
@@ -230,35 +209,7 @@ std::vector<SettingsRow> GuideMenuController::places() const {
 }
 
 std::vector<SettingsRow> GuideMenuController::quick() const {
-    std::vector<SettingsRow> rows;
-    const audio::SystemVolume& volume = volume_.system();
-    if (volume.available()) {
-        const audio::VolumeState state = volume.state().value_or(audio::VolumeState{});
-        rows.push_back(ui::makeSlider(volumeId, "Volume", {},
-                                      ui::SliderRange{state.percent, 0, 100, audio::volumeStep}));
-        rows.push_back(ui::makeToggle(muteId, "Mute", {}, state.muted));
-    } else {
-        rows.push_back(ui::makeRow("guide.volumeMissing", RowKind::Info, "Volume",
-                                   volume.unavailable(), "Not available"));
-    }
-    if (brightnessLevel_) {
-        rows.push_back(ui::makeSlider(brightnessId, "Brightness", {},
-                                      ui::SliderRange{*brightnessLevel_, 1, 100, brightnessStep}));
-    }
-    if (powerProfile_) {
-        const auto at = std::ranges::find(powerProfile_->profiles, powerProfile_->profile);
-        if (at != powerProfile_->profiles.end()) {
-            ui::Options profiles{
-                .labels = {},
-                .chosen = static_cast<std::size_t>(at - powerProfile_->profiles.begin())};
-            for (const std::string& profile : powerProfile_->profiles) {
-                profiles.labels.push_back(profileLabel(profile));
-            }
-            rows.push_back(
-                ui::makeChoice(powerProfileId, "Power profile", {}, std::move(profiles)));
-        }
-    }
-    rows.push_back(interfaceSizeRow(scaleId, preferences_.values()));
+    std::vector<SettingsRow> rows = quick_.shown();
     if (screen_orientation::turnable() && !context_.inGame) {
         rows.push_back(ui::makeChoice(
             screenId, "Screen", {},
@@ -371,8 +322,8 @@ void GuideMenuController::run(const std::string& id, int step) {
     if (shelf_.run(id, step)) {
         return;
     }
-    if (id == muteId) {
-        refuse(volume_.system().toggleMute());
+    if (QuickSettings::owns(id)) {
+        quick_.run(id, step);
     } else if (id == screenId) {
         settings::Settings& values = preferences_.values();
         values.portrait = !values.portrait;
@@ -380,8 +331,6 @@ void GuideMenuController::run(const std::string& id, int step) {
         hooks_.applyLayout();
     } else if (id == profileId) {
         stepProfile(step);
-    } else if (id == powerProfileId) {
-        stepPowerProfile(step);
     } else if (id == resumeId) {
         close();
     } else if (id == keyboardId) {
@@ -482,32 +431,11 @@ void GuideMenuController::stepProfile(int step) {
     hooks_.playAs(all[static_cast<std::size_t>(next)].id);
 }
 
-void GuideMenuController::stepPowerProfile(int step) {
-    if (powerProfiles_ == nullptr || !powerProfile_ || powerProfile_->profiles.empty()) {
-        return;
-    }
-    const std::vector<std::string>& all = powerProfile_->profiles;
-    const auto at = std::ranges::find(all, powerProfile_->profile);
-    const auto count = static_cast<std::ptrdiff_t>(all.size());
-    const std::ptrdiff_t from = at == all.end() ? 0 : at - all.begin();
-    const std::ptrdiff_t next = ((from + (step == 0 ? 1 : step)) % count + count) % count;
-    refuse(powerProfiles_->set(all[static_cast<std::size_t>(next)]));
-    powerProfile_ = powerProfiles_->read();
-}
-
 void GuideMenuController::setLevel(const std::string& id, int level) {
     if (shelf_.setLevel(id, level)) {
         return;
     }
-    if (id == volumeId) {
-        refuse(volume_.system().setPercent(std::clamp(level, 0, 100)));
-    } else if (id == brightnessId) {
-        refuse(brightness_.set(level));
-        brightnessLevel_ = brightness_.percent();
-    } else if (id == scaleId) {
-        setInterfaceSize(preferences_, level);
-        hooks_.applyLayout();
-    }
+    quick_.setLevel(id, level);
 }
 
 void GuideMenuController::openPage(const std::string& id) {

@@ -67,11 +67,6 @@ std::vector<tk::Hint> GuideMenuScreen::hints() const {
     return {tk::Hint{{tk::Action::Back}, controller_.inGame() ? "Resume" : "Close"}};
 }
 
-std::string GuideMenuScreen::initialFocus() const {
-    // Empty lands on the first place.
-    return landing_ == GuideMenuController::Landing::Volume ? "guide.volume" : std::string{};
-}
-
 std::unique_ptr<tk::Widget> GuideListScreen::build(const tk::Theme& theme) {
     const tk::Spacing& spacing = theme.spacing;
     auto root = std::make_unique<tk::Centre>(spacing.dialogWidth);

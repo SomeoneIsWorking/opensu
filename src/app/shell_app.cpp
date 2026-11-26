@@ -184,7 +184,7 @@ void ShellApp::buildHome() {
                                              },
                                          .menu =
                                              [this] {
-                                                 toggleGuide(GuideMenuController::Landing::Places);
+                                                 toggleGuide();
                                              },
                                          .back =
                                              [this] {
@@ -779,7 +779,7 @@ void ShellApp::actOn(gamepad::Button button) {
         return;
     }
     if (button == gamepad::Button::Guide) {
-        toggleGuide(GuideMenuController::Landing::Places);
+        toggleGuide();
         return;
     }
     if (keyboardPad_.isOpen()) {
@@ -809,7 +809,7 @@ void ShellApp::backOnHome() {
         showShelf(*focus);
     } else {
         // Back at the root of the shell has nothing to go back to; it opens the Guide menu.
-        toggleGuide(GuideMenuController::Landing::Places);
+        toggleGuide();
     }
 }
 
@@ -1141,9 +1141,23 @@ bool ShellApp::stillOpen(bool closeAsked) {
     return !quitting_ || launches_.running();
 }
 
-void ShellApp::toggleGuide(GuideMenuController::Landing landing) {
+void ShellApp::toggleGuide() {
+    if (quickPanel_.isOpen()) {
+        quickPanel_.close();
+    }
     if (guideMenu_.inFront() || !menusBlocked()) {
-        guideMenu_.toggle(landing);
+        guideMenu_.toggle();
+    }
+}
+
+void ShellApp::toggleQuickSettings() {
+    if (quickPanel_.isOpen()) {
+        quickPanel_.close();
+        return;
+    }
+    if (guideMenu_.inFront() || !menusBlocked()) {
+        guideMenu_.close();
+        quickPanel_.toggle();
     }
 }
 

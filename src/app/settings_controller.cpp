@@ -5,12 +5,10 @@
 #include <variant>
 
 #include "build_version.hpp"
-#include "interface_size_setting.hpp"
 #include "layered_editor.hpp"
 #include "library/add_game_offer.hpp"
 #include "library/steam.hpp"
 #include "lucent/text.h"
-#include "night_light.hpp"
 #include "settings/install_folders.hpp"
 #include "settings_screen.hpp"
 #include "ui/interface_input.hpp"
@@ -24,8 +22,6 @@ using ui::RowKind;
 using ui::SettingsRow;
 
 constexpr const char* scrollModeId = "scrollMode";
-constexpr const char* nightLightId = "nightLight";
-constexpr const char* interfaceSizeId = "appearance.scale";
 constexpr const char* shortcutId = "shortcut.";
 constexpr const char* shortcutsResetId = "shortcuts.reset";
 constexpr const char* keyboardId = "keyboard";
@@ -161,8 +157,13 @@ std::vector<ui::SettingsCategory> SettingsController::build() const {
         pages.push_back(steamPage());
     }
     pages.push_back(audioPage());
+    if (std::vector<ui::SettingsRow> power = quick_.rows(QuickSetting::PowerProfile);
+        !power.empty()) {
+        pages.push_back({"power", "Power", std::move(power)});
+    }
     pages.push_back(controlsPage());
     pages.push_back(chords_.page());
+    pages.push_back(quick_.page());
     pages.push_back(installPage());
     pages.push_back(artwork_.page());
     // Wine runs the Windows builds of GOG and Epic games.
@@ -195,18 +196,10 @@ ui::SettingsCategory SettingsController::appearancePage() const {
         scrollModeId, "Scroll mode", "How the home grid scrolls",
         ui::Options{{"Scrolling", "Pages"}, mode == config::HomeMode::WiiSu ? 1U : 0U}));
     page.rows.push_back(shelf_.pin("Keep the dock up on Library"));
-    if (nightLightSupported()) {
-        page.rows.push_back(
-            ui::makeChoice(nightLightId, "Night light",
-                           inForce_.loginSession()
-                               ? "Warms the screen's colours at night"
-                               : "For session mode; here the desktop's own night light applies",
-                           ui::optionsOf(settings::allNightLightChoices, v.nightLight,
-                                         [](settings::NightLightChoice choice) {
-                                             return std::string{settings::label(choice)};
-                                         })));
+    for (const QuickSetting setting :
+         {QuickSetting::Brightness, QuickSetting::NightLight, QuickSetting::InterfaceSize}) {
+        std::ranges::move(quick_.rows(setting), std::back_inserter(page.rows));
     }
-    page.rows.push_back(interfaceSizeRow(interfaceSizeId, v));
     return page;
 }
 
@@ -298,8 +291,9 @@ ui::SettingsCategory SettingsController::audioPage() const {
                                        preferences_.values().uiSounds));
     page.rows.push_back(interfaceSounds_.row());
     page.rows.push_back(interfaceSounds_.musicRow());
-    page.rows.push_back(
-        ui::makeRow("audio.volume", RowKind::Info, "Volume", "In the Guide menu", ""));
+    for (const QuickSetting setting : {QuickSetting::Volume, QuickSetting::Mute}) {
+        std::ranges::move(quick_.rows(setting), std::back_inserter(page.rows));
+    }
     return page;
 }
 
@@ -407,6 +401,7 @@ void SettingsController::openAt(const std::string& id, const std::string& row) {
 }
 
 void SettingsController::show(const std::string& category, const std::string& row) {
+    quick_.read();
     emulators_.rescan();
     if (clientSteam()) {
         steamLibraries_.reload();
@@ -542,9 +537,9 @@ void SettingsController::openPage(const std::string& id) {
 void SettingsController::setLevel(const std::string& id, int level) {
     if (shelf_.setLevel(id, level)) {
         refresh();
-    } else if (id == interfaceSizeId) {
-        setInterfaceSize(preferences_, level);
-        changed();
+    } else if (QuickSettings::owns(id)) {
+        quick_.setLevel(id, level);
+        refresh();
     } else if (StickCorrectionSettings::owns(id)) {
         sticks_.setLevel(id, level);
     }
@@ -565,6 +560,11 @@ void SettingsController::run(const std::string& id, int step) {
     }
     if (id.starts_with(shortcutId) || id == shortcutsResetId) {
         runControls(id);
+        return;
+    }
+    if (QuickSettings::owns(id)) {
+        quick_.run(id, step);
+        refresh();
         return;
     }
     if (WiiRemoteSettings::owns(id)) {
@@ -652,8 +652,8 @@ void SettingsController::run(const std::string& id, int step) {
     } else if (id == RomFolderSettings::addId || id == steamAddId || id == gameAddId ||
                id.starts_with(installStoreId)) {
         chooseFolder(id);
-    } else if (id == scrollModeId || id == nightLightId || id == soundsId) {
-        runAppearance(id, step);
+    } else if (id == scrollModeId || id == soundsId) {
+        runAppearance(id);
         return;
     } else {
         runLibrary(id, step);
@@ -662,15 +662,12 @@ void SettingsController::run(const std::string& id, int step) {
     refresh();
 }
 
-void SettingsController::runAppearance(const std::string& id, int step) {
+void SettingsController::runAppearance(const std::string& id) {
     settings::Settings& v = preferences_.values();
     if (id == scrollModeId) {
         v.homeMode = interfaceThemes_.homeMode(defaults_.homeMode) == config::HomeMode::WiiSu
                          ? config::HomeMode::Standard
                          : config::HomeMode::WiiSu;
-    } else if (id == nightLightId) {
-        v.nightLight = settings::allNightLightChoices[around(
-            static_cast<std::size_t>(v.nightLight), step, settings::allNightLightChoices.size())];
     } else {
         v.uiSounds = !v.uiSounds;
     }

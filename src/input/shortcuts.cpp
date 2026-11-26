@@ -36,7 +36,7 @@ constexpr std::array<ActionInfo, allActions.size()> infos{{
     {Action::R1, "r1", "Next section", Button::R1, false, false},
     {Action::Search, "search", "Search", Button::Search, false, false},
     {Action::Guide, "guide", "Guide menu", Button::Guide, true, false},
-    {Action::QuickMenu, "quickMenu", "Quick menu", Button::None, true, true},
+    {Action::QuickMenu, "quickMenu", "Quick settings", Button::None, true, true},
     {Action::VolumeUp, "volumeUp", "Volume up", Button::None, true, true},
     {Action::VolumeDown, "volumeDown", "Volume down", Button::None, true, true},
     {Action::VolumeMute, "volumeMute", "Mute", Button::None, true, true},

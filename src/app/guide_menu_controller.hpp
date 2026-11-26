@@ -1,20 +1,17 @@
 // guide_menu_controller — what the Guide menu holds and does: one menu over the home screen or a
 // running game. Its places (the running game's actions, Keyboard among them where it can type
 // into the game, then Home, Library, Devices, Downloads, Settings and Power) stand beside the
-// changes made in place (volume, mute, brightness and the interface size, the profile played as),
-// each of which is set here and nowhere else, and, over Home or Library, what shapes that page's
-// shelf (`ShelfOptions`) and Search. Volume goes through `VolumeControl`, brightness through
-// `BrightnessControl`, the power profile through `host::PowerProfiles`, the interface size
-// through `Preferences`, a game's state commands through `RetroSession`, power through
-// `host::Power` and the session switch through `host::SessionMode`. Every step that throws
-// something away (Close game, Load state, Reset game, Restart, Shut down, the session switch) asks
-// first, one rule. Save and close keeps the game where it is for its next start, and the menu says
-// when a game resumed. Over a game here, Invite to play and Players hold who may join and who has,
-// with Kick. Devices, Downloads and Settings open over the menu, so Back from them returns to it as
-// it was left.
+// changes made in place: the player's quick settings (`QuickSettings`, which sets them), the
+// screen's orientation and the profile played as, and, over Home or Library, what shapes that
+// page's shelf (`ShelfOptions`) and Search. A game's state commands go through `RetroSession`,
+// power through `host::Power` and the session switch through `host::SessionMode`. Every step that
+// throws something away (Close game, Load state, Reset game, Restart, Shut down, the session
+// switch) asks first, one rule. Save and close keeps the game where it is for its next start, and
+// the menu says when a game resumed. Over a game here, Invite to play and Players hold who may join
+// and who has, with Kick. Devices, Downloads and Settings open over the menu, so Back from them
+// returns to it as it was left.
 #pragma once
 
-#include <cstdint>
 #include <functional>
 #include <optional>
 #include <string>
@@ -24,19 +21,17 @@
 #include "gpu2d/ui/navigator.hpp"
 
 #include "audio/sdl_sound_player.hpp"
-#include "brightness_control.hpp"
 #include "host/power.hpp"
-#include "host/power_profiles.hpp"
 #include "host/session_mode.hpp"
 #include "lan/peer_book.hpp"
 #include "library/sections.hpp"
 #include "preferences.hpp"
 #include "profiles/profile_book.hpp"
+#include "quick_settings.hpp"
 #include "retro_session.hpp"
 #include "shelf_options.hpp"
 #include "ui/row_widgets.hpp"
 #include "ui/setting_row.hpp"
-#include "volume_control.hpp"
 
 namespace opensu::app {
 
@@ -117,10 +112,8 @@ class GuideMenuController final : public ui::RowActions {
         host::Power* power;
         /// Null where there is no session mode; its rows are left out.
         host::SessionMode* session;
-        VolumeControl& volume;
-        BrightnessControl& brightness;
-        /// Null without PowerStation; the power profile row is left out.
-        host::PowerProfiles* powerProfiles;
+        /// The quick settings the card leads with.
+        QuickSettings& quick;
         RetroSession& retro;
         Preferences& preferences;
         ShelfOptions& shelf;
@@ -128,25 +121,16 @@ class GuideMenuController final : public ui::RowActions {
         const profiles::ProfileBook& profiles;
     };
 
-    /// Where the focus lands as the menu opens.
-    enum class Landing : std::uint8_t {
-        /// The first place.
-        Places,
-        /// Volume: Guide + A.
-        Volume,
-    };
-
     GuideMenuController(gpu2d::ui::Navigator& navigator, Services services,
                         audio::SdlSoundPlayer& sounds, Hooks hooks)
         : navigator_{navigator}, power_{services.power}, session_{services.session},
-          volume_{services.volume}, brightness_{services.brightness},
-          powerProfiles_{services.powerProfiles}, retro_{services.retro},
-          preferences_{services.preferences}, shelf_{services.shelf}, profiles_{services.profiles},
-          sounds_{sounds}, hooks_{std::move(hooks)} {
+          quick_{services.quick}, retro_{services.retro}, preferences_{services.preferences},
+          shelf_{services.shelf}, profiles_{services.profiles}, sounds_{sounds},
+          hooks_{std::move(hooks)} {
     }
 
     /// Opens the menu over what the hooks say it is over, or closes it when open.
-    void toggle(Landing landing);
+    void toggle();
     /// Closes the menu and what it opened over itself, with iiSU's Close sound.
     void close();
     [[nodiscard]] bool isOpen() const;
@@ -179,8 +163,7 @@ class GuideMenuController final : public ui::RowActions {
   private:
     /// The menu on the stack, or null.
     [[nodiscard]] const gpu2d::ui::Screen* menu() const;
-    /// Reads what the rows show that is slow to read: the game's state, the brightness, the power
-    /// limit.
+    /// Reads what the rows show that is slow to read: the game's state and the quick settings'.
     void read();
     /// Closes the page `id` opened over the menu.
     void closePage(std::string_view id);
@@ -193,17 +176,13 @@ class GuideMenuController final : public ui::RowActions {
     void runTogether(const std::string& id);
     /// Plays as the profile `step` places from the active one, wrapping.
     void stepProfile(int step);
-    /// Sets the power profile `step` places from the one in force, wrapping.
-    void stepPowerProfile(int step);
     /// Tells the player why a change was refused; `what` names it, when it is not plain.
     void refuse(const std::string& reason, const std::string& what = {});
 
     gpu2d::ui::Navigator& navigator_;
     host::Power* power_;
     host::SessionMode* session_;
-    VolumeControl& volume_;
-    BrightnessControl& brightness_;
-    host::PowerProfiles* powerProfiles_;
+    QuickSettings& quick_;
     RetroSession& retro_;
     Preferences& preferences_;
     ShelfOptions& shelf_;
@@ -219,8 +198,6 @@ class GuideMenuController final : public ui::RowActions {
     bool holding_{false};
     /// The running game's opensu-retro state, read as the menu opens and after each command.
     std::optional<RetroSession::Status> retroStatus_;
-    std::optional<int> brightnessLevel_;
-    std::optional<host::PowerProfileState> powerProfile_;
 };
 
 } // namespace opensu::app

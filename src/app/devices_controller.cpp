@@ -225,7 +225,7 @@ ui::SettingsCategory DevicesController::displayTab() const {
     tab.rows.push_back(ui::makeRow("output", RowKind::Info, "Output",
                                    "Set by the session that runs openSU", hooks_.output()));
     tab.rows.push_back(ui::makeRow("display.scale", RowKind::Info, "Brightness and interface size",
-                                   {}, "In the Guide menu"));
+                                   {}, "In Settings › Appearance and Quick settings"));
     return tab;
 }
 

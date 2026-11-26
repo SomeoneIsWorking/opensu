@@ -302,7 +302,8 @@ void aChordIsHeardThenGivenAnOutput(const fs::path& dir) {
     expect(!rig.editor.capturing() && rig.page.state() == "picking" &&
                rig.page.picker().glyphs == std::vector<std::string>{"+", "LT"},
            "a free chord is heard and its outputs put up, headed by its glyphs");
-    expect(rig.current() == "Quick menu" && reachable(rig.page) == rig.page.picker().choices.size(),
+    expect(rig.current() == "Quick settings" &&
+               reachable(rig.page) == rig.page.picker().choices.size(),
            "the actions first, every tile reachable");
     rig.choose("Select + Start");
     const input::ButtonMap map = rig.editor.forGame(game);

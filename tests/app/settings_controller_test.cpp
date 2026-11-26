@@ -185,6 +185,7 @@ struct Rig {
                                                        shelf,
                                                        wiiRemotes,
                                                        sticks,
+                                                       quick,
                                                        inForce},
                      sounds,
                      preferences,
@@ -635,6 +636,23 @@ struct Rig {
     app::StickCorrectionSettings sticks{preferences, *pads, true, [this] {
                                             controller.refresh();
                                         }};
+    app::BrightnessControl brightness{nullptr};
+    app::RingLightSettings lights{preferences, std::nullopt, nullptr, {}};
+    app::QuickSettings quick{app::QuickSettings::Services{.volume = volume,
+                                                          .brightness = brightness,
+                                                          .powerProfiles = nullptr,
+                                                          .preferences = preferences,
+                                                          .lights = lights,
+                                                          .nightLight = app::nightLightSupported(),
+                                                          .loginSession = false},
+                             {.applyLayout =
+                                  [this] {
+                                      ++applied;
+                                  },
+                              .refused =
+                                  [this](const std::string& text) {
+                                      said.push_back({text, true});
+                                  }}};
     app::SettingsController controller;
     bool steamReady{false};
     int applied{0};
@@ -646,7 +664,7 @@ struct Rig {
 };
 
 /// The Steam page's rows of the client's libraries, past its mode and controllers.
-std::vector<ui::SettingsRow> libraryRows(const Rig& rig) {
+std::vector<ui::SettingsRow> libraryRows(Rig& rig) {
     std::vector<ui::SettingsRow> rows;
     for (const ui::SettingsRow& row : rig.rows()) {
         if (row.id.starts_with("steamLibraries.")) {
@@ -667,9 +685,9 @@ void pagesFollowTheIntegrations(const fs::path& root) {
         names.push_back(category.label);
     }
     expect(names == std::vector<std::string>{"Appearance", "Library", "Emulators", "Audio",
-                                             "Controls", "Guide chords", "Install folders",
-                                             "Artwork", "Play online", "Profiles", "Saves",
-                                             "About"},
+                                             "Controls", "Guide chords", "Quick settings",
+                                             "Install folders", "Artwork", "Play online",
+                                             "Profiles", "Saves", "About"},
            "no Integrations page, and no Steam, Wine or Plugins with their integrations off");
     rig.enter("Library");
     expect(std::ranges::none_of(rig.rows(),
@@ -731,10 +749,10 @@ void categoriesFollowTheSavedSettings(const fs::path& root) {
         names.push_back(category.label);
     }
     expect(names == std::vector<std::string>{"Appearance", "Library", "Emulators", "Steam", "Audio",
-                                             "Controls", "Guide chords", "Install folders",
-                                             "Artwork", "Wine", "Plugins", "Play online",
-                                             "Profiles", "Saves", "About"},
-           "the fifteen categories");
+                                             "Controls", "Guide chords", "Quick settings",
+                                             "Install folders", "Artwork", "Wine", "Plugins",
+                                             "Play online", "Profiles", "Saves", "About"},
+           "the sixteen categories");
     expect(rig.controller.isOpen() && rig.top() == "settings" &&
                rig.controller.category() == "Appearance" &&
                rig.focused() == "categories/appearance",
@@ -786,8 +804,8 @@ void togglesChoicesAndSliderPersist(const fs::path& root) {
     expect(need(rig.onDisk().homeMode, "a scroll mode") != first, "and picking again changes it");
 
     if (app::nightLightSupported()) {
-        rig.focus("nightLight");
-        const ui::SettingsRow night = rig.rowOf("nightLight");
+        rig.focus("quick.nightLight");
+        const ui::SettingsRow night = rig.rowOf("quick.nightLight");
         expect(night.choices.size() == 3 && night.choices[night.chosen] == "Same as desktop" &&
                    night.note == "For session mode; here the desktop's own night light applies",
                "the night light follows the desktop, and says where it applies");
@@ -795,12 +813,13 @@ void togglesChoicesAndSliderPersist(const fs::path& root) {
         rig.act(Button::Down);
         rig.act(Button::A);
         expect(rig.onDisk().nightLight == settings::NightLightChoice::Off &&
-                   rig.rowOf("nightLight").choices[rig.rowOf("nightLight").chosen] == "Off",
+                   rig.rowOf("quick.nightLight").choices[rig.rowOf("quick.nightLight").chosen] ==
+                       "Off",
                "a night light choice is kept");
     } else {
         expect(std::ranges::none_of(rig.rows(),
                                     [](const ui::SettingsRow& row) {
-                                        return row.id == "nightLight";
+                                        return row.id == "quick.nightLight";
                                     }),
                "without a night light to switch there is no row for it");
     }
@@ -1269,7 +1288,7 @@ void guideChordsAreSetOnTheirPage(const fs::path& root) {
     for (const ui::SettingsRow& row : rig.rows()) {
         labels.push_back(row.label + ": " + row.value);
     }
-    expect(labels == std::vector<std::string>{"Quick menu: Guide + A", "Volume up: Guide + Up",
+    expect(labels == std::vector<std::string>{"Quick settings: Guide + A", "Volume up: Guide + Up",
                                               "Volume down: Guide + Down", "Mute: Guide + Left",
                                               "Close game: None", "Save state: None",
                                               "Load state: None", "Reset game: None",
@@ -1299,7 +1318,7 @@ void guideChordsAreSetOnTheirPage(const fs::path& root) {
     rig.act(Button::A);
     rig.shortcutEditor.capturePad({event(Button::Guide, true), event(Button::A, true)});
     expect(rig.shortcutEditor.capturing() &&
-               rig.said.back().text.find("already Quick menu") != std::string::npos,
+               rig.said.back().text.find("already Quick settings") != std::string::npos,
            "a chord another action has is refused");
     rig.shortcutEditor.cancel();
 

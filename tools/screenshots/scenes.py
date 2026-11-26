@@ -94,7 +94,7 @@ def _guide(shell: HiddenShell) -> None:
 
 def _close_guide(shell: HiddenShell) -> None:
     shell.press("b")
-    shell.wait_for("guideMenuOpen", False)
+    shell.wait_for("screenFocus", "")
 
 
 def _settings(shell: HiddenShell) -> None:
@@ -147,14 +147,14 @@ def _settings_page(label: str) -> Callable[[HiddenShell], None]:
 
 
 def _quick(shell: HiddenShell) -> None:
-    # The pad's Guide + A chord, held over the channel: the Guide menu on Volume.
+    # The pad's Guide + A chord, held over the channel: Quick settings on Volume.
     shell.press("guide+a")
-    shell.wait_for("screenFocus", "guide.volume")
+    shell.wait_for("screenFocus", "quick.volume")
 
 
 def _close_quick(shell: HiddenShell) -> None:
     shell.press("b")
-    shell.wait_for("guideMenuOpen", False)
+    shell.wait_for("screenFocus", "")
 
 
 def _walk_to(shell: HiddenShell, holds: Callable[[str], bool], what: str, steps: int) -> str:

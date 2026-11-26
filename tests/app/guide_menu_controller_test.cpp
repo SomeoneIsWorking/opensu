@@ -1,8 +1,8 @@
 // The Guide menu on the interface toolkit, driven as the shell drives it: its places follow where
 // the shell is, each reaches its hook, a page staying over the menu and the rest closing it, Right
-// from a place reaches Volume, the changes made in place go to their owners, every step that throws
-// something away asks first, and over Home or Library the rows that shape that page show, kept at
-// once.
+// from a place reaches the quick settings, the changes made in place go to their owners, every step
+// that throws something away asks first, and over Home or Library the rows that shape that page
+// show, kept at once.
 #include <algorithm>
 #include <cstdio>
 #include <memory>
@@ -26,7 +26,6 @@ namespace {
 
 using namespace opensu;
 using gpu2d::ui::Action;
-using Landing = app::GuideMenuController::Landing;
 using test::expect;
 
 struct Rig {
@@ -36,7 +35,22 @@ struct Rig {
                       [](const std::string&) {
                       }},
           volume{mixer ? std::make_unique<test::FakeMixer>() : nullptr, {}}, brightness{&light},
-          retro{scratch.path() / "retro"},
+          retro{scratch.path() / "retro"}, lights{preferences, std::nullopt, nullptr, {}},
+          quick{app::QuickSettings::Services{.volume = volume,
+                                             .brightness = brightness,
+                                             .powerProfiles = nullptr,
+                                             .preferences = preferences,
+                                             .lights = lights,
+                                             .nightLight = false,
+                                             .loginSession = false},
+                {.applyLayout =
+                     [this] {
+                         calls.emplace_back("layout");
+                     },
+                 .refused =
+                     [this](const std::string& text) {
+                         said.push_back("error: " + text);
+                     }}},
           shelf{preferences,
                 {[this] {
                      calls.emplace_back("layout");
@@ -49,8 +63,8 @@ struct Rig {
                          {"", "All sources"}, {"launcher:epic", "Epic"}, {"gc", "GameCube"}};
                  }}},
           controller{ui.navigator,
-                     {machine ? &power : nullptr, machine ? &session : nullptr, volume, brightness,
-                      nullptr, retro, preferences, shelf, profiles},
+                     {machine ? &power : nullptr, machine ? &session : nullptr, quick, retro,
+                      preferences, shelf, profiles},
                      sounds,
                      app::GuideMenuController::Hooks{
                          .context =
@@ -132,8 +146,8 @@ struct Rig {
                         shown.clear();
                     }};
     }
-    void open(Landing landing = Landing::Places) {
-        controller.toggle(landing);
+    void open() {
+        controller.toggle();
         ui.frame(1.0);
     }
     void press(Action action) {
@@ -179,6 +193,8 @@ struct Rig {
     app::VolumeControl volume;
     app::BrightnessControl brightness;
     app::RetroSession retro;
+    app::RingLightSettings lights;
+    app::QuickSettings quick;
     app::ShelfOptions shelf;
     profiles::ProfileBook profiles{scratch.path() / "profiles.json"};
     audio::SdlSoundPlayer sounds;
@@ -249,7 +265,7 @@ void homePlacesReachTheirHooks() {
     rig.press(Action::Back);
     expect(!rig.controller.isOpen(), "Back closes the menu");
     rig.open();
-    rig.controller.toggle(Landing::Places);
+    rig.controller.toggle();
     rig.ui.frame(1.0);
     expect(!rig.controller.isOpen(), "Guide again closes it");
 }
@@ -284,9 +300,6 @@ void keyboardTypesIntoTheGame() {
     rig.choose("guide.keyboard");
     expect(rig.calls == std::vector<std::string>{"keyboard"} && !rig.controller.isOpen(),
            "Keyboard closes the menu and opens the keyboard over the game");
-    rig.open(Landing::Volume);
-    expect(std::ranges::count(rig.places(), "guide.keyboard") == 1,
-           "the quick menu is the same menu, Keyboard among its places");
 }
 
 void togetherPagesInviteAndKick() {
@@ -317,7 +330,7 @@ void quickChangesSitBesideThePlaces() {
     Rig rig;
     rig.open();
     rig.press(Action::Right);
-    expect(rig.ui.navigator.focused() == "guide.volume", "Right from a place reaches Volume");
+    expect(rig.ui.navigator.focused() == "quick.volume", "Right from a place reaches Volume");
     rig.press(Action::Left);
     expect(rig.ui.navigator.focused() == "guide.home" &&
                test::need(rig.volume.system().state(), "a volume").percent == 40,
@@ -329,26 +342,24 @@ void quickChangesSitBesideThePlaces() {
            "A holds Volume, then Right turns it up a step");
     rig.press(Action::Back);
     expect(test::need(rig.volume.system().state(), "a volume").percent == 40 &&
-               rig.ui.navigator.focused() == "guide.volume",
+               rig.ui.navigator.focused() == "quick.volume",
            "Back lets Volume go, putting back the level it had");
-    rig.choose("guide.mute");
+    rig.choose("quick.mute");
     expect(test::need(rig.volume.system().state(), "a volume").muted, "A on Mute mutes");
-    rig.choose("guide.scale");
+    rig.choose("quick.scale");
     rig.press(Action::Right);
     rig.press(Action::Accept);
     expect(rig.preferences.values().uiScale == settings::defaultUiScale + settings::uiScaleStep &&
                rig.calls == std::vector<std::string>{"layout"},
            "Interface size is a slider: A holds it, Right grows it a step and the screen follows");
-    rig.press(Action::Back);
-    rig.open(Landing::Volume);
-    expect(rig.ui.navigator.focused() == "guide.volume", "the quick menu shortcut lands on Volume");
 }
 
 void profileRowPlaysAsTheNextProfile() {
     Rig rig;
     std::string error;
     const profiles::Profile ana = test::need(rig.profiles.add("Ana", error), "a second profile");
-    rig.open(Landing::Volume);
+    rig.open();
+    rig.press(Action::Right);
     for (int i = 0; i < 20 && rig.ui.navigator.focused() != "guide.profile"; ++i) {
         rig.press(Action::Down);
     }
@@ -364,7 +375,8 @@ void pageRowsFollowThePage() {
     const auto ids = [](const Rig& rig) {
         std::vector<std::string> found;
         for (const ui::SettingsRow& row : rig.controller.quick()) {
-            if (row.id.starts_with("guide.") || row.kind == ui::RowKind::Heading) {
+            if (row.id.starts_with("guide.") || row.id.starts_with("quick.") ||
+                row.kind == ui::RowKind::Heading) {
                 continue;
             }
             found.push_back(row.id);
@@ -469,7 +481,7 @@ void pageRowsChangeAndKeep() {
 void withoutAMixerVolumeSaysWhy() {
     Rig rig{{}, false};
     const std::vector<ui::SettingsRow> quick = rig.controller.quick();
-    expect(!quick.empty() && quick.front().id == "guide.volumeMissing" &&
+    expect(!quick.empty() && quick.front().id == "quick.volumeMissing" &&
                quick.front().kind == ui::RowKind::Info && !quick.front().note.empty(),
            "an unavailable mixer is a fact saying why");
 }
@@ -515,11 +527,12 @@ void sessionInstalledOffersTheSwitch() {
     expect(login.session.calls == std::vector<std::string>{"desktop"},
            "as the login session, Switch to desktop ends it");
     const std::vector<ui::SettingsRow> loginPower = login.controller.power();
-    expect(std::ranges::none_of(loginPower,
-                                [](const ui::SettingsRow& row) {
-                                    return row.id == "power.quit";
-                                }),
-           "as the login session there is no Quit openSU: the display manager would start it again");
+    expect(
+        std::ranges::none_of(loginPower,
+                             [](const ui::SettingsRow& row) {
+                                 return row.id == "power.quit";
+                             }),
+        "as the login session there is no Quit openSU: the display manager would start it again");
 }
 
 void quitAsksFirst() {

@@ -23,7 +23,7 @@ using Rows = std::vector<ChordHintRow>;
 void rowsAreExactlyTheModifiersChords() {
     Shortcuts shortcuts;
     const ChordSet chords{shortcuts};
-    expect(chordHintRows(chords, Button::Guide) == Rows{{"A", "Quick menu"},
+    expect(chordHintRows(chords, Button::Guide) == Rows{{"A", "Quick settings"},
                                                         {"UP", "Volume up"},
                                                         {"DOWN", "Volume down"},
                                                         {"LEFT", "Mute"},

@@ -19,7 +19,7 @@ everywhere, and on Android touch: a click or tap focuses and presses.
 | LB / RB | `[` / `]` (R for next) | Previous / next section: Home, Library |
 | | `/`, Ctrl+F | Search across every store |
 | Guide | Shift+Tab | The Guide menu: Home, Library, Search, Devices, Downloads, Settings, Power, and beside them the rows for the page you are on |
-| Guide + A | Ctrl+Tab | Quick menu (the Guide menu on Volume, Mute, Brightness, Interface size and Profile), over a game too |
+| Guide + A | Ctrl+Tab | Quick settings: a panel at the right edge with the settings you picked (Volume, Mute, Brightness, Power profile and Interface size until you choose; Settings › Quick settings, or its Choose what shows), over a game too |
 | Guide + Up / Down / Left | Ctrl+Up / Ctrl+Down / Ctrl+M | Volume up / down / mute |
 | Hold Guide (or any chord's held button) | | After half a second, a list of that button's chords, also over a game in session mode; it goes when you let go or play a chord |
 
@@ -129,7 +129,7 @@ its centre, so Stick correction's rest offsets no longer apply to it.
 
 ## Guide chords
 
-Chords are set on Settings › Guide chords: Quick menu, the volume, Close game, Save state, Load
+Chords are set on Settings › Guide chords: Quick settings, the volume, Close game, Save state, Load
 state, Reset game, Devices, Downloads and Home. Hold any button and press another to set one. A
 chord's buttons never reach the game. The held button still works on its own: tapped (released
 within 500 ms with no chord) it reaches the game as that button; held longer it shows its chords

@@ -157,6 +157,10 @@ struct Settings {
     /// The night light in session mode.
     NightLightChoice nightLight{NightLightChoice::Desktop};
 
+    /// What the Quick settings panel shows, in order, by `app::QuickSettings`' spellings; unset
+    /// for its default set.
+    std::optional<std::vector<std::string>> quickSettings;
+
     /// The console art theme the home shows (`artwork::ConsoleThemes`); empty for the default.
     std::string consoleTheme;
     /// The interface theme the shell is drawn and sounds in (`theme::InterfaceThemes`); empty for
