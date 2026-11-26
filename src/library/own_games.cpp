@@ -83,9 +83,23 @@ Origin originOf(const std::string& key) {
     return key == "lutris" ? Origin::Lutris : Origin::File;
 }
 
+/// What a running `command` is found by: the app id of a `flatpak run`, whose processes carry
+/// it in their `/.flatpak-info` and not the word flatpak; otherwise the program's file name.
+std::string processHintOf(const std::vector<std::string>& command) {
+    std::string program = fs::path{command.front()}.filename().string();
+    if (program != "flatpak" || command.size() < 2 || command[1] != "run") {
+        return program;
+    }
+    const auto app =
+        std::ranges::find_if(command.begin() + 2, command.end(), [](const std::string& word) {
+            return !word.starts_with('-');
+        });
+    return app == command.end() ? program : *app;
+}
+
 /// Runs a shortcut's `command`.
 void commandLaunch(const Entry& entry, Game& game) {
-    game.processHint = fs::path{entry.command.front()}.filename().string();
+    game.processHint = processHintOf(entry.command);
     game.launch = LaunchSpec{.program = entry.command.front(),
                              .args = {entry.command.begin() + 1, entry.command.end()},
                              .workingDirectory = entry.workingDirectory};

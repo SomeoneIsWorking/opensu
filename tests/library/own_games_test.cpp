@@ -139,6 +139,19 @@ void launchesFollowTheKind(const fs::path& dir) {
     expect(lutris.launch.program == "lutris" &&
                lutris.launch.args == std::vector<std::string>{"lutris:rungameid/7"},
            "a Lutris game runs through Lutris");
+
+    const fs::path flatpak = file(dir / "org.srb2.SRB2.desktop", "x", false);
+    const Game sandboxed =
+        own::gameOf({.id = "6",
+                     .title = "SRB2",
+                     .file = flatpak,
+                     .command = {"/usr/bin/flatpak", "run", "--branch=stable", "--arch=x86_64",
+                                 "--command=release.sh", "org.srb2.SRB2"}});
+    expect(sandboxed.processHint == "org.srb2.SRB2",
+           "a Flatpak game is watched by its app id, which its sandboxed processes carry");
+    const Game shortcut = own::gameOf(
+        {.id = "7", .title = "D", .file = flatpak, .command = {"/usr/bin/godot", "--path", "."}});
+    expect(shortcut.processHint == "godot", "another shortcut is watched by its program");
 }
 
 void windowsRunsInItsOwnPrefix(const fs::path& dir) {
