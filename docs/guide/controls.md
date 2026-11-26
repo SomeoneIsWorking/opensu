@@ -144,6 +144,12 @@ another openSU. An axis not swept at least halfway to each end is left as the co
 it, and the card's message names it. B on the card measures nothing; X on a calibrated
 controller's row (Reset) forgets its calibration.
 
+The card ends on Check: both sticks as circles with a dot each and both triggers as bars, live, as
+games now get them, with a faint mark where the controller reads by itself. A good calibration rests
+each dot in the middle, reaches the circle all round and fills each bar. Keep (or B) keeps it,
+Calibrate again measures again, and Undo puts back the calibration before it, or none. Check under
+each controller's Calibrate row shows the same at any time.
+
 On a ROG Ally the card first asks whether to calibrate for the hall-effect correction too. With it,
 a last step of eight seconds asks you to hold the left trigger all the way down and turn the left
 stick round its edge; how far that circle sits from the one without the trigger is the trigger's

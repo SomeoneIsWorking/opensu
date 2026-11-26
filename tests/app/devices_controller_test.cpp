@@ -2,6 +2,7 @@
 // Bluetooth actions through the session with forgetting asked first, the controllers' live button
 // test, a DolphinBar's mode and Bluetooth Wii Remotes, the audio output choice, and Back from the
 // rows to the tabs, then out.
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -117,13 +118,22 @@ struct Rig {
     std::vector<std::string> calls;
     std::vector<std::string> said;
     app::Preferences preferences;
-    app::RingLightSettings lights{preferences, std::nullopt, nullptr,
-                                  {.refused = [](const std::string&) {},
-                                   .allowColours = [] {}}};
-    std::unique_ptr<gamepad::PadSource> padSource{gamepad::openPadSource(
-        {.hiddenInputs = std::filesystem::path{OPENSU_TEST_SCRATCH} / "devices_controller" /
-                         "pads"})};
-    app::PadCalibrationFlow calibration{ui.navigator, preferences, *padSource, sounds,
+    app::RingLightSettings lights{preferences,
+                                  std::nullopt,
+                                  nullptr,
+                                  {.refused =
+                                       [](const std::string&) {
+                                       },
+                                   .allowColours =
+                                       [] {
+                                       }}};
+    std::unique_ptr<gamepad::PadSource> padSource{
+        gamepad::openPadSource({.hiddenInputs = std::filesystem::path{OPENSU_TEST_SCRATCH} /
+                                                "devices_controller" / "pads"})};
+    app::PadCalibrationFlow calibration{ui.navigator,
+                                        preferences,
+                                        *padSource,
+                                        sounds,
                                         [this](const std::string& text, bool) {
                                             said.push_back(text);
                                         },
@@ -242,12 +252,23 @@ void aPadIsCalibratedFromItsRow() {
     expect(!rig.calibration.measuring() && !rig.said.empty() &&
                rig.said.back().find("left before") != std::string::npos,
            "a pad the source no longer reads ends the measuring and says so");
+
+    rig.openOn("controllers");
+    rig.on("check:/dev/input/event5", Action::Accept);
+    rig.ui.frame(2.0);
+    expect(rig.ui.navigator.top() != nullptr && rig.ui.navigator.top()->id() == "pad.check" &&
+               !rig.calibration.measuring(),
+           "Check shows the pad as games get it, measuring nothing");
 }
 
 void wiiRemotesSayWhatWiiGamesPlay() {
     Rig rig;
     rig.openOn("controllers");
-    expect(rig.controller.tabs()[1].rows.size() == 3, "no Wii Remote, no line for one");
+    expect(std::ranges::none_of(rig.controller.tabs()[1].rows,
+                                [](const ui::SettingsRow& row) {
+                                    return row.id.starts_with("wii.");
+                                }),
+           "no Wii Remote, no line for one");
     rig.wiiRemotes = device::WiiRemotes{.dolphinBars = 1, .barSlots = {}};
     rig.controller.refresh();
     expect(rig.row("wii.bar").label == "DolphinBar (Wii Remote mode)" &&

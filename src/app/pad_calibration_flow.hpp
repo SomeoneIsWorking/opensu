@@ -4,7 +4,8 @@
 // hall-effect correction applies (a ROG Ally) the card first asks whether to measure for it too,
 // and if so ends with the left stick's circle again while the left trigger is held down, which
 // measures the trigger's pull. It saves the result in `settings::Settings::padCalibrations` by the
-// pad's `calibrationKey` and hands every saved calibration to the pads, as it does at start. Back
+// pad's `calibrationKey` and hands every saved calibration to the pads, as it does at start, then
+// shows the pad live as it now plays (`PadCheckScreen`) to keep, calibrate again or undo. Back
 // on the card measures nothing; X on a calibrated pad's row (Reset) forgets its calibration.
 #pragma once
 
@@ -43,10 +44,10 @@ class PadCalibrationFlow {
                        gamepad::PadSource& pads, audio::SdlSoundPlayer& sounds, Say say,
                        bool hallOffered);
 
-    /// The row for `pad`.
-    [[nodiscard]] ui::SettingsRow row(const ControllerStatus& pad) const;
+    /// The rows for `pad`: Calibrate, then Check.
+    [[nodiscard]] std::vector<ui::SettingsRow> rows(const ControllerStatus& pad) const;
     [[nodiscard]] static bool owns(const std::string& id);
-    /// Starts measuring the pad of the row `id`.
+    /// Starts measuring the pad of the row `id`, or shows it as it plays.
     void run(const std::string& id, const std::vector<ControllerStatus>& pads);
     /// Forgets the calibration of the row `id`'s pad.
     void reset(const std::string& id, const std::vector<ControllerStatus>& pads);
@@ -58,10 +59,14 @@ class PadCalibrationFlow {
 
   private:
     enum class Step : std::uint8_t { Choose, Still, Sweep, Pull };
-    struct Measured {
-        std::string padId;
+    /// The pad being measured or checked.
+    struct Pad {
+        std::string id;
         std::string name;
         std::string key;
+    };
+    struct Measured {
+        Pad pad;
         Step step{Step::Still};
         bool hall{false};
         Clock::time_point started;
@@ -73,8 +78,12 @@ class PadCalibrationFlow {
                                                        const std::vector<ControllerStatus>& pads);
     /// The card now; its choices act on the flow.
     [[nodiscard]] ui::ProgressCard card();
+    void measure(Pad pad);
     void begin(bool hall);
     void finish();
+    /// Shows `pad` as it plays now; `undo`, after a calibration, puts the one before it back.
+    void check(const Pad& pad, const std::string& line, std::function<void()> undo);
+    void closeCheck();
     void stop(const std::string& why, bool error);
     void applySaved();
 

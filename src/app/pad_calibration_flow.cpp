@@ -5,12 +5,15 @@
 #include <string_view>
 #include <utility>
 
+#include "pad_check_screen.hpp"
 
 namespace opensu::app {
 namespace {
 
 constexpr std::string_view rowPrefix = "calibrate:";
+constexpr std::string_view checkPrefix = "check:";
 constexpr const char* cardId = "pad.calibration";
+constexpr const char* checkId = "pad.check";
 
 std::string joined(const std::vector<std::string>& parts) {
     std::string text;
@@ -39,7 +42,7 @@ void PadCalibrationFlow::applySaved() {
     pads_.setCalibrations(preferences_.values().padCalibrations);
 }
 
-ui::SettingsRow PadCalibrationFlow::row(const ControllerStatus& pad) const {
+std::vector<ui::SettingsRow> PadCalibrationFlow::rows(const ControllerStatus& pad) const {
     const bool calibrated =
         preferences_.values().padCalibrations.contains(gamepad::calibrationKey(pad.name, pad.uniq));
     ui::SettingsRow row = ui::makeRow(
@@ -50,17 +53,19 @@ ui::SettingsRow PadCalibrationFlow::row(const ControllerStatus& pad) const {
     if (calibrated) {
         row.secondary = "Reset";
     }
-    return row;
+    return {std::move(row),
+            ui::makeRow(std::string{checkPrefix} + pad.id, ui::RowKind::Action, "Check " + pad.name,
+                        "Its sticks and triggers as games get them", "Check")};
 }
 
 bool PadCalibrationFlow::owns(const std::string& id) {
-    return id.starts_with(rowPrefix);
+    return id.starts_with(rowPrefix) || id.starts_with(checkPrefix);
 }
 
 const ControllerStatus* PadCalibrationFlow::padOf(const std::string& id,
                                                   const std::vector<ControllerStatus>& pads) {
     const auto found = std::ranges::find_if(pads, [&id](const ControllerStatus& pad) {
-        return id == std::string{rowPrefix} + pad.id;
+        return id == std::string{rowPrefix} + pad.id || id == std::string{checkPrefix} + pad.id;
     });
     return found == pads.end() ? nullptr : &*found;
 }
@@ -70,9 +75,16 @@ void PadCalibrationFlow::run(const std::string& id, const std::vector<Controller
     if (pad == nullptr || measuring()) {
         return;
     }
-    measured_ = Measured{.padId = pad->id,
-                         .name = pad->name,
-                         .key = gamepad::calibrationKey(pad->name, pad->uniq),
+    Pad which{pad->id, pad->name, gamepad::calibrationKey(pad->name, pad->uniq)};
+    if (id.starts_with(checkPrefix)) {
+        check(which, "How games get it now", {});
+        return;
+    }
+    measure(std::move(which));
+}
+
+void PadCalibrationFlow::measure(Pad pad) {
+    measured_ = Measured{.pad = std::move(pad),
                          .step = hallOffered_ ? Step::Choose : Step::Still,
                          .hall = false,
                          .started = now_,
@@ -92,7 +104,7 @@ void PadCalibrationFlow::run(const std::string& id, const std::vector<Controller
 
 ui::ProgressCard PadCalibrationFlow::card() {
     const Measured& now = *measured_;
-    ui::ProgressCard shown{.title = "Calibrating " + now.name,
+    ui::ProgressCard shown{.title = "Calibrating " + now.pad.name,
                            .line = {},
                            .fraction = {},
                            .leave = "Cancel",
@@ -103,28 +115,35 @@ ui::ProgressCard PadCalibrationFlow::card() {
     };
     switch (now.step) {
     case Step::Choose:
-        shown.line = "Also measure how far the left trigger pulls the left stick, so the hall-effect "
-                     "correction takes off exactly that?";
-        shown.choices = {
-            ui::ProgressChoice{.id = "calibrate.hall",
-                               .label = "With hall-effect correction",
-                               .pressed = [this] { begin(true); }},
-            ui::ProgressChoice{.id = "calibrate.plain",
-                               .label = "Sticks and triggers only",
-                               .pressed = [this] { begin(false); }}};
+        shown.line =
+            "Also measure how far the left trigger pulls the left stick, so the hall-effect "
+            "correction takes off exactly that?";
+        shown.choices = {ui::ProgressChoice{.id = "calibrate.hall",
+                                            .label = "With hall-effect correction",
+                                            .pressed =
+                                                [this] {
+                                                    begin(true);
+                                                }},
+                         ui::ProgressChoice{.id = "calibrate.plain",
+                                            .label = "Sticks and triggers only",
+                                            .pressed = [this] {
+                                                begin(false);
+                                            }}};
         break;
     case Step::Still:
         shown.line = "Let go of both sticks and both triggers";
         shown.fraction = done(stillFor);
         break;
     case Step::Sweep:
-        shown.line = "Turn both sticks round their edges, and pull both triggers all the way, until "
-                     "the bar is full";
+        shown.line =
+            "Turn both sticks round their edges, and pull both triggers all the way, until "
+            "the bar is full";
         shown.fraction = done(sweepFor);
         break;
     case Step::Pull:
-        shown.line = "Hold the left trigger all the way down and turn the left stick round its edge, "
-                     "until the bar is full";
+        shown.line =
+            "Hold the left trigger all the way down and turn the left stick round its edge, "
+            "until the bar is full";
         shown.fraction = done(pullFor);
         break;
     }
@@ -142,9 +161,8 @@ void PadCalibrationFlow::begin(bool hall) {
 
 void PadCalibrationFlow::reset(const std::string& id, const std::vector<ControllerStatus>& pads) {
     const ControllerStatus* pad = padOf(id, pads);
-    if (pad == nullptr ||
-        preferences_.values().padCalibrations.erase(gamepad::calibrationKey(pad->name, pad->uniq)) ==
-            0) {
+    if (pad == nullptr || preferences_.values().padCalibrations.erase(
+                              gamepad::calibrationKey(pad->name, pad->uniq)) == 0) {
         return;
     }
     preferences_.save();
@@ -158,9 +176,9 @@ void PadCalibrationFlow::service(Clock::time_point now) {
         return;
     }
     const std::map<std::string, gamepad::PadAxes> axes = pads_.axes();
-    const auto found = axes.find(measured_->padId);
+    const auto found = axes.find(measured_->pad.id);
     if (found == axes.end()) {
-        stop(measured_->name + " left before it was calibrated", true);
+        stop(measured_->pad.name + " left before it was calibrated", true);
         return;
     }
     switch (measured_->step) {
@@ -203,13 +221,72 @@ void PadCalibrationFlow::finish() {
              true);
         return;
     }
-    preferences_.values().padCalibrations[measured_->key] = result;
+    gamepad::PadCalibrations& saved = preferences_.values().padCalibrations;
+    std::optional<gamepad::PadCalibration> previous;
+    if (const auto was = saved.find(measured_->pad.key); was != saved.end()) {
+        previous = was->second;
+    }
+    saved[measured_->pad.key] = result;
     preferences_.save();
     applySaved();
-    stop(measured_->name + " calibrated" +
-             (missed.empty() ? "" : "; not reached far enough, so left as it reports: " +
-                                        joined(missed)),
-         false);
+    const Pad pad = measured_->pad;
+    stop({}, false);
+    check(pad,
+          missed.empty()
+              ? "Calibrated"
+              : "Calibrated; not reached far enough, so left as it reports: " + joined(missed),
+          [this, pad, previous] {
+              closeCheck();
+              gamepad::PadCalibrations& kept = preferences_.values().padCalibrations;
+              if (previous) {
+                  kept[pad.key] = *previous;
+              } else {
+                  kept.erase(pad.key);
+              }
+              preferences_.save();
+              applySaved();
+              say_(pad.name + (previous ? " is back to its last calibration"
+                                        : " reads as it reports again"),
+                   false);
+          });
+}
+
+void PadCalibrationFlow::check(const Pad& pad, const std::string& line,
+                               std::function<void()> undo) {
+    // input-sound.md 3.4 Open: a panel appears.
+    sounds_.play(audio::Effect::Open);
+    navigator_.push(std::make_unique<PadCheckScreen>(
+        checkId, pad.name, line,
+        PadCheckScreen::Hooks{.axes = [this, id = pad.id]() -> std::optional<gamepad::PadAxes> {
+                                  const std::map<std::string, gamepad::PadAxes> axes = pads_.axes();
+                                  const auto found = axes.find(id);
+                                  if (found == axes.end()) {
+                                      return std::nullopt;
+                                  }
+                                  return found->second;
+                              },
+                              .keep =
+                                  [this] {
+                                      closeCheck();
+                                  },
+                              .again =
+                                  [this, pad] {
+                                      closeCheck();
+                                      measure(pad);
+                                  },
+                              .undo = std::move(undo)}));
+}
+
+void PadCalibrationFlow::closeCheck() {
+    const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
+    const auto shown = std::ranges::find_if(open, [](const gpu2d::ui::Screen* screen) {
+        return screen->id() == checkId && !screen->closing();
+    });
+    if (shown != open.end()) {
+        // input-sound.md 3.4 Close: a panel goes away.
+        sounds_.play(audio::Effect::Close);
+        navigator_.closeFrom(**shown);
+    }
 }
 
 void PadCalibrationFlow::stop(const std::string& why, bool error) {
@@ -221,7 +298,9 @@ void PadCalibrationFlow::stop(const std::string& why, bool error) {
     if (card != open.end()) {
         navigator_.closeFrom(**card);
     }
-    say_(why, error);
+    if (!why.empty()) {
+        say_(why, error);
+    }
 }
 
 } // namespace opensu::app

@@ -190,7 +190,7 @@ ui::SettingsCategory DevicesController::controllersTab() const {
         }
         tab.rows.push_back(ui::makeRow(padPrefix + pad.id, RowKind::Info, pad.name,
                                        joined(parts, " · "), heldText(pad.held)));
-        tab.rows.push_back(calibration_.row(pad));
+        std::ranges::move(calibration_.rows(pad), std::back_inserter(tab.rows));
     }
     std::ranges::move(lights_.rows(), std::back_inserter(tab.rows));
     addWiiRemoteRows(tab.rows, hooks_.wiiRemotes());
