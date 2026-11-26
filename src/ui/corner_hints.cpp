@@ -13,6 +13,9 @@ std::vector<Prompt> startPrompts(const HintContext& context) {
     if (context.options) {
         prompts.push_back(Prompt{"-", "Options", gamepad::Button::Select});
     }
+    if (context.search) {
+        prompts.push_back(Prompt{"SEARCH", "Search", gamepad::Button::Search});
+    }
     return prompts;
 }
 

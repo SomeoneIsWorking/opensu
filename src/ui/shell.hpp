@@ -165,6 +165,9 @@ class Shell {
     [[nodiscard]] input::LastDevice& inputDevice() noexcept {
         return prompts_.device;
     }
+    [[nodiscard]] const input::LastDevice& inputDevice() const noexcept {
+        return prompts_.device;
+    }
     /// The shortcut table the prompts name keys from; the app rebinds it.
     [[nodiscard]] input::Shortcuts& shortcuts() noexcept {
         return prompts_.shortcuts;

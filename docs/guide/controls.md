@@ -9,7 +9,7 @@ everywhere, and on Android touch: a click or tap focuses and presses.
 
 | Pad | Keyboard | Action |
 | --- | --- | --- |
-| D-pad or left stick | arrows, WASD | Move focus; Up or Down past a list's end goes round to its other end; A opens a choice's list |
+| D-pad or left stick | arrows | Move focus; Up or Down past a list's end goes round to its other end; A opens a choice's list |
 | A | Enter, Space, click | Open a game's details page; Play, Install, change a ROM's emulator or Hide from there |
 | B | Escape | Back; on Home with nothing to go back to, the Guide menu |
 | Y | Y | Details page |
@@ -17,8 +17,8 @@ everywhere, and on Android touch: a click or tap focuses and presses.
 | Select | Tab, Menu key, Shift+F10, right click | The focused tile's menu |
 | Start | E | The Guide menu on Home and Library, for pads and tablets with no usable Guide button |
 | LB / RB | `[` / `]` (R for next) | Previous / next section: Home, Library |
-| | `/`, Ctrl+F | Search across every store |
-| Guide | Shift+Tab | The Guide menu: Home, Library, Search, Devices, Downloads, Settings, Power, and beside them the rows for the page you are on |
+| | S, `/`, Ctrl+F | Search across every store, from Home and Library; with the keyboard and mouse, or a finger, the bottom-left corner shows it (S, or a magnifier to tap). A pad opens it from the Guide menu |
+| Guide | Shift+Tab | The Guide menu: Home, Library, Search (off a game, over any page), Devices, Downloads, Settings, Power, and beside them the rows for the page you are on |
 | Guide + A | Ctrl+Tab | Quick settings: a panel at the right edge with the settings you picked (Volume, Mute, Brightness, Power profile and Interface size until you choose; Settings › Quick settings, or its Choose what shows), over a game too |
 | Guide + Up / Down / Left | Ctrl+Up / Ctrl+Down / Ctrl+M | Volume up / down / mute |
 | Hold Guide (or any chord's held button) | | After half a second, a list of that button's chords, also over a game in session mode; it goes when you let go or play a chord |

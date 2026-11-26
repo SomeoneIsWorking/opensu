@@ -62,15 +62,11 @@ const ActionInfo& infoOf(Action action) noexcept {
 }
 
 /// The shipped key bindings; an action's first entry is the one its prompts show.
-constexpr std::array<KeyBinding, 27> defaultBindings{{
+constexpr std::array<KeyBinding, 24> defaultBindings{{
     {Action::Up, {keys::Up}},
-    {Action::Up, {keys::W}},
     {Action::Down, {keys::Down}},
-    {Action::Down, {keys::S}},
     {Action::Left, {keys::Left}},
-    {Action::Left, {keys::A}},
     {Action::Right, {keys::Right}},
-    {Action::Right, {keys::D}},
     {Action::Confirm, {keys::Enter}},
     {Action::Confirm, {keys::Space}},
     {Action::Back, {keys::Escape}},
@@ -83,6 +79,7 @@ constexpr std::array<KeyBinding, 27> defaultBindings{{
     {Action::L1, {keys::LeftBracket}},
     {Action::R1, {keys::RightBracket}},
     {Action::R1, {keys::R}},
+    {Action::Search, {keys::S}},
     {Action::Search, {keys::Slash}},
     {Action::Search, {keys::F, true, false}},
     {Action::Guide, {keys::Tab, false, true}},

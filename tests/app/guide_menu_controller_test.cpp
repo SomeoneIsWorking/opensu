@@ -243,9 +243,9 @@ void homePlacesReachTheirHooks() {
     rig.open();
     expect(rig.controller.isOpen() && rig.ui.navigator.focused() == "guide.home",
            "the menu opens on its first place");
-    expect(rig.places() == std::vector<std::string>{"guide.home", "guide.library", "guide.devices",
-                                                    "guide.downloads", "guide.settings",
-                                                    "guide.power"},
+    expect(rig.places() == std::vector<std::string>{"guide.home", "guide.library", "guide.search",
+                                                    "guide.devices", "guide.downloads",
+                                                    "guide.settings", "guide.power"},
            "over the home screen: the sections, the pages, then Power");
     rig.choose("guide.downloads");
     expect(rig.calls == std::vector<std::string>{"downloads"} && rig.controller.isOpen(),
@@ -406,7 +406,7 @@ void pageRowsFollowThePage() {
 
     Rig page;
     page.open();
-    expect(ids(page).empty() && !search(page), "nor over another screen");
+    expect(ids(page).empty() && search(page), "over another screen only Search");
 
     library.controller.close();
     library.ui.frame(1.0);

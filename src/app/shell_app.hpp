@@ -1782,6 +1782,8 @@ class ShellApp final {
                              }},
             .openSearch =
                 [this] {
+                    // The results are Home's or Library's tiles, so the page over them goes.
+                    closePages();
                     search_.open();
                 },
             .closeGame =

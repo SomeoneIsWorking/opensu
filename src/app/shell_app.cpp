@@ -1399,13 +1399,14 @@ ui::HintContext ShellApp::hints() const {
     const ui::HomeGrid& grid = shell_.grid();
     const bool game = grid.focusedGame() != nullptr;
     const bool folder = grid.focusedFolder().has_value();
-    return ui::HintContext{.back = browser_.canBack(),
-                           .clearSearch = search_.searching(),
-                           .select = game || folder || grid.focusedGiveaways() ||
-                                     grid.focusedAdd() != nullptr,
-                           .details = game,
-                           .options = game || folder,
-                           .menu = true};
+    return ui::HintContext{
+        .back = browser_.canBack(),
+        .clearSearch = search_.searching(),
+        .select = game || folder || grid.focusedGiveaways() || grid.focusedAdd() != nullptr,
+        .details = game,
+        .options = game || folder,
+        .menu = true,
+        .search = !shell_.inGame() && shell_.inputDevice().current() != input::Device::Pad};
 }
 
 void ShellApp::syncChrome() {

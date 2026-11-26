@@ -30,6 +30,11 @@ void searchAndOptions() {
     expect((opensu::ui::startPrompts(HintContext{.back = true, .clearSearch = true}) ==
             std::vector<Prompt>{{"B", "Clear search", Button::B}}),
            "a search being cleared takes B before Back");
+    expect((opensu::ui::startPrompts(HintContext{.back = true, .options = true, .search = true}) ==
+            std::vector<Prompt>{{"B", "Back", Button::B},
+                                {"-", "Options", Button::Select},
+                                {"SEARCH", "Search", Button::Search}}),
+           "Search comes last, under Back and Options");
 }
 
 void endCorner() {

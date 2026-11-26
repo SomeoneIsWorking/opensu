@@ -5,8 +5,8 @@
 // 24-unit vectors (drawable-anydpi), the letters at the PNGs' measured proportions. The shoulder
 // buttons' (`lb_button.png`, `rb_button.png`) are a rounded outline with one large corner and the
 // button's two letters; LT and RT take the same shape. iiSU has no d-pad, stick-click or Guide
-// glyph: openSU draws a direction as the ring around an arrowhead and the rest as a cap with the
-// button's name.
+// glyph: openSU draws a direction as the ring around an arrowhead, Search as a magnifier and the
+// rest as a cap with the button's name.
 #pragma once
 
 #include <optional>

@@ -94,7 +94,7 @@ Visible deltas from the baseline:
   to Home. The Library layout picker has iiSU's "Pin navigation bar" option (here "on Library"),
   default on, kept in `settings.json` as `pinLibraryDock`; off gives iiSU's behaviour.
 - Library tools, openSU's own (iiSU has none of the filters or the sort). Global Search is iiSU's
-  panel (Ctrl+F, `/`, or a row of the START options): case- and accent-insensitive substring on the
+  panel (S, Ctrl+F, `/`, the bottom-left corner's Search prompt, or Search in the Guide menu off a game): case- and accent-insensitive substring on the
   title, prefix matches first, narrowing as typed. It is a toolkit card: the Search field, the
   results as rows under it (Start or Enter goes to them, A opens one); a keyboard types straight
   into the field, a pad gets the on-screen keyboard docked along the bottom fifth with the card
@@ -670,8 +670,8 @@ The GLFW reader this replaced had no mapping for the xone driver's Xbox
 controller, so its buttons never registered, and counted a Logitech K400 Plus as a
 controller; the keyboard path moved focus on every frame a key was down.
 
-Keyboard and pointer: `input::keyBindings` is the one key table (arrows/WASD, Enter/Space, Esc,
-F, Y, Tab = Select, E = Start, `[` `]`, R); `ShellApp::handleKeyboard` reads it and the prompts
+Keyboard and pointer: `input::keyBindings` is the one key table (arrows, Enter/Space, Esc,
+F, Y, Tab = Select, E = Start, `[` `]`, R, S = Search); `ShellApp::handleKeyboard` reads it and the prompts
 name its first key per button. `input::LastDevice` records which device gave the latest real
 input (a pad button, a key, a moving or clicking pointer; a still pointer, a pad connecting and
 the sticks inside the translator's threshold do not count); while it is the keyboard and mouse,

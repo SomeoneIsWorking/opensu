@@ -355,16 +355,17 @@ std::optional<Hud::PromptPanel> Hud::promptPanel(const std::vector<Prompt>& prom
         placed.body = Rect{start, floor - tall, x, tall};
         return placed;
     }
-    const float width = 2.0f * padding + placed.column + gap + labels;
-    const float height = panel.height(dp) * dp;
-    const float x = atEnd ? static_cast<float>(width_) - safe_.right - panel.rightInset * dp - width
-                          : safe_.left + panel.leftInset * dp;
-    placed.body = Rect{x, floor - height, width, height};
-
     // jj2.b: a Column of a32.b rows, centred vertically, rows centred on their tallest child.
     const float row = std::max(glyph, std::ceil(panel.labelLineHeight * dp));
     const auto count = static_cast<float>(prompts.size());
     const float content = count * row + (count - 1.0f) * panel.entrySpacing * dp;
+    const float width = 2.0f * padding + placed.column + gap + labels;
+    // iiSU's two entries tall, taller for a third.
+    const float height =
+        std::max(panel.height(dp) * dp, content + 2.0f * panel.paddingVertical * dp);
+    const float x = atEnd ? static_cast<float>(width_) - safe_.right - panel.rightInset * dp - width
+                          : safe_.left + panel.leftInset * dp;
+    placed.body = Rect{x, floor - height, width, height};
     float top = placed.body.centreY() - content * 0.5f;
     for (const Prompt& prompt : prompts) {
         placed.rows.emplace_back(prompt, Rect{placed.body.x, top, placed.body.width, row});

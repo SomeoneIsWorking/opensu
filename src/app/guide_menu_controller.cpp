@@ -195,8 +195,6 @@ std::vector<SettingsRow> GuideMenuController::places() const {
     } else {
         rows.push_back(action(homeId, "Home"));
         rows.push_back(action(libraryId, "Library"));
-    }
-    if (context_.page) {
         rows.push_back(action(searchId, "Search"));
     }
     rows.push_back(action(devicesId, "Devices"));

@@ -1,15 +1,15 @@
 // guide_menu_controller — what the Guide menu holds and does: one menu over the home screen or a
 // running game. Its places (the running game's actions, Keyboard among them where it can type
-// into the game, then Home, Library, Devices, Downloads, Settings and Power) stand beside the
-// changes made in place: the player's quick settings (`QuickSettings`, which sets them), the
-// screen's orientation and the profile played as, and, over Home or Library, what shapes that
-// page's shelf (`ShelfOptions`) and Search. A game's state commands go through `RetroSession`,
-// power through `host::Power` and the session switch through `host::SessionMode`. Every step that
-// throws something away (Close game, Load state, Reset game, Restart, Shut down, the session
-// switch) asks first, one rule. Save and close keeps the game where it is for its next start, and
-// the menu says when a game resumed. Over a game here, Invite to play and Players hold who may join
-// and who has, with Kick. Devices, Downloads and Settings open over the menu, so Back from them
-// returns to it as it was left.
+// into the game, then off a game Home, Library and Search; Devices, Downloads, Settings and Power)
+// stand beside the changes made in place: the player's quick settings (`QuickSettings`, which sets
+// them), the screen's orientation and the profile played as, and, over Home or Library, what shapes
+// that page's shelf (`ShelfOptions`). A game's state commands go through `RetroSession`, power
+// through `host::Power` and the session switch through `host::SessionMode`. Every step that throws
+// something away (Close game, Load state, Reset game, Restart, Shut down, the session switch) asks
+// first, one rule. Save and close keeps the game where it is for its next start, and the menu says
+// when a game resumed. Over a game here, Invite to play and Players hold who may join and who has,
+// with Kick. Devices, Downloads and Settings open over the menu, so Back from them returns to it as
+// it was left.
 #pragma once
 
 #include <functional>

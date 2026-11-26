@@ -32,8 +32,8 @@ void promptsNameTheBoundKeys() {
            "the shoulders are the brackets");
     expect(shortcuts.keyLabelFor(Button::Up) == "Up" &&
                shortcuts.keyLabelFor(Button::Left) == "Left",
-           "a direction shows its arrow before its letter");
-    expect(shortcuts.keyLabelFor(Button::Search) == "/", "the search's cap is the slash");
+           "a direction shows its arrow");
+    expect(shortcuts.keyLabelFor(Button::Search) == "S", "the search's cap is S");
     expect(shortcuts.keyLabelFor(Button::Guide) == "Shift+Tab", "Guide's cap is its chord");
     expect(!shortcuts.keyLabelForGlyph("LT") && !shortcuts.keyLabelForGlyph(""),
            "a button no key reaches, or an unknown glyph, has no key");
@@ -96,7 +96,12 @@ void shippedKeysAreUnchanged() {
     expect(presses(s, FakeKeys{{keys::F}, {keys::F}}, Action::X), "a bare F is X");
     expect(!s.actionFor(Combo{keys::Q}) && !s.actionFor(Combo{keys::Q, true, false}),
            "Q is no shortcut: the OS's own close quits openSU");
-    expect(presses(s, FakeKeys{{keys::W}, {keys::W}}, Action::Up), "W is up");
+    expect(!s.actionFor(Combo{keys::W}) && !s.actionFor(Combo{keys::A}) &&
+               !s.actionFor(Combo{keys::D}),
+           "only the arrows move focus: no WASD");
+    expect(presses(s, FakeKeys{{keys::S}, {keys::S}}, Action::Search) &&
+               presses(s, FakeKeys{{keys::Slash}, {keys::Slash}}, Action::Search),
+           "S and the slash open the search");
     expect(!presses(s, FakeKeys{{keys::LeftControl, keys::Up}, {keys::Up}}, Action::Up) &&
                presses(s, FakeKeys{{keys::LeftControl, keys::Up}, {keys::Up}}, Action::VolumeUp),
            "Ctrl+Up is the volume, not up");
@@ -142,12 +147,13 @@ void remapReplacesTheFirstBinding() {
     expect(s.rebind(Action::VolumeMute, Combo{keys::M, true, false}).empty() &&
                s.overrides().keys.empty(),
            "choosing the default again keeps no override");
-    expect(s.rebind(Action::Up, Combo{keys::I}).empty() &&
-               s.primary(Action::Up) == Combo{keys::I} && s.actionFor(Combo{keys::W}) == Action::Up,
+    expect(s.rebind(Action::Confirm, Combo{keys::I}).empty() &&
+               s.primary(Action::Confirm) == Combo{keys::I} &&
+               s.actionFor(Combo{keys::Space}) == Action::Confirm,
            "an action's other keys stay");
-    expect(s.keyLabelFor(Button::Up) == "I", "the prompts follow");
-    s.reset(Action::Up);
-    expect(s.primary(Action::Up) == Combo{keys::Up} && s.overrides().keys.empty(), "reset");
+    expect(s.keyLabelFor(Button::A) == "I", "the prompts follow");
+    s.reset(Action::Confirm);
+    expect(s.primary(Action::Confirm) == Combo{keys::Enter} && s.overrides().keys.empty(), "reset");
 }
 
 void conflictsAreRefused() {

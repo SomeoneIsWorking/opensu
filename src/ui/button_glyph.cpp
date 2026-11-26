@@ -45,6 +45,12 @@ constexpr float capLabelPadding = 0.18f;
 constexpr float arrowReach = 0.5f;
 constexpr float arrowHalfBase = 0.45f;
 
+// Search, which no pad button has, is a magnifier: a lens up and left of the centre and a handle
+// to the bottom right, in ring radii.
+constexpr float lensRadius = 0.62f;
+constexpr float lensOffset = 0.16f;
+constexpr float handleReach = 0.95f;
+
 bool isShoulder(std::string_view key) {
     return key == "LB" || key == "RB" || key == "LT" || key == "RT";
 }
@@ -69,7 +75,8 @@ Point arrowOf(std::string_view key) {
 /// Whether `key` has a glyph shape of its own; the rest (L3, GUIDE) draw as a cap with their name.
 bool hasShape(std::string_view key) {
     const Point arrow = arrowOf(key);
-    return key.size() == 1 || isShoulder(key) || arrow.x != 0.0f || arrow.y != 0.0f;
+    return key.size() == 1 || isShoulder(key) || key == "SEARCH" || arrow.x != 0.0f ||
+           arrow.y != 0.0f;
 }
 
 void roundBar(Canvas& canvas, Point from, Point to, float stroke, Colour ink) {
@@ -156,6 +163,19 @@ void paintCap(Canvas& canvas, gpu2d::ui::Typesetter& text, std::string_view labe
     text.drawCentred(canvas, label, Point{centre.x - textWidth * 0.5f, centre.y}, size, ink);
 }
 
+void paintMagnifier(Canvas& canvas, Point centre, float box, Colour ink) {
+    const float outer = pngRingOuter * box;
+    const float stroke = pngRingStroke * box;
+    const Point lens{centre.x - lensOffset * outer, centre.y - lensOffset * outer};
+    const float radius = lensRadius * outer;
+    ring(canvas, lens, radius - stroke, radius, ink);
+    // The handle starts on the lens's rim, on its diagonal.
+    const float rim = radius * std::numbers::sqrt2_v<float> * 0.5f;
+    const float end = handleReach * outer * std::numbers::sqrt2_v<float> * 0.5f;
+    roundBar(canvas, Point{lens.x + rim, lens.y + rim}, Point{centre.x + end, centre.y + end},
+             1.5f * stroke, ink);
+}
+
 void paintArrow(Canvas& canvas, Point direction, Point centre, float box, Colour ink) {
     const float outer = pngRingOuter * box;
     ring(canvas, centre, outer - pngRingStroke * box, outer, ink);
@@ -208,6 +228,10 @@ void ButtonGlyphPainter::paint(Canvas& canvas, std::string_view key, Point centr
     }
     if (isShoulder(key)) {
         paintShoulder(canvas, text_, key, centre, box, ink);
+        return;
+    }
+    if (key == "SEARCH") {
+        paintMagnifier(canvas, centre, box, ink);
         return;
     }
     if (key == "-" || key == "+") {

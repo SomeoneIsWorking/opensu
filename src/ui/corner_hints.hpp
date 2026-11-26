@@ -22,6 +22,8 @@ struct HintContext {
     bool options{false};
     /// START opens a menu.
     bool menu{false};
+    /// The search key or a tap opens the search; a pad has no Search button.
+    bool search{false};
 };
 
 struct Prompt {
@@ -34,7 +36,7 @@ struct Prompt {
     bool operator==(const Prompt&) const = default;
 };
 
-/// The bottom-left panel: B Back or Clear search, - Options.
+/// The bottom-left panel: B Back or Clear search, - Options, Search.
 [[nodiscard]] std::vector<Prompt> startPrompts(const HintContext& context);
 /// The bottom-right panel: A Select or Details, + Menu.
 [[nodiscard]] std::vector<Prompt> endPrompts(const HintContext& context);
