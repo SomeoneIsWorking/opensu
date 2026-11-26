@@ -75,3 +75,13 @@ them to `chordsOn`'s source when it lands.
   (keyboard, pointer and the buttons that are not part of a chord), and a chord played under it
   still works.
 - Whether 500 ms suits a real pad (SteamOS's delay is not measured here).
+
+## On the Ally (open)
+
+Reported by the player (2026-11-26): "on Ally, I held Guide but chord dialog didn't show up". The
+list shows when the hold is sent through the control channel (`/input "guide 1500ms"`), so the
+shell side works. The Ally's MCU (`0b05:1abe`) was missing from USB after a suspend resume, so the
+physical Control Center button sent nothing; a warm reboot did not bring it back and it needs a full
+power-off. Once it is back: record the button's events to see whether the firmware sends Guide as a
+short momentary tap (InputPlumber maps short to Guide and long to Keyboard), in which case a hold
+can never reach openSU and the chord list needs another way in.

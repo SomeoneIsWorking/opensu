@@ -82,3 +82,11 @@ layouts, and its local seats, split screen and online play. Touch controls that 
 game's state follow Steam Input's model: the manifest holds every set, and the game names the
 active one at run time (one line on openSU's control channel, as Steam's `ActivateActionSet`),
 so the overlay swaps layouts; a game that says nothing keeps its one default set.
+
+## An openSU distro
+
+The player (2026-11-24): "I don't think I like Bazzite anymore, I'd much rather either install
+Fedora KDE on this with openSU or just go nuts making my own openSU distro (again Fedora KDE based
+but immutable)"; then (2026-11-26) "Regarding custom distro I said KDE but Gnome is more touch
+friendly right?" Answered: GNOME is the better touch desktop; KDE has the handheld gaming
+ecosystem (Bazzite and SteamOS desktop mode, XWayland scaling). Undecided.
