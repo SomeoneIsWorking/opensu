@@ -290,6 +290,10 @@ fs::path ownPrefix(const fs::path& dataDir, const Game& game) {
     return dataDir / ownPrefixesName / name;
 }
 
+bool picksPrefix(const Game& game) {
+    return game.windowsInstall && isGameStore(game.source);
+}
+
 fs::path prefixFor(const fs::path& dataDir, const Game& game, const OwnPrefixes& own) {
     if (!game.winePrefix.empty()) {
         return game.winePrefix;

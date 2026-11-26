@@ -380,7 +380,7 @@ void nothingInstalledLeadsWithInstall(const fs::path& dir) {
 
 void aStoreSectionFollowsItsInstall(const fs::path& dir) {
     Rig rig{dir};
-    rig.copies = {storeCopy(library::Source::Steam, "steam:1", true),
+    rig.copies = {storeCopy(library::Source::Gog, "gog:1", true),
                   storeCopy(library::Source::Epic, "epic:h", false)};
     rig.copies[0].windowsInstall = true;
     rig.copies[1].windowsInstall = true;
@@ -392,7 +392,7 @@ void aStoreSectionFollowsItsInstall(const fs::path& dir) {
             return row.kind == ui::RowKind::Heading && row.label == store;
         });
     };
-    expect(heading("Steam") && !heading("Epic"), "only what is installed has a section");
+    expect(heading("GOG") && !heading("Epic"), "only what is installed has a section");
     rig.installingId = "epic:h";
     rig.controller.refresh();
     expect(heading("Epic"), "a copy on its way has one too");

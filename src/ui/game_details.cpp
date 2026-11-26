@@ -13,6 +13,7 @@
 #include "library/rom_systems.hpp"
 #include "library/store_builds.hpp"
 #include "library/titles.hpp"
+#include "library/wine.hpp"
 #include "lucent/text.h"
 
 namespace opensu::ui {
@@ -317,7 +318,7 @@ std::vector<SettingsRow> copyRows(const PageCopy& copy) {
                                   Options{{std::string{library::ownSystemName}, "Windows"},
                                           copy.settings.windowsBuild ? 1U : 0U}));
     }
-    if (game.windowsInstall && game.source != library::Source::Own) {
+    if (library::wine::picksPrefix(game)) {
         rows.push_back(makeChoice(std::string{detailsWinePrefixId}, "Wine prefix", {},
                                   Options{{std::string{sharedPrefix}, std::string{ownPrefix}},
                                           copy.ownWinePrefix ? 1U : 0U}));

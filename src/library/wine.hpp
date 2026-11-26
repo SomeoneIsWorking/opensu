@@ -120,6 +120,10 @@ class OwnPrefixes {
 [[nodiscard]] std::filesystem::path prefixFor(const std::filesystem::path& dataDir,
                                               const Game& game, const OwnPrefixes& own);
 
+/// Whether the player picks `game`'s prefix, the shared one or its own: a GOG or Epic Windows
+/// install. An added `.exe` always has its own, and fumarole picks the prefix of a game it runs.
+[[nodiscard]] bool picksPrefix(const Game& game);
+
 /// Where umu-launcher keeps the Steam Linux Runtime it fetches (`UMU_FOLDERS_PATH`), so nothing
 /// lands in the player's own Steam or umu folders.
 [[nodiscard]] std::filesystem::path umuFolders(const std::filesystem::path& dataDir);

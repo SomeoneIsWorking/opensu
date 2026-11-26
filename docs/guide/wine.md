@@ -33,4 +33,5 @@ Every such game shares one prefix, `$XDG_DATA_HOME/opensu/wine-prefix`. A game's
 Wine prefix: switch it to Own and that game gets
 `$XDG_DATA_HOME/opensu/wine-prefixes/<store>-<id>` instead. Plain Wine never runs in a prefix
 Proton made (Proton links its own DLLs into it); it gets the same path with `.plain-wine` added.
-Uninstalling a game never deletes a prefix.
+Uninstalling a game never deletes a prefix. A Steam game fumarole runs is in fumarole's own prefix,
+so its details page has no Wine prefix row.

@@ -306,6 +306,12 @@ void winePrefix() {
     expect(winePrefixOf(own)->value == ownPrefix, "a game with its own prefix says so");
     const std::vector<SettingsRow> plain = settingsPageRows(hades(), false);
     expect(winePrefixOf(plain) == nullptr, "a game that does not run under Wine has no prefix row");
+    Game fumarole = windows;
+    fumarole.id = "steam:2";
+    fumarole.source = Source::Steam;
+    fumarole.fromFumarole = true;
+    expect(winePrefixOf(settingsPageRows(fumarole, false)) == nullptr,
+           "a Windows install fumarole runs has no prefix row: fumarole picks it");
 
     Game epic = windows;
     epic.id = "epic:2";
