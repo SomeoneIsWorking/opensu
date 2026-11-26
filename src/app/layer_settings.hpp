@@ -33,6 +33,8 @@ class LayerSettings {
     /// The scope row `id` opens the editor on, or nothing for another row.
     [[nodiscard]] std::optional<EditorContext> contextOf(std::string_view id) const;
     [[nodiscard]] static bool owns(const std::string& id);
+    /// The row that opens the editor on console `system`'s settings.
+    [[nodiscard]] static std::string systemRowId(std::string_view system);
 
     /// How many games have an emulator pick of their own.
     [[nodiscard]] std::size_t gamePicks() const;

@@ -164,6 +164,9 @@ class SettingsController final : public ui::RowActions {
     /// Library › Import from a PC on your network: Settings › LAN, with the page `LanRoms::entry`
     /// names over it when there is one.
     void openLanImport();
+    /// Where a Library tile's Configure leads: a store's switch in Integrations, LAN for another
+    /// openSU, Library's game folders for the player's own games, a console's settings.
+    void configure(const library::Folder& folder);
     /// Back on the categories, or the menu button anywhere: closes Settings, asking first when
     /// Integrations has changes not applied. Stays when it asked.
     [[nodiscard]] gpu2d::ui::Screen::BackReply leave();

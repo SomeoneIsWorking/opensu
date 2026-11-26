@@ -85,20 +85,28 @@ void menuEntriesFollowTheTile() {
                ids({app::menuLaunchId, app::menuDetailsId, app::menuHideId}),
            "a ROM is never uninstalled");
     expect(idsOf(app::contextEntriesFor(library::Console{}, false, std::nullopt)) ==
-               ids({app::menuOpenId, app::menuRefreshId}),
-           "a console opens");
+               ids({app::menuOpenId, app::menuConfigureId, app::menuRefreshId}),
+           "a console opens and is configured");
     expect(idsOf(app::contextEntriesFor(library::Launcher{library::Source::Gog, 0, false, false},
                                         false, std::nullopt)) ==
-               ids({app::menuOpenId, app::menuSignInId, app::menuRefreshId}),
+               ids({app::menuOpenId, app::menuConfigureId, app::menuSignInId, app::menuRefreshId}),
            "a GOG launcher without a sign-in offers one");
     expect(idsOf(app::contextEntriesFor(library::Launcher{library::Source::Gog, 3, true, false},
                                         false, std::nullopt)) ==
-               ids({app::menuOpenId, app::menuRefreshId}),
+               ids({app::menuOpenId, app::menuConfigureId, app::menuRefreshId}),
            "a ready store does not");
     expect(idsOf(app::contextEntriesFor(library::Launcher{library::Source::Steam, 0, false, false},
                                         false, std::nullopt)) ==
-               ids({app::menuOpenId, app::menuRefreshId}),
+               ids({app::menuOpenId, app::menuConfigureId, app::menuRefreshId}),
            "Steam has no sign-in of its own");
+    expect(idsOf(app::contextEntriesFor(library::Launcher{library::Source::Steam, 3, true, false},
+                                        false, false, true)) ==
+               ids({app::menuOpenId, app::menuConfigureId, app::menuAddHomeId,
+                    app::menuRefreshId, app::menuRemoveId}),
+           "a store that is on can be put on Home and removed, Remove last");
+    expect(idsOf(app::contextEntriesFor(library::Giveaways{}, false, std::nullopt)) ==
+               ids({app::menuOpenId, app::menuRefreshId}),
+           "Giveaways has nothing to configure");
     expect(idsOf(app::contextEntriesFor(installed, false, true)) ==
                ids({app::menuLaunchId, app::menuDetailsId, app::menuRemoveHomeId, app::menuHideId,
                     app::menuUninstallId}),
@@ -107,7 +115,7 @@ void menuEntriesFollowTheTile() {
                ids({app::menuLaunchId, app::menuDetailsId, app::menuAddHomeId, app::menuHideId}),
            "a ROM off Home can be added to it");
     expect(idsOf(app::contextEntriesFor(library::Console{}, false, false)) ==
-               ids({app::menuOpenId, app::menuAddHomeId, app::menuRefreshId}),
+               ids({app::menuOpenId, app::menuConfigureId, app::menuAddHomeId, app::menuRefreshId}),
            "a console can be added to Home");
 }
 
@@ -181,6 +189,19 @@ void hidingPersistsAndMenuRoutes(const fs::path& root) {
                                       .signIn =
                                           [&](library::Source) {
                                               log.emplace_back("signin");
+                                          },
+                                      .configure =
+                                          [&](const library::Folder& folder) {
+                                              log.push_back("configure " + library::key(folder));
+                                          },
+                                      .removable =
+                                          [](const library::Launcher& launcher) {
+                                              return launcher.source == library::Source::Steam;
+                                          },
+                                      .remove =
+                                          [&](const library::Launcher& launcher) {
+                                              log.push_back("remove " +
+                                                            library::key(library::Folder{launcher}));
                                           }}};
     const auto open = [&] {
         controller.open();
@@ -263,8 +284,23 @@ void hidingPersistsAndMenuRoutes(const fs::path& root) {
 
     focus = library::Launcher{library::Source::Gog, 0, false, false};
     open();
-    press({Action::Down, Action::Accept});
+    press({Action::Down, Action::Down, Action::Accept});
     expect(log.back() == "signin", "sign in routes to the store");
+    open();
+    press({Action::Down, Action::Accept});
+    expect(log.back() == "configure launcher:gog", "Configure routes to where the store is set up");
+    focus = library::Launcher{library::Source::Steam, 3, true, false};
+    log.clear();
+    open();
+    expect(controller.entries().back().id == app::menuRemoveId, "an integration that is on is removable");
+    press({Action::Down, Action::Down, Action::Down, Action::Accept});
+    expect(top() == "dialog" && ui.navigator.top()->title() == "Remove Steam?" && log.empty(),
+           "Remove asks first, naming the library");
+    press({Action::Back});
+    expect(ui.navigator.top() == nullptr && log.empty(), "Back keeps it");
+    open();
+    press({Action::Down, Action::Down, Action::Down, Action::Accept, Action::Accept});
+    expect(log == std::vector<std::string>{"remove launcher:steam"}, "A, A removes it");
     focus = library::Console{"gc", "GameCube", 4};
     open();
     expect(controller.title() == "GameCube", "a folder's menu is titled with its name");

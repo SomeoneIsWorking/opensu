@@ -219,6 +219,20 @@ std::vector<AddTile> oneAdd() {
     return {AddTile{"add", "Add", "Stores, consoles, games"}};
 }
 
+void testLibraryOnHome() {
+    const std::vector<Game> games = library();
+    HomeChoices choices;
+    const Launcher steam{Source::Steam, 3, true};
+    expect(opensu::library::onHome(games, steam, choices) == false,
+           "a store's library is off Home until the player adds it");
+    opensu::library::setOnHome(games, steam, true, choices);
+    const std::vector<ShelfItem> home = opensu::library::homeShelf(games, allReady(), {}, choices);
+    expect(launcherAt(home, 0) != nullptr && launcherAt(home, 0)->source == Source::Steam &&
+               consoleAt(home, 1) != nullptr,
+           "added, Steam's library stands first, in Library's order before the consoles");
+    expect(opensu::library::onHome(games, steam, choices) == true, "and reads as on Home");
+}
+
 void testEmptyHome() {
     const std::vector<SourceStatus> listed{{Source::Rom, Availability::Ready, {}}};
     const std::vector<ShelfItem> empty = opensu::library::homeShelf({}, listed, oneAdd(), {});
@@ -522,6 +536,7 @@ int main() try {
     try {
         testHomeShelf();
         testHomeChoices();
+        testLibraryOnHome();
         testVersionsOnHome();
         testPairedHomes();
         testEmptyHome();

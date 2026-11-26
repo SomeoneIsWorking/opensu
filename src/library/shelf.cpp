@@ -111,6 +111,9 @@ std::optional<std::pair<std::string, bool>> homeSlotOf(const std::vector<Game>& 
     if (const auto* console = std::get_if<Console>(&item)) {
         return std::pair{HomeChoices::consoleKey(console->system), consoleOnHomeByDefault};
     }
+    if (const auto* launcher = std::get_if<Launcher>(&item)) {
+        return std::pair{key(Folder{*launcher}), libraryOnHomeByDefault};
+    }
     return std::nullopt;
 }
 
@@ -195,11 +198,19 @@ std::vector<const Title*> homeTitles(const std::vector<Game>& games,
     return home;
 }
 
-/// Each paired openSU's Home after this one's: its launcher, then the games on its Home in its
-/// order, as their titles, leaving out the titles in `shown`.
+/// Each paired openSU's Home after this one's: its launcher, unless the player put it on Home
+/// already, then the games on its Home in its order, as their titles, leaving out the titles in
+/// `shown`.
 void appendPairedHomes(std::vector<ShelfItem>& shelf, const std::vector<Game>& games,
                        const std::vector<Title>& titles, const std::vector<SourceStatus>& sources,
                        std::unordered_set<const Title*> shown) {
+    const auto onHome = [&shelf](const Launcher& host) {
+        return std::ranges::any_of(shelf, [&host](const ShelfItem& item) {
+            const auto* launcher = std::get_if<Launcher>(&item);
+            return launcher != nullptr && launcher->hostId == host.hostId &&
+                   launcher->source == Source::Remote;
+        });
+    };
     const auto lan = std::ranges::find(sources, Source::Remote, &SourceStatus::source);
     if (lan == sources.end()) {
         return;
@@ -228,7 +239,9 @@ void appendPairedHomes(std::vector<ShelfItem>& shelf, const std::vector<Game>& g
             }
         }
         if (!section.empty()) {
-            shelf.emplace_back(std::move(host));
+            if (!onHome(host)) {
+                shelf.emplace_back(std::move(host));
+            }
             std::ranges::move(section, std::back_inserter(shelf));
         }
     }
@@ -262,9 +275,9 @@ std::vector<ShelfItem> homeShelf(const std::vector<Game>& games,
                                  const std::vector<SourceStatus>& sources,
                                  const std::vector<AddTile>& adds, const HomeChoices& choices) {
     std::vector<ShelfItem> shelf;
-    for (Console& console : consoles(games)) {
-        if (choices.holds(HomeChoices::consoleKey(console.system), consoleOnHomeByDefault)) {
-            shelf.emplace_back(std::move(console));
+    for (ShelfItem& item : libraryShelf(games, sources, {})) {
+        if (const auto slot = homeSlotOf(games, item); slot && choices.holds(slot->first, slot->second)) {
+            shelf.push_back(std::move(item));
         }
     }
     const std::vector<Title> titles = gameTitles(games);

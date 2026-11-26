@@ -35,6 +35,23 @@ std::vector<IntegrationEntry> integrationEntries() {
     return offered;
 }
 
+std::string_view integrationOf(library::Source source) noexcept {
+    switch (source) {
+    case library::Source::Steam:
+        return "steam";
+    case library::Source::Epic:
+        return "epic";
+    case library::Source::Gog:
+        return "gog";
+    case library::Source::Remote:
+        return "lan";
+    case library::Source::Rom:
+    case library::Source::Own:
+        return {};
+    }
+    return {};
+}
+
 bool* switchOf(settings::IntegrationChoices& choices, std::string_view id) noexcept {
     if (id == "steam") {
         return &choices.steam;

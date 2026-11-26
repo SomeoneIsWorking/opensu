@@ -225,6 +225,22 @@ void ShellApp::applyIntegrations() {
     settingsScreen_.refresh();
 }
 
+void ShellApp::removeLibrary(const library::Launcher& launcher) {
+    if (launcher.source == library::Source::Remote) {
+        lan_.forget(launcher.hostId);
+        return;
+    }
+    settings::IntegrationChoices chosen = integrations_.choices();
+    bool* on = switchOf(chosen, integrationOf(launcher.source));
+    if (on == nullptr || !*on) {
+        return;
+    }
+    *on = false;
+    integrations_.choose(chosen);
+    applyIntegrations();
+    shell_.setToast(library::name(library::Folder{launcher}) + " removed", false);
+}
+
 void ShellApp::applyLayout() {
     const settings::Settings& chosen = preferences_.values();
     ui::HomeGrid& grid = shell_.grid();

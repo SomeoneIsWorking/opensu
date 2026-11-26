@@ -6,6 +6,7 @@
 #include <string_view>
 #include <vector>
 
+#include "library/game.hpp"
 #include "settings/integrations.hpp"
 
 namespace opensu::app {
@@ -22,6 +23,10 @@ struct IntegrationEntry {
 /// Steam, Epic, GOG, standalone emulators, Lua plugins, the LAN: those this build can serve (Steam
 /// when its client has a mode, Epic and GOG where their command-line clients run).
 [[nodiscard]] std::vector<IntegrationEntry> integrationEntries();
+
+/// The entry whose integration lists `source`'s games: "steam", "epic", "gog", "lan"; empty for a
+/// source that is always on.
+[[nodiscard]] std::string_view integrationOf(library::Source source) noexcept;
 
 /// The switch of `choices` the entry `id` is, or null for no entry.
 [[nodiscard]] bool* switchOf(settings::IntegrationChoices& choices, std::string_view id) noexcept;

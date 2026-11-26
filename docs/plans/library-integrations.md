@@ -1,6 +1,6 @@
 # Library as integrations
 
-Status: planned (2026-11-26).
+Status: stages 1 and 2 built (2026-11-26); 3 to 5 planned.
 
 The player: "first we don't show any games in library view, only sub libraries like steam and
 consoles and such then remove all the add buttons there and just put one add button at the end,
@@ -48,16 +48,22 @@ last page.
 
 ## Start on a sub-library
 
-Start on a Library tile opens its context menu:
+The tile menu (Select, the shell's menu button for a tile; Start stays the Guide menu) on a Library
+tile:
 
 - Configure: the integration's own settings page (Steam's mode and controllers, Steam libraries;
   Epic and GOG accounts; a console's ROM folders and emulator).
-- Remove: turns the integration off after a question; for a console, takes its ROM folder away.
+- Remove: turns the integration off after a question, or forgets another openSU. Only offered
+  where there is something to turn off: Steam listed through fumarole alone has no switch yet
+  (stage 3 makes fumarole Steam's integration type). A console has none yet: ROM folders are not
+  kept per console.
 - Add to Home / Remove from Home: puts the sub-library on Home as a library tile, which opens it.
 
 ## Settings
 
-Settings › Integrations goes. Its rows move to each integration's Configure page.
+Settings › Integrations goes. Its rows move to each integration's Configure page. Until then
+Configure leads to the integration's switch there, LAN for another openSU, Library's game folders
+for the player's own games, and the console's settings for a console.
 
 ## Order of work
 

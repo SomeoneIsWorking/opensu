@@ -1,6 +1,6 @@
 // home_choices — what the player put on Home or took off it, against what Home holds unasked
-// (`onHomeByDefault`, `consoleOnHomeByDefault`): a game by its `choiceKey`, a console by its
-// system. A choice is kept only while it differs from the default, so a game the player never
+// (`onHomeByDefault`, `consoleOnHomeByDefault`, `libraryOnHomeByDefault`): a game by its
+// `choiceKey`, a console by its system, another sub-library by its folder key. A choice is kept only while it differs from the default, so a game the player never
 // touched follows the default.
 #pragma once
 
@@ -28,10 +28,13 @@ enum class HomeChoice : std::uint8_t {
 [[nodiscard]] bool onHomeByDefault(const Game& game) noexcept;
 /// A console, which has at least one ROM, is on Home unless the player took it off.
 inline constexpr bool consoleOnHomeByDefault = true;
+/// A store's or another openSU's library is on Home only once the player added it.
+inline constexpr bool libraryOnHomeByDefault = false;
 
 class HomeChoices {
   public:
-    /// A game's `choiceKey` or a console's `consoleKey`, to the player's choice.
+    /// A game's `choiceKey`, a console's `consoleKey` or a library's folder key, to the player's
+    /// choice.
     using Entries = std::map<std::string, HomeChoice>;
 
     HomeChoices() = default;

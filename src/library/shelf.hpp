@@ -95,7 +95,8 @@ using ShelfItem = std::variant<Game, Console, Launcher, Giveaways, AddTile>;
 [[nodiscard]] std::vector<std::string> homeGameIds(const std::vector<Game>& games,
                                                    const HomeChoices& choices);
 
-/// Home: the consoles the player added, in Library's order, then the games in `games`' order (the
+/// Home: the sub-libraries on it, in Library's order (consoles unless the player took them off;
+/// stores and other openSUs once the player added them), then the games in `games`' order (the
 /// library's sort): each game once, as its preferred version (`gameTitles`), when that is a store
 /// game or one of the player's own installed here, unless the player took it off, and each game the
 /// player added whose preferred version is a ROM, not installed or on another openSU. With none of
@@ -107,12 +108,12 @@ using ShelfItem = std::variant<Game, Console, Launcher, Giveaways, AddTile>;
                                                const std::vector<AddTile>& adds,
                                                const HomeChoices& choices);
 
-/// Whether `item` is on Home: a game as its title's preferred copy in `games`, or a console;
-/// nothing for a tile that cannot be put on Home.
+/// Whether `item` is on Home: a game as its title's preferred copy in `games`, a console or a
+/// store's or another openSU's library; nothing for a tile that cannot be put on Home.
 [[nodiscard]] std::optional<bool> onHome(const std::vector<Game>& games, const ShelfItem& item,
                                          const HomeChoices& choices);
 
-/// Puts `item`, a game or a console, on Home or takes it off.
+/// Puts `item`, a game or a sub-library, on Home or takes it off.
 void setOnHome(const std::vector<Game>& games, const ShelfItem& item, bool on,
                HomeChoices& choices);
 

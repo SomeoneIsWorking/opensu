@@ -77,6 +77,10 @@ std::optional<ui::SettingsCategory> LayerSettings::listPage(std::string_view id)
     return page;
 }
 
+std::string LayerSettings::systemRowId(std::string_view system) {
+    return std::string{openSystemId} + std::string{system};
+}
+
 std::optional<EditorContext> LayerSettings::contextOf(std::string_view id) const {
     if (id == openGlobalId) {
         return layered_.forGlobal();

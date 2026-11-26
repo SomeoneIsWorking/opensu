@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <memory>
+#include <variant>
 
 #include "build_version.hpp"
+#include "integration_options.hpp"
 #include "interface_size_setting.hpp"
 #include "layered_editor.hpp"
 #include "library/add_game_offer.hpp"
@@ -32,6 +34,7 @@ constexpr const char* hiddenId = "hidden";
 constexpr const char* emulatorsId = "emulators";
 constexpr const char* steamAddId = "steam.add";
 constexpr const char* gameAddId = "games.add";
+constexpr const char* libraryCategoryId = "library";
 constexpr const char* gameForgetId = "games.forget";
 constexpr const char* steamResetId = "steam.reset";
 constexpr const char* soundsId = "uiSounds";
@@ -197,7 +200,7 @@ ui::SettingsCategory SettingsController::appearancePage() const {
 
 ui::SettingsCategory SettingsController::libraryPage() const {
     const settings::Settings& v = preferences_.values();
-    ui::SettingsCategory page{"library", "Library", {}};
+    ui::SettingsCategory page{libraryCategoryId, "Library", {}};
     page.rows.push_back(ui::makeHeading("What shows"));
     page.rows.push_back(ui::makeRow("library.home", RowKind::Info, "Home",
                                     "Your installed games and consoles, plus what you add; Add to "
@@ -501,6 +504,22 @@ void SettingsController::openLanImport() {
     show(std::string{LanSettings::categoryId}, {});
     if (std::optional<std::string> entry = lanRoms_.entry()) {
         openPage(*entry);
+    }
+}
+
+void SettingsController::configure(const library::Folder& folder) {
+    if (const auto* console = std::get_if<library::Console>(&folder)) {
+        show(std::string{EmulatorSettings::categoryId}, {});
+        openPage(LayerSettings::systemRowId(console->system));
+        return;
+    }
+    const library::Source source = std::get<library::Launcher>(folder).source;
+    if (source == library::Source::Remote) {
+        show(std::string{LanSettings::categoryId}, {});
+    } else if (const std::string_view entry = integrationOf(source); !entry.empty()) {
+        show(std::string{IntegrationSettings::categoryId}, IntegrationSettings::rowId(entry));
+    } else {
+        show(libraryCategoryId, gameAddId);
     }
 }
 

@@ -1,7 +1,9 @@
 // context_menu_controller — the menu a focused tile opens (iiSU: SELECT on a ROM, `pb0.java:2086`;
 // right click on a tile) and what its entries do. The tile it is open for is kept, so an entry
 // acts on it whatever the grid does meanwhile. Each entry closes the menu and does its one thing;
-// Uninstall asks first through `confirm`, naming what goes.
+// Uninstall and Remove ask first through `confirm`, naming what goes. A sub-library (a store,
+// another openSU, the player's own games, a console) offers Configure, and one the shell says is
+// removable (an integration that is on, another openSU) Remove.
 #pragma once
 
 #include <functional>
@@ -35,11 +37,16 @@ inline constexpr std::string_view menuUninstallId = "menu.uninstall";
 inline constexpr std::string_view menuOpenId = "menu.open";
 inline constexpr std::string_view menuSignInId = "menu.signIn";
 inline constexpr std::string_view menuRefreshId = "menu.refresh";
+inline constexpr std::string_view menuConfigureId = "menu.configure";
+inline constexpr std::string_view menuRemoveId = "menu.remove";
 
 /// What the menu offers for `item`, first entry first. `hidden` is whether a game is hidden now;
-/// `onHome` whether the tile is on Home, nothing for one that cannot be put there.
-[[nodiscard]] std::vector<ui::SettingsRow>
-contextEntriesFor(const library::ShelfItem& item, bool hidden, std::optional<bool> onHome);
+/// `onHome` whether the tile is on Home, nothing for one that cannot be put there; `removable`
+/// whether a store's or openSU's tile can be taken out of the library.
+[[nodiscard]] std::vector<ui::SettingsRow> contextEntriesFor(const library::ShelfItem& item,
+                                                             bool hidden,
+                                                             std::optional<bool> onHome,
+                                                             bool removable = false);
 
 class ContextMenuController final : public ui::RowActions {
   public:
@@ -59,6 +66,14 @@ class ContextMenuController final : public ui::RowActions {
         std::function<void(const library::Folder& folder)> open;
         std::function<void()> refresh;
         std::function<void(library::Source source)> signIn;
+        /// Opens where `folder` is set up: its integration, LAN, the game folders, its console.
+        std::function<void(const library::Folder& folder)> configure;
+        /// Whether `launcher` can be taken out of the library: an integration that is on, or
+        /// another openSU.
+        std::function<bool(const library::Launcher& launcher)> removable;
+        /// Takes `launcher` out of the library: its store's integration off, or another openSU
+        /// forgotten.
+        std::function<void(const library::Launcher& launcher)> remove;
     };
 
     /// What the entries act on.
@@ -97,6 +112,8 @@ class ContextMenuController final : public ui::RowActions {
     [[nodiscard]] const gpu2d::ui::Screen* menu() const;
     /// Asks before uninstalling `game`, naming what goes, or says why it cannot be.
     void uninstall(const library::Game& game);
+    /// Asks before taking `launcher` out of the library.
+    void remove(const library::Launcher& launcher);
 
     gpu2d::ui::Navigator& navigator_;
     audio::SdlSoundPlayer& sounds_;

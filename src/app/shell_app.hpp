@@ -61,6 +61,7 @@
 #include "home_screen.hpp"
 #include "host_services.hpp"
 #include "input/keyboard_bindings.hpp"
+#include "integration_options.hpp"
 #include "integration_settings.hpp"
 #include "integration_switch.hpp"
 #include "integrations_in_force.hpp"
@@ -391,6 +392,9 @@ class ShellApp final {
     void pushCatalogToShell();
     /// Puts a change of the integrations into effect and shows it.
     void applyIntegrations();
+    /// Takes a Library tile's store or openSU out of the library: the store's integration off, or
+    /// the openSU forgotten.
+    void removeLibrary(const library::Launcher& launcher);
     const config::Config& environment_;
     Settings settings_;
     /// Where the player's files are kept: in place, or a hidden run's copies.
@@ -611,6 +615,16 @@ class ShellApp final {
             },
             [this](library::Source source) {
                 startSignIn(source == library::Source::Gog ? Store::Gog : Store::Epic);
+            },
+            [this](const library::Folder& folder) {
+                settingsScreen_.configure(folder);
+            },
+            [this](const library::Launcher& launcher) {
+                return launcher.source == library::Source::Remote ||
+                       switchOf(integrations_.choices(), integrationOf(launcher.source));
+            },
+            [this](const library::Launcher& launcher) {
+                removeLibrary(launcher);
             }}};
     /// Emulator downloads, updates and removals, off the loop.
     EmulatorDownloads emulatorDownloads_{

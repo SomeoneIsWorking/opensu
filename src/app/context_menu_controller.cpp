@@ -20,10 +20,11 @@ ui::SettingsRow entry(std::string_view id, std::string label) {
     return ui::makeRow(std::string{id}, ui::RowKind::Action, std::move(label), {}, {});
 }
 
+
 } // namespace
 
 std::vector<ui::SettingsRow> contextEntriesFor(const library::ShelfItem& item, bool hidden,
-                                               std::optional<bool> onHome) {
+                                               std::optional<bool> onHome, bool removable) {
     std::vector<ui::SettingsRow> entries;
     const auto homeEntry = [onHome] {
         return *onHome ? entry(menuRemoveHomeId, "Remove from Home")
@@ -46,15 +47,22 @@ std::vector<ui::SettingsRow> contextEntriesFor(const library::ShelfItem& item, b
         }
         return entries;
     }
+    const auto* launcher = std::get_if<library::Launcher>(&item);
+    const bool folder = library::folderOf(item).has_value();
     entries.push_back(entry(menuOpenId, "Open"));
+    if (folder) {
+        entries.push_back(entry(menuConfigureId, "Configure"));
+    }
     if (onHome) {
         entries.push_back(homeEntry());
     }
-    if (const auto* launcher = std::get_if<library::Launcher>(&item);
-        launcher != nullptr && needsSignIn(*launcher)) {
+    if (launcher != nullptr && needsSignIn(*launcher)) {
         entries.push_back(entry(menuSignInId, "Sign in"));
     }
     entries.push_back(entry(menuRefreshId, "Refresh library"));
+    if (launcher != nullptr && removable) {
+        entries.push_back(entry(menuRemoveId, "Remove"));
+    }
     return entries;
 }
 
@@ -84,7 +92,9 @@ void ContextMenuController::open() {
     } else if (const std::optional<library::Folder> folder = library::folderOf(*target_)) {
         title_ = library::name(*folder);
     }
-    entries_ = contextEntriesFor(*target_, hidden, hooks_.onHome(*target_));
+    const auto* launcher = std::get_if<library::Launcher>(&*target_);
+    entries_ = contextEntriesFor(*target_, hidden, hooks_.onHome(*target_),
+                                 launcher != nullptr && hooks_.removable(*launcher));
     // input-sound.md 3.4 OpenContextMenu: the home context menu becomes visible.
     sounds_.play(audio::Effect::OpenContextMenu);
     navigator_.push(std::make_unique<ContextMenuScreen>(*this));
@@ -123,6 +133,14 @@ void ContextMenuController::run(const std::string& id, int /*step*/) {
         if (const auto* launcher = std::get_if<library::Launcher>(&target)) {
             hooks_.signIn(launcher->source);
         }
+    } else if (id == menuConfigureId) {
+        if (const std::optional<library::Folder> folder = library::folderOf(target)) {
+            hooks_.configure(*folder);
+        }
+    } else if (id == menuRemoveId) {
+        if (const auto* launcher = std::get_if<library::Launcher>(&target)) {
+            remove(*launcher);
+        }
     } else if (game == nullptr) {
         return;
     } else if (id == menuUpdateId) {
@@ -132,6 +150,19 @@ void ContextMenuController::run(const std::string& id, int /*step*/) {
     } else if (id == menuUninstallId) {
         uninstall(*game);
     }
+}
+
+void ContextMenuController::remove(const library::Launcher& launcher) {
+    const std::string name = library::name(library::Folder{launcher});
+    const std::string what = launcher.source == library::Source::Remote
+                                 ? "This device forgets " + name +
+                                       " and its games; pair again to see them."
+                                 : name + "'s games leave the library. Add it again from Library's "
+                                          "Add tile.";
+    navigator_.push(gpu2d::ui::confirm("Remove " + name + "?", what, "Remove",
+                                       [this, launcher] {
+                                           hooks_.remove(launcher);
+                                       }));
 }
 
 void ContextMenuController::uninstall(const library::Game& game) {
