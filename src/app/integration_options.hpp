@@ -24,6 +24,9 @@ struct IntegrationEntry {
 /// when its client has a mode, Epic and GOG where their command-line clients run).
 [[nodiscard]] std::vector<IntegrationEntry> integrationEntries();
 
+/// What Steam mode `mode` means for the player, in one line.
+[[nodiscard]] std::string_view steamModeNote(settings::SteamMode mode) noexcept;
+
 /// The entry whose integration lists `source`'s games: "steam", "epic", "gog", "lan"; empty for a
 /// source that is always on.
 [[nodiscard]] std::string_view integrationOf(library::Source source) noexcept;

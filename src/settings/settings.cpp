@@ -80,6 +80,7 @@ constexpr const char* wineRunnerPinsKey = "wineRunnerPins";
 constexpr const char* keepGeProtonKey = "keepGeProtonCurrent";
 constexpr const char* integrationsKey = "integrations";
 constexpr const char* steamKey = "steam";
+constexpr const char* steamKindKey = "steamKind";
 constexpr const char* steamModeKey = "steamMode";
 constexpr const char* steamPadsKey = "steamPads";
 constexpr const char* epicKey = "epic";
@@ -189,9 +190,10 @@ class Reader {
                     continue;
                 }
                 const bool valid = ends.is_array() && ends.size() == 3 &&
-                                   std::ranges::all_of(ends, [](const json& end) {
-                                       return end.is_number_integer();
-                                   }) &&
+                                   std::ranges::all_of(ends,
+                                                       [](const json& end) {
+                                                           return end.is_number_integer();
+                                                       }) &&
                                    code.size() == 1 && code[0] >= '0' && code[0] <= '5';
                 if (!valid) {
                     reject(name, ends, fallback);
@@ -456,6 +458,15 @@ class Reader {
         entry.boolean(standaloneEmulatorsKey, choices.emulators, fallback);
         entry.boolean(luaPluginsKey, choices.plugins, fallback);
         entry.boolean(lanKey, choices.lan, fallback);
+        std::string kind;
+        entry.text(steamKindKey, kind, "using the Steam client");
+        if (!kind.empty()) {
+            choices.steamKind = steamKindOf(kind);
+            if (!choices.steamKind) {
+                lucent::warn("settings", "{}: {} is not a way to get Steam; using the Steam client",
+                             file_, kind);
+            }
+        }
         std::string mode;
         entry.text(steamModeKey, mode, "using the default Steam mode");
         if (!mode.empty()) {
@@ -510,7 +521,8 @@ Settings readDocument(const json& document, const std::string& file) {
     read.padCalibrations(padCalibrationsKey, settings.padCalibrations,
                          "that pad reads as it reports");
     read.text(ringLightColourKey, settings.ringLightColour, "the ring lights are left alone");
-    read.integer(ringLightBrightnessKey, 0, 100, settings.ringLightBrightness, "at full brightness");
+    read.integer(ringLightBrightnessKey, 0, 100, settings.ringLightBrightness,
+                 "at full brightness");
     std::string runner;
     read.text(wineRunnerKey, runner, "using the newest GE-Proton");
     settings.wineRunner = runner;
@@ -710,6 +722,9 @@ json documentOf(const Settings& settings) {
                       {standaloneEmulatorsKey, chosen.emulators},
                       {luaPluginsKey, chosen.plugins},
                       {lanKey, chosen.lan}};
+    if (chosen.steamKind) {
+        integrations[steamKindKey] = std::string{key(*chosen.steamKind)};
+    }
     if (chosen.steamMode) {
         integrations[steamModeKey] = std::string{key(*chosen.steamMode)};
     }
@@ -880,8 +895,8 @@ float uiScaleFactor(int percent) noexcept {
 }
 
 int offeredUiScale(int percent) noexcept {
-    const int steps = (std::clamp(percent, minUiScale, maxUiScale) - minUiScale + uiScaleStep / 2) /
-                      uiScaleStep;
+    const int steps =
+        (std::clamp(percent, minUiScale, maxUiScale) - minUiScale + uiScaleStep / 2) / uiScaleStep;
     return minUiScale + steps * uiScaleStep;
 }
 

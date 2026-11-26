@@ -19,18 +19,6 @@ constexpr const char* padsId = "integrations.steamPads";
 constexpr const char* alwaysId = "integrations.always";
 constexpr const char* applyId = "integrations.apply";
 
-std::string_view modeNote(SteamMode mode) {
-    switch (mode) {
-    case SteamMode::Managed:
-        return "openSU's own Steam, ended with openSU";
-    case SteamMode::Isolated:
-        return "openSU's own Steam, kept off the desktop";
-    case SteamMode::Normal:
-        break;
-    }
-    return "Your desktop Steam, left as it is";
-}
-
 SteamMode modeOf(SteamUse use) {
     switch (use) {
     case SteamUse::Managed:
@@ -38,6 +26,7 @@ SteamMode modeOf(SteamUse use) {
     case SteamUse::Isolated:
         return SteamMode::Isolated;
     case SteamUse::Normal:
+    case SteamUse::Fumarole:
     case SteamUse::Off:
         break;
     }
@@ -78,6 +67,7 @@ std::size_t IntegrationSettings::pendingCount() const {
     const settings::IntegrationChoices& now = integrations_.choices();
     const settings::IntegrationChoices& edit = *pending_;
     return static_cast<std::size_t>(now.steam != edit.steam) +
+           static_cast<std::size_t>(now.steamKind != edit.steamKind) +
            static_cast<std::size_t>(now.steamMode != edit.steamMode) +
            static_cast<std::size_t>(now.steamPads != edit.steamPads) +
            static_cast<std::size_t>(now.epic != edit.epic) +
@@ -100,13 +90,14 @@ ui::SettingsCategory IntegrationSettings::page() const {
     for (const IntegrationEntry& entry : integrationEntries()) {
         page.rows.push_back(ui::makeToggle(rowId(entry.id), std::string{entry.label},
                                            std::string{entry.note}, switchOf(choices, entry.id)));
-        if (entry.id != "steam" || !choices.steam) {
+        if (entry.id != "steam" || !choices.steam || now.steam == SteamUse::Fumarole) {
             continue;
         }
         const SteamMode mode = modeOf(now.steam);
         // A build whose Steam has one mode has nothing to choose.
         if (integrations_.modesOffered().size() > 1) {
-            page.rows.push_back(ui::makeChoice(modeId, "Steam mode", std::string{modeNote(mode)},
+            page.rows.push_back(ui::makeChoice(modeId, "Steam mode",
+                                               std::string{steamModeNote(mode)},
                                                optionsOf(integrations_.modesOffered(), mode)));
         }
         if (mode == SteamMode::Isolated) {

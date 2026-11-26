@@ -45,6 +45,7 @@
 #include "fileio/frame_record.hpp"
 #include "focus_follow.hpp"
 #include "frame_timing.hpp"
+#include "fumarole_sign_in.hpp"
 #include "game_backdrop.hpp"
 #include "game_launch.hpp"
 #include "game_match_controller.hpp"
@@ -64,6 +65,7 @@
 #include "integration_options.hpp"
 #include "integration_settings.hpp"
 #include "integration_switch.hpp"
+#include "integration_wizard.hpp"
 #include "integrations_in_force.hpp"
 #include "interface_sound_settings.hpp"
 #include "interface_sounds.hpp"
@@ -120,11 +122,11 @@
 #include "remote_touch.hpp"
 #include "retro/resume_file.hpp"
 #include "retro_session.hpp"
+#include "root_install_controller.hpp"
 #include "runner_relay.hpp"
 #include "save_copy_controller.hpp"
 #include "save_sharing.hpp"
 #include "search_controller.hpp"
-#include "root_install_controller.hpp"
 #include "session_mode_words.hpp"
 #include "settings_controller.hpp"
 #include "shared_saves.hpp"
@@ -330,8 +332,8 @@ class ShellApp final {
     /// Ends the running game from a menu.
     void closeRunningGame();
     /// Whether the loop goes on, `closeAsked` when the OS asked openSU to close: a close, from the
-    /// OS, the Guide's Quit openSU or the control channel, ends the running game first and openSU once it is gone; a
-    /// second one while it ends leaves at once.
+    /// OS, the Guide's Quit openSU or the control channel, ends the running game first and openSU
+    /// once it is gone; a second one while it ends leaves at once.
     [[nodiscard]] bool stillOpen(bool closeAsked);
     /// Shows the newest picture of a remote game and hands it to the shell to draw.
     void showGamePicture();
@@ -1523,6 +1525,31 @@ class ShellApp final {
                                   [this] {
                                       return guideMenu_.isOpen();
                                   }}};
+    /// fumarole's Steam sign-in, for the integration wizard.
+    FumaroleSignIn fumaroleSignIn_{
+        library::fumarole::Installs::find(environment_.executablePath, environment_.fumaroleDataDir)
+            .program,
+        environment_.cacheDir / "fumarole" / "sign-in-qr.png"};
+    /// Adding an integration from Library's Add page, Steam through its steps.
+    IntegrationWizard integrationWizard_{
+        integrations_,
+        shell_.screens().navigator(),
+        shell_.screens().chrome(),
+        shell_.screens().images(),
+        fumaroleSignIn_,
+        IntegrationWizard::Hooks{.add =
+                                     [this](const settings::IntegrationChoices& choices) {
+                                         integrations_.choose(choices);
+                                         applyIntegrations();
+                                     },
+                                 .signIn =
+                                     [this](Store store) {
+                                         startSignIn(store);
+                                     },
+                                 .toast =
+                                     [this](const std::string& text, bool error) {
+                                         shell_.setToast(text, error);
+                                     }}};
     /// Library's Add tile and the page it opens: the integrations not added, and what adds games.
     LibraryAdditions libraryAdditions_{
         integrations_, shell_.screens().navigator(), shell_.screens().chrome(),
@@ -1542,10 +1569,9 @@ class ShellApp final {
                                     [this] {
                                         settingsScreen_.openLanImport();
                                     },
-                                .setUp =
-                                    [this](const std::string& row) {
-                                        settingsScreen_.openAt(
-                                            std::string{IntegrationSettings::categoryId}, row);
+                                .addIntegration =
+                                    [this](std::string_view entry) {
+                                        integrationWizard_.start(entry);
                                     }}};
     std::unique_ptr<gamepad::PadSource> pads_{
         gamepad::openPadSource(PadOwner::padsFor(environment_.dataDir, settings_.hidden))};
@@ -1615,7 +1641,8 @@ class ShellApp final {
     DevicesController devicesScreen_{
         shell_.screens().navigator(), shell_.screens().chrome(),
         DevicesController::Services{bluetooth_.get(), roster_, outputs_, ringLights_,
-                                    padCalibration_}, sounds_,
+                                    padCalibration_},
+        sounds_,
         DevicesController::Hooks{[this](const std::string& text, bool isError) {
                                      shell_.setToast(text, isError);
                                  },
@@ -1632,25 +1659,23 @@ class ShellApp final {
     /// Installing session mode: its question and the root step through polkit. Null where there
     /// is no session mode.
     std::unique_ptr<RootInstallController> sessionInstall_{
-        host_.session
-            ? std::make_unique<RootInstallController>(
-                  shell_.screens().navigator(), *host_.session, sessionModeWords(),
-                  host_.polkit.get(), sounds_,
-                  [this](const std::string& text, bool isError) {
-                      shell_.setToast(text, isError);
-                  })
-            : nullptr};
+        host_.session ? std::make_unique<RootInstallController>(
+                            shell_.screens().navigator(), *host_.session, sessionModeWords(),
+                            host_.polkit.get(), sounds_,
+                            [this](const std::string& text, bool isError) {
+                                shell_.setToast(text, isError);
+                            })
+                      : nullptr};
     /// Installing the stick lights' helper: its question and the root step through polkit. Null
     /// where there is no helper.
     std::unique_ptr<RootInstallController> lightsInstall_{
-        host_.ringLights
-            ? std::make_unique<RootInstallController>(
-                  shell_.screens().navigator(), *host_.ringLights,
-                  RingLightSettings::installWords(), host_.polkit.get(), sounds_,
-                  [this](const std::string& text, bool isError) {
-                      shell_.setToast(text, isError);
-                  })
-            : nullptr};
+        host_.ringLights ? std::make_unique<RootInstallController>(
+                               shell_.screens().navigator(), *host_.ringLights,
+                               RingLightSettings::installWords(), host_.polkit.get(), sounds_,
+                               [this](const std::string& text, bool isError) {
+                                   shell_.setToast(text, isError);
+                               })
+                         : nullptr};
     /// The password polkit asks openSU's own agent for. Null without the agent.
     std::unique_ptr<PolkitPromptController> polkitPrompt_{
         host_.polkit ? std::make_unique<PolkitPromptController>(

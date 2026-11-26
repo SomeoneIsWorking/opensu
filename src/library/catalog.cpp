@@ -23,10 +23,9 @@ Catalog makeCatalog(const config::Config& config, bool hidden,
                     const std::filesystem::path& ownGames, roms::RomsetLists& romsets,
                     const CatalogStores& stores) {
     Catalog catalog;
-    // fumarole plays Steam's Windows games without the Steam client, so its installs are listed
-    // whether or not Steam is.
     fumarole::Installs fumaroleInstalls =
-        fumarole::Installs::find(config.executablePath, config.fumaroleDataDir);
+        stores.fumarole ? fumarole::Installs::find(config.executablePath, config.fumaroleDataDir)
+                        : fumarole::Installs{};
     if (stores.steam || !fumaroleInstalls.program.empty()) {
         catalog.add(std::make_unique<steam::Provider>(
             stores.steam ? steam::Library::discover(config.home, config.steamRoots)

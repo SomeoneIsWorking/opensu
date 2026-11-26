@@ -51,7 +51,9 @@ bool IntegrationsInForce::choose(const settings::IntegrationChoices& choices) {
 }
 
 library::CatalogStores IntegrationsInForce::catalogStores() const noexcept {
-    return library::CatalogStores{.steam = current_.lists(library::Source::Steam),
+    const bool steam = current_.lists(library::Source::Steam);
+    return library::CatalogStores{.steam = steam && current_.steam != settings::SteamUse::Fumarole,
+                                  .fumarole = steam,
                                   .epic = current_.lists(library::Source::Epic),
                                   .gog = current_.lists(library::Source::Gog),
                                   .standaloneEmulators = current_.emulators,
@@ -66,6 +68,7 @@ std::optional<steam::Client::Mode> IntegrationsInForce::steamMode() const noexce
         return steam::Client::Mode::Managed;
     case settings::SteamUse::Isolated:
         return steam::Client::Mode::Isolated;
+    case settings::SteamUse::Fumarole:
     case settings::SteamUse::Off:
         break;
     }

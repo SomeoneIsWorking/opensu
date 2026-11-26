@@ -7,9 +7,11 @@
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -17,12 +19,13 @@
 
 #include "audio/sdl_sound_player.hpp"
 #include "focus_follow.hpp"
+#include "fumarole_sign_in.hpp"
+#include "gpu2d/image_loader.hpp"
 #include "integration_settings.hpp"
 #include "integration_switch.hpp"
+#include "integration_wizard.hpp"
 #include "integrations_in_force.hpp"
 #include "library_additions.hpp"
-#include "ui/screen_stack.hpp"
-#include "ui/setting_row.hpp"
 #include "pad_owner.hpp"
 #include "plugin_service.hpp"
 #include "profiles/profile_book.hpp"
@@ -31,6 +34,9 @@
 #include "support/fake_interface_text.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
+#include "ui/screen_images.hpp"
+#include "ui/screen_stack.hpp"
+#include "ui/setting_row.hpp"
 
 namespace {
 
@@ -80,9 +86,9 @@ void libraryAddListsWhatIsOff(const fs::path& root) {
                                          [&pressed] {
                                              pressed.emplace_back("lan import");
                                          },
-                                     .setUp =
-                                         [&pressed](const std::string& row) {
-                                             pressed.push_back(row);
+                                     .addIntegration =
+                                         [&pressed](std::string_view entry) {
+                                             pressed.emplace_back(entry);
                                          }}};
     expect(additions.tiles().size() == 1 && additions.tiles().front().id == "add",
            "Library has one Add tile");
@@ -100,15 +106,14 @@ void libraryAddListsWhatIsOff(const fs::path& root) {
            "folder under Games, no LAN import while LAN is off");
     for (const std::string id : {"add-game", "add-game-folder", "add-rom-folder", "set-up:gog"}) {
         additions.press("add");
-        expect(screens.navigator.top() != nullptr &&
-                   screens.navigator.top()->id() == "library-add",
+        expect(screens.navigator.top() != nullptr && screens.navigator.top()->id() == "library-add",
                "Add opens the Add to library page");
         additions.run(id, 0);
         expect(screens.navigator.top() == nullptr, "a pick closes the page");
     }
-    expect(pressed == std::vector<std::string>{"add game", "add game folder", "add rom folder",
-                                               "integrations.gog"},
-           "each row does its own thing; an integration's opens its switch");
+    expect(pressed ==
+               std::vector<std::string>{"add game", "add game folder", "add rom folder", "gog"},
+           "each row does its own thing; an integration's adds it");
     settings::IntegrationChoices chosen;
     chosen.steam = true;
     chosen.lan = true;
@@ -121,6 +126,116 @@ void libraryAddListsWhatIsOff(const fs::path& root) {
     additions.press("add");
     additions.run("lan-import", 0);
     expect(pressed.back() == "lan import", "and opens the LAN's ROM import");
+}
+
+bool waitFor(const std::function<bool()>& holds);
+
+/// A stand-in fumarole whose `auth --qr <png>` writes the picture and signs in.
+fs::path fakeFumarole(const fs::path& dir) {
+    fs::create_directories(dir);
+    const fs::path program = dir / "fumarole";
+    {
+        std::ofstream out{program};
+        out << "#!/bin/sh\n[ \"$2\" = --qr ] && printf qr > \"$3\"\nexit 0\n";
+    }
+    fs::permissions(program, fs::perms::owner_all);
+    return program;
+}
+
+std::string topId(const test::InterfaceRig& screens) {
+    const gpu2d::ui::Screen* top = screens.navigator.top();
+    return top == nullptr ? std::string{} : top->id();
+}
+
+/// The wizard Library's Add page starts: Steam through fumarole or the client, in its mode, and
+/// the other integrations added at once.
+void wizardAddsIntegrations(const fs::path& root, bool loginSession) {
+    app::Preferences preferences = preferencesIn(root / "wizard");
+    app::IntegrationsInForce inForce{preferences, loginSession};
+    test::InterfaceRig screens;
+    gpu2d::ImageLoader loader;
+    ui::ScreenImages images{loader};
+    const ui::Chrome chrome{.width = 1280.0f};
+    app::FumaroleSignIn fumarole{fakeFumarole(root / "wizard-bin"), root / "wizard-qr" / "qr.png"};
+    std::vector<std::string> toasts;
+    std::vector<app::Store> signIns;
+    app::IntegrationWizard wizard{
+        inForce,
+        screens.navigator,
+        chrome,
+        images,
+        fumarole,
+        app::IntegrationWizard::Hooks{.add =
+                                          [&inForce](const IntegrationChoices& choices) {
+                                              inForce.choose(choices);
+                                          },
+                                      .signIn =
+                                          [&signIns](app::Store store) {
+                                              signIns.push_back(store);
+                                          },
+                                      .toast =
+                                          [&toasts](const std::string& text, bool) {
+                                              toasts.push_back(text);
+                                          }}};
+    const bool client = !inForce.modesOffered().empty();
+
+    wizard.start("steam");
+    if (client) {
+        expect(topId(screens) == "wizard/steam-kind", "Steam asks how its games come");
+        wizard.run("wizard.kind.fumarole", 0);
+    }
+    expect(topId(screens) == "wizard/steam-login", "fumarole asks how to sign in");
+    expect(!inForce.choices().steam, "nothing is added before the last step");
+    wizard.run("wizard.login.later", 0);
+    screens.frame();
+    expect(topId(screens).empty() && inForce.current().steam == SteamUse::Fumarole,
+           "Sign in later adds Steam through fumarole and closes the steps");
+    expect(!inForce.catalogStores().steam && inForce.catalogStores().fumarole,
+           "the catalog lists fumarole's games, not the Steam client's");
+
+    inForce.choose({});
+    wizard.start("steam");
+    if (client) {
+        wizard.run("wizard.kind.fumarole", 0);
+    }
+    wizard.run("wizard.login.qr", 0);
+    expect(topId(screens) == "wizard/fumarole-qr", "the QR code shows while fumarole waits");
+    expect(waitFor([&] {
+               wizard.service();
+               screens.frame();
+               return inForce.choices().steam;
+           }),
+           "a signed-in fumarole adds Steam");
+    expect(topId(screens).empty() && toasts.back() == "Steam added. Signed in to Steam",
+           "and closes the steps");
+
+    if (client) {
+        inForce.choose({});
+        wizard.start("steam");
+        wizard.run("wizard.kind.client", 0);
+        if (loginSession || inForce.modesOffered().size() < 2) {
+            expect(inForce.choices().steamKind == settings::SteamKind::Client &&
+                       inForce.current().steam != SteamUse::Off,
+                   "with no mode to choose, the client is added in the default mode");
+        } else {
+            expect(topId(screens) == "wizard/steam-mode", "the client asks for its mode");
+            const ui::SettingsCategory modes = wizard.page(app::IntegrationWizard::Step::Mode);
+            expect(rowOf(modes, "wizard.mode.normal") != nullptr &&
+                       !rowOf(modes, "wizard.mode.normal")->note.empty(),
+                   "each mode says what it means");
+            wizard.run("wizard.mode.isolated", 0);
+            expect(inForce.current().steam == SteamUse::Isolated && inForce.catalogStores().steam,
+                   "a picked mode is in force and the client's library listed");
+        }
+        screens.frame();
+        expect(topId(screens).empty(), "the client's steps close once added");
+    }
+
+    wizard.start("lan");
+    expect(inForce.choices().lan && toasts.back() == "LAN added", "LAN is added at once");
+    wizard.start("epic");
+    expect(inForce.choices().epic && signIns == std::vector<app::Store>{app::Store::Epic},
+           "Epic is added and its sign-in opens");
 }
 
 /// Steam's modes on a build that offers several: Linux's Normal, Managed and Isolated.
@@ -411,6 +526,8 @@ void theSwitchAppliesAChange(const fs::path& root) {
 int main() try {
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "integration-flow";
     libraryAddListsWhatIsOff(root);
+    wizardAddsIntegrations(root, false);
+    wizardAddsIntegrations(root, true);
     if (steam::clientModes().size() > 1) {
         settingsStagesThenApplies(root);
     } else {

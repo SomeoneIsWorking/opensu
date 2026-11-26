@@ -17,7 +17,9 @@ Visible deltas from the baseline:
   own Lossless Scaling from Steam (its `Lossless.dll`, read in place); Big Picture has nothing like
   it.
 - Only ROMs and the libretro runner are on out of the box; Steam, Epic, GOG, standalone emulators
-  and Lua plugins are each opted into, from Library's Set up tiles or Settings › Integrations (S039).
+  and Lua plugins are each opted into, from Library's Add page, each through its wizard, or
+  Settings › Integrations (S039). Steam comes through fumarole (no Steam client; signed in by QR
+  code or this PC's Steam login) or the Steam client.
   Steam Big Picture has no such choice. Steam can be the player's own desktop Steam (Normal),
   openSU's own (Managed), or openSU's own in a sandbox that sees only openSU's virtual pads
   (Isolated); the login session offers Managed and Isolated.

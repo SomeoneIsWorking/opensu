@@ -1,10 +1,11 @@
 // integrations — which of openSU's optional integrations the player turned on, and the one rule
 // for what is in force from that choice: the ROM library and the libretro runner are always on;
-// Steam, Epic, GOG, standalone emulators, Lua plugins and the LAN only when chosen. Steam runs in a
-// mode: Normal uses the player's desktop Steam, Managed is openSU's own in its Gamescope, Isolated
-// is openSU's own in a sandbox that shows it only openSU's display and the controllers it is given.
-// Only the modes the build's Steam client has are offered (`steam::clientModes`), and a login
-// session has no desktop Steam, so there Normal is not offered.
+// Steam, Epic, GOG, standalone emulators, Lua plugins and the LAN only when chosen. Steam comes
+// through fumarole (no Steam client) or through the Steam client, which runs in a mode: Normal uses
+// the player's desktop Steam, Managed is openSU's own in its Gamescope, Isolated is openSU's own in
+// a sandbox that shows it only openSU's display and the controllers it is given. Only the modes the
+// build's Steam client has are offered (`steam::clientModes`), and a login session has no desktop
+// Steam, so there Normal is not offered.
 #pragma once
 
 #include <cstdint>
@@ -32,6 +33,18 @@ enum class SteamMode : std::uint8_t {
 [[nodiscard]] std::optional<SteamMode> steamModeOf(std::string_view spelling) noexcept;
 [[nodiscard]] std::string_view label(SteamMode mode) noexcept;
 
+/// What brings Steam's games.
+enum class SteamKind : std::uint8_t {
+    /// The Steam client, in a `SteamMode`.
+    Client,
+    /// fumarole, which installs and starts Steam's games without the Steam client.
+    Fumarole,
+};
+
+[[nodiscard]] std::string_view key(SteamKind kind) noexcept;
+[[nodiscard]] std::optional<SteamKind> steamKindOf(std::string_view spelling) noexcept;
+[[nodiscard]] std::string_view label(SteamKind kind) noexcept;
+
 /// The controllers Isolated Steam's sandbox has.
 enum class SteamPads : std::uint8_t {
     /// openSU's four fixed virtual pads alone; the player's controllers are not in its /dev.
@@ -50,6 +63,8 @@ enum class SteamPads : std::uint8_t {
 /// What the player chose, as the settings file keeps it.
 struct IntegrationChoices {
     bool steam{false};
+    /// Absent in settings from before fumarole was a choice: the Steam client.
+    std::optional<SteamKind> steamKind;
     /// Absent until the player picks one; the default mode applies.
     std::optional<SteamMode> steamMode;
     /// Absent until the player picks one; the default applies. Isolated only.
@@ -66,7 +81,7 @@ struct IntegrationChoices {
 };
 
 /// Steam as it is in force.
-enum class SteamUse : std::uint8_t { Off, Normal, Managed, Isolated };
+enum class SteamUse : std::uint8_t { Off, Normal, Managed, Isolated, Fumarole };
 
 [[nodiscard]] std::string_view label(SteamUse use) noexcept;
 
@@ -82,7 +97,7 @@ struct Integrations {
     bool lan{false};
 
     /// What `choices` puts in force. `loginSession` is openSU running as the login session
-    /// (`--session`); `built` the modes the build has, none keeping Steam off.
+    /// (`--session`); `built` the modes the build has, none keeping the Steam client off.
     [[nodiscard]] static Integrations inForce(const IntegrationChoices& choices, bool loginSession,
                                               std::span<const SteamMode> built);
     /// The modes the player can pick, in `built`'s order: no Normal in a login session.

@@ -2,11 +2,13 @@
 // "Add to library" page it opens: each integration this build offers that the player has not
 // added, then what adds games: Add a game and Add a game folder where this OS can start a game of
 // the player's own (`library::addGameOffer`), Add a ROM folder, and Import from a PC on your
-// network while LAN is on. A pick closes the page and starts that flow.
+// network while LAN is on. A pick closes the page and starts that flow; an integration's starts
+// its wizard.
 #pragma once
 
 #include <functional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -31,8 +33,8 @@ class LibraryAdditions final : public ui::RowActions {
         std::function<void()> addRomFolder;
         /// Import from a PC on your network.
         std::function<void()> importFromLan;
-        /// Settings › Integrations with the switch `row` focused.
-        std::function<void(const std::string& row)> setUp;
+        /// Adds the integration entry `entry` (`IntegrationWizard::start`).
+        std::function<void(std::string_view entry)> addIntegration;
     };
 
     LibraryAdditions(const IntegrationsInForce& integrations, gpu2d::ui::Navigator& navigator,

@@ -37,6 +37,23 @@ std::string_view label(SteamMode mode) noexcept {
     return "Normal";
 }
 
+std::string_view key(SteamKind kind) noexcept {
+    return kind == SteamKind::Fumarole ? "fumarole" : "client";
+}
+
+std::optional<SteamKind> steamKindOf(std::string_view spelling) noexcept {
+    for (const SteamKind kind : {SteamKind::Client, SteamKind::Fumarole}) {
+        if (spelling == key(kind)) {
+            return kind;
+        }
+    }
+    return std::nullopt;
+}
+
+std::string_view label(SteamKind kind) noexcept {
+    return kind == SteamKind::Fumarole ? "fumarole" : "Steam client";
+}
+
 std::string_view key(SteamPads pads) noexcept {
     return pads == SteamPads::All ? "all" : "virtual";
 }
@@ -67,6 +84,8 @@ std::string_view label(SteamUse use) noexcept {
         return "Managed";
     case SteamUse::Isolated:
         return "Isolated";
+    case SteamUse::Fumarole:
+        return "fumarole";
     case SteamUse::Off:
         break;
     }
@@ -99,7 +118,9 @@ Integrations Integrations::inForce(const IntegrationChoices& choices, bool login
                     .emulators = choices.emulators,
                     .plugins = choices.plugins,
                     .lan = choices.lan};
-    if (choices.steam && !built.empty()) {
+    if (choices.steam && choices.steamKind == SteamKind::Fumarole) {
+        in.steam = SteamUse::Fumarole;
+    } else if (choices.steam && !built.empty()) {
         SteamMode mode = choices.steamMode.value_or(defaultMode(loginSession));
         const std::vector<SteamMode> offered = modesOffered(loginSession, built);
         if (std::ranges::find(offered, mode) == offered.end()) {

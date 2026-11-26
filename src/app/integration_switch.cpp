@@ -57,8 +57,9 @@ void IntegrationSwitch::apply() {
     if (now.steam != was.steam || now.epic != was.epic || now.gog != was.gog ||
         now.emulators != was.emulators || now.lan != was.lan) {
         lucent::info("integrations",
-                     "the catalog reads steam={} epic={} gog={} emulators={} lan={}", stores.steam,
-                     stores.epic, stores.gog, stores.standaloneEmulators, stores.lan);
+                     "the catalog reads steam={} fumarole={} epic={} gog={} emulators={} lan={}",
+                     stores.steam, stores.fumarole, stores.epic, stores.gog,
+                     stores.standaloneEmulators, stores.lan);
         targets_.catalog.replace(hooks_.catalog(stores));
     }
     guard();

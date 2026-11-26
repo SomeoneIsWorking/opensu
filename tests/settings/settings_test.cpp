@@ -297,8 +297,9 @@ void padCalibrations(const fs::path& root) {
     std::string error;
     expect(store.save(saved, error), "the calibrations are saved");
     expect(store.load().padCalibrations == saved.padCalibrations, "and read back");
-    write(store.file(),
-          R"({"padCalibrations": {"pad": {"3": [1, 2], "9": [0, 0, 1], "5": [0, 0, 200], "triggerPull": 4}}})");
+    write(
+        store.file(),
+        R"({"padCalibrations": {"pad": {"3": [1, 2], "9": [0, 0, 1], "5": [0, 0, 200], "triggerPull": 4}}})");
     const Settings partial = store.load();
     expect(partial.padCalibrations.at("pad").axes.size() == 1 &&
                partial.padCalibrations.at("pad").axes.at(5).high == 200 &&
@@ -404,6 +405,9 @@ void integrationChoices(const fs::path& root) {
     write(store.file(), R"({"integrations": {"steam": true, "steamMode": "sandboxed"}})");
     const auto odd = store.load().integrations;
     expect(odd.steam && !odd.steamMode, "an unknown mode takes the default");
+    write(store.file(), R"({"integrations": {"steam": true, "steamKind": "fumarole"}})");
+    expect(store.load().integrations.steamKind == opensu::settings::SteamKind::Fumarole,
+           "fumarole is kept by name");
 }
 
 void interfaceSizeMultiplies(const fs::path& root) {

@@ -68,6 +68,12 @@ void choicesInForce() {
     normal.steam = false;
     expect(Integrations::inForce(normal, false, linuxModes).steam == SteamUse::Off,
            "Steam off is off whatever its mode");
+    IntegrationChoices fumarole{.steam = true,
+                                .steamKind = opensu::settings::SteamKind::Fumarole,
+                                .steamMode = SteamMode::Isolated};
+    expect(Integrations::inForce(fumarole, false, linuxModes).steam == SteamUse::Fumarole &&
+               Integrations::inForce(fumarole, true, {}).steam == SteamUse::Fumarole,
+           "fumarole needs no Steam client mode, in a login session or a build without one");
 }
 
 void modesOffered() {

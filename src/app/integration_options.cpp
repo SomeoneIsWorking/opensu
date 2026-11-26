@@ -9,7 +9,8 @@ namespace opensu::app {
 namespace {
 
 constexpr std::array entries{
-    IntegrationEntry{"steam", "Steam", "Steam games, played through Steam", "Set up Steam"},
+    IntegrationEntry{"steam", "Steam", "Steam games, through fumarole or the Steam client",
+                     "Set up Steam"},
     IntegrationEntry{"epic", "Epic Games", "Epic games via legendary; needs a sign-in",
                      "Set up Epic"},
     IntegrationEntry{"gog", "GOG", "GOG games via gogdl; needs a sign-in", "Set up GOG"},
@@ -33,6 +34,18 @@ std::vector<IntegrationEntry> integrationEntries() {
         }
     }
     return offered;
+}
+
+std::string_view steamModeNote(settings::SteamMode mode) noexcept {
+    switch (mode) {
+    case settings::SteamMode::Managed:
+        return "openSU's own Steam, ended with openSU";
+    case settings::SteamMode::Isolated:
+        return "openSU's own Steam, kept off the desktop";
+    case settings::SteamMode::Normal:
+        break;
+    }
+    return "Your desktop Steam, left as it is";
 }
 
 std::string_view integrationOf(library::Source source) noexcept {

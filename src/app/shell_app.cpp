@@ -1872,6 +1872,7 @@ int ShellApp::run() {
         sendRemoteInput();
         serviceRequests();
         serviceCatalog();
+        integrationWizard_.service();
         plugins_.service();
         lan_.service();
         lanRoms_.service();

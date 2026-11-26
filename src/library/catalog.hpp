@@ -18,7 +18,11 @@ namespace opensu::library {
 /// always reads, and whether
 /// the ROMs' emulators include standalone ones or only the built-in ones.
 struct CatalogStores {
+    /// The Steam client's library.
     bool steam{false};
+    /// fumarole's Steam installs, with Steam added either way; with no Steam client listed, also
+    /// the account's games fumarole can install.
+    bool fumarole{false};
     bool epic{false};
     bool gog{false};
     bool standaloneEmulators{false};

@@ -4,9 +4,8 @@
 #include <string_view>
 
 #include "integration_options.hpp"
-#include "integration_settings.hpp"
 #include "library/add_game_offer.hpp"
-#include "library_add_screen.hpp"
+#include "row_page_screen.hpp"
 
 namespace opensu::app {
 namespace {
@@ -27,7 +26,12 @@ std::vector<library::AddTile> LibraryAdditions::tiles() const {
 
 void LibraryAdditions::press(const std::string& id) {
     if (id == addId) {
-        navigator_.push(std::make_unique<LibraryAddScreen>(*this, chrome_));
+        navigator_.push(std::make_unique<RowPageScreen>(
+            "library-add",
+            [this] {
+                return page();
+            },
+            *this, chrome_));
     }
 }
 
@@ -69,7 +73,7 @@ void LibraryAdditions::run(const std::string& id, int /*step*/) {
     } else if (id == lanImportId) {
         hooks_.importFromLan();
     } else if (id.starts_with(setUpPrefix)) {
-        hooks_.setUp(IntegrationSettings::rowId(std::string_view{id}.substr(setUpPrefix.size())));
+        hooks_.addIntegration(std::string_view{id}.substr(setUpPrefix.size()));
     }
 }
 
