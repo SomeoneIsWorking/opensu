@@ -26,3 +26,9 @@ window, frees the pads (`Claim::Away`) and leaves Guide to the window in front.
 The hint of a `flatpak run <app id>` command is the app id, which `ProcessTree::matching` already
 finds through each process's `/.flatpak-info`.
 
+
+## After the fix (2026-11-26, Ally)
+
+With 21195246 the game's window is taken for the game (`focus on 0xffffffff80000001: the game`,
+`Sonic Robo Blast 2 shows a window`). The player then: "controller doesn't work also in SRB2".
+Open.
