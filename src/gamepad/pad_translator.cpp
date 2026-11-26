@@ -73,7 +73,7 @@ PadAxes PadTranslator::axes() const {
         return found != triggers_.end() ? found->second : 0;
     };
     return PadAxes{
-        .sticks = sticks_,
+        .sticks = correctedSticks(),
         .leftTrigger = travel(Button::L2),
         .rightTrigger = travel(Button::R2),
         .raw = raw_};
@@ -160,7 +160,7 @@ void PadTranslator::translate(const PadEvent& in, std::vector<PadEvent>& forward
                     : rescale(in.value, range->second, virtualStick);
             stickAxis(sticks_, in.code) = value;
             if (sticksTerms_) {
-                forwardSticks(*sticksTerms_, forward);
+                forwardSticks(forward);
             } else {
                 forwardAxis(in.code, value, forward);
             }
@@ -174,7 +174,7 @@ void PadTranslator::translate(const PadEvent& in, std::vector<PadEvent>& forward
                     : rescale(in.value, range->second, virtualTrigger);
             triggers_[button] = value;
             if (sticksTerms_ && button == Button::L2) {
-                forwardSticks(*sticksTerms_, forward);
+                forwardSticks(forward);
             }
             const float travel = static_cast<float>(value) / virtualTrigger.max;
             bool& held = triggerHeld_[button];
@@ -394,7 +394,10 @@ std::optional<HallTerms> PadTranslator::hallInForce() const {
     return terms;
 }
 
-void PadTranslator::forwardSticks(const HallTerms& terms, std::vector<PadEvent>& forward) {
+Sticks PadTranslator::correctedSticks() const {
+    if (!sticksTerms_) {
+        return sticks_;
+    }
     const auto unit = [](std::int32_t value) {
         return std::clamp(static_cast<float>(value) / static_cast<float>(virtualStick.max), -1.0f,
                           1.0f);
@@ -402,13 +405,23 @@ void PadTranslator::forwardSticks(const HallTerms& terms, std::vector<PadEvent>&
     const auto stick = [](float value) {
         return static_cast<std::int32_t>(std::lround(value * static_cast<float>(virtualStick.max)));
     };
+    const auto pulled = triggers_.find(Button::L2);
+    const std::int32_t leftTrigger = pulled != triggers_.end() ? pulled->second : 0;
     const StickPositions sticks = corrected(
         {unit(sticks_.leftX), unit(sticks_.leftY), unit(sticks_.rightX), unit(sticks_.rightY)},
-        static_cast<float>(triggers_[Button::L2]) / static_cast<float>(virtualTrigger.max), terms);
-    forwardAxis(ABS_X, stick(sticks.leftX), forward);
-    forwardAxis(ABS_Y, stick(sticks.leftY), forward);
-    forwardAxis(ABS_RX, stick(sticks.rightX), forward);
-    forwardAxis(ABS_RY, stick(sticks.rightY), forward);
+        static_cast<float>(leftTrigger) / static_cast<float>(virtualTrigger.max), *sticksTerms_);
+    return Sticks{.leftX = stick(sticks.leftX),
+                  .leftY = stick(sticks.leftY),
+                  .rightX = stick(sticks.rightX),
+                  .rightY = stick(sticks.rightY)};
+}
+
+void PadTranslator::forwardSticks(std::vector<PadEvent>& forward) {
+    const Sticks sticks = correctedSticks();
+    forwardAxis(ABS_X, sticks.leftX, forward);
+    forwardAxis(ABS_Y, sticks.leftY, forward);
+    forwardAxis(ABS_RX, sticks.rightX, forward);
+    forwardAxis(ABS_RY, sticks.rightY, forward);
 }
 
 void PadTranslator::control(Button button, bool pressed, std::vector<Event>& controls) {

@@ -117,8 +117,11 @@ class PadTranslator {
   private:
     void forwardKey(std::uint16_t code, std::int32_t value, std::vector<PadEvent>& forward);
     void forwardAxis(std::uint16_t code, std::int32_t value, std::vector<PadEvent>& forward);
-    /// Gives the virtual pad the sticks as `terms` correct them.
-    void forwardSticks(const HallTerms& terms, std::vector<PadEvent>& forward);
+    /// Gives the virtual pad the sticks as `correctedSticks` reads them.
+    void forwardSticks(std::vector<PadEvent>& forward);
+    /// The sticks as the virtual pad and a remote host get them: through the hall correction in
+    /// force, if any.
+    [[nodiscard]] Sticks correctedSticks() const;
     /// The correction the sticks get: the player's terms, or the defaults when only the
     /// calibration measured the trigger's pull, with what the calibration measured in their place.
     [[nodiscard]] std::optional<HallTerms> hallInForce() const;

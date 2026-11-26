@@ -495,6 +495,7 @@ void calibrationTakesTheHallTermsPlace() {
     ally.setCalibration(measured);
     expect(lastOn(feed(ally, {{EV_ABS, ABS_Z, 220}, {EV_ABS, ABS_X, -9000}}), ABS_X) == 0,
            "the measured pull is taken off with the stick correction off");
+    expect(ally.axes().sticks.leftX == 0, "and a remote host reads the sticks corrected too");
     PadTranslator plain{allyPad()};
     measured.triggerPullX.reset();
     plain.setCalibration(measured);
