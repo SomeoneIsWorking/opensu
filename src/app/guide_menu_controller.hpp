@@ -1,7 +1,7 @@
 // guide_menu_controller — what the Guide menu holds and does: one menu over the home screen or a
 // running game. Its places (the running game's actions, Keyboard among them where it can type
 // into the game, then off a game Home, Library and Search; Devices, Downloads, Settings and Power)
-// stand beside the changes made in place: the player's quick settings (`QuickSettings`, which sets
+// stand beside the changes made in place: the player's quick settings (`SystemControls`, which sets
 // them), the screen's orientation and the profile played as, and, over Home or Library, what shapes
 // that page's shelf (`ShelfOptions`). A game's state commands go through `RetroSession`, power
 // through `host::Power` and the session switch through `host::SessionMode`. Every step that throws
@@ -27,7 +27,7 @@
 #include "library/sections.hpp"
 #include "preferences.hpp"
 #include "profiles/profile_book.hpp"
-#include "quick_settings.hpp"
+#include "system_controls.hpp"
 #include "retro_session.hpp"
 #include "shelf_options.hpp"
 #include "ui/row_widgets.hpp"
@@ -113,7 +113,7 @@ class GuideMenuController final : public ui::RowActions {
         /// Null where there is no session mode; its rows are left out.
         host::SessionMode* session;
         /// The quick settings the card leads with.
-        QuickSettings& quick;
+        SystemControls& system;
         RetroSession& retro;
         Preferences& preferences;
         ShelfOptions& shelf;
@@ -124,7 +124,7 @@ class GuideMenuController final : public ui::RowActions {
     GuideMenuController(gpu2d::ui::Navigator& navigator, Services services,
                         audio::SdlSoundPlayer& sounds, Hooks hooks)
         : navigator_{navigator}, power_{services.power}, session_{services.session},
-          quick_{services.quick}, retro_{services.retro}, preferences_{services.preferences},
+          system_{services.system}, retro_{services.retro}, preferences_{services.preferences},
           shelf_{services.shelf}, profiles_{services.profiles}, sounds_{sounds},
           hooks_{std::move(hooks)} {
     }
@@ -182,7 +182,7 @@ class GuideMenuController final : public ui::RowActions {
     gpu2d::ui::Navigator& navigator_;
     host::Power* power_;
     host::SessionMode* session_;
-    QuickSettings& quick_;
+    SystemControls& system_;
     RetroSession& retro_;
     Preferences& preferences_;
     ShelfOptions& shelf_;

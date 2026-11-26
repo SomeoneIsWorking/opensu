@@ -1,4 +1,4 @@
-#include "quick_settings.hpp"
+#include "system_controls.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -14,16 +14,16 @@ namespace {
 using ui::RowKind;
 using ui::SettingsRow;
 
-constexpr std::string_view prefix{"quick."};
-constexpr const char* volumeId = "quick.volume";
-constexpr const char* volumeMissingId = "quick.volumeMissing";
-constexpr const char* muteId = "quick.mute";
-constexpr const char* brightnessId = "quick.brightness";
-constexpr const char* powerProfileId = "quick.powerProfile";
-constexpr const char* scaleId = "quick.scale";
-constexpr const char* nightLightId = "quick.nightLight";
-constexpr std::string_view placePrefix{"quick.place."};
-constexpr const char* restoreId = "quick.restore";
+constexpr std::string_view prefix{"system."};
+constexpr const char* volumeId = "system.volume";
+constexpr const char* volumeMissingId = "system.volumeMissing";
+constexpr const char* muteId = "system.mute";
+constexpr const char* brightnessId = "system.brightness";
+constexpr const char* powerProfileId = "system.powerProfile";
+constexpr const char* scaleId = "system.scale";
+constexpr const char* nightLightId = "system.nightLight";
+constexpr std::string_view placePrefix{"system.place."};
+constexpr const char* restoreId = "system.restore";
 constexpr std::string_view notShown{"Not shown"};
 
 /// How a PowerStation profile reads.
@@ -40,101 +40,101 @@ std::string profileLabel(const std::string& profile) {
     return profile;
 }
 
-std::string placeId(QuickSetting setting) {
+std::string placeId(SystemControl setting) {
     return std::string{placePrefix} + std::string{key(setting)};
 }
 
 } // namespace
 
-std::string_view key(QuickSetting setting) noexcept {
+std::string_view key(SystemControl setting) noexcept {
     switch (setting) {
-    case QuickSetting::Volume:
+    case SystemControl::Volume:
         return "volume";
-    case QuickSetting::Mute:
+    case SystemControl::Mute:
         return "mute";
-    case QuickSetting::Brightness:
+    case SystemControl::Brightness:
         return "brightness";
-    case QuickSetting::PowerProfile:
+    case SystemControl::PowerProfile:
         return "powerProfile";
-    case QuickSetting::InterfaceSize:
+    case SystemControl::InterfaceSize:
         return "interfaceSize";
-    case QuickSetting::NightLight:
+    case SystemControl::NightLight:
         return "nightLight";
-    case QuickSetting::StickLights:
+    case SystemControl::StickLights:
         return "stickLights";
     }
     return {};
 }
 
-std::optional<QuickSetting> quickSettingOf(std::string_view spelling) noexcept {
-    const auto found = std::ranges::find_if(allQuickSettings, [spelling](QuickSetting setting) {
+std::optional<SystemControl> systemControlOf(std::string_view spelling) noexcept {
+    const auto found = std::ranges::find_if(allSystemControls, [spelling](SystemControl setting) {
         return key(setting) == spelling;
     });
-    return found == allQuickSettings.end() ? std::nullopt : std::optional{*found};
+    return found == allSystemControls.end() ? std::nullopt : std::optional{*found};
 }
 
-std::string_view label(QuickSetting setting) noexcept {
+std::string_view label(SystemControl setting) noexcept {
     switch (setting) {
-    case QuickSetting::Volume:
+    case SystemControl::Volume:
         return "Volume";
-    case QuickSetting::Mute:
+    case SystemControl::Mute:
         return "Mute";
-    case QuickSetting::Brightness:
+    case SystemControl::Brightness:
         return "Brightness";
-    case QuickSetting::PowerProfile:
+    case SystemControl::PowerProfile:
         return "Power profile";
-    case QuickSetting::InterfaceSize:
+    case SystemControl::InterfaceSize:
         return "Interface size";
-    case QuickSetting::NightLight:
+    case SystemControl::NightLight:
         return "Night light";
-    case QuickSetting::StickLights:
+    case SystemControl::StickLights:
         return "Stick lights";
     }
     return {};
 }
 
-QuickSettings::QuickSettings(Services services, Hooks hooks)
+SystemControls::SystemControls(Services services, Hooks hooks)
     : volume_{services.volume}, brightness_{services.brightness},
       powerProfiles_{services.powerProfiles}, preferences_{services.preferences},
       lights_{services.lights}, nightLight_{services.nightLight},
       loginSession_{services.loginSession}, hooks_{std::move(hooks)} {
 }
 
-void QuickSettings::read() {
+void SystemControls::read() {
     brightnessLevel_ = brightness_.percent();
     powerProfile_ = powerProfiles_ != nullptr ? powerProfiles_->read() : std::nullopt;
 }
 
-bool QuickSettings::offered(QuickSetting setting) const {
+bool SystemControls::offered(SystemControl setting) const {
     switch (setting) {
-    case QuickSetting::Volume:
+    case SystemControl::Volume:
         // Without a mixer its row says why.
         return true;
-    case QuickSetting::Mute:
+    case SystemControl::Mute:
         return volume_.system().available();
-    case QuickSetting::Brightness:
+    case SystemControl::Brightness:
         return brightnessLevel_.has_value();
-    case QuickSetting::PowerProfile:
+    case SystemControl::PowerProfile:
         return powerProfile_ &&
                std::ranges::find(powerProfile_->profiles, powerProfile_->profile) !=
                    powerProfile_->profiles.end();
-    case QuickSetting::InterfaceSize:
+    case SystemControl::InterfaceSize:
         return true;
-    case QuickSetting::NightLight:
+    case SystemControl::NightLight:
         return nightLight_;
-    case QuickSetting::StickLights:
+    case SystemControl::StickLights:
         return !lights_.rows().empty();
     }
     return false;
 }
 
-std::vector<SettingsRow> QuickSettings::rows(QuickSetting setting) const {
+std::vector<SettingsRow> SystemControls::rows(SystemControl setting) const {
     if (!offered(setting)) {
         return {};
     }
     const settings::Settings& values = preferences_.values();
     switch (setting) {
-    case QuickSetting::Volume: {
+    case SystemControl::Volume: {
         const audio::SystemVolume& volume = volume_.system();
         if (!volume.available()) {
             return {ui::makeRow(volumeMissingId, RowKind::Info, "Volume", volume.unavailable(),
@@ -144,16 +144,16 @@ std::vector<SettingsRow> QuickSettings::rows(QuickSetting setting) const {
         return {ui::makeSlider(volumeId, "Volume", {},
                                ui::SliderRange{state.percent, 0, 100, audio::volumeStep})};
     }
-    case QuickSetting::Mute:
+    case SystemControl::Mute:
         return {ui::makeToggle(muteId, "Mute", {},
                                volume_.system().state().value_or(audio::VolumeState{}).muted)};
-    case QuickSetting::Brightness:
+    case SystemControl::Brightness:
         if (!brightnessLevel_) {
             return {};
         }
         return {ui::makeSlider(brightnessId, "Brightness", {},
                                ui::SliderRange{*brightnessLevel_, 1, 100, brightnessStep})};
-    case QuickSetting::PowerProfile: {
+    case SystemControl::PowerProfile: {
         if (!powerProfile_) {
             return {};
         }
@@ -166,9 +166,9 @@ std::vector<SettingsRow> QuickSettings::rows(QuickSetting setting) const {
         }
         return {ui::makeChoice(powerProfileId, "Power profile", {}, std::move(profiles))};
     }
-    case QuickSetting::InterfaceSize:
+    case SystemControl::InterfaceSize:
         return {interfaceSizeRow(scaleId, values)};
-    case QuickSetting::NightLight:
+    case SystemControl::NightLight:
         return {ui::makeChoice(nightLightId, "Night light",
                                loginSession_
                                    ? "Warms the screen's colours at night"
@@ -177,20 +177,20 @@ std::vector<SettingsRow> QuickSettings::rows(QuickSetting setting) const {
                                              [](settings::NightLightChoice choice) {
                                                  return std::string{settings::label(choice)};
                                              }))};
-    case QuickSetting::StickLights:
+    case SystemControl::StickLights:
         return lights_.rows();
     }
     return {};
 }
 
-std::vector<QuickSetting> QuickSettings::chosen() const {
+std::vector<SystemControl> SystemControls::chosen() const {
     const std::optional<std::vector<std::string>>& kept = preferences_.values().quickSettings;
     if (!kept) {
-        return {defaultQuickSettings.begin(), defaultQuickSettings.end()};
+        return {defaultSystemControls.begin(), defaultSystemControls.end()};
     }
-    std::vector<QuickSetting> order;
+    std::vector<SystemControl> order;
     for (const std::string& spelling : *kept) {
-        const std::optional<QuickSetting> setting = quickSettingOf(spelling);
+        const std::optional<SystemControl> setting = systemControlOf(spelling);
         if (setting && std::ranges::find(order, *setting) == order.end()) {
             order.push_back(*setting);
         }
@@ -198,22 +198,22 @@ std::vector<QuickSetting> QuickSettings::chosen() const {
     return order;
 }
 
-std::vector<SettingsRow> QuickSettings::shown() const {
+std::vector<SettingsRow> SystemControls::shown() const {
     std::vector<SettingsRow> all;
-    for (const QuickSetting setting : chosen()) {
+    for (const SystemControl setting : chosen()) {
         std::ranges::move(rows(setting), std::back_inserter(all));
     }
     return all;
 }
 
-ui::SettingsCategory QuickSettings::page() const {
+ui::SettingsCategory SystemControls::page() const {
     ui::SettingsCategory page{std::string{categoryId}, "Quick settings", {}};
-    std::vector<QuickSetting> listed;
-    std::ranges::copy_if(chosen(), std::back_inserter(listed), [this](QuickSetting setting) {
+    std::vector<SystemControl> listed;
+    std::ranges::copy_if(chosen(), std::back_inserter(listed), [this](SystemControl setting) {
         return offered(setting);
     });
     const std::size_t shownCount = listed.size();
-    for (const QuickSetting setting : allQuickSettings) {
+    for (const SystemControl setting : allSystemControls) {
         if (offered(setting) && std::ranges::find(listed, setting) == listed.end()) {
             listed.push_back(setting);
         }
@@ -233,7 +233,7 @@ ui::SettingsCategory QuickSettings::page() const {
                                            std::move(options)));
     }
     std::string defaults;
-    for (const QuickSetting setting : defaultQuickSettings) {
+    for (const SystemControl setting : defaultSystemControls) {
         defaults += (defaults.empty() ? "" : ", ") + std::string{label(setting)};
     }
     SettingsRow restore =
@@ -243,11 +243,11 @@ ui::SettingsCategory QuickSettings::page() const {
     return page;
 }
 
-bool QuickSettings::owns(const std::string& id) {
+bool SystemControls::owns(const std::string& id) {
     return id.starts_with(prefix) || RingLightSettings::owns(id);
 }
 
-void QuickSettings::run(const std::string& id, int step) {
+void SystemControls::run(const std::string& id, int step) {
     settings::Settings& values = preferences_.values();
     if (RingLightSettings::owns(id)) {
         lights_.run(id, step);
@@ -269,8 +269,8 @@ void QuickSettings::run(const std::string& id, int step) {
         values.quickSettings.reset();
         preferences_.save();
     } else if (id.starts_with(placePrefix)) {
-        const std::optional<QuickSetting> setting =
-            quickSettingOf(std::string_view{id}.substr(placePrefix.size()));
+        const std::optional<SystemControl> setting =
+            systemControlOf(std::string_view{id}.substr(placePrefix.size()));
         if (!setting) {
             return;
         }
@@ -285,7 +285,7 @@ void QuickSettings::run(const std::string& id, int step) {
     }
 }
 
-void QuickSettings::setLevel(const std::string& id, int level) {
+void SystemControls::setLevel(const std::string& id, int level) {
     if (RingLightSettings::owns(id)) {
         lights_.setLevel(id, level);
     } else if (id == volumeId) {
@@ -299,8 +299,8 @@ void QuickSettings::setLevel(const std::string& id, int level) {
     }
 }
 
-void QuickSettings::place(QuickSetting setting, std::size_t to) {
-    std::vector<QuickSetting> order = chosen();
+void SystemControls::place(SystemControl setting, std::size_t to) {
+    std::vector<SystemControl> order = chosen();
     std::erase(order, setting);
     // The places count only what is offered here; the rest keep their spots for another machine.
     std::vector<std::size_t> offeredAt;
@@ -320,17 +320,17 @@ void QuickSettings::place(QuickSetting setting, std::size_t to) {
     keep(order);
 }
 
-void QuickSettings::keep(const std::vector<QuickSetting>& order) {
+void SystemControls::keep(const std::vector<SystemControl>& order) {
     std::vector<std::string> spellings;
     spellings.reserve(order.size());
-    for (const QuickSetting setting : order) {
+    for (const SystemControl setting : order) {
         spellings.emplace_back(key(setting));
     }
     preferences_.values().quickSettings = std::move(spellings);
     preferences_.save();
 }
 
-void QuickSettings::refuse(const std::string& reason) const {
+void SystemControls::refuse(const std::string& reason) const {
     if (!reason.empty()) {
         hooks_.refused(reason);
     }

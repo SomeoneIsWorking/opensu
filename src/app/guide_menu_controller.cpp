@@ -129,7 +129,7 @@ void GuideMenuController::close() {
 
 void GuideMenuController::read() {
     retroStatus_ = context_.inGame && !context_.remote ? retro_.status() : std::nullopt;
-    quick_.read();
+    system_.read();
 }
 
 std::string GuideMenuController::title() const {
@@ -207,7 +207,7 @@ std::vector<SettingsRow> GuideMenuController::places() const {
 }
 
 std::vector<SettingsRow> GuideMenuController::quick() const {
-    std::vector<SettingsRow> rows = quick_.shown();
+    std::vector<SettingsRow> rows = system_.shown();
     if (screen_orientation::turnable() && !context_.inGame) {
         rows.push_back(ui::makeChoice(
             screenId, "Screen", {},
@@ -320,8 +320,8 @@ void GuideMenuController::run(const std::string& id, int step) {
     if (shelf_.run(id, step)) {
         return;
     }
-    if (QuickSettings::owns(id)) {
-        quick_.run(id, step);
+    if (SystemControls::owns(id)) {
+        system_.run(id, step);
     } else if (id == screenId) {
         settings::Settings& values = preferences_.values();
         values.portrait = !values.portrait;
@@ -433,7 +433,7 @@ void GuideMenuController::setLevel(const std::string& id, int level) {
     if (shelf_.setLevel(id, level)) {
         return;
     }
-    quick_.setLevel(id, level);
+    system_.setLevel(id, level);
 }
 
 void GuideMenuController::openPage(const std::string& id) {

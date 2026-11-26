@@ -1511,7 +1511,7 @@ class ShellApp final {
                                      shelfOptions_,
                                      wiiRemoteSettings_,
                                      stickCorrectionSettings_,
-                                     quickSettings_,
+                                     systemControls_,
                                      integrations_},
         sounds_,
         preferences_,
@@ -1707,14 +1707,14 @@ class ShellApp final {
                            shell_.screens().navigator(), keyboardPad_, sounds_, *host_.polkit)
                      : nullptr};
     /// The settings Quick settings and the Guide menu's card can hold, and the player's pick.
-    QuickSettings quickSettings_{QuickSettings::Services{.volume = volume_,
+    SystemControls systemControls_{SystemControls::Services{.volume = volume_,
                                                          .brightness = brightness_,
                                                          .powerProfiles = host_.powerProfiles.get(),
                                                          .preferences = preferences_,
                                                          .lights = ringLights_,
                                                          .nightLight = nightLightSupported(),
                                                          .loginSession = settings_.loginSession},
-                                 QuickSettings::Hooks{.applyLayout =
+                                 SystemControls::Hooks{.applyLayout =
                                                           [this] {
                                                               applyLayout();
                                                           },
@@ -1723,16 +1723,16 @@ class ShellApp final {
                                                               shell_.setToast(text, true);
                                                           }}};
     /// The Quick settings panel at the right edge, over the home screen or a running game.
-    QuickSettingsPanel quickPanel_{shell_.screens().navigator(), quickSettings_, sounds_,
+    QuickSettingsPanel quickPanel_{shell_.screens().navigator(), systemControls_, sounds_,
                                    QuickSettingsPanel::Hooks{.choose = [this] {
                                        closePages();
                                        settingsScreen_.openCategory(
-                                           std::string{QuickSettings::categoryId});
+                                           std::string{SystemControls::categoryId});
                                    }}};
     /// The menu Guide opens, over the home screen or a running game.
     GuideMenuController guideMenu_{
         shell_.screens().navigator(),
-        GuideMenuController::Services{host_.power.get(), host_.session.get(), quickSettings_,
+        GuideMenuController::Services{host_.power.get(), host_.session.get(), systemControls_,
                                       retro_, preferences_, shelfOptions_, profiles_.book()},
         sounds_,
         GuideMenuController::Hooks{

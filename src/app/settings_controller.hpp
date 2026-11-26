@@ -41,7 +41,7 @@
 #include "plugin_settings.hpp"
 #include "preferences.hpp"
 #include "profile_settings.hpp"
-#include "quick_settings.hpp"
+#include "system_controls.hpp"
 #include "rom_folder_settings.hpp"
 #include "save_settings.hpp"
 #include "settings/install_folders.hpp"
@@ -106,7 +106,7 @@ class SettingsController final : public ui::RowActions {
         StickCorrectionSettings& sticks;
         /// Volume, brightness, the power profile, the interface size, the night light, and which
         /// of them Quick settings shows.
-        QuickSettings& quick;
+        SystemControls& system;
         /// Which pages and rows show: those of the integrations in force.
         const IntegrationsInForce& inForce;
     };
@@ -126,7 +126,7 @@ class SettingsController final : public ui::RowActions {
           lan_{services.lan}, online_{services.online}, lanRoms_{services.lanRoms},
           lanProfiles_{services.lanProfiles}, saves_{services.saves}, profiles_{services.profiles},
           shelf_{services.shelf}, wiiRemotes_{services.wiiRemotes}, sticks_{services.sticks},
-          quick_{services.quick}, inForce_{services.inForce}, sounds_{sounds},
+          system_{services.system}, inForce_{services.inForce}, sounds_{sounds},
           preferences_{preferences}, defaults_{defaults}, hooks_{std::move(hooks)} {
     }
 
@@ -231,7 +231,7 @@ class SettingsController final : public ui::RowActions {
     ShelfOptions& shelf_;
     WiiRemoteSettings& wiiRemotes_;
     StickCorrectionSettings& sticks_;
-    QuickSettings& quick_;
+    SystemControls& system_;
     const IntegrationsInForce& inForce_;
     audio::SdlSoundPlayer& sounds_;
     Preferences& preferences_;

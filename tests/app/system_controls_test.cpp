@@ -10,7 +10,7 @@
 #include "gpu2d/ui/screen.hpp"
 
 #include "host_fakes.hpp"
-#include "quick_settings.hpp"
+#include "system_controls.hpp"
 #include "quick_settings_panel.hpp"
 #include "settings/settings.hpp"
 #include "support/fake_interface_text.hpp"
@@ -45,7 +45,7 @@ struct Rig {
                       }},
           volume{std::make_unique<test::FakeMixer>(), {}}, brightness{handheld ? &light : nullptr},
           lights{preferences, std::nullopt, nullptr, {}},
-          quick{app::QuickSettings::Services{.volume = volume,
+          quick{app::SystemControls::Services{.volume = volume,
                                              .brightness = brightness,
                                              .powerProfiles = handheld ? &profiles : nullptr,
                                              .preferences = preferences,
@@ -74,7 +74,7 @@ struct Rig {
     }
     [[nodiscard]] ui::SettingsRow placeRow(const std::string& key) const {
         const ui::SettingsCategory page = quick.page();
-        const auto row = std::ranges::find(page.rows, "quick.place." + key, &ui::SettingsRow::id);
+        const auto row = std::ranges::find(page.rows, "system.place." + key, &ui::SettingsRow::id);
         expect(row != page.rows.end(), ("the order lists " + key).c_str());
         return *row;
     }
@@ -91,7 +91,7 @@ struct Rig {
     app::BrightnessControl brightness;
     app::RingLightSettings lights;
     audio::SdlSoundPlayer sounds;
-    app::QuickSettings quick;
+    app::SystemControls quick;
     app::QuickSettingsPanel panel;
     int layouts{0};
     int chose{0};
@@ -99,37 +99,37 @@ struct Rig {
 
 void defaultsFollowTheMachine() {
     Rig handheld;
-    expect(handheld.shownIds() == std::vector<std::string>{"quick.volume", "quick.mute",
-                                                           "quick.brightness", "quick.powerProfile",
-                                                           "quick.scale"},
+    expect(handheld.shownIds() == std::vector<std::string>{"system.volume", "system.mute",
+                                                           "system.brightness", "system.powerProfile",
+                                                           "system.scale"},
            "unset, the default pick shows in order");
     Rig desktop{false};
     expect(desktop.shownIds() ==
-               std::vector<std::string>{"quick.volume", "quick.mute", "quick.scale"},
+               std::vector<std::string>{"system.volume", "system.mute", "system.scale"},
            "no backlight and no PowerStation: those are left out");
     const ui::SettingsCategory page = desktop.quick.page();
     expect(std::ranges::none_of(page.rows,
                                 [](const ui::SettingsRow& row) {
-                                    return row.id == "quick.place.brightness";
+                                    return row.id == "system.place.brightness";
                                 }),
            "nor offered to pick");
 }
 
 void changesReachTheirOwners() {
     Rig rig;
-    rig.quick.setLevel("quick.volume", 70);
+    rig.quick.setLevel("system.volume", 70);
     expect(test::need(rig.volume.system().state(), "a volume").percent == 70,
            "Volume sets the mixer");
-    rig.quick.run("quick.mute", 0);
+    rig.quick.run("system.mute", 0);
     expect(test::need(rig.volume.system().state(), "a volume").muted, "Mute mutes");
-    rig.quick.setLevel("quick.brightness", 30);
+    rig.quick.setLevel("system.brightness", 30);
     expect(rig.light.level == 30, "Brightness sets the backlight");
-    rig.quick.run("quick.powerProfile", 1);
+    rig.quick.run("system.powerProfile", 1);
     expect(rig.profiles.state.profile == "performance", "Right on Power profile steps it");
-    rig.quick.setLevel("quick.scale", 120);
+    rig.quick.setLevel("system.scale", 120);
     expect(rig.onDisk().uiScale == 120 && rig.layouts == 1,
            "Interface size is kept and the screen follows");
-    rig.quick.run("quick.nightLight", 1);
+    rig.quick.run("system.nightLight", 1);
     expect(rig.onDisk().nightLight == settings::NightLightChoice::Off, "Night light is kept");
 }
 
@@ -137,24 +137,24 @@ void theOrderMovesAndKeeps() {
     Rig rig;
     expect(rig.placeRow("volume").value == "1" && rig.placeRow("nightLight").value == "Not shown",
            "the shown ones read their place, the rest Not shown");
-    rig.quick.run("quick.place.nightLight", -1);
-    expect(rig.shownIds().back() == "quick.nightLight" && rig.onDisk().quickSettings.has_value(),
+    rig.quick.run("system.place.nightLight", -1);
+    expect(rig.shownIds().back() == "system.nightLight" && rig.onDisk().quickSettings.has_value(),
            "Left on one not shown puts it last, kept");
-    rig.quick.run("quick.place.nightLight", -5);
-    expect(rig.shownIds().front() == "quick.nightLight", "picking place 1 puts it first");
-    rig.quick.run("quick.place.volume", 10);
+    rig.quick.run("system.place.nightLight", -5);
+    expect(rig.shownIds().front() == "system.nightLight", "picking place 1 puts it first");
+    rig.quick.run("system.place.volume", 10);
     const std::vector<std::string> ids = rig.shownIds();
-    expect(std::ranges::find(ids, "quick.volume") == ids.end(),
+    expect(std::ranges::find(ids, "system.volume") == ids.end(),
            "past the last place it leaves the panel");
-    rig.quick.run("quick.restore", 0);
-    expect(!rig.onDisk().quickSettings && rig.shownIds().front() == "quick.volume",
+    rig.quick.run("system.restore", 0);
+    expect(!rig.onDisk().quickSettings && rig.shownIds().front() == "system.volume",
            "Restore defaults forgets the pick");
 }
 
 void unknownSpellingsAreSkipped() {
     Rig rig;
     rig.preferences.values().quickSettings = std::vector<std::string>{"wifi", "mute", "mute"};
-    expect(rig.shownIds() == std::vector<std::string>{"quick.mute"},
+    expect(rig.shownIds() == std::vector<std::string>{"system.mute"},
            "a spelling this build does not know, or one twice, is left out");
 }
 
@@ -162,7 +162,7 @@ void thePanelOpensAtTheRightEdge() {
     Rig rig;
     rig.panel.toggle();
     rig.ui.frame(1.0);
-    expect(rig.panel.isOpen() && rig.ui.navigator.focused() == "quick.volume",
+    expect(rig.panel.isOpen() && rig.ui.navigator.focused() == "system.volume",
            "the panel opens on its first setting");
     std::vector<std::string> ids;
     for (const ui::SettingsRow& row : rig.panel.rows()) {

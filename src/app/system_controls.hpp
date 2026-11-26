@@ -1,11 +1,8 @@
-// quick_settings — the settings a quick panel can hold and the player's pick of them. Each one's
-// row and what the row does are here, through the owner of the thing: the volume and mute through
+// system_controls — the machine's own controls as Settings rows: the volume and mute through
 // `VolumeControl`, the brightness through `BrightnessControl`, the power profile through
 // `host::PowerProfiles`, the interface size and night light through `Preferences`, the stick
-// lights through `RingLightSettings`. The Quick settings panel and the Guide menu's card show the
-// ones the player picked (`settings::Settings::quickSettings`, the default set while unset), and
-// Settings shows each on its own page with the same row; Settings › Quick settings orders them. A
-// setting the machine cannot change is not offered.
+// lights through `RingLightSettings`. Settings shows each on its page; a control the machine cannot
+// change is not offered.
 #pragma once
 
 #include <array>
@@ -26,7 +23,7 @@
 
 namespace opensu::app {
 
-enum class QuickSetting : std::uint8_t {
+enum class SystemControl : std::uint8_t {
     Volume,
     Mute,
     Brightness,
@@ -36,24 +33,24 @@ enum class QuickSetting : std::uint8_t {
     StickLights,
 };
 
-inline constexpr std::array allQuickSettings{
-    QuickSetting::Volume,       QuickSetting::Mute,          QuickSetting::Brightness,
-    QuickSetting::PowerProfile, QuickSetting::InterfaceSize, QuickSetting::NightLight,
-    QuickSetting::StickLights};
+inline constexpr std::array allSystemControls{
+    SystemControl::Volume,       SystemControl::Mute,          SystemControl::Brightness,
+    SystemControl::PowerProfile, SystemControl::InterfaceSize, SystemControl::NightLight,
+    SystemControl::StickLights};
 
 /// What the panel shows until the player chooses.
-inline constexpr std::array defaultQuickSettings{
-    QuickSetting::Volume, QuickSetting::Mute, QuickSetting::Brightness, QuickSetting::PowerProfile,
-    QuickSetting::InterfaceSize};
+inline constexpr std::array defaultSystemControls{
+    SystemControl::Volume, SystemControl::Mute, SystemControl::Brightness, SystemControl::PowerProfile,
+    SystemControl::InterfaceSize};
 
 /// How the settings file spells it ("volume", "powerProfile").
-[[nodiscard]] std::string_view key(QuickSetting setting) noexcept;
+[[nodiscard]] std::string_view key(SystemControl setting) noexcept;
 /// The setting a spelling names, or nothing.
-[[nodiscard]] std::optional<QuickSetting> quickSettingOf(std::string_view spelling) noexcept;
+[[nodiscard]] std::optional<SystemControl> systemControlOf(std::string_view spelling) noexcept;
 /// How the player reads it ("Power profile").
-[[nodiscard]] std::string_view label(QuickSetting setting) noexcept;
+[[nodiscard]] std::string_view label(SystemControl setting) noexcept;
 
-class QuickSettings final : public ui::RowActions {
+class SystemControls final : public ui::RowActions {
   public:
     /// Settings › Quick settings.
     static constexpr std::string_view categoryId{"quickSettings"};
@@ -78,16 +75,16 @@ class QuickSettings final : public ui::RowActions {
         std::function<void(const std::string& text)> refused;
     };
 
-    QuickSettings(Services services, Hooks hooks);
+    SystemControls(Services services, Hooks hooks);
 
     /// Reads what is slow to read: the brightness and the power profile. As a panel opens.
     void read();
     /// Whether this machine can change `setting` now.
-    [[nodiscard]] bool offered(QuickSetting setting) const;
+    [[nodiscard]] bool offered(SystemControl setting) const;
     /// `setting`'s rows; none when it is not offered, but Volume says why it is missing.
-    [[nodiscard]] std::vector<ui::SettingsRow> rows(QuickSetting setting) const;
+    [[nodiscard]] std::vector<ui::SettingsRow> rows(SystemControl setting) const;
     /// The settings the player picked, in order, whether offered or not.
-    [[nodiscard]] std::vector<QuickSetting> chosen() const;
+    [[nodiscard]] std::vector<SystemControl> chosen() const;
     /// The rows of the picked settings that are offered, in order.
     [[nodiscard]] std::vector<ui::SettingsRow> shown() const;
     /// Settings › Quick settings: each offered setting's place in the order, or not shown.
@@ -101,8 +98,8 @@ class QuickSettings final : public ui::RowActions {
   private:
     /// Moves `setting` to place `to` of the order (0 first), or out of it when `to` is past
     /// the end.
-    void place(QuickSetting setting, std::size_t to);
-    void keep(const std::vector<QuickSetting>& order);
+    void place(SystemControl setting, std::size_t to);
+    void keep(const std::vector<SystemControl>& order);
     void refuse(const std::string& reason) const;
 
     VolumeControl& volume_;

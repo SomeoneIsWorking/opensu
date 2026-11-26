@@ -639,7 +639,7 @@ struct Rig {
                                         }};
     app::BrightnessControl brightness{nullptr};
     app::RingLightSettings lights{preferences, std::nullopt, nullptr, {}};
-    app::QuickSettings quick{app::QuickSettings::Services{.volume = volume,
+    app::SystemControls quick{app::SystemControls::Services{.volume = volume,
                                                           .brightness = brightness,
                                                           .powerProfiles = nullptr,
                                                           .preferences = preferences,
@@ -805,8 +805,8 @@ void togglesChoicesAndSliderPersist(const fs::path& root) {
     expect(need(rig.onDisk().homeMode, "a scroll mode") != first, "and picking again changes it");
 
     if (app::nightLightSupported()) {
-        rig.focus("quick.nightLight");
-        const ui::SettingsRow night = rig.rowOf("quick.nightLight");
+        rig.focus("system.nightLight");
+        const ui::SettingsRow night = rig.rowOf("system.nightLight");
         expect(night.choices.size() == 3 && night.choices[night.chosen] == "Same as desktop" &&
                    night.note == "For session mode; here the desktop's own night light applies",
                "the night light follows the desktop, and says where it applies");
@@ -814,13 +814,13 @@ void togglesChoicesAndSliderPersist(const fs::path& root) {
         rig.act(Button::Down);
         rig.act(Button::A);
         expect(rig.onDisk().nightLight == settings::NightLightChoice::Off &&
-                   rig.rowOf("quick.nightLight").choices[rig.rowOf("quick.nightLight").chosen] ==
+                   rig.rowOf("system.nightLight").choices[rig.rowOf("system.nightLight").chosen] ==
                        "Off",
                "a night light choice is kept");
     } else {
         expect(std::ranges::none_of(rig.rows(),
                                     [](const ui::SettingsRow& row) {
-                                        return row.id == "quick.nightLight";
+                                        return row.id == "system.nightLight";
                                     }),
                "without a night light to switch there is no row for it");
     }

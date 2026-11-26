@@ -157,7 +157,7 @@ struct Settings {
     /// The night light in session mode.
     NightLightChoice nightLight{NightLightChoice::Desktop};
 
-    /// What the Quick settings panel shows, in order, by `app::QuickSettings`' spellings; unset
+    /// What the Quick settings panel shows, in order, by `app::SystemControls`' spellings; unset
     /// for its default set.
     std::optional<std::vector<std::string>> quickSettings;
 

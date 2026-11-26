@@ -4,7 +4,7 @@
 // button test, the stick lights where the handheld has them, a DolphinBar's mode and Bluetooth
 // Wii Remotes, and the way to the shortcut
 // remapping), Audio output (the outputs to choose between)
-// and Display (the output's size). Volume, brightness and the interface size are `QuickSettings`'.
+// and Display (the output's size). Volume, brightness and the interface size are `SystemControls`'.
 // Everything it changes goes through the owner of that thing: `BluetoothSession` and
 // `AudioOutputs`.
 #pragma once

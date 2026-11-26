@@ -36,7 +36,7 @@ struct Rig {
                       }},
           volume{mixer ? std::make_unique<test::FakeMixer>() : nullptr, {}}, brightness{&light},
           retro{scratch.path() / "retro"}, lights{preferences, std::nullopt, nullptr, {}},
-          quick{app::QuickSettings::Services{.volume = volume,
+          quick{app::SystemControls::Services{.volume = volume,
                                              .brightness = brightness,
                                              .powerProfiles = nullptr,
                                              .preferences = preferences,
@@ -194,7 +194,7 @@ struct Rig {
     app::BrightnessControl brightness;
     app::RetroSession retro;
     app::RingLightSettings lights;
-    app::QuickSettings quick;
+    app::SystemControls quick;
     app::ShelfOptions shelf;
     profiles::ProfileBook profiles{scratch.path() / "profiles.json"};
     audio::SdlSoundPlayer sounds;
@@ -330,7 +330,7 @@ void quickChangesSitBesideThePlaces() {
     Rig rig;
     rig.open();
     rig.press(Action::Right);
-    expect(rig.ui.navigator.focused() == "quick.volume", "Right from a place reaches Volume");
+    expect(rig.ui.navigator.focused() == "system.volume", "Right from a place reaches Volume");
     rig.press(Action::Left);
     expect(rig.ui.navigator.focused() == "guide.home" &&
                test::need(rig.volume.system().state(), "a volume").percent == 40,
@@ -342,11 +342,11 @@ void quickChangesSitBesideThePlaces() {
            "A holds Volume, then Right turns it up a step");
     rig.press(Action::Back);
     expect(test::need(rig.volume.system().state(), "a volume").percent == 40 &&
-               rig.ui.navigator.focused() == "quick.volume",
+               rig.ui.navigator.focused() == "system.volume",
            "Back lets Volume go, putting back the level it had");
-    rig.choose("quick.mute");
+    rig.choose("system.mute");
     expect(test::need(rig.volume.system().state(), "a volume").muted, "A on Mute mutes");
-    rig.choose("quick.scale");
+    rig.choose("system.scale");
     rig.press(Action::Right);
     rig.press(Action::Accept);
     expect(rig.preferences.values().uiScale == settings::defaultUiScale + settings::uiScaleStep &&
@@ -375,7 +375,7 @@ void pageRowsFollowThePage() {
     const auto ids = [](const Rig& rig) {
         std::vector<std::string> found;
         for (const ui::SettingsRow& row : rig.controller.quick()) {
-            if (row.id.starts_with("guide.") || row.id.starts_with("quick.") ||
+            if (row.id.starts_with("guide.") || row.id.starts_with("system.") ||
                 row.kind == ui::RowKind::Heading) {
                 continue;
             }
@@ -481,7 +481,7 @@ void pageRowsChangeAndKeep() {
 void withoutAMixerVolumeSaysWhy() {
     Rig rig{{}, false};
     const std::vector<ui::SettingsRow> quick = rig.controller.quick();
-    expect(!quick.empty() && quick.front().id == "quick.volumeMissing" &&
+    expect(!quick.empty() && quick.front().id == "system.volumeMissing" &&
                quick.front().kind == ui::RowKind::Info && !quick.front().note.empty(),
            "an unavailable mixer is a fact saying why");
 }

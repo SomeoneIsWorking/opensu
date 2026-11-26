@@ -1,5 +1,5 @@
 // quick_settings_panel — the Quick settings panel: a toolkit overlay down the right edge, over the
-// home screen or a running game, holding the settings the player picked (`QuickSettings::shown`)
+// home screen or a running game, holding the settings the player picked (`SystemControls::shown`)
 // and the way to Settings › Quick settings to pick them. The Quick settings shortcut opens and
 // closes it; Back, Start or a tap beside it closes it. The game is not held while it is up, so a
 // change is heard and seen as it is made.
@@ -14,7 +14,7 @@
 #include "gpu2d/ui/screen.hpp"
 
 #include "audio/sdl_sound_player.hpp"
-#include "quick_settings.hpp"
+#include "system_controls.hpp"
 #include "ui/row_widgets.hpp"
 #include "ui/setting_row.hpp"
 
@@ -27,7 +27,7 @@ class QuickSettingsPanel final : public ui::RowActions {
         std::function<void()> choose;
     };
 
-    QuickSettingsPanel(gpu2d::ui::Navigator& navigator, QuickSettings& settings,
+    QuickSettingsPanel(gpu2d::ui::Navigator& navigator, SystemControls& settings,
                        audio::SdlSoundPlayer& sounds, Hooks hooks)
         : navigator_{navigator}, settings_{settings}, sounds_{sounds}, hooks_{std::move(hooks)} {
     }
@@ -47,7 +47,7 @@ class QuickSettingsPanel final : public ui::RowActions {
     [[nodiscard]] const gpu2d::ui::Screen* panel() const;
 
     gpu2d::ui::Navigator& navigator_;
-    QuickSettings& settings_;
+    SystemControls& settings_;
     audio::SdlSoundPlayer& sounds_;
     Hooks hooks_;
 };

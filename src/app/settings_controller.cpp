@@ -157,13 +157,13 @@ std::vector<ui::SettingsCategory> SettingsController::build() const {
         pages.push_back(steamPage());
     }
     pages.push_back(audioPage());
-    if (std::vector<ui::SettingsRow> power = quick_.rows(QuickSetting::PowerProfile);
+    if (std::vector<ui::SettingsRow> power = system_.rows(SystemControl::PowerProfile);
         !power.empty()) {
         pages.push_back({"power", "Power", std::move(power)});
     }
     pages.push_back(controlsPage());
     pages.push_back(chords_.page());
-    pages.push_back(quick_.page());
+    pages.push_back(system_.page());
     pages.push_back(installPage());
     pages.push_back(artwork_.page());
     // Wine runs the Windows builds of GOG and Epic games.
@@ -196,9 +196,9 @@ ui::SettingsCategory SettingsController::appearancePage() const {
         scrollModeId, "Scroll mode", "How the home grid scrolls",
         ui::Options{{"Scrolling", "Pages"}, mode == config::HomeMode::WiiSu ? 1U : 0U}));
     page.rows.push_back(shelf_.pin("Keep the dock up on Library"));
-    for (const QuickSetting setting :
-         {QuickSetting::Brightness, QuickSetting::NightLight, QuickSetting::InterfaceSize}) {
-        std::ranges::move(quick_.rows(setting), std::back_inserter(page.rows));
+    for (const SystemControl setting :
+         {SystemControl::Brightness, SystemControl::NightLight, SystemControl::InterfaceSize}) {
+        std::ranges::move(system_.rows(setting), std::back_inserter(page.rows));
     }
     return page;
 }
@@ -291,8 +291,8 @@ ui::SettingsCategory SettingsController::audioPage() const {
                                        preferences_.values().uiSounds));
     page.rows.push_back(interfaceSounds_.row());
     page.rows.push_back(interfaceSounds_.musicRow());
-    for (const QuickSetting setting : {QuickSetting::Volume, QuickSetting::Mute}) {
-        std::ranges::move(quick_.rows(setting), std::back_inserter(page.rows));
+    for (const SystemControl setting : {SystemControl::Volume, SystemControl::Mute}) {
+        std::ranges::move(system_.rows(setting), std::back_inserter(page.rows));
     }
     return page;
 }
@@ -401,7 +401,7 @@ void SettingsController::openAt(const std::string& id, const std::string& row) {
 }
 
 void SettingsController::show(const std::string& category, const std::string& row) {
-    quick_.read();
+    system_.read();
     emulators_.rescan();
     if (clientSteam()) {
         steamLibraries_.reload();
@@ -537,8 +537,8 @@ void SettingsController::openPage(const std::string& id) {
 void SettingsController::setLevel(const std::string& id, int level) {
     if (shelf_.setLevel(id, level)) {
         refresh();
-    } else if (QuickSettings::owns(id)) {
-        quick_.setLevel(id, level);
+    } else if (SystemControls::owns(id)) {
+        system_.setLevel(id, level);
         refresh();
     } else if (StickCorrectionSettings::owns(id)) {
         sticks_.setLevel(id, level);
@@ -562,8 +562,8 @@ void SettingsController::run(const std::string& id, int step) {
         runControls(id);
         return;
     }
-    if (QuickSettings::owns(id)) {
-        quick_.run(id, step);
+    if (SystemControls::owns(id)) {
+        system_.run(id, step);
         refresh();
         return;
     }

@@ -149,7 +149,7 @@ def _settings_page(label: str) -> Callable[[HiddenShell], None]:
 def _quick(shell: HiddenShell) -> None:
     # The pad's Guide + A chord, held over the channel: Quick settings on Volume.
     shell.press("guide+a")
-    shell.wait_for("screenFocus", "quick.volume")
+    shell.wait_for("screenFocus", "system.volume")
 
 
 def _close_quick(shell: HiddenShell) -> None:
