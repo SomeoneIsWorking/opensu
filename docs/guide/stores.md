@@ -92,6 +92,10 @@ Wine ([wine.md](wine.md)), a macOS build as it is. On macOS a game with both tak
 and shows the Build row described for GOG above; installing the other build replaces the install,
 and its saves stay. The owned list is read once per start of openSU.
 
+Adding Steam through fumarole (Library › Add › Steam) signs it in: a QR code for the Steam mobile
+app, this PC's Steam login, or **Copy from <name>**, the sign-in of another openSU paired with this
+one on your network, which that openSU's player allows first ([lan.md](lan.md#copying-the-steam-sign-in)).
+
 ## Downloads
 
 Guide › Downloads lists every download openSU knows of: Steam's queue (its updates too), the Epic,

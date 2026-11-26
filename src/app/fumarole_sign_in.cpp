@@ -1,10 +1,12 @@
 #include "fumarole_sign_in.hpp"
 
 #include <system_error>
+#include <utility>
 #include <vector>
 
 #include "launch/command.hpp"
 #include "lucent/log.h"
+#include "secrets/secret.hpp"
 
 namespace opensu::app {
 namespace {
@@ -19,13 +21,24 @@ std::string wordsOf(std::string_view line) {
 } // namespace
 
 void FumaroleSignIn::start(Way way) {
+    begin(way == Way::Qr ? std::vector<std::string>{"auth", "--qr", qr_.string()}
+                         : std::vector<std::string>{"auth", "--from-steam"},
+          {});
+}
+
+void FumaroleSignIn::copy(std::string login) {
+    begin({"auth", "--import"}, std::move(login));
+}
+
+void FumaroleSignIn::begin(std::vector<std::string> args, std::string input) {
     cancel();
     {
         const std::scoped_lock lock{mutex_};
         result_.reset();
     }
-    worker_ = std::jthread{[this, way](const std::stop_token& stop) {
-        run(stop, way);
+    worker_ = std::jthread{[this, args = std::move(args),
+                            input = std::move(input)](const std::stop_token& stop) mutable {
+        run(stop, args, input);
     }};
 }
 
@@ -40,7 +53,8 @@ std::optional<FumaroleSignIn::Result> FumaroleSignIn::take() {
     return taken;
 }
 
-void FumaroleSignIn::run(const std::stop_token& stop, Way way) {
+void FumaroleSignIn::run(const std::stop_token& stop, const std::vector<std::string>& args,
+                         std::string& input) {
     Result result;
     if (program_.empty()) {
         result.message = "fumarole is not installed";
@@ -48,16 +62,14 @@ void FumaroleSignIn::run(const std::stop_token& stop, Way way) {
         std::error_code ignored;
         std::filesystem::create_directories(qr_.parent_path(), ignored);
         std::filesystem::remove(qr_, ignored);
-        const std::vector<std::string> args =
-            way == Way::Qr ? std::vector<std::string>{"auth", "--qr", qr_.string()}
-                           : std::vector<std::string>{"auth", "--from-steam"};
         std::string last;
         const std::optional<int> status = launch::runStreaming(
             program_.string(), args,
             [&last](std::string_view line) {
                 last = wordsOf(line);
             },
-            stop);
+            stop, input);
+        secrets::wipe(input);
         std::filesystem::remove(qr_, ignored);
         if (stop.stop_requested()) {
             return;
@@ -67,6 +79,7 @@ void FumaroleSignIn::run(const std::stop_token& stop, Way way) {
                          : !status ? "fumarole could not be started"
                                    : "Steam sign-in failed: " + last;
     }
+    secrets::wipe(input);
     lucent::info("fumarole", "sign-in {}: {}", result.ok ? "done" : "failed", result.message);
     const std::scoped_lock lock{mutex_};
     result_ = std::move(result);

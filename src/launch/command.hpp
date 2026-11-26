@@ -28,14 +28,15 @@ resolveExecutable(const std::string& program, const std::vector<std::filesystem:
                                             const std::vector<std::string>& args,
                                             std::chrono::milliseconds timeout);
 
-/// Runs `program` with stdout and stderr merged and stdin closed, handing each complete line to
-/// `onLine` as it arrives, until the child exits. When `stop` is requested the child and its
-/// processes are ended. Returns the exit status (128 plus the signal when it was killed by one),
-/// or nothing when it could not be run or was stopped.
+/// Runs `program` with stdout and stderr merged, handing each complete line to `onLine` as it
+/// arrives, until the child exits. Its stdin reads `input` and then ends; with none it is closed.
+/// When `stop` is requested the child and its processes are ended. Returns the exit status (128
+/// plus the signal when it was killed by one), or nothing when it could not be run or was stopped.
 [[nodiscard]] std::optional<int> runStreaming(const std::string& program,
                                               const std::vector<std::string>& args,
                                               const std::function<void(std::string_view)>& onLine,
-                                              const std::stop_token& stop);
+                                              const std::stop_token& stop,
+                                              std::string_view input = {});
 
 /// The status and stdout of a finished command.
 struct Captured {

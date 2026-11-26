@@ -40,6 +40,11 @@ struct Installs {
     /// The account's Steam web login, the `steamLoginSecure` cookie `fumarole web-session`
     /// prints; a secret, never logged. Nothing when fumarole is not signed in or cannot be reached.
     [[nodiscard]] std::optional<std::string> webLogin() const;
+
+    /// The Steam sign-in fumarole keeps, else the one this PC's Steam client saved, as one line
+    /// of JSON (`fumarole auth --export`) another fumarole's `auth --import` takes; a secret, never
+    /// logged. Nothing with why when there is none.
+    [[nodiscard]] std::optional<std::string> exportedLogin(std::string& why) const;
 };
 
 /// The owned games with a Windows build, or this OS's own where fumarole installs it, in

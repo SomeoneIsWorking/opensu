@@ -354,6 +354,31 @@ std::optional<CopyVerdict> readCopyVerdict(std::string_view body) {
     return verdict;
 }
 
+std::string write(const LoginVerdict& verdict) {
+    json document{{"verdict", verdict.verdict}};
+    if (!verdict.login.empty()) {
+        document["login"] = verdict.login;
+    }
+    if (!verdict.refusal.empty()) {
+        document["refusal"] = verdict.refusal;
+    }
+    return document.dump();
+}
+
+std::optional<LoginVerdict> readLoginVerdict(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    LoginVerdict verdict{.verdict = textField(*document, "verdict"),
+                         .login = textField(*document, "login"),
+                         .refusal = textField(*document, "refusal")};
+    if (verdict.verdict == "accepted" && verdict.login.empty()) {
+        return std::nullopt;
+    }
+    return verdict;
+}
+
 std::string write(const SaveAsk& ask) {
     return json{{"system", ask.system}, {"game", ask.game}, {"profile", ask.profile},
                 {"picked", ask.picked}, {"hash", ask.hash}, {"counter", ask.counter}}

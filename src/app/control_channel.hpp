@@ -232,6 +232,10 @@ struct ControlCommand {
         GetSettings,
         /// `argument` is a JSON object of settings keys: set them as the Settings screen would.
         SetSettings,
+        /// `argument` is a row of Library's Add page by id (`set-up:steam`): pick it there.
+        LibraryAdd,
+        /// `argument` is a row id on the integration wizard's page on top: pick it.
+        WizardPick,
     };
     Kind kind{Kind::CloseGame};
     std::string argument;

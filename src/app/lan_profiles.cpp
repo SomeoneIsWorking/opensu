@@ -5,8 +5,6 @@
 #include <thread>
 #include <utility>
 
-#include "gpu2d/ui/screen.hpp"
-
 #include "lucent/log.h"
 
 namespace opensu::app {
@@ -259,41 +257,24 @@ void LanProfiles::serviceQuestion() {
     if (question == asked_) {
         return;
     }
-    closeQuestion();
+    question_.close();
     asked_ = std::move(question);
     if (!asked_) {
         return;
     }
     lucent::info("lan", "{} asks for a copy of the profile {}", asked_->peer.name,
                  asked_->profile.id);
-    std::vector<gpu2d::ui::Dialog::Choice> choices;
-    choices.push_back(gpu2d::ui::Dialog::Choice{.label = "Decline",
-                                                .chosen =
-                                                    [this] {
-                                                        answerQuestion(false);
-                                                    },
-                                                .kind = gpu2d::ui::ButtonKind::Normal,
-                                                .exits = true});
-    choices.push_back(gpu2d::ui::Dialog::Choice{.label = "Allow",
-                                                .chosen =
-                                                    [this] {
-                                                        answerQuestion(true);
-                                                    },
-                                                .kind = gpu2d::ui::ButtonKind::Primary,
-                                                .exits = false});
     const std::string& peer = asked_->peer.name;
     const std::string& name = asked_->profile.name;
-    questionTitle_ = "Copy " + name + " to " + peer + "?";
-    sounds_.play(audio::Effect::Open);
-    navigator_.push(std::make_unique<gpu2d::ui::Dialog>(
-        questionTitle_,
-        peer + " asks for a copy of " + name + ". Allowed, " + name + "'s saves stay the same " +
-            "here and on " + peer + " until either unlinks it.",
-        std::move(choices), 0));
+    question_.ask("Copy " + name + " to " + peer + "?",
+                  peer + " asks for a copy of " + name + ". Allowed, " + name +
+                      "'s saves stay the same here and on " + peer + " until either unlinks it.",
+                  "Allow", [this](bool allow) {
+                      answerQuestion(allow);
+                  });
 }
 
 void LanProfiles::answerQuestion(bool allow) {
-    questionTitle_.clear();
     lan::LanNode* node = lan_.node();
     if (node == nullptr || !asked_) {
         return;
@@ -308,19 +289,6 @@ void LanProfiles::answerQuestion(bool allow) {
                      : "Declined " + asked.peer.name,
                false);
     hooks_.refresh();
-}
-
-void LanProfiles::closeQuestion() {
-    if (questionTitle_.empty()) {
-        return;
-    }
-    for (const gpu2d::ui::Screen* screen : navigator_.screens()) {
-        if (screen->id() == "dialog" && screen->title() == questionTitle_) {
-            navigator_.closeFrom(*screen);
-            break;
-        }
-    }
-    questionTitle_.clear();
 }
 
 } // namespace opensu::app

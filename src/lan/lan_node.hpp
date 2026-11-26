@@ -2,7 +2,8 @@
 // listener, its DNS-SD announcement and browsing, the pairing it hosts and the one it asks for,
 // its paired peers as targets of `save_sync::SaveSync` for the profiles linked with each
 // (`PeerSaveTarget`, the group `lan`), the copies of its profiles they ask for (`ProfileCopies`)
-// and those it asks of them, and a worker that keeps the paired peers' games in
+// and those it asks of them, its Steam sign-in they ask for (`LoginCopies`) and the one it copies
+// from them, and a worker that keeps the paired peers' games in
 // `RemoteLibrary` while they are announced (again when one comes or goes, a pairing changes, and
 // every minute), their covers cached under `coverCache`; a paired peer's request to play a game
 // here goes to `play`, and this one asks a host to play one of its games (`askToPlay`). It offers
@@ -76,6 +77,9 @@ class LanNode {
         decltype(LanListener::Sources::joinAnswered) joinAnswered;
         /// The frame generation shaders a peer asks for (`LanListener::Sources::frameGenModules`).
         decltype(LanListener::Sources::frameGenModules) frameGenModules;
+        /// This openSU's Steam sign-in, for a peer its player lets copy it (`LoginCopies::Export`);
+        /// empty refuses every such ask.
+        LoginCopies::Export steamLogin;
         /// Where ROMs being imported are staged, where each one taken goes, and when an import's
         /// progress changes (`RomImport::Setup`; this node gives its id and the hosts' links).
         RomImport::Setup roms;
@@ -148,6 +152,15 @@ class LanNode {
         return copies_.decide(peerId, profileId, allow, ProfileCopies::Clock::now(), error);
     }
 
+    /// The paired openSU whose ask for this one's Steam sign-in waits for the player.
+    [[nodiscard]] std::optional<Peer> loginQuestion() const {
+        return logins_.question(LoginCopies::Clock::now());
+    }
+    /// The player's answer to `peerId`'s ask for the Steam sign-in; false when it lapsed.
+    [[nodiscard]] bool answerLogin(const std::string& peerId, bool allow) {
+        return logins_.decide(peerId, allow, LoginCopies::Clock::now());
+    }
+
     // Asked of the paired, announced openSU `hostId`. Each blocks for the call, so never on the
     // loop, and is nothing or false with `error` when it is gone, unpaired or refuses, or without
     // one when `stop` ended the call.
@@ -167,6 +180,12 @@ class LanNode {
                                                               const std::string& hostId,
                                                               const std::string& profileId,
                                                               std::string& error) const;
+    /// Asks it for its Steam sign-in, which its player is asked about, and waits for the answer,
+    /// asked every second for as long as its player may take: the sign-in fumarole exported there,
+    /// a secret.
+    [[nodiscard]] std::optional<std::string> copySteamLogin(const std::stop_token& stop,
+                                                            const std::string& hostId,
+                                                            std::string& error) const;
     /// Drops the link of `profileId` with `peerId` here, then tells it to drop it too when it is
     /// announced; both keep the profile. False with `error` when it could not be dropped here.
     [[nodiscard]] bool unlink(const std::stop_token& stop, const std::string& peerId,
@@ -327,6 +346,7 @@ class LanNode {
     save_sync::SaveSync& saves_;
     profiles::ProfileBook& profiles_;
     ProfileCopies copies_{profiles_};
+    LoginCopies logins_;
     /// Mutable: a worker holding a const node hands saves over through it; it locks itself.
     mutable NetplayAsks netplay_;
     RomShelf shelf_;

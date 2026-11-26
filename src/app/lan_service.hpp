@@ -29,6 +29,7 @@
 #include "lan/lan_node.hpp"
 #include "lan/remote_library.hpp"
 #include "library/game.hpp"
+#include "peer_question.hpp"
 #include "preferences.hpp"
 #include "save_sync/save_sync.hpp"
 #include "secrets/secret_store.hpp"
@@ -73,6 +74,9 @@ class LanService {
         decltype(lan::LanNode::Setup::joinAnswered) joinAnswered;
         /// The frame generation shaders a paired peer asks for; on the listener's thread.
         decltype(lan::LanNode::Setup::frameGenModules) frameGenModules;
+        /// This openSU's Steam sign-in, for a paired peer its player lets copy it; on the
+        /// listener's thread.
+        decltype(lan::LanNode::Setup::steamLogin) steamLogin;
     };
 
     /// On from the start when `active`. The question and the card go on `navigator`.
@@ -115,6 +119,15 @@ class LanService {
     /// waits for it. False while LAN is off or another such call is under way.
     [[nodiscard]] bool
     askPeers(std::function<void(const lan::LanNode&, const std::stop_token&)> work);
+
+    /// What a host answered an ask for its Steam sign-in: the sign-in (a secret), or why there is
+    /// none.
+    using LoginAnswer = std::function<void(std::optional<std::string>, std::string)>;
+    /// Asks the paired openSU `hostId` for its Steam sign-in through `askPeers`, waiting while its
+    /// player is asked; `answer` is called on that thread, unless `cancel` or the node going ended
+    /// the ask first. False when `askPeers` is.
+    [[nodiscard]] bool askSteamLogin(std::string hostId, std::stop_token cancel,
+                                     LoginAnswer answer);
 
     /// Runs `work` on the node off the loop for a cover of a host's game, as `askPeers` does, once
     /// the last such work ended. False while LAN is off.
@@ -176,11 +189,7 @@ class LanService {
     /// The player's answer to the question its dialog asks.
     void answerQuestion(bool accept);
     void serviceCard();
-    void closeQuestion();
     void closeCard();
-    /// The open screen with `id` and `title`.
-    [[nodiscard]] const gpu2d::ui::Screen* openScreen(std::string_view id,
-                                                      std::string_view title) const;
 
     Places places_;
     Preferences& preferences_;
@@ -198,9 +207,9 @@ class LanService {
     std::shared_ptr<std::atomic<bool>> romsNews_{std::make_shared<std::atomic<bool>>(false)};
     /// The ROMs offered last, offered again after a restart.
     lan::RomShelf::Contents roms_;
-    /// The question asked now, and its dialog's title while the dialog is open.
+    /// The question asked now, and its dialog.
     std::optional<lan::HostPairing::Question> asked_;
-    std::string questionTitle_;
+    PeerQuestion question_{navigator_, sounds_};
     /// Whether the pairing card is up.
     bool carded_{false};
     /// Who was found and paired when last looked, and when.

@@ -1,8 +1,9 @@
 // fumarole_sign_in — signing fumarole in to the player's Steam account, on its own worker: with a
 // QR code the Steam mobile app scans (`fumarole auth --qr <png>`, which rewrites the picture as
 // Steam refreshes the code and deletes it once the sign-in is approved), or with the login this
-// PC's Steam client saved (`fumarole auth --from-steam`). fumarole keeps the account; the loop
-// takes how it ended with `take`.
+// PC's Steam client saved (`fumarole auth --from-steam`), or with one another openSU's fumarole
+// exported, piped into `fumarole auth --import`. fumarole keeps the account; the loop takes how
+// it ended with `take`.
 #pragma once
 
 #include <cstdint>
@@ -11,6 +12,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace opensu::app {
 
@@ -35,6 +37,9 @@ class FumaroleSignIn {
 
     /// Starts signing in `way`, ending one under way.
     void start(Way way);
+    /// Starts signing in with `login`, a sign-in another fumarole exported (a secret, wiped once
+    /// handed over), ending one under way.
+    void copy(std::string login);
     /// Ends a sign-in under way; it reports nothing.
     void cancel();
     /// The QR picture, there while a QR sign-in waits for the phone.
@@ -45,7 +50,9 @@ class FumaroleSignIn {
     [[nodiscard]] std::optional<Result> take();
 
   private:
-    void run(const std::stop_token& stop, Way way);
+    /// Runs fumarole with `args`, `input` on its stdin, on the worker.
+    void begin(std::vector<std::string> args, std::string input);
+    void run(const std::stop_token& stop, const std::vector<std::string>& args, std::string& input);
 
     std::filesystem::path program_;
     std::filesystem::path qr_;

@@ -1,6 +1,6 @@
 # Library as integrations
 
-Status: stages 1 to 4 built (2026-11-26); 5 planned.
+Status: built (2026-11-26).
 
 The player: "first we don't show any games in library view, only sub libraries like steam and
 consoles and such then remove all the add buttons there and just put one add button at the end,
@@ -49,8 +49,11 @@ last page.
   In a login session there is no choice: the session's default, Managed. The client asks for its
   own login when it starts. fumarole then signs in: a QR code the Steam mobile app scans
   (`fumarole auth --qr`, shown on its own page and refreshed as Steam changes it), this PC's Steam
-  login (`--from-steam`), or later; signing in adds Steam. Copying the login from another openSU
-  on the LAN is stage 5 (`/lan/profiles` carries the profile copy today).
+  login (`--from-steam`), Copy from <name> for each paired, announced openSU, or later; signing in
+  adds Steam. A copy asks that openSU (`/lan/steam/login`), whose player is asked as for a profile
+  copy, waits on its own page (Back stops waiting), and pipes the sign-in that openSU's
+  `fumarole auth --export` printed into `fumarole auth --import` here
+  ([lan.md](../design/lan.md#steam-sign-in)).
 - Epic and GOG: the sign-in (`docs/plans/store-sign-in.md`).
 - Emulators, plugins, LAN: nothing to ask; turned on.
 - ROM folder, game, game folder, LAN import: the flows Library's add tiles start today.

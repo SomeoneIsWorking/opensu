@@ -34,6 +34,9 @@ Module rows are in `docs/codemap.md` under LAN and Remote play.
   copies of profiles asked of this one are `lan::ProfileCopies` (in the node), and
   `app::LanProfiles` (on the shell's loop) asks the player and asks peers for theirs. See
   [Profiles](#profiles) and [Shared saves](#shared-saves).
+- A paired peer's ask for this openSU's Steam sign-in is `lan::LoginCopies` (in the node);
+  `app::LanLoginAsks` (on the shell's loop) asks the player, and the integration wizard asks a
+  peer for its own (`LanService::askSteamLogin`). See [Steam sign-in](#steam-sign-in).
 - `app::RemotePlay` (on the shell's loop, both ways) runs remote play's sessions; see
   [Remote play](#remote-play).
 - `lan::RomShelf` (in the node) serves the catalog's ROM files and BIOS files to paired peers, and
@@ -122,6 +125,8 @@ It never shares the loopback control channel's port.
 | `POST /lan/profiles/copy` | paired, signed | `{"profile"}`: the caller asks for a copy; the player here is asked. 404 for no such profile, 409 while another ask waits |
 | `POST /lan/profiles/copy/status` | paired, signed | the same ask → `{"verdict","profile"}`: `waiting`, `accepted` (with the profile) or `declined`; 404 when none is under way |
 | `POST /lan/profiles/unlink` | paired, signed | the caller unlinked its copy of `profile`; this one unlinks it too |
+| `POST /lan/steam/login` | paired, signed | `{}` → `{}`: the caller asks for this openSU's Steam sign-in; the player here is asked. 409 with why when there is none to give (no fumarole, not signed in) or another ask waits |
+| `POST /lan/steam/login/status` | paired, signed | `{}` → `{"verdict","login","refusal"}`: `waiting`, `accepted` with `login`, the line `fumarole auth --export` printed (a secret), or `declined`, with `refusal` when it was not the player's answer; 404 when none is under way |
 | `POST /lan/saves/status` | linked profile, signed | `{"system","game","profile"}` → `{"counter","hash","bytes","modified"}`; 404 when no game here has that key |
 | `POST /lan/saves/get` | linked profile, signed | the same ask → the saves as a bundle (below), at most 512 MiB |
 | `POST /lan/saves/news` | linked profile, signed | the caller holds newer saves of the game (`picked`: the player there chose them in a conflict); this one pulls them |
@@ -214,8 +219,34 @@ copying it, which its owner allows, as pairing is:
    (`/unlink`), which drops it too. Each keeps the profile with the saves it has. Removing a
    pairing, on either side, drops every link with that peer (`ProfileBook::forgetPeer`).
 
+A profile copy and a Steam sign-in copy (below) are each a `lan::PeerAsk`: one ask at a time by
+peer and subject, the question, the verdict polled and collected once, lapsing after `patience`.
+
 Only linked profiles' saves cross: `PeerSaveTarget::status` says NotShared for a profile not
 linked with its peer without asking it, and the listener's save routes refuse one with 403.
+
+## Steam sign-in
+
+fumarole's Steam sign-in is copied from a paired openSU the same way a profile is, so a second
+device signs in without a phone or a password:
+
+1. The integration wizard's Login page (Library › Add › Steam, through fumarole) has Copy from
+   <name> for each paired, announced openSU (`LanService::announced`). Picking it asks that one
+   (`/lan/steam/login`, `LanNode::copySteamLogin`) off the loop through `LanService::askSteamLogin`
+   and waits on a page of its own; Back stops waiting (the wizard's stop token ends the poll).
+2. The host refuses at once with why when it has nothing to give: no fumarole, or
+   `fumarole auth --export` printing nothing (not signed in, and no saved login of a Steam client
+   there). Otherwise its player is asked "<name> asks for your Steam sign-in", Decline focused, for
+   up to 120 s; one ask waits at a time.
+3. The asker polls `/status` every second. Allowed, the host runs `fumarole auth --export` again
+   as the verdict is collected (`LoginCopies::Export`), so the sign-in leaves fumarole only after
+   the player said yes, and the sealed answer carries it.
+4. The asker pipes it into `fumarole auth --import` (`FumaroleSignIn::copy`, stdin through
+   `launch::runStreaming`), which logs on with it before storing it, and Steam is added as the
+   other sign-ins add it. A refusal, lapse or failed logon says why and stays on the Login page.
+
+The sign-in is a secret: it crosses only in the sealed body, is wiped from openSU's memory once
+handed over (`secrets::wipe`), and is never logged; the host logs who asked and the answer.
 
 ## Shared saves
 
@@ -590,6 +621,8 @@ Library on both sides.
 ## Known limits
 
 - A guest waiting on `/lan/play/status` cannot cancel; the ask lapses after 120 s.
+- A guest that stops waiting for a Steam sign-in tells the host nothing: the host's question stays
+  until answered or lapsed, and an Allow then is never collected.
 - Who talks to whom, when, which routes and how much crosses the LAN in clear; what is said does
   not. No forward secrecy: the pairing's secret opens recorded traffic.
 - Anyone on the LAN can see that an openSU runs, its name and id, and can ask to pair. The host's
@@ -667,6 +700,16 @@ the guest walk Settings › LAN › ROMs on <host>, a console, Whole console, Ba
 reaches `done` for each game, the guest's library shows them and they play. Kill the host by its
 PID during a large file and start it again: the guest's log says "goes on from byte". A signed,
 sealed `/lan/roms/chunk` for `../x` or an unlisted file gets 403 and the host logs the refusal.
+
+Steam sign-in: `loginAsksAreAnsweredOnce` and `steamSignInComesOver` in `lan_node_test.cpp` cover
+the ask, the lapse and the sealed round trip; `wizardCopiesASignIn` in `integration_flow_test.cpp`
+covers the Login page's rows, Back while waiting, a decline and a failed import. In the product,
+pair two `--hidden` openSUs, each with a stand-in `fumarole` first on `PATH` (the host's prints a
+made-up line for `auth --export`, the guest's keeps what `auth --import` reads), then on the guest
+`/library/add` `set-up:steam`, `/wizard/pick` `wizard.kind.fumarole` and
+`wizard.login.copy:<host id>`. The host's `/frame.png` shows the question with Decline focused; on
+Allow the guest's toast says Steam was added and its stand-in holds the host's line. Neither log
+holds the line.
 
 Remote play on a tablet: start a hidden host with its own data directories and a test ROM, pair
 through Settings › LAN, and take the game from Library by touch. `adb forward` to the tablet's

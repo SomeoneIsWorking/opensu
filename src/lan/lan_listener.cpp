@@ -111,7 +111,8 @@ Response LanListener::handle(const Request& request) {
           path.starts_with(savesPrefix) || path == wire::romFileRoute ||
           path == wire::romChunkRoute || path == wire::installFilesRoute ||
           path == wire::profileCopyRoute || path == wire::profileCopyStatusRoute ||
-          path == wire::profileUnlinkRoute || path == wire::netplayRoute ||
+          path == wire::profileUnlinkRoute || path == wire::steamLoginRoute ||
+          path == wire::steamLoginStatusRoute || path == wire::netplayRoute ||
           path == wire::netplayStatusRoute || path == wire::netplaySaveRoute ||
           path == wire::coverOffersRoute || path == wire::coverPickRoute ||
           path == wire::gameMatchRoute));
@@ -155,6 +156,8 @@ Response LanListener::handle(const Request& request) {
         } else if (path == wire::profileCopyRoute || path == wire::profileCopyStatusRoute ||
                    path == wire::profileUnlinkRoute) {
             answer = profilesRoute(path, *body, *verified);
+        } else if (path == wire::steamLoginRoute || path == wire::steamLoginStatusRoute) {
+            answer = loginRoute(path, *verified);
         } else if (path == wire::romFileRoute || path == wire::romChunkRoute) {
             answer = romsRoute(path, *body, *verified);
         } else if (path == wire::installFilesRoute) {
@@ -349,6 +352,25 @@ Response LanListener::profilesRoute(std::string_view path, std::string_view body
     }
     lucent::info("lan", "{} unlinked the profile {}", verified.peer.name, ask->profile);
     return Response::json(ok, "OK", "{}");
+}
+
+Response LanListener::loginRoute(std::string_view path, const Signed& verified) {
+    const auto now = LoginCopies::Clock::now();
+    if (path == wire::steamLoginRoute) {
+        std::string refusal;
+        if (!sources_.logins.ask(verified.peer, now, refusal)) {
+            lucent::info("lan", "refused {} the Steam sign-in: {}", verified.peer.name, refusal);
+            return refused(conflict, "Conflict", refusal);
+        }
+        return Response::json(ok, "OK", "{}");
+    }
+    std::optional<wire::LoginVerdict> verdict = sources_.logins.status(verified.peer.id, now);
+    if (!verdict) {
+        return refused(notFound, "Not Found", "no ask for the Steam sign-in is under way");
+    }
+    std::string body = wire::write(*verdict);
+    secrets::wipe(verdict->login);
+    return Response::json(ok, "OK", std::move(body));
 }
 
 Response LanListener::romsRoute(std::string_view path, std::string_view body,

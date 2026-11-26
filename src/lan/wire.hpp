@@ -149,6 +149,21 @@ struct CopyVerdict {
 /// Nothing when `body` is not one, or an accepted one carries no profile.
 [[nodiscard]] std::optional<CopyVerdict> readCopyVerdict(std::string_view body);
 
+/// The routes a paired peer asks for this openSU's Steam sign-in by, its body `{}`.
+inline constexpr std::string_view steamLoginRoute = "/lan/steam/login";
+inline constexpr std::string_view steamLoginStatusRoute = "/lan/steam/login/status";
+
+/// The answer to `/lan/steam/login/status`: `waiting`, `accepted` with the sign-in fumarole
+/// exported (a secret), or `declined`, with why when it was not the player's answer.
+struct LoginVerdict {
+    std::string verdict;
+    std::string login;
+    std::string refusal;
+};
+[[nodiscard]] std::string write(const LoginVerdict& verdict);
+/// Nothing when `body` is not one, or an accepted one carries no sign-in.
+[[nodiscard]] std::optional<LoginVerdict> readLoginVerdict(std::string_view body);
+
 /// The routes a paired peer asks for the saves of a profile linked with it.
 inline constexpr std::string_view saveStatusRoute = "/lan/saves/status";
 inline constexpr std::string_view saveGetRoute = "/lan/saves/get";

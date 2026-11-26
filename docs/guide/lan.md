@@ -44,6 +44,22 @@ until it is back. They are checked again every minute.
 - **ROMs on <name>**: under each paired openSU, its ROMs to copy here
   ([Importing ROMs](#importing-roms)).
 
+## Copying the Steam sign-in
+
+A device that plays Steam games through fumarole can take the Steam sign-in of a paired openSU
+instead of signing in again:
+
+1. On the device without it, open Library › Add › Steam (choose fumarole if asked). The sign-in
+   page lists **Copy from <name>** for each paired openSU on the network.
+2. Pick it. The other openSU asks its player "<name> asks for your Steam sign-in"; Decline is the
+   default. This device waits until it is answered; Back stops waiting.
+3. Allowed, fumarole here signs in with it, and Steam is added. Declined, unanswered for two
+   minutes, or refused (that openSU has no fumarole, or no Steam sign-in: neither its fumarole's
+   nor its Steam client's), the page says why and stays on the sign-in choices.
+
+The sign-in crosses the network only sealed for the paired device, and is never written to a log.
+Allow it only for your own devices: they can then play your Steam games.
+
 ## Importing ROMs
 
 1. Open Settings › LAN › **ROMs on <name>**, or Library's **Import from a PC on your network**

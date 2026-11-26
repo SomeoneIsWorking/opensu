@@ -273,6 +273,14 @@ struct Node {
                   return std::nullopt;
               },
               .frameGenModules = {},
+              .steamLogin = [this](std::string& why) -> std::optional<std::string> {
+                  const std::lock_guard lock{mutex};
+                  if (steamLogin.empty()) {
+                      why = "it is not signed in to Steam";
+                      return std::nullopt;
+                  }
+                  return steamLogin;
+              },
               .roms = lan::RomImport::Setup{.selfId = {},
                                             .staging = state / "lan-roms",
                                             .link = {},
@@ -320,6 +328,8 @@ struct Node {
     std::string passedAsk;
     std::string joinAnswer;
     std::string refuseAnswer;
+    /// What this side's fumarole exports as its Steam sign-in; empty when it is not signed in.
+    std::string steamLogin;
     fs::path saves;
     fs::path state;
     save_sync::SaveSync sync;
@@ -853,6 +863,120 @@ void askedToPlayTogether(const lan::LanNode& guest, lan::LanNode& host) {
            "a refusal says why");
 }
 
+/// A stand-in for what fumarole exports; no real account.
+constexpr std::string_view standInLogin =
+    R"({"account_name":"stand-in","steam_id":"1","refresh_token":"not-a-token"})";
+
+/// The owner of asks for this openSU's Steam sign-in, on a clock of its own: refused with nothing
+/// to give, one ask at a time put to the player, the sign-in only in an allowed verdict and read
+/// only then, collected once, lapsing after `patience`; and its verdict over the wire.
+void loginAsksAreAnsweredOnce() {
+    using namespace std::chrono_literals;
+    using Clock = lan::LoginCopies::Clock;
+    const Clock::time_point start{};
+    std::string exported;
+    int reads = 0;
+    lan::LoginCopies logins{[&exported, &reads](std::string& why) -> std::optional<std::string> {
+        ++reads;
+        if (exported.empty()) {
+            why = "it is not signed in to Steam";
+            return std::nullopt;
+        }
+        return exported;
+    }};
+    const lan::Peer attic{"attic", "Attic"};
+    const lan::Peer den{"den", "Den"};
+    std::string refusal;
+    expect(!logins.ask(attic, start, refusal) && refusal == "it is not signed in to Steam",
+           "with no sign-in to give, an ask is refused, saying why");
+    expect(!logins.question(start), "and the player is not asked");
+    exported = standInLogin;
+    expect(logins.ask(attic, start, refusal), "signed in, the ask waits for the player");
+    expect(logins.ask(attic, start + 1s, refusal), "the same ask again keeps its place");
+    expect(!logins.ask(den, start + 1s, refusal) &&
+               refusal == "another openSU's ask waits for the player",
+           "another openSU's ask waits its turn");
+    expect(logins.question(start + 1s) == attic, "the player is asked about the attic's");
+    const std::optional<lan::wire::LoginVerdict> waiting = logins.status("attic", start + 2s);
+    expect(waiting && waiting->verdict == "waiting" && waiting->login.empty(),
+           "the asker hears it waits, and gets nothing");
+    expect(!logins.status("den", start + 2s), "the den has no ask under way");
+    const int read = reads;
+    expect(logins.decide("attic", true, start + 3s) && !logins.question(start + 3s),
+           "the player allows it and the question goes");
+    expect(reads == read, "the sign-in is not read when the player answers");
+    const std::optional<lan::wire::LoginVerdict> allowed = logins.status("attic", start + 4s);
+    expect(allowed && allowed->verdict == "accepted" && allowed->login == standInLogin &&
+               reads == read + 1,
+           "the asker collects the sign-in, read as it does");
+    expect(!logins.status("attic", start + 5s), "once: the ask is then over");
+
+    expect(logins.ask(den, start + 6s, refusal) && logins.decide("den", false, start + 7s),
+           "the den asks and is declined");
+    const std::optional<lan::wire::LoginVerdict> declined = logins.status("den", start + 8s);
+    expect(declined && declined->verdict == "declined" && declined->login.empty() &&
+               declined->refusal.empty(),
+           "a declined asker gets no sign-in");
+
+    expect(logins.ask(attic, start + 9s, refusal) && logins.decide("attic", true, start + 10s),
+           "the attic asks again and is allowed");
+    exported.clear();
+    const std::optional<lan::wire::LoginVerdict> unreadable = logins.status("attic", start + 11s);
+    expect(unreadable && unreadable->verdict == "declined" &&
+               unreadable->refusal == "it is not signed in to Steam",
+           "a sign-in gone since is declined with why");
+
+    exported = standInLogin;
+    const Clock::time_point later = start + 20s;
+    expect(logins.ask(den, later, refusal), "the den asks");
+    const Clock::time_point past = later + lan::patience + 1s;
+    expect(!logins.question(past) && !logins.status("den", past) &&
+               !logins.decide("den", true, past),
+           "unanswered, it lapses after the patience");
+    expect(logins.ask(attic, past, refusal), "and another's ask is taken");
+
+    const std::optional<lan::wire::LoginVerdict> wired =
+        lan::wire::readLoginVerdict(lan::wire::write(lan::wire::LoginVerdict{
+            .verdict = "accepted", .login = std::string{standInLogin}, .refusal = {}}));
+    expect(wired && wired->verdict == "accepted" && wired->login == standInLogin,
+           "an accepted verdict carries the sign-in over the wire");
+    expect(!lan::wire::readLoginVerdict(R"({"verdict":"accepted"})"),
+           "an accepted one without a sign-in is not a verdict");
+    const std::optional<lan::wire::LoginVerdict> why =
+        lan::wire::readLoginVerdict(lan::wire::write(lan::wire::LoginVerdict{
+            .verdict = "declined", .login = {}, .refusal = "its Steam sign-in cannot be read"}));
+    expect(why && why->verdict == "declined" && why->refusal == "its Steam sign-in cannot be read",
+           "a declined one carries why");
+}
+
+/// The guest asks the paired host for its Steam sign-in over the sealed LAN routes.
+void steamSignInComesOver(Node& guest, Node& host) {
+    std::string error;
+    expect(!guest.node.copySteamLogin(std::stop_token{}, host.node.id(), error) &&
+               error == "it is not signed in to Steam",
+           "a host with no Steam sign-in refuses at once, saying why");
+    {
+        const std::lock_guard lock{host.mutex};
+        host.steamLogin = standInLogin;
+    }
+    const auto ask = [&guest, &host](bool allow, std::string& why) {
+        std::optional<std::string> got;
+        std::thread asker{[&] {
+            got = guest.node.copySteamLogin(std::stop_token{}, host.node.id(), why);
+        }};
+        expect(waitFor([&host, &guest] {
+                   const std::optional<lan::Peer> asking = host.node.loginQuestion();
+                   return asking && asking->id == guest.node.id();
+               }),
+               "the host's player is asked");
+        expect(host.node.answerLogin(guest.node.id(), allow), "and answers");
+        asker.join();
+        return got;
+    };
+    expect(!ask(false, error) && error == "its player declined", "declined, nothing comes over");
+    expect(ask(true, error) == standInLogin, "allowed, the sign-in comes over");
+}
+
 void sharedSavesFollowThePlayer(const fs::path& root) {
     using Standing = save_sync::TargetSaves::Standing;
     Directory directory;
@@ -873,6 +997,7 @@ void sharedSavesFollowThePlayer(const fs::path& root) {
            }),
            "the two openSUs find each other");
     expect(pairUp(guest, host, true) == GuestPairing::Phase::Paired, "they pair");
+    steamSignInComesOver(guest, host);
 
     writeFile(hostSave, "saved on the den");
     const std::string own = guest.profiles.first().id;
@@ -1228,6 +1353,7 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
     const net::WebClient web;
     profiles::ProfileBook profiles{root / "signed" / "profiles.json"};
     lan::ProfileCopies copies{profiles};
+    lan::LoginCopies logins{{}};
     save_sync::SaveSync saves{save_sync::SaveSync::Setup{
         .versionsFile = root / "signed" / "save-sync.json",
         .backups = root / "signed",
@@ -1252,6 +1378,7 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
                                                         .saves = saves,
                                                         .profiles = profiles,
                                                         .copies = copies,
+                                                        .logins = logins,
                                                         .netplay = netplay,
                                                         .roms = shelf,
                                                         .covers = covers,
@@ -1555,6 +1682,7 @@ int main(int argc, char** argv) try {
         return 0;
     }
     bothSidesDeriveOneSecret();
+    loginAsksAreAnsweredOnce();
     signedRequestsAreCheckedOnce(scratch.path());
     aStuckSecretDoesNotKeepAPeer(scratch.path());
     pairedNodesListEachOthersGames(scratch.path());

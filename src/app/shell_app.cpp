@@ -1896,6 +1896,7 @@ int ShellApp::run() {
         lan_.service();
         lanRoms_.service();
         lanProfiles_.service();
+        lanLoginAsks_.service();
         lanNetplay_.service();
         onlinePlay_.service();
         saveSharing_.service();

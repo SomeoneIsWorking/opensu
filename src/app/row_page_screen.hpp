@@ -20,19 +20,24 @@ class RowPageScreen final : public gpu2d::ui::Screen {
   public:
     /// The page as it stands now.
     using Source = std::function<ui::SettingsCategory()>;
+    /// Called when Back leaves the page; not when it is closed for the player.
+    using Left = std::function<void()>;
 
-    RowPageScreen(std::string id, Source source, ui::RowActions& actions, const ui::Chrome& chrome)
-        : Screen{std::move(id), {}}, source_{std::move(source)}, actions_{actions},
-          chrome_{chrome} {
+    RowPageScreen(std::string id, Source source, ui::RowActions& actions, const ui::Chrome& chrome,
+                  Left left = {})
+        : Screen{std::move(id), {}}, source_{std::move(source)}, left_{std::move(left)},
+          actions_{actions}, chrome_{chrome} {
     }
 
     [[nodiscard]] std::string title() const override {
         return title_;
     }
     [[nodiscard]] std::unique_ptr<gpu2d::ui::Widget> build(const gpu2d::ui::Theme& theme) override;
+    [[nodiscard]] BackReply back(gpu2d::ui::ActContext& context) override;
 
   private:
     Source source_;
+    Left left_;
     ui::RowActions& actions_;
     const ui::Chrome& chrome_;
     /// The page's title as last built.

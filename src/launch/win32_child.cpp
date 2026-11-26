@@ -1,6 +1,8 @@
 #include "child_process.hpp"
 
+#include <algorithm>
 #include <array>
+#include <cstdint>
 #include <thread>
 
 #include "lucent/log.h"
@@ -28,15 +30,19 @@ HANDLE openNull(DWORD access) {
                        FILE_ATTRIBUTE_NORMAL, nullptr);
 }
 
-/// A pipe whose write end the child inherits and whose read end stays with openSU.
-bool makePipe(Handle& reader, Handle& writer) {
+/// Which end of a pipe the child inherits; the other stays with openSU.
+enum class ChildEnd : std::uint8_t { Write, Read };
+
+/// A pipe whose `childEnd` the child inherits.
+bool makePipe(Handle& reader, Handle& writer, ChildEnd childEnd = ChildEnd::Write) {
     SECURITY_ATTRIBUTES inherit{.nLength = sizeof(SECURITY_ATTRIBUTES),
                                 .lpSecurityDescriptor = nullptr,
                                 .bInheritHandle = TRUE};
     if (CreatePipe(reader.put(), writer.put(), &inherit, 0) == 0) {
         return false;
     }
-    return SetHandleInformation(reader.get(), HANDLE_FLAG_INHERIT, 0) != 0;
+    const Handle& kept = childEnd == ChildEnd::Write ? reader : writer;
+    return SetHandleInformation(kept.get(), HANDLE_FLAG_INHERIT, 0) != 0;
 }
 
 /// A started child: its process, and the Job Object that owns what it starts.
@@ -146,25 +152,48 @@ std::optional<int> child::run(const std::string& program, const std::vector<std:
 
 std::optional<int> child::stream(const std::string& program, const std::vector<std::string>& args,
                                  const std::function<void(std::string_view)>& onLine,
-                                 const std::stop_token& stop, CaptureErrors errors) {
+                                 const std::stop_token& stop, CaptureErrors errors,
+                                 std::string_view input) {
     Handle reader;
     Handle writer;
-    if (!makePipe(reader, writer)) {
+    Handle inReader;
+    Handle inWriter;
+    if (!makePipe(reader, writer) ||
+        (!input.empty() && !makePipe(inReader, inWriter, ChildEnd::Read))) {
         lucent::warn("launch", "cannot make a pipe for {}: error {}", program, lastError());
         return std::nullopt;
     }
-    const Handle input{openNull(GENERIC_READ)};
+    if (input.empty()) {
+        inReader.reset(openNull(GENERIC_READ));
+    }
     Handle discarded;
     if (errors == CaptureErrors::Discarded) {
         discarded.reset(openNull(GENERIC_WRITE));
     }
     Started started;
     const HANDLE errorsTo = errors == CaptureErrors::Merged ? writer.get() : discarded.get();
-    if (!start(program, args, {.input = input.get(), .output = writer.get(), .errors = errorsTo},
+    if (!start(program, args, {.input = inReader.get(), .output = writer.get(), .errors = errorsTo},
                started)) {
         return std::nullopt;
     }
     writer.close();
+    inReader.close();
+    // Fed apart from the reads, so a child that writes before it reads cannot stall both.
+    std::jthread feeder;
+    if (!input.empty()) {
+        feeder = std::jthread{[&inWriter, input] {
+            std::string_view left = input;
+            DWORD put = 0;
+            while (!left.empty() &&
+                   WriteFile(inWriter.get(), left.data(),
+                             static_cast<DWORD>(std::min<std::size_t>(left.size(), 1U << 16U)),
+                             &put, nullptr) != 0 &&
+                   put > 0) {
+                left.remove_prefix(put);
+            }
+            inWriter.close();
+        }};
+    }
 
     std::string pending;
     std::array<char, 4096> chunk{};

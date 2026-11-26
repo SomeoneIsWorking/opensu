@@ -57,13 +57,14 @@ LanNode::LanNode(Setup setup)
     : coverCache_{std::move(setup.coverCache)}, remote_{std::move(setup.remote)},
       changed_{std::move(setup.changed)},
       book_{std::move(setup.bookFile), std::move(setup.secrets)}, name_{std::move(setup.name)},
-      saves_{setup.saves}, profiles_{setup.profiles},
+      saves_{setup.saves}, profiles_{setup.profiles}, logins_{std::move(setup.steamLogin)},
       listener_{LanListener::Sources{.book = book_,
                                      .pairing = pairing_,
                                      .library = library_,
                                      .saves = saves_,
                                      .profiles = profiles_,
                                      .copies = copies_,
+                                     .logins = logins_,
                                      .netplay = netplay_,
                                      .roms = shelf_,
                                      .covers = covers_,
@@ -551,6 +552,39 @@ std::optional<wire::CopyVerdict> LanNode::copyStatus(const std::stop_token& stop
         error = "its answer is not a copy's verdict";
     }
     return verdict;
+}
+
+std::optional<std::string> LanNode::copySteamLogin(const std::stop_token& stop,
+                                                   const std::string& hostId,
+                                                   std::string& error) const {
+    if (!askHost(stop, hostId, "POST", wire::steamLoginRoute, "{}", largestNotice, error)) {
+        return std::nullopt;
+    }
+    const auto until = std::chrono::steady_clock::now() + playPatience;
+    while (!stop.stop_requested() && std::chrono::steady_clock::now() < until) {
+        std::this_thread::sleep_for(playPoll);
+        const std::optional<std::string> body =
+            askHost(stop, hostId, "POST", wire::steamLoginStatusRoute, "{}", largestNotice, error);
+        std::optional<wire::LoginVerdict> verdict =
+            body ? wire::readLoginVerdict(*body) : std::nullopt;
+        if (!verdict) {
+            if (body) {
+                error = "its answer is not a verdict";
+            }
+            return std::nullopt;
+        }
+        if (verdict->verdict == "accepted") {
+            return std::move(verdict->login);
+        }
+        if (verdict->verdict == "declined") {
+            error = verdict->refusal.empty() ? "its player declined" : verdict->refusal;
+            return std::nullopt;
+        }
+    }
+    if (!stop.stop_requested()) {
+        error = "its player did not answer";
+    }
+    return std::nullopt;
 }
 
 bool LanNode::unlink(const std::stop_token& stop, const std::string& peerId,

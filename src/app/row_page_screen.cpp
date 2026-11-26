@@ -39,4 +39,11 @@ std::unique_ptr<tk::Widget> RowPageScreen::build(const tk::Theme& theme) {
     return std::move(frame.root);
 }
 
+tk::Screen::BackReply RowPageScreen::back(tk::ActContext& /*context*/) {
+    if (left_) {
+        left_();
+    }
+    return BackReply::Pop;
+}
+
 } // namespace opensu::app

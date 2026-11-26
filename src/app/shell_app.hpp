@@ -72,6 +72,7 @@
 #include "interface_theme_settings.hpp"
 #include "keyboard_pad.hpp"
 #include "lan/remote_library.hpp"
+#include "lan_login_asks.hpp"
 #include "lan_netplay.hpp"
 #include "lan_profiles.hpp"
 #include "lan_roms.hpp"
@@ -1170,6 +1171,11 @@ class ShellApp final {
                     return std::nullopt;
                 }
                 return RemoteFrameGen::pack(*dll, why);
+            },
+            .steamLogin = [this](std::string& why) -> std::optional<std::string> {
+                return library::fumarole::Installs::find(environment_.executablePath,
+                                                         environment_.fumaroleDataDir)
+                    .exportedLogin(why);
             }}};
     /// What play together asks the player here.
     TogetherQuestions togetherQuestions_{shell_.screens().navigator(), sounds_, remotePlay_,
@@ -1308,6 +1314,11 @@ class ShellApp final {
                                                     [this] {
                                                         settingsScreen_.refresh();
                                                     }}};
+    /// Paired openSUs' asks for this one's Steam sign-in, put to the player.
+    LanLoginAsks lanLoginAsks_{lan_, shell_.screens().navigator(), sounds_,
+                               [this](const std::string& text, bool isError) {
+                                   shell_.setToast(text, isError);
+                               }};
     /// A netplay session on this machine, however it was agreed.
     NetplayRun netplayRun_{
         NetplayRun::Places{.sessionSaves = files_.stateDir() / "netplay" / "saves",
@@ -1552,6 +1563,17 @@ class ShellApp final {
                                  .toast =
                                      [this](const std::string& text, bool error) {
                                          shell_.setToast(text, error);
+                                     },
+                                 .peers =
+                                     [this] {
+                                         return lan_.announced();
+                                     },
+                                 .askLogin =
+                                     [this](std::string peerId, std::stop_token cancel,
+                                            IntegrationWizard::LoginAnswer answer) {
+                                         return lan_.askSteamLogin(std::move(peerId),
+                                                                   std::move(cancel),
+                                                                   std::move(answer));
                                      }}};
     /// Library's Add tile and the page it opens: the integrations not added, and what adds games.
     LibraryAdditions libraryAdditions_{

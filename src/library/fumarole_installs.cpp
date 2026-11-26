@@ -77,6 +77,27 @@ std::optional<std::string> Installs::webLogin() const {
     return login->get<std::string>();
 }
 
+std::optional<std::string> Installs::exportedLogin(std::string& why) const {
+    if (program.empty()) {
+        why = "fumarole is not installed here";
+        return std::nullopt;
+    }
+    std::optional<launch::Captured> result =
+        launch::runCaptured(program.string(), {"auth", "--export"});
+    if (!result || result->status != 0) {
+        why = "it is not signed in to Steam";
+        return std::nullopt;
+    }
+    while (!result->output.empty() && result->output.back() == '\n') {
+        result->output.pop_back();
+    }
+    if (result->output.empty()) {
+        why = "fumarole exported no sign-in";
+        return std::nullopt;
+    }
+    return std::move(result->output);
+}
+
 std::vector<Game> parseOwned(std::string_view text) {
     const nlohmann::json list = nlohmann::json::parse(text, nullptr, false);
     if (!list.is_array()) {

@@ -1,16 +1,15 @@
-// profile_copies — the owner's half of a paired openSU copying one of this openSU's profiles: one
-// ask at a time, put to the player as a question (Decline or Allow), the verdict the asker's polls
-// get, lapsing after `patience` like a pairing. Allowed, the profile is linked with the asker in
-// the book before the verdict says so. Safe from any thread: the LAN listener's and the loop.
+// profile_copies — the owner's half of a paired openSU copying one of this openSU's profiles: a
+// `PeerAsk` about the profile's id, put to the player (Decline or Allow). Allowed, the profile is
+// linked with the asker in the book before the verdict says so. Safe from any thread: the LAN
+// listener's and the loop.
 #pragma once
 
 #include <chrono>
-#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
 
-#include "host_pairing.hpp"
+#include "peer_ask.hpp"
 #include "peer_book.hpp"
 #include "profiles/profile_book.hpp"
 
@@ -50,18 +49,8 @@ class ProfileCopies {
                               Clock::time_point now, std::string& error);
 
   private:
-    struct Pending {
-        Peer peer;
-        profiles::Profile profile;
-        Clock::time_point started;
-        Verdict verdict{Verdict::Waiting};
-    };
-    /// Drops an ask past its time. Under `mutex_`.
-    void lapse(Clock::time_point now);
-
     profiles::ProfileBook& profiles_;
-    mutable std::mutex mutex_;
-    std::optional<Pending> pending_;
+    PeerAsk<profiles::Profile> asks_;
 };
 
 } // namespace opensu::lan

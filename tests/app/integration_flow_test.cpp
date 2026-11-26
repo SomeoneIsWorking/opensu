@@ -11,6 +11,8 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <stdexcept>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -26,6 +28,7 @@
 #include "integration_switch.hpp"
 #include "integration_wizard.hpp"
 #include "integrations_in_force.hpp"
+#include "lan/peer_book.hpp"
 #include "library_additions.hpp"
 #include "pad_owner.hpp"
 #include "plugin_service.hpp"
@@ -131,13 +134,17 @@ void libraryAddListsWhatIsOff(const fs::path& root) {
 
 bool waitFor(const std::function<bool()>& holds);
 
-/// A stand-in fumarole whose `auth --qr <png>` writes the picture and signs in.
+/// A stand-in fumarole whose `auth --qr <png>` writes the picture and signs in, and whose
+/// `auth --import` keeps what it reads in `imported` beside it, refusing what has no token.
 fs::path fakeFumarole(const fs::path& dir) {
     fs::create_directories(dir);
     const fs::path program = dir / "fumarole";
+    const std::string imported = (dir / "imported").string();
     {
         std::ofstream out{program};
-        out << "#!/bin/sh\n[ \"$2\" = --qr ] && printf qr > \"$3\"\nexit 0\n";
+        out << "#!/bin/sh\n[ \"$2\" = --qr ] && printf qr > \"$3\"\n"
+            << "if [ \"$2\" = --import ]; then cat > '" << imported << "'; grep -q refresh_token '"
+            << imported << "' || { echo 'logon refused'; exit 1; }; fi\nexit 0\n";
     }
     fs::permissions(program, fs::perms::owner_all);
     return program;
@@ -178,7 +185,9 @@ void wizardAddsIntegrations(const fs::path& root, bool loginSession) {
                                       .toast =
                                           [&toasts](const std::string& text, bool) {
                                               toasts.push_back(text);
-                                          }}};
+                                          },
+                                      .peers = {},
+                                      .askLogin = {}}};
     const bool client = !inForce.modesOffered().empty();
 
     wizard.start("steam");
@@ -238,6 +247,131 @@ void wizardAddsIntegrations(const fs::path& root, bool loginSession) {
     wizard.start("epic");
     expect(inForce.choices().epic && signIns == std::vector<app::Store>{app::Store::Epic},
            "Epic is added and its sign-in opens");
+}
+
+/// Steam's sign-in copied from a paired openSU: its row on the Login page, the page a copy waits
+/// on, a refusal and Back leaving the Login page as it was, and an allowed copy piped into
+/// fumarole's `auth --import`, which adds Steam. The LAN is a stand-in that answers as told.
+void wizardCopiesASignIn(const fs::path& root) {
+    app::Preferences preferences = preferencesIn(root / "copy");
+    app::IntegrationsInForce inForce{preferences, false};
+    test::InterfaceRig screens;
+    gpu2d::ImageLoader loader;
+    ui::IconAtlas icons{{}, loader};
+    ui::ScreenImages images{loader, icons};
+    const ui::Chrome chrome{.width = 1280.0f};
+    const fs::path bin = root / "copy-bin";
+    fs::remove_all(bin);
+    app::FumaroleSignIn fumarole{fakeFumarole(bin), root / "copy-qr" / "qr.png"};
+    std::vector<std::string> toasts;
+    struct Ask {
+        std::string peer;
+        std::stop_token cancel;
+        app::IntegrationWizard::LoginAnswer answer;
+    };
+    std::optional<Ask> asked;
+    app::IntegrationWizard wizard{
+        inForce,
+        screens.navigator,
+        chrome,
+        images,
+        fumarole,
+        app::IntegrationWizard::Hooks{
+            .add =
+                [&inForce](const IntegrationChoices& choices) {
+                    inForce.choose(choices);
+                },
+            .signIn =
+                [](app::Store) {
+                },
+            .toast =
+                [&toasts](const std::string& text, bool) {
+                    toasts.push_back(text);
+                },
+            .peers =
+                [] {
+                    return std::vector<lan::Peer>{lan::Peer{"den-id", "Den"}};
+                },
+            .askLogin =
+                [&asked](std::string peer, std::stop_token cancel,
+                         app::IntegrationWizard::LoginAnswer answer) {
+                    asked = Ask{std::move(peer), std::move(cancel), std::move(answer)};
+                    return true;
+                }}};
+    const auto lastAsk = [&asked]() -> Ask& {
+        if (!asked) {
+            throw std::runtime_error{"the wizard asked no peer"};
+        }
+        return *asked;
+    };
+    const auto toLogin = [&] {
+        wizard.start("steam");
+        if (!inForce.modesOffered().empty()) {
+            wizard.run("wizard.kind.fumarole", 0);
+        }
+        screens.frame();
+    };
+    toLogin();
+    const ui::SettingsCategory login = wizard.page(app::IntegrationWizard::Step::Login);
+    const ui::SettingsRow* copy = rowOf(login, "wizard.login.copy:den-id");
+    expect(copy != nullptr && copy->label == "Copy from Den" &&
+               login.rows.back().id == "wizard.login.later",
+           "the Login page offers a copy from each paired openSU, before Sign in later");
+
+    wizard.run("wizard.login.copy:den-id", 0);
+    screens.frame();
+    expect(asked && asked->peer == "den-id" && topId(screens) == "wizard/steam-copy",
+           "picking it asks Den and waits on a page of its own");
+    expect(wizard.page(app::IntegrationWizard::Step::Copy).rows.front().label == "Waiting for Den",
+           "which says what it waits for");
+    lastAsk().answer(std::nullopt, "its player declined");
+    wizard.service();
+    screens.frame();
+    expect(topId(screens) == "wizard/steam-login" &&
+               toasts.back() == "No Steam sign-in from Den: its player declined" &&
+               !inForce.choices().steam,
+           "a refusal says why and stays on the Login page, adding nothing");
+
+    asked.reset();
+    wizard.run("wizard.login.copy:den-id", 0);
+    screens.frame();
+    expect(asked && !asked->cancel.stop_requested(), "asked again");
+    screens.navigator.act(gpu2d::ui::Action::Back);
+    screens.frame(1.0);
+    expect(lastAsk().cancel.stop_requested() && topId(screens) == "wizard/steam-login",
+           "Back stops waiting and goes back to the Login page");
+
+    wizard.run("wizard.login.copy:den-id", 0);
+    screens.frame();
+    const std::string signIn =
+        R"({"account_name":"stand-in","steam_id":"1","refresh_token":"not-a-token"})";
+    lastAsk().answer(signIn, {});
+    expect(waitFor([&] {
+               wizard.service();
+               screens.frame();
+               return inForce.choices().steam;
+           }),
+           "an allowed copy signs fumarole in and adds Steam");
+    std::ifstream in{bin / "imported"};
+    std::string imported;
+    std::getline(in, imported);
+    expect(imported == signIn, "fumarole's auth --import read the sign-in on its stdin");
+    expect(topId(screens).empty() && toasts.back() == "Steam added with Den's sign-in" &&
+               inForce.current().steam == SteamUse::Fumarole,
+           "and the steps close");
+
+    inForce.choose({});
+    toLogin();
+    wizard.run("wizard.login.copy:den-id", 0);
+    lastAsk().answer(std::string{"not a sign-in"}, {});
+    expect(waitFor([&] {
+               wizard.service();
+               screens.frame();
+               return topId(screens) == "wizard/steam-login";
+           }),
+           "a copy fumarole refuses goes back to the Login page");
+    expect(toasts.back() == "Steam sign-in failed: logon refused" && !inForce.choices().steam,
+           "saying why, and adds nothing");
 }
 
 std::optional<ui::SettingsRow> rowIn(const std::vector<ui::SettingsRow>& rows,
@@ -454,7 +588,8 @@ void theSwitchAppliesAChange(const fs::path& root) {
                                .invited = {},
                                .joinAsked = {},
                                .joinAnswered = {},
-                               .frameGenModules = {}}};
+                               .frameGenModules = {},
+                               .steamLogin = {}}};
     int emulatorChanges = 0;
     app::IntegrationSwitch integrationSwitch{
         inForce,
@@ -518,6 +653,7 @@ int main() try {
     libraryAddListsWhatIsOff(root);
     wizardAddsIntegrations(root, false);
     wizardAddsIntegrations(root, true);
+    wizardCopiesASignIn(root);
     if (steam::clientModes().size() > 1) {
         steamRowsTakeEffect(root);
     } else {

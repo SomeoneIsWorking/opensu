@@ -83,7 +83,7 @@ that service in front of the card. It cannot answer polkit, so polkit then refus
 openSU listens on loopback only (port 7311, or the free port a hidden run logs). It is how the
 sign-in extension hands over codes and how maintainer tools drive the shell:
 
-The probes (`/game/*`, `/details/open`, `/details/settings`, `/search`, `/settings*`) do by name what the buttons do,
+The probes (`/game/*`, `/details/open`, `/details/settings`, `/search`, `/settings*`, `/devices/open`, `/library/add`, `/wizard/pick`) do by name what the buttons do,
 through the same code. A run that needs to get somewhere or change something uses them, and a
 missing probe is added rather than walked to with `/input`. `/input`, `/key`, `/text` and
 `/pointer` are for testing input itself.
@@ -103,6 +103,8 @@ missing probe is added rather than walked to with `/input`. `/input`, `/key`, `/
 | `POST /details/settings` | A game id: opens its details page, then its Game settings page, as that row does. |
 | `POST /search` | Text: opens the search card with it typed; the answer says how many results. |
 | `POST /settings/open` | `Category` or `Category/Row`, each by id or label (`Appearance/Interface size`): opens Settings there. A 404 lists the categories, or the category's rows. |
+| `POST /library/add` | A row of Library's Add page by id (`set-up:steam`, `add-game`): opens the page and picks it, as the Add tile does. A 404 lists the rows. The answer names the screen on top (`wizard/steam-login` for Steam through fumarole). |
+| `POST /wizard/pick` | A row id on the integration wizard's page on top (`wizard.kind.fumarole`, `wizard.login.copy:<peer id>`): picks it as A on it does. 409 when no wizard page is on top. |
 | `POST /devices/open` | `Tab` or `Tab/Row`, each by id or label (`Controllers/Stick lights`): opens Devices there. A 404 lists the tabs, or the tab's rows. |
 | `GET /settings`, `POST /settings` | The settings as `settings.json` holds them; a POST takes a JSON object of keys (`{"uiScale": 140}`, null for the default), saves and applies it as the Settings screen does, and answers with the result. A key or value the file would refuse is a 400 and nothing changes. |
 | `POST /quit` | Closes the shell. |

@@ -209,6 +209,31 @@ ControlAnswer ShellApp::runProbe(const ControlCommand& command) {
         settingsScreen_.refresh();
         return {.status = 200, .body = settings::toText(values)};
     }
+    case Kind::LibraryAdd: {
+        // Library's Add tile, then the row.
+        std::string rows;
+        for (const ui::SettingsRow& row : libraryAdditions_.page().rows) {
+            if (row.id != argument) {
+                rows += (rows.empty() ? "" : ", ") + row.id;
+                continue;
+            }
+            closePages();
+            libraryAdditions_.press("add");
+            libraryAdditions_.run(argument, 0);
+            const gpu2d::ui::Screen* top = shell_.screens().navigator().top();
+            return done({{"added", argument}, {"top", top == nullptr ? "" : top->id()}});
+        }
+        return refused(404, "Library's Add page has no row " + argument + "; its rows: " + rows);
+    }
+    case Kind::WizardPick: {
+        const gpu2d::ui::Screen* top = shell_.screens().navigator().top();
+        if (top == nullptr || !top->id().starts_with("wizard/")) {
+            return refused(409, "no step of the integration wizard is on top");
+        }
+        integrationWizard_.run(argument, 0);
+        const gpu2d::ui::Screen* now = shell_.screens().navigator().top();
+        return done({{"picked", argument}, {"top", now == nullptr ? "" : now->id()}});
+    }
     }
     return refused(400, "unknown probe");
 }

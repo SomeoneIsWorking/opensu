@@ -85,6 +85,12 @@ int main() try {
     expect(runStreaming("/bin/sh", {"-c", "read x; echo got:$x"}, collect, never) == 0 &&
                lines == std::vector<std::string>({"got:"}),
            "a streamed child's stdin is closed");
+    lines.clear();
+    const std::string fed(std::size_t{256} * 1024, 'x');
+    expect(runStreaming("/bin/sh", {"-c", "echo first; wc -c"}, collect, never, fed + "\n") == 0 &&
+               lines.size() == 2 && lines.front() == "first" &&
+               lines.back().find(std::to_string(fed.size() + 1)) != std::string::npos,
+           "a fed child reads all of its input, larger than a pipe holds, then its end");
 
     // Stopping ends the child and what it started.
     std::jthread stopper;

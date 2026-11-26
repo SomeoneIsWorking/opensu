@@ -23,6 +23,7 @@
 #include "lan/profile_copies.hpp"
 #include "lan/wire.hpp"
 #include "lan_service.hpp"
+#include "peer_question.hpp"
 #include "profiles/profile_book.hpp"
 #include "save_sync/save_sync.hpp"
 #include "ui/setting_row.hpp"
@@ -86,7 +87,6 @@ class LanProfiles {
     void keepCopy(const Arrived::Copy& copy);
     void serviceQuestion();
     void answerQuestion(bool allow);
-    void closeQuestion();
 
     LanService& lan_;
     profiles::ProfileBook& profiles_;
@@ -99,9 +99,9 @@ class LanProfiles {
     std::string waitingPeer_;
     std::string waitingProfile_;
     std::shared_ptr<Arrived> arrived_{std::make_shared<Arrived>()};
-    /// The question asked now, and its dialog's title while the dialog is open.
+    /// The question asked now, and its dialog.
     std::optional<lan::ProfileCopies::Question> asked_;
-    std::string questionTitle_;
+    PeerQuestion question_{navigator_, sounds_};
 };
 
 } // namespace opensu::app

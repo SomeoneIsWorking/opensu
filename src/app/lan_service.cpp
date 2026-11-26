@@ -7,6 +7,7 @@
 
 #include "lan/dns_sd.hpp"
 #include "lucent/log.h"
+#include "secrets/secret.hpp"
 #include "ui/progress_screen.hpp"
 
 namespace opensu::app {
@@ -99,6 +100,7 @@ void LanService::start() {
                                 .joinAsked = hooks_.joinAsked,
                                 .joinAnswered = hooks_.joinAnswered,
                                 .frameGenModules = hooks_.frameGenModules,
+                                .steamLogin = hooks_.steamLogin,
                                 .roms = std::move(roms)});
     } catch (const std::runtime_error& error) {
         lucent::error("lan", "LAN cannot start: {}", error.what());
@@ -111,7 +113,7 @@ void LanService::start() {
 
 void LanService::stop() {
     stopAskers();
-    closeQuestion();
+    question_.close();
     closeCard();
     node_.reset();
     asked_.reset();
@@ -240,6 +242,28 @@ bool LanService::askPeers(std::function<void(const lan::LanNode&, const std::sto
     return true;
 }
 
+bool LanService::askSteamLogin(std::string hostId, std::stop_token cancel, LoginAnswer answer) {
+    return askPeers([hostId = std::move(hostId), cancel = std::move(cancel),
+                     answer = std::move(answer)](const lan::LanNode& node,
+                                                 const std::stop_token& stop) {
+        std::stop_source either;
+        const auto end = [&either] {
+            either.request_stop();
+        };
+        const std::stop_callback nodeGoes{stop, end};
+        const std::stop_callback cancelled{cancel, end};
+        std::string error;
+        std::optional<std::string> login = node.copySteamLogin(either.get_token(), hostId, error);
+        if (either.stop_requested()) {
+            if (login) {
+                secrets::wipe(*login);
+            }
+            return;
+        }
+        answer(std::move(login), std::move(error));
+    });
+}
+
 bool LanService::askCovers(std::function<void(const lan::LanNode&, const std::stop_token&)> work) {
     if (node_ == nullptr) {
         return false;
@@ -340,40 +364,23 @@ void LanService::serviceQuestion() {
     if (question == asked_) {
         return;
     }
-    closeQuestion();
+    question_.close();
     asked_ = std::move(question);
     if (!asked_) {
         return;
     }
     lucent::info("lan", "{} asks to pair", asked_->guest.name);
     const std::string& guest = asked_->guest.name;
-    std::vector<gpu2d::ui::Dialog::Choice> choices;
-    choices.push_back(gpu2d::ui::Dialog::Choice{.label = "Decline",
-                                                .chosen =
-                                                    [this] {
-                                                        answerQuestion(false);
-                                                    },
-                                                .kind = gpu2d::ui::ButtonKind::Normal,
-                                                .exits = true});
-    choices.push_back(gpu2d::ui::Dialog::Choice{.label = "Accept",
-                                                .chosen =
-                                                    [this] {
-                                                        answerQuestion(true);
-                                                    },
-                                                .kind = gpu2d::ui::ButtonKind::Primary,
-                                                .exits = false});
-    questionTitle_ = "Pair with " + guest + "?";
-    auto dialog = std::make_unique<gpu2d::ui::Dialog>(
-        questionTitle_,
+    question_.ask(
+        "Pair with " + guest + "?",
         "Code " + asked_->code + "\n\nAccept only if " + guest +
             " shows the same code. Paired, each openSU lists the games installed on the other.",
-        std::move(choices), 0);
-    sounds_.play(audio::Effect::Open);
-    navigator_.push(std::move(dialog));
+        "Accept", [this](bool accept) {
+            answerQuestion(accept);
+        });
 }
 
 void LanService::answerQuestion(bool accept) {
-    questionTitle_.clear();
     if (node_ == nullptr || !asked_) {
         return;
     }
@@ -418,15 +425,6 @@ void LanService::serviceCard() {
     hooks_.peersChanged();
 }
 
-void LanService::closeQuestion() {
-    if (questionTitle_.empty()) {
-        return;
-    }
-    if (const gpu2d::ui::Screen* open = openScreen("dialog", std::exchange(questionTitle_, {}))) {
-        navigator_.closeFrom(*open);
-    }
-}
-
 void LanService::closeCard() {
     if (!std::exchange(carded_, false)) {
         return;
@@ -438,15 +436,6 @@ void LanService::closeCard() {
             return;
         }
     }
-}
-
-const gpu2d::ui::Screen* LanService::openScreen(std::string_view id, std::string_view title) const {
-    for (const gpu2d::ui::Screen* screen : navigator_.screens()) {
-        if (screen->id() == id && screen->title() == title) {
-            return screen;
-        }
-    }
-    return nullptr;
 }
 
 LanService::Glance LanService::glance() const {

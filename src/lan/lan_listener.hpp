@@ -4,8 +4,10 @@
 // only, signed, its body and answer sealed (`request_signature`): `GET /lan/library` (the shared
 // listing), `GET /lan/cover/<token>` (one shared cover), `POST /lan/unpair` (the peer forgets this
 // one, and this one it), the profiles (`GET /lan/profiles`, a copy asked of the player through
-// `ProfileCopies`: `POST /lan/profiles/copy`, `/copy/status`, and `/unlink`), the save routes of a
-// profile linked with the peer (`save_sync::SaveSync`: `/lan/saves/status`, `/get`, `/news`,
+// `ProfileCopies`: `POST /lan/profiles/copy`, `/copy/status`, and `/unlink`), this openSU's Steam
+// sign-in asked of the player through `LoginCopies` (`POST /lan/steam/login`, `/status`), the save
+// routes of a profile linked with the peer (`save_sync::SaveSync`: `/lan/saves/status`, `/get`,
+// `/news`,
 // `/synced`), `POST /lan/play`, which asks to play a listed game here over remote play or to join
 // it while it runs here (`play`), and how such an ask stands (`/lan/play/status`), and ROM import's
 // routes (`RomShelf`: `GET /lan/roms`, `POST /lan/roms/file`, `/chunk`), and the frame generation
@@ -21,6 +23,7 @@
 
 #include "cover_desk.hpp"
 #include "host_pairing.hpp"
+#include "login_copies.hpp"
 #include "lucent/http.h"
 #include "netplay_asks.hpp"
 #include "pairing_keys.hpp"
@@ -60,6 +63,8 @@ class LanListener {
         profiles::ProfileBook& profiles;
         /// The copies of them asked for, each put to the player.
         ProfileCopies& copies;
+        /// The asks for this openSU's Steam sign-in, each put to the player.
+        LoginCopies& logins;
         /// The asks to play a ROM together, and the saves handed over for one.
         NetplayAsks& netplay;
         RomShelf& roms;
@@ -150,6 +155,8 @@ class LanListener {
     /// `/lan/profiles/copy`, `/copy/status` and `/unlink`, `body` opened.
     [[nodiscard]] lucent::http::Response profilesRoute(std::string_view path, std::string_view body,
                                                        const Signed& verified);
+    /// `/lan/steam/login` and `/status`.
+    [[nodiscard]] lucent::http::Response loginRoute(std::string_view path, const Signed& verified);
     /// `/lan/netplay`, `/status` and `/save`, `body` opened.
     [[nodiscard]] lucent::http::Response netplayRoute(std::string_view path, std::string_view body,
                                                       const Signed& verified);

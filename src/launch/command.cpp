@@ -32,8 +32,8 @@ std::optional<int> runCommand(const std::string& program, const std::vector<std:
 
 std::optional<int> runStreaming(const std::string& program, const std::vector<std::string>& args,
                                 const std::function<void(std::string_view)>& onLine,
-                                const std::stop_token& stop) {
-    return child::stream(program, args, onLine, stop, CaptureErrors::Merged);
+                                const std::stop_token& stop, std::string_view input) {
+    return child::stream(program, args, onLine, stop, CaptureErrors::Merged, input);
 }
 
 std::optional<Captured> runCaptured(const std::string& program,

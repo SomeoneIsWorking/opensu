@@ -175,20 +175,28 @@ std::optional<int> child::run(const std::string& program, const std::vector<std:
 
 std::optional<int> child::stream(const std::string& program, const std::vector<std::string>& args,
                                  const std::function<void(std::string_view)>& onLine,
-                                 const std::stop_token& stop, CaptureErrors errors) {
+                                 const std::stop_token& stop, CaptureErrors errors,
+                                 std::string_view input) {
     std::array<int, 2> ends{};
-    if (!openChildPipe(ends)) {
+    std::array<int, 2> inEnds{-1, -1};
+    if (!openChildPipe(ends) || (!input.empty() && !openChildPipe(inEnds))) {
         lucent::warn("launch", "cannot make a pipe for {}: {}", program, std::strerror(errno));
         return std::nullopt;
     }
     Descriptor reader{ends[0]};
     Descriptor writer{ends[1]};
+    Descriptor inReader{inEnds[0]};
+    Descriptor inWriter{inEnds[1]};
 
     Argv argv{program, args};
     ChildEnvironment environment;
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
-    posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
+    if (input.empty()) {
+        posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
+    } else {
+        posix_spawn_file_actions_adddup2(&actions, inReader.get(), STDIN_FILENO);
+    }
     posix_spawn_file_actions_adddup2(&actions, writer.get(), STDOUT_FILENO);
     if (errors == CaptureErrors::Merged) {
         posix_spawn_file_actions_adddup2(&actions, writer.get(), STDERR_FILENO);
@@ -210,6 +218,15 @@ std::optional<int> child::stream(const std::string& program, const std::vector<s
         return std::nullopt;
     }
     writer.close();
+    inReader.close();
+    // Fed apart from the reads, so a child that writes before it reads cannot stall both.
+    std::jthread feeder;
+    if (!input.empty()) {
+        feeder = std::jthread{[&inWriter, input] {
+            writeAll(inWriter.get(), input);
+            inWriter.close();
+        }};
+    }
 
     std::string pending;
     std::array<char, 4096> chunk{};

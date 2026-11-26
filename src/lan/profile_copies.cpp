@@ -1,75 +1,62 @@
 #include "profile_copies.hpp"
 
+#include <utility>
+
 #include "lucent/log.h"
 
 namespace opensu::lan {
 
-void ProfileCopies::lapse(Clock::time_point now) {
-    if (pending_ && now - pending_->started > patience) {
-        pending_.reset();
-    }
-}
-
 bool ProfileCopies::ask(const Peer& peer, std::string_view profileId, Clock::time_point now,
                         std::string& refusal) {
-    const std::optional<profiles::Profile> profile = profiles_.find(profileId);
+    std::optional<profiles::Profile> profile = profiles_.find(profileId);
     if (!profile) {
         refusal = "no profile here has that id";
         return false;
     }
-    const std::lock_guard lock{mutex_};
-    lapse(now);
-    if (pending_ && pending_->peer.id == peer.id && pending_->profile.id == profileId) {
-        return true;
-    }
-    if (pending_ && pending_->verdict == Verdict::Waiting) {
-        refusal = "another openSU's ask waits for the player";
+    const std::string name = profile->name;
+    if (!asks_.ask(peer, std::string{profileId}, std::move(*profile), now, refusal)) {
         return false;
     }
-    pending_ = Pending{.peer = peer, .profile = *profile, .started = now, .verdict = {}};
-    lucent::info("lan", "{} asks for a copy of the profile {}", peer.name, profile->name);
+    lucent::info("lan", "{} asks for a copy of the profile {}", peer.name, name);
     return true;
 }
 
 std::optional<ProfileCopies::Status>
 ProfileCopies::status(std::string_view peerId, std::string_view profileId, Clock::time_point now) {
-    const std::lock_guard lock{mutex_};
-    lapse(now);
-    if (!pending_ || pending_->peer.id != peerId || pending_->profile.id != profileId) {
+    std::optional<PeerAsk<profiles::Profile>::Status> asked = asks_.status(peerId, profileId, now);
+    if (!asked) {
         return std::nullopt;
     }
-    Status status{.verdict = pending_->verdict, .profile = pending_->profile};
+    Status status{.verdict = asked->verdict, .profile = std::move(asked->subject)};
     status.profile.links.clear();
-    if (pending_->verdict != Verdict::Waiting) {
-        pending_.reset();
-    }
     return status;
 }
 
 std::optional<ProfileCopies::Question> ProfileCopies::question(Clock::time_point now) const {
-    const std::lock_guard lock{mutex_};
-    if (!pending_ || pending_->verdict != Verdict::Waiting || now - pending_->started > patience) {
+    std::optional<PeerAsk<profiles::Profile>::Question> asked = asks_.question(now);
+    if (!asked) {
         return std::nullopt;
     }
-    return Question{.peer = pending_->peer, .profile = pending_->profile};
+    return Question{.peer = std::move(asked->peer), .profile = std::move(asked->subject)};
 }
 
 bool ProfileCopies::decide(std::string_view peerId, std::string_view profileId, bool allow,
                            Clock::time_point now, std::string& error) {
-    const std::lock_guard lock{mutex_};
-    lapse(now);
-    if (!pending_ || pending_->peer.id != peerId || pending_->profile.id != profileId) {
+    bool kept = true;
+    const bool asked = asks_.decide(
+        peerId, profileId, now, [&](const Peer& peer, const profiles::Profile& profile) {
+            if (allow) {
+                kept = profiles_.link(profileId, peerId, true, error);
+            }
+            const bool given = allow && kept;
+            lucent::info("lan", "{} {} a copy of the profile {}", peer.name,
+                         given ? "may take" : "was refused", profile.name);
+            return given ? Verdict::Accepted : Verdict::Declined;
+        });
+    if (!asked) {
         error = "the ask lapsed; ask again from the other openSU";
         return false;
     }
-    bool kept = true;
-    if (allow) {
-        kept = profiles_.link(profileId, peerId, true, error);
-    }
-    pending_->verdict = allow && kept ? Verdict::Accepted : Verdict::Declined;
-    lucent::info("lan", "{} {} a copy of the profile {}", pending_->peer.name,
-                 pending_->verdict == Verdict::Accepted ? "may take" : "was refused",
-                 pending_->profile.name);
     return kept;
 }
 
