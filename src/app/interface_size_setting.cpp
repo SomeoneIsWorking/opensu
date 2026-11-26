@@ -5,20 +5,16 @@
 namespace opensu::app {
 
 ui::SettingsRow interfaceSizeRow(std::string id, const settings::Settings& values) {
-    ui::Options scales;
-    for (int percent = settings::minUiScale; percent <= settings::maxUiScale;
-         percent += settings::uiScaleStep) {
-        if (percent <= values.uiScale) {
-            scales.chosen = scales.labels.size();
-        }
-        scales.labels.push_back(std::to_string(percent) + "%");
-    }
-    return ui::makeChoice(std::move(id), "Interface size", {}, std::move(scales));
+    return ui::makeSlider(std::move(id), "Interface size", {},
+                          ui::SliderRange{.level = values.uiScale,
+                                          .low = settings::minUiScale,
+                                          .high = settings::maxUiScale,
+                                          .step = settings::uiScaleStep,
+                                          .unit = "%"});
 }
 
-void stepInterfaceSize(Preferences& preferences, int step) {
-    settings::Settings& values = preferences.values();
-    values.uiScale = settings::steppedUiScale(values.uiScale, step);
+void setInterfaceSize(Preferences& preferences, int percent) {
+    preferences.values().uiScale = settings::offeredUiScale(percent);
     preferences.save();
 }
 

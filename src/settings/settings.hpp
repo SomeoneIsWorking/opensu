@@ -47,8 +47,8 @@ inline constexpr int uiScaleStep = 5;
 /// The player's multiplier on the display's scale for `percent`: 1 at 100%.
 [[nodiscard]] float uiScaleFactor(int percent) noexcept;
 
-/// The scale `step` choices from `current`, which A moves one forward, wrapping at either end.
-[[nodiscard]] int steppedUiScale(int current, int step) noexcept;
+/// `percent` as a size the interface offers: within the range, on a step.
+[[nodiscard]] int offeredUiScale(int percent) noexcept;
 
 /// What the player chose for one plugin.
 struct PluginChoice {

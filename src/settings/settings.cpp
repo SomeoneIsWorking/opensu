@@ -879,11 +879,10 @@ float uiScaleFactor(int percent) noexcept {
     return static_cast<float>(percent) / 100.0f;
 }
 
-int steppedUiScale(int current, int step) noexcept {
-    const int choices = (maxUiScale - minUiScale) / uiScaleStep + 1;
-    const int from = std::clamp((current - minUiScale) / uiScaleStep, 0, choices - 1);
-    const int to = (from + (step == 0 ? 1 : step) + choices) % choices;
-    return minUiScale + to * uiScaleStep;
+int offeredUiScale(int percent) noexcept {
+    const int steps = (std::clamp(percent, minUiScale, maxUiScale) - minUiScale + uiScaleStep / 2) /
+                      uiScaleStep;
+    return minUiScale + steps * uiScaleStep;
 }
 
 } // namespace opensu::settings

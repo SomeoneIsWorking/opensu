@@ -373,9 +373,6 @@ void GuideMenuController::run(const std::string& id, int step) {
     }
     if (id == muteId) {
         refuse(volume_.system().toggleMute());
-    } else if (id == scaleId) {
-        stepInterfaceSize(preferences_, step);
-        hooks_.applyLayout();
     } else if (id == screenId) {
         settings::Settings& values = preferences_.values();
         values.portrait = !values.portrait;
@@ -507,6 +504,9 @@ void GuideMenuController::setLevel(const std::string& id, int level) {
     } else if (id == brightnessId) {
         refuse(brightness_.set(level));
         brightnessLevel_ = brightness_.percent();
+    } else if (id == scaleId) {
+        setInterfaceSize(preferences_, level);
+        hooks_.applyLayout();
     }
 }
 

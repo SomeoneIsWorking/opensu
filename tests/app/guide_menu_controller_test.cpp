@@ -334,13 +334,11 @@ void quickChangesSitBesideThePlaces() {
     rig.choose("guide.mute");
     expect(test::need(rig.volume.system().state(), "a volume").muted, "A on Mute mutes");
     rig.choose("guide.scale");
-    expect(rig.ui.navigator.top() != nullptr && rig.ui.navigator.top()->id() == "choice",
-           "A on the interface size lists the sizes");
-    rig.press(Action::Down);
+    rig.press(Action::Right);
     rig.press(Action::Accept);
     expect(rig.preferences.values().uiScale == settings::defaultUiScale + settings::uiScaleStep &&
                rig.calls == std::vector<std::string>{"layout"},
-           "picking the next size steps it and the screen follows");
+           "Interface size is a slider: A holds it, Right grows it a step and the screen follows");
     rig.press(Action::Back);
     rig.open(Landing::Volume);
     expect(rig.ui.navigator.focused() == "guide.volume", "the quick menu shortcut lands on Volume");

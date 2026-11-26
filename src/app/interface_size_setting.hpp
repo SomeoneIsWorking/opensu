@@ -1,5 +1,5 @@
-// interface_size_setting — the Interface size row, the same in the Guide menu and Settings ›
-// Appearance: the sizes from `settings::minUiScale` to `maxUiScale`, saved in
+// interface_size_setting — the Interface size slider, the same in the Guide menu and Settings ›
+// Appearance: from `settings::minUiScale` to `maxUiScale` in `uiScaleStep`s, saved in
 // `settings::Settings::uiScale`.
 #pragma once
 
@@ -13,7 +13,7 @@ namespace opensu::app {
 /// The row as `id`, on the saved size.
 [[nodiscard]] ui::SettingsRow interfaceSizeRow(std::string id, const settings::Settings& values);
 
-/// Steps the saved size `step` sizes and saves it; the caller lays the screen out again.
-void stepInterfaceSize(Preferences& preferences, int step);
+/// Saves the size the slider was moved to; the caller lays the screen out again.
+void setInterfaceSize(Preferences& preferences, int percent);
 
 } // namespace opensu::app

@@ -54,9 +54,11 @@ void addRow(tk::Column& rows, const SettingsRow& row, RowActions& actions) {
         return;
     case RowKind::Slider:
         rows.add<tk::Slider>(row.id, text, tk::Slider::Range{row.low, row.high, row.step},
-                             row.level, [&actions, id = row.id](int level) {
+                             row.level,
+                             [&actions, id = row.id](int level) {
                                  actions.setLevel(id, level);
-                             });
+                             })
+            .unit(row.unit);
         return;
     case RowKind::Folder:
         rows.add<tk::Item>(row.id, text)

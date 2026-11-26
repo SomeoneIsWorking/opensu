@@ -29,6 +29,7 @@ SettingsRow makeSlider(std::string id, std::string label, std::string note, Slid
     row.low = range.low;
     row.high = range.high;
     row.step = range.step;
+    row.unit = std::move(range.unit);
     return row;
 }
 

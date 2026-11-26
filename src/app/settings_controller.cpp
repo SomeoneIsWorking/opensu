@@ -520,6 +520,9 @@ void SettingsController::openPage(const std::string& id) {
 void SettingsController::setLevel(const std::string& id, int level) {
     if (shelf_.setLevel(id, level)) {
         refresh();
+    } else if (id == interfaceSizeId) {
+        setInterfaceSize(preferences_, level);
+        changed();
     } else if (StickCorrectionSettings::owns(id)) {
         sticks_.setLevel(id, level);
     }
@@ -631,8 +634,7 @@ void SettingsController::run(const std::string& id, int step) {
     } else if (id == RomFolderSettings::addId || id == steamAddId || id == gameAddId ||
                id.starts_with(installStoreId)) {
         chooseFolder(id);
-    } else if (id == scrollModeId || id == nightLightId || id == soundsId ||
-               id == interfaceSizeId) {
+    } else if (id == scrollModeId || id == nightLightId || id == soundsId) {
         runAppearance(id, step);
         return;
     } else {
@@ -648,8 +650,6 @@ void SettingsController::runAppearance(const std::string& id, int step) {
         v.homeMode = interfaceThemes_.homeMode(defaults_.homeMode) == config::HomeMode::WiiSu
                          ? config::HomeMode::Standard
                          : config::HomeMode::WiiSu;
-    } else if (id == interfaceSizeId) {
-        stepInterfaceSize(preferences_, step);
     } else if (id == nightLightId) {
         v.nightLight = settings::allNightLightChoices[around(
             static_cast<std::size_t>(v.nightLight), step, settings::allNightLightChoices.size())];

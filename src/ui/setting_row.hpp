@@ -50,6 +50,8 @@ struct SettingsRow {
     int high{0};
     /// How far Left or Right moves a slider.
     int step{1};
+    /// What follows a slider's number ("%"); empty for none.
+    std::string unit;
     /// A choice's options; its owner moves `step` places among them for Left, Right or a pick.
     std::vector<std::string> choices;
     std::size_t chosen{0};
@@ -74,6 +76,7 @@ struct SliderRange {
     int low{};
     int high{};
     int step{1};
+    std::string unit{};
 };
 /// A slider row over `range`.
 [[nodiscard]] SettingsRow makeSlider(std::string id, std::string label, std::string note,

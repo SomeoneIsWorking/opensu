@@ -368,15 +368,13 @@ void resolution() {
            "a folder is named by whatever setting keeps it");
 }
 
-void steppedScale() {
-    using opensu::settings::steppedUiScale;
-    const int step = opensu::settings::uiScaleStep;
-    expect(steppedUiScale(100, 1) == 100 + step && steppedUiScale(100, -1) == 100 - step,
-           "a step moves one size");
-    expect(steppedUiScale(100, 0) == 100 + step, "A is one step up");
-    expect(steppedUiScale(opensu::settings::maxUiScale, 1) == opensu::settings::minUiScale &&
-               steppedUiScale(opensu::settings::minUiScale, -1) == opensu::settings::maxUiScale,
-           "the sizes wrap");
+void offeredScale() {
+    using opensu::settings::offeredUiScale;
+    expect(offeredUiScale(100) == 100 && offeredUiScale(105) == 105, "a size on a step stays");
+    expect(offeredUiScale(103) == 105 && offeredUiScale(101) == 100, "between steps, the nearest");
+    expect(offeredUiScale(400) == opensu::settings::maxUiScale &&
+               offeredUiScale(10) == opensu::settings::minUiScale,
+           "past either end, that end");
 }
 
 /// Integration choices: all off with no file, kept as chosen, a damaged entry all off.
@@ -444,7 +442,7 @@ void patched() {
 } // namespace
 
 int main() try {
-    steppedScale();
+    offeredScale();
     patched();
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "settings";
     fs::remove_all(root);
