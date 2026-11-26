@@ -29,8 +29,8 @@ with that openSU, else as that openSU's first profile.
 
 ## Switching
 
-- The Guide menu's **Profile** row, beside Volume and Interface size: A lists the profiles and
-  picking one plays as it. It is refused while a game runs; close the game first.
+- **Playing as** at the top of Settings › Profiles, also in Quick settings' System tab: A lists the
+  profiles and picking one plays as it. It is refused while a game runs; close the game first.
 - With two or more profiles, openSU asks *Who is playing?* when it starts, the last one played as
   focused. B keeps it.
 

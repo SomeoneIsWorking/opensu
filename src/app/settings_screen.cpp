@@ -71,6 +71,10 @@ tk::Screen::BackReply SettingsScreen::back(tk::ActContext& context) {
 }
 
 bool SettingsScreen::act(tk::Action action, tk::ActContext& /*context*/) {
+    if (action == tk::Action::Options) {
+        controller_.togglePin(category_, view().focused);
+        return true;
+    }
     if (action != tk::Action::Menu) {
         return false;
     }
@@ -79,8 +83,13 @@ bool SettingsScreen::act(tk::Action action, tk::ActContext& /*context*/) {
 }
 
 std::vector<tk::Hint> SettingsScreen::hints() const {
-    return {tk::Hint{{tk::Action::Back}, "Back"},
-            tk::Hint{{tk::Action::PreviousTab, tk::Action::NextTab}, "Category"}};
+    std::vector<tk::Hint> hints{
+        tk::Hint{{tk::Action::Back}, "Back"},
+        tk::Hint{{tk::Action::PreviousTab, tk::Action::NextTab}, "Category"}};
+    if (std::string verb = controller_.pinVerb(category_, view().focused); !verb.empty()) {
+        hints.push_back(tk::Hint{{tk::Action::Options}, std::move(verb)});
+    }
+    return hints;
 }
 
 std::unique_ptr<tk::Widget> SettingsSubPage::build(const tk::Theme& theme) {
@@ -102,11 +111,23 @@ std::unique_ptr<tk::Widget> SettingsSubPage::build(const tk::Theme& theme) {
 }
 
 bool SettingsSubPage::act(tk::Action action, tk::ActContext& /*context*/) {
+    if (action == tk::Action::Options) {
+        controller_.togglePin(id(), view().focused);
+        return true;
+    }
     if (action != tk::Action::Menu) {
         return false;
     }
     static_cast<void>(controller_.leave());
     return true;
+}
+
+std::vector<tk::Hint> SettingsSubPage::hints() const {
+    std::vector<tk::Hint> hints = Screen::hints();
+    if (std::string verb = controller_.pinVerb(id(), view().focused); !verb.empty()) {
+        hints.push_back(tk::Hint{{tk::Action::Options}, std::move(verb)});
+    }
+    return hints;
 }
 
 } // namespace opensu::app

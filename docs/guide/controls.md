@@ -18,8 +18,8 @@ everywhere, and on Android touch: a click or tap focuses and presses.
 | Start | E | The Guide menu on Home and Library, for pads and tablets with no usable Guide button |
 | LB / RB | `[` / `]` (R for next) | Previous / next section: Home, Library |
 | | S, `/`, Ctrl+F | Search across every store, from Home and Library; with the keyboard and mouse, or a finger, the bottom-left corner shows it (S, or a magnifier to tap). A pad opens it from the Guide menu |
-| Guide | Shift+Tab | The Guide menu: Home, Library, Search (off a game, over any page), Devices, Downloads, Settings, Power, and beside them the rows for the page you are on |
-| Guide + A | Ctrl+Tab | Quick settings: a panel at the right edge with the settings you picked (Volume, Mute, Brightness, Power profile and Interface size until you choose; Settings › Quick settings, or its Choose what shows), over a game too |
+| Guide | Shift+Tab | The Guide menu: Home, Library, Search (off a game, over any page), Devices, Downloads, Settings, Power; places and actions only |
+| Guide + A | Ctrl+Tab | Quick settings: a panel at the right edge, over a game too, with icon tabs of categories of settings you arrange (see below) |
 | Guide + Up / Down / Left | Ctrl+Up / Ctrl+Down / Ctrl+M | Volume up / down / mute |
 | Hold Guide (or any chord's held button) | | After half a second, a list of that button's chords, also over a game in session mode; it goes when you let go or play a chord |
 
@@ -56,9 +56,9 @@ add tiles (Add a game, Add a ROM folder, Set up <integration>), All games and on
   on the LAN) or a console you took off. **Remove from Home** takes it off again, an installed game
   or a console too; its place in Library stays. A console opens its ROMs from Home as it does in
   Library. Both are in the tile's menu (Select or a right click) and on a game's details page.
-- Consoles come first, in Library's order, then the games in the sort the Guide menu picks
+- Consoles come first, in Library's order, then the games in the sort Quick settings picks
   (Recently played by default: installed first, then the latest played, then by name).
-- A hidden game stays off Home whatever you chose; the Guide menu's filters narrow Home too.
+- A hidden game stays off Home whatever you chose; the Sort and Show filters narrow Home too.
 - An installed game or a console you never took off stays on Home, and a game you install later or
   a console whose first ROM you add joins it unless you took it off before.
 - Settings › Library says what Home shows. The choices are kept in `settings.json` (`home`).
@@ -94,10 +94,34 @@ the text fields open.
 ## The Guide menu on Home and Library
 
 Guide or Start opens the menu; Start closes it again. Over Home and Library it holds Search among
-the places, and under Volume and the rest the rows that do something on that page: Icon size, Sort
-by, Show, Installed games only and Hidden games only, and in Library also Library layout and Pin
-navigation bar. A change is kept at once and shows on the page behind. Hidden games only lasts
-until openSU closes. Over a game or another screen these rows are not there.
+the places. What you change in place is in Quick settings.
+
+## Quick settings
+
+Guide + A (Ctrl+Tab) opens a panel at the right edge, over Home or a game, which is not paused, so
+a change is heard and seen as it is made. Along its top are tabs shown as icons; LB and RB step
+them. Each tab holds categories, each a heading over its settings, and each setting is a Settings
+row that works as it does in Settings. Until you change it there are three tabs:
+
+- **System** (sliders): Sound (Volume, Mute), Screen (Brightness, Night light, Interface size,
+  Screen), Power (Power profile), Player (Playing as).
+- **View** (screen): the shelf's Sort by, Show, Installed games only, Hidden games only, Library
+  layout and Icon size.
+- **Device** (pad): the stick lights and the stick correction, on a ROG Ally.
+
+A setting this machine does not have (no backlight, no power profiles) is not shown, and is kept
+for another machine. **Customize** (its row, or View) arranges it:
+
+- A grabs a tab, category or setting and A drops it; while it is held, Up and Down move a setting
+  (into the next category at a category's edge) or a category, and LB and RB move a tab. B puts it
+  back where it was. A tap on another place drops it there.
+- X removes the focused setting, category (with its settings) or tab (with its categories).
+- Y renames a category, or changes a tab's icon.
+- **Add a setting** at the end of each category browses Settings and adds the row you pick; **Add
+  a category** ends the tab; **+** in the tab strip adds a tab; **Done** or B leaves.
+
+In Settings, View on a setting adds it to Quick settings (to the first tab's last category) or
+takes it out; the hint at the bottom says which.
 
 ## Over a game
 

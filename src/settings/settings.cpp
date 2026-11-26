@@ -275,6 +275,57 @@ class Reader {
         }
     }
 
+    /// The Quick settings layout; there only when the file has it.
+    void quickLayout(const char* name, std::optional<QuickLayout>& out) const {
+        const auto found = document_.find(name);
+        if (found == document_.end()) {
+            return;
+        }
+        std::optional<QuickLayout> layout = quickLayoutOf(*found);
+        if (!layout) {
+            reject(name, *found, "showing the default quick settings");
+            return;
+        }
+        out = std::move(layout);
+    }
+
+    /// `{"tabs": [{"icon", "categories": [{"name", "items": [[page, row], …]}]}]}`.
+    static std::optional<QuickLayout> quickLayoutOf(const json& value) {
+        const auto text = [](const json& object, const char* key) {
+            return object.is_object() && object.contains(key) && object[key].is_string();
+        };
+        const auto list = [](const json& object, const char* key) {
+            return object.is_object() && object.contains(key) && object[key].is_array();
+        };
+        if (!list(value, "tabs")) {
+            return std::nullopt;
+        }
+        QuickLayout layout;
+        for (const json& tab : value["tabs"]) {
+            if (!text(tab, "icon") || !list(tab, "categories")) {
+                return std::nullopt;
+            }
+            QuickTab& kept = layout.tabs.emplace_back(QuickTab{tab["icon"].get<std::string>(), {}});
+            for (const json& category : tab["categories"]) {
+                if (!text(category, "name") || !list(category, "items")) {
+                    return std::nullopt;
+                }
+                QuickCategory& into = kept.categories.emplace_back(
+                    QuickCategory{category["name"].get<std::string>(), {}});
+                for (const json& pin : category["items"]) {
+                    if (!pin.is_array() || pin.size() != 3 ||
+                        !std::ranges::all_of(pin, &json::is_string)) {
+                        return std::nullopt;
+                    }
+                    into.items.push_back(QuickPin{pin[0].get<std::string>(),
+                                                  pin[1].get<std::string>(),
+                                                  pin[2].get<std::string>()});
+                }
+            }
+        }
+        return layout;
+    }
+
     static bool isTexts(const json& value) {
         return value.is_array() && std::ranges::all_of(value, [](const json& item) {
                    return item.is_string();
@@ -598,7 +649,7 @@ Settings readDocument(const json& document, const std::string& file) {
                          file, nightLightSpelling);
         }
     }
-    read.texts(quickSettingsKey, settings.quickSettings, "showing the default quick settings");
+    read.quickLayout(quickSettingsKey, settings.quickSettings);
     read.text(consoleThemeKey, settings.consoleTheme, "showing the default console art theme");
     read.text(interfaceThemeKey, settings.interfaceTheme, "showing the default interface theme");
     read.text(lanNameKey, settings.lanName, "going by the machine's name on the LAN");
@@ -755,7 +806,19 @@ json documentOf(const Settings& settings) {
     }
     document[integrationsKey] = integrations;
     if (settings.quickSettings) {
-        document[quickSettingsKey] = *settings.quickSettings;
+        json tabs = json::array();
+        for (const QuickTab& tab : settings.quickSettings->tabs) {
+            json categories = json::array();
+            for (const QuickCategory& category : tab.categories) {
+                json items = json::array();
+                for (const QuickPin& pin : category.items) {
+                    items.push_back(json::array({pin.page, pin.row, pin.label}));
+                }
+                categories.push_back(json{{"name", category.name}, {"items", std::move(items)}});
+            }
+            tabs.push_back(json{{"icon", tab.icon}, {"categories", std::move(categories)}});
+        }
+        document[quickSettingsKey] = json{{"tabs", std::move(tabs)}};
     }
     if (settings.homeMode) {
         document[homeModeKey] = std::string{config::key(*settings.homeMode)};

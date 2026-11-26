@@ -38,8 +38,6 @@ constexpr const char* devicesId = "guide.devices";
 constexpr const char* downloadsId = "guide.downloads";
 constexpr const char* settingsId = "guide.settings";
 constexpr const char* powerId = "guide.power";
-constexpr const char* screenId = "guide.screen";
-constexpr const char* profileId = "guide.profile";
 constexpr const char* sleepId = "power.sleep";
 constexpr const char* restartId = "power.restart";
 constexpr const char* shutDownId = "power.shutDown";
@@ -129,7 +127,6 @@ void GuideMenuController::close() {
 
 void GuideMenuController::read() {
     retroStatus_ = context_.inGame && !context_.remote ? retro_.status() : std::nullopt;
-    system_.read();
 }
 
 std::string GuideMenuController::title() const {
@@ -202,30 +199,6 @@ std::vector<SettingsRow> GuideMenuController::places() const {
     rows.push_back(action(settingsId, "Settings"));
     if (!power().empty()) {
         rows.push_back(ui::makePage(powerId, "Power", {}, {}));
-    }
-    return rows;
-}
-
-std::vector<SettingsRow> GuideMenuController::quick() const {
-    std::vector<SettingsRow> rows = system_.shown();
-    if (screen_orientation::turnable() && !context_.inGame) {
-        rows.push_back(ui::makeChoice(
-            screenId, "Screen", {},
-            ui::Options{{"Landscape", "Portrait"}, preferences_.values().portrait ? 1U : 0U}));
-    }
-    const std::string active = profiles_.active().id;
-    ui::Options players;
-    for (const profiles::Profile& profile : profiles_.all()) {
-        if (profile.id == active) {
-            players.chosen = players.labels.size();
-        }
-        players.labels.push_back(profile.name);
-    }
-    rows.push_back(ui::makeChoice(profileId, "Profile", {}, std::move(players)));
-    if (context_.page) {
-        rows.push_back(
-            ui::makeHeading(*context_.page == library::Section::Home ? "Home" : "Library"));
-        std::ranges::move(shelf_.rowsFor(*context_.page), std::back_inserter(rows));
     }
     return rows;
 }
@@ -317,19 +290,10 @@ void GuideMenuController::refuse(const std::string& reason, const std::string& w
 }
 
 void GuideMenuController::run(const std::string& id, int step) {
-    if (shelf_.run(id, step)) {
+    if (step != 0) {
         return;
     }
-    if (SystemControls::owns(id)) {
-        system_.run(id, step);
-    } else if (id == screenId) {
-        settings::Settings& values = preferences_.values();
-        values.portrait = !values.portrait;
-        preferences_.save();
-        hooks_.applyLayout();
-    } else if (id == profileId) {
-        stepProfile(step);
-    } else if (id == resumeId) {
+    if (id == resumeId) {
         close();
     } else if (id == keyboardId) {
         leave(hooks_.openKeyboard);
@@ -415,25 +379,6 @@ void GuideMenuController::runPower(const std::string& id) {
     } else if (id == quitId) {
         leave(hooks_.quit);
     }
-}
-
-void GuideMenuController::stepProfile(int step) {
-    const std::vector<profiles::Profile> all = profiles_.all();
-    const std::string active = profiles_.active().id;
-    const auto at = std::ranges::find(all, active, &profiles::Profile::id);
-    if (all.size() < 2 || at == all.end() || step == 0) {
-        return;
-    }
-    const auto count = static_cast<std::ptrdiff_t>(all.size());
-    const std::ptrdiff_t next = ((at - all.begin() + step) % count + count) % count;
-    hooks_.playAs(all[static_cast<std::size_t>(next)].id);
-}
-
-void GuideMenuController::setLevel(const std::string& id, int level) {
-    if (shelf_.setLevel(id, level)) {
-        return;
-    }
-    system_.setLevel(id, level);
 }
 
 void GuideMenuController::openPage(const std::string& id) {

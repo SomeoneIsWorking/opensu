@@ -1,5 +1,7 @@
 #include "profile_settings.hpp"
 
+#include <algorithm>
+#include <cstddef>
 #include <memory>
 #include <vector>
 
@@ -14,6 +16,7 @@ namespace {
 using ui::RowKind;
 
 constexpr std::string_view addId = "profiles.add";
+constexpr std::string_view playingId = "profiles.playing";
 constexpr std::string_view namePrefix = "profiles.name.";
 constexpr std::string_view picturePrefix = "profiles.picture.";
 constexpr std::string_view playPrefix = "profiles.play.";
@@ -29,6 +32,16 @@ std::string rowOf(std::string_view prefix, const std::string& profileId) {
 ui::SettingsCategory ProfileSettings::page() const {
     ui::SettingsCategory page{std::string{categoryId}, "Profiles", {}};
     const std::string active = profiles_.active().id;
+    ui::Options players;
+    for (const profiles::Profile& profile : profiles_.all()) {
+        if (profile.id == active) {
+            players.chosen = players.labels.size();
+        }
+        players.labels.push_back(profile.name);
+    }
+    page.rows.push_back(ui::makeChoice(std::string{playingId}, "Playing as",
+                                       "Games load and keep this profile's saves",
+                                       std::move(players)));
     for (const profiles::Profile& profile : profiles_.all()) {
         page.rows.push_back(ui::makeHeading(profile.name));
         page.rows.push_back(ui::makeRow(rowOf(namePrefix, profile.id), RowKind::Action, "Name",
@@ -62,11 +75,16 @@ ui::SettingsCategory ProfileSettings::page() const {
 }
 
 bool ProfileSettings::owns(const std::string& id) {
-    return id == addId || id.starts_with(namePrefix) || id.starts_with(picturePrefix) ||
-           id.starts_with(playPrefix) || id.starts_with(unlinkPrefix);
+    return id == addId || id == playingId || id.starts_with(namePrefix) ||
+           id.starts_with(picturePrefix) || id.starts_with(playPrefix) ||
+           id.starts_with(unlinkPrefix);
 }
 
 void ProfileSettings::run(const std::string& id, int step) {
+    if (id == playingId) {
+        stepPlaying(step);
+        return;
+    }
     if (id.starts_with(picturePrefix)) {
         const std::string profileId = id.substr(picturePrefix.size());
         const std::optional<profiles::Profile> profile = profiles_.find(profileId);
@@ -102,6 +120,18 @@ void ProfileSettings::run(const std::string& id, int step) {
     if (id.starts_with(unlinkPrefix)) {
         askUnlink(id.substr(unlinkPrefix.size()));
     }
+}
+
+void ProfileSettings::stepPlaying(int step) {
+    const std::vector<profiles::Profile> all = profiles_.all();
+    const std::string active = profiles_.active().id;
+    const auto at = std::ranges::find(all, active, &profiles::Profile::id);
+    if (all.size() < 2 || at == all.end() || step == 0) {
+        return;
+    }
+    const auto count = static_cast<std::ptrdiff_t>(all.size());
+    const std::ptrdiff_t next = ((at - all.begin() + step) % count + count) % count;
+    hooks_.play(all[static_cast<std::size_t>(next)].id);
 }
 
 void ProfileSettings::askUnlink(std::string_view link) {

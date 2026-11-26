@@ -236,6 +236,8 @@ struct ControlCommand {
         LibraryAdd,
         /// `argument` is a row id on the integration wizard's page on top: pick it.
         WizardPick,
+        /// `argument` is empty, a tab's number from 1, or `customize`: open Quick settings there.
+        OpenQuickSettings,
     };
     Kind kind{Kind::CloseGame};
     std::string argument;

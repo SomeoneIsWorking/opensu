@@ -60,6 +60,7 @@ constexpr ProbeRoute probeRoutes[] = {
     {"/devices/open", ControlCommand::Kind::OpenDevices, true},
     {"/library/add", ControlCommand::Kind::LibraryAdd, true},
     {"/wizard/pick", ControlCommand::Kind::WizardPick, true},
+    {"/quick/open", ControlCommand::Kind::OpenQuickSettings, false},
 };
 
 /// Quotes a JSON string, including the control characters a title may contain.

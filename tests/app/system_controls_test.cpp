@@ -1,27 +1,21 @@
-// Quick settings: the default pick, what the machine lacks left out, each row's change reaching its
-// owner and kept, the order moved and kept through Settings › Quick settings' places, and the
-// panel opening at the right edge with the picked rows and closing on Back.
+// The machine's own controls as Settings rows: what the machine lacks is not offered, and each
+// row's change reaches its owner and is kept.
 #include <algorithm>
 #include <cstdio>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "gpu2d/ui/screen.hpp"
-
 #include "host_fakes.hpp"
-#include "system_controls.hpp"
-#include "quick_settings_panel.hpp"
 #include "settings/settings.hpp"
-#include "support/fake_interface_text.hpp"
 #include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
+#include "system_controls.hpp"
 #include "ui/check.hpp"
 
 namespace {
 
 using namespace opensu;
-using gpu2d::ui::Action;
 using test::expect;
 
 class FakeProfiles final : public host::PowerProfiles {
@@ -46,73 +40,51 @@ struct Rig {
           volume{std::make_unique<test::FakeMixer>(), {}}, brightness{handheld ? &light : nullptr},
           lights{preferences, std::nullopt, nullptr, {}},
           quick{app::SystemControls::Services{.volume = volume,
-                                             .brightness = brightness,
-                                             .powerProfiles = handheld ? &profiles : nullptr,
-                                             .preferences = preferences,
-                                             .lights = lights,
-                                             .nightLight = true,
-                                             .loginSession = true},
-                {.applyLayout =
-                     [this] {
-                         ++layouts;
-                     },
-                 .refused =
-                     [](const std::string&) {
-                     }}},
-          panel{ui.navigator, quick, sounds, {.choose = [this] {
-                    ++chose;
-                }}} {
+                                              .brightness = brightness,
+                                              .powerProfiles = handheld ? &profiles : nullptr,
+                                              .preferences = preferences,
+                                              .lights = lights,
+                                              .nightLight = true,
+                                              .loginSession = true},
+                app::SystemControls::Hooks{.applyLayout =
+                                               [this] {
+                                                   ++layouts;
+                                               },
+                                           .refused =
+                                               [](const std::string&) {
+                                               }}} {
         quick.read();
     }
 
-    [[nodiscard]] std::vector<std::string> shownIds() const {
-        std::vector<std::string> ids;
-        for (const ui::SettingsRow& row : quick.shown()) {
-            ids.push_back(row.id);
-        }
-        return ids;
-    }
-    [[nodiscard]] ui::SettingsRow placeRow(const std::string& key) const {
-        const ui::SettingsCategory page = quick.page();
-        const auto row = std::ranges::find(page.rows, "system.place." + key, &ui::SettingsRow::id);
-        expect(row != page.rows.end(), ("the order lists " + key).c_str());
-        return *row;
+    [[nodiscard]] bool offers(app::SystemControl control) const {
+        return !quick.rows(control).empty();
     }
     [[nodiscard]] settings::Settings onDisk() const {
         return settings::Store{scratch.path() / "settings.json"}.load();
     }
 
     test::ScratchDir scratch;
-    test::InterfaceRig ui;
     test::FakeBacklight light;
     FakeProfiles profiles;
     app::Preferences preferences;
     app::VolumeControl volume;
     app::BrightnessControl brightness;
     app::RingLightSettings lights;
-    audio::SdlSoundPlayer sounds;
     app::SystemControls quick;
-    app::QuickSettingsPanel panel;
     int layouts{0};
-    int chose{0};
 };
 
-void defaultsFollowTheMachine() {
+void offeredFollowsTheMachine() {
     Rig handheld;
-    expect(handheld.shownIds() == std::vector<std::string>{"system.volume", "system.mute",
-                                                           "system.brightness", "system.powerProfile",
-                                                           "system.scale"},
-           "unset, the default pick shows in order");
+    expect(handheld.offers(app::SystemControl::Brightness) &&
+               handheld.offers(app::SystemControl::PowerProfile),
+           "a backlight and PowerStation: their rows are offered");
     Rig desktop{false};
-    expect(desktop.shownIds() ==
-               std::vector<std::string>{"system.volume", "system.mute", "system.scale"},
-           "no backlight and no PowerStation: those are left out");
-    const ui::SettingsCategory page = desktop.quick.page();
-    expect(std::ranges::none_of(page.rows,
-                                [](const ui::SettingsRow& row) {
-                                    return row.id == "system.place.brightness";
-                                }),
-           "nor offered to pick");
+    expect(!desktop.offers(app::SystemControl::Brightness) &&
+               !desktop.offers(app::SystemControl::PowerProfile) &&
+               desktop.offers(app::SystemControl::Volume) &&
+               desktop.offers(app::SystemControl::InterfaceSize),
+           "no backlight and no PowerStation: those are left out, the rest stay");
 }
 
 void changesReachTheirOwners() {
@@ -131,64 +103,18 @@ void changesReachTheirOwners() {
            "Interface size is kept and the screen follows");
     rig.quick.run("system.nightLight", 1);
     expect(rig.onDisk().nightLight == settings::NightLightChoice::Off, "Night light is kept");
-}
-
-void theOrderMovesAndKeeps() {
-    Rig rig;
-    expect(rig.placeRow("volume").value == "1" && rig.placeRow("nightLight").value == "Not shown",
-           "the shown ones read their place, the rest Not shown");
-    rig.quick.run("system.place.nightLight", -1);
-    expect(rig.shownIds().back() == "system.nightLight" && rig.onDisk().quickSettings.has_value(),
-           "Left on one not shown puts it last, kept");
-    rig.quick.run("system.place.nightLight", -5);
-    expect(rig.shownIds().front() == "system.nightLight", "picking place 1 puts it first");
-    rig.quick.run("system.place.volume", 10);
-    const std::vector<std::string> ids = rig.shownIds();
-    expect(std::ranges::find(ids, "system.volume") == ids.end(),
-           "past the last place it leaves the panel");
-    rig.quick.run("system.restore", 0);
-    expect(!rig.onDisk().quickSettings && rig.shownIds().front() == "system.volume",
-           "Restore defaults forgets the pick");
-}
-
-void unknownSpellingsAreSkipped() {
-    Rig rig;
-    rig.preferences.values().quickSettings = std::vector<std::string>{"wifi", "mute", "mute"};
-    expect(rig.shownIds() == std::vector<std::string>{"system.mute"},
-           "a spelling this build does not know, or one twice, is left out");
-}
-
-void thePanelOpensAtTheRightEdge() {
-    Rig rig;
-    rig.panel.toggle();
-    rig.ui.frame(1.0);
-    expect(rig.panel.isOpen() && rig.ui.navigator.focused() == "system.volume",
-           "the panel opens on its first setting");
-    std::vector<std::string> ids;
-    for (const ui::SettingsRow& row : rig.panel.rows()) {
-        ids.push_back(row.id);
+    if (rig.offers(app::SystemControl::Screen)) {
+        rig.quick.run("system.screen", 1);
+        expect(rig.onDisk().portrait && rig.layouts == 2, "Screen turns it and the screen follows");
     }
-    expect(ids.size() == 6 && ids.back() == "quickPanel.choose",
-           "the picked rows, then Choose what shows");
-    rig.ui.navigator.act(Action::Back);
-    rig.ui.frame(1.0);
-    expect(!rig.panel.isOpen(), "Back closes it");
-    rig.panel.toggle();
-    rig.ui.frame(1.0);
-    rig.panel.run("quickPanel.choose", 0);
-    rig.ui.frame(1.0);
-    expect(!rig.panel.isOpen() && rig.chose == 1, "Choose what shows leads to Settings");
 }
 
 } // namespace
 
 int main() try {
-    defaultsFollowTheMachine();
+    offeredFollowsTheMachine();
     changesReachTheirOwners();
-    theOrderMovesAndKeeps();
-    unknownSpellingsAreSkipped();
-    thePanelOpensAtTheRightEdge();
-    std::printf("quick settings: all checks passed\n");
+    std::printf("system controls: all checks passed\n");
     return 0;
 } catch (...) {
     return opensu::test::escaped();

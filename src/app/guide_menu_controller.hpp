@@ -1,15 +1,13 @@
 // guide_menu_controller — what the Guide menu holds and does: one menu over the home screen or a
-// running game. Its places (the running game's actions, Keyboard among them where it can type
-// into the game, then off a game Home, Library and Search; Devices, Downloads, Settings and Power)
-// stand beside the changes made in place: the player's quick settings (`SystemControls`, which sets
-// them), the screen's orientation and the profile played as, and, over Home or Library, what shapes
-// that page's shelf (`ShelfOptions`). A game's state commands go through `RetroSession`, power
-// through `host::Power` and the session switch through `host::SessionMode`. Every step that throws
-// something away (Close game, Load state, Reset game, Restart, Shut down, the session switch) asks
-// first, one rule. Save and close keeps the game where it is for its next start, and the menu says
-// when a game resumed. Over a game here, Invite to play and Players hold who may join and who has,
-// with Kick. Devices, Downloads and Settings open over the menu, so Back from them returns to it as
-// it was left.
+// running game, with places and actions only (the running game's actions, Keyboard among them
+// where it can type into the game, then off a game Home, Library and Search; Devices, Downloads,
+// Settings and Power). What is changed in place is Quick settings'. A game's state commands go
+// through `RetroSession`, power through `host::Power` and the session switch through
+// `host::SessionMode`. Every step that throws something away (Close game, Load state, Reset game,
+// Restart, Shut down, the session switch) asks first, one rule. Save and close keeps the game where
+// it is for its next start, and the menu says when a game resumed. Over a game here, Invite to play
+// and Players hold who may join and who has, with Kick. Devices, Downloads and Settings open over
+// the menu, so Back from them returns to it as it was left.
 #pragma once
 
 #include <functional>
@@ -25,11 +23,7 @@
 #include "host/session_mode.hpp"
 #include "lan/peer_book.hpp"
 #include "library/sections.hpp"
-#include "preferences.hpp"
-#include "profiles/profile_book.hpp"
-#include "system_controls.hpp"
 #include "retro_session.hpp"
-#include "shelf_options.hpp"
 #include "ui/row_widgets.hpp"
 #include "ui/setting_row.hpp"
 
@@ -60,8 +54,6 @@ struct GuideContext {
     std::vector<lan::Peer> guests{};
     /// The game was started for the one guest there is, and closes as it goes.
     bool closesWithGuest{false};
-    /// The page the menu opens straight over, when that is Home or Library.
-    std::optional<library::Section> page{};
 };
 
 class GuideMenuController final : public ui::RowActions {
@@ -91,16 +83,12 @@ class GuideMenuController final : public ui::RowActions {
         std::function<void()> openKeyboard;
         /// Keeps a Rotate screen press as the running game's own setting.
         std::function<void()> keepScreenTurn;
-        /// Gives the screen the interface size the preferences now hold.
-        std::function<void()> applyLayout;
         /// Opens the Install session mode dialog.
         std::function<void()> installSession;
         /// Closes openSU as the OS's close does: a running game ends first.
         std::function<void()> quit;
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
-        /// Plays as the profile `id` from now on (`ShellApp::switchProfile`).
-        std::function<void(const std::string& id)> playAs;
         /// Invites `peer` to the game here (`RemotePlay::invite`).
         std::function<void(const lan::Peer& peer)> invite;
         /// Removes the guest `peerId` from the game here (`RemotePlay::kick`).
@@ -112,21 +100,13 @@ class GuideMenuController final : public ui::RowActions {
         host::Power* power;
         /// Null where there is no session mode; its rows are left out.
         host::SessionMode* session;
-        /// The quick settings the card leads with.
-        SystemControls& system;
         RetroSession& retro;
-        Preferences& preferences;
-        ShelfOptions& shelf;
-        /// The profiles the Profile row steps through.
-        const profiles::ProfileBook& profiles;
     };
 
     GuideMenuController(gpu2d::ui::Navigator& navigator, Services services,
                         audio::SdlSoundPlayer& sounds, Hooks hooks)
         : navigator_{navigator}, power_{services.power}, session_{services.session},
-          system_{services.system}, retro_{services.retro}, preferences_{services.preferences},
-          shelf_{services.shelf}, profiles_{services.profiles}, sounds_{sounds},
-          hooks_{std::move(hooks)} {
+          retro_{services.retro}, sounds_{sounds}, hooks_{std::move(hooks)} {
     }
 
     /// Opens the menu over what the hooks say it is over, or closes it when open.
@@ -148,8 +128,6 @@ class GuideMenuController final : public ui::RowActions {
     }
     /// The running game's actions and the places, under their headings.
     [[nodiscard]] std::vector<ui::SettingsRow> places() const;
-    /// The changes made in place, then what shapes the page behind.
-    [[nodiscard]] std::vector<ui::SettingsRow> quick() const;
     /// Sleep, Restart, Shut down and the way out of openSU.
     [[nodiscard]] std::vector<ui::SettingsRow> power() const;
     /// The paired openSUs on the LAN that are not in the game here.
@@ -157,13 +135,12 @@ class GuideMenuController final : public ui::RowActions {
     /// The game's guests, each with Kick.
     [[nodiscard]] std::vector<ui::SettingsRow> players() const;
     void run(const std::string& id, int step) override;
-    void setLevel(const std::string& id, int level) override;
     void openPage(const std::string& id) override;
 
   private:
     /// The menu on the stack, or null.
     [[nodiscard]] const gpu2d::ui::Screen* menu() const;
-    /// Reads what the rows show that is slow to read: the game's state and the quick settings'.
+    /// Reads what the rows show that is slow to read: the game's state.
     void read();
     /// Closes the page `id` opened over the menu.
     void closePage(std::string_view id);
@@ -174,19 +151,13 @@ class GuideMenuController final : public ui::RowActions {
     void runGame(const std::string& id);
     void runPower(const std::string& id);
     void runTogether(const std::string& id);
-    /// Plays as the profile `step` places from the active one, wrapping.
-    void stepProfile(int step);
     /// Tells the player why a change was refused; `what` names it, when it is not plain.
     void refuse(const std::string& reason, const std::string& what = {});
 
     gpu2d::ui::Navigator& navigator_;
     host::Power* power_;
     host::SessionMode* session_;
-    SystemControls& system_;
     RetroSession& retro_;
-    Preferences& preferences_;
-    ShelfOptions& shelf_;
-    const profiles::ProfileBook& profiles_;
     audio::SdlSoundPlayer& sounds_;
     Hooks hooks_;
     GuideContext context_;

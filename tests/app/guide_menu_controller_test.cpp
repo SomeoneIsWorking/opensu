@@ -1,8 +1,6 @@
 // The Guide menu on the interface toolkit, driven as the shell drives it: its places follow where
-// the shell is, each reaches its hook, a page staying over the menu and the rest closing it, Right
-// from a place reaches the quick settings, the changes made in place go to their owners, every step
-// that throws something away asks first, and over Home or Library the rows that shape that page
-// show, kept at once.
+// the shell is, each reaches its hook, a page staying over the menu and the rest closing it, it
+// holds places and actions only, and every step that throws something away asks first.
 #include <algorithm>
 #include <cstdio>
 #include <memory>
@@ -15,8 +13,6 @@
 
 #include "guide_menu_controller.hpp"
 #include "host_fakes.hpp"
-#include "profiles/profile_book.hpp"
-#include "settings/settings.hpp"
 #include "support/fake_interface_text.hpp"
 #include "support/scratch_dir.hpp"
 #include "support/test_main.hpp"
@@ -29,42 +25,10 @@ using gpu2d::ui::Action;
 using test::expect;
 
 struct Rig {
-    explicit Rig(const app::GuideContext& context = {}, bool mixer = true, bool machine = true)
-        : scratch{OPENSU_TEST_SCRATCH, "guide-menu"},
-          preferences{settings::Store{scratch.path() / "settings.json"},
-                      [](const std::string&) {
-                      }},
-          volume{mixer ? std::make_unique<test::FakeMixer>() : nullptr, {}}, brightness{&light},
-          retro{scratch.path() / "retro"}, lights{preferences, std::nullopt, nullptr, {}},
-          quick{app::SystemControls::Services{.volume = volume,
-                                             .brightness = brightness,
-                                             .powerProfiles = nullptr,
-                                             .preferences = preferences,
-                                             .lights = lights,
-                                             .nightLight = false,
-                                             .loginSession = false},
-                {.applyLayout =
-                     [this] {
-                         calls.emplace_back("layout");
-                     },
-                 .refused =
-                     [this](const std::string& text) {
-                         said.push_back("error: " + text);
-                     }}},
-          shelf{preferences,
-                {[this] {
-                     calls.emplace_back("layout");
-                 },
-                 [this] {
-                     calls.emplace_back("reshow");
-                 },
-                 [] {
-                     return std::vector<library::SourceChoice>{
-                         {"", "All sources"}, {"launcher:epic", "Epic"}, {"gc", "GameCube"}};
-                 }}},
+    explicit Rig(const app::GuideContext& context = {}, bool machine = true)
+        : scratch{OPENSU_TEST_SCRATCH, "guide-menu"}, retro{scratch.path() / "retro"},
           controller{ui.navigator,
-                     {machine ? &power : nullptr, machine ? &session : nullptr, quick, retro,
-                      preferences, shelf, profiles},
+                     {machine ? &power : nullptr, machine ? &session : nullptr, retro},
                      sounds,
                      app::GuideMenuController::Hooks{
                          .context =
@@ -98,10 +62,6 @@ struct Rig {
                          .keepScreenTurn =
                              [] {
                              },
-                         .applyLayout =
-                             [this] {
-                                 calls.emplace_back("layout");
-                             },
                          .installSession =
                              [this] {
                                  calls.emplace_back("install");
@@ -113,10 +73,6 @@ struct Rig {
                          .say =
                              [this](const std::string& text, bool error) {
                                  said.push_back((error ? "error: " : "") + text);
-                             },
-                         .playAs =
-                             [this](const std::string& id) {
-                                 calls.push_back("playAs " + id);
                              },
                          .invite =
                              [this](const lan::Peer& peer) {
@@ -188,15 +144,7 @@ struct Rig {
     test::InterfaceRig ui;
     test::FakePower power;
     test::FakeSessionMode session;
-    test::FakeBacklight light;
-    app::Preferences preferences;
-    app::VolumeControl volume;
-    app::BrightnessControl brightness;
     app::RetroSession retro;
-    app::RingLightSettings lights;
-    app::SystemControls quick;
-    app::ShelfOptions shelf;
-    profiles::ProfileBook profiles{scratch.path() / "profiles.json"};
     audio::SdlSoundPlayer sounds;
     app::GuideMenuController controller;
     std::vector<std::string> calls;
@@ -326,164 +274,17 @@ void togetherPagesInviteAndKick() {
            "confirmed, the guest goes and the menu closes");
 }
 
-void quickChangesSitBesideThePlaces() {
+void theGuideHoldsPlacesAndActionsOnly() {
     Rig rig;
     rig.open();
     rig.press(Action::Right);
-    expect(rig.ui.navigator.focused() == "system.volume", "Right from a place reaches Volume");
-    rig.press(Action::Left);
-    expect(rig.ui.navigator.focused() == "guide.home" &&
-               test::need(rig.volume.system().state(), "a volume").percent == 40,
-           "Left on Volume goes back to the places, the volume left alone");
-    rig.press(Action::Right);
-    rig.press(Action::Accept);
-    rig.press(Action::Right);
-    expect(test::need(rig.volume.system().state(), "a volume").percent == 40 + audio::volumeStep,
-           "A holds Volume, then Right turns it up a step");
-    rig.press(Action::Back);
-    expect(test::need(rig.volume.system().state(), "a volume").percent == 40 &&
-               rig.ui.navigator.focused() == "system.volume",
-           "Back lets Volume go, putting back the level it had");
-    rig.choose("system.mute");
-    expect(test::need(rig.volume.system().state(), "a volume").muted, "A on Mute mutes");
-    rig.choose("system.scale");
-    rig.press(Action::Right);
-    rig.press(Action::Accept);
-    expect(rig.preferences.values().uiScale == settings::defaultUiScale + settings::uiScaleStep &&
-               rig.calls == std::vector<std::string>{"layout"},
-           "Interface size is a slider: A holds it, Right grows it a step and the screen follows");
-}
-
-void profileRowPlaysAsTheNextProfile() {
-    Rig rig;
-    std::string error;
-    const profiles::Profile ana = test::need(rig.profiles.add("Ana", error), "a second profile");
-    rig.open();
-    rig.press(Action::Right);
-    for (int i = 0; i < 20 && rig.ui.navigator.focused() != "guide.profile"; ++i) {
-        rig.press(Action::Down);
-    }
-    expect(rig.ui.navigator.focused() == "guide.profile", "the quick card has the profile");
-    rig.press(Action::Accept);
-    rig.press(Action::Down);
-    rig.press(Action::Accept);
-    expect(rig.calls == std::vector<std::string>{"playAs " + ana.id},
-           "picking the next profile plays as it");
-}
-
-void pageRowsFollowThePage() {
-    const auto ids = [](const Rig& rig) {
-        std::vector<std::string> found;
-        for (const ui::SettingsRow& row : rig.controller.quick()) {
-            if (row.id.starts_with("guide.") || row.id.starts_with("system.") ||
-                row.kind == ui::RowKind::Heading) {
-                continue;
-            }
-            found.push_back(row.id);
-        }
-        return found;
-    };
-    const std::vector<std::string> onHome{"iconSize", "sort", "source", "installedOnly",
-                                          "hiddenOnly"};
-    const std::vector<std::string> onLibrary{"layout", "iconSize",      "pinDock",   "sort",
-                                             "source", "installedOnly", "hiddenOnly"};
-    const auto search = [](const Rig& rig) {
-        const std::vector<std::string> places = rig.places();
-        return std::ranges::find(places, "guide.search") != places.end();
-    };
-
-    Rig home{app::GuideContext{.page = library::Section::Home}};
-    home.open();
-    expect(ids(home) == onHome && search(home), "Home has what does something there, and Search");
-
-    Rig library{app::GuideContext{.page = library::Section::Library}};
-    library.open();
-    expect(ids(library) == onLibrary && search(library), "Library adds the layout and the pin");
-
-    Rig game{app::GuideContext{.inGame = true, .title = "Game"}};
-    game.open();
-    expect(ids(game).empty() && !search(game), "over a game none of them show");
-
-    Rig page;
-    page.open();
-    expect(ids(page).empty() && search(page), "over another screen only Search");
-
-    library.controller.close();
-    library.ui.frame(1.0);
-    library.open();
-    library.choose("guide.search");
-    expect(!library.controller.isOpen() && library.calls.back() == "search",
-           "Search closes the menu and opens the search");
-}
-
-void pageRowsChangeAndKeep() {
-    Rig rig{app::GuideContext{.page = library::Section::Library}};
-    const app::Preferences& kept = rig.preferences;
-    const auto onDisk = [&rig] {
-        return settings::Store{rig.scratch.path() / "settings.json"}.load();
-    };
-    rig.open();
-    rig.calls.clear();
-
-    rig.at(app::optionLayoutId);
-    rig.press(Action::Accept);
-    rig.press(Action::Down);
-    rig.press(Action::Accept);
-    expect(kept.values().libraryMode == library::LibraryMode::Xmb &&
-               onDisk().libraryMode == library::LibraryMode::Xmb &&
-               rig.calls == std::vector<std::string>{"layout", "reshow"},
-           "picking the next layout keeps and shows it at once, the menu still up");
-    expect(rig.controller.isOpen(), "the menu stays over the page");
-
-    rig.at(app::optionIconSizeId);
-    rig.press(Action::Accept);
-    rig.press(Action::Right);
-    rig.press(Action::Right);
-    expect(onDisk().iconSize == settings::defaultIconSize + 2, "Right grows the icons, kept");
-    rig.controller.setLevel(std::string{app::optionIconSizeId}, 99);
-    expect(kept.values().iconSize == settings::maxIconSize, "the slider clamps");
-    rig.press(Action::Accept);
-
-    rig.at(app::optionPinId);
-    rig.press(Action::Accept);
-    expect(!onDisk().pinLibraryDock, "A toggles the pin, kept");
-
-    rig.at(app::optionSortId);
-    rig.press(Action::Accept);
-    rig.press(Action::Down);
-    rig.press(Action::Accept);
-    expect(onDisk().view.sort == library::SortKey::Name, "picking the next sort keeps it");
-    rig.press(Action::Accept);
-    rig.press(Action::Up);
-    rig.press(Action::Accept);
-    expect(onDisk().view.sort == library::SortKey::Recent, "picking the one before puts it back");
-
-    rig.at(app::optionSourceId);
-    rig.press(Action::Accept);
-    rig.press(Action::Down);
-    rig.press(Action::Accept);
-    expect(onDisk().view.source == "launcher:epic", "picking the next source keeps it");
-    rig.press(Action::Accept);
-    rig.press(Action::Up);
-    rig.press(Action::Up);
-    rig.press(Action::Accept);
-    expect(onDisk().view.source == "gc", "Up past the list's top goes round to the last source");
-
-    rig.at(app::optionInstalledId);
-    rig.press(Action::Accept);
-    rig.at(app::optionHiddenId);
-    rig.press(Action::Accept);
-    expect(onDisk().view.installedOnly && !onDisk().view.hiddenOnly,
-           "the filters are kept, the hidden filter is not");
-    expect(kept.values().view.hiddenOnly, "the hidden filter applies now");
-}
-
-void withoutAMixerVolumeSaysWhy() {
-    Rig rig{{}, false};
-    const std::vector<ui::SettingsRow> quick = rig.controller.quick();
-    expect(!quick.empty() && quick.front().id == "system.volumeMissing" &&
-               quick.front().kind == ui::RowKind::Info && !quick.front().note.empty(),
-           "an unavailable mixer is a fact saying why");
+    expect(rig.ui.navigator.focused() == "guide.home",
+           "beside the places there is nothing to move to: changes live in Quick settings");
+    expect(std::ranges::all_of(rig.places(),
+                               [](const std::string& id) {
+                                   return id.starts_with("guide.");
+                               }),
+           "every row is a place or an action");
 }
 
 void powerAsksAndSaysRefusals() {
@@ -547,7 +348,7 @@ void quitAsksFirst() {
 }
 
 void withoutPowerOrSessionPowerOnlyQuits() {
-    Rig rig{{}, true, false};
+    Rig rig{{}, false};
     rig.open();
     const std::vector<ui::SettingsRow> power = rig.controller.power();
     expect(power.size() == 1 && power.front().id == "power.quit" &&
@@ -563,11 +364,7 @@ int main() try {
     gameStepsAskFirst();
     keyboardTypesIntoTheGame();
     togetherPagesInviteAndKick();
-    quickChangesSitBesideThePlaces();
-    profileRowPlaysAsTheNextProfile();
-    pageRowsFollowThePage();
-    pageRowsChangeAndKeep();
-    withoutAMixerVolumeSaysWhy();
+    theGuideHoldsPlacesAndActionsOnly();
     powerAsksAndSaysRefusals();
     sessionInstalledOffersTheSwitch();
     withoutPowerOrSessionPowerOnlyQuits();

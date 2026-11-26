@@ -1,11 +1,10 @@
 // system_controls — the machine's own controls as Settings rows: the volume and mute through
 // `VolumeControl`, the brightness through `BrightnessControl`, the power profile through
-// `host::PowerProfiles`, the interface size and night light through `Preferences`, the stick
-// lights through `RingLightSettings`. Settings shows each on its page; a control the machine cannot
-// change is not offered.
+// `host::PowerProfiles`, the interface size, night light and the screen's turn through
+// `Preferences`, the stick lights through `RingLightSettings`. Settings shows each on its page; a
+// control the machine cannot change is not offered.
 #pragma once
 
-#include <array>
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -30,31 +29,13 @@ enum class SystemControl : std::uint8_t {
     PowerProfile,
     InterfaceSize,
     NightLight,
+    /// Landscape or portrait, where the screen can turn.
+    Screen,
     StickLights,
 };
 
-inline constexpr std::array allSystemControls{
-    SystemControl::Volume,       SystemControl::Mute,          SystemControl::Brightness,
-    SystemControl::PowerProfile, SystemControl::InterfaceSize, SystemControl::NightLight,
-    SystemControl::StickLights};
-
-/// What the panel shows until the player chooses.
-inline constexpr std::array defaultSystemControls{
-    SystemControl::Volume, SystemControl::Mute, SystemControl::Brightness, SystemControl::PowerProfile,
-    SystemControl::InterfaceSize};
-
-/// How the settings file spells it ("volume", "powerProfile").
-[[nodiscard]] std::string_view key(SystemControl setting) noexcept;
-/// The setting a spelling names, or nothing.
-[[nodiscard]] std::optional<SystemControl> systemControlOf(std::string_view spelling) noexcept;
-/// How the player reads it ("Power profile").
-[[nodiscard]] std::string_view label(SystemControl setting) noexcept;
-
 class SystemControls final : public ui::RowActions {
   public:
-    /// Settings › Quick settings.
-    static constexpr std::string_view categoryId{"quickSettings"};
-
     struct Services {
         VolumeControl& volume;
         BrightnessControl& brightness;
@@ -69,7 +50,7 @@ class SystemControls final : public ui::RowActions {
     };
 
     struct Hooks {
-        /// Gives the screen the interface size the preferences now hold.
+        /// Gives the screen the interface size and turn the preferences now hold.
         std::function<void()> applyLayout;
         /// Tells the player why a change was refused.
         std::function<void(const std::string& text)> refused;
@@ -83,23 +64,12 @@ class SystemControls final : public ui::RowActions {
     [[nodiscard]] bool offered(SystemControl setting) const;
     /// `setting`'s rows; none when it is not offered, but Volume says why it is missing.
     [[nodiscard]] std::vector<ui::SettingsRow> rows(SystemControl setting) const;
-    /// The settings the player picked, in order, whether offered or not.
-    [[nodiscard]] std::vector<SystemControl> chosen() const;
-    /// The rows of the picked settings that are offered, in order.
-    [[nodiscard]] std::vector<ui::SettingsRow> shown() const;
-    /// Settings › Quick settings: each offered setting's place in the order, or not shown.
-    [[nodiscard]] ui::SettingsCategory page() const;
-
-    /// Whether row `id` is one of these settings' or the order's.
+    /// Whether row `id` is one of these controls'.
     [[nodiscard]] static bool owns(const std::string& id);
     void run(const std::string& id, int step) override;
     void setLevel(const std::string& id, int level) override;
 
   private:
-    /// Moves `setting` to place `to` of the order (0 first), or out of it when `to` is past
-    /// the end.
-    void place(SystemControl setting, std::size_t to);
-    void keep(const std::vector<SystemControl>& order);
     void refuse(const std::string& reason) const;
 
     VolumeControl& volume_;

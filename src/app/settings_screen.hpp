@@ -59,6 +59,7 @@ class SettingsSubPage final : public gpu2d::ui::Screen {
     }
     [[nodiscard]] std::unique_ptr<gpu2d::ui::Widget> build(const gpu2d::ui::Theme& theme) override;
     bool act(gpu2d::ui::Action action, gpu2d::ui::ActContext& context) override;
+    [[nodiscard]] std::vector<gpu2d::ui::Hint> hints() const override;
 
   private:
     SettingsController& controller_;

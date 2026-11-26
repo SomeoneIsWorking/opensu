@@ -1512,6 +1512,7 @@ class ShellApp final {
                                      wiiRemoteSettings_,
                                      stickCorrectionSettings_,
                                      systemControls_,
+                                     quickLayout_,
                                      integrations_},
         sounds_,
         preferences_,
@@ -1706,35 +1707,40 @@ class ShellApp final {
         host_.polkit ? std::make_unique<PolkitPromptController>(
                            shell_.screens().navigator(), keyboardPad_, sounds_, *host_.polkit)
                      : nullptr};
-    /// The settings Quick settings and the Guide menu's card can hold, and the player's pick.
-    SystemControls systemControls_{SystemControls::Services{.volume = volume_,
-                                                         .brightness = brightness_,
-                                                         .powerProfiles = host_.powerProfiles.get(),
-                                                         .preferences = preferences_,
-                                                         .lights = ringLights_,
-                                                         .nightLight = nightLightSupported(),
-                                                         .loginSession = settings_.loginSession},
-                                 SystemControls::Hooks{.applyLayout =
-                                                          [this] {
-                                                              applyLayout();
-                                                          },
-                                                      .refused =
-                                                          [this](const std::string& text) {
-                                                              shell_.setToast(text, true);
-                                                          }}};
+    /// What Quick settings holds: its tabs, categories and the Settings rows in them.
+    QuickLayoutEditor quickLayout_{preferences_};
+    /// The machine's own controls as Settings rows.
+    SystemControls systemControls_{
+        SystemControls::Services{.volume = volume_,
+                                 .brightness = brightness_,
+                                 .powerProfiles = host_.powerProfiles.get(),
+                                 .preferences = preferences_,
+                                 .lights = ringLights_,
+                                 .nightLight = nightLightSupported(),
+                                 .loginSession = settings_.loginSession},
+        SystemControls::Hooks{.applyLayout =
+                                  [this] {
+                                      applyLayout();
+                                  },
+                              .refused =
+                                  [this](const std::string& text) {
+                                      shell_.setToast(text, true);
+                                  }}};
     /// The Quick settings panel at the right edge, over the home screen or a running game.
-    QuickSettingsPanel quickPanel_{shell_.screens().navigator(), systemControls_, sounds_,
-                                   QuickSettingsPanel::Hooks{.choose = [this] {
-                                       closePages();
-                                       settingsScreen_.openCategory(
-                                           std::string{SystemControls::categoryId});
-                                   }}};
+    QuickSettingsPanel quickPanel_{
+        shell_.screens().navigator(),
+        QuickSettingsPanel::Services{.layout = quickLayout_,
+                                     .settings = settingsScreen_,
+                                     .system = systemControls_,
+                                     .images = shell_.screens().images(),
+                                     .keyboard = keyboardPad_},
+        sounds_, QuickSettingsPanel::Hooks{.say = [this](const std::string& text, bool error) {
+            shell_.setToast(text, error);
+        }}};
     /// The menu Guide opens, over the home screen or a running game.
     GuideMenuController guideMenu_{
         shell_.screens().navigator(),
-        GuideMenuController::Services{host_.power.get(), host_.session.get(), systemControls_,
-                                      retro_, preferences_, shelfOptions_, profiles_.book()},
-        sounds_,
+        GuideMenuController::Services{host_.power.get(), host_.session.get(), retro_}, sounds_,
         GuideMenuController::Hooks{
             .context =
                 [this] {
@@ -1757,10 +1763,7 @@ class ShellApp final {
                         .invitable = here ? remotePlay_.notGuests(lan_.announced())
                                           : std::vector<lan::Peer>{},
                         .guests = here ? remotePlay_.guests() : std::vector<lan::Peer>{},
-                        .closesWithGuest = here && remotePlay_.closesWithGuest(),
-                        .page = !inGame && shell_.screens().navigator().atRoot()
-                                    ? std::optional{browser_.section()}
-                                    : std::nullopt};
+                        .closesWithGuest = here && remotePlay_.closesWithGuest()};
                 },
             .showSection =
                 [this](library::Section section) {
@@ -1830,10 +1833,6 @@ class ShellApp final {
                         layered_.keepScreenTurn(launches_.game());
                     }
                 },
-            .applyLayout =
-                [this] {
-                    applyLayout();
-                },
             .installSession =
                 [this] {
                     if (sessionInstall_) {
@@ -1847,10 +1846,6 @@ class ShellApp final {
             .say =
                 [this](const std::string& text, bool isError) {
                     shell_.setToast(text, isError);
-                },
-            .playAs =
-                [this](const std::string& id) {
-                    switchProfile(id);
                 },
             .invite =
                 [this](const lan::Peer& peer) {

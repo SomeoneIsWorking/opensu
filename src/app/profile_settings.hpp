@@ -1,6 +1,6 @@
-// profile_settings — Settings › Profiles: each profile with its name (renamed on an entry card),
-// its picture, Play as and the paired openSUs it is linked with, each with Unlink (asking first),
-// and Add profile, which names a new one on the same card.
+// profile_settings — Settings › Profiles: Playing as, then each profile with its name (renamed on
+// an entry card), its picture, Play as and the paired openSUs it is linked with, each with Unlink
+// (asking first), and Add profile, which names a new one on the same card.
 #pragma once
 
 #include <functional>
@@ -46,6 +46,8 @@ class ProfileSettings {
     void run(const std::string& id, int step);
 
   private:
+    /// Plays as the profile `step` places from the active one, wrapping.
+    void stepPlaying(int step);
     /// Asks whether to drop `link` (`<profile id>:<peer id>`).
     void askUnlink(std::string_view link);
     /// The entry card for `profileId`'s name, or a new profile's when it is empty.

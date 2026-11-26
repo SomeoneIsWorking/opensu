@@ -41,7 +41,7 @@
 #include "plugin_settings.hpp"
 #include "preferences.hpp"
 #include "profile_settings.hpp"
-#include "system_controls.hpp"
+#include "quick_layout.hpp"
 #include "rom_folder_settings.hpp"
 #include "save_settings.hpp"
 #include "settings/install_folders.hpp"
@@ -49,6 +49,7 @@
 #include "shortcut_editor.hpp"
 #include "steam_library_settings.hpp"
 #include "stick_correction_settings.hpp"
+#include "system_controls.hpp"
 #include "ui/row_widgets.hpp"
 #include "ui/screen_stack.hpp"
 #include "ui/setting_row.hpp"
@@ -104,9 +105,11 @@ class SettingsController final : public ui::RowActions {
         ShelfOptions& shelf;
         WiiRemoteSettings& wiiRemotes;
         StickCorrectionSettings& sticks;
-        /// Volume, brightness, the power profile, the interface size, the night light, and which
-        /// of them Quick settings shows.
+        /// Volume, brightness, the power profile, the interface size, the night light, the
+        /// screen's turn and the stick lights.
         SystemControls& system;
+        /// What Quick settings holds, which View on a row adds to or takes from.
+        QuickLayoutEditor& quick;
         /// Which pages and rows show: those of the integrations in force.
         const IntegrationsInForce& inForce;
     };
@@ -126,8 +129,9 @@ class SettingsController final : public ui::RowActions {
           lan_{services.lan}, online_{services.online}, lanRoms_{services.lanRoms},
           lanProfiles_{services.lanProfiles}, saves_{services.saves}, profiles_{services.profiles},
           shelf_{services.shelf}, wiiRemotes_{services.wiiRemotes}, sticks_{services.sticks},
-          system_{services.system}, inForce_{services.inForce}, sounds_{sounds},
-          preferences_{preferences}, defaults_{defaults}, hooks_{std::move(hooks)} {
+          system_{services.system}, quick_{services.quick}, inForce_{services.inForce},
+          sounds_{sounds}, preferences_{preferences}, defaults_{defaults},
+          hooks_{std::move(hooks)} {
     }
 
     /// Opens the screen on its first category.
@@ -161,6 +165,11 @@ class SettingsController final : public ui::RowActions {
     void run(const std::string& id, int step) override;
     void setLevel(const std::string& id, int level) override;
     void openPage(const std::string& id) override;
+    /// What View does to row `row` of page `page` ("Add to Quick settings"); empty when Quick
+    /// settings cannot hold it.
+    [[nodiscard]] std::string pinVerb(const std::string& page, const std::string& row);
+    /// Adds row `row` of page `page` to Quick settings, or takes it out.
+    void togglePin(const std::string& page, const std::string& row);
     /// Library › Add a ROM folder: the folder picker, and the folder kept and read once picked.
     void addRomFolder();
     /// Library › Add a game folder: the chooser, then the catalog read again.
@@ -232,6 +241,7 @@ class SettingsController final : public ui::RowActions {
     WiiRemoteSettings& wiiRemotes_;
     StickCorrectionSettings& sticks_;
     SystemControls& system_;
+    QuickLayoutEditor& quick_;
     const IntegrationsInForce& inForce_;
     audio::SdlSoundPlayer& sounds_;
     Preferences& preferences_;

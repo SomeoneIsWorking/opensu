@@ -12,9 +12,8 @@ namespace {
 
 namespace tk = gpu2d::ui;
 
-/// The places' column and the quick card's width, in dp.
-constexpr float placesDp = 220.0f;
-constexpr float quickDp = 340.0f;
+/// The places' column's width, in dp.
+constexpr float placesDp = 260.0f;
 
 } // namespace
 
@@ -24,30 +23,17 @@ std::unique_ptr<tk::Widget> GuideMenuScreen::build(const tk::Theme& theme) {
     root->pad(tk::Insets{spacing.pad * 1.5f, spacing.pad * 1.5f, spacing.pad * 1.5f, 0.0f})
         .space(spacing.pad);
     root->add<tk::Label>(controller_.title(), tk::TextRole::Title);
-    tk::Row& body = root->add<tk::Row>();
-    body.align(tk::Align::Stretch).stackBelow(placesDp + quickDp + spacing.pad).space(spacing.pad);
-    body.grow();
-    tk::List& places = body.add<tk::List>("guide/places", spacing.gap);
-    places.fixWidth(placesDp);
+    tk::List& places = root->add<tk::List>("guide/places", spacing.gap);
+    places.grow();
     for (const ui::SettingsRow& row : controller_.places()) {
         ui::addRow(places.rows(), row, controller_);
     }
-    tk::ScrollView& quick = body.add<tk::ScrollView>("guide/quick");
-    quick.fixWidth(quickDp).grow();
-    tk::Column& side = quick.content<tk::Column>();
-    tk::Card& card = side.add<tk::Card>();
-    card.pad(tk::Insets::all(spacing.gap * 2.0f)).space(spacing.gap);
-    for (const ui::SettingsRow& row : controller_.quick()) {
-        ui::addRow(card, row, controller_);
-    }
-    side.add<tk::Spacer>();
     root->add<tk::HintBar>();
     return root;
 }
 
 gpu2d::Rect GuideMenuScreen::area(const gpu2d::Rect& viewport, const tk::Theme& theme) const {
-    const float width =
-        std::min(viewport.width, theme.px(placesDp + quickDp + theme.spacing.pad * 4.0f));
+    const float width = std::min(viewport.width, theme.px(placesDp + theme.spacing.pad * 3.0f));
     return gpu2d::Rect{viewport.x, viewport.y, width, viewport.height};
 }
 

@@ -42,12 +42,14 @@ also be pinned from Settings itself; the Guide menu has no quick rows.
 - **An item is a live Settings row.** The panel looks each pin up through
   `SettingsController::page(page)` and draws that row with `ui::addRow`; A, Left/Right and sliders
   go back to `SettingsController::run`/`setLevel`, so a quick item behaves exactly as it does in
-  Settings. A pinned page row opens that page of Settings. A pin whose row this machine does not
-  show (no backlight, no PowerStation) is skipped and kept, for another machine. Rows that ask a
-  question first, folders, facts and headings cannot be pinned.
+  Settings. A pin whose row this machine does not show (no backlight, no PowerStation) is skipped
+  and kept, for another machine. Rows that ask a question first, pages, folders, facts and
+  headings cannot be pinned.
 - **`app::SystemControls`** owns the machine's own controls (volume, mute, brightness, power
-  profile, interface size, night light, stick lights) as Settings rows on Audio, Appearance and
-  Power, the only place they are set.
+  profile, interface size, night light, the screen's turn, stick lights) as Settings rows on
+  Audio, Appearance, Power and Controls, the only place they are set. Playing as is a choice at
+  the top of Settings › Profiles, and Hidden games only a row on Settings › Library, so every row
+  the Guide's card had is a Settings row the panel can hold.
 - **The panel (`app::QuickSettingsPanel`, `QuickSettingsScreen`)**: an overlay at the right edge
   (the whole width on a narrow screen). At the top, the tabs as icons only; LB/RB step them, a tap
   picks one. Under them the chosen tab's categories, each a heading over its items, scrolling when
@@ -60,7 +62,7 @@ also be pinned from Settings itself; the Guide menu has no quick rows.
     B puts a grabbed thing back where it was, else leaves edit mode; a tap on another place drops
     a grabbed thing there;
   - X removes the focused item, category (with its items) or tab (with its categories);
-  - a category's name is a text field;
+  - Y on a category renames it on an entry card;
   - Y on a tab changes its icon, from the icon list;
   - each category ends with "Add a setting", which browses Settings' categories and pages and adds
     the picked row to that category; the tab ends with "Add a category"; the tab strip ends with a
@@ -73,16 +75,30 @@ also be pinned from Settings itself; the Guide menu has no quick rows.
   it.
 - The volume display stays hidden while the panel is open, its Volume item being the display.
 
+## Built and not yet built
+
+Built: the layout and its editor, the System, View and Device tabs, the panel with icon tabs and
+Customize, Add a setting, the icon list, View-to-pin in Settings, and the Guide without its card.
+
+Not yet built, next in order:
+
+1. **The Game tab**: the running game's settings in the panel, replacing the Game settings panel
+   that opens beside the Guide; the Guide's Game settings place then opens Quick settings on it.
+   Its rows come from `LayeredSettings` for the running game, not from a Settings page, so a pin
+   needs a source other than `SettingsController::page`.
+2. **Pad battery** on the Device tab: a fact row from Devices' controller roster, which is not a
+   Settings page either.
+3. **Bluetooth** on System, once `BluetoothSession` polls without the Devices page open.
+
 ## Proof
 
-Hidden run with its own config: the panel opens with the default tab and categories; Customize
+Hidden run with its own config: the panel opens with the default tabs and categories; Customize
 grabs Volume and moves it under Brightness; adds a tab with another icon and a category on it,
 renames the category, adds Night light from Settings › Appearance through "Add a setting"; Options
-on Settings › Audio › Mute takes it out; the Guide menu card shows no quick rows. Focused tests:
+on Settings › Audio › Mute takes it out; the Guide menu shows places and actions only. Focused tests:
 `quick_layout_test`, `system_controls_test`, `guide_menu_controller_test`,
 `settings_controller_test`, `settings_test`, `shortcuts_test`.
 
 ## Later
 
-- Bluetooth's switch, once `BluetoothSession` polls without the Devices page open.
 - Wi-Fi and a performance overlay, once either has a backend.

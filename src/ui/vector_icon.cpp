@@ -71,6 +71,26 @@ std::string_view iconFile(Icon icon) noexcept {
         return "icons/macos.svg";
     case Icon::Stream:
         return "icons/stream.svg";
+    case Icon::QuickSliders:
+        return "icons/quick/sliders.svg";
+    case Icon::QuickSound:
+        return "icons/quick/sound.svg";
+    case Icon::QuickBrightness:
+        return "icons/quick/brightness.svg";
+    case Icon::QuickPower:
+        return "icons/quick/power.svg";
+    case Icon::QuickDisplay:
+        return "icons/quick/display.svg";
+    case Icon::QuickGamepad:
+        return "icons/quick/gamepad.svg";
+    case Icon::QuickMoon:
+        return "icons/quick/moon.svg";
+    case Icon::QuickStar:
+        return "icons/quick/star.svg";
+    case Icon::QuickNetwork:
+        return "icons/quick/network.svg";
+    case Icon::QuickPlus:
+        return "icons/quick/plus.svg";
     }
     return {};
 }

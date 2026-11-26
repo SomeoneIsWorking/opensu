@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "interface_size_setting.hpp"
+#include "screen_orientation.hpp"
 #include "settings/night_light_choice.hpp"
 
 namespace opensu::app {
@@ -22,9 +23,7 @@ constexpr const char* brightnessId = "system.brightness";
 constexpr const char* powerProfileId = "system.powerProfile";
 constexpr const char* scaleId = "system.scale";
 constexpr const char* nightLightId = "system.nightLight";
-constexpr std::string_view placePrefix{"system.place."};
-constexpr const char* restoreId = "system.restore";
-constexpr std::string_view notShown{"Not shown"};
+constexpr const char* screenId = "system.screen";
 
 /// How a PowerStation profile reads.
 std::string profileLabel(const std::string& profile) {
@@ -40,58 +39,7 @@ std::string profileLabel(const std::string& profile) {
     return profile;
 }
 
-std::string placeId(SystemControl setting) {
-    return std::string{placePrefix} + std::string{key(setting)};
-}
-
 } // namespace
-
-std::string_view key(SystemControl setting) noexcept {
-    switch (setting) {
-    case SystemControl::Volume:
-        return "volume";
-    case SystemControl::Mute:
-        return "mute";
-    case SystemControl::Brightness:
-        return "brightness";
-    case SystemControl::PowerProfile:
-        return "powerProfile";
-    case SystemControl::InterfaceSize:
-        return "interfaceSize";
-    case SystemControl::NightLight:
-        return "nightLight";
-    case SystemControl::StickLights:
-        return "stickLights";
-    }
-    return {};
-}
-
-std::optional<SystemControl> systemControlOf(std::string_view spelling) noexcept {
-    const auto found = std::ranges::find_if(allSystemControls, [spelling](SystemControl setting) {
-        return key(setting) == spelling;
-    });
-    return found == allSystemControls.end() ? std::nullopt : std::optional{*found};
-}
-
-std::string_view label(SystemControl setting) noexcept {
-    switch (setting) {
-    case SystemControl::Volume:
-        return "Volume";
-    case SystemControl::Mute:
-        return "Mute";
-    case SystemControl::Brightness:
-        return "Brightness";
-    case SystemControl::PowerProfile:
-        return "Power profile";
-    case SystemControl::InterfaceSize:
-        return "Interface size";
-    case SystemControl::NightLight:
-        return "Night light";
-    case SystemControl::StickLights:
-        return "Stick lights";
-    }
-    return {};
-}
 
 SystemControls::SystemControls(Services services, Hooks hooks)
     : volume_{services.volume}, brightness_{services.brightness},
@@ -122,6 +70,8 @@ bool SystemControls::offered(SystemControl setting) const {
         return true;
     case SystemControl::NightLight:
         return nightLight_;
+    case SystemControl::Screen:
+        return screen_orientation::turnable();
     case SystemControl::StickLights:
         return !lights_.rows().empty();
     }
@@ -177,70 +127,13 @@ std::vector<SettingsRow> SystemControls::rows(SystemControl setting) const {
                                              [](settings::NightLightChoice choice) {
                                                  return std::string{settings::label(choice)};
                                              }))};
+    case SystemControl::Screen:
+        return {ui::makeChoice(screenId, "Screen", "Which way the interface stands",
+                               ui::Options{{"Landscape", "Portrait"}, values.portrait ? 1U : 0U})};
     case SystemControl::StickLights:
         return lights_.rows();
     }
     return {};
-}
-
-std::vector<SystemControl> SystemControls::chosen() const {
-    const std::optional<std::vector<std::string>>& kept = preferences_.values().quickSettings;
-    if (!kept) {
-        return {defaultSystemControls.begin(), defaultSystemControls.end()};
-    }
-    std::vector<SystemControl> order;
-    for (const std::string& spelling : *kept) {
-        const std::optional<SystemControl> setting = systemControlOf(spelling);
-        if (setting && std::ranges::find(order, *setting) == order.end()) {
-            order.push_back(*setting);
-        }
-    }
-    return order;
-}
-
-std::vector<SettingsRow> SystemControls::shown() const {
-    std::vector<SettingsRow> all;
-    for (const SystemControl setting : chosen()) {
-        std::ranges::move(rows(setting), std::back_inserter(all));
-    }
-    return all;
-}
-
-ui::SettingsCategory SystemControls::page() const {
-    ui::SettingsCategory page{std::string{categoryId}, "Quick settings", {}};
-    std::vector<SystemControl> listed;
-    std::ranges::copy_if(chosen(), std::back_inserter(listed), [this](SystemControl setting) {
-        return offered(setting);
-    });
-    const std::size_t shownCount = listed.size();
-    for (const SystemControl setting : allSystemControls) {
-        if (offered(setting) && std::ranges::find(listed, setting) == listed.end()) {
-            listed.push_back(setting);
-        }
-    }
-    page.rows.push_back(ui::makeHeading("Shown in Quick settings, in order"));
-    for (std::size_t at = 0; at < listed.size(); ++at) {
-        const bool shown = at < shownCount;
-        // A setting not shown can go in at any place, after the last too.
-        const std::size_t places = shown ? shownCount : shownCount + 1;
-        ui::Options options;
-        for (std::size_t i = 0; i < places; ++i) {
-            options.labels.push_back(std::to_string(i + 1));
-        }
-        options.labels.emplace_back(notShown);
-        options.chosen = shown ? at : places;
-        page.rows.push_back(ui::makeChoice(placeId(listed[at]), std::string{label(listed[at])}, {},
-                                           std::move(options)));
-    }
-    std::string defaults;
-    for (const SystemControl setting : defaultSystemControls) {
-        defaults += (defaults.empty() ? "" : ", ") + std::string{label(setting)};
-    }
-    SettingsRow restore =
-        ui::makeRow(restoreId, RowKind::Action, "Restore defaults", std::move(defaults), {});
-    restore.confirm = "Quick settings shows the settings it shipped with, in their order.";
-    page.rows.push_back(std::move(restore));
-    return page;
 }
 
 bool SystemControls::owns(const std::string& id) {
@@ -265,23 +158,10 @@ void SystemControls::run(const std::string& id, int step) {
                                                           settings::allNightLightChoices.end()};
         values.nightLight = ui::stepped(all, values.nightLight, step);
         preferences_.save();
-    } else if (id == restoreId) {
-        values.quickSettings.reset();
+    } else if (id == screenId) {
+        values.portrait = !values.portrait;
         preferences_.save();
-    } else if (id.starts_with(placePrefix)) {
-        const std::optional<SystemControl> setting =
-            systemControlOf(std::string_view{id}.substr(placePrefix.size()));
-        if (!setting) {
-            return;
-        }
-        const ui::SettingsCategory order = page();
-        const auto row = std::ranges::find(order.rows, id, &SettingsRow::id);
-        if (row == order.rows.end() || row->choices.empty()) {
-            return;
-        }
-        const auto last = static_cast<int>(row->choices.size()) - 1;
-        const int to = std::clamp(static_cast<int>(row->chosen) + step, 0, last);
-        place(*setting, static_cast<std::size_t>(to));
+        hooks_.applyLayout();
     }
 }
 
@@ -297,37 +177,6 @@ void SystemControls::setLevel(const std::string& id, int level) {
         setInterfaceSize(preferences_, level);
         hooks_.applyLayout();
     }
-}
-
-void SystemControls::place(SystemControl setting, std::size_t to) {
-    std::vector<SystemControl> order = chosen();
-    std::erase(order, setting);
-    // The places count only what is offered here; the rest keep their spots for another machine.
-    std::vector<std::size_t> offeredAt;
-    for (std::size_t i = 0; i < order.size(); ++i) {
-        if (offered(order[i])) {
-            offeredAt.push_back(i);
-        }
-    }
-    if (to > offeredAt.size()) {
-        keep(order);
-        return;
-    }
-    const auto before = to == offeredAt.size()
-                            ? order.end()
-                            : order.begin() + static_cast<std::ptrdiff_t>(offeredAt[to]);
-    order.insert(before, setting);
-    keep(order);
-}
-
-void SystemControls::keep(const std::vector<SystemControl>& order) {
-    std::vector<std::string> spellings;
-    spellings.reserve(order.size());
-    for (const SystemControl setting : order) {
-        spellings.emplace_back(key(setting));
-    }
-    preferences_.values().quickSettings = std::move(spellings);
-    preferences_.save();
 }
 
 void SystemControls::refuse(const std::string& reason) const {

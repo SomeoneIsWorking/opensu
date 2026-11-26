@@ -186,6 +186,7 @@ struct Rig {
                                                        wiiRemotes,
                                                        sticks,
                                                        quick,
+                                                       quickLayout,
                                                        inForce},
                      sounds,
                      preferences,
@@ -639,21 +640,23 @@ struct Rig {
                                         }};
     app::BrightnessControl brightness{nullptr};
     app::RingLightSettings lights{preferences, std::nullopt, nullptr, {}};
-    app::SystemControls quick{app::SystemControls::Services{.volume = volume,
-                                                          .brightness = brightness,
-                                                          .powerProfiles = nullptr,
-                                                          .preferences = preferences,
-                                                          .lights = lights,
-                                                          .nightLight = app::nightLightSupported(),
-                                                          .loginSession = false},
-                             {.applyLayout =
-                                  [this] {
-                                      ++applied;
-                                  },
-                              .refused =
-                                  [this](const std::string& text) {
-                                      said.push_back({text, true});
-                                  }}};
+    app::SystemControls quick{
+        app::SystemControls::Services{.volume = volume,
+                                      .brightness = brightness,
+                                      .powerProfiles = nullptr,
+                                      .preferences = preferences,
+                                      .lights = lights,
+                                      .nightLight = app::nightLightSupported(),
+                                      .loginSession = false},
+        {.applyLayout =
+             [this] {
+                 ++applied;
+             },
+         .refused =
+             [this](const std::string& text) {
+                 said.push_back({text, true});
+             }}};
+    app::QuickLayoutEditor quickLayout{preferences};
     app::SettingsController controller;
     bool steamReady{false};
     int applied{0};
@@ -686,9 +689,9 @@ void pagesFollowTheIntegrations(const fs::path& root) {
         names.push_back(category.label);
     }
     expect(names == std::vector<std::string>{"Appearance", "Library", "Emulators", "Audio",
-                                             "Controls", "Guide chords", "Quick settings",
-                                             "Install folders", "Artwork", "Play online",
-                                             "Profiles", "Saves", "About"},
+                                             "Controls", "Guide chords", "Install folders",
+                                             "Artwork", "Play online", "Profiles", "Saves",
+                                             "About"},
            "no Integrations page, and no Steam, Wine or Plugins with their integrations off");
     rig.enter("Library");
     expect(std::ranges::none_of(rig.rows(),
@@ -750,10 +753,10 @@ void categoriesFollowTheSavedSettings(const fs::path& root) {
         names.push_back(category.label);
     }
     expect(names == std::vector<std::string>{"Appearance", "Library", "Emulators", "Steam", "Audio",
-                                             "Controls", "Guide chords", "Quick settings",
-                                             "Install folders", "Artwork", "Wine", "Plugins",
-                                             "Play online", "Profiles", "Saves", "About"},
-           "the sixteen categories");
+                                             "Controls", "Guide chords", "Install folders",
+                                             "Artwork", "Wine", "Plugins", "Play online",
+                                             "Profiles", "Saves", "About"},
+           "the fifteen categories");
     expect(rig.controller.isOpen() && rig.top() == "settings" &&
                rig.controller.category() == "Appearance" &&
                rig.focused() == "categories/appearance",
@@ -1973,6 +1976,35 @@ void zeroTierIsTurnedOffAndOn(const fs::path& root) {
            "A again turns it back on, saved");
 }
 
+/// View on a Settings row adds it to Quick settings or takes it out, and the hint says which.
+void viewPinsARowToQuickSettings(const fs::path& root) {
+    Rig rig{root / "pin"};
+    rig.controller.open();
+    rig.act(Button::A);
+    rig.focus("pinDock");
+    const auto hint = [&rig] {
+        for (const gpu2d::ui::Hint& shown : rig.screens.navigator.top()->hints()) {
+            if (std::ranges::find(shown.keys, gpu2d::ui::Action::Options) !=
+                std::ranges::end(shown.keys)) {
+                return shown.label;
+            }
+        }
+        return std::string{};
+    };
+    expect(hint() == "Add to Quick settings", "View offers to add a switch");
+    rig.act(Button::Select);
+    const settings::QuickPin pin{"appearance", "pinDock"};
+    expect(rig.quickLayout.pinned(pin) && rig.onDisk().quickSettings.has_value() &&
+               !rig.said.empty() &&
+               rig.said.back().text == "Pin navigation bar added to Quick settings",
+           "View adds it, kept, and says so");
+    expect(hint() == "Remove from Quick settings", "then offers to take it out");
+    rig.act(Button::Select);
+    expect(!rig.quickLayout.pinned(pin), "and View takes it out");
+    rig.focus("appearance.interfacetheme");
+    expect(!hint().empty(), "a choice can be held too");
+}
+
 int main() try {
     const test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "settings_controller"};
     const fs::path& root = scratch.path();
@@ -1980,6 +2012,7 @@ int main() try {
     pagesFollowTheIntegrations(root);
     leavingJustCloses(root);
     togglesChoicesAndSliderPersist(root);
+    viewPinsARowToQuickSettings(root);
     backAndStartLeave(root);
     installFoldersPersistPerStore(root);
     refusedFoldersStayOpen(root);

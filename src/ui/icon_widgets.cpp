@@ -73,4 +73,17 @@ void IconButton::paint(tk::Painter& painter) const {
              side, ink);
 }
 
+tk::Size IconTab::measure(tk::LayoutContext& context, float maxWidth) {
+    const float side = Button::measure(context, maxWidth).height;
+    return tk::Size{std::min(maxWidth, side), side};
+}
+
+void IconTab::paint(tk::Painter& painter) const {
+    const gpu2d::Colour ink = paintFace(painter);
+    const gpu2d::Rect& box = frame();
+    drawIcon(painter, images_, icon_,
+             gpu2d::Point{box.x + box.width * 0.5f, box.y + box.height * 0.5f}, box.height * 0.55f,
+             ink);
+}
+
 } // namespace opensu::ui

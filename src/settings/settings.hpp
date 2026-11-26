@@ -60,6 +60,42 @@ struct PluginChoice {
     bool operator==(const PluginChoice&) const = default;
 };
 
+/// A Settings row the Quick settings panel holds: the page it is on and its id there.
+struct QuickPin {
+    std::string page;
+    std::string row;
+    /// The row's label when it was added, shown where this machine does not offer the row.
+    std::string label;
+
+    /// The same row, whatever label it was kept with.
+    bool operator==(const QuickPin& other) const {
+        return page == other.page && row == other.row;
+    }
+};
+
+/// A heading on a Quick settings tab and the rows under it.
+struct QuickCategory {
+    std::string name;
+    std::vector<QuickPin> items;
+
+    bool operator==(const QuickCategory&) const = default;
+};
+
+/// A Quick settings tab: the icon it shows (`app::QuickIcon`'s spelling) and its categories.
+struct QuickTab {
+    std::string icon;
+    std::vector<QuickCategory> categories;
+
+    bool operator==(const QuickTab&) const = default;
+};
+
+/// What the Quick settings panel holds, tab by tab.
+struct QuickLayout {
+    std::vector<QuickTab> tabs;
+
+    bool operator==(const QuickLayout&) const = default;
+};
+
 struct Settings {
     /// How Library lays out its folders (iiSU `romCategoryLayoutMode`).
     library::LibraryMode libraryMode{library::LibraryMode::Standard};
@@ -157,9 +193,8 @@ struct Settings {
     /// The night light in session mode.
     NightLightChoice nightLight{NightLightChoice::Desktop};
 
-    /// What the Quick settings panel shows, in order, by `app::SystemControls`' spellings; unset
-    /// for its default set.
-    std::optional<std::vector<std::string>> quickSettings;
+    /// What the Quick settings panel holds; unset for its default layout.
+    std::optional<QuickLayout> quickSettings;
 
     /// The console art theme the home shows (`artwork::ConsoleThemes`); empty for the default.
     std::string consoleTheme;

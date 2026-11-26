@@ -1,6 +1,7 @@
 // vector_icon — the shipped SVG icons, rasterised at the size they are drawn so they stay sharp
 // at any resolution: the launcher logos and a console art theme's SVG cards and glyphs as white
-// masks to tint, and openSU's own dock icons in their colours. `svg/svg_raster` rasterises them.
+// masks to tint, openSU's own dock icons in their colours, and Quick settings' tab icons.
+// `svg/svg_raster` rasterises them.
 #pragma once
 
 #include <cstdint>
@@ -39,6 +40,17 @@ enum class Icon : std::uint8_t {
     Windows,
     MacOs,
     Stream,
+    /// Quick settings' tab icons, and its "+" tab.
+    QuickSliders,
+    QuickSound,
+    QuickBrightness,
+    QuickPower,
+    QuickDisplay,
+    QuickGamepad,
+    QuickMoon,
+    QuickStar,
+    QuickNetwork,
+    QuickPlus,
 };
 
 /// The store's icon, or nothing for a ROM.

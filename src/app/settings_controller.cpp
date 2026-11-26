@@ -163,7 +163,6 @@ std::vector<ui::SettingsCategory> SettingsController::build() const {
     }
     pages.push_back(controlsPage());
     pages.push_back(chords_.page());
-    pages.push_back(system_.page());
     pages.push_back(installPage());
     pages.push_back(artwork_.page());
     // Wine runs the Windows builds of GOG and Epic games.
@@ -196,8 +195,8 @@ ui::SettingsCategory SettingsController::appearancePage() const {
         scrollModeId, "Scroll mode", "How the home grid scrolls",
         ui::Options{{"Scrolling", "Pages"}, mode == config::HomeMode::WiiSu ? 1U : 0U}));
     page.rows.push_back(shelf_.pin("Keep the dock up on Library"));
-    for (const SystemControl setting :
-         {SystemControl::Brightness, SystemControl::NightLight, SystemControl::InterfaceSize}) {
+    for (const SystemControl setting : {SystemControl::Brightness, SystemControl::NightLight,
+                                        SystemControl::InterfaceSize, SystemControl::Screen}) {
         std::ranges::move(system_.rows(setting), std::back_inserter(page.rows));
     }
     return page;
@@ -215,6 +214,7 @@ ui::SettingsCategory SettingsController::libraryPage() const {
     page.rows.push_back(shelf_.sort("How games are ordered"));
     page.rows.push_back(shelf_.source("Which store's games show"));
     page.rows.push_back(shelf_.installedOnly("Hide games you have not installed"));
+    page.rows.push_back(shelf_.hiddenOnly("Only the games you hid, until openSU closes"));
     ui::SettingsRow hidden = ui::makeRow(
         hiddenId, RowKind::Action, "Show hidden games again", "Brings back every game you hid",
         v.hidden.keys().empty() ? "None hidden"
@@ -308,6 +308,7 @@ ui::SettingsCategory SettingsController::controlsPage() const {
                                          return std::string{input::label(style)};
                                      })));
     std::ranges::move(sticks_.rows(), std::back_inserter(page.rows));
+    std::ranges::move(system_.rows(SystemControl::StickLights), std::back_inserter(page.rows));
     std::ranges::move(wiiRemotes_.rows(), std::back_inserter(page.rows));
     page.rows.push_back(ui::makeHeading("Shortcuts"));
     for (const input::Action action : input::allActions) {
@@ -532,6 +533,27 @@ void SettingsController::openPage(const std::string& id) {
     lanRoms_.opening(id);
     lanProfiles_.opening(id);
     navigator_.push(std::make_unique<SettingsSubPage>(*this, chrome_, id));
+}
+
+std::string SettingsController::pinVerb(const std::string& page, const std::string& row) {
+    const std::vector<ui::SettingsRow>& rows = this->page(page).rows;
+    const auto found = std::ranges::find(rows, row, &ui::SettingsRow::id);
+    if (found == rows.end() || !QuickLayoutEditor::pinnable(*found)) {
+        return {};
+    }
+    return quick_.pinned({page, row}) ? "Remove from Quick settings" : "Add to Quick settings";
+}
+
+void SettingsController::togglePin(const std::string& page, const std::string& row) {
+    const std::vector<ui::SettingsRow>& rows = this->page(page).rows;
+    const auto found = std::ranges::find(rows, row, &ui::SettingsRow::id);
+    if (found == rows.end() || !QuickLayoutEditor::pinnable(*found)) {
+        return;
+    }
+    const std::string label = found->label;
+    const bool now = quick_.togglePin({page, row, label});
+    hooks_.say(now ? label + " added to Quick settings" : label + " taken out of Quick settings",
+               false);
 }
 
 void SettingsController::setLevel(const std::string& id, int level) {

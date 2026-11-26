@@ -11,6 +11,8 @@
 #include "library/linked_play.hpp"
 #include "shell_app.hpp"
 
+#include <charconv>
+
 namespace opensu::app {
 namespace {
 
@@ -233,6 +235,23 @@ ControlAnswer ShellApp::runProbe(const ControlCommand& command) {
         integrationWizard_.run(argument, 0);
         const gpu2d::ui::Screen* now = shell_.screens().navigator().top();
         return done({{"picked", argument}, {"top", now == nullptr ? "" : now->id()}});
+    }
+    case Kind::OpenQuickSettings: {
+        const bool customize = argument == "customize";
+        std::size_t tab = 0;
+        if (!customize && !argument.empty()) {
+            const std::size_t count = quickLayout_.layout().tabs.size();
+            const auto [end, error] =
+                std::from_chars(argument.data(), argument.data() + argument.size(), tab);
+            if (error != std::errc{} || end != argument.data() + argument.size() || tab == 0 ||
+                tab > count) {
+                return refused(404, "Quick settings has tabs 1 to " + std::to_string(count));
+            }
+            --tab;
+        }
+        guideMenu_.close();
+        quickPanel_.open(tab, customize);
+        return done({{"tab", tab + 1}, {"customize", customize}});
     }
     }
     return refused(400, "unknown probe");
