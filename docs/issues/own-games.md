@@ -9,7 +9,7 @@ program, not the folder".
 
 ## What it does
 
-- Library has an Add a game tile (after Giveaways, before All games). It offers "Choose a file"
+- Library's Add page has an Add a game row. It offers "Choose a file"
   and, when there are any not imported yet, "Import N Steam shortcuts" and "Import N Lutris games".
   Each opens a pick list: a switch per game, all on at first, Select all, Deselect all, Undo of
   each change and Import selected, which adds only the games chosen; Back adds nothing.

@@ -120,13 +120,6 @@ std::size_t countOf(const std::vector<Game>& games, Source source) {
     }));
 }
 
-/// Whether `title` is one of All games: a game with a version that is no ROM here.
-bool inAllGames(const Title& title) {
-    return std::ranges::any_of(title.copies, [](const Game* copy) {
-        return copy->source != Source::Rom;
-    });
-}
-
 } // namespace
 
 std::optional<Folder> folderOf(const ShelfItem& item) {
@@ -135,9 +128,6 @@ std::optional<Folder> folderOf(const ShelfItem& item) {
     }
     if (const auto* launcher = std::get_if<Launcher>(&item)) {
         return *launcher;
-    }
-    if (const auto* all = std::get_if<AllGames>(&item)) {
-        return *all;
     }
     return std::nullopt;
 }
@@ -151,9 +141,6 @@ std::string key(const Folder& folder) {
             const std::string store = "launcher:" + library::key(launcher.source);
             return launcher.hostId.empty() ? store : store + ":" + launcher.hostId;
         }
-        std::string operator()(const AllGames&) const {
-            return "all";
-        }
     };
     return std::visit(Visitor{}, folder);
 }
@@ -166,9 +153,6 @@ std::string name(const Folder& folder) {
         std::string operator()(const Launcher& launcher) const {
             return launcher.hostName.empty() ? std::string{label(launcher.source)}
                                              : launcher.hostName;
-        }
-        std::string operator()(const AllGames&) const {
-            return "All games";
         }
     };
     return std::visit(Visitor{}, folder);
@@ -338,15 +322,10 @@ std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
         })) {
         shelf.emplace_back(Giveaways{});
     }
-    shelf.insert(shelf.end(), adds.begin(), adds.end());
-    const std::vector<Title> titles = gameTitles(games);
-    if (const auto all = static_cast<std::size_t>(std::ranges::count_if(titles, inAllGames));
-        all > 0) {
-        shelf.emplace_back(AllGames{all});
-    }
     for (Console& console : consoles(games)) {
         shelf.emplace_back(std::move(console));
     }
+    shelf.insert(shelf.end(), adds.begin(), adds.end());
     return shelf;
 }
 
@@ -370,16 +349,6 @@ std::vector<ShelfItem> launcherShelf(const std::vector<Game>& games, const Launc
     return shelf;
 }
 
-std::vector<ShelfItem> allGamesShelf(const std::vector<Game>& games) {
-    std::vector<ShelfItem> shelf;
-    for (const Title& title : gameTitles(games)) {
-        if (inAllGames(title)) {
-            shelf.emplace_back(entry(title, *title.copies.front()));
-        }
-    }
-    return shelf;
-}
-
 std::vector<ShelfItem> everyGameShelf(const std::vector<Game>& games) {
     std::vector<ShelfItem> shelf;
     for (const Title& title : gameTitles(games)) {
@@ -396,9 +365,6 @@ std::vector<ShelfItem> folderShelf(const std::vector<Game>& games, const Folder&
         }
         std::vector<ShelfItem> operator()(const Launcher& launcher) const {
             return launcherShelf(games, launcher);
-        }
-        std::vector<ShelfItem> operator()(const AllGames&) const {
-            return allGamesShelf(games);
         }
     };
     return std::visit(Visitor{games}, folder);

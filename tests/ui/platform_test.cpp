@@ -36,8 +36,8 @@ int main() try {
     opensu::library::Console console;
     console.system = "psx";
     expect(platforms.forItem(console) == psx, "a console card is framed by its system");
-    expect(platforms.forItem(opensu::library::AllGames{}) == nullptr,
-           "a folder of games has no frame");
+    expect(platforms.forItem(opensu::library::Giveaways{}) == nullptr,
+           "Giveaways has no frame");
     std::printf("platform: all checks passed\n");
     return 0;
 } catch (...) {

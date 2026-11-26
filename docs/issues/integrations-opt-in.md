@@ -130,7 +130,7 @@ was kept for the devices and the desktop, with the real HOME. The Docker idea is
   for the run and saves a new choice; `app::IntegrationSwitch` applies a change live (catalog
   `replace`, plugins host, standalone emulator discovery and downloads, pad and Big Picture guards,
   Steam stopped and started in its mode on a worker).
-- Set up tiles: `app::LibraryAdditions` lists one per offered integration whose switch is off.
+- Library's Add page: `app::LibraryAdditions` lists each offered integration whose switch is off.
 - Settings › Integrations: `app::IntegrationSettings`. Steam libraries, the Library page's Steam
   rows, Wine (Epic or GOG), Plugins and each store's install folder show only with their
   integration on.

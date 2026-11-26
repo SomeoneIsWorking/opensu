@@ -23,7 +23,8 @@ Visible deltas from the baseline:
   (Isolated); the login session offers Managed and Isolated.
 - Epic games (Legendary) and the player's GOG library (openSU's own sign-in) sit in the
   same grid as Steam; emulator ROMs sit behind one tile per console in the Library section, and
-  each store and the combined "All games" library behind a tile of its own there.
+  each store behind a tile of its own there; Library holds no game tiles, and ends in one Add
+  tile listing the integrations not added and what adds games.
 - A dock (Home, Library) switches sections with L1/R1; Library has Standard, XMB and Carousel
   layouts, chosen with START and kept in the config dir.
 - Delta from iiSU: the dock's Home and Library icons (and the XMB's section icon) are openSU's own
@@ -100,7 +101,7 @@ Visible deltas from the baseline:
   sort, source and installed are kept in `settings.json`, the search and the hidden filter are not.
   Hide/Unhide is in the context menu (Select on a pad; Tab, the Menu key or Shift+F10 on a keyboard;
   right click on a tile) and on the details page,
-  with Launch or Install and Details; hidden games leave Home, Library, folders, All games and
+  with Launch or Install and Details; hidden games leave Home, Library, folders and
   search except under the hidden filter. The last-played time of an Epic, GOG or ROM launch is
   recorded by openSU. Library's icon size is iiSU's slider (levels 1 to 20, default 9) in the
   options for all three layouts. START also opens the options on Home now, and Y opens the
@@ -274,7 +275,7 @@ Interface sounds (`settings::SoundSet`) picks Marimba (default), Glass, Pluck or
 `<data dir>/themes/iiSU/` (`artwork::IisuInstall`), offered only while it is there; an effect the
 file lacks keeps Marimba's. An older `settings.json`'s `"opensu"` reads as Marimba.
 A `--hidden` run opens no device unless `--sound`. Events (`input-sound.md` 3.4): Navigation on a
-focus move or a press; EnterConsolesApps on A opening a console, launcher or All games;
+focus move or a press; EnterConsolesApps on A opening a console or launcher;
 ExitConsolesApps on B back to Library; OpenAppRom on a game launch; Open / Close on a panel
 appearing and being dismissed; OpenContextMenu / Close on the context menu and pickers. Enter, Exit
 and the Domino cues are dropped when the same effect fired under 91 ms ago. L1/R1 switch the dock's
@@ -349,8 +350,8 @@ chooser lacks iiSU's options list below the cards. The title shadow numbers are 
 Home's shelf (`library::homeShelf`) is the store games installed here, a title installed in
 several stores once, or the add tiles while it would hold nothing. Library's shelf (`library::libraryShelf`) is, in order: one launcher tile per store whose catalog
 source is not absent (Steam, Epic, GOG: the badges' presence rule; a signed-out store keeps its
-tile, captioned "Sign in", and A on it opens the store's sign-in page in the default browser off the loop, `ShellApp::startSignIn`); an "All games" tile when any
-store has games; one console tile per system with ROMs, in `rom_systems` order; 
+tile, captioned "Sign in", and A on it opens the store's sign-in page in the default browser off the loop, `ShellApp::startSignIn`); one console tile per system with ROMs, in
+`rom_systems` order; then the one Add tile. No game has a tile of its own on Library; 
 Uninstalled store games are only inside the library pages, so Home does not carry hundreds of
 titles it cannot launch.
 A console tile is
@@ -360,10 +361,10 @@ one for a system the gradient table lacks, such as PS4), openSU's drawing of the
 console's glyph in its tab. The name, and the count or caption under it, break at spaces onto as
 many lines as fit the card when one is too wide, at one size each so the face rasterises two sizes. A launcher tile is the same
 card in the store's brand colours with its Simple Icons logo above the name and count;
-the All games tile is a violet card with a four-square library glyph. A opens a console,
-a launcher or All games (`library::ShelfBrowser`, `library::Folder`) on its games; B returns to
+the Add tile is a teal card with a plus. A opens a console or a launcher
+(`library::ShelfBrowser`, `library::Folder`) on its games; B returns to
 Library with that tile focused. A launcher page holds the store's whole library, installed or
-not, in catalog order; All games holds every store game once. Titles are merged across
+not, in catalog order. Titles are merged across
 stores by normalised title (`library::titles`: ASCII letters and digits lower-cased, "&" as
 "and", so "Hades" and "HADES™" are one; a title with no ASCII letters is never merged; a
 store never merges two of its own games). One rule orders a title's copies
@@ -373,10 +374,10 @@ nothing, so a never played title installed on Steam shows Steam's tile, art and 
 page too. A page of the player's own games or of another openSU keeps its own copy (`keepsOwnCopy`).
 The grid's games come through the rule (`visibleShelf`, over the whole catalog so a filter cannot
 change the top copy), so tile, details and a launch from the tile act on one copy. A store game tile on Home
-and All games stands for the title across stores and carries small store icons in its
+and in search stands for the title across stores and carries small store icons in its
 bottom-right corner for every store that owns it (`Game::ownedIn`, `ui::storeIconRow`). A
-launcher page's tile carries none, nor do ROM, console and launcher tiles. Inside any of the
-three the title pill names the focused game. A store game with an update (S036) carries a down
+launcher page's tile carries none, nor do ROM, console and launcher tiles. Inside any of
+them the title pill names the focused game. A store game with an update (S036) carries a down
 arrow on the store icons' disc in its top-right corner (`ui::updateBadge`), opensu's own.
 Nothing a large library does runs on the frame thread (measured on the 447-title Epic
 library: `legendary list --json` 2.3 s to 10 s; cover decode 113 ms and upload 16 ms per Epic
@@ -1974,10 +1975,10 @@ says so and where they go; one with discs left out says how many need a console 
 (`scratch/rom-loose/`): a folder of `.gba`, `.gb`, `.nes` and `.sfc` files gave four console tiles
 on Home, an empty folder the no-games toast, wrapped onto three lines. Unverified: the tablet.
 
-Add a game is one of Library's add tiles (`app::LibraryAdditions`): Add a ROM folder opens
-Settings' own folder flow (Android's folder picker there) and the library reads the folder at once;
-Set up Steam, Epic, GOG, emulators, plugins and LAN each open that switch in Settings ›
-Integrations and go once it is on. Seen in hidden runs by pad (Set up Steam to its switch, Set up
+Add a game is a row of the page Library's Add tile opens (`app::LibraryAdditions`): Add a ROM
+folder opens Settings' own folder flow (Android's folder picker there) and the library reads the
+folder at once; Steam, Epic, GOG, emulators, plugins and LAN each open that switch in Settings ›
+Integrations and leave the page once on. Seen in hidden runs by pad (Set up Steam to its switch, Set up
 LAN gone after LAN was turned on) and by touch (a ROM folder added through the chooser, its NES
 tile at once). Import from a PC on your network shows while LAN is on and opens Settings › LAN
 with the one paired host's ROMs page over it, Import ROMs from when several are paired, the LAN

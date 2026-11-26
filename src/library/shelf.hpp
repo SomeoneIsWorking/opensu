@@ -52,13 +52,6 @@ struct Launcher {
     bool operator==(const Launcher&) const = default;
 };
 
-/// Every game with a version that is no ROM here, its versions once (`gameTitles`).
-struct AllGames {
-    std::size_t games{0};
-
-    bool operator==(const AllGames&) const = default;
-};
-
 /// The stores' free-to-keep offers, beside the launchers; it opens the Giveaways screen.
 struct Giveaways {
     bool operator==(const Giveaways&) const = default;
@@ -78,14 +71,14 @@ struct AddTile {
 };
 
 /// A tile that opens a shelf of its own.
-using Folder = std::variant<Console, Launcher, AllGames>;
-using ShelfItem = std::variant<Game, Console, Launcher, AllGames, Giveaways, AddTile>;
+using Folder = std::variant<Console, Launcher>;
+using ShelfItem = std::variant<Game, Console, Launcher, Giveaways, AddTile>;
 
 /// The folder a shelf item opens, or nothing for a game.
 [[nodiscard]] std::optional<Folder> folderOf(const ShelfItem& item);
 
-/// The folder as the control channel names it: the system, "launcher:steam",
-/// "launcher:lan:<peer id>" or "all".
+/// The folder as the control channel names it: the system, "launcher:steam" or
+/// "launcher:lan:<peer id>".
 [[nodiscard]] std::string key(const Folder& folder);
 
 /// The folder's name as the player reads it.
@@ -125,9 +118,8 @@ void setOnHome(const std::vector<Game>& games, const ShelfItem& item, bool on,
 
 /// Library: one launcher per store that is not absent, Steam, Epic, GOG, then the player's own
 /// games when there are any, then one per openSU on the LAN with games listed, by its name;
-/// Giveaways when a store has a launcher; the add tiles `adds`, in their order; the combined
-/// library when a store or the player has games; then one console per system with ROMs, in the
-/// known systems' order.
+/// Giveaways when a store has a launcher; then one console per system with ROMs, in the known
+/// systems' order; then the add tiles `adds`, in their order. No game is a tile of its own here.
 [[nodiscard]] std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
                                                   const std::vector<SourceStatus>& sources,
                                                   const std::vector<AddTile>& adds);
@@ -141,10 +133,7 @@ void setOnHome(const std::vector<Game>& games, const ShelfItem& item, bool on,
 [[nodiscard]] std::vector<ShelfItem> launcherShelf(const std::vector<Game>& games,
                                                    const Launcher& launcher);
 
-/// Every game with a version that is no ROM here, once as its preferred version, with every store
-/// it is owned in.
-[[nodiscard]] std::vector<ShelfItem> allGamesShelf(const std::vector<Game>& games);
-/// Every game once, as its title: All games' and those only ROMs hold.
+/// Every game once, as its preferred version, with every store it is owned in.
 [[nodiscard]] std::vector<ShelfItem> everyGameShelf(const std::vector<Game>& games);
 
 /// The games a folder holds.

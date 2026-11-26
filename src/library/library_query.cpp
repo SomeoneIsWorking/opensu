@@ -143,7 +143,7 @@ std::vector<SourceChoice> sourceChoices(const std::vector<Game>& games,
     std::vector<SourceChoice> choices{SourceChoice{"", "All sources"}};
     for (const ShelfItem& item : libraryShelf(games, sources, {})) {
         const std::optional<Folder> folder = folderOf(item);
-        if (folder && !std::holds_alternative<AllGames>(*folder)) {
+        if (folder) {
             choices.push_back(SourceChoice{key(*folder), name(*folder)});
         }
     }

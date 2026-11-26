@@ -1509,10 +1509,9 @@ class ShellApp final {
                                   [this] {
                                       return guideMenu_.isOpen();
                                   }}};
-    /// Library's add tiles: Add a game, Add a game folder, Add a ROM folder, the integrations not
-    /// set up.
+    /// Library's Add tile and the page it opens: the integrations not added, and what adds games.
     LibraryAdditions libraryAdditions_{
-        integrations_,
+        integrations_, shell_.screens().navigator(), shell_.screens().chrome(),
         LibraryAdditions::Hooks{.addGame =
                                     [this] {
                                         ownGames_.openAdd();

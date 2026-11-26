@@ -30,7 +30,7 @@ void settingsReplacesTheSectionTrail() {
 void devicesReplacesTheSectionTrail() {
     app::TrailState state;
     state.section = library::Section::Library;
-    state.folder = library::Folder{library::AllGames{}};
+    state.folder = library::Folder{library::Console{"gc", "GameCube", 1}};
     state.devices = "Bluetooth";
     ui::Trail trail = app::trailOf(state);
     expect(trail.size() == 2 && trail[0].label == "Devices" && trail[1].label == "Bluetooth",

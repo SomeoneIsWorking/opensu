@@ -19,7 +19,7 @@ namespace opensu::ui {
 enum class CrumbKind : std::uint8_t {
     /// A dock section: Home or Library.
     Section,
-    /// The folder open in Library (a store, All games or a console).
+    /// The folder open in Library (a store or a console).
     Folder,
     /// The search whose results are showing.
     Search,

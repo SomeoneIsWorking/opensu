@@ -41,8 +41,6 @@ enum class TileKind : std::uint8_t {
     Console,
     /// A store standing for its library.
     Launcher,
-    /// The combined library.
-    AllGames,
     /// The stores' free-to-keep offers.
     Giveaways,
     /// Adds to the library: a game of the player's own, a ROM folder, an integration.

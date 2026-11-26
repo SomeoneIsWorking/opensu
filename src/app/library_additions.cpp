@@ -1,45 +1,65 @@
 #include "library_additions.hpp"
 
+#include <memory>
 #include <string_view>
 
 #include "integration_options.hpp"
 #include "integration_settings.hpp"
 #include "library/add_game_offer.hpp"
+#include "library_add_screen.hpp"
 
 namespace opensu::app {
 namespace {
 
+constexpr std::string_view addId = "add";
 constexpr std::string_view addGameId = "add-game";
 constexpr std::string_view addGameFolderId = "add-game-folder";
 constexpr std::string_view addRomFolderId = "add-rom-folder";
 constexpr std::string_view lanImportId = "lan-import";
-/// An integration's tile is this and its entry's id.
+/// An integration's row is this and its entry's id.
 constexpr std::string_view setUpPrefix = "set-up:";
 
 } // namespace
 
 std::vector<library::AddTile> LibraryAdditions::tiles() const {
-    std::vector<library::AddTile> tiles;
-    if (const std::string_view offer = library::addGameOffer(); !offer.empty()) {
-        tiles.push_back({std::string{addGameId}, "Add a game", std::string{offer}});
-        tiles.push_back({std::string{addGameFolderId}, "Add a game folder", "Shortcuts or games"});
-    }
-    tiles.push_back({std::string{addRomFolderId}, "Add a ROM folder", "One folder per console"});
-    const settings::IntegrationChoices& chosen = integrations_.choices();
-    if (chosen.lan) {
-        tiles.push_back(
-            {std::string{lanImportId}, "Import from a PC on your network", "From openSU"});
-    }
-    for (const IntegrationEntry& entry : integrationEntries()) {
-        if (!switchOf(chosen, entry.id)) {
-            tiles.push_back({std::string{setUpPrefix} + std::string{entry.id},
-                             std::string{entry.tile}, "In Settings"});
-        }
-    }
-    return tiles;
+    return {{std::string{addId}, "Add", "Stores, consoles, games"}};
 }
 
-void LibraryAdditions::press(const std::string& id) const {
+void LibraryAdditions::press(const std::string& id) {
+    if (id == addId) {
+        navigator_.push(std::make_unique<LibraryAddScreen>(*this, chrome_));
+    }
+}
+
+ui::SettingsCategory LibraryAdditions::page() const {
+    ui::SettingsCategory page{std::string{addId}, "Add to library", {}};
+    const settings::IntegrationChoices& chosen = integrations_.choices();
+    for (const IntegrationEntry& entry : integrationEntries()) {
+        if (!switchOf(chosen, entry.id)) {
+            page.rows.push_back(ui::makeRow(std::string{setUpPrefix} + std::string{entry.id},
+                                            ui::RowKind::Action, std::string{entry.label},
+                                            std::string{entry.note}, {}));
+        }
+    }
+    page.rows.push_back(ui::makeHeading("Games"));
+    if (const std::string_view offer = library::addGameOffer(); !offer.empty()) {
+        page.rows.push_back(ui::makeRow(std::string{addGameId}, ui::RowKind::Action, "Add a game",
+                                        std::string{offer}, {}));
+        page.rows.push_back(ui::makeRow(std::string{addGameFolderId}, ui::RowKind::Action,
+                                        "Add a game folder", "Shortcuts or games", {}));
+    }
+    page.rows.push_back(ui::makeRow(std::string{addRomFolderId}, ui::RowKind::Action,
+                                    "Add a ROM folder", "One folder per console", {}));
+    if (chosen.lan) {
+        page.rows.push_back(ui::makeRow(std::string{lanImportId}, ui::RowKind::Action,
+                                        "Import from a PC on your network",
+                                        "Games another openSU offers", {}));
+    }
+    return page;
+}
+
+void LibraryAdditions::run(const std::string& id, int /*step*/) {
+    navigator_.pop();
     if (id == addGameId) {
         hooks_.addGame();
     } else if (id == addGameFolderId) {

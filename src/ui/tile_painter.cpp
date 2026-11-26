@@ -71,13 +71,10 @@ constexpr std::array<Brand, 3> brands{
     Brand{Icon::Epic, Colour{0x3A, 0x3A, 0x3F, 255}, Colour{0x16, 0x16, 0x1A, 255}},
     Brand{Icon::Gog, Colour{0x86, 0x32, 0x8A, 255}, Colour{0x4A, 0x1A, 0x4D, 255}},
 };
-// The combined library's card: a calm violet apart from the stores' colours.
-constexpr Colour libraryFrom{0x5B, 0x4F, 0x9A, 255};
-constexpr Colour libraryTo{0x2F, 0x28, 0x5E, 255};
-// Giveaways' card: a warm red apart from the stores and the library.
+// Giveaways' card: a warm red apart from the stores.
 constexpr Colour giveawaysFrom{0xB8, 0x3A, 0x52, 255};
 constexpr Colour giveawaysTo{0x5E, 0x1C, 0x33, 255};
-// Add a game's card: a teal apart from the stores, the library and Giveaways.
+// The Add card: a teal apart from the stores and Giveaways.
 constexpr Colour addGameFrom{0x2E, 0x8C, 0x86, 255};
 constexpr Colour addGameTo{0x15, 0x45, 0x4A, 255};
 // A badge's disc, dark so a white logo reads over any cover.
@@ -454,10 +451,6 @@ void TilePainter::paintContent(Canvas& canvas, const TileVisual& tile,
                   brand != brands.end() ? brand->to : consoleTo);
         return;
     }
-    if (tile.kind == TileKind::AllGames) {
-        paintCard(canvas, tile, content, libraryFrom, libraryTo);
-        return;
-    }
     if (tile.kind == TileKind::Giveaways) {
         paintCard(canvas, tile, content, giveawaysFrom, giveawaysTo);
         return;
@@ -710,7 +703,7 @@ void TilePainter::paintCard(Canvas& canvas, const TileVisual& tile, const Rect& 
     const float countBlock = static_cast<float>(captions.size()) * countBox;
     const float gap = side * 0.04f;
     const bool marked =
-        tile.kind == TileKind::Launcher || tile.kind == TileKind::AllGames ||
+        tile.kind == TileKind::Launcher ||
         tile.kind == TileKind::Giveaways || tile.kind == TileKind::Add ||
         (tile.kind == TileKind::Console && consoleArt_.look(tile.console) != CardLook::None);
     if (tile.kind == TileKind::Console && consoleArt_.look(tile.console) == CardLook::Picture) {

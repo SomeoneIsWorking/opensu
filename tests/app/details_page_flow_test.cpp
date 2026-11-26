@@ -645,8 +645,8 @@ void trail() {
            "Library, the folder, the search, the filters and the game, in that order");
     expect(full[1].kind == ui::CrumbKind::Folder && full[4].kind == ui::CrumbKind::Game,
            "each level knows what it is");
-    state.folder = library::AllGames{10};
-    expect(app::trailOf(state)[1].label == "All games", "All games is a folder of Library");
+    state.folder = library::Console{"gc", "GameCube", 1};
+    expect(app::trailOf(state)[1].label == "GameCube", "a console is a folder of Library");
 }
 
 void filters() {

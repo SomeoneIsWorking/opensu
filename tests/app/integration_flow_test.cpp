@@ -1,5 +1,5 @@
 // The opt-in integrations through the shipping owners on a scratch settings file: all off on a
-// fresh start with Library's Set up tiles for them, Settings > Integrations
+// fresh start, listed on Library's Add page, Settings > Integrations
 // (switches, Steam's mode, no Normal in a login session, Isolated's controllers) and the switch
 // that puts a change into effect (the catalog's stores, standalone emulators, Lua plugins, the
 // Steam client's mode), with no Steam started.
@@ -21,6 +21,8 @@
 #include "integration_switch.hpp"
 #include "integrations_in_force.hpp"
 #include "library_additions.hpp"
+#include "ui/screen_stack.hpp"
+#include "ui/setting_row.hpp"
 #include "pad_owner.hpp"
 #include "plugin_service.hpp"
 #include "profiles/profile_book.hpp"
@@ -53,61 +55,71 @@ const ui::SettingsRow* rowOf(const ui::SettingsCategory& page, const std::string
     return nullptr;
 }
 
-void libraryTilesSetUpWhatIsOff(const fs::path& root) {
+void libraryAddListsWhatIsOff(const fs::path& root) {
     app::Preferences preferences = preferencesIn(root / "tiles");
     app::IntegrationsInForce inForce{preferences, false};
     expect(inForce.current() == settings::Integrations{}, "a fresh start has nothing in force");
+    test::InterfaceRig screens;
+    const ui::Chrome chrome{.width = 1280.0f};
     std::vector<std::string> pressed;
-    const app::LibraryAdditions additions{
-        inForce, app::LibraryAdditions::Hooks{.addGame =
-                                                  [&pressed] {
-                                                      pressed.emplace_back("add game");
-                                                  },
-                                              .addGameFolder =
-                                                  [&pressed] {
-                                                      pressed.emplace_back("add game folder");
-                                                  },
-                                              .addRomFolder =
-                                                  [&pressed] {
-                                                      pressed.emplace_back("add rom folder");
-                                                  },
-                                              .importFromLan =
-                                                  [&pressed] {
-                                                      pressed.emplace_back("lan import");
-                                                  },
-                                              .setUp =
-                                                  [&pressed](const std::string& row) {
-                                                      pressed.push_back(row);
-                                                  }}};
+    app::LibraryAdditions additions{
+        inForce, screens.navigator, chrome,
+        app::LibraryAdditions::Hooks{.addGame =
+                                         [&pressed] {
+                                             pressed.emplace_back("add game");
+                                         },
+                                     .addGameFolder =
+                                         [&pressed] {
+                                             pressed.emplace_back("add game folder");
+                                         },
+                                     .addRomFolder =
+                                         [&pressed] {
+                                             pressed.emplace_back("add rom folder");
+                                         },
+                                     .importFromLan =
+                                         [&pressed] {
+                                             pressed.emplace_back("lan import");
+                                         },
+                                     .setUp =
+                                         [&pressed](const std::string& row) {
+                                             pressed.push_back(row);
+                                         }}};
+    expect(additions.tiles().size() == 1 && additions.tiles().front().id == "add",
+           "Library has one Add tile");
     const auto ids = [&additions] {
         std::vector<std::string> out;
-        for (const library::AddTile& tile : additions.tiles()) {
-            out.push_back(tile.id);
+        for (const ui::SettingsRow& row : additions.page().rows) {
+            out.push_back(row.kind == ui::RowKind::Heading ? "-" : row.id);
         }
         return out;
     };
-    expect(ids() == std::vector<std::string>{"add-game", "add-game-folder", "add-rom-folder",
-                                             "set-up:steam", "set-up:epic", "set-up:gog",
-                                             "set-up:emulators", "set-up:plugins", "set-up:lan"},
-           "nothing chosen: Add a game, Add a game folder, Add a ROM folder and a tile per "
-           "integration, no LAN import while LAN is off");
+    expect(ids() == std::vector<std::string>{"set-up:steam", "set-up:epic", "set-up:gog",
+                                             "set-up:emulators", "set-up:plugins", "set-up:lan",
+                                             "-", "add-game", "add-game-folder", "add-rom-folder"},
+           "nothing chosen: every integration, then Add a game, Add a game folder and Add a ROM "
+           "folder under Games, no LAN import while LAN is off");
     for (const std::string id : {"add-game", "add-game-folder", "add-rom-folder", "set-up:gog"}) {
-        additions.press(id);
+        additions.press("add");
+        expect(screens.navigator.top() != nullptr &&
+                   screens.navigator.top()->id() == "library-add",
+               "Add opens the Add to library page");
+        additions.run(id, 0);
+        expect(screens.navigator.top() == nullptr, "a pick closes the page");
     }
     expect(pressed == std::vector<std::string>{"add game", "add game folder", "add rom folder",
                                                "integrations.gog"},
-           "each tile does its own thing; an integration's opens its switch");
+           "each row does its own thing; an integration's opens its switch");
     settings::IntegrationChoices chosen;
     chosen.steam = true;
     chosen.lan = true;
     inForce.choose(chosen);
     const std::vector<std::string> after = ids();
     expect(std::ranges::find(after, "set-up:steam") == after.end() &&
-               std::ranges::find(after, "set-up:lan") == after.end() && after.size() == 8,
-           "a tile goes once its integration is on");
-    expect(after[3] == "lan-import", "LAN on: Import from a PC on your network follows Add a "
-                                     "ROM folder");
-    additions.press("lan-import");
+               std::ranges::find(after, "set-up:lan") == after.end() && after.size() == 9,
+           "an integration leaves the page once it is on");
+    expect(after.back() == "lan-import", "LAN on: Import from a PC on your network is last");
+    additions.press("add");
+    additions.run("lan-import", 0);
     expect(pressed.back() == "lan import", "and opens the LAN's ROM import");
 }
 
@@ -398,7 +410,7 @@ void theSwitchAppliesAChange(const fs::path& root) {
 
 int main() try {
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "integration-flow";
-    libraryTilesSetUpWhatIsOff(root);
+    libraryAddListsWhatIsOff(root);
     if (steam::clientModes().size() > 1) {
         settingsStagesThenApplies(root);
     } else {

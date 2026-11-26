@@ -41,7 +41,7 @@ TileKind kindOf(const library::ShelfItem& item) noexcept {
     if (std::holds_alternative<library::AddTile>(item)) {
         return TileKind::Add;
     }
-    return std::holds_alternative<library::AllGames>(item) ? TileKind::AllGames : TileKind::Game;
+    return TileKind::Game;
 }
 
 ScrollMode scrollModeFor(config::HomeMode mode) noexcept {
@@ -167,8 +167,6 @@ void HomeGrid::fillTile(Tile& tile, library::ShelfItem item) const {
                                                        : "Playing " + launcher->playing;
         }
         tile.logo = iconFor(launcher->source);
-    } else if (const auto* all = std::get_if<library::AllGames>(&tile.item)) {
-        tile.caption = gameCount(all->games);
     } else if (std::holds_alternative<library::Giveaways>(tile.item)) {
         tile.title = std::string{library::giveawaysName};
         tile.caption = "Free to keep";
