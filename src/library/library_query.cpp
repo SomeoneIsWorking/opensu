@@ -19,7 +19,14 @@ std::string sourceKeyOf(const Game& game) {
     if (game.source == Source::Rom) {
         return game.sourceId;
     }
-    return key(Folder{Launcher{game.source, 0, true, false}});
+    return key(Folder{launcherOf(game)});
+}
+
+/// Whether a launcher of `source` has the folder key `wanted`: the player's own games have two.
+bool keyedAs(Source source, const std::string& wanted) {
+    return std::ranges::any_of(std::array{false, true}, [source, &wanted](bool wine) {
+        return key(Folder{Launcher{.source = source, .wine = wine}}) == wanted;
+    });
 }
 
 int storeRank(Source source) noexcept {
@@ -174,7 +181,7 @@ LibraryView applyOptions(const std::vector<Game>& games, const std::vector<Sourc
     view.sources = sources;
     if (!options.source.empty()) {
         for (SourceStatus& status : view.sources) {
-            if (key(Folder{Launcher{status.source, 0, true, false}}) != options.source) {
+            if (!keyedAs(status.source, options.source)) {
                 status.availability = Availability::Absent;
             }
         }
@@ -243,7 +250,7 @@ bool keepsOwnCopy(const ShelfBrowser& browser, const ViewOptions& options) {
         return *open == Source::Own || *open == Source::Remote;
     }
     return std::ranges::any_of(std::array{Source::Own, Source::Remote}, [&options](Source source) {
-        return key(Folder{Launcher{source, 0, true, false}}) == options.source;
+        return keyedAs(source, options.source);
     });
 }
 

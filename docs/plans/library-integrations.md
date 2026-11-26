@@ -13,9 +13,16 @@ always openSU's own), then the login, normally or copied from another openSU on 
 
 ## What Library shows
 
-- The sub-libraries only: each store or source in force (Steam, Epic, GOG, Your games, each paired
-  openSU, Giveaways while a store shows) and each console with ROMs. No All games tile and no game
-  tiles.
+- The sub-libraries only: each store or source in force (Steam, Epic, GOG, the player's own
+  games, each paired openSU, Giveaways while a store shows) and each console with ROMs. No All
+  games tile and no game tiles.
+- The player's own games are two libraries, each shown while it has games: this OS's programs
+  (AppImages, Flatpaks, binaries and scripts, native Lutris and Steam shortcuts), named by the
+  host (Linux, macOS; Windows on Windows, where there is no second one), and Windows, the `.exe`s
+  run under Wine (`own::nativeOwn` false). Store games stay in their stores, another openSU's in
+  its tile. Each keeps Add a game, Configure (Library's game folders) and Add to Home under its own
+  key (`launcher:own:native`, `launcher:own:windows`); a Home choice saved for the old single
+  library holds for both.
 - One Add tile, last.
 - The order stays `launcherOrder`, then the LAN hosts, then Giveaways, then the consoles.
 

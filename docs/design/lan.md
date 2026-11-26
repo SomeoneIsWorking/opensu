@@ -25,7 +25,7 @@ Module rows are in `docs/codemap.md` under LAN and Remote play.
   `<cache>/opensu/lan/<peer id>/<token>.<ext>`; those of peers no longer paired are deleted.
 - `lan::RemoteLibrary` holds the remote games (`Source::Remote`, id `lan:<peer>:<game>`, the host's
   id and name, the cached cover, `installed`, no launch). `library::libraryShelf` gives each host
-  a launcher (`launcher:lan:<peer id>`), sorted by name, after Your games. `library::homeShelf`
+  a launcher (`launcher:lan:<peer id>`), sorted by name, after the player's own games. `library::homeShelf`
   follows this Home with each host's: its launcher, then the games on that host's Home in its order
   (`RemoteVersion::home`), each as its game's tile, leaving out one already on this Home. Taking a
   game on or off Home re-announces the listing. The details page shows "On <host>", Play, Game settings and Hide game.

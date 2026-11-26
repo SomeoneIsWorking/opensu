@@ -66,10 +66,14 @@ struct Brand {
     Colour from;
     Colour to;
 };
-constexpr std::array<Brand, 3> brands{
+constexpr std::array<Brand, 6> brands{
     Brand{Icon::Steam, Colour{0x2A, 0x47, 0x5E, 255}, Colour{0x1B, 0x28, 0x38, 255}},
     Brand{Icon::Epic, Colour{0x3A, 0x3A, 0x3F, 255}, Colour{0x16, 0x16, 0x1A, 255}},
     Brand{Icon::Gog, Colour{0x86, 0x32, 0x8A, 255}, Colour{0x4A, 0x1A, 0x4D, 255}},
+    // The player's own games: the penguin's amber, a Windows blue, a macOS graphite.
+    Brand{Icon::Linux, Colour{0xC2, 0x84, 0x14, 255}, Colour{0x5E, 0x3C, 0x0A, 255}},
+    Brand{Icon::Windows, Colour{0x1C, 0x74, 0xC8, 255}, Colour{0x0B, 0x36, 0x6E, 255}},
+    Brand{Icon::MacOs, Colour{0x6E, 0x74, 0x7E, 255}, Colour{0x30, 0x34, 0x3A, 255}},
 };
 // Giveaways' card: a warm red apart from the stores.
 constexpr Colour giveawaysFrom{0xB8, 0x3A, 0x52, 255};
@@ -703,8 +707,8 @@ void TilePainter::paintCard(Canvas& canvas, const TileVisual& tile, const Rect& 
     const float countBlock = static_cast<float>(captions.size()) * countBox;
     const float gap = side * 0.04f;
     const bool marked =
-        tile.kind == TileKind::Launcher ||
-        tile.kind == TileKind::Giveaways || tile.kind == TileKind::Add ||
+        tile.kind == TileKind::Launcher || tile.kind == TileKind::Giveaways ||
+        tile.kind == TileKind::Add ||
         (tile.kind == TileKind::Console && consoleArt_.look(tile.console) != CardLook::None);
     if (tile.kind == TileKind::Console && consoleArt_.look(tile.console) == CardLook::Picture) {
         // A photo fills the card; the name and count stand over its foot, outlined.

@@ -306,12 +306,12 @@ void pagesOfTheirOwnCopyKeepIt() {
     const ViewOptions options;
     ShelfBrowser browser;
     browser.open(Launcher{Source::Own, 1, true, false}, 0);
-    expect(keepsOwnCopy(browser, options), "Your games keeps its own copy");
+    expect(keepsOwnCopy(browser, options), "the player's own games keep their own copy");
     expect(gameIdAt(visibleShelf(browser, games, sources(), {}, options, none, home), 0) ==
                "own:twin",
            "and shows it past the copy last played");
     ViewOptions ownOnly;
-    ownOnly.source = "launcher:own";
+    ownOnly.source = "launcher:own:windows";
     expect(keepsOwnCopy(ShelfBrowser{}, ownOnly), "so does a filter to it");
 }
 

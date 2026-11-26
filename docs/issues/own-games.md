@@ -69,7 +69,7 @@ program, not the folder".
 - Details of an own game: a File fact (or "Runs through: Lutris"), no Wine prefix row and no
   Uninstall, plus a Steam app fact, Match a different game, Rename, Change file and Remove from library, which asks first and says the file
   stays. After a removal the focus goes to the tile now in the removed game's slot; when the last
-  one goes, Your games goes with it and Library is focused on the tile now in its slot.
+  one goes, its library (Linux or Windows) goes with it and Library is focused on the tile now in its slot.
 
 ## Checked on the player's setup
 

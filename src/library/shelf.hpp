@@ -1,10 +1,10 @@
 // shelf — what one screen of the grid holds. Home holds the store games and the player's own games
 // installed here, less those the player took off it, and the games and consoles the player added
 // (`HomeChoices`), or Library's add tiles while it would hold none. Library holds one tile per
-// launcher (the player's own games one of them, and one per openSU on the LAN whose games are
-// listed), the stores' giveaways, the add tiles, the combined library and one per console with
-// ROMs. Opening one of the folders holds its games; Giveaways and the add tiles open screens of
-// their own.
+// launcher (the player's own games two of them, this OS's programs and Windows ones run under
+// Wine, and one per openSU on the LAN whose games are listed), the stores' giveaways, the add
+// tiles, the combined library and one per console with ROMs. Opening one of the folders holds its
+// games; Giveaways and the add tiles open screens of their own.
 #pragma once
 
 #include <array>
@@ -33,7 +33,8 @@ struct Console {
     bool operator==(const Console&) const = default;
 };
 
-/// A store present here, standing for every game owned in it, installed or not.
+/// A store present here, standing for every game owned in it, installed or not; or the player's
+/// own games of one kind.
 struct Launcher {
     Source source{Source::Steam};
     std::size_t games{0};
@@ -48,6 +49,9 @@ struct Launcher {
     bool online{true};
     /// For `Source::Remote`, the title of the game playing there now; empty when none is.
     std::string playing{};
+    /// For `Source::Own`, whether it holds the Windows games run under Wine (`own::nativeOwn`
+    /// false) rather than this OS's own programs.
+    bool wine{false};
 
     bool operator==(const Launcher&) const = default;
 };
@@ -77,12 +81,17 @@ using ShelfItem = std::variant<Game, Console, Launcher, Giveaways, AddTile>;
 /// The folder a shelf item opens, or nothing for a game.
 [[nodiscard]] std::optional<Folder> folderOf(const ShelfItem& item);
 
-/// The folder as the control channel names it: the system, "launcher:steam" or
-/// "launcher:lan:<peer id>".
+/// The folder as the control channel names it: the system, "launcher:steam",
+/// "launcher:own:native", "launcher:own:windows" or "launcher:lan:<peer id>".
 [[nodiscard]] std::string key(const Folder& folder);
 
-/// The folder's name as the player reads it.
+/// The folder's name as the player reads it; the player's own games by their OS: this one's
+/// (`ownSystemName`), or "Windows" for those under Wine.
 [[nodiscard]] std::string name(const Folder& folder);
+
+/// The launcher `game` of this machine is listed under, by source and, for one of the player's
+/// own, its kind; another openSU's game's carries no host.
+[[nodiscard]] Launcher launcherOf(const Game& game);
 
 /// The game of `games` playing now on the openSU `hostId`, as it lists it; null when none is.
 [[nodiscard]] const Game* playingOn(const std::vector<Game>& games, std::string_view hostId);
@@ -118,9 +127,10 @@ void setOnHome(const std::vector<Game>& games, const ShelfItem& item, bool on,
                HomeChoices& choices);
 
 /// Library: one launcher per store that is not absent, Steam, Epic, GOG, then the player's own
-/// games when there are any, then one per openSU on the LAN with games listed, by its name;
-/// Giveaways when a store has a launcher; then one console per system with ROMs, in the known
-/// systems' order; then the add tiles `adds`, in their order. No game is a tile of its own here.
+/// games of this OS and then their Windows ones, each when there are any, then one per openSU on
+/// the LAN with games listed, by its name; Giveaways when a store has a launcher; then one console
+/// per system with ROMs, in the known systems' order; then the add tiles `adds`, in their order. No
+/// game is a tile of its own here.
 [[nodiscard]] std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
                                                   const std::vector<SourceStatus>& sources,
                                                   const std::vector<AddTile>& adds);

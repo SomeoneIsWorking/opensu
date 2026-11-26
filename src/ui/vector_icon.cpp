@@ -4,6 +4,8 @@
 #include <string>
 #include <utility>
 
+#include "library/store_builds.hpp"
+
 namespace opensu::ui {
 namespace {
 
@@ -63,8 +65,19 @@ std::string_view iconFile(Icon icon) noexcept {
         return "icons/library_selected.svg";
     case Icon::Downloads:
         return "icons/downloads.svg";
+    case Icon::Windows:
+        return "icons/windows.svg";
+    case Icon::MacOs:
+        return "icons/macos.svg";
     }
     return {};
+}
+
+Icon systemIcon(bool wine) noexcept {
+    if (wine || library::ownSystemName == "Windows") {
+        return Icon::Windows;
+    }
+    return library::ownSystemName == "macOS" ? Icon::MacOs : Icon::Linux;
 }
 
 Icon dockIcon(library::Section section, bool selected) noexcept {

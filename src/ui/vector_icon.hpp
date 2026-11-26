@@ -35,11 +35,15 @@ enum class Icon : std::uint8_t {
     HomeSelected,
     Library,
     LibrarySelected,
-    Downloads
+    Downloads,
+    Windows,
+    MacOs,
 };
 
 /// The store's icon, or nothing for a ROM.
 [[nodiscard]] std::optional<Icon> iconFor(library::Source source) noexcept;
+/// The mark of a library of the player's own games: this OS's, or Windows' for those under Wine.
+[[nodiscard]] Icon systemIcon(bool wine) noexcept;
 /// A section's dock icon, as drawn while it is the active section or not.
 [[nodiscard]] Icon dockIcon(library::Section section, bool selected) noexcept;
 

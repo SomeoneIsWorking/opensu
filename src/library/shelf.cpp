@@ -10,7 +10,9 @@
 #include <unordered_set>
 #include <utility>
 
+#include "own_games.hpp"
 #include "rom_systems.hpp"
+#include "store_builds.hpp"
 #include "titles.hpp"
 
 namespace opensu::library {
@@ -27,7 +29,8 @@ bool isRomOf(const Game& game, std::string_view system) {
 }
 
 bool holds(const Launcher& launcher, const Game& game) {
-    return game.source == launcher.source &&
+    const Launcher of = launcherOf(game);
+    return of.source == launcher.source && of.wine == launcher.wine &&
            (launcher.source != Source::Remote || game.hostId == launcher.hostId);
 }
 
@@ -117,9 +120,9 @@ std::optional<std::pair<std::string, bool>> homeSlotOf(const std::vector<Game>& 
     return std::nullopt;
 }
 
-std::size_t countOf(const std::vector<Game>& games, Source source) {
-    return static_cast<std::size_t>(std::ranges::count_if(games, [source](const Game& game) {
-        return game.source == source;
+std::size_t countOf(const std::vector<Game>& games, const Launcher& launcher) {
+    return static_cast<std::size_t>(std::ranges::count_if(games, [&launcher](const Game& game) {
+        return holds(launcher, game);
     }));
 }
 
@@ -142,6 +145,9 @@ std::string key(const Folder& folder) {
         }
         std::string operator()(const Launcher& launcher) const {
             const std::string store = "launcher:" + library::key(launcher.source);
+            if (launcher.source == Source::Own) {
+                return store + (launcher.wine ? ":windows" : ":native");
+            }
             return launcher.hostId.empty() ? store : store + ":" + launcher.hostId;
         }
     };
@@ -154,11 +160,19 @@ std::string name(const Folder& folder) {
             return console.label;
         }
         std::string operator()(const Launcher& launcher) const {
+            if (launcher.source == Source::Own) {
+                return std::string{launcher.wine ? "Windows" : ownSystemName};
+            }
             return launcher.hostName.empty() ? std::string{label(launcher.source)}
                                              : launcher.hostName;
         }
     };
     return std::visit(Visitor{}, folder);
+}
+
+Launcher launcherOf(const Game& game) {
+    return Launcher{.source = game.source,
+                    .wine = game.source == Source::Own && !own::nativeOwn(game)};
 }
 
 std::vector<Console> consoles(const std::vector<Game>& games) {
@@ -276,7 +290,8 @@ std::vector<ShelfItem> homeShelf(const std::vector<Game>& games,
                                  const std::vector<AddTile>& adds, const HomeChoices& choices) {
     std::vector<ShelfItem> shelf;
     for (ShelfItem& item : libraryShelf(games, sources, {})) {
-        if (const auto slot = homeSlotOf(games, item); slot && choices.holds(slot->first, slot->second)) {
+        if (const auto slot = homeSlotOf(games, item);
+            slot && choices.holds(slot->first, slot->second)) {
             shelf.push_back(std::move(item));
         }
     }
@@ -317,10 +332,22 @@ std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
     std::vector<ShelfItem> shelf;
     for (const Source source : launcherOrder) {
         const auto status = std::ranges::find(sources, source, &SourceStatus::source);
-        if (status != sources.end() && status->availability != Availability::Absent) {
-            shelf.emplace_back(Launcher{source, countOf(games, source),
-                                        status->availability == Availability::Ready,
-                                        status->availability == Availability::Loading});
+        if (status == sources.end() || status->availability == Availability::Absent) {
+            continue;
+        }
+        const bool ready = status->availability == Availability::Ready;
+        const bool loading = status->availability == Availability::Loading;
+        if (source != Source::Own) {
+            const Launcher store{source, 0, ready, loading};
+            shelf.emplace_back(Launcher{source, countOf(games, store), ready, loading});
+            continue;
+        }
+        for (const bool wine : {false, true}) {
+            Launcher own{.source = source, .ready = ready, .loading = loading, .wine = wine};
+            own.games = countOf(games, own);
+            if (own.games > 0) {
+                shelf.emplace_back(std::move(own));
+            }
         }
     }
     if (const auto lan = std::ranges::find(sources, Source::Remote, &SourceStatus::source);

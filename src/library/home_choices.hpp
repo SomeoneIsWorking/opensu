@@ -1,7 +1,7 @@
 // home_choices — what the player put on Home or took off it, against what Home holds unasked
 // (`onHomeByDefault`, `consoleOnHomeByDefault`, `libraryOnHomeByDefault`): a game by its
-// `choiceKey`, a console by its system, another sub-library by its folder key. A choice is kept only while it differs from the default, so a game the player never
-// touched follows the default.
+// `choiceKey`, a console by its system, another sub-library by its folder key. A choice is kept
+// only while it differs from the default, so a game the player never touched follows the default.
 #pragma once
 
 #include <cstdint>
@@ -38,8 +38,9 @@ class HomeChoices {
     using Entries = std::map<std::string, HomeChoice>;
 
     HomeChoices() = default;
-    explicit HomeChoices(Entries entries) : entries_{std::move(entries)} {
-    }
+    /// The choices as saved; one for the player's own games' library from before it split by
+    /// kind ("launcher:own") holds for each kind it split into.
+    explicit HomeChoices(Entries entries);
 
     /// What a console is kept under: "console:<system>".
     [[nodiscard]] static std::string consoleKey(std::string_view system);

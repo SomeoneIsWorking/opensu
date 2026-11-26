@@ -318,6 +318,43 @@ void testLibraryLaunchers() {
     expect(ownOnly.size() == 2 && *launcherAt(ownOnly, 0) == Launcher{Source::Own, 1, true} &&
                std::holds_alternative<AddTile>(ownOnly.at(1)),
            "the player's own games are a launcher without Giveaways");
+}
+
+void testOwnKinds() {
+    Game exe = game(Source::Own, "own:2", "2", "Fallout");
+    exe.windowsInstall = true;
+    Game lutris = game(Source::Own, "own:3", "3", "Diablo");
+    lutris.winePrefix = "/prefixes/diablo";
+    const std::vector<Game> games{game(Source::Own, "own:1", "1", "Celeste"), exe, lutris};
+    const std::vector<ShelfItem> shelf =
+        opensu::library::libraryShelf(games, {{Source::Own, Availability::Ready, {}}}, oneAdd());
+    const Launcher* native = launcherAt(shelf, 0);
+    const Launcher* wine = launcherAt(shelf, 1);
+    expect(shelf.size() == 3 && native != nullptr && !native->wine && native->games == 1 &&
+               wine != nullptr && wine->wine && wine->games == 2,
+           "the player's own games split into this OS's and Windows' launchers");
+    expect(opensu::library::key(opensu::library::Folder{*native}) == "launcher:own:native" &&
+               opensu::library::key(opensu::library::Folder{*wine}) == "launcher:own:windows" &&
+               opensu::library::name(opensu::library::Folder{*wine}) == "Windows",
+           "each kind has its own key, and the Windows one its name");
+    const std::vector<ShelfItem> inside = opensu::library::launcherShelf(games, *wine);
+    expect(inside.size() == 2 && gameAt(inside, 0)->id == "own:2" &&
+               gameAt(inside, 1)->id == "own:3",
+           "the Windows launcher holds the .exe and the game in Lutris's Wine prefix");
+    const std::vector<ShelfItem> onlyWine =
+        opensu::library::libraryShelf({exe}, {{Source::Own, Availability::Ready, {}}}, oneAdd());
+    expect(onlyWine.size() == 2 && launcherAt(onlyWine, 0)->wine,
+           "a kind with no games has no tile");
+
+    const HomeChoices saved{{{"launcher:own", opensu::library::HomeChoice::Added}}};
+    expect(opensu::library::onHome(games, *native, saved) == true &&
+               opensu::library::onHome(games, *wine, saved) == true &&
+               !saved.entries().contains("launcher:own"),
+           "Your games put on Home before the split puts both kinds there");
+    HomeChoices taken = saved;
+    opensu::library::setOnHome(games, *wine, false, taken);
+    expect(opensu::library::onHome(games, *wine, HomeChoices{taken.entries()}) == false,
+           "taking one off stays off once read back");
     expect(
         opensu::library::homeShelf({game(Source::Own, "own:1", "1", "Celeste", true)}, {}, {}, {})
                 .size() == 1,
@@ -542,6 +579,7 @@ int main() try {
         testEmptyHome();
         testLibraryShelf();
         testLibraryLaunchers();
+        testOwnKinds();
         testConsoleShelf();
         testLauncherShelf();
         testRemoteHosts();

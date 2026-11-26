@@ -1,5 +1,9 @@
 #include "home_choices.hpp"
 
+#include <utility>
+
+#include "shelf.hpp"
+
 namespace opensu::library {
 
 std::string_view key(HomeChoice choice) noexcept {
@@ -17,6 +21,19 @@ std::optional<HomeChoice> homeChoiceOf(std::string_view spelling) noexcept {
 
 bool onHomeByDefault(const Game& game) noexcept {
     return game.installed && game.source != Source::Rom && game.source != Source::Remote;
+}
+
+HomeChoices::HomeChoices(Entries entries) : entries_{std::move(entries)} {
+    const auto joined = entries_.find("launcher:" + key(Source::Own));
+    if (joined == entries_.end()) {
+        return;
+    }
+    const HomeChoice choice = joined->second;
+    entries_.erase(joined);
+    for (const bool wine : {false, true}) {
+        entries_.try_emplace(library::key(Folder{Launcher{.source = Source::Own, .wine = wine}}),
+                             choice);
+    }
 }
 
 std::string HomeChoices::consoleKey(std::string_view system) {

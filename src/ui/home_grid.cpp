@@ -166,7 +166,8 @@ void HomeGrid::fillTile(Tile& tile, library::ShelfItem item) const {
                            : launcher->playing.empty() ? "Online · " + gameCount(launcher->games)
                                                        : "Playing " + launcher->playing;
         }
-        tile.logo = iconFor(launcher->source);
+        tile.logo = launcher->source == library::Source::Own ? systemIcon(launcher->wine)
+                                                             : iconFor(launcher->source);
     } else if (std::holds_alternative<library::Giveaways>(tile.item)) {
         tile.title = std::string{library::giveawaysName};
         tile.caption = "Free to keep";

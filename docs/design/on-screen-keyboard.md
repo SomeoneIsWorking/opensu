@@ -149,7 +149,7 @@ set the window size; the dock's top should sit at or below four fifths of the fr
 Over a game: run the hidden shell as the only client of a headless Gamescope
 (`gamescope --backend headless -W 1280 -H 720 -- opensu --hidden`), with a program whose window
 takes text (`GDK_BACKEND=x11 zenity --entry`) added as an own game in `own-games.json`. Launch it
-from Library › Your games, press `guide+a`, walk to `guide.keyboard` and press `a`, type with
+from Library › Linux, press `guide+a`, walk to `guide.keyboard` and press `a`, type with
 `up+right+a stick` and the like, then `start`. `gamescopectl screenshot` (with the Gamescope
 socket from a child's environment) shows the text in the program's field, the program prints it
 on Return, and `GET /frame.png` shows the keyboard with its preview line. The hidden window is
