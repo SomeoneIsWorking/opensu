@@ -437,6 +437,11 @@ void patched() {
     expect(!opensu::settings::patch(settings, R"({"integrations": {"noSuchIntegration": true}})",
                                     error),
            "an unknown nested key is refused");
+    expect(opensu::settings::patch(settings, R"({"uiScale": null, "integrations": {"lan": null}})",
+                                   error) &&
+               settings.uiScale == Settings{}.uiScale &&
+               settings.integrations.lan == Settings{}.integrations.lan && settings.iconSize == 7,
+           "null restores a key's default, nested too, and leaves the rest");
 }
 
 } // namespace

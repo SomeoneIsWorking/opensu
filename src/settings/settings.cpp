@@ -790,10 +790,10 @@ namespace {
 
 // Whether `wanted`, given for `key` in a patch, reads back from `result`. An object only names
 // the keys it changes (merge-patch), so only those are compared, at every level; null removes
-// the key.
+// the key, which the reader then gives its default.
 bool readsBack(const json& wanted, const json& result, const std::string& key) {
     if (wanted.is_null()) {
-        return !result.contains(key) || result[key].is_null();
+        return true;
     }
     if (!result.contains(key)) {
         return false;
