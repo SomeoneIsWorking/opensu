@@ -20,9 +20,10 @@ constexpr float coverAspect = 2.0f / 3.0f;
 /// The cover's share of the room beside the action pane, against the facts' 1.
 constexpr float coverShare = 0.6f;
 /// The action pane's width, in dp.
-constexpr float actionsDp = 380.0f;
-/// The narrowest the cover and facts take beside the action pane, in dp; under it they stand above.
-constexpr float besideDp = actionsDp + 420.0f;
+constexpr float actionsDp = 360.0f;
+/// The narrowest the cover and facts take beside the action pane, in dp; under it (a portrait
+/// screen) they stand above. A handheld's 853 dp across keeps them beside it.
+constexpr float besideDp = actionsDp + 340.0f;
 /// The More card's widest, in dp.
 constexpr float moreDp = 760.0f;
 
