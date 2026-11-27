@@ -37,6 +37,17 @@ inline constexpr std::string_view boxArtKey = "X-OpenSU-BoxArt";
 /// The game shortcut `file` starts; nothing when it starts no game or what it names is not there.
 [[nodiscard]] std::optional<own::Entry> shortcutEntry(const std::filesystem::path& file);
 
+/// The program a shortcut's `command` runs: its first word past `env` and the `NAME=value` words
+/// `env` takes; empty when there is none.
+[[nodiscard]] std::filesystem::path programOf(const std::vector<std::string>& command);
+
+/// The player's own `.desktop` entries: `<xdgDataHome>/applications`.
+[[nodiscard]] std::filesystem::path applicationsOf(const std::filesystem::path& xdgDataHome);
+
+/// What the `.desktop` entries in `applications` start, each read as `shortcutEntry` reads one;
+/// none when it cannot be read.
+[[nodiscard]] std::vector<own::Entry> applicationEntries(const std::filesystem::path& applications);
+
 /// Where Flatpak exports its apps' `.desktop` entries and icons: the player's installs under
 /// `xdgDataHome`, then the system's.
 [[nodiscard]] std::vector<std::filesystem::path>

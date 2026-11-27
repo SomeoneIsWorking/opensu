@@ -1,6 +1,6 @@
 # A games folder's `.desktop` lists as its file name, not the game it starts
 
-Status: open.
+Status: fixed.
 
 Reported by the player (2026-11-27, Fedora): "my psx revamped games on fedora, openSU entries list
 the .desktop files, imo we should take the contents of .desktop and not the .desktop itself, and
@@ -19,3 +19,11 @@ Seen (2026-11-27):
   `.desktop` in `~/.local/share/applications` that runs that same `play.sh` and names it "Tomba!
   Classic Collection" (with its icon and box art) is never matched to it. The same for every
   `*_port` folder there.
+
+Fixed (2026-11-27): a `.desktop`'s game is the program its `Exec` runs, past `env` and its
+assignments (`game_folder.cpp:programOf`, `desktopEntry`); the `.desktop` itself only when that is
+no file. A found game that one of the player's entries in `~/.local/share/applications` runs (its
+program, or another in its folder) takes that entry's program, name, icon, box art and command
+(`own_games.cpp:Provider::list`). On the Ally, searching "_port" finds nothing; "revamped" lists
+"C-12: Final Resistance Revamped", "Crash Bash Revamped" and the rest with their box art, and
+"Tomba! Classic Collection" is there.

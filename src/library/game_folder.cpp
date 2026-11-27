@@ -283,9 +283,13 @@ std::optional<Entry> desktopEntry(const fs::path& file) {
     if (command.empty()) {
         return std::nullopt;
     }
+    // The game is the program it runs; the entry itself only when that is no file.
+    const fs::path program = programOf(command);
+    std::error_code error;
+    const bool runsFile = program.is_absolute() && fs::is_regular_file(program, error);
     Entry entry{.id = idOf(file),
                 .title = value("Name").empty() ? file.stem().string() : value("Name"),
-                .file = file,
+                .file = runsFile ? program : file,
                 .workingDirectory = fs::path{value("Path")},
                 .origin = own::Origin::Folder,
                 .originId = file.string(),
@@ -459,6 +463,38 @@ bool listsAsGame(const fs::path& file) {
         game = game || category == "Game";
     }
     return game;
+}
+
+fs::path programOf(const std::vector<std::string>& command) {
+    auto word = command.begin();
+    if (word != command.end() && fs::path{*word}.filename() == "env") {
+        ++word;
+        while (word != command.end() && word->find('=') != std::string::npos) {
+            ++word;
+        }
+    }
+    return word == command.end() ? fs::path{} : fs::path{*word};
+}
+
+fs::path applicationsOf(const fs::path& xdgDataHome) {
+    return xdgDataHome / "applications";
+}
+
+std::vector<Entry> applicationEntries(const fs::path& applications) {
+    std::vector<Entry> entries;
+    std::error_code error;
+    if (!fs::is_directory(applications, error)) {
+        return entries;
+    }
+    for (const fs::directory_entry& entry : listed(applications)) {
+        if (extensionOf(entry.path()) != ".desktop") {
+            continue;
+        }
+        if (std::optional<Entry> app = desktopEntry(entry.path())) {
+            entries.push_back(*std::move(app));
+        }
+    }
+    return entries;
 }
 
 std::vector<fs::path> flatpakExports(const fs::path& xdgDataHome) {

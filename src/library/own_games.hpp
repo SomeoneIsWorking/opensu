@@ -53,7 +53,7 @@ struct Entry {
     /// Which icon of `icon`, as a shortcut counts them.
     std::int32_t iconIndex{0};
     /// What its shortcut runs, program first, when that is no file of `kindOf`'s: `file` is then
-    /// the shortcut.
+    /// the program it runs (`folder::programOf`), or the shortcut when that is no file.
     std::vector<std::string> command{};
     /// The file name of the game Lutris starts, which shows it is running; read from Lutris, never
     /// saved.
@@ -146,14 +146,17 @@ class Records {
 /// export; absent while there are none. A found game whose file is an entry's already is that
 /// entry. A Lutris entry takes how it starts from `lutrisGames` on each listing, read from
 /// `lutris`, and, with no Steam app of its own, the app Lutris knows it as. So does a found
-/// Windows game whose `.exe` a Lutris game runs, which is dropped when that game is an entry.
+/// Windows game whose `.exe` a Lutris game runs, which is dropped when that game is an entry. A
+/// found game one of the player's `.desktop` entries in `applications` runs (its program, or
+/// another in its folder) takes that entry's program, name, icon, box art and command.
 class Provider final : public library::Provider {
   public:
     Provider(Records records, lutris::Folders lutris,
              std::vector<std::filesystem::path> gameFolders,
-             std::vector<std::filesystem::path> flatpakExports)
+             std::vector<std::filesystem::path> flatpakExports, std::filesystem::path applications)
         : records_{std::move(records)}, lutris_{std::move(lutris)},
-          gameFolders_{std::move(gameFolders)}, flatpakExports_{std::move(flatpakExports)} {
+          gameFolders_{std::move(gameFolders)}, flatpakExports_{std::move(flatpakExports)},
+          applications_{std::move(applications)} {
     }
 
     [[nodiscard]] Source source() const override {
@@ -169,6 +172,7 @@ class Provider final : public library::Provider {
     lutris::Folders lutris_;
     std::vector<std::filesystem::path> gameFolders_;
     std::vector<std::filesystem::path> flatpakExports_;
+    std::filesystem::path applications_;
 };
 
 } // namespace opensu::library::own

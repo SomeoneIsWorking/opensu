@@ -272,6 +272,43 @@ void linuxFolder(const fs::path& root) {
            "a Steam entry is its app");
 }
 
+void anEntryIsTheProgramItRuns(const fs::path& root) {
+    if (folder::thisHost() != Host::Linux) {
+        return;
+    }
+    const fs::path games = root / "ports";
+    const fs::path play = games / "tomba_port" / "play.sh";
+    writeProgram(play, "#!/bin/sh\n");
+    // The scan takes the AppImage for the folder; the entry runs play.sh beside it.
+    writeProgram(games / "tomba_port" / "Tomba-x86_64.AppImage", "#!/bin/sh\n# a larger file\n");
+    const fs::path run = root / "repo" / "run.sh";
+    writeProgram(run, "#!/bin/sh\n");
+    const fs::path applications = root / "applications";
+    write(applications / "tomba.desktop",
+          "[Desktop Entry]\nType=Application\nName=Tomba! Classic Collection\nIcon=tomba\nExec=" +
+              play.string() + "\nX-OpenSU-BoxArt=psx/Tomba! (USA)\n");
+    write(games / "crash.desktop",
+          "[Desktop Entry]\nType=Application\nName=Crash\nExec=env PATH=/bin A=1 " + run.string() +
+              "\n");
+    expect(folder::programOf({"env", "PATH=/bin", "A=1", "/x/run.sh", "-v"}) == "/x/run.sh",
+           "env and its assignments are not the program");
+
+    const own::Records records{root / "ports-records.json"};
+    own::Provider provider{
+        records, {root / "no-lutris", root / "no-lutris"}, {games}, {}, applications};
+    const std::vector<opensu::library::Game> listed = provider.list(std::stop_token{});
+    const auto named = [&listed](std::string_view title) {
+        return std::ranges::find(listed, title, &opensu::library::Game::title);
+    };
+    expect(listed.size() == 2 && named("Crash") != listed.end() && named("Crash")->file == run &&
+               named("Crash")->processHint == "run.sh",
+           "a .desktop in a games folder is the program it runs");
+    expect(named("Tomba! Classic Collection") != listed.end() &&
+               named("Tomba! Classic Collection")->file == play &&
+               named("Tomba! Classic Collection")->boxArt == "psx/Tomba! (USA)",
+           "a found program the player's .desktop runs takes that entry's name and box art");
+}
+
 void macFolder(const fs::path& root) {
     const fs::path games = root / "mac";
     const fs::path app = games / "Sub" / "Grand.app";
@@ -313,7 +350,8 @@ void theProviderListsThisOsGames(const fs::path& root) {
     writeProgram(program, "#!/bin/sh\n");
 
     const own::Records records{root / "records.json"};
-    own::Provider provider{records, {root / "no-lutris", root / "no-lutris"}, {games}, {}};
+    own::Provider provider{
+        records, {root / "no-lutris", root / "no-lutris"}, {games}, {}, root / "no-applications"};
     const std::vector<opensu::library::Game> listed = provider.list(std::stop_token{});
     expect(listed.size() == 1 && listed.front().file == program && listed.front().fromGameFolder,
            "the provider lists a folder's games");
@@ -378,6 +416,7 @@ int main() try {
     aShortcutBesideItsFolderIsOneGame(root);
 #ifndef _WIN32
     linuxFolder(root);
+    anEntryIsTheProgramItRuns(root);
     macFolder(root);
 #endif
     aFolderGameLaunches(root);

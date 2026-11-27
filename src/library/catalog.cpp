@@ -50,7 +50,8 @@ Catalog makeCatalog(const config::Config& config, bool hidden,
         std::move(switchInfo), roms::RomsetConversions::shipped(config.assetsDir)));
     catalog.add(std::make_unique<own::Provider>(
         own::Records{ownGames}, lutris::foldersOf(config.xdgDataHome, config.xdgConfigHome),
-        config.gameFolders, folder::flatpakExports(config.xdgDataHome)));
+        config.gameFolders, folder::flatpakExports(config.xdgDataHome),
+        folder::applicationsOf(config.xdgDataHome)));
     return catalog;
 }
 

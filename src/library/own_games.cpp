@@ -86,7 +86,7 @@ Origin originOf(const std::string& key) {
 /// What a running `command` is found by: the app id of a `flatpak run`, whose processes carry
 /// it in their `/.flatpak-info` and not the word flatpak; otherwise the program's file name.
 std::string processHintOf(const std::vector<std::string>& command) {
-    std::string program = fs::path{command.front()}.filename().string();
+    std::string program = folder::programOf(command).filename().string();
     if (program != "flatpak" || command.size() < 2 || command[1] != "run") {
         return program;
     }
@@ -420,7 +420,25 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
     for (const fs::path& gameFolder : gameFolders_) {
         std::ranges::move(folder::scan(gameFolder), std::back_inserter(found));
     }
+    const std::vector<Entry> applications = folder::applicationEntries(applications_);
     for (Entry& game : found) {
+        // The player's entry for a found game runs its program, or another in the game's folder.
+        const auto app = std::ranges::find_if(applications, [&game](const Entry& app) {
+            return app.file == game.file ||
+                   (!game.folder.empty() && app.file.parent_path() == game.folder);
+        });
+        if (game.command.empty() && app != applications.end()) {
+            game.file = app->file;
+            game.title = app->title;
+            game.icon = app->icon;
+            game.iconIndex = app->iconIndex;
+            game.command = app->command;
+            game.workingDirectory = app->workingDirectory;
+            game.boxArt = app->boxArt;
+            if (!app->steamAppId.empty()) {
+                game.steamAppId = app->steamAppId;
+            }
+        }
         if (std::ranges::find(entries, game.file, &Entry::file) == entries.end()) {
             entries.push_back(std::move(game));
         }

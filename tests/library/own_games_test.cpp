@@ -327,7 +327,7 @@ void lutrisGamesAreRead(const fs::path& dir) {
                  .origin = own::Origin::Lutris,
                  .originId = "2",
                  .steamAppId = "999"});
-    own::Provider provider{records, lutris, {dir / "games"}, {}};
+    own::Provider provider{records, lutris, {dir / "games"}, {}, dir / "no-applications"};
     const std::vector<Game> games = provider.list(std::stop_token{});
     expect(games.size() == 3, "a found game Lutris runs as an entry is that entry");
     expect(games[2].fromGameFolder && games[2].fromLutris && games[2].launch.program == "lutris" &&
