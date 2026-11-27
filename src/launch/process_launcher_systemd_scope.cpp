@@ -8,6 +8,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include <fcntl.h>
 #include <signal.h>
@@ -20,6 +21,7 @@
 #include "descriptor.hpp"
 #include "lucent/log.h"
 #include "process_table.hpp"
+#include "process_tree.hpp"
 #include "procfs.hpp"
 
 namespace opensu::launch {
@@ -38,6 +40,15 @@ int systemctl(const std::vector<std::string>& args) {
     std::vector<std::string> full{"--user"};
     full.insert(full.end(), args.begin(), args.end());
     return runCommand("systemctl", full, systemctlWait).value_or(-1);
+}
+
+/// Sends `signal` to `root` and every process under it, the deepest first.
+void signalTree(pid_t root, int signal) {
+    std::vector<ProcessId> tree = ProcessTree::descendants(root);
+    for (auto pid = tree.rbegin(); pid != tree.rend(); ++pid) {
+        ::kill(*pid, signal);
+    }
+    ::kill(root, signal);
 }
 
 /// systemd-run's flags for a scope named `unit`. systemd 258 and later expand "$" in a scope's
@@ -186,6 +197,12 @@ void SystemdScope::end(const std::vector<std::string>& systemctlArgs, int& exitS
         return;
     }
     lucent::info("launch", "{} {}", systemctlArgs.front(), unit_);
+    // A sandbox (Flatpak's bwrap) moves the started process into a scope of its own, out of
+    // reach of the systemctl verb.
+    if (child_ >= 0 && !procfs::inUnit(child_, unit_)) {
+        lucent::info("launch", "pid {} left {}; ending it and its children", child_, unit_);
+        signalTree(child_, SIGTERM);
+    }
     // A scope that already ended on its own is not a failure to stop.
     if (systemctl(systemctlArgs) != 0 && systemctl({"is-active", "--quiet", unit_}) == 0) {
         lucent::warn("launch", "systemctl {} {} failed", systemctlArgs.front(), unit_);
@@ -219,7 +236,7 @@ void SystemdScope::reapChild(int& exitStatus) {
     while ((done = waitpid(child_, &status, WNOHANG)) == 0) {
         if (Clock::now() >= until) {
             lucent::error("launch", "pid {} outlived its scope; killing it", child_);
-            ::kill(child_, SIGKILL);
+            signalTree(child_, SIGKILL);
             while ((done = waitpid(child_, &status, 0)) < 0 && errno == EINTR) {
             }
             break;
