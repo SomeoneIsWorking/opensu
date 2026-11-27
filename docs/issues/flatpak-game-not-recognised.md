@@ -32,3 +32,20 @@ finds through each process's `/.flatpak-info`.
 With 21195246 the game's window is taken for the game (`focus on 0xffffffff80000001: the game`,
 `Sonic Robo Blast 2 shows a window`). The player then: "controller doesn't work also in SRB2".
 Open.
+
+## Quitting openSU leaves the Flatpak game behind (2026-11-26, Ally)
+
+The player: "Something weird happened, I used quit openSU while the game was open and the openSU
+was gone but the game was still running and I hit guide again and I can hear openSU sounds but I
+can't see it".
+
+Also seen the same evening: `/game/close` answered "closed" while SRB2 kept running, twice. Close
+and quit stop openSU's own `opensu-<pid>-game-N.scope`, and Flatpak moved the game into its own
+`app-flatpak-<app id>-*.scope`, so the stop never reaches it.
+
+The pad: on the Ally openSU has InputPlumber present the built-in pad as an Xbox 360 pad
+(045e/028e), the same ids as openSU's virtual pad, so a game's
+`SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x045e/0x028e` lets both through and SDL lists the
+grabbed real pad first: SRB2 had event17 (the grabbed pad) and event19 (the virtual pad) open.
+With InputPlumber switched to `xbox-series` (045e/0b12) by hand, a fresh SRB2 opened only the
+virtual pad.
