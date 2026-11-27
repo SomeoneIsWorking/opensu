@@ -35,6 +35,17 @@ Next falsifier, on the Ally in desktop mode: the same MangoHud log with KDE's Ad
 Never, then with a windowed (not `-f`) nested Gamescope. Pairs gone in both points at VRR; pairs
 still there rules it out.
 
+## Against the VRR suspicion (2026-11-27, Ally)
+
+`kscreen-doctor -o` reports the TV (DP-2) as `Vrr: incapable`, so KWin cannot have turned VRR on
+there, yet the TV runs above showed pairs at 60 Hz. VRR may still matter on the panel (eDP-1,
+`Vrr: Automatic`), but it cannot explain the TV pairs.
+
+The panel A/B (Automatic against Never) gave no data: MangoHud loads into the shell and into
+`vkcube` under the nested Gamescope but wrote no frame log in any run, idle or with the selection
+moving. The next measurement needs a frame-time source that does not depend on MangoHud, such as
+the presenter's own schedule (`perf-units`) or Gamescope's frame timing.
+
 ## The player's direction
 
 "Should also be able to dynamically adjust but gamescope doesn't support that right? So we might
