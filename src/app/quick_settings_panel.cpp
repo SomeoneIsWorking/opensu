@@ -268,7 +268,7 @@ std::unique_ptr<tk::Widget> QuickSettingsScreen::build(const tk::Theme& theme) {
     if (editing_) {
         buildEdit(side, theme, layout.tabs.empty() ? settings::QuickTab{} : layout.tabs[tab_]);
     } else if (!layout.tabs.empty()) {
-        buildUse(side, theme, layout.tabs[tab_]);
+        buildUse(side, layout.tabs[tab_]);
     } else {
         side.add<tk::Item>(customizeId, tk::Item::Text{"Customize", "Add a tab and its settings"})
             .onPress([this] {
@@ -308,7 +308,7 @@ void QuickSettingsScreen::buildTabs(tk::Column& root, const tk::Theme& theme,
     }
 }
 
-void QuickSettingsScreen::buildGame(tk::Column& rows, const tk::Theme& theme) {
+void QuickSettingsScreen::buildGame(tk::Column& rows) {
     firstGameRow_.clear();
     const EditorPages* pages = panel_.gamePages();
     if (pages == nullptr) {
@@ -317,16 +317,12 @@ void QuickSettingsScreen::buildGame(tk::Column& rows, const tk::Theme& theme) {
         return;
     }
     rows.add<tk::SectionHeading>(panel_.gameTitle());
-    tk::Card& card = rows.add<tk::Card>();
-    card.pad(tk::Insets::all(theme.spacing.gap * 2.0f)).space(theme.spacing.gap);
-    firstGameRow_ = pages->addCategories(card, pages->values());
+    firstGameRow_ = pages->addCategories(rows, pages->values());
 }
 
-void QuickSettingsScreen::buildUse(tk::Column& rows, const tk::Theme& theme,
-                                   const settings::QuickTab& tab) {
-    const tk::Spacing& spacing = theme.spacing;
+void QuickSettingsScreen::buildUse(tk::Column& rows, const settings::QuickTab& tab) {
     if (tab.game) {
-        buildGame(rows, theme);
+        buildGame(rows);
     }
     for (const settings::QuickCategory& category : tab.categories) {
         std::vector<std::pair<ui::SettingsRow, ui::RowActions*>> shown;
@@ -340,10 +336,8 @@ void QuickSettingsScreen::buildUse(tk::Column& rows, const tk::Theme& theme,
             continue;
         }
         rows.add<tk::SectionHeading>(category.name);
-        tk::Card& card = rows.add<tk::Card>();
-        card.pad(tk::Insets::all(spacing.gap * 2.0f)).space(spacing.gap);
         for (const auto& [row, actions] : shown) {
-            ui::addRow(card, row, *actions);
+            ui::addRow(rows, row, *actions);
         }
     }
     rows.add<tk::Item>(customizeId, tk::Item::Text{"Customize", {}}).onPress([this] {

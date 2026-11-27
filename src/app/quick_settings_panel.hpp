@@ -190,10 +190,9 @@ class QuickSettingsScreen final : public gpu2d::ui::Screen {
 
     void buildTabs(gpu2d::ui::Column& root, const gpu2d::ui::Theme& theme,
                    const settings::QuickLayout& layout);
-    void buildUse(gpu2d::ui::Column& rows, const gpu2d::ui::Theme& theme,
-                  const settings::QuickTab& tab);
+    void buildUse(gpu2d::ui::Column& rows, const settings::QuickTab& tab);
     /// The Game tab: the running game's setting categories.
-    void buildGame(gpu2d::ui::Column& rows, const gpu2d::ui::Theme& theme);
+    void buildGame(gpu2d::ui::Column& rows);
     void buildEdit(gpu2d::ui::Column& rows, const gpu2d::ui::Theme& theme,
                    const settings::QuickTab& tab);
     /// A press on a row or tab in Customize: grabs it, drops what is held, or drops it there.
