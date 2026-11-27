@@ -32,6 +32,8 @@ namespace {
 using Clock = std::chrono::steady_clock;
 
 constexpr auto scopeWait = std::chrono::seconds{5};
+/// How long a stopped game has after SIGTERM before SIGKILL, in its scope or out of it.
+constexpr auto stopGrace = std::chrono::seconds{5};
 constexpr auto reapWait = std::chrono::seconds{10};
 constexpr auto systemctlWait = std::chrono::seconds{30};
 constexpr auto step = std::chrono::milliseconds{5};
@@ -94,8 +96,14 @@ void endEscaped(const std::vector<Escaped>& tree, Clock::time_point until) {
 /// systemd-run's flags for a scope named `unit`. systemd 258 and later expand "$" in a scope's
 /// command unless told not to.
 std::vector<std::string> scopeArgs(const std::string& unit) {
-    return {"--user",         "--scope", "--collect",       "--quiet", "--expand-environment=no",
-            "--unit=" + unit, "-p",      "TimeoutStopSec=5"};
+    return {"--user",
+            "--scope",
+            "--collect",
+            "--quiet",
+            "--expand-environment=no",
+            "--unit=" + unit,
+            "-p",
+            "TimeoutStopSec=" + std::to_string(stopGrace.count())};
 }
 
 /// The scope a launch runs in and the systemd-run process that joined it.
@@ -237,6 +245,7 @@ void SystemdScope::end(const std::vector<std::string>& systemctlArgs, int& exitS
         return;
     }
     lucent::info("launch", "{} {}", systemctlArgs.front(), unit_);
+    const Clock::time_point stopped = Clock::now();
     // A sandbox (Flatpak's bwrap) moves the started process into a scope of its own, out of
     // reach of the systemctl verb.
     std::vector<Escaped> escaped;
@@ -249,10 +258,9 @@ void SystemdScope::end(const std::vector<std::string>& systemctlArgs, int& exitS
     if (systemctl(systemctlArgs) != 0 && systemctl({"is-active", "--quiet", unit_}) == 0) {
         lucent::warn("launch", "systemctl {} {} failed", systemctlArgs.front(), unit_);
     }
-    const Clock::time_point until = Clock::now() + reapWait;
-    reapChild(exitStatus, until);
+    reapChild(exitStatus, stopped + reapWait);
     // The sandbox's root can go at SIGTERM and leave a game that ignores it.
-    endEscaped(escaped, until);
+    endEscaped(escaped, stopped + stopGrace);
     if (systemctlArgs.front() == "stop") {
         unit_.clear();
     }
