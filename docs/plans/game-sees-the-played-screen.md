@@ -16,6 +16,18 @@ arguments of the nested Gamescope, its live mode and the stream's encode size al
 - The stream may be encoded below the guest's size when the measured link or encoder needs it; the
   guest upscales it (FSR 1).
 
+## Asked
+
+2026-11-26:
+
+> Remote play stutter and it should also take into factor the guest resolution when launching the
+> game or tell the game that the resolution is changed when... when the resolution changes... but
+> that also applies to local
+>
+> So like remote screen and local screen change behavior remains the same, screen changes get
+> detected, if guest screen then guest screen if host then host but the game always sees whatever
+> monitor I'm playing on
+
 ## Proof
 
 A local monitor change, a launch for a guest, a switch between here and a guest, and a guest's
