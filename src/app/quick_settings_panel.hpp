@@ -53,6 +53,8 @@ class QuickSettingsPanel final : public ui::RowActions {
         std::function<void(const std::string& text, bool error)> say;
         /// The game running here in front, or null.
         std::function<const library::Game*()> game;
+        /// Each connected pad and its battery, as Devices lists them.
+        std::function<std::vector<ui::SettingsRow>()> pads;
     };
 
     QuickSettingsPanel(gpu2d::ui::Navigator& navigator, Services services,
@@ -87,9 +89,11 @@ class QuickSettingsPanel final : public ui::RowActions {
     /// game in front or with nothing to set for it.
     [[nodiscard]] const EditorPages* gamePages();
     [[nodiscard]] std::string gameTitle() const;
-    /// The Settings row `pin` names as it stands now; nothing when this machine does not show it
-    /// or the panel cannot hold it.
-    [[nodiscard]] std::optional<ui::SettingsRow> rowOf(const settings::QuickPin& pin);
+    /// The rows `pin` shows now: the Settings row it names, or each pad for the pads pin; none
+    /// when this machine does not show it or the panel cannot hold it.
+    [[nodiscard]] std::vector<ui::SettingsRow> rowsOf(const settings::QuickPin& pin);
+    /// The name of the page a pin comes from: a Settings page, or Devices.
+    [[nodiscard]] std::string pageTitle(const std::string& page) const;
     /// The entry card renaming the category.
     void rename(std::size_t tab, std::size_t category);
     /// The list of icons for the tab.

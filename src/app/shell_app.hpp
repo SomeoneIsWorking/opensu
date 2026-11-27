@@ -371,7 +371,8 @@ class ShellApp final {
     void syncChrome();
     /// The trail the top bar shows for where the shell is now.
     [[nodiscard]] ui::Trail currentTrail() const;
-    /// Opens `game`'s settings in the layered editor as a page, with the details page's `more` rows.
+    /// Opens `game`'s settings in the layered editor as a page, with the details page's `more`
+    /// rows.
     void openGameSettings(const library::Game& game, EditorRows more);
     /// The game whose window is in front: the running game, unless Gamescope's focus is on
     /// another window; null when none.
@@ -1745,7 +1746,11 @@ class ShellApp final {
                                       return shell_.inGame() && !remotePlay_.streaming()
                                                  ? &launches_.game()
                                                  : nullptr;
-                                  }}};
+                                  },
+                                  .pads =
+                                      [this] {
+                                          return devicesScreen_.padRows();
+                                      }}};
     /// The menu Guide opens, over the home screen or a running game.
     GuideMenuController guideMenu_{
         shell_.screens().navigator(),

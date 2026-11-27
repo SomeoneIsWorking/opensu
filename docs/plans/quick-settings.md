@@ -88,11 +88,14 @@ settings in the Guide closes the menu and opens Quick settings there. It is alwa
 categories of its own. Single game settings are not pinned into other tabs: a pin is a Settings row,
 and the game's rows are the editor's.
 
-Not yet built, next in order:
+The Device tab starts with Controllers, a pin of Devices' rows rather than a Settings row
+(`devices`/`pads`, `QuickLayoutEditor::padsPin`): it shows each connected pad as Devices ›
+Controllers does (`DevicesController::padRows`: its name, player and battery, the buttons held), or
+"No controller connected". Add a setting lists Devices after Settings' categories to add it again.
 
-1. **Pad battery** on the Device tab: a fact row from Devices' controller roster, which is not a
-   Settings page either.
-2. **Bluetooth** on System, once `BluetoothSession` polls without the Devices page open.
+Not yet built:
+
+1. **Bluetooth** on System, once `BluetoothSession` polls without the Devices page open.
 
 ## Proof
 

@@ -44,6 +44,11 @@ inline constexpr std::array allQuickIcons{
 [[nodiscard]] QuickIcon quickIconOf(std::string_view name) noexcept;
 [[nodiscard]] ui::Icon iconOf(QuickIcon icon) noexcept;
 
+/// The page a pin of Devices' rows names; Devices is not a Settings page.
+inline constexpr std::string_view devicesPage = "devices";
+/// The pin showing each connected pad and its battery (`DevicesController::padRows`).
+inline constexpr std::string_view padsRow = "pads";
+
 /// Where an item is: its tab, its category on the tab, and its place in the category.
 struct ItemPlace {
     std::size_t tab{};
@@ -60,6 +65,8 @@ class QuickLayoutEditor {
 
     /// What the panel holds until the player changes it.
     [[nodiscard]] static settings::QuickLayout defaults();
+    /// The pin showing each connected pad and its battery.
+    [[nodiscard]] static settings::QuickPin padsPin();
     /// Whether the panel can hold `row`: a switch, a choice, a slider, or an action that asks
     /// nothing first.
     [[nodiscard]] static bool pinnable(const ui::SettingsRow& row);

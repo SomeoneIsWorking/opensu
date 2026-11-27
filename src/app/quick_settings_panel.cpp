@@ -1,6 +1,7 @@
 #include "quick_settings_panel.hpp"
 
 #include <algorithm>
+#include <iterator>
 #include <string_view>
 #include <tuple>
 #include <utility>
@@ -131,13 +132,20 @@ void QuickSettingsPanel::close() {
     }
 }
 
-std::optional<ui::SettingsRow> QuickSettingsPanel::rowOf(const settings::QuickPin& pin) {
+std::vector<ui::SettingsRow> QuickSettingsPanel::rowsOf(const settings::QuickPin& pin) {
+    if (pin.page == devicesPage) {
+        return pin.row == padsRow ? hooks_.pads() : std::vector<ui::SettingsRow>{};
+    }
     const ui::SettingsCategory& page = settings_.page(pin.page);
     const auto found = std::ranges::find(page.rows, pin.row, &ui::SettingsRow::id);
     if (found == page.rows.end() || !QuickLayoutEditor::pinnable(*found)) {
-        return std::nullopt;
+        return {};
     }
-    return *found;
+    return {*found};
+}
+
+std::string QuickSettingsPanel::pageTitle(const std::string& page) const {
+    return page == devicesPage ? "Devices" : settings_.pageTitle(page);
 }
 
 void QuickSettingsPanel::rename(std::size_t tab, std::size_t category) {
@@ -297,9 +305,7 @@ void QuickSettingsScreen::buildUse(tk::Column& rows, const tk::Theme& theme,
     for (const settings::QuickCategory& category : tab.categories) {
         std::vector<ui::SettingsRow> shown;
         for (const settings::QuickPin& pin : category.items) {
-            if (std::optional<ui::SettingsRow> row = panel_.rowOf(pin)) {
-                shown.push_back(std::move(*row));
-            }
+            std::ranges::move(panel_.rowsOf(pin), std::back_inserter(shown));
         }
         if (shown.empty()) {
             continue;
@@ -347,15 +353,16 @@ void QuickSettingsScreen::buildEdit(tk::Column& rows, const tk::Theme& theme,
                 grab_ ? "Drop" : "Move");
         for (std::size_t i = 0; i < category.items.size(); ++i) {
             const settings::QuickPin& pin = category.items[i];
-            const std::optional<ui::SettingsRow> row = panel_.rowOf(pin);
+            const std::vector<ui::SettingsRow> shown = panel_.rowsOf(pin);
+            const bool one = shown.size() == 1 && pin.page != devicesPage;
             const ItemPlace place{tab_, c, i};
-            const std::string page = panel_.settings().pageTitle(pin.page);
+            const std::string page = panel_.pageTitle(pin.page);
             std::string caption = page;
-            if (!row) {
+            if (shown.empty()) {
                 caption = page.empty() ? "Not on this machine" : page + " · not on this machine";
             }
-            card.add<tk::Item>(itemId(c, i),
-                               tk::Item::Text{row ? row->label : pin.label, std::move(caption)})
+            card.add<tk::Item>(itemId(c, i), tk::Item::Text{one ? shown.front().label : pin.label,
+                                                            std::move(caption)})
                 .value(held(Grab::Kind::Item, place) ? "Moving" : "")
                 .onPress(
                     [this, place] {
@@ -488,8 +495,8 @@ std::string QuickSettingsScreen::initialFocus() const {
     }
     for (const settings::QuickCategory& category : layout.tabs[tab_].categories) {
         for (const settings::QuickPin& pin : category.items) {
-            if (const std::optional<ui::SettingsRow> row = panel_.rowOf(pin)) {
-                return row->id;
+            if (const std::vector<ui::SettingsRow> rows = panel_.rowsOf(pin); !rows.empty()) {
+                return rows.front().id;
             }
         }
     }

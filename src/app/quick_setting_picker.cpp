@@ -24,7 +24,7 @@ gpu2d::Rect rightEdge(const gpu2d::Rect& viewport, const tk::Theme& theme) {
 } // namespace
 
 std::string QuickSettingPicker::title() const {
-    return pages_.empty() ? Screen::title() : panel_.settings().pageTitle(pages_.back());
+    return pages_.empty() ? Screen::title() : panel_.pageTitle(pages_.back());
 }
 
 std::unique_ptr<tk::Widget> QuickSettingPicker::build(const tk::Theme& theme) {
@@ -45,13 +45,17 @@ std::unique_ptr<tk::Widget> QuickSettingPicker::build(const tk::Theme& theme) {
                     },
                     "Open", true);
         }
+        rows.add<tk::Item>("quickSettings/add/page/" + std::string{devicesPage},
+                           tk::Item::Text{panel_.pageTitle(std::string{devicesPage}), {}})
+            .onPress(
+                [this] {
+                    pages_.emplace_back(devicesPage);
+                },
+                "Open", true);
+    } else if (pages_.back() == devicesPage) {
+        addPin(rows, QuickLayoutEditor::padsPin(), "Each connected pad and its battery");
     } else {
         const std::string page = pages_.back();
-        const settings::QuickLayout layout = panel_.layout().layout();
-        const std::vector<settings::QuickPin>* held = nullptr;
-        if (tab_ < layout.tabs.size() && category_ < layout.tabs[tab_].categories.size()) {
-            held = &layout.tabs[tab_].categories[category_].items;
-        }
         for (const ui::SettingsRow& row : panel_.settings().page(page).rows) {
             if (row.kind == ui::RowKind::Heading) {
                 rows.add<tk::SectionHeading>(row.label);
@@ -71,26 +75,33 @@ std::unique_ptr<tk::Widget> QuickSettingPicker::build(const tk::Theme& theme) {
             if (!QuickLayoutEditor::pinnable(row)) {
                 continue;
             }
-            const settings::QuickPin pin{page, row.id, row.label};
-            const bool added =
-                held != nullptr && (std::ranges::find(*held, pin) != std::ranges::end(*held));
-            tk::Item& item = rows.add<tk::Item>("quickSettings/add/row/" + row.id,
-                                                tk::Item::Text{row.label, row.note});
-            if (added) {
-                item.value("Added");
-                continue;
-            }
-            item.onPress(
-                [this, pin, label = row.label] {
-                    panel_.layout().addItem(tab_, category_, pin);
-                    panel_.say("Added " + label + " to Quick settings");
-                    close();
-                },
-                "Add");
+            addPin(rows, settings::QuickPin{page, row.id, row.label}, row.note);
         }
     }
     root->add<tk::HintBar>();
     return root;
+}
+
+void QuickSettingPicker::addPin(tk::Column& rows, const settings::QuickPin& pin,
+                                const std::string& note) {
+    const settings::QuickLayout layout = panel_.layout().layout();
+    const bool added = tab_ < layout.tabs.size() &&
+                       category_ < layout.tabs[tab_].categories.size() &&
+                       std::ranges::find(layout.tabs[tab_].categories[category_].items, pin) !=
+                           layout.tabs[tab_].categories[category_].items.end();
+    tk::Item& item =
+        rows.add<tk::Item>("quickSettings/add/row/" + pin.row, tk::Item::Text{pin.label, note});
+    if (added) {
+        item.value("Added");
+        return;
+    }
+    item.onPress(
+        [this, pin] {
+            panel_.layout().addItem(tab_, category_, pin);
+            panel_.say("Added " + pin.label + " to Quick settings");
+            close();
+        },
+        "Add");
 }
 
 gpu2d::Rect QuickSettingPicker::area(const gpu2d::Rect& viewport, const tk::Theme& theme) const {

@@ -52,6 +52,9 @@ void defaultsAreTheAgreedTabs() {
     expect(rig.editor.gameTab() == 1, "the Game tab is second");
     expect(rig.rows(0, 0) == std::vector<std::string>{"system.volume", "system.mute"},
            "System starts with Sound: Volume and Mute");
+    expect(layout.tabs[3].categories.front().items ==
+               std::vector<settings::QuickPin>{app::QuickLayoutEditor::padsPin()},
+           "Device starts with each pad and its battery");
     expect(!rig.onDisk().quickSettings, "unset until the player changes it");
 }
 

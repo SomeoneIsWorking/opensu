@@ -110,11 +110,16 @@ QuickLayout QuickLayoutEditor::defaults() {
                             {"appearance", "layout", "Library layout"},
                             {"appearance", "iconSize", "Icon size"}}}}),
         tab(QuickIcon::Gamepad,
-            {QuickCategory{"Stick lights",
+            {QuickCategory{"Controllers", {padsPin()}},
+             QuickCategory{"Stick lights",
                            {{"controls", "lights.colour", "Stick lights"},
                             {"controls", "lights.brightness", "Stick light brightness"}}},
              QuickCategory{"Sticks", {{"controls", "sticks.correction", "Stick correction"}}}}),
     }};
+}
+
+settings::QuickPin QuickLayoutEditor::padsPin() {
+    return {std::string{devicesPage}, std::string{padsRow}, "Controllers"};
 }
 
 bool QuickLayoutEditor::pinnable(const ui::SettingsRow& row) {

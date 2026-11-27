@@ -110,7 +110,8 @@ row that works as it does in Settings. Until you change it there are four tabs:
   page; changes reach the game at once. Game settings in the Guide menu opens Quick settings here.
 - **View** (screen): the shelf's Sort by, Show, Installed games only, Hidden games only, Library
   layout and Icon size.
-- **Device** (pad): the stick lights and the stick correction, on a ROG Ally.
+- **Device** (pad): each connected controller with its player and battery, then the stick lights
+  and the stick correction on a ROG Ally.
 
 A setting this machine does not have (no backlight, no power profiles) is not shown, and is kept
 for another machine. **Customize** (its row, or View) arranges it:

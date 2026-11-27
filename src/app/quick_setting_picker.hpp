@@ -1,5 +1,6 @@
 // quick_setting_picker — what Customize opens over the Quick settings panel: Add a setting, which
-// browses Settings' categories and pages (B steps back out) and adds the picked row to a category,
+// browses Settings' categories and pages, and Devices for its pads (B steps back out), and adds the
+// picked row to a category,
 // and the list of icons a tab can show.
 #pragma once
 
@@ -8,7 +9,10 @@
 #include <string>
 #include <vector>
 
+#include "gpu2d/ui/layout.hpp"
 #include "gpu2d/ui/screen.hpp"
+
+#include "settings/settings.hpp"
 
 namespace opensu::app {
 
@@ -32,6 +36,9 @@ class QuickSettingPicker final : public gpu2d::ui::Screen {
     [[nodiscard]] std::vector<gpu2d::ui::Hint> hints() const override;
 
   private:
+    /// The row adding `pin` to the category, or saying it is in already.
+    void addPin(gpu2d::ui::Column& rows, const settings::QuickPin& pin, const std::string& note);
+
     QuickSettingsPanel& panel_;
     std::size_t tab_;
     std::size_t category_;
