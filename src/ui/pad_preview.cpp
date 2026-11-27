@@ -8,7 +8,8 @@ namespace {
 
 namespace tk = gpu2d::ui;
 
-/// The preview's height, in dp: two stick circles over the trigger bars.
+/// The preview's height, in dp, where it is not given more or less: two stick circles over the
+/// trigger bars.
 constexpr float heightDp = 220.0f;
 constexpr float barDp = 14.0f;
 constexpr float dotDp = 9.0f;
@@ -84,8 +85,11 @@ void PadPreview::paint(tk::Painter& painter) const {
     const gpu2d::Rect& box = frame();
     const float bar = painter.px(barDp);
     const float gap = painter.px(painter.theme.spacing.pad);
-    const float radius = std::min(box.width * 0.25f - gap, (box.height - bar - gap * 2.0f) * 0.5f);
-    const float y = box.y + radius;
+    const float radius =
+        std::max(0.0f, std::min(box.width * 0.25f - gap, (box.height - bar - gap * 2.0f) * 0.5f));
+    // The sticks over their bars, centred in whatever height the preview was given.
+    const float top = box.y + (box.height - (radius * 2.0f + gap * 2.0f + bar)) * 0.5f;
+    const float y = top + radius;
     const gpu2d::Point left{box.x + box.width * 0.25f, y};
     const gpu2d::Point right{box.x + box.width * 0.75f, y};
     const gamepad::RawAxes& raw = axes_.raw;
@@ -100,7 +104,7 @@ void PadPreview::paint(tk::Painter& painter) const {
           read(leftX, leftY));
     stick(painter, right, radius, played(axes_.sticks.rightX, axes_.sticks.rightY),
           read(rightX, rightY));
-    const float barY = box.y + box.height - bar;
+    const float barY = top + radius * 2.0f + gap * 2.0f;
     const float width = radius * 2.0f;
     trigger(painter, gpu2d::Rect{left.x - radius, barY, width, bar},
             travel(axes_.leftTrigger, gamepad::virtualTrigger),

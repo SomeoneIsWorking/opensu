@@ -20,12 +20,14 @@ std::unique_ptr<tk::Widget> PadCheckScreen::build(const tk::Theme& theme) {
     const tk::Spacing& spacing = theme.spacing;
     auto root = std::make_unique<tk::Centre>(spacing.dialogWidth);
     root->pad(tk::Insets::all(spacing.pad));
+    // The card takes the screen's height and the preview what the words and buttons leave.
     tk::Card& card = root->add<tk::Card>();
+    card.grow(1.0f);
     card.pad(tk::Insets::symmetric(spacing.pad * 1.5f, spacing.pad * 1.4f)).space(spacing.pad);
     card.add<tk::Label>(title(), tk::TextRole::Title, true);
     card.add<tk::Label>(line_, tk::TextRole::Body, true).colour(theme.colours.inkMuted);
     if (const std::optional<gamepad::PadAxes> axes = hooks_.axes()) {
-        card.add<ui::PadPreview>(*axes);
+        card.add<ui::PadPreview>(*axes).grow(1.0f);
     }
     card.add<tk::Label>(guide, tk::TextRole::Caption, true).colour(theme.colours.inkMuted);
     tk::ButtonRow& buttons = card.add<tk::ButtonRow>();
