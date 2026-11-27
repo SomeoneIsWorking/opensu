@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -384,6 +385,21 @@ void hallCorrectionTakesOutTheTriggerPull() {
     // The stick held fully left reads its end whether or not the trigger pulls it further.
     expect(lastLeftX(feed(ally, {{EV_ABS, ABS_X, -32768}})) == -32767,
            "a full push left stays at the left edge with the trigger pulled");
+    // Measured on an Ally (2026-11-27), its calibrated pull -0.12: held at -0.532, a full pull
+    // read -0.663.
+    PadTranslator measured{allyPad()};
+    measured.setHallTerms(opensu::gamepad::HallTerms{.leftIdleX = 0.0f,
+                                                     .rightIdleX = 0.0f,
+                                                     .triggerPullX = -0.12f,
+                                                     .leftDeadzone = 0.0f,
+                                                     .rightDeadzone = 0.0f,
+                                                     .remapDeadzone = false});
+    const std::int32_t held =
+        lastLeftX(feed(measured, {{EV_ABS, ABS_Z, 255}, {EV_ABS, ABS_X, -21729}}));
+    expect(std::abs(held - std::lround((-0.663 + 0.12) * 32767)) <= 40,
+           "away from the left edge the pull comes out whole");
+    expect(lastLeftX(feed(measured, {{EV_ABS, ABS_X, -32768}})) == -32767,
+           "and the left edge stays the edge");
 }
 
 /// The last value the virtual pad got on `code`.

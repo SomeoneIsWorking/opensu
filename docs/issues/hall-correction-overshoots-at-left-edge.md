@@ -1,6 +1,6 @@
 # Hall-effect correction pulls LS right when it is all the way left and LT is pulled
 
-Status: fix landed (2f87b56d), installed on the Ally; not yet seen at full left on its Check screen.
+Status: fixed; see Fix and Measurement.
 
 Reported by the player (2026-11-27, ROG Ally): "hall effect correction works but it over applies
 when LS is all the way to the left and LT is pulled, it pulls LS slightly to the right, if you
@@ -18,13 +18,18 @@ an end stops there, so a stick at the left end came out at about -0.72.
 
 ## Fix
 
-`withoutPull` shifts only the side the pull moves away from; the side it moves toward, which the
-end cuts short, is stretched from the shifted centre back to the end. The rest offset is taken out
-after it, as before. `pad_translator_test` checks a full left with the trigger pulled.
+`withoutPull` takes the pull out as a plain shift, except over the last two pulls of travel toward
+the end the pull moves to: there the reading is stretched by 1.5 back to the end, so the end stays
+the end and the stretch meets the shift where it starts. `pad_translator_test` checks a full left
+and the measured point below.
 
+## Measurement (2026-11-27, Ally, calibrated pull -0.12, Stick correction Off)
+
+With the player holding the left stick still and moving only the left trigger, `ABS_X` went from
+-17430 (-0.532) at `ABS_Z` 0 to -21729 (-0.663) at 255: a pull of -0.131 there, against the
+calibration's -0.12 at the right end. The pull is about the same across the travel, so the first
+fix (2f87b56d), which faded it over the whole left half, took out too little there (-0.617 for
+-0.532); this one gives -0.543.
 The player (2026-11-27, ROG Ally): "I think the effect can scale with how far it is away from fully
-pulled from the left side". `withoutPull` does that on the left of the shifted centre: the amount
-taken out is `-pull * (1 + x) / (1 + pull)`, nothing at the left end and the whole pull at the
-shifted centre. Right of it the whole pull is taken out. Unmeasured: whether the magnet pulls by the
-same amount across the right half; readings with the trigger held at rest, half and full right
-would show it.
+pulled from the left side". It fades to nothing at the left end, over the last two pulls of travel
+(the measurement above showed the pull whole at -0.53).

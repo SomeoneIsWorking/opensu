@@ -6,20 +6,24 @@
 namespace opensu::gamepad {
 namespace {
 
+/// Two pulls of travel stretched over three: the shift's two and the one the end cut off.
+constexpr float stretchToEnd = 1.5f;
+
 /// The rest offset counts in full at centre and fades out towards the edges.
 float edgeGain(float value) {
     const float near = std::max(0.0f, 1.0f - std::abs(value));
     return near * near;
 }
 
-/// Takes out a shift of `pull`. The reading stops at the end the pull moves it toward, so that
-/// side is stretched back to its end rather than shifted off it.
+/// Takes out a shift of `pull`. The end the pull moves toward cuts the last `pull` of travel off,
+/// so over twice that before the end the reading is stretched back to the end instead.
 float withoutPull(float value, float pull) {
-    if (pull < 0.0f && value < pull) {
-        return (value - pull) / (1.0f + pull);
+    const float knee = std::copysign(1.0f, pull) - 2.0f * pull;
+    if (pull < 0.0f && value < knee) {
+        return -1.0f + (value + 1.0f) * stretchToEnd;
     }
-    if (pull > 0.0f && value > pull) {
-        return (value - pull) / (1.0f - pull);
+    if (pull > 0.0f && value > knee) {
+        return 1.0f - (1.0f - value) * stretchToEnd;
     }
     return value - pull;
 }
