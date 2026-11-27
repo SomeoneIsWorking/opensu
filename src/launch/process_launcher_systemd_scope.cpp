@@ -1,7 +1,9 @@
 #include "launch_group.hpp"
 
+#include <algorithm>
 #include <cerrno>
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -51,6 +53,44 @@ void signalTree(pid_t root, int signal) {
     ::kill(root, signal);
 }
 
+/// A process outside the scope, told apart from a later process given its pid by its start time.
+struct Escaped {
+    ProcessId pid;
+    std::optional<std::uint64_t> started;
+
+    [[nodiscard]] bool running() const {
+        return procfs::running(pid) && procfs::startTime(pid) == started;
+    }
+};
+
+/// The processes under `root`, the deepest last.
+std::vector<Escaped> escapedUnder(pid_t root) {
+    std::vector<Escaped> tree;
+    for (const ProcessId pid : ProcessTree::descendants(root)) {
+        tree.push_back({.pid = pid, .started = procfs::startTime(pid)});
+    }
+    return tree;
+}
+
+/// Waits for every process in `tree` to exit, and SIGKILLs those still running at `until`.
+void endEscaped(const std::vector<Escaped>& tree, Clock::time_point until) {
+    const auto anyRunning = [&tree] {
+        return std::ranges::any_of(tree, &Escaped::running);
+    };
+    while (anyRunning()) {
+        if (Clock::now() >= until) {
+            for (auto process = tree.rbegin(); process != tree.rend(); ++process) {
+                if (process->running()) {
+                    lucent::error("launch", "pid {} outlived SIGTERM; killing it", process->pid);
+                    ::kill(process->pid, SIGKILL);
+                }
+            }
+            return;
+        }
+        std::this_thread::sleep_for(step);
+    }
+}
+
 /// systemd-run's flags for a scope named `unit`. systemd 258 and later expand "$" in a scope's
 /// command unless told not to.
 std::vector<std::string> scopeArgs(const std::string& unit) {
@@ -77,7 +117,7 @@ class SystemdScope final : public LaunchGroup {
     /// True until the started process exits; reaps it then.
     bool childRunning(int& exitStatus);
     /// Waits for the started process to exit, and SIGKILLs it if the scope could not.
-    void reapChild(int& exitStatus);
+    void reapChild(int& exitStatus, Clock::time_point until);
 
     std::string unit_;
     pid_t child_{-1};
@@ -199,15 +239,20 @@ void SystemdScope::end(const std::vector<std::string>& systemctlArgs, int& exitS
     lucent::info("launch", "{} {}", systemctlArgs.front(), unit_);
     // A sandbox (Flatpak's bwrap) moves the started process into a scope of its own, out of
     // reach of the systemctl verb.
+    std::vector<Escaped> escaped;
     if (child_ >= 0 && !procfs::inUnit(child_, unit_)) {
         lucent::info("launch", "pid {} left {}; ending it and its children", child_, unit_);
+        escaped = escapedUnder(child_);
         signalTree(child_, SIGTERM);
     }
     // A scope that already ended on its own is not a failure to stop.
     if (systemctl(systemctlArgs) != 0 && systemctl({"is-active", "--quiet", unit_}) == 0) {
         lucent::warn("launch", "systemctl {} {} failed", systemctlArgs.front(), unit_);
     }
-    reapChild(exitStatus);
+    const Clock::time_point until = Clock::now() + reapWait;
+    reapChild(exitStatus, until);
+    // The sandbox's root can go at SIGTERM and leave a game that ignores it.
+    endEscaped(escaped, until);
     if (systemctlArgs.front() == "stop") {
         unit_.clear();
     }
@@ -226,12 +271,11 @@ bool SystemdScope::childRunning(int& exitStatus) {
     return false;
 }
 
-void SystemdScope::reapChild(int& exitStatus) {
+void SystemdScope::reapChild(int& exitStatus, Clock::time_point until) {
     if (child_ < 0) {
         return;
     }
     int status = 0;
-    const Clock::time_point until = Clock::now() + reapWait;
     pid_t done = 0;
     while ((done = waitpid(child_, &status, WNOHANG)) == 0) {
         if (Clock::now() >= until) {

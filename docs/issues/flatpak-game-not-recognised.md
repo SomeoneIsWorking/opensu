@@ -49,3 +49,14 @@ The pad: on the Ally openSU has InputPlumber present the built-in pad as an Xbox
 grabbed real pad first: SRB2 had event17 (the grabbed pad) and event19 (the virtual pad) open.
 With InputPlumber switched to `xbox-series` (045e/0b12) by hand, a fresh SRB2 opened only the
 virtual pad.
+
+## With c3594444 (2026-11-27, Ally)
+
+The pad: InputPlumber presents `xbox-series` without a hand change, and SRB2 opened only
+`opensu virtual pad` (event19, 045e/028e).
+
+Close: openSU logged `pid 32481 left opensu-32140-game-0.scope; ending it and its children` and
+`Sonic Robo Blast 2 closed` 25 ms later, but SRB2's game process was still running 16 s on. bwrap
+exits at SIGTERM; the game under it ignores SIGTERM, and `SystemdScope::end` waited only for
+bwrap, so nothing escalated. The escaped processes are now waited for and SIGKILLed at the stop
+deadline.

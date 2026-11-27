@@ -229,6 +229,24 @@ void checkKeeper(const fs::path& scratch) {
     checkParentDeath(scratch);
 }
 
+/// A program that moves itself into a scope of its own, as Flatpak's bwrap does, and leaves a
+/// child that ignores SIGTERM still ends at stop().
+void checkScopeEscape(const fs::path& scratch) {
+    fs::create_directories(scratch);
+    const fs::path pidFile = scratch / "sandboxed.pid";
+    ProcessLauncher instance{Containment::systemdScope};
+    std::string failure;
+    expect(
+        instance.start(unitName("sandbox"), "systemd-run",
+                       {"--user", "--scope", "--quiet", "--collect", "--", "/bin/sh", "-c",
+                        "(trap '' TERM; exec sleep 60) & echo $! > " + pidFile.string() + "; wait"},
+                       failure),
+        "a command that moves to its own scope starts");
+    const pid_t game = awaitPid(pidFile);
+    instance.stop();
+    expect(endsWithin(game), "stop() ends a child that left the scope and ignores SIGTERM");
+}
+
 /// What every Linux containment has to do.
 void checkLauncher(Containment containment, const fs::path& scratch) {
     fs::create_directories(scratch);
@@ -381,6 +399,7 @@ int main(int argc, char** argv) try {
         fs::path{OPENSU_TEST_SCRATCH} / ("opensu-instance-test-" + std::to_string(getpid()));
     fs::create_directories(scratch);
     checkLauncher(Containment::systemdScope, scratch / "scope");
+    checkScopeEscape(scratch / "scope-escape");
     checkLauncher(Containment::keeper, scratch / "keeper");
     checkKeeper(scratch);
     fs::remove_all(scratch);
