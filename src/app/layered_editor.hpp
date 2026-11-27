@@ -39,6 +39,41 @@ struct EditorRows {
     ui::RowActions* actions{nullptr};
 };
 
+/// The rows of an editor that lead on to its pages: a row per category, a category's or a group's
+/// page, the game's own rows and Clear. It holds what it is given by reference, so it lives as long
+/// as the rows it adds: as a member of the editor, or of Quick settings' Game tab.
+class EditorPages {
+  public:
+    EditorPages(LayeredSettings& settings, gpu2d::ui::Navigator& navigator,
+                const ui::Chrome& chrome, const EditorContext& context, EditorLook look,
+                const settings::Schema& schema, const EditorRows& more)
+        : settings_{settings}, navigator_{navigator}, chrome_{chrome}, context_{context},
+          look_{look}, schema_{schema}, more_{more} {
+    }
+
+    /// The values `addCategories` lists: every setting the schema offers at the context's level.
+    [[nodiscard]] std::vector<settings::ScopedValue> values() const;
+    /// A row per category with a setting in `values`, each opening its page; the game's own rows,
+    /// as a page of their own when there are settings too; then Clear. The first row's id.
+    std::string addCategories(gpu2d::ui::Column& rows,
+                              const std::vector<settings::ScopedValue>& values) const;
+    /// The row opening the page of `section` (and `group` in it), with how many of its settings
+    /// are changed.
+    void addPage(gpu2d::ui::Column& rows, const std::vector<settings::ScopedValue>& values,
+                 const std::string& section, const std::string& group) const;
+
+  private:
+    void addClear(gpu2d::ui::Column& rows) const;
+
+    LayeredSettings& settings_;
+    gpu2d::ui::Navigator& navigator_;
+    const ui::Chrome& chrome_;
+    const EditorContext& context_;
+    EditorLook look_;
+    const settings::Schema& schema_;
+    const EditorRows& more_;
+};
+
 class LayeredEditor final : public gpu2d::ui::Screen {
   public:
     /// `title` names what it edits. Without `section` it lists the categories; with it, that
@@ -64,18 +99,11 @@ class LayeredEditor final : public gpu2d::ui::Screen {
     }
     /// The page's rows into `rows`: the categories, a category's settings or a group's.
     void addRows(gpu2d::ui::Column& rows, const std::vector<settings::ScopedValue>& values);
-    /// A row per category that has a setting here, then the game's own rows and Reset.
-    void addCategories(gpu2d::ui::Column& rows, const std::vector<settings::ScopedValue>& values);
     void addRow(gpu2d::ui::Column& rows, const settings::ScopedValue& value);
-    /// The row opening the page of `section` (and `group` in it), with how many of its settings
-    /// are changed.
-    void addPage(gpu2d::ui::Column& rows, const std::vector<settings::ScopedValue>& values,
-                 const std::string& section, const std::string& group);
     /// Whether `value` stands on this page, or on one it leads to.
     [[nodiscard]] bool below(const settings::ScopedValue& value) const;
     /// The summary over `section`'s rows, for a section that has one.
     void addSummary(gpu2d::ui::Column& rows, const std::string& section);
-    void addClear(gpu2d::ui::Column& rows);
     LayeredSettings& settings_;
     gpu2d::ui::Navigator& navigator_;
     const ui::Chrome& chrome_;
@@ -86,6 +114,7 @@ class LayeredEditor final : public gpu2d::ui::Screen {
     /// The first row as last built.
     std::string firstRow_;
     EditorRows more_;
+    EditorPages pages_;
     /// The category this page sets; empty for the list of categories.
     std::string section_;
     /// The group of `section_` this page sets; empty for the whole category.
