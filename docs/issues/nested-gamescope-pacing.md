@@ -73,8 +73,10 @@ underneath hmm idk about this, maybe openSU should have its own compositor".
 
 ## Also
 
-- The nested Gamescope's `-r` is fixed when it starts (`session::gamescopeArgs` from the monitor's
-  mode), so docking or undocking keeps the old rate until openSU restarts. The proper fix is a root
-  atom in our Gamescope fork that sets the nested refresh live, written when the output's mode
-  changes.
+- `-r` (`session::gamescopeArgs`, from the monitor's mode) is only the starting rate: the fork's
+  Wayland backend follows the host after that (`WaylandBackend.cpp`: the presentation feedback's
+  refresh on a fixed-rate output, the entered outputs' modes under VRR; "Changed refresh to" in
+  the nested log). Unchecked on a dock change: whether the shell follows, since
+  `ShellApp::presentInterval` is read in `showGamePicture` and the nested `wl_output` gives its
+  refresh when a client binds it.
 - Neither applies in session mode, where Gamescope is the top level on DRM.
