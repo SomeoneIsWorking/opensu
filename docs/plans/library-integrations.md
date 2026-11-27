@@ -115,3 +115,8 @@ imo you can add install paths there for example (by default, inheriting from ope
 - The player (2026-11-27, Ally): "So everything goes through the layered config". Each of these
   (install folder, Wine runner, prefix) resolves through one layered lookup: the game's own choice,
   else its store's, else openSU's.
+- The player (2026-11-27, Ally, on The Smurfs – Dreams – Cosmic Skin's settings, a Windows game from
+  a games folder): "look, since this is a windows game, it should show wine settings here" and
+  "Also the breadcrumbs should mention that this is a Windows game". A Windows game's settings show
+  its Wine runner and prefix (the game's layer over its library's and openSU's), and its trail
+  names the Windows library it is in (Home › Windows › The Smurfs …).
