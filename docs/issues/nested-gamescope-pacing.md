@@ -1,6 +1,6 @@
 # Nested Gamescope pairs frames on a KWin desktop
 
-Status: open. Not fixed; the cause below is a hypothesis, not proven.
+Status: open. Not reproduced on a64e3707 on the Ally panel (2026-11-27); the VRR cause below is ruled out there.
 
 Reported by the player (2026-11-24, Ally, desktop mode): "UI also seems laggy like not really
 smooth, Ally is 120hz supposedly but these menu selection box movements look 30fps"; then
@@ -41,10 +41,29 @@ still there rules it out.
 there, yet the TV runs above showed pairs at 60 Hz. VRR may still matter on the panel (eDP-1,
 `Vrr: Automatic`), but it cannot explain the TV pairs.
 
-The panel A/B (Automatic against Never) gave no data: MangoHud loads into the shell and into
-`vkcube` under the nested Gamescope but wrote no frame log in any run, idle or with the selection
-moving. The next measurement needs a frame-time source that does not depend on MangoHud, such as
-the presenter's own schedule (`perf-units`) or Gamescope's frame timing.
+MangoHud loads into the shell and into `vkcube` under the nested Gamescope but wrote no frame log
+in any run, so the timings below come from libwayland's protocol log (`WAYLAND_DEBUG=client`) on
+both connections: the shell to the nested Gamescope, and the nested Gamescope to KWin.
+
+## Not reproduced on a64e3707 (2026-11-27, Ally panel, 120 Hz, VRR Automatic)
+
+- Nested Gamescope to KWin, `vkcube` inside: 1400 of 1403 `wp_presentation` intervals 8 ms, every
+  feedback with `refresh=0`. KWin's VRR feedback does not pair the nested Gamescope's frames.
+- `vkcube --wsi wayland` to the nested Gamescope: 1406 of 1412 commits 8 ms apart.
+- The shell, selection moving for 70 s: Gamescope's frame callbacks reach it every 8 ms, it commits
+  0-3 ms after each, and the nested Gamescope presents to KWin every 8 ms (1990 of 1999). After the
+  start, 4 of 8447 frames miss a callback.
+- The shell stalls 170-410 ms six times in the first 1.6 s after its window appears.
+
+The layer SDL's GPU debug mode asked for (dropped in 8eda043e) is not installed on the Ally, so
+that change does not explain the difference from the 2026-11-26 runs. The TV path (DP-2, 60 Hz)
+is not checked again: the TV was off. If the player still sees it, the next run needs the screen
+it happens on and whether openSU started docked or undocked (the fixed `-r` below).
+
+Method: start openSU with `WAYLAND_DEBUG=client` in the unit's environment; the nested log
+(`~/.local/state/opensu/gamescope-nested.log`) then holds both connections, Gamescope's with
+`[ms]` stamps and the shell's with `[HH:MM:SS.us]` stamps (the AppImage's libwayland against the
+host's).
 
 ## The player's direction
 
