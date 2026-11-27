@@ -30,10 +30,9 @@ ui::ServiceState storeState(library::Source source,
     switch (found->availability) {
     case library::Availability::Ready:
         return ui::ServiceState::Ready;
-    case library::Availability::Attention:
-        return ui::ServiceState::Failed;
     case library::Availability::Loading:
         return ui::ServiceState::Starting;
+    case library::Availability::Attention:
     case library::Availability::Absent:
         break;
     }
@@ -129,12 +128,13 @@ ui::LauncherBadge downloadsBadge(std::span<const DownloadRow> rows) {
 
 } // namespace
 
-std::vector<ui::LauncherBadge> launcherBadges(launch::SteamState steam,
+std::vector<ui::LauncherBadge> launcherBadges(std::optional<launch::SteamState> steamClient,
                                               std::span<const DownloadRow> downloads,
                                               std::span<const library::SourceStatus> sources) {
     return {ui::LauncherBadge{.icon = ui::Icon::Steam,
                               .source = library::Source::Steam,
-                              .state = steamState(steam)},
+                              .state = steamClient ? steamState(*steamClient)
+                                                   : storeState(library::Source::Steam, sources)},
             ui::LauncherBadge{.icon = ui::Icon::Epic,
                               .source = library::Source::Epic,
                               .state = storeState(library::Source::Epic, sources)},

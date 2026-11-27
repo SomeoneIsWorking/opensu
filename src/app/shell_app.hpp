@@ -328,6 +328,8 @@ class ShellApp final {
     void typeIntoField(const input::TextInput& typed);
     /// Opens a store's sign-in page in the browser, off the loop.
     void startSignIn(Store store);
+    /// The Steam client's state while Steam comes through it; none through fumarole or off.
+    [[nodiscard]] std::optional<launch::SteamState> steamClientState() const;
     /// Opens the sign-in of `source`, a store in force that lists nothing until it signs in.
     void signInTo(library::Source source);
     /// Whether a menu cannot open now: a launch, a chooser, the search or a typed field has the

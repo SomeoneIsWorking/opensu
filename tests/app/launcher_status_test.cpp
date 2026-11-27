@@ -47,10 +47,16 @@ void testStoresAndStartingSteam() {
            "one badge per launcher, and Downloads hidden while nothing downloads");
     expect(badges[0].state == ServiceState::Starting && !badges[0].progress,
            "Steam signing in is starting");
-    expect(badges[1].state == ServiceState::Failed, "Epic signed out needs the player");
+    expect(badges[1].state == ServiceState::Hidden, "Epic signed out is not added, so no badge");
     expect(badges[2].state == ServiceState::Hidden, "GOG not installed shows no badge");
-    expect(opensu::app::describe(badges) == "steam=starting epic=failed",
+    expect(opensu::app::describe(badges) == "steam=starting",
            "the channel names the visible badges");
+    std::vector<SourceStatus> fumarole = stores();
+    expect(opensu::app::launcherBadges(std::nullopt, {}, fumarole)[0].state == ServiceState::Ready,
+           "Steam through fumarole shows its catalog state");
+    fumarole[0].availability = Availability::Attention;
+    expect(opensu::app::launcherBadges(std::nullopt, {}, fumarole)[0].state == ServiceState::Hidden,
+           "and none while fumarole is not signed in");
 }
 
 DownloadRow row(std::string key, DownloadState state, std::optional<double> fraction,

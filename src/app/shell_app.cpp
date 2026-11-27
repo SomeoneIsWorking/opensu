@@ -1406,10 +1406,18 @@ ui::HintContext ShellApp::hints() const {
         .search = !shell_.inGame() && shell_.inputDevice().current() != input::Device::Pad};
 }
 
+std::optional<launch::SteamState> ShellApp::steamClientState() const {
+    if (!integrations_.steamMode()) {
+        return std::nullopt;
+    }
+    return steam_.state();
+}
+
 void ShellApp::syncChrome() {
     const ui::HintContext corner = hints();
     shell_.setHints(corner);
-    shell_.setLaunchers(launcherBadges(steam_.state(), downloadsScreen_.board().rows(), sources_));
+    shell_.setLaunchers(
+        launcherBadges(steamClientState(), downloadsScreen_.board().rows(), sources_));
     const gpu2d::ui::Navigator& navigator = shell_.screens().navigator();
     const bool home = navigator.atRoot() && !shell_.inGame();
     // iiSU's Home has no title (pl3.q); opensu's names the focused tile, except over a screen,
@@ -1497,7 +1505,7 @@ void ShellApp::publishSnapshot() {
     next.steam = std::string{launch::name(steam_.state())};
     next.inputDevice = std::string{input::name(shell_.inputDevice().current())};
     next.launchers =
-        describe(launcherBadges(steam_.state(), downloadsScreen_.board().rows(), sources_));
+        describe(launcherBadges(steamClientState(), downloadsScreen_.board().rows(), sources_));
     const LanService::Glance lan = lan_.glance();
     next.lanOn = lan.on;
     next.lanSeen = lan.seen;
