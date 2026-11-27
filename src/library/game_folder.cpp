@@ -35,10 +35,12 @@ constexpr std::array<std::string_view, 17> toolWords{
     "prereq",      "prerequisites", "directx",      "dotnet",          "updater",
     "patcher",     "autoupdate"};
 /// What a tool's `titleKey` holds anywhere.
-constexpr std::array<std::string_view, 16> toolParts{
-    "crashreport", "crashhandler",  "crashsender", "crashpad", "crashdump", "bugreport",
-    "errorreport", "easyanticheat", "battleye",    "vcredist", "dxsetup",   "dxwebsetup",
-    "dotnetfx",    "ue4prereq",     "unins000",    "beservice"};
+constexpr std::array<std::string_view, 15> toolParts{
+    "crashreport", "crashhandler", "crashsender",   "crashpad",  "crashdump",
+    "bugreport",   "errorreport",  "easyanticheat", "battleye",  "vcredist",
+    "dxsetup",     "dxwebsetup",   "dotnetfx",      "ue4prereq", "beservice"};
+/// Inno Setup names its uninstallers this and a number: `unins000`, `unins001`.
+constexpr std::string_view innoUninstaller = "unins";
 /// Store clients and game launchers, as whole `titleKey`s: each only starts other games.
 constexpr std::array<std::string_view, 21> storeClients{"steam",
                                                         "steamwebhelper",
@@ -408,6 +410,12 @@ Host thisHost() noexcept {
 bool notAGame(std::string_view name) {
     const std::string key = titleKey(name);
     if (among(storeClients, key)) {
+        return true;
+    }
+    if (key.size() > innoUninstaller.size() && key.starts_with(innoUninstaller) &&
+        std::ranges::all_of(key.substr(innoUninstaller.size()), [](unsigned char c) {
+            return std::isdigit(c) != 0;
+        })) {
         return true;
     }
     if (std::ranges::any_of(toolParts, [&key](std::string_view part) {

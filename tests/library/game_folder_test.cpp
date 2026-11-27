@@ -134,6 +134,7 @@ void brokenLinksEndTheRead() {
 
 void theRuleKeepsToolsOut() {
     for (const char* tool : {"unins000",
+                             "unins001",
                              "Uninstall Dino Crisis 2",
                              "setup",
                              "Setup_Game",
@@ -155,8 +156,9 @@ void theRuleKeepsToolsOut() {
                              "BEService"}) {
         expect(folder::notAGame(tool), tool);
     }
-    for (const char* game : {"Dino Crisis 2", "Crash Bandicoot N. Sane Trilogy", "SteamWorld Dig",
-                             "Origin of the Species", "Portal 2", "Update Quest", "DINO2"}) {
+    for (const char* game :
+         {"Dino Crisis 2", "Crash Bandicoot N. Sane Trilogy", "SteamWorld Dig",
+          "Origin of the Species", "Portal 2", "Update Quest", "DINO2", "Unins"}) {
         expect(!folder::notAGame(game), game);
     }
 }
@@ -166,6 +168,7 @@ void windowsFolder(const fs::path& root) {
     const fs::path dino = games / "Dino Crisis 2" / "DINO2.exe";
     write(dino);
     write(games / "Dino Crisis 2" / "unins000.exe");
+    write(games / "Dino Crisis 2" / "unins001.exe", std::string(64, 'x'));
     write(games / "Dino Crisis 2" / "config.dat");
     write(games / "Space Game" / "Binaries" / "deep.exe");
     write(games / "Space Game" / "space.exe");
