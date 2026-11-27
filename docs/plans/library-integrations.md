@@ -108,3 +108,7 @@ imo you can add install paths there for example (by default, inheriting from ope
 - Settings has no Steam page; Configure on Steam's tile is the only way to it.
 - Configure on Epic's tile (and GOG's) opens that store's own page, not Wine. It holds the store's
   install folder, which follows openSU's own until the player picks one.
+- The player (2026-11-27, Ally): "Probably same for anything else Epic related too like which wine
+  version and wineprefix, these should also be able to overriden per game in game settings". Epic's
+  and GOG's pages also hold their Wine runner and prefix, following openSU's Wine choice until the
+  player picks one; each game's settings can override them again.
