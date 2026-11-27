@@ -383,6 +383,8 @@ void GuideMenuController::runPower(const std::string& id) {
 
 void GuideMenuController::openPage(const std::string& id) {
     if (id == gameSettingsId) {
+        // Quick settings' Game tab, in the Guide's place.
+        close();
         hooks_.openGameSettings();
     } else if (id == powerId) {
         navigator_.push(std::make_unique<GuideListScreen>(*this, powerId, "Power", [this] {

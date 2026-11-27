@@ -118,8 +118,8 @@ generation and resolution) is kept at five levels: all games, Libretro (every ga
 plays), the console, the core and the game. A value resolves game, then core, then console, then
 Libretro, then all games, then the default, and every row names the level it comes from. One editor
 shows them: Settings › Emulators (Global, Consoles, Built-in cores), a game's details page (Game
-settings) and the Guide menu over a running game (Game settings, a panel over the game, whose
-changes reach the game at once). It opens on its categories (Emulator, Video, Controls, Frame
+settings) and the Game tab of Quick settings over a running game (Game settings in the Guide menu
+opens it; its pages stand beside the game, whose changes reach it at once). It opens on its categories (Emulator, Video, Controls, Frame
 generation, Resolution and upscaling, Core options, This game), each a page; Core options opens on
 the core's own groups. A setting opens on its value for all games, then the overrides it has, each
 with an × to remove it (X on a controller), then Add override for each level that has none.
@@ -138,7 +138,7 @@ of the core's and the game's layers, remembered per core so they can be edited w
 
 The Guide menu over a built-in core's game adds Save and close, Save state, Load state (one slot,
 `<saves>/<rom>.state`) and Reset game, the last two asking first, and Game settings opens the
-editor above. Close game stops the runner so it writes its save RAM first. A core that crashes is
+editor above in Quick settings' Game tab. Close game stops the runner so it writes its save RAM first. A core that crashes is
 toasted by name, and a game that fails to load by its reason.
 
 Save and close keeps the game where it is in a resume state of its own

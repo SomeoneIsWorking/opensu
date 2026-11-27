@@ -77,7 +77,7 @@ class GuideMenuController final : public ui::RowActions {
         std::function<void()> openSearch;
         /// Ends the running game, or remote play.
         std::function<void()> closeGame;
-        /// Opens the running game's settings over the menu.
+        /// Opens Quick settings on the running game's settings, once the menu has closed.
         std::function<void()> openGameSettings;
         /// Opens the on-screen keyboard over the running game, typing into it.
         std::function<void()> openKeyboard;

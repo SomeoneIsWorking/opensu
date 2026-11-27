@@ -31,6 +31,7 @@ constexpr const char* addCategoryId = "quick/addCategory";
 constexpr const char* customizeId = "quick/customize";
 constexpr const char* doneId = "quick/done";
 constexpr const char* renameCardId = "quick-rename";
+constexpr const char* gameNoneId = "quick/game";
 
 std::string tabId(std::size_t tab) {
     return std::string{tabPrefix} + std::to_string(tab);
@@ -94,11 +95,32 @@ void QuickSettingsPanel::toggle() {
 
 void QuickSettingsPanel::open(std::size_t tab, bool customize) {
     close();
+    game_.reset();
     // input-sound.md 3.4 OpenContextMenu: a menu becomes visible (r90.java).
     sounds_.play(audio::Effect::OpenContextMenu);
     system_.read();
     settings_.refresh();
     navigator_.push(std::make_unique<QuickSettingsScreen>(*this, tab, customize));
+}
+
+void QuickSettingsPanel::openGame() {
+    open(layout_.gameTab(), false);
+}
+
+const EditorPages* QuickSettingsPanel::gamePages() {
+    const library::Game* game = hooks_.game ? hooks_.game() : nullptr;
+    if (game == nullptr) {
+        game_.reset();
+        return nullptr;
+    }
+    if (!game_ || game_->context.gameId != game->id) {
+        game_ = std::make_unique<GamePages>(layered_, navigator_, chrome_, layered_.forGame(*game));
+    }
+    return &game_->pages;
+}
+
+std::string QuickSettingsPanel::gameTitle() const {
+    return game_ ? game_->context.gameTitle : std::string{};
 }
 
 void QuickSettingsPanel::close() {
@@ -252,9 +274,26 @@ void QuickSettingsScreen::buildTabs(tk::Column& root, const tk::Theme& theme,
     }
 }
 
+void QuickSettingsScreen::buildGame(tk::Column& rows, const tk::Theme& theme) {
+    firstGameRow_.clear();
+    const EditorPages* pages = panel_.gamePages();
+    if (pages == nullptr) {
+        rows.add<tk::Item>(gameNoneId, tk::Item::Text{"No game is running",
+                                                      "The running game's settings show here"});
+        return;
+    }
+    rows.add<tk::SectionHeading>(panel_.gameTitle());
+    tk::Card& card = rows.add<tk::Card>();
+    card.pad(tk::Insets::all(theme.spacing.gap * 2.0f)).space(theme.spacing.gap);
+    firstGameRow_ = pages->addCategories(card, pages->values());
+}
+
 void QuickSettingsScreen::buildUse(tk::Column& rows, const tk::Theme& theme,
                                    const settings::QuickTab& tab) {
     const tk::Spacing& spacing = theme.spacing;
+    if (tab.game) {
+        buildGame(rows, theme);
+    }
     for (const settings::QuickCategory& category : tab.categories) {
         std::vector<ui::SettingsRow> shown;
         for (const settings::QuickPin& pin : category.items) {
@@ -283,6 +322,17 @@ void QuickSettingsScreen::buildEdit(tk::Column& rows, const tk::Theme& theme,
     const auto held = [this](Grab::Kind kind, ItemPlace place) {
         return grab_ && grab_->kind == kind && grab_->place == place;
     };
+    if (tab.game) {
+        rows.add<tk::Item>(gameNoneId,
+                           tk::Item::Text{"The running game's settings",
+                                          "Shown here while a game runs; the tab moves but stays"});
+        if (!grab_) {
+            rows.add<tk::Item>(doneId, tk::Item::Text{"Done", {}}).onPress([this] {
+                editing_ = false;
+            });
+        }
+        return;
+    }
     for (std::size_t c = 0; c < tab.categories.size(); ++c) {
         const settings::QuickCategory& category = tab.categories[c];
         const ItemPlace categoryPlace{tab_, c, 0};
@@ -419,7 +469,10 @@ void QuickSettingsScreen::removeFocused() {
         layout.removeCategory(place.tab, place.category);
         break;
     case Grab::Kind::Tab:
-        layout.removeTab(place.tab);
+        if (!layout.removeTab(place.tab)) {
+            panel_.say("The Game tab stays: Game settings in the Guide opens it");
+            break;
+        }
         tab_ = place.tab == 0 ? 0 : place.tab - 1;
         break;
     }
@@ -429,6 +482,9 @@ std::string QuickSettingsScreen::initialFocus() const {
     const settings::QuickLayout layout = panel_.layout().layout();
     if (layout.tabs.empty()) {
         return customizeId;
+    }
+    if (layout.tabs[tab_].game) {
+        return firstGameRow_.empty() ? tabId(tab_) : firstGameRow_;
     }
     for (const settings::QuickCategory& category : layout.tabs[tab_].categories) {
         for (const settings::QuickPin& pin : category.items) {
@@ -488,6 +544,9 @@ bool QuickSettingsScreen::act(tk::Action action, tk::ActContext& context) {
         if (count > 0) {
             tab_ = step < 0 ? (tab_ + count - 1) % count : (tab_ + 1) % count;
         }
+        if (const auto focused = focusedPlace(); focused && focused->first == Grab::Kind::Tab) {
+            context.focus(tabId(tab_));
+        }
         return true;
     }
     if (action == tk::Action::Options) {
@@ -526,7 +585,11 @@ std::vector<tk::Hint> QuickSettingsScreen::hints() const {
     const auto focused = focusedPlace();
     if (focused) {
         hints.push_back(tk::Hint{{tk::Action::Accept}, "Move"});
-        hints.push_back(tk::Hint{{tk::Action::Secondary}, "Remove"});
+        const bool stays =
+            focused->first == Grab::Kind::Tab && focused->second.tab == panel_.layout().gameTab();
+        if (!stays) {
+            hints.push_back(tk::Hint{{tk::Action::Secondary}, "Remove"});
+        }
         if (focused->first == Grab::Kind::Category) {
             hints.push_back(tk::Hint{{tk::Action::Tertiary}, "Rename"});
         } else if (focused->first == Grab::Kind::Tab) {

@@ -1,6 +1,7 @@
 // What Quick settings holds: the default tabs until the player changes them, items moved within
 // and across categories, categories and tabs moved, removed and renamed, a pin from Settings added
-// and taken out, and the layout kept across a restart in the settings file.
+// and taken out, the Game tab always there and holding nothing of its own, and the layout kept
+// across a restart in the settings file.
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -29,7 +30,8 @@ struct Rig {
     }
     [[nodiscard]] std::vector<std::string> rows(std::size_t tab, std::size_t category) const {
         std::vector<std::string> ids;
-        for (const settings::QuickPin& pin : editor.layout().tabs[tab].categories[category].items) {
+        const settings::QuickLayout layout = editor.layout();
+        for (const settings::QuickPin& pin : layout.tabs[tab].categories[category].items) {
             ids.push_back(pin.row);
         }
         return ids;
@@ -43,9 +45,11 @@ struct Rig {
 void defaultsAreTheAgreedTabs() {
     Rig rig;
     const settings::QuickLayout layout = rig.editor.layout();
-    expect(layout.tabs.size() == 3 && layout.tabs[0].icon == "sliders" &&
-               layout.tabs[1].icon == "display" && layout.tabs[2].icon == "gamepad",
-           "System, View and Device tabs, each an icon");
+    expect(layout.tabs.size() == 4 && layout.tabs[0].icon == "sliders" &&
+               layout.tabs[1].icon == "play" && layout.tabs[1].game &&
+               layout.tabs[2].icon == "display" && layout.tabs[3].icon == "gamepad",
+           "System, Game, View and Device tabs, each an icon");
+    expect(rig.editor.gameTab() == 1, "the Game tab is second");
     expect(rig.rows(0, 0) == std::vector<std::string>{"system.volume", "system.mute"},
            "System starts with Sound: Volume and Mute");
     expect(!rig.onDisk().quickSettings, "unset until the player changes it");
@@ -79,40 +83,59 @@ void categoriesAndTabsChange() {
            "an added category is empty, with a name to change");
     rig.editor.removeCategory(0, added);
     const std::size_t tab = rig.editor.addTab(app::QuickIcon::Star);
-    expect(rig.editor.layout().tabs.size() == 4 && rig.editor.layout().tabs[tab].icon == "star",
+    expect(rig.editor.layout().tabs.size() == 5 && rig.editor.layout().tabs[tab].icon == "star" &&
+               !rig.editor.layout().tabs[tab].game,
            "a tab is added last with its icon");
     rig.editor.setIcon(tab, app::QuickIcon::Moon);
-    expect(rig.editor.moveTab(tab, -1) == 2 && rig.editor.layout().tabs[2].icon == "moon",
+    expect(rig.editor.moveTab(tab, -1) == 3 && rig.editor.layout().tabs[3].icon == "moon",
            "its icon changes and it moves left");
-    rig.editor.removeTab(2);
-    expect(rig.editor.layout().tabs.size() == 3, "and it is removed");
+    expect(rig.editor.removeTab(3) && rig.editor.layout().tabs.size() == 4, "and it is removed");
+    expect(!rig.editor.removeTab(1) && rig.editor.layout().tabs[1].game,
+           "the Game tab is not removed");
+    expect(rig.editor.moveTab(1, 1) == 2 && rig.editor.gameTab() == 2, "but it moves");
+    rig.editor.addCategory(2, "Mine");
+    rig.editor.addItem(2, 0, {"audio", "system.volume", "Volume"});
+    expect(rig.editor.layout().tabs[2].categories.empty(),
+           "and holds no categories or items of its own");
     rig.editor.removeItem({0, 1, 0});
     expect(rig.rows(0, 1).size() == 1, "an item is removed");
 }
 
 void aPinFromSettingsComesAndGoes() {
     Rig rig;
-    const settings::QuickPin night{"appearance", "system.nightLight"};
+    const settings::QuickPin night{"appearance", "system.nightLight", "Night light"};
     expect(rig.editor.pinned(night), "Night light is in by default");
     expect(!rig.editor.togglePin(night) && !rig.editor.pinned(night), "taken out");
     expect(rig.editor.togglePin(night) && rig.editor.pinned(night), "and added again");
     const settings::QuickLayout layout = rig.editor.layout();
     expect(layout.tabs[0].categories.back().items.back() == night,
            "to the end of the first tab's last category");
-    rig.editor.addItem(0, 0, {"audio", "system.volume"});
+    rig.editor.addItem(0, 0, {"audio", "system.volume", "Volume"});
     expect(rig.rows(0, 0).size() == 2, "an item already in a category is not added twice");
 }
 
 void theLayoutIsKept() {
     Rig rig;
     rig.editor.addTab(app::QuickIcon::Network);
-    rig.editor.renameCategory(3, 0, "Online");
-    rig.editor.addItem(3, 0, {"lan", "lan.name", "Name on the network"});
+    rig.editor.renameCategory(4, 0, "Online");
+    rig.editor.addItem(4, 0, {"lan", "lan.name", "Name on the network"});
     const settings::Settings kept = rig.onDisk();
     expect(kept.quickSettings == rig.editor.layout(),
-           "tabs, icons, names and items read back as written");
-    expect(kept.quickSettings->tabs[3].categories[0].items[0].label == "Name on the network",
+           "tabs, icons, names, items and the Game tab read back as written");
+    expect(kept.quickSettings->tabs[4].categories[0].items[0].label == "Name on the network",
            "with the label an item shows where this machine lacks its row");
+}
+
+void aLayoutWithoutTheGameTabGetsIt() {
+    Rig rig;
+    settings::QuickLayout older = app::QuickLayoutEditor::defaults();
+    std::erase_if(older.tabs, [](const settings::QuickTab& tab) {
+        return tab.game;
+    });
+    rig.editor.keep(older);
+    const settings::QuickLayout now = rig.editor.layout();
+    expect(now.tabs.size() == 4 && now.tabs[1].game,
+           "a layout kept before the Game tab gets it second");
 }
 
 } // namespace
@@ -123,6 +146,7 @@ int main() try {
     categoriesAndTabsChange();
     aPinFromSettingsComesAndGoes();
     theLayoutIsKept();
+    aLayoutWithoutTheGameTabGetsIt();
     std::printf("quick layout: all checks passed\n");
     return 0;
 } catch (...) {

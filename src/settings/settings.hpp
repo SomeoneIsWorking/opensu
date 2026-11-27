@@ -85,6 +85,8 @@ struct QuickCategory {
 struct QuickTab {
     std::string icon;
     std::vector<QuickCategory> categories;
+    /// The Game tab: it shows the running game's settings, not categories of its own.
+    bool game{false};
 
     bool operator==(const QuickTab&) const = default;
 };

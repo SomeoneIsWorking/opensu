@@ -91,6 +91,8 @@ std::string_view iconFile(Icon icon) noexcept {
         return "icons/quick/network.svg";
     case Icon::QuickPlus:
         return "icons/quick/plus.svg";
+    case Icon::QuickPlay:
+        return "icons/quick/play.svg";
     }
     return {};
 }

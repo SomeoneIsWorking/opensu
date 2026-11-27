@@ -289,7 +289,7 @@ class Reader {
         out = std::move(layout);
     }
 
-    /// `{"tabs": [{"icon", "categories": [{"name", "items": [[page, row], …]}]}]}`.
+    /// `{"tabs": [{"icon", "game"?, "categories": [{"name", "items": [[page, row, label], …]}]}]}`.
     static std::optional<QuickLayout> quickLayoutOf(const json& value) {
         const auto text = [](const json& object, const char* key) {
             return object.is_object() && object.contains(key) && object[key].is_string();
@@ -305,7 +305,11 @@ class Reader {
             if (!text(tab, "icon") || !list(tab, "categories")) {
                 return std::nullopt;
             }
-            QuickTab& kept = layout.tabs.emplace_back(QuickTab{tab["icon"].get<std::string>(), {}});
+            if (tab.contains("game") && !tab["game"].is_boolean()) {
+                return std::nullopt;
+            }
+            QuickTab& kept = layout.tabs.emplace_back(
+                QuickTab{tab["icon"].get<std::string>(), {}, tab.value("game", false)});
             for (const json& category : tab["categories"]) {
                 if (!text(category, "name") || !list(category, "items")) {
                     return std::nullopt;
@@ -816,7 +820,11 @@ json documentOf(const Settings& settings) {
                 }
                 categories.push_back(json{{"name", category.name}, {"items", std::move(items)}});
             }
-            tabs.push_back(json{{"icon", tab.icon}, {"categories", std::move(categories)}});
+            json kept{{"icon", tab.icon}, {"categories", std::move(categories)}};
+            if (tab.game) {
+                kept["game"] = true;
+            }
+            tabs.push_back(std::move(kept));
         }
         document[quickSettingsKey] = json{{"tabs", std::move(tabs)}};
     }

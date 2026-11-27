@@ -29,12 +29,13 @@ enum class QuickIcon : std::uint8_t {
     Moon,
     Star,
     Network,
+    Play,
 };
 
 inline constexpr std::array allQuickIcons{
-    QuickIcon::Sliders, QuickIcon::Sound,   QuickIcon::Brightness,
-    QuickIcon::Power,   QuickIcon::Display, QuickIcon::Gamepad,
-    QuickIcon::Moon,    QuickIcon::Star,    QuickIcon::Network,
+    QuickIcon::Sliders, QuickIcon::Sound,   QuickIcon::Brightness, QuickIcon::Power,
+    QuickIcon::Display, QuickIcon::Gamepad, QuickIcon::Moon,       QuickIcon::Star,
+    QuickIcon::Network, QuickIcon::Play,
 };
 
 /// The icon's spelling in the settings file.
@@ -63,21 +64,24 @@ class QuickLayoutEditor {
     /// nothing first.
     [[nodiscard]] static bool pinnable(const ui::SettingsRow& row);
 
+    /// The layout, with its Game tab: second when a kept layout has none.
     [[nodiscard]] settings::QuickLayout layout() const;
+    /// Where the Game tab is.
+    [[nodiscard]] std::size_t gameTab() const;
     /// Whether `pin` is anywhere in the panel.
     [[nodiscard]] bool pinned(const settings::QuickPin& pin) const;
-    /// From Settings: adds `pin` to the first tab's last category, or takes it out of every
-    /// category; whether it is in now.
+    /// From Settings: adds `pin` to the first tab's last category (the first but the Game tab), or
+    /// takes it out of every category; whether it is in now.
     bool togglePin(const settings::QuickPin& pin);
 
-    /// Adds `pin` at the end of the category, unless it is in it already.
+    /// Adds `pin` at the end of the category, unless it is in it already. The Game tab holds none.
     void addItem(std::size_t tab, std::size_t category, const settings::QuickPin& pin);
     void removeItem(ItemPlace place);
     /// Moves the item one place up (`step` < 0) or down, into the next category at a category's
     /// edge; where it is now.
     ItemPlace moveItem(ItemPlace place, int step);
 
-    /// Adds a category at the end of the tab; its index.
+    /// Adds a category at the end of the tab, not the Game tab; its index.
     std::size_t addCategory(std::size_t tab, std::string name);
     void removeCategory(std::size_t tab, std::size_t category);
     void renameCategory(std::size_t tab, std::size_t category, std::string name);
@@ -86,7 +90,8 @@ class QuickLayoutEditor {
 
     /// Adds a tab at the end with one empty category; its index.
     std::size_t addTab(QuickIcon icon);
-    void removeTab(std::size_t tab);
+    /// Removes the tab; whether it did, the Game tab staying.
+    bool removeTab(std::size_t tab);
     void setIcon(std::size_t tab, QuickIcon icon);
     /// Moves the tab one place left or right; its index now.
     std::size_t moveTab(std::size_t tab, int step);

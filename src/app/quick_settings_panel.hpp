@@ -1,11 +1,12 @@
 // quick_settings_panel — the Quick settings panel: a toolkit overlay down the right edge, over the
 // home screen or a running game. Its tabs show as icons; the chosen tab's categories each head the
 // items under them, and an item is a live Settings row (`QuickLayoutEditor`'s pins, looked up
-// through `SettingsController`, which also does what the row does). Customize arranges tabs,
-// categories and items by grabbing and moving them, removes them, renames a category, changes a
-// tab's icon and adds any Settings row through Add a setting. The Quick settings shortcut opens and
-// closes it; Back, Start or a tap beside it closes it. The game is not held while it is up, so a
-// change is heard and seen as it is made.
+// through `SettingsController`, which also does what the row does). The Game tab lists the running
+// game's setting categories instead, each opening the layered editor's page as a panel over it.
+// Customize arranges tabs, categories and items by grabbing and moving them, removes them, renames
+// a category, changes a tab's icon and adds any Settings row through Add a setting. The Quick
+// settings shortcut opens and closes it; Back, Start or a tap beside it closes it. The game is not
+// held while it is up, so a change is heard and seen as it is made.
 #pragma once
 
 #include <cstddef>
@@ -22,6 +23,8 @@
 
 #include "audio/sdl_sound_player.hpp"
 #include "keyboard_pad.hpp"
+#include "layered_editor.hpp"
+#include "layered_settings.hpp"
 #include "quick_layout.hpp"
 #include "settings_controller.hpp"
 #include "system_controls.hpp"
@@ -40,24 +43,32 @@ class QuickSettingsPanel final : public ui::RowActions {
         SystemControls& system;
         ui::ScreenImages& images;
         KeyboardPad& keyboard;
+        /// The running game's settings, for the Game tab.
+        LayeredSettings& layered;
+        const ui::Chrome& chrome;
     };
 
     struct Hooks {
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
+        /// The game running here in front, or null.
+        std::function<const library::Game*()> game;
     };
 
     QuickSettingsPanel(gpu2d::ui::Navigator& navigator, Services services,
                        audio::SdlSoundPlayer& sounds, Hooks hooks)
         : navigator_{navigator}, layout_{services.layout}, settings_{services.settings},
           system_{services.system}, images_{services.images}, keyboard_{services.keyboard},
-          sounds_{sounds}, hooks_{std::move(hooks)} {
+          layered_{services.layered}, chrome_{services.chrome}, sounds_{sounds},
+          hooks_{std::move(hooks)} {
     }
 
     /// Opens the panel, or closes it when open.
     void toggle();
     /// Opens the panel on tab `tab`, in Customize when `customize`; open already, it shows that.
     void open(std::size_t tab, bool customize);
+    /// Opens the panel on the Game tab.
+    void openGame();
     /// Closes the panel and what is over it.
     void close();
     [[nodiscard]] bool isOpen() const;
@@ -72,6 +83,10 @@ class QuickSettingsPanel final : public ui::RowActions {
     [[nodiscard]] ui::ScreenImages& images() noexcept {
         return images_;
     }
+    /// The rows leading to the running game's setting pages, and its title; nothing without a
+    /// game in front or with nothing to set for it.
+    [[nodiscard]] const EditorPages* gamePages();
+    [[nodiscard]] std::string gameTitle() const;
     /// The Settings row `pin` names as it stands now; nothing when this machine does not show it
     /// or the panel cannot hold it.
     [[nodiscard]] std::optional<ui::SettingsRow> rowOf(const settings::QuickPin& pin);
@@ -88,6 +103,25 @@ class QuickSettingsPanel final : public ui::RowActions {
     void setLevel(const std::string& id, int level) override;
 
   private:
+    /// The running game's editor context, read once per game while the panel is open.
+    struct GamePages {
+        GamePages(LayeredSettings& settings, gpu2d::ui::Navigator& navigator,
+                  const ui::Chrome& chrome, EditorContext editorContext)
+            : context{std::move(editorContext)}, schema{settings.schemaOf(context)},
+              pages{settings, navigator, chrome, context, EditorLook::Panel, schema, more} {
+        }
+        GamePages(const GamePages&) = delete;
+        GamePages& operator=(const GamePages&) = delete;
+        GamePages(GamePages&&) = delete;
+        GamePages& operator=(GamePages&&) = delete;
+        ~GamePages() = default;
+
+        EditorContext context;
+        settings::Schema schema;
+        EditorRows more;
+        EditorPages pages;
+    };
+
     [[nodiscard]] const gpu2d::ui::Screen* panel() const;
     void closeEntry();
 
@@ -97,8 +131,11 @@ class QuickSettingsPanel final : public ui::RowActions {
     SystemControls& system_;
     ui::ScreenImages& images_;
     KeyboardPad& keyboard_;
+    LayeredSettings& layered_;
+    const ui::Chrome& chrome_;
     audio::SdlSoundPlayer& sounds_;
     Hooks hooks_;
+    std::unique_ptr<GamePages> game_;
     /// The category the entry card renames, and its name as the card edits it.
     std::size_t namingTab_{};
     std::size_t namingCategory_{};
@@ -138,6 +175,8 @@ class QuickSettingsScreen final : public gpu2d::ui::Screen {
                    const settings::QuickLayout& layout);
     void buildUse(gpu2d::ui::Column& rows, const gpu2d::ui::Theme& theme,
                   const settings::QuickTab& tab);
+    /// The Game tab: the running game's setting categories.
+    void buildGame(gpu2d::ui::Column& rows, const gpu2d::ui::Theme& theme);
     void buildEdit(gpu2d::ui::Column& rows, const gpu2d::ui::Theme& theme,
                    const settings::QuickTab& tab);
     /// A press on a row or tab in Customize: grabs it, drops what is held, or drops it there.
@@ -154,6 +193,8 @@ class QuickSettingsScreen final : public gpu2d::ui::Screen {
     std::size_t tab_{};
     bool editing_{false};
     std::optional<Grab> grab_;
+    /// The Game tab's first row as last built.
+    std::string firstGameRow_;
 };
 
 } // namespace opensu::app

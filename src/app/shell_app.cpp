@@ -1080,13 +1080,13 @@ std::string ShellApp::startFresh(const library::Game& game) const {
     return error;
 }
 
-void ShellApp::openGameSettings(const library::Game& game, EditorLook look, EditorRows more) {
+void ShellApp::openGameSettings(const library::Game& game, EditorRows more) {
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
     gpu2d::ui::Navigator& navigator = shell_.screens().navigator();
     navigator.push(std::make_unique<LayeredEditor>(layered_, navigator, shell_.screens().chrome(),
-                                                   layered_.forGame(game), look, game.title,
-                                                   std::move(more)));
+                                                   layered_.forGame(game), EditorLook::Page,
+                                                   game.title, std::move(more)));
 }
 
 std::optional<std::filesystem::path> ShellApp::losslessDll() const {

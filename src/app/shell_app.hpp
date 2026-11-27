@@ -371,8 +371,8 @@ class ShellApp final {
     void syncChrome();
     /// The trail the top bar shows for where the shell is now.
     [[nodiscard]] ui::Trail currentTrail() const;
-    /// Opens `game`'s settings in the layered editor, as a page or a panel over the running game.
-    void openGameSettings(const library::Game& game, EditorLook look, EditorRows more = {});
+    /// Opens `game`'s settings in the layered editor as a page, with the details page's `more` rows.
+    void openGameSettings(const library::Game& game, EditorRows more);
     /// The game whose window is in front: the running game, unless Gamescope's focus is on
     /// another window; null when none.
     [[nodiscard]] const library::Game* gameInFront() const;
@@ -764,7 +764,7 @@ class ShellApp final {
                 mappings_.openGame(game);
             },
             [this](const library::Game& game, std::function<std::vector<ui::SettingsRow>()> rows) {
-                openGameSettings(game, EditorLook::Page, EditorRows{std::move(rows), &details_});
+                openGameSettings(game, EditorRows{std::move(rows), &details_});
             },
             [this](const library::Game& game) -> std::optional<std::size_t> {
                 if (!layered_.offers(game)) {
@@ -1733,10 +1733,19 @@ class ShellApp final {
                                      .settings = settingsScreen_,
                                      .system = systemControls_,
                                      .images = shell_.screens().images(),
-                                     .keyboard = keyboardPad_},
-        sounds_, QuickSettingsPanel::Hooks{.say = [this](const std::string& text, bool error) {
-            shell_.setToast(text, error);
-        }}};
+                                     .keyboard = keyboardPad_,
+                                     .layered = layered_,
+                                     .chrome = shell_.screens().chrome()},
+        sounds_,
+        QuickSettingsPanel::Hooks{.say =
+                                      [this](const std::string& text, bool error) {
+                                          shell_.setToast(text, error);
+                                      },
+                                  .game = [this]() -> const library::Game* {
+                                      return shell_.inGame() && !remotePlay_.streaming()
+                                                 ? &launches_.game()
+                                                 : nullptr;
+                                  }}};
     /// The menu Guide opens, over the home screen or a running game.
     GuideMenuController guideMenu_{
         shell_.screens().navigator(),
@@ -1821,7 +1830,7 @@ class ShellApp final {
                 },
             .openGameSettings =
                 [this] {
-                    openGameSettings(launches_.game(), EditorLook::Panel);
+                    quickPanel_.openGame();
                 },
             .openKeyboard =
                 [this] {

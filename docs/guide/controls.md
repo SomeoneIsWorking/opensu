@@ -101,10 +101,13 @@ the places. What you change in place is in Quick settings.
 Guide + A (Ctrl+Tab) opens a panel at the right edge, over Home or a game, which is not paused, so
 a change is heard and seen as it is made. Along its top are tabs shown as icons; LB and RB step
 them. Each tab holds categories, each a heading over its settings, and each setting is a Settings
-row that works as it does in Settings. Until you change it there are three tabs:
+row that works as it does in Settings. Until you change it there are four tabs:
 
 - **System** (sliders): Sound (Volume, Mute), Screen (Brightness, Night light, Interface size,
   Screen), Power (Power profile), Player (Playing as).
+- **Game** (play): the running game's settings, a row per category (Emulator, Video, Controls,
+  ...), each opening that category's page beside the panel as Game settings does on its details
+  page; changes reach the game at once. Game settings in the Guide menu opens Quick settings here.
 - **View** (screen): the shelf's Sort by, Show, Installed games only, Hidden games only, Library
   layout and Icon size.
 - **Device** (pad): the stick lights and the stick correction, on a ROG Ally.
@@ -115,7 +118,8 @@ for another machine. **Customize** (its row, or View) arranges it:
 - A grabs a tab, category or setting and A drops it; while it is held, Up and Down move a setting
   (into the next category at a category's edge) or a category, and LB and RB move a tab. B puts it
   back where it was. A tap on another place drops it there.
-- X removes the focused setting, category (with its settings) or tab (with its categories).
+- X removes the focused setting, category (with its settings) or tab (with its categories); the
+  Game tab moves and changes its icon but stays, and holds nothing of its own.
 - Y renames a category, or changes a tab's icon.
 - **Add a setting** at the end of each category browses Settings and adds the row you pick; **Add
   a category** ends the tab; **+** in the tab strip adds a tab; **Done** or B leaves.

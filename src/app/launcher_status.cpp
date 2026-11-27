@@ -61,6 +61,17 @@ std::string_view name(ui::Icon icon) {
     case ui::Icon::Windows:
     case ui::Icon::MacOs:
     case ui::Icon::Stream:
+    case ui::Icon::QuickSliders:
+    case ui::Icon::QuickSound:
+    case ui::Icon::QuickBrightness:
+    case ui::Icon::QuickPower:
+    case ui::Icon::QuickDisplay:
+    case ui::Icon::QuickGamepad:
+    case ui::Icon::QuickMoon:
+    case ui::Icon::QuickStar:
+    case ui::Icon::QuickNetwork:
+    case ui::Icon::QuickPlus:
+    case ui::Icon::QuickPlay:
         break;
     }
     return "unknown";

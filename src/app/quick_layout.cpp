@@ -46,6 +46,8 @@ std::string_view key(QuickIcon icon) noexcept {
         return "star";
     case QuickIcon::Network:
         return "network";
+    case QuickIcon::Play:
+        return "play";
     }
     return "sliders";
 }
@@ -77,13 +79,15 @@ ui::Icon iconOf(QuickIcon icon) noexcept {
         return ui::Icon::QuickStar;
     case QuickIcon::Network:
         return ui::Icon::QuickNetwork;
+    case QuickIcon::Play:
+        return ui::Icon::QuickPlay;
     }
     return ui::Icon::QuickSliders;
 }
 
 QuickLayout QuickLayoutEditor::defaults() {
     const auto tab = [](QuickIcon icon, std::vector<QuickCategory> categories) {
-        return QuickTab{std::string{key(icon)}, std::move(categories)};
+        return QuickTab{std::string{key(icon)}, std::move(categories), false};
     };
     return QuickLayout{{
         tab(QuickIcon::Sliders,
@@ -96,6 +100,7 @@ QuickLayout QuickLayoutEditor::defaults() {
                             {"appearance", "system.screen", "Screen"}}},
              QuickCategory{"Power", {{"power", "system.powerProfile", "Power profile"}}},
              QuickCategory{"Player", {{"profiles", "profiles.playing", "Playing as"}}}}),
+        QuickTab{std::string{key(QuickIcon::Play)}, {}, true},
         tab(QuickIcon::Display,
             {QuickCategory{"Shelf",
                            {{"library", "sort", "Sort by"},
@@ -129,7 +134,19 @@ bool QuickLayoutEditor::pinnable(const ui::SettingsRow& row) {
 }
 
 QuickLayout QuickLayoutEditor::layout() const {
-    return preferences_.values().quickSettings.value_or(defaults());
+    QuickLayout layout = preferences_.values().quickSettings.value_or(defaults());
+    if (std::ranges::none_of(layout.tabs, &QuickTab::game)) {
+        const auto at = layout.tabs.begin() +
+                        static_cast<std::ptrdiff_t>(std::min<std::size_t>(1, layout.tabs.size()));
+        layout.tabs.insert(at, QuickTab{std::string{key(QuickIcon::Play)}, {}, true});
+    }
+    return layout;
+}
+
+std::size_t QuickLayoutEditor::gameTab() const {
+    const QuickLayout now = layout();
+    return static_cast<std::size_t>(std::ranges::find_if(now.tabs, &QuickTab::game) -
+                                    now.tabs.begin());
 }
 
 bool QuickLayoutEditor::pinned(const QuickPin& pin) const {
@@ -150,10 +167,14 @@ bool QuickLayoutEditor::togglePin(const QuickPin& pin) {
         }
     }
     if (!was) {
-        if (now.tabs.empty()) {
-            now.tabs.push_back(QuickTab{std::string{key(QuickIcon::Sliders)}, {}});
+        auto first = std::ranges::find_if(now.tabs, [](const QuickTab& tab) {
+            return !tab.game;
+        });
+        if (first == now.tabs.end()) {
+            first = now.tabs.insert(now.tabs.begin(),
+                                    QuickTab{std::string{key(QuickIcon::Sliders)}, {}, false});
         }
-        std::vector<QuickCategory>& categories = now.tabs.front().categories;
+        std::vector<QuickCategory>& categories = first->categories;
         if (categories.empty()) {
             categories.push_back(QuickCategory{newCategoryName, {}});
         }
@@ -165,7 +186,8 @@ bool QuickLayoutEditor::togglePin(const QuickPin& pin) {
 
 void QuickLayoutEditor::addItem(std::size_t tab, std::size_t category, const QuickPin& pin) {
     QuickLayout now = layout();
-    if (tab >= now.tabs.size() || category >= now.tabs[tab].categories.size()) {
+    if (tab >= now.tabs.size() || now.tabs[tab].game ||
+        category >= now.tabs[tab].categories.size()) {
         return;
     }
     std::vector<QuickPin>& items = now.tabs[tab].categories[category].items;
@@ -227,7 +249,7 @@ ItemPlace QuickLayoutEditor::moveItem(ItemPlace place, int step) {
 
 std::size_t QuickLayoutEditor::addCategory(std::size_t tab, std::string name) {
     QuickLayout now = layout();
-    if (tab >= now.tabs.size()) {
+    if (tab >= now.tabs.size() || now.tabs[tab].game) {
         return 0;
     }
     std::vector<QuickCategory>& categories = now.tabs[tab].categories;
@@ -269,19 +291,21 @@ std::size_t QuickLayoutEditor::moveCategory(std::size_t tab, std::size_t categor
 
 std::size_t QuickLayoutEditor::addTab(QuickIcon icon) {
     QuickLayout now = layout();
-    now.tabs.push_back(QuickTab{std::string{key(icon)}, {QuickCategory{newCategoryName, {}}}});
+    now.tabs.push_back(
+        QuickTab{std::string{key(icon)}, {QuickCategory{newCategoryName, {}}}, false});
     const std::size_t at = now.tabs.size() - 1;
     keep(std::move(now));
     return at;
 }
 
-void QuickLayoutEditor::removeTab(std::size_t tab) {
+bool QuickLayoutEditor::removeTab(std::size_t tab) {
     QuickLayout now = layout();
-    if (tab >= now.tabs.size()) {
-        return;
+    if (tab >= now.tabs.size() || now.tabs[tab].game) {
+        return false;
     }
     now.tabs.erase(now.tabs.begin() + static_cast<std::ptrdiff_t>(tab));
     keep(std::move(now));
+    return true;
 }
 
 void QuickLayoutEditor::setIcon(std::size_t tab, QuickIcon icon) {

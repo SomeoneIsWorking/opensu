@@ -239,13 +239,16 @@ ControlAnswer ShellApp::runProbe(const ControlCommand& command) {
     case Kind::OpenQuickSettings: {
         const bool customize = argument == "customize";
         std::size_t tab = 0;
-        if (!customize && !argument.empty()) {
+        if (argument == "game") {
+            tab = quickLayout_.gameTab();
+        } else if (!customize && !argument.empty()) {
             const std::size_t count = quickLayout_.layout().tabs.size();
             const auto [end, error] =
                 std::from_chars(argument.data(), argument.data() + argument.size(), tab);
             if (error != std::errc{} || end != argument.data() + argument.size() || tab == 0 ||
                 tab > count) {
-                return refused(404, "Quick settings has tabs 1 to " + std::to_string(count));
+                return refused(404, "Quick settings has tabs 1 to " + std::to_string(count) +
+                                        ", and game");
             }
             --tab;
         }

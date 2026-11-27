@@ -77,18 +77,22 @@ also be pinned from Settings itself; the Guide menu has no quick rows.
 
 ## Built and not yet built
 
-Built: the layout and its editor, the System, View and Device tabs, the panel with icon tabs and
-Customize, Add a setting, the icon list, View-to-pin in Settings, and the Guide without its card.
+Built: the layout and its editor, the System, Game, View and Device tabs, the panel with icon tabs
+and Customize, Add a setting, the icon list, View-to-pin in Settings, and the Guide without its
+card.
+
+The Game tab (`QuickTab::game`) lists the running game's setting categories through the layered
+editor's own `EditorPages`, each opening that category's editor page as a panel beside it; Game
+settings in the Guide closes the menu and opens Quick settings there. It is always in the layout
+(second in one kept without it), moves and changes its icon, but is not removed and holds no
+categories of its own. Single game settings are not pinned into other tabs: a pin is a Settings row,
+and the game's rows are the editor's.
 
 Not yet built, next in order:
 
-1. **The Game tab**: the running game's settings in the panel, replacing the Game settings panel
-   that opens beside the Guide; the Guide's Game settings place then opens Quick settings on it.
-   Its rows come from `LayeredSettings` for the running game, not from a Settings page, so a pin
-   needs a source other than `SettingsController::page`.
-2. **Pad battery** on the Device tab: a fact row from Devices' controller roster, which is not a
+1. **Pad battery** on the Device tab: a fact row from Devices' controller roster, which is not a
    Settings page either.
-3. **Bluetooth** on System, once `BluetoothSession` polls without the Devices page open.
+2. **Bluetooth** on System, once `BluetoothSession` polls without the Devices page open.
 
 ## Proof
 

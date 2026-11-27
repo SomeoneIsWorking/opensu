@@ -51,6 +51,7 @@ enum class Icon : std::uint8_t {
     QuickStar,
     QuickNetwork,
     QuickPlus,
+    QuickPlay,
 };
 
 /// The store's icon, or nothing for a ROM.

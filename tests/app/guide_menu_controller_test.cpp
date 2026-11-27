@@ -236,8 +236,8 @@ void gameStepsAskFirst() {
            "confirmed, the game closes with the menu");
     rig.open();
     rig.choose("guide.gameSettings");
-    expect(rig.calls.back() == "gameSettings" && rig.controller.isOpen(),
-           "the game's settings open over the menu, which Back returns to");
+    expect(rig.calls.back() == "gameSettings" && !rig.controller.isOpen(),
+           "Game settings closes the menu and opens Quick settings on the game");
 }
 
 void keyboardTypesIntoTheGame() {
