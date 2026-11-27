@@ -90,3 +90,13 @@ Fedora KDE on this with openSU or just go nuts making my own openSU distro (agai
 but immutable)"; then (2026-11-26) "Regarding custom distro I said KDE but Gnome is more touch
 friendly right?" Answered: GNOME is the better touch desktop; KDE has the handheld gaming
 ecosystem (Bazzite and SteamOS desktop mode, XWayland scaling). Undecided.
+
+## Passive stick calibration
+
+The player (2026-11-27): "if we can also add passive calibration, idk how that'll work". A sketch:
+calibration that keeps learning from play instead of only from the Calibrate card. Each stick's
+ends grow when play pushes it past them, so a stick that never reaches the edge after a card
+calibration still does; its rest is re-measured when the stick sits still with no input for a
+while (a held, slightly tilted stick must not become the new centre, so the drift it may take is
+bounded and it only moves toward readings that hold steady). Triggers learn their end the same way.
+It would layer over the card's calibration in `PadCalibration`, per pad, saved as it changes.
