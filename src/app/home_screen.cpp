@@ -50,13 +50,11 @@ bool HomeScreen::act(Action action, gpu2d::ui::ActContext& /*context*/) {
         call(hooks_.refresh);
         return true;
     case Action::Options:
+    case Action::Menu:
         call(hooks_.options);
         return true;
     case Action::Search:
         call(hooks_.search);
-        return true;
-    case Action::Menu:
-        call(hooks_.menu);
         return true;
     default:
         return false;

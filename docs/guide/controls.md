@@ -14,8 +14,7 @@ everywhere, and on Android touch: a click or tap focuses and presses.
 | B | Escape | Back; on Home with nothing to go back to, the Guide menu |
 | Y | Y | Details page |
 | X | F | Refresh the library |
-| Select | Tab, Menu key, Shift+F10, right click | The focused tile's menu |
-| Start | E | The Guide menu on Home and Library, for pads and tablets with no usable Guide button |
+| Select or Start | Tab, E, Menu key, Shift+F10, right click | The focused tile's menu |
 | LB / RB | `[` / `]` (R for next) | Previous / next section: Home, Library |
 | | S, `/`, Ctrl+F | Search across every store, from Home and Library; with the keyboard and mouse, or a finger, the bottom-left corner shows it (S, or a magnifier to tap). A pad opens it from the Guide menu |
 | Guide | Shift+Tab | The Guide menu: Home, Library, Search (off a game, over any page), Devices, Downloads, Settings, Power; places and actions only |
@@ -93,7 +92,8 @@ the text fields open.
 
 ## The Guide menu on Home and Library
 
-Guide or Start opens the menu; Start closes it again. Over Home and Library it holds Search among
+Guide opens the menu, and so does B on Home with nothing to go back to, for pads with no usable
+Guide button; Guide, B or Start closes it. Over Home and Library it holds Search among
 the places. What you change in place is in Quick settings.
 
 ## Quick settings

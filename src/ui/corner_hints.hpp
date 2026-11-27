@@ -18,9 +18,7 @@ struct HintContext {
     bool select{false};
     /// A opens the focused game's details page, which the prompt says.
     bool details{false};
-    /// Select opens the focused tile's context menu.
-    bool options{false};
-    /// START opens a menu.
+    /// Start (and Select) open the focused tile's menu.
     bool menu{false};
     /// The search key or a tap opens the search; a pad has no Search button.
     bool search{false};

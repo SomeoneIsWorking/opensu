@@ -60,7 +60,7 @@ last page.
 
 ## Start on a sub-library
 
-The tile menu (Select, the shell's menu button for a tile; Start stays the Guide menu) on a Library
+The tile menu (Select or Start) on a Library
 tile:
 
 - Configure: the integration's own settings page (Steam's mode and controllers, Steam libraries;

@@ -1,6 +1,6 @@
 # Start opens the focused tile's menu
 
-Status: planned.
+Status: built.
 
 The player (2026-11-27, Ally): "also imo Start should open context menu instead of opening guide".
 

@@ -117,7 +117,6 @@ struct Rig {
                                                  calls.push_back("menu " + grid.focusedTitle());
                                              },
                                          .search = {},
-                                         .menu = {},
                                          .back =
                                              [this] {
                                                  calls.push_back("back");
@@ -229,6 +228,8 @@ void aAndYReachTheHooks() {
     expect(rig.last() == "details " + game, "and so does Y");
     rig.ui.navigator.act(Action::Options);
     expect(rig.last() == "menu " + game, "Select asks for its menu");
+    rig.ui.navigator.act(Action::Menu);
+    expect(rig.last() == "menu " + game, "and so does Start");
     rig.ui.navigator.act(Action::Back);
     expect(rig.last() == "back" && rig.ui.navigator.atRoot(), "Back backs out, staying on Home");
 }

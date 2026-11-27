@@ -4,14 +4,11 @@ namespace opensu::ui {
 
 std::vector<Prompt> startPrompts(const HintContext& context) {
     std::vector<Prompt> prompts;
-    // iiSU mw5.h: ("B", "Back"), ("-", "Details"); here the "-" prompt is the context menu.
+    // iiSU mw5.h: ("B", "Back"), ("-", "Details").
     if (context.clearSearch) {
         prompts.push_back(Prompt{"B", "Clear search", gamepad::Button::B});
     } else if (context.back) {
         prompts.push_back(Prompt{"B", "Back", gamepad::Button::B});
-    }
-    if (context.options) {
-        prompts.push_back(Prompt{"-", "Options", gamepad::Button::Select});
     }
     if (context.search) {
         prompts.push_back(Prompt{"SEARCH", "Search", gamepad::Button::Search});

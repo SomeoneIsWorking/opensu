@@ -19,22 +19,15 @@ void startCorner() {
     expect((opensu::ui::startPrompts(HintContext{.back = true}) ==
             std::vector<Prompt>{{"B", "Back", Button::B}}),
            "Back shows inside a folder only");
-    expect((opensu::ui::startPrompts(HintContext{.options = true}) ==
-            std::vector<Prompt>{{"-", "Options", Button::Select}}),
-           "Options shows with a tile focused, and names the context menu");
-    expect(opensu::ui::startPrompts(HintContext{.back = true, .options = true}).size() == 2,
-           "both together");
 }
 
 void searchAndOptions() {
     expect((opensu::ui::startPrompts(HintContext{.back = true, .clearSearch = true}) ==
             std::vector<Prompt>{{"B", "Clear search", Button::B}}),
            "a search being cleared takes B before Back");
-    expect((opensu::ui::startPrompts(HintContext{.back = true, .options = true, .search = true}) ==
-            std::vector<Prompt>{{"B", "Back", Button::B},
-                                {"-", "Options", Button::Select},
-                                {"SEARCH", "Search", Button::Search}}),
-           "Search comes last, under Back and Options");
+    expect((opensu::ui::startPrompts(HintContext{.back = true, .search = true}) ==
+            std::vector<Prompt>{{"B", "Back", Button::B}, {"SEARCH", "Search", Button::Search}}),
+           "Search comes last, under Back");
 }
 
 void endCorner() {
@@ -47,7 +40,7 @@ void endCorner() {
            "A on a game opens its details");
     expect((opensu::ui::endPrompts(HintContext{.menu = true}) ==
             std::vector<Prompt>{{"+", "Menu", Button::Start}}),
-           "Menu shows where START opens one");
+           "Menu shows where Start opens the focused tile's menu");
     expect(opensu::ui::endPrompts(HintContext{.select = true, .menu = true}).size() == 2,
            "both together");
 }

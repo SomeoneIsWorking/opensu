@@ -182,10 +182,6 @@ void ShellApp::buildHome() {
                                              [this] {
                                                  search_.open();
                                              },
-                                         .menu =
-                                             [this] {
-                                                 toggleGuide();
-                                             },
                                          .back =
                                              [this] {
                                                  backOnHome();
@@ -1406,8 +1402,7 @@ ui::HintContext ShellApp::hints() const {
         .clearSearch = search_.searching(),
         .select = game || folder || grid.focusedGiveaways() || grid.focusedAdd() != nullptr,
         .details = game,
-        .options = game || folder,
-        .menu = true,
+        .menu = game || folder,
         .search = !shell_.inGame() && shell_.inputDevice().current() != input::Device::Pad};
 }
 
