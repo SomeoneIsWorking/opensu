@@ -87,3 +87,13 @@ folders for the player's own games, and the console's settings for a console.
 3. Wizards: Steam (fumarole or client, mode, login), the rest turning on.
 4. Settings › Integrations removed, its rows on the Configure pages.
 5. Steam login copied over the LAN.
+
+## Added means working
+
+The player (2026-11-27, Ally, after Steam through fumarole showed "0 games" unsigned): "Also imo,
+integration shouldn't consider "added" if it can't work".
+
+- A store that cannot list its games until the player acts (fumarole not signed in, Epic or GOG
+  with no sign-in: `Availability::Attention`) has no Library tile, Giveaways do not count it, and
+  it stays on the Add page, "Sign in to <store>", picking it running that store's sign-in.
+- The Steam wizard has no "Sign in later": fumarole adds Steam only when its sign-in succeeds.
