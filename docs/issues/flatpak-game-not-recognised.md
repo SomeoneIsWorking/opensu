@@ -1,6 +1,6 @@
 # A Flatpak game's window is taken for another window: Guide does nothing in it
 
-Status: open; cause found, fix in progress.
+Status: fixed (21195246, c3594444, 5f08099b, 228a1b6d, c8f7d099); shown on the Ally (2026-11-27).
 
 Reported by the player (2026-11-26, Ally, desktop mode, Sonic Robo Blast 2 from Flatpak
 `org.srb2.SRB2`): "I tried playing Sonic Robo Blast 2 and the controller didn't work (probably the
@@ -60,3 +60,9 @@ Close: openSU logged `pid 32481 left opensu-32140-game-0.scope; ending it and it
 exits at SIGTERM; the game under it ignores SIGTERM, and `SystemdScope::end` waited only for
 bwrap, so nothing escalated. The escaped processes are now waited for and SIGKILLed at the stop
 deadline.
+
+## With c8f7d099 (2026-11-27, Ally)
+
+The escaped processes get the scope's own five seconds (`TimeoutStopSec`) before SIGKILL. SRB2
+ignores SIGTERM, so Close ends it in 5.1 s and Quit in 5.1 s, openSU itself gone 0.3 s after the
+game. Quit with no game running ends openSU in 0.36 s.
