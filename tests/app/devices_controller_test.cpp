@@ -252,6 +252,18 @@ void padRowsAreTheControllersTabs() {
            "a row saying no pad is connected");
 }
 
+void theBluetoothSwitchStandsAlone() {
+    Rig rig;
+    std::vector<ui::SettingsRow> rows = rig.controller.bluetoothSwitch();
+    expect(rows.size() == 1 && rows.front().id == "bluetooth.checking",
+           "checking until BlueZ answers");
+    rig.settle();
+    rows = rig.controller.bluetoothSwitch();
+    expect(rows.size() == 1 && rows.front().id == "bluetooth.power", "then the switch");
+    const Rig without{false};
+    expect(without.controller.bluetoothSwitch().empty(), "nothing without a Bluetooth service");
+}
+
 void aPadIsCalibratedFromItsRow() {
     Rig rig;
     rig.openOn("controllers");
@@ -333,6 +345,7 @@ int main() try {
     aRefusalIsSaid();
     controllersShowTheLiveButtonTest();
     padRowsAreTheControllersTabs();
+    theBluetoothSwitchStandsAlone();
     aPadIsCalibratedFromItsRow();
     wiiRemotesSayWhatWiiGamesPlay();
     audioChoosesTheOutput();

@@ -86,6 +86,21 @@ bool QuickSettingsPanel::isOpen() const {
     return panel() != nullptr;
 }
 
+bool QuickSettingsPanel::shows(const settings::QuickPin& pin) const {
+    const auto* open = dynamic_cast<const QuickSettingsScreen*>(panel());
+    if (open == nullptr || open->editing()) {
+        return false;
+    }
+    const settings::QuickLayout now = layout_.layout();
+    if (open->tab() >= now.tabs.size()) {
+        return false;
+    }
+    return std::ranges::any_of(
+        now.tabs[open->tab()].categories, [&pin](const settings::QuickCategory& category) {
+            return std::ranges::find(category.items, pin) != category.items.end();
+        });
+}
+
 void QuickSettingsPanel::toggle() {
     if (isOpen()) {
         close();
@@ -134,7 +149,11 @@ void QuickSettingsPanel::close() {
 
 std::vector<ui::SettingsRow> QuickSettingsPanel::rowsOf(const settings::QuickPin& pin) {
     if (pin.page == devicesPage) {
-        return pin.row == padsRow ? hooks_.pads() : std::vector<ui::SettingsRow>{};
+        if (pin.row == padsRow) {
+            return devices_.padRows();
+        }
+        return pin.row == bluetoothRow ? devices_.bluetoothSwitch()
+                                       : std::vector<ui::SettingsRow>{};
     }
     const ui::SettingsCategory& page = settings_.page(pin.page);
     const auto found = std::ranges::find(page.rows, pin.row, &ui::SettingsRow::id);
@@ -142,6 +161,13 @@ std::vector<ui::SettingsRow> QuickSettingsPanel::rowsOf(const settings::QuickPin
         return {};
     }
     return {*found};
+}
+
+ui::RowActions& QuickSettingsPanel::actionsOf(const settings::QuickPin& pin) {
+    if (pin.page == devicesPage) {
+        return devices_;
+    }
+    return *this;
 }
 
 std::string QuickSettingsPanel::pageTitle(const std::string& page) const {
@@ -303,9 +329,12 @@ void QuickSettingsScreen::buildUse(tk::Column& rows, const tk::Theme& theme,
         buildGame(rows, theme);
     }
     for (const settings::QuickCategory& category : tab.categories) {
-        std::vector<ui::SettingsRow> shown;
+        std::vector<std::pair<ui::SettingsRow, ui::RowActions*>> shown;
         for (const settings::QuickPin& pin : category.items) {
-            std::ranges::move(panel_.rowsOf(pin), std::back_inserter(shown));
+            ui::RowActions& actions = panel_.actionsOf(pin);
+            for (ui::SettingsRow& row : panel_.rowsOf(pin)) {
+                shown.emplace_back(std::move(row), &actions);
+            }
         }
         if (shown.empty()) {
             continue;
@@ -313,8 +342,8 @@ void QuickSettingsScreen::buildUse(tk::Column& rows, const tk::Theme& theme,
         rows.add<tk::SectionHeading>(category.name);
         tk::Card& card = rows.add<tk::Card>();
         card.pad(tk::Insets::all(spacing.gap * 2.0f)).space(spacing.gap);
-        for (const ui::SettingsRow& row : shown) {
-            ui::addRow(card, row, panel_);
+        for (const auto& [row, actions] : shown) {
+            ui::addRow(card, row, *actions);
         }
     }
     rows.add<tk::Item>(customizeId, tk::Item::Text{"Customize", {}}).onPress([this] {

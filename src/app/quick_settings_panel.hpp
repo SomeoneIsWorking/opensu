@@ -22,6 +22,7 @@
 #include "gpu2d/ui/screen.hpp"
 
 #include "audio/sdl_sound_player.hpp"
+#include "devices_controller.hpp"
 #include "keyboard_pad.hpp"
 #include "layered_editor.hpp"
 #include "layered_settings.hpp"
@@ -45,6 +46,8 @@ class QuickSettingsPanel final : public ui::RowActions {
         KeyboardPad& keyboard;
         /// The running game's settings, for the Game tab.
         LayeredSettings& layered;
+        /// Devices' rows the panel holds (each pad, the Bluetooth switch), and what they do.
+        DevicesController& devices;
         const ui::Chrome& chrome;
     };
 
@@ -53,16 +56,14 @@ class QuickSettingsPanel final : public ui::RowActions {
         std::function<void(const std::string& text, bool error)> say;
         /// The game running here in front, or null.
         std::function<const library::Game*()> game;
-        /// Each connected pad and its battery, as Devices lists them.
-        std::function<std::vector<ui::SettingsRow>()> pads;
     };
 
     QuickSettingsPanel(gpu2d::ui::Navigator& navigator, Services services,
                        audio::SdlSoundPlayer& sounds, Hooks hooks)
         : navigator_{navigator}, layout_{services.layout}, settings_{services.settings},
           system_{services.system}, images_{services.images}, keyboard_{services.keyboard},
-          layered_{services.layered}, chrome_{services.chrome}, sounds_{sounds},
-          hooks_{std::move(hooks)} {
+          layered_{services.layered}, devices_{services.devices}, chrome_{services.chrome},
+          sounds_{sounds}, hooks_{std::move(hooks)} {
     }
 
     /// Opens the panel, or closes it when open.
@@ -74,6 +75,8 @@ class QuickSettingsPanel final : public ui::RowActions {
     /// Closes the panel and what is over it.
     void close();
     [[nodiscard]] bool isOpen() const;
+    /// Whether the tab in view holds `pin`, so what it shows is read now.
+    [[nodiscard]] bool shows(const settings::QuickPin& pin) const;
 
     // What the screens ask.
     [[nodiscard]] QuickLayoutEditor& layout() noexcept {
@@ -89,9 +92,11 @@ class QuickSettingsPanel final : public ui::RowActions {
     /// game in front or with nothing to set for it.
     [[nodiscard]] const EditorPages* gamePages();
     [[nodiscard]] std::string gameTitle() const;
-    /// The rows `pin` shows now: the Settings row it names, or each pad for the pads pin; none
-    /// when this machine does not show it or the panel cannot hold it.
+    /// The rows `pin` shows now: the Settings row it names, or Devices' rows for a Devices pin;
+    /// none when this machine does not show it or the panel cannot hold it.
     [[nodiscard]] std::vector<ui::SettingsRow> rowsOf(const settings::QuickPin& pin);
+    /// What does what `pin`'s rows do: Devices for a Devices pin, else Settings through the panel.
+    [[nodiscard]] ui::RowActions& actionsOf(const settings::QuickPin& pin);
     /// The name of the page a pin comes from: a Settings page, or Devices.
     [[nodiscard]] std::string pageTitle(const std::string& page) const;
     /// The entry card renaming the category.
@@ -136,6 +141,7 @@ class QuickSettingsPanel final : public ui::RowActions {
     ui::ScreenImages& images_;
     KeyboardPad& keyboard_;
     LayeredSettings& layered_;
+    DevicesController& devices_;
     const ui::Chrome& chrome_;
     audio::SdlSoundPlayer& sounds_;
     Hooks hooks_;
@@ -164,6 +170,13 @@ class QuickSettingsScreen final : public gpu2d::ui::Screen {
     [[nodiscard]] std::vector<gpu2d::ui::Hint> hints() const override;
     /// The first setting of the first tab; its tab when it has none.
     [[nodiscard]] std::string initialFocus() const override;
+    /// The tab in view, and whether Customize shows it.
+    [[nodiscard]] std::size_t tab() const noexcept {
+        return tab_;
+    }
+    [[nodiscard]] bool editing() const noexcept {
+        return editing_;
+    }
 
   private:
     /// What is held while Customize moves it.

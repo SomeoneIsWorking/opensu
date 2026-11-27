@@ -54,6 +54,10 @@ std::unique_ptr<tk::Widget> QuickSettingPicker::build(const tk::Theme& theme) {
                 "Open", true);
     } else if (pages_.back() == devicesPage) {
         addPin(rows, QuickLayoutEditor::padsPin(), "Each connected pad and its battery");
+        if (!panel_.rowsOf(QuickLayoutEditor::bluetoothPin()).empty()) {
+            addPin(rows, QuickLayoutEditor::bluetoothPin(),
+                   "The switch turning Bluetooth on and off");
+        }
     } else {
         const std::string page = pages_.back();
         for (const ui::SettingsRow& row : panel_.settings().page(page).rows) {

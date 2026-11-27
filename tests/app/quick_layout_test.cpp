@@ -2,6 +2,7 @@
 // and across categories, categories and tabs moved, removed and renamed, a pin from Settings added
 // and taken out, the Game tab always there and holding nothing of its own, and the layout kept
 // across a restart in the settings file.
+#include <algorithm>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -55,6 +56,13 @@ void defaultsAreTheAgreedTabs() {
     expect(layout.tabs[3].categories.front().items ==
                std::vector<settings::QuickPin>{app::QuickLayoutEditor::padsPin()},
            "Device starts with each pad and its battery");
+    expect(std::ranges::any_of(layout.tabs[0].categories,
+                               [](const settings::QuickCategory& category) {
+                                   return category.items ==
+                                          std::vector<settings::QuickPin>{
+                                              app::QuickLayoutEditor::bluetoothPin()};
+                               }),
+           "System holds the Bluetooth switch");
     expect(!rig.onDisk().quickSettings, "unset until the player changes it");
 }
 

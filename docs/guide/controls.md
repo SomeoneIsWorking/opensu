@@ -104,7 +104,8 @@ them. Each tab holds categories, each a heading over its settings, and each sett
 row that works as it does in Settings. Until you change it there are four tabs:
 
 - **System** (sliders): Sound (Volume, Mute), Screen (Brightness, Night light, Interface size,
-  Screen), Power (Power profile), Player (Playing as).
+  Screen), Power (Power profile), Bluetooth (its switch, where the machine has Bluetooth), Player
+  (Playing as).
 - **Game** (play): the running game's settings, a row per category (Emulator, Video, Controls,
   ...), each opening that category's page beside the panel as Game settings does on its details
   page; changes reach the game at once. Game settings in the Guide menu opens Quick settings here.

@@ -99,6 +99,7 @@ QuickLayout QuickLayoutEditor::defaults() {
                             {"appearance", "system.scale", "Interface size"},
                             {"appearance", "system.screen", "Screen"}}},
              QuickCategory{"Power", {{"power", "system.powerProfile", "Power profile"}}},
+             QuickCategory{"Bluetooth", {bluetoothPin()}},
              QuickCategory{"Player", {{"profiles", "profiles.playing", "Playing as"}}}}),
         QuickTab{std::string{key(QuickIcon::Play)}, {}, true},
         tab(QuickIcon::Display,
@@ -120,6 +121,10 @@ QuickLayout QuickLayoutEditor::defaults() {
 
 settings::QuickPin QuickLayoutEditor::padsPin() {
     return {std::string{devicesPage}, std::string{padsRow}, "Controllers"};
+}
+
+settings::QuickPin QuickLayoutEditor::bluetoothPin() {
+    return {std::string{devicesPage}, std::string{bluetoothRow}, "Bluetooth"};
 }
 
 bool QuickLayoutEditor::pinnable(const ui::SettingsRow& row) {

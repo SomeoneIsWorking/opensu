@@ -96,6 +96,9 @@ class DevicesController final : public ui::RowActions {
     /// Each connected pad (its name, player and battery, the buttons it holds), or one row saying
     /// none is; the Controllers tab's and Quick settings' rows.
     [[nodiscard]] std::vector<ui::SettingsRow> padRows() const;
+    /// The Bluetooth switch as the Bluetooth tab heads with it, "Checking" until BlueZ answers;
+    /// nothing without a Bluetooth service or adapter.
+    [[nodiscard]] std::vector<ui::SettingsRow> bluetoothSwitch() const;
     /// The tab the screen shows; the screen's tabs set it.
     [[nodiscard]] const std::string& chosen() const noexcept {
         return chosen_;

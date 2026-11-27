@@ -48,6 +48,8 @@ inline constexpr std::array allQuickIcons{
 inline constexpr std::string_view devicesPage = "devices";
 /// The pin showing each connected pad and its battery (`DevicesController::padRows`).
 inline constexpr std::string_view padsRow = "pads";
+/// The pin showing the Bluetooth switch (`DevicesController::bluetoothSwitch`).
+inline constexpr std::string_view bluetoothRow = "bluetooth";
 
 /// Where an item is: its tab, its category on the tab, and its place in the category.
 struct ItemPlace {
@@ -67,6 +69,8 @@ class QuickLayoutEditor {
     [[nodiscard]] static settings::QuickLayout defaults();
     /// The pin showing each connected pad and its battery.
     [[nodiscard]] static settings::QuickPin padsPin();
+    /// The pin showing the Bluetooth switch.
+    [[nodiscard]] static settings::QuickPin bluetoothPin();
     /// Whether the panel can hold `row`: a switch, a choice, a slider, or an action that asks
     /// nothing first.
     [[nodiscard]] static bool pinnable(const ui::SettingsRow& row);

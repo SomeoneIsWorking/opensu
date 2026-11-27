@@ -1225,7 +1225,9 @@ std::string ShellApp::outputLine() const {
 
 void ShellApp::serviceDevices(std::chrono::steady_clock::time_point now) {
     if (bluetooth_) {
-        if (bluetooth_->poll(now, devicesScreen_.showsBluetooth())) {
+        const bool shown =
+            devicesScreen_.showsBluetooth() || quickPanel_.shows(QuickLayoutEditor::bluetoothPin());
+        if (bluetooth_->poll(now, shown)) {
             devicesScreen_.refresh();
         }
         if (const std::optional<BluetoothNotice> notice = bluetooth_->takeNotice()) {

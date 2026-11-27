@@ -1736,6 +1736,7 @@ class ShellApp final {
                                      .images = shell_.screens().images(),
                                      .keyboard = keyboardPad_,
                                      .layered = layered_,
+                                     .devices = devicesScreen_,
                                      .chrome = shell_.screens().chrome()},
         sounds_,
         QuickSettingsPanel::Hooks{.say =
@@ -1746,11 +1747,7 @@ class ShellApp final {
                                       return shell_.inGame() && !remotePlay_.streaming()
                                                  ? &launches_.game()
                                                  : nullptr;
-                                  },
-                                  .pads =
-                                      [this] {
-                                          return devicesScreen_.padRows();
-                                      }}};
+                                  }}};
     /// The menu Guide opens, over the home screen or a running game.
     GuideMenuController guideMenu_{
         shell_.screens().navigator(),

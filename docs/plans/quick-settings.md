@@ -34,7 +34,7 @@ also be pinned from Settings itself; the Guide menu has no quick rows.
   icon name and its categories; a category is a name and its items; an item (`QuickPin`) is a
   Settings page id and a row id there. Unset means the default layout, so a new default reaches a
   player who never customized. The default tabs are the ones agreed above: System (volume, mute,
-  brightness, power profile, Bluetooth once it has a switch, night light), Game (the running
+  brightness, power profile, Bluetooth, night light), Game (the running
   game's settings, replacing the Game settings panel beside the Guide), View (the page's sort and
   filters) and Device (pad battery, the Ally's stick lights and sticks).
 - **`app::QuickLayoutEditor`** owns every change to the layout (add, remove, move, rename, change
@@ -88,14 +88,20 @@ settings in the Guide closes the menu and opens Quick settings there. It is alwa
 categories of its own. Single game settings are not pinned into other tabs: a pin is a Settings row,
 and the game's rows are the editor's.
 
-The Device tab starts with Controllers, a pin of Devices' rows rather than a Settings row
-(`devices`/`pads`, `QuickLayoutEditor::padsPin`): it shows each connected pad as Devices ›
-Controllers does (`DevicesController::padRows`: its name, player and battery, the buttons held), or
-"No controller connected". Add a setting lists Devices after Settings' categories to add it again.
+Two pins name Devices' rows rather than a Settings row (page `devices`), and their rows act
+through `DevicesController`:
 
-Not yet built:
+- Controllers on the Device tab (`QuickLayoutEditor::padsPin`): each connected pad as Devices ›
+  Controllers shows it (`DevicesController::padRows`: its name, player and battery, the buttons
+  held), or "No controller connected".
+- Bluetooth on System (`QuickLayoutEditor::bluetoothPin`): the Bluetooth tab's switch
+  (`DevicesController::bluetoothSwitch`), "Checking" until BlueZ answers, nothing on a machine
+  without a Bluetooth adapter. BlueZ is read while the tab in view holds it
+  (`QuickSettingsPanel::shows`), as it is while Devices shows its Bluetooth tab.
 
-1. **Bluetooth** on System, once `BluetoothSession` polls without the Devices page open.
+Add a setting lists Devices after Settings' categories to add either again.
+
+Everything agreed for Quick settings is built.
 
 ## Proof
 

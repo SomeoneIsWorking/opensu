@@ -47,6 +47,18 @@ std::string deviceNote(const host::BluetoothDevice& device) {
     return joined(parts, " · ");
 }
 
+/// The Bluetooth row while BlueZ has not answered yet.
+SettingsRow checkingRow() {
+    return ui::makeRow("bluetooth.checking", RowKind::Info, "Bluetooth", "Asking BlueZ",
+                       "Checking");
+}
+
+/// The switch turning the adapter on and off.
+SettingsRow powerRow(const host::BluetoothAdapter& adapter) {
+    return ui::makeToggle("bluetooth.power", "Bluetooth",
+                          adapter.name + " (" + adapter.address + ")", adapter.powered);
+}
+
 /// What pressing A on a device does.
 std::string deviceVerb(const host::BluetoothDevice& device) {
     if (!device.paired) {
@@ -145,12 +157,25 @@ const std::vector<ui::SettingsCategory>& DevicesController::tabs() {
     return *tabs_;
 }
 
+std::vector<SettingsRow> DevicesController::bluetoothSwitch() const {
+    if (bluetooth_ == nullptr) {
+        return {};
+    }
+    if (!bluetooth_->known()) {
+        return {checkingRow()};
+    }
+    const std::optional<host::BluetoothAdapter>& adapter = bluetooth_->state().adapter;
+    if (!adapter) {
+        return {};
+    }
+    return {powerRow(*adapter)};
+}
+
 ui::SettingsCategory DevicesController::bluetoothTab() const {
     ui::SettingsCategory tab{bluetoothTabId, "Bluetooth", {}};
     const host::BluetoothState& state = bluetooth_->state();
     if (!bluetooth_->known()) {
-        tab.rows.push_back(ui::makeRow("bluetooth.checking", RowKind::Info, "Bluetooth",
-                                       "Asking BlueZ", "Checking"));
+        tab.rows.push_back(checkingRow());
         return tab;
     }
     if (!state.adapter) {
@@ -159,9 +184,7 @@ ui::SettingsCategory DevicesController::bluetoothTab() const {
         return tab;
     }
     const host::BluetoothAdapter& adapter = *state.adapter;
-    tab.rows.push_back(ui::makeToggle("bluetooth.power", "Bluetooth",
-                                      adapter.name + " (" + adapter.address + ")",
-                                      adapter.powered));
+    tab.rows.push_back(powerRow(adapter));
     if (!bluetooth_->busyWith().empty()) {
         tab.rows.push_back(ui::makeRow("bluetooth.busy", RowKind::Info, bluetooth_->busyWith(),
                                        "BlueZ is working on it", "Please wait"));
