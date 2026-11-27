@@ -313,7 +313,7 @@ void theProviderListsThisOsGames(const fs::path& root) {
     writeProgram(program, "#!/bin/sh\n");
 
     const own::Records records{root / "records.json"};
-    own::Provider provider{records, root / "no-lutris", {games}, {}};
+    own::Provider provider{records, {root / "no-lutris", root / "no-lutris"}, {games}, {}};
     const std::vector<opensu::library::Game> listed = provider.list(std::stop_token{});
     expect(listed.size() == 1 && listed.front().file == program && listed.front().fromGameFolder,
            "the provider lists a folder's games");

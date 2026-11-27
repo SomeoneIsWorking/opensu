@@ -23,7 +23,7 @@ namespace opensu::library::lutris {
 configMapping(const std::filesystem::path& file, std::initializer_list<std::string_view> keys);
 
 /// A game's own config, `games/<configpath>.yml`, by `configpath` in `pga.db`.
-[[nodiscard]] std::filesystem::path gameConfig(const std::filesystem::path& lutrisData,
+[[nodiscard]] std::filesystem::path gameConfig(const std::filesystem::path& lutrisConfig,
                                                std::string_view configpath);
 
 } // namespace opensu::library::lutris

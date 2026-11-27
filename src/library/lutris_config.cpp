@@ -97,8 +97,8 @@ configMapping(const fs::path& file, std::initializer_list<std::string_view> keys
     return found;
 }
 
-fs::path gameConfig(const fs::path& lutrisData, std::string_view configpath) {
-    return lutrisData / "games" / (std::string{configpath} + ".yml");
+fs::path gameConfig(const fs::path& lutrisConfig, std::string_view configpath) {
+    return lutrisConfig / "games" / (std::string{configpath} + ".yml");
 }
 
 } // namespace opensu::library::lutris

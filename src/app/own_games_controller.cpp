@@ -64,7 +64,7 @@ OwnGamesController::Places OwnGamesController::Places::of(const config::Config& 
                   .home = config.home,
                   .steamRoots =
                       library::steam::Library::discover(config.home, config.steamRoots).roots(),
-                  .lutrisData = library::lutris::dataDir(config.xdgDataHome),
+                  .lutris = library::lutris::foldersOf(config.xdgDataHome, config.xdgConfigHome),
                   .steamStore = artwork::RemoteSources::of(config).steamStore};
 }
 
@@ -96,7 +96,7 @@ std::vector<Entry> OwnGamesController::steamShortcuts() const {
 
 std::vector<Entry> OwnGamesController::lutrisGames() const {
     try {
-        return notImported(library::own::lutrisGames(places_.lutrisData));
+        return notImported(library::own::lutrisGames(places_.lutris));
     } catch (const std::runtime_error& error) {
         lucent::warn("own-games", "Lutris: {}", error.what());
         return {};

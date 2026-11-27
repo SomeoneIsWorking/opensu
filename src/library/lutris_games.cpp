@@ -64,7 +64,7 @@ std::string appOfUmuId(std::string_view gameId) {
 
 /// The Steam app a Lutris game is: Lutris's Steam service id, a Steam runner's `appid`, or the
 /// `GAMEID` umu runs a Wine game as.
-std::string steamAppOf(const fs::path& lutrisData, const std::string& configpath,
+std::string steamAppOf(const fs::path& lutrisConfig, const std::string& configpath,
                        const std::string& runner, const std::string& service,
                        const std::string& serviceId) {
     if (service == "steam" && isSteamAppId(serviceId)) {
@@ -73,7 +73,7 @@ std::string steamAppOf(const fs::path& lutrisData, const std::string& configpath
     if (configpath.empty()) {
         return {};
     }
-    const fs::path config = lutris::gameConfig(lutrisData, configpath);
+    const fs::path config = lutris::gameConfig(lutrisConfig, configpath);
     if (runner == "steam") {
         std::string appId = lutris::configValue(config, {"game", "appid"});
         return isSteamAppId(appId) ? appId : std::string{};
@@ -82,12 +82,12 @@ std::string steamAppOf(const fs::path& lutrisData, const std::string& configpath
 }
 
 /// The file name of the program a Lutris game runs; empty when its config names none.
-std::string programOf(const fs::path& lutrisData, const std::string& configpath) {
+std::string programOf(const fs::path& lutrisConfig, const std::string& configpath) {
     if (configpath.empty()) {
         return {};
     }
     const std::string exe =
-        lutris::configValue(lutris::gameConfig(lutrisData, configpath), {"game", "exe"});
+        lutris::configValue(lutris::gameConfig(lutrisConfig, configpath), {"game", "exe"});
     return fs::path{exe}.filename().string();
 }
 
@@ -107,14 +107,17 @@ std::string dllOverrides(const fs::path& config) {
 /// Fills in how Lutris starts `entry` when openSU can start it the same way: a Linux program, or
 /// a Windows `.exe` Lutris runs on the newest GE-Proton in a prefix it names. A game on a Wine
 /// build keeps it: a Proton build would upgrade that prefix under Lutris.
-void readStart(const fs::path& lutrisData, const std::string& configpath, const std::string& runner,
-               Entry& entry) {
+void readStart(const lutris::Folders& folders, const std::string& configpath,
+               const std::string& runner, Entry& entry) {
     if (configpath.empty()) {
         return;
     }
-    const fs::path config = lutris::gameConfig(lutrisData, configpath);
+    const fs::path config = lutris::gameConfig(folders.config, configpath);
     const fs::path exe = lutris::configValue(config, {"game", "exe"});
     const std::optional<Kind> kind = kindOf(exe);
+    if (exe.is_absolute()) {
+        entry.lutrisExe = exe;
+    }
     if (!exe.is_absolute() || !kind) {
         return;
     }
@@ -125,7 +128,7 @@ void readStart(const fs::path& lutrisData, const std::string& configpath, const 
     if (runner == "wine" && *kind == Kind::Windows) {
         std::string version = lutris::configValue(config, {"wine", "version"});
         if (version.empty()) {
-            version = lutris::defaultWineVersion(lutrisData);
+            version = lutris::defaultWineVersion(folders.config);
         }
         const fs::path prefix = lutris::configValue(config, {"game", "prefix"});
         if (version != lutris::geProtonLatest || !prefix.is_absolute()) {
@@ -146,8 +149,8 @@ void readStart(const fs::path& lutrisData, const std::string& configpath, const 
 
 } // namespace
 
-std::vector<Entry> lutrisGames(const fs::path& lutrisData) {
-    const fs::path file = lutrisData / "pga.db";
+std::vector<Entry> lutrisGames(const lutris::Folders& folders) {
+    const fs::path file = folders.data / "pga.db";
     std::error_code error;
     if (!fs::is_regular_file(file, error)) {
         return {};
@@ -186,10 +189,10 @@ std::vector<Entry> lutrisGames(const fs::path& lutrisData) {
                   .workingDirectory = {},
                   .origin = Origin::Lutris,
                   .originId = column(statement.get(), 0),
-                  .steamAppId = steamAppOf(lutrisData, configpath, runner,
+                  .steamAppId = steamAppOf(folders.config, configpath, runner,
                                            column(statement.get(), 4), column(statement.get(), 5)),
-                  .lutrisProgram = programOf(lutrisData, configpath)});
-        readStart(lutrisData, configpath, runner, entries.back());
+                  .lutrisProgram = programOf(folders.config, configpath)});
+        readStart(folders, configpath, runner, entries.back());
     }
     return entries;
 }

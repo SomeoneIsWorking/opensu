@@ -116,11 +116,12 @@ bool isManaged(const library::wine::Runner& runner) {
 } // namespace
 
 library::wine::Search WineSettings::search(const library::steam::Library* steam) const {
-    library::wine::Search search{.executablePath = config_.executablePath,
-                                 .steamRoots = {},
-                                 .steamLibraries = {},
-                                 .managed = library::ge_proton::runnersDir(config_.dataDir),
-                                 .lutris = library::lutris::dataDir(config_.xdgDataHome)};
+    library::wine::Search search{
+        .executablePath = config_.executablePath,
+        .steamRoots = {},
+        .steamLibraries = {},
+        .managed = library::ge_proton::runnersDir(config_.dataDir),
+        .lutris = library::lutris::foldersOf(config_.xdgDataHome, config_.xdgConfigHome)};
     if (steam == nullptr) {
         return search;
     }

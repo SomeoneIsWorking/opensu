@@ -10,12 +10,13 @@
 #include <filesystem>
 #include <vector>
 
+#include "lutris_wine.hpp"
 #include "own_games.hpp"
 
 namespace opensu::library::own {
 
-/// Lutris's installed games under its data folder (`lutris::dataDir`), by name; nothing when it has
-/// no database. Throws when the database is there but cannot be read.
-[[nodiscard]] std::vector<Entry> lutrisGames(const std::filesystem::path& lutrisData);
+/// Lutris's installed games (`lutris::foldersOf`), by name; nothing when it has no database. Throws
+/// when the database is there but cannot be read.
+[[nodiscard]] std::vector<Entry> lutrisGames(const lutris::Folders& lutris);
 
 } // namespace opensu::library::own

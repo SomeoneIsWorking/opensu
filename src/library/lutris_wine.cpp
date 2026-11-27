@@ -21,16 +21,21 @@ constexpr std::array<std::pair<std::string_view, std::string_view>, 4> systemWin
 
 } // namespace
 
-fs::path dataDir(const fs::path& xdgDataHome) {
-    return xdgDataHome / "lutris";
+Folders foldersOf(const fs::path& xdgDataHome, const fs::path& xdgConfigHome) {
+    Folders folders{.data = xdgDataHome / "lutris", .config = xdgConfigHome / "lutris"};
+    std::error_code error;
+    if (xdgConfigHome.empty() || !fs::is_directory(folders.config, error)) {
+        folders.config = folders.data;
+    }
+    return folders;
 }
 
 fs::path wineDir(const fs::path& lutrisData) {
     return lutrisData / "runners" / "wine";
 }
 
-std::string defaultWineVersion(const fs::path& lutrisData) {
-    std::string version = configValue(lutrisData / "runners" / "wine.yml", {"wine", "version"});
+std::string defaultWineVersion(const fs::path& lutrisConfig) {
+    std::string version = configValue(lutrisConfig / "runners" / "wine.yml", {"wine", "version"});
     return version.empty() ? std::string{geProtonLatest} : version;
 }
 

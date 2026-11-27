@@ -338,7 +338,7 @@ Game gameOf(const Entry& entry) {
     game.installed = true;
     game.fromGameFolder = entry.origin == Origin::Folder;
     game.installFolder = entry.folder;
-    game.fromLutris = entry.origin == Origin::Lutris;
+    game.fromLutris = entry.origin == Origin::Lutris || !entry.lutrisProgram.empty();
     game.winePrefix = entry.winePrefix;
     if (game.fromLutris && entry.file.empty()) {
         game.processHint = entry.lutrisProgram;
@@ -365,6 +365,55 @@ Game gameOf(const Entry& entry) {
     return game;
 }
 
+void Provider::takeFromLutris(std::vector<Entry>& entries) const {
+    std::vector<Entry> known;
+    try {
+        known = lutrisGames(lutris_);
+    } catch (const std::exception& error) {
+        // The games still list; only what Lutris knows of them is missing.
+        lucent::warn("own-games", "Lutris's games: {}", error.what());
+    }
+    const auto imported = [&entries](const std::string& lutrisId) {
+        return std::ranges::any_of(entries, [&lutrisId](const Entry& entry) {
+            return entry.origin == Origin::Lutris && entry.originId == lutrisId;
+        });
+    };
+    std::erase_if(entries, [&](Entry& entry) {
+        Entry* lutris = nullptr;
+        if (entry.origin == Origin::Lutris) {
+            const auto found = std::ranges::find(known, entry.originId, &Entry::originId);
+            lutris = found == known.end() ? nullptr : &*found;
+            if (lutris == nullptr) {
+                entry.file.clear();
+                return false;
+            }
+        } else if (entry.origin == Origin::Folder && !entry.file.empty()) {
+            // A games-folder exe Lutris has runs as Lutris runs it, in the prefix with its saves.
+            const auto found = std::ranges::find(known, entry.file, &Entry::lutrisExe);
+            if (found == known.end()) {
+                return false;
+            }
+            if (imported(found->originId)) {
+                return true;
+            }
+            lutris = &*found;
+            entry.originId = lutris->originId;
+        } else {
+            return false;
+        }
+        entry.file = lutris->file;
+        entry.args = lutris->args;
+        entry.workingDirectory = lutris->workingDirectory;
+        entry.lutrisProgram = lutris->lutrisProgram;
+        entry.winePrefix = lutris->winePrefix;
+        entry.environment = lutris->environment;
+        if (entry.steamAppId.empty()) {
+            entry.steamAppId = lutris->steamAppId;
+        }
+        return false;
+    });
+}
+
 std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
     std::vector<Entry> entries = records_.all();
     std::vector<Entry> found = folder::flatpakGames(flatpakExports_);
@@ -379,40 +428,12 @@ std::vector<Game> Provider::list(const std::stop_token& /*stop*/) {
     if (entries.empty()) {
         throw SourceAbsent{"no games added"};
     }
-    const bool anyLutris = std::ranges::any_of(entries, [](const Entry& entry) {
-        return entry.origin == Origin::Lutris;
+    const bool askLutris = std::ranges::any_of(entries, [](const Entry& entry) {
+        return entry.origin == Origin::Lutris ||
+               (entry.origin == Origin::Folder && kindOf(entry.file) == Kind::Windows);
     });
-    if (anyLutris) {
-        std::unordered_map<std::string, Entry> known;
-        try {
-            for (Entry& lutris : lutrisGames(lutrisData_)) {
-                std::string id = lutris.originId;
-                known.emplace(std::move(id), std::move(lutris));
-            }
-        } catch (const std::exception& error) {
-            // The games still list; only what Lutris knows of them is missing.
-            lucent::warn("own-games", "Lutris's games: {}", error.what());
-        }
-        for (Entry& entry : entries) {
-            if (entry.origin != Origin::Lutris) {
-                continue;
-            }
-            const auto found = known.find(entry.originId);
-            if (found == known.end()) {
-                entry.file.clear();
-                continue;
-            }
-            Entry& lutris = found->second;
-            entry.file = std::move(lutris.file);
-            entry.args = std::move(lutris.args);
-            entry.workingDirectory = std::move(lutris.workingDirectory);
-            entry.lutrisProgram = std::move(lutris.lutrisProgram);
-            entry.winePrefix = std::move(lutris.winePrefix);
-            entry.environment = std::move(lutris.environment);
-            if (entry.steamAppId.empty()) {
-                entry.steamAppId = std::move(lutris.steamAppId);
-            }
-        }
+    if (askLutris) {
+        takeFromLutris(entries);
     }
     std::vector<Game> games;
     games.reserve(entries.size());

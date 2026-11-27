@@ -63,10 +63,11 @@ void runnersAreFound(const fs::path& dir) {
     const fs::path lutris = dir / "lutris";
     const fs::path lutrisWine = binary(lutris / "runners/wine/wine-ge-8-26-x86_64/bin/wine");
 
-    const std::vector<wine::Runner> found = wine::discover(wine::Search{.executablePath = {bin},
-                                                                        .steamRoots = {root},
-                                                                        .steamLibraries = {library},
-                                                                        .lutris = lutris});
+    const std::vector<wine::Runner> found =
+        wine::discover(wine::Search{.executablePath = {bin},
+                                    .steamRoots = {root},
+                                    .steamLibraries = {library},
+                                    .lutris = {lutris, lutris}});
     const auto steam = [](const char* name, const fs::path& wine,
                           wine::Origin origin = wine::Origin::Steam) {
         // No `proton` script in these fakes: each is taken as its plain Wine.
@@ -144,6 +145,7 @@ void automaticTakesTheFirstThatRuns(const fs::path& dir) {
 
 void lutrisDefaultIsRead(const fs::path& dir) {
     const fs::path data = dir / "lutris";
+    const opensu::library::lutris::Folders folders{.data = data, .config = data};
     const wine::Runner ge{.name = "GE-Proton11-5",
                           .wine = dir / "Steam/compatibilitytools.d/GE-Proton11-5/files/bin/wine",
                           .proton = dir / "Steam/compatibilitytools.d/GE-Proton11-5",
@@ -155,14 +157,15 @@ void lutrisDefaultIsRead(const fs::path& dir) {
     const wine::Runner system{.name = "System Wine", .wine = dir / "bin/wine"};
     fs::create_directories(data / "runners");
     std::ofstream{data / "runners/wine.yml"} << "{}\n";
-    expect(wine::lutrisDefault(data, {valve, ge, system}) == ge,
+    expect(wine::lutrisDefault(folders, {valve, ge, system}) == ge,
            "no version set: Lutris's latest GE-Proton, the one in compatibilitytools.d");
-    expect(!wine::lutrisDefault(data, {valve, system}),
+    expect(!wine::lutrisDefault(folders, {valve, system}),
            "no GE-Proton on disk: nothing, as Lutris would have umu download one");
     std::ofstream{data / "runners/wine.yml"} << "wine:\n  version: system\nsystem:\n  x: 1\n";
-    expect(wine::lutrisDefault(data, {valve, ge, system}) == system, "\"system\" is system Wine");
+    expect(wine::lutrisDefault(folders, {valve, ge, system}) == system,
+           "\"system\" is system Wine");
     std::ofstream{data / "runners/wine.yml"} << "wine:\n  version: 'Proton 10.0'\n";
-    expect(wine::lutrisDefault(data, {valve, ge, system}) == valve, "a version by name");
+    expect(wine::lutrisDefault(folders, {valve, ge, system}) == valve, "a version by name");
     expect(!wine::lutrisDefault({}, {valve, ge, system}), "no Lutris folder: nothing");
 }
 

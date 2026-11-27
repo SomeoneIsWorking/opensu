@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "game.hpp"
+#include "lutris_wine.hpp"
 #include "umu_database.hpp"
 
 namespace opensu::library::wine {
@@ -66,8 +67,8 @@ struct Search {
     std::vector<std::filesystem::path> steamLibraries;
     /// openSU's own GE-Proton folder (`ge_proton::runnersDir`); empty for none.
     std::filesystem::path managed{};
-    /// Lutris's data folder (`lutris::dataDir`); empty for none.
-    std::filesystem::path lutris{};
+    /// Lutris's folders (`lutris::foldersOf`); empty for none.
+    lutris::Folders lutris{};
 };
 
 /// Every runner found in Automatic's order: openSU's GE-Proton builds, the Proton builds in Steam's
@@ -83,7 +84,7 @@ struct Search {
 /// The runner Lutris uses for a game with no version of its own, among `found`: the newest
 /// GE-Proton in a `compatibilitytools.d` for Lutris's "ge-proton", a build by name, or the system
 /// Wine it names; nothing when it is not on this machine (Lutris would have umu download it).
-[[nodiscard]] std::optional<Runner> lutrisDefault(const std::filesystem::path& lutrisData,
+[[nodiscard]] std::optional<Runner> lutrisDefault(const lutris::Folders& lutris,
                                                   const std::vector<Runner>& found);
 
 /// The games the player gave a prefix of their own, by game id.

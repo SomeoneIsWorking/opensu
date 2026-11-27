@@ -215,8 +215,8 @@ std::vector<Runner> discover(const Search& search) {
                           std::back_inserter(steam));
     }
     addNew(runners, std::move(steam));
-    if (!search.lutris.empty()) {
-        addNew(runners, buildsIn(lutris::wineDir(search.lutris), Origin::Lutris, any));
+    if (!search.lutris.data.empty()) {
+        addNew(runners, buildsIn(lutris::wineDir(search.lutris.data), Origin::Lutris, any));
     }
     if (fs::path system = launch::resolveExecutable("wine", search.executablePath);
         !system.empty()) {
@@ -233,14 +233,15 @@ fs::path umuRunOf(const fs::path& managed, const Search& search) {
         !onPath.empty()) {
         return onPath;
     }
-    return search.lutris.empty() ? fs::path{} : lutris::umuRun(search.lutris);
+    return search.lutris.data.empty() ? fs::path{} : lutris::umuRun(search.lutris.data);
 }
 
-std::optional<Runner> lutrisDefault(const fs::path& lutrisData, const std::vector<Runner>& found) {
-    if (lutrisData.empty()) {
+std::optional<Runner> lutrisDefault(const lutris::Folders& folders,
+                                    const std::vector<Runner>& found) {
+    if (folders.config.empty()) {
         return std::nullopt;
     }
-    const std::string version = lutris::defaultWineVersion(lutrisData);
+    const std::string version = lutris::defaultWineVersion(folders.config);
     if (version == lutris::geProtonLatest) {
         // umu's GE-Proton lives in a compatibilitytools.d; `found` is newest first.
         const auto newest = std::ranges::find_if(found, [](const Runner& runner) {

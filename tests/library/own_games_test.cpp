@@ -238,8 +238,16 @@ void steamShortcutsAreRead(const fs::path& dir) {
 }
 
 void lutrisGamesAreRead(const fs::path& dir) {
-    expect(own::lutrisGames(dir / "none").empty(), "no Lutris is no games");
-    fs::create_directories(dir / "lutris/games");
+    expect(own::lutrisGames({dir / "none", dir / "none"}).empty(), "no Lutris is no games");
+    // Newer Lutris keeps its YAML under the config home, its database under the data home.
+    fs::create_directories(dir / "config/lutris/games");
+    const opensu::library::lutris::Folders lutris =
+        opensu::library::lutris::foldersOf(dir, dir / "config");
+    expect(lutris.data == dir / "lutris" && lutris.config == dir / "config/lutris",
+           "Lutris's YAML is read from its config folder once there is one");
+    expect(opensu::library::lutris::foldersOf(dir, dir / "none").config == dir / "lutris",
+           "else from its data folder");
+    fs::create_directories(dir / "lutris");
     const fs::path db = dir / "lutris/pga.db";
     sqlite3* database = nullptr;
     expect(sqlite3_open(db.string().c_str(), &database) == SQLITE_OK, "a fake pga.db is made");
@@ -256,27 +264,30 @@ void lutrisGamesAreRead(const fs::path& dir) {
                         nullptr, nullptr, nullptr) == SQLITE_OK,
            "the fake holds games");
     sqlite3_close(database);
-    const fs::path re4Exe = dir / "Resident Evil 4/re4.exe";
+    const fs::path re4Exe = dir / "games/Resident Evil 4/re4.exe";
     fs::create_directories(re4Exe.parent_path());
     std::ofstream{re4Exe} << "MZ";
-    std::ofstream{dir / "old.exe"} << "MZ";
-    std::ofstream{dir / "lutris/games/re4.yml"}
+    const fs::path oldExe = dir / "games/Old Wine/old.exe";
+    fs::create_directories(oldExe.parent_path());
+    std::ofstream{oldExe} << "MZ";
+    std::ofstream{dir / "config/lutris/games/re4.yml"}
         << "game:\n  args: -dx12 'two words'\n  exe: " << re4Exe.string()
         << "\n"
            "  prefix: /pfx\n  working_dir: /games\nsystem:\n  env:\n"
            "    GAMEID: '2050650'\nwine:\n  overrides:\n    winmm: n, b\n";
-    std::ofstream{dir / "lutris/games/lies.yml"} << "system:\n  env:\n    GAMEID: umu-1627720\n";
-    std::ofstream{dir / "lutris/games/elden.yml"} << "game:\n  appid: 1245620\n";
-    std::ofstream{dir / "lutris/games/pinned.yml"}
-        << "game:\n  exe: " << (dir / "old.exe").string()
+    std::ofstream{dir / "config/lutris/games/lies.yml"}
+        << "system:\n  env:\n    GAMEID: umu-1627720\n";
+    std::ofstream{dir / "config/lutris/games/elden.yml"} << "game:\n  appid: 1245620\n";
+    std::ofstream{dir / "config/lutris/games/pinned.yml"}
+        << "game:\n  exe: " << oldExe.string()
         << "\n  prefix: /pfx\nwine:\n  version: lutris-7.2\n";
     const fs::path appImage = dir / "tool.AppImage";
     std::ofstream{appImage} << "#!/bin/sh\n";
     fs::permissions(appImage, fs::perms::owner_all);
-    std::ofstream{dir / "lutris/games/shad.yml"}
+    std::ofstream{dir / "config/lutris/games/shad.yml"}
         << "game:\n  args: -d\n  exe: " << appImage.string() << "\n";
     const auto before = fs::last_write_time(db);
-    const std::vector<own::Entry> found = own::lutrisGames(dir / "lutris");
+    const std::vector<own::Entry> found = own::lutrisGames(lutris);
     expect(found.size() == 6 && found[0].title == "Elden Ring" && found[0].originId == "9" &&
                found[2].title == "Lies of P" && found[0].origin == own::Origin::Lutris,
            "installed games by name");
@@ -316,9 +327,14 @@ void lutrisGamesAreRead(const fs::path& dir) {
                  .origin = own::Origin::Lutris,
                  .originId = "2",
                  .steamAppId = "999"});
-    own::Provider provider{records, dir / "lutris", {}, {}};
+    own::Provider provider{records, lutris, {dir / "games"}, {}};
     const std::vector<Game> games = provider.list(std::stop_token{});
-    expect(games.size() == 2 && games[0].artworkKey == "2050650",
+    expect(games.size() == 3, "a found game Lutris runs as an entry is that entry");
+    expect(games[2].fromGameFolder && games[2].fromLutris && games[2].launch.program == "lutris" &&
+               games[2].launch.args == std::vector<std::string>{"lutris:rungameid/6"} &&
+               games[2].processHint == "old.exe",
+           "a found game Lutris runs runs as Lutris runs it");
+    expect(games[0].artworkKey == "2050650",
            "an entry imported without its Steam app takes the one Lutris names");
     expect(games[1].artworkKey == "999", "the entry's own match wins over Lutris's");
     expect(games[0].launch.program == re4Exe.string() && games[0].fromLutris &&

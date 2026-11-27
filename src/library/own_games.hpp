@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "game.hpp"
+#include "lutris_wine.hpp"
 
 namespace opensu::library::own {
 
@@ -57,6 +58,9 @@ struct Entry {
     /// The file name of the game Lutris starts, which shows it is running; read from Lutris, never
     /// saved.
     std::string lutrisProgram{};
+    /// The program Lutris's config names, whether openSU or Lutris starts it; read from Lutris,
+    /// never saved.
+    std::filesystem::path lutrisExe{};
     /// The prefix Lutris keeps the game in; read from Lutris, never saved.
     std::filesystem::path winePrefix{};
     /// "NAME=value" pairs its Lutris config sets; read from Lutris, never saved.
@@ -140,15 +144,15 @@ class Records {
 
 /// Lists the entries, what the games folders hold as games and the Flatpak games `flatpakExports`
 /// export; absent while there are none. A found game whose file is an entry's already is that
-/// entry. A Lutris entry takes how it starts
-/// from `lutrisGames` on each listing, read from `lutrisData`, and, with no Steam app of its own,
-/// the app Lutris knows it as.
+/// entry. A Lutris entry takes how it starts from `lutrisGames` on each listing, read from
+/// `lutris`, and, with no Steam app of its own, the app Lutris knows it as. So does a found
+/// Windows game whose `.exe` a Lutris game runs, which is dropped when that game is an entry.
 class Provider final : public library::Provider {
   public:
-    Provider(Records records, std::filesystem::path lutrisData,
+    Provider(Records records, lutris::Folders lutris,
              std::vector<std::filesystem::path> gameFolders,
              std::vector<std::filesystem::path> flatpakExports)
-        : records_{std::move(records)}, lutrisData_{std::move(lutrisData)},
+        : records_{std::move(records)}, lutris_{std::move(lutris)},
           gameFolders_{std::move(gameFolders)}, flatpakExports_{std::move(flatpakExports)} {
     }
 
@@ -158,8 +162,11 @@ class Provider final : public library::Provider {
     [[nodiscard]] std::vector<Game> list(const std::stop_token& stop) override;
 
   private:
+    /// Fills in what Lutris knows of `entries`' Lutris games and the found ones it runs.
+    void takeFromLutris(std::vector<Entry>& entries) const;
+
     Records records_;
-    std::filesystem::path lutrisData_;
+    lutris::Folders lutris_;
     std::vector<std::filesystem::path> gameFolders_;
     std::vector<std::filesystem::path> flatpakExports_;
 };

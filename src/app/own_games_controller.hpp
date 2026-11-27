@@ -44,8 +44,8 @@ class OwnGamesController {
         std::filesystem::path home;
         /// Steam's install roots (`steam::Library::roots`).
         std::vector<std::filesystem::path> steamRoots;
-        /// Lutris's data folder (`lutris::dataDir`).
-        std::filesystem::path lutrisData;
+        /// Lutris's folders (`lutris::foldersOf`).
+        library::lutris::Folders lutris;
         /// Steam's store, searched for what a file is.
         std::string steamStore;
 
