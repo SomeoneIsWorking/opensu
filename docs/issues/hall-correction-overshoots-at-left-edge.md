@@ -1,6 +1,6 @@
 # Hall-effect correction pulls LS right when it is all the way left and LT is pulled
 
-Status: fixed in the commit that adds this section; checked on the Ally's Check screen.
+Status: fix landed (2f87b56d), installed on the Ally; not yet seen at full left on its Check screen.
 
 Reported by the player (2026-11-27, ROG Ally): "hall effect correction works but it over applies
 when LS is all the way to the left and LT is pulled, it pulls LS slightly to the right, if you
@@ -21,3 +21,10 @@ an end stops there, so a stick at the left end came out at about -0.72.
 `withoutPull` shifts only the side the pull moves away from; the side it moves toward, which the
 end cuts short, is stretched from the shifted centre back to the end. The rest offset is taken out
 after it, as before. `pad_translator_test` checks a full left with the trigger pulled.
+
+The player (2026-11-27, ROG Ally): "I think the effect can scale with how far it is away from fully
+pulled from the left side". `withoutPull` does that on the left of the shifted centre: the amount
+taken out is `-pull * (1 + x) / (1 + pull)`, nothing at the left end and the whole pull at the
+shifted centre. Right of it the whole pull is taken out. Unmeasured: whether the magnet pulls by the
+same amount across the right half; readings with the trigger held at rest, half and full right
+would show it.
