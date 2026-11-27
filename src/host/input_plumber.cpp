@@ -19,7 +19,8 @@ constexpr const char* service = "org.shadowblip.InputPlumber";
 constexpr const char* compositeInterface = "org.shadowblip.Input.CompositeDevice";
 constexpr const char* targetInterface = "org.shadowblip.Input.Target";
 constexpr std::string_view compositePrefix = "/org/shadowblip/InputPlumber/CompositeDevice";
-constexpr std::string_view xbox360 = "xb360";
+/// Not the Xbox 360 pad openSU's virtual pads are, which a game must tell apart by its ids.
+constexpr std::string_view xboxSeries = "xbox-series";
 
 /// Target ids whose pad is a Steam Deck HID device: Steam reads it, nothing else does.
 constexpr std::array<std::string_view, 2> steamOnly{"deck", "deck-uhid"};
@@ -90,7 +91,7 @@ std::optional<std::vector<std::string>> readableTargets(const std::vector<std::s
     for (const std::string& target : targets) {
         const bool onlySteam = std::ranges::find(steamOnly, target) != steamOnly.end();
         replaced = replaced || onlySteam;
-        const std::string next = onlySteam ? std::string{xbox360} : target;
+        const std::string next = onlySteam ? std::string{xboxSeries} : target;
         if (std::ranges::find(readable, next) == readable.end()) {
             readable.push_back(next);
         }

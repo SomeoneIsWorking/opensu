@@ -1,7 +1,8 @@
 // input_plumber — the pads InputPlumber presents (a handheld's built-in controller on Bazzite,
 // ChimeraOS and the like). Its Steam Deck targets are HID devices only Steam reads; while
-// `ReadablePads` lives each one is an Xbox 360 pad instead, an input device openSU and its games
-// read, and the targets it found are put back when it goes.
+// `ReadablePads` lives each one is an Xbox Series pad instead, an input device openSU and its games
+// read, and the targets it found are put back when it goes. Not an Xbox 360 pad: that is what
+// openSU's virtual pads are, and a game told to read only those must not find this one too.
 #pragma once
 
 #include <memory>
@@ -14,7 +15,7 @@
 namespace opensu::host {
 
 /// `targets` (InputPlumber's target device ids for one composite device) with each Steam-only
-/// gamepad an Xbox 360 pad; nothing when none is Steam-only.
+/// gamepad an Xbox Series pad; nothing when none is Steam-only.
 [[nodiscard]] std::optional<std::vector<std::string>>
 readableTargets(const std::vector<std::string>& targets);
 

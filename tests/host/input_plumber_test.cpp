@@ -23,9 +23,9 @@ void expect(bool condition, const char* what) {
 void mapping() {
     using opensu::host::readableTargets;
     expect(readableTargets({"deck-uhid", "keyboard", "mouse"}) ==
-               Targets{"xb360", "keyboard", "mouse"},
-           "a Steam Deck HID pad becomes an Xbox 360 pad");
-    expect(readableTargets({"deck", "xb360"}) == Targets{"xb360"},
+               Targets{"xbox-series", "keyboard", "mouse"},
+           "a Steam Deck HID pad becomes an Xbox Series pad, not the virtual pads' Xbox 360");
+    expect(readableTargets({"deck", "xbox-series"}) == Targets{"xbox-series"},
            "a pad already there is not doubled");
     expect(!readableTargets({"xbox-elite", "keyboard"}),
            "targets openSU already reads are left alone");
@@ -70,8 +70,9 @@ void borrowsAndRestores() {
     Plumber plumber{.targets = {"deck-uhid", "keyboard", "mouse"}, .sets = {}};
     {
         const auto pads = opensu::host::makeReadablePads(plumber.runner());
-        expect(plumber.sets.size() == 1 && plumber.sets[0] == Targets{"xb360", "keyboard", "mouse"},
-               "the Steam Deck pad is an Xbox 360 pad while openSU runs");
+        expect(plumber.sets.size() == 1 &&
+                   plumber.sets[0] == Targets{"xbox-series", "keyboard", "mouse"},
+               "the Steam Deck pad is an Xbox Series pad while openSU runs");
     }
     expect(plumber.sets.size() == 2 && plumber.sets[1] == Targets{"deck-uhid", "keyboard", "mouse"},
            "the targets it found are put back as openSU ends");
