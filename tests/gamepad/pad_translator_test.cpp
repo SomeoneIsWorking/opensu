@@ -3,9 +3,9 @@
 
 #include <algorithm>
 #include <array>
-#include <string>
 #include <chrono>
 #include <cstdio>
+#include <string>
 #include <vector>
 
 #include <linux/input-event-codes.h>
@@ -381,6 +381,9 @@ void hallCorrectionTakesOutTheTriggerPull() {
            "with them the stick the trigger pulled reads centred");
     expect(lastLeftX(feed(ally, {{EV_ABS, ABS_X, 32767}})) == 32767,
            "a full push still reaches the edge");
+    // The stick held fully left reads its end whether or not the trigger pulls it further.
+    expect(lastLeftX(feed(ally, {{EV_ABS, ABS_X, -32768}})) == -32767,
+           "a full push left stays at the left edge with the trigger pulled");
 }
 
 /// The last value the virtual pad got on `code`.

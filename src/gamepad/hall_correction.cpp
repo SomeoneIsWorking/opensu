@@ -12,6 +12,18 @@ float edgeGain(float value) {
     return near * near;
 }
 
+/// Takes out a shift of `pull`. The reading stops at the end the pull moves it toward, so that
+/// side is stretched back to its end rather than shifted off it.
+float withoutPull(float value, float pull) {
+    if (pull < 0.0f && value < pull) {
+        return (value - pull) / (1.0f + pull);
+    }
+    if (pull > 0.0f && value > pull) {
+        return (value - pull) / (1.0f - pull);
+    }
+    return value - pull;
+}
+
 float remapped(float value, float deadzone) {
     const float past = (std::abs(value) - deadzone) / (1.0f - deadzone);
     return std::copysign(std::max(0.0f, past), value);
@@ -37,8 +49,8 @@ StickPositions corrected(StickPositions sticks, float leftTrigger, const HallTer
     const float trigger = std::clamp(leftTrigger, 0.0f, 1.0f);
     float& leftX = sticks.leftX;
     float& rightX = sticks.rightX;
-    leftX = std::clamp(leftX - terms.leftIdleX * edgeGain(leftX) - terms.triggerPullX * trigger,
-                       -1.0f, 1.0f);
+    leftX = std::clamp(withoutPull(leftX, terms.triggerPullX * trigger), -1.0f, 1.0f);
+    leftX = std::clamp(leftX - terms.leftIdleX * edgeGain(leftX), -1.0f, 1.0f);
     rightX = std::clamp(rightX - terms.rightIdleX * edgeGain(rightX), -1.0f, 1.0f);
     applyDeadzone(leftX, sticks.leftY, terms.leftDeadzone, terms.remapDeadzone);
     applyDeadzone(rightX, sticks.rightY, terms.rightDeadzone, terms.remapDeadzone);
