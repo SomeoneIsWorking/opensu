@@ -285,9 +285,8 @@ void testLibraryLaunchers() {
     const std::vector<ShelfItem> shelf =
         opensu::library::libraryShelf(library(), sources, oneAdd());
     expect(launcherAt(shelf, 0) != nullptr && launcherAt(shelf, 0)->source == Source::Steam &&
-               launcherAt(shelf, 1) != nullptr && launcherAt(shelf, 1)->source == Source::Gog,
-           "a store that is not there has no tile");
-    expect(!launcherAt(shelf, 1)->ready, "a store that needs attention is not ready");
+               (launcherAt(shelf, 1) == nullptr || launcherAt(shelf, 1)->source != Source::Gog),
+           "a store that is not there or needs the player first has no tile");
 
     const std::vector<ShelfItem> bare = opensu::library::libraryShelf({}, {}, oneAdd());
     expect(bare.size() == 1 && std::holds_alternative<AddTile>(bare.at(0)),
@@ -308,9 +307,8 @@ void testLibraryLaunchers() {
 
     const std::vector<ShelfItem> signedOut = opensu::library::libraryShelf(
         {}, {{Source::Gog, Availability::Attention, "not signed in"}}, oneAdd());
-    expect(signedOut.size() == 3 && !launcherAt(signedOut, 0)->ready &&
-               std::holds_alternative<Giveaways>(signedOut.at(1)),
-           "a signed-out store still has its tile and Giveaways");
+    expect(signedOut.size() == 1 && std::holds_alternative<AddTile>(signedOut.at(0)),
+           "a signed-out store has no tile and brings no Giveaways");
 
     const std::vector<ShelfItem> ownOnly =
         opensu::library::libraryShelf({game(Source::Own, "own:1", "1", "Celeste", true)},

@@ -72,6 +72,7 @@ void libraryAddListsWhatIsOff(const fs::path& root) {
     test::InterfaceRig screens;
     const ui::Chrome chrome{.width = 1280.0f};
     std::vector<std::string> pressed;
+    std::vector<library::Source> unsignedStores;
     app::LibraryAdditions additions{
         inForce, screens.navigator, chrome,
         app::LibraryAdditions::Hooks{.addGame =
@@ -93,6 +94,15 @@ void libraryAddListsWhatIsOff(const fs::path& root) {
                                      .addIntegration =
                                          [&pressed](std::string_view entry) {
                                              pressed.emplace_back(entry);
+                                         },
+                                     .unsignedStores =
+                                         [&unsignedStores] {
+                                             return unsignedStores;
+                                         },
+                                     .signIn =
+                                         [&pressed](library::Source source) {
+                                             pressed.emplace_back("sign in " +
+                                                                  std::string{library::label(source)});
                                          }}};
     expect(additions.tiles().size() == 1 && additions.tiles().front().id == "add",
            "Library has one Add tile");
@@ -130,6 +140,14 @@ void libraryAddListsWhatIsOff(const fs::path& root) {
     additions.press("add");
     additions.run("lan-import", 0);
     expect(pressed.back() == "lan import", "and opens the LAN's ROM import");
+    unsignedStores = {library::Source::Steam};
+    const std::vector<std::string> signedOut = ids();
+    expect(signedOut.front() == "sign-in:steam" &&
+               additions.page().rows.front().label == "Sign in to Steam",
+           "a store on but signed out is offered first, as a sign-in");
+    additions.press("add");
+    additions.run("sign-in:steam", 0);
+    expect(pressed.back() == "sign in Steam", "and picking it opens that store's sign-in");
 }
 
 bool waitFor(const std::function<bool()>& holds);
@@ -197,14 +215,9 @@ void wizardAddsIntegrations(const fs::path& root, bool loginSession) {
     }
     expect(topId(screens) == "wizard/steam-login", "fumarole asks how to sign in");
     expect(!inForce.choices().steam, "nothing is added before the last step");
-    wizard.run("wizard.login.later", 0);
-    screens.frame();
-    expect(topId(screens).empty() && inForce.current().steam == SteamUse::Fumarole,
-           "Sign in later adds Steam through fumarole and closes the steps");
-    expect(!inForce.catalogStores().steam && inForce.catalogStores().fumarole,
-           "the catalog lists fumarole's games, not the Steam client's");
+    expect(rowOf(wizard.page(app::IntegrationWizard::Step::Login), "wizard.login.later") == nullptr,
+           "Steam cannot be added through fumarole without signing in");
 
-    inForce.choose({});
     wizard.start("steam");
     if (client) {
         wizard.run("wizard.kind.fumarole", 0);
@@ -219,6 +232,21 @@ void wizardAddsIntegrations(const fs::path& root, bool loginSession) {
            "a signed-in fumarole adds Steam");
     expect(topId(screens).empty() && toasts.back() == "Steam added. Signed in to Steam",
            "and closes the steps");
+    expect(inForce.current().steam == SteamUse::Fumarole && !inForce.catalogStores().steam &&
+               inForce.catalogStores().fumarole,
+           "the catalog lists fumarole's games, not the Steam client's");
+
+    wizard.signInToSteam();
+    expect(topId(screens) == "wizard/steam-login", "Steam added but signed out opens the sign-in");
+    wizard.run("wizard.login.qr", 0);
+    expect(waitFor([&] {
+               wizard.service();
+               screens.frame();
+               return topId(screens).empty();
+           }),
+           "signing in again closes the steps");
+    expect(toasts.back() == "Signed in to Steam" && inForce.current().steam == SteamUse::Fumarole,
+           "and keeps Steam as it was");
 
     if (client) {
         inForce.choose({});
@@ -314,9 +342,8 @@ void wizardCopiesASignIn(const fs::path& root) {
     toLogin();
     const ui::SettingsCategory login = wizard.page(app::IntegrationWizard::Step::Login);
     const ui::SettingsRow* copy = rowOf(login, "wizard.login.copy:den-id");
-    expect(copy != nullptr && copy->label == "Copy from Den" &&
-               login.rows.back().id == "wizard.login.later",
-           "the Login page offers a copy from each paired openSU, before Sign in later");
+    expect(copy != nullptr && copy->label == "Copy from Den" && &login.rows.back() == copy,
+           "the Login page offers a copy from each paired openSU, last");
 
     wizard.run("wizard.login.copy:den-id", 0);
     screens.frame();

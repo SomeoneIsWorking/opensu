@@ -1,9 +1,9 @@
 // library_additions — Library's one Add tile, last on its shelf and alone on an empty Home, and the
 // "Add to library" page it opens: each integration this build offers that the player has not
-// added, then what adds games: Add a game and Add a game folder where this OS can start a game of
-// the player's own (`library::addGameOffer`), Add a ROM folder, and Import from a PC on your
-// network while LAN is on. A pick closes the page and starts that flow; an integration's starts
-// its wizard.
+// added or that cannot list its games until the player signs in, then what adds games: Add a game
+// and Add a game folder where this OS can start a game of the player's own
+// (`library::addGameOffer`), Add a ROM folder, and Import from a PC on your network while LAN is
+// on. A pick closes the page and starts that flow; an integration's starts its wizard.
 #pragma once
 
 #include <functional>
@@ -35,6 +35,10 @@ class LibraryAdditions final : public ui::RowActions {
         std::function<void()> importFromLan;
         /// Adds the integration entry `entry` (`IntegrationWizard::start`).
         std::function<void(std::string_view entry)> addIntegration;
+        /// The stores in force that list nothing until the player signs in.
+        std::function<std::vector<library::Source>()> unsignedStores;
+        /// Opens `source`'s sign-in.
+        std::function<void(library::Source source)> signIn;
     };
 
     LibraryAdditions(const IntegrationsInForce& integrations, gpu2d::ui::Navigator& navigator,

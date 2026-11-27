@@ -332,7 +332,9 @@ std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
     std::vector<ShelfItem> shelf;
     for (const Source source : launcherOrder) {
         const auto status = std::ranges::find(sources, source, &SourceStatus::source);
-        if (status == sources.end() || status->availability == Availability::Absent) {
+        // A store that needs the player first is offered on the Add page, not shown as added.
+        if (status == sources.end() || status->availability == Availability::Absent ||
+            status->availability == Availability::Attention) {
             continue;
         }
         const bool ready = status->availability == Availability::Ready;

@@ -46,14 +46,13 @@ std::vector<Game> Installs::owned() const {
     const std::optional<launch::Captured> result =
         launch::runCaptured(program.string(), {"list", "--json"});
     if (!result || result->status != 0) {
-        lucent::warn("fumarole", "the owned games could not be listed; is fumarole signed in?");
-        return {};
+        throw std::runtime_error{"fumarole could not list the account's games; is it signed in?"};
     }
     try {
         return parseOwned(result->output);
     } catch (const std::runtime_error& error) {
-        lucent::warn("fumarole", "the owned games list is unreadable: {}", error.what());
-        return {};
+        throw std::runtime_error{std::string{"fumarole's owned games list is unreadable: "} +
+                                 error.what()};
     }
 }
 

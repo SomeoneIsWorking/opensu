@@ -33,8 +33,8 @@ struct Installs {
     [[nodiscard]] std::vector<Game> games() const;
 
     /// The account's owned games fumarole can install here (`parseOwned`), as Steam games not
-    /// installed here that `fumarole install` installs; empty when fumarole is not signed in or
-    /// cannot be reached.
+    /// installed here that `fumarole install` installs. Throws when fumarole is not signed in, cannot
+    /// be reached or prints an unreadable list.
     [[nodiscard]] std::vector<Game> owned() const;
 
     /// The account's Steam web login, the `steamLoginSecure` cookie `fumarole web-session`

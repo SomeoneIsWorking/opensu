@@ -1,11 +1,12 @@
 // integration_wizard — adding an integration from Library's Add page. Steam asks how its games
-// come: fumarole, then its sign-in (a QR code for the Steam mobile app, this PC's Steam login, a
-// copy of a paired openSU's on the LAN, or later); or the Steam client, then its mode where there
-// is a choice (a login session always runs openSU's own), and the client asks for its login when
-// it starts. A copy asks that openSU, whose player allows it, waits on a page of its own (Back
-// stops waiting), and pipes the sign-in into fumarole. Epic and GOG are added and their sign-in
-// opens; the others are just added. Each step is a page over the last; Back steps back, and only
-// the last step adds anything.
+// come: fumarole, then its sign-in (a QR code for the Steam mobile app, this PC's Steam login, or a
+// copy of a paired openSU's on the LAN), which adds Steam once it succeeds; or the Steam client,
+// then its mode where there is a choice (a login session always runs openSU's own), and the client
+// asks for its login when it starts. A copy asks that openSU, whose player allows it, waits on a
+// page of its own (Back stops waiting), and pipes the sign-in into fumarole. Epic and GOG are added
+// and their sign-in opens; the others are just added. Each step is a page over the last; Back steps
+// back, and only the last step adds anything. Steam added through fumarole but not signed in opens
+// the sign-in step on its own.
 #pragma once
 
 #include <cstdint>
@@ -64,6 +65,8 @@ class IntegrationWizard final : public ui::RowActions {
 
     /// Adds the integration entry `entry` (`integrationEntries`), Steam through its steps.
     void start(std::string_view entry);
+    /// Opens Steam's sign-in step for fumarole when Steam is already added through it.
+    void signInToSteam();
     /// Step `step`'s title and rows.
     [[nodiscard]] ui::SettingsCategory page(Step step) const;
     /// A pick on a step's page.
@@ -101,6 +104,8 @@ class IntegrationWizard final : public ui::RowActions {
     settings::IntegrationChoices staged_;
     /// A fumarole sign-in this started is under way.
     bool signingIn_{false};
+    /// Steam is already added; the steps only sign fumarole in.
+    bool signInOnly_{false};
     /// The openSU a copy is asked of, while it is waited for.
     std::optional<lan::Peer> copying_;
     std::stop_source copyStop_;

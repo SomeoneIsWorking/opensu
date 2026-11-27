@@ -36,7 +36,6 @@ inline constexpr std::string_view menuAddHomeId = "menu.addHome";
 inline constexpr std::string_view menuRemoveHomeId = "menu.removeHome";
 inline constexpr std::string_view menuUninstallId = "menu.uninstall";
 inline constexpr std::string_view menuOpenId = "menu.open";
-inline constexpr std::string_view menuSignInId = "menu.signIn";
 inline constexpr std::string_view menuRefreshId = "menu.refresh";
 inline constexpr std::string_view menuConfigureId = "menu.configure";
 inline constexpr std::string_view menuRemoveId = "menu.remove";
@@ -66,7 +65,6 @@ class ContextMenuController final : public ui::RowActions {
         std::function<void(const library::ShelfItem& item, bool on)> setOnHome;
         std::function<void(const library::Folder& folder)> open;
         std::function<void()> refresh;
-        std::function<void(library::Source source)> signIn;
         /// Opens where `folder` is set up: its integration, LAN, the game folders, its console.
         std::function<void(const library::Folder& folder)> configure;
         /// Whether `launcher` can be taken out of the library: an integration that is on, or

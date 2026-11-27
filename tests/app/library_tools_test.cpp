@@ -91,10 +91,6 @@ void menuEntriesFollowTheTile() {
     expect(idsOf(app::contextEntriesFor(library::Console{}, false, std::nullopt)) ==
                ids({app::menuOpenId, app::menuConfigureId, app::menuRefreshId}),
            "a console opens and is configured");
-    expect(idsOf(app::contextEntriesFor(library::Launcher{library::Source::Gog, 0, false, false},
-                                        false, std::nullopt)) ==
-               ids({app::menuOpenId, app::menuConfigureId, app::menuSignInId, app::menuRefreshId}),
-           "a GOG launcher without a sign-in offers one");
     expect(idsOf(app::contextEntriesFor(library::Launcher{library::Source::Gog, 3, true, false},
                                         false, std::nullopt)) ==
                ids({app::menuOpenId, app::menuConfigureId, app::menuRefreshId}),
@@ -105,8 +101,8 @@ void menuEntriesFollowTheTile() {
            "Steam has no sign-in of its own");
     expect(idsOf(app::contextEntriesFor(library::Launcher{library::Source::Steam, 3, true, false},
                                         false, false, true)) ==
-               ids({app::menuOpenId, app::menuConfigureId, app::menuAddHomeId,
-                    app::menuRefreshId, app::menuRemoveId}),
+               ids({app::menuOpenId, app::menuConfigureId, app::menuAddHomeId, app::menuRefreshId,
+                    app::menuRemoveId}),
            "a store that is on can be put on Home and removed, Remove last");
     expect(idsOf(app::contextEntriesFor(library::Giveaways{}, false, std::nullopt)) ==
                ids({app::menuOpenId, app::menuRefreshId}),
@@ -161,60 +157,56 @@ void hidingPersistsAndMenuRoutes(const fs::path& root) {
                                    [&](const std::string& text, bool error) {
                                        log.push_back((error ? "refused " : "said ") + text);
                                    }}};
-    ContextMenuController controller{ui.navigator,
-                                     rig.images,
-                                     rig.sounds,
-                                     {rig.preferences, uninstall, update},
-                                     {.focused = [&]() -> const library::ShelfItem* {
-                                          return noFocus ? nullptr : &focus;
-                                      },
-                                      .launch =
-                                          [&] {
-                                              log.emplace_back("launch");
-                                          },
-                                      .details =
-                                          [&] {
-                                              log.emplace_back("details");
-                                          },
-                                      .setHidden =
-                                          [&](const library::Game& game, bool hidden) {
-                                              rig.preferences.values().hidden.set(game, hidden);
-                                              rig.preferences.save();
-                                              log.emplace_back(hidden ? "hide" : "unhide");
-                                          },
-                                      .onHome =
-                                          [](const library::ShelfItem&) {
-                                              return std::optional<bool>{};
-                                          },
-                                      .setOnHome =
-                                          [&](const library::ShelfItem&, bool on) {
-                                              log.emplace_back(on ? "add home" : "remove home");
-                                          },
-                                      .open =
-                                          [&](const library::Folder&) {
-                                              log.emplace_back("open");
-                                          },
-                                      .refresh =
-                                          [&] {
-                                              log.emplace_back("refresh");
-                                          },
-                                      .signIn =
-                                          [&](library::Source) {
-                                              log.emplace_back("signin");
-                                          },
-                                      .configure =
-                                          [&](const library::Folder& folder) {
-                                              log.push_back("configure " + library::key(folder));
-                                          },
-                                      .removable =
-                                          [](const library::Launcher& launcher) {
-                                              return launcher.source == library::Source::Steam;
-                                          },
-                                      .remove =
-                                          [&](const library::Launcher& launcher) {
-                                              log.push_back("remove " +
-                                                            library::key(library::Folder{launcher}));
-                                          }}};
+    ContextMenuController controller{
+        ui.navigator,
+        rig.images,
+        rig.sounds,
+        {rig.preferences, uninstall, update},
+        {.focused = [&]() -> const library::ShelfItem* {
+             return noFocus ? nullptr : &focus;
+         },
+         .launch =
+             [&] {
+                 log.emplace_back("launch");
+             },
+         .details =
+             [&] {
+                 log.emplace_back("details");
+             },
+         .setHidden =
+             [&](const library::Game& game, bool hidden) {
+                 rig.preferences.values().hidden.set(game, hidden);
+                 rig.preferences.save();
+                 log.emplace_back(hidden ? "hide" : "unhide");
+             },
+         .onHome =
+             [](const library::ShelfItem&) {
+                 return std::optional<bool>{};
+             },
+         .setOnHome =
+             [&](const library::ShelfItem&, bool on) {
+                 log.emplace_back(on ? "add home" : "remove home");
+             },
+         .open =
+             [&](const library::Folder&) {
+                 log.emplace_back("open");
+             },
+         .refresh =
+             [&] {
+                 log.emplace_back("refresh");
+             },
+         .configure =
+             [&](const library::Folder& folder) {
+                 log.push_back("configure " + library::key(folder));
+             },
+         .removable =
+             [](const library::Launcher& launcher) {
+                 return launcher.source == library::Source::Steam;
+             },
+         .remove =
+             [&](const library::Launcher& launcher) {
+                 log.push_back("remove " + library::key(library::Folder{launcher}));
+             }}};
     const auto open = [&] {
         controller.open();
         ui.frame(1.0);
@@ -294,17 +286,15 @@ void hidingPersistsAndMenuRoutes(const fs::path& root) {
                !controller.isOpen(),
            "Update starts the menu's game's update at once and closes the menu");
 
-    focus = library::Launcher{library::Source::Gog, 0, false, false};
-    open();
-    press({Action::Down, Action::Down, Action::Accept});
-    expect(log.back() == "signin", "sign in routes to the store");
+    focus = library::Launcher{library::Source::Gog, 0, true, false};
     open();
     press({Action::Down, Action::Accept});
     expect(log.back() == "configure launcher:gog", "Configure routes to where the store is set up");
     focus = library::Launcher{library::Source::Steam, 3, true, false};
     log.clear();
     open();
-    expect(controller.entries().back().id == app::menuRemoveId, "an integration that is on is removable");
+    expect(controller.entries().back().id == app::menuRemoveId,
+           "an integration that is on is removable");
     press({Action::Down, Action::Down, Action::Down, Action::Accept});
     expect(top() == "dialog" && ui.navigator.top()->title() == "Remove Steam?" && log.empty(),
            "Remove asks first, naming the library");

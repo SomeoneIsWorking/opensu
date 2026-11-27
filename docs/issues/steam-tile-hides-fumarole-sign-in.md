@@ -1,6 +1,6 @@
 # Steam's tile says "0 games" when fumarole is not signed in
 
-Status: open.
+Status: fixed (see the commit after 7e80a105): a store that cannot list its games has no tile and is offered on the Add page as "Sign in to <store>"; shown on the Ally 2026-11-27.
 
 Reported by the player (2026-11-27, Ally, b949272a): "Why can't I use Steam here?"
 

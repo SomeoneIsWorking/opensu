@@ -20,7 +20,6 @@ constexpr std::string_view kindClientId = "wizard.kind.client";
 constexpr std::string_view modePrefix = "wizard.mode.";
 constexpr std::string_view loginQrId = "wizard.login.qr";
 constexpr std::string_view loginSteamId = "wizard.login.steam";
-constexpr std::string_view loginLaterId = "wizard.login.later";
 /// A copy's row is this and the paired openSU's id.
 constexpr std::string_view loginCopyPrefix = "wizard.login.copy:";
 /// Every step's page id starts with this.
@@ -52,6 +51,7 @@ void IntegrationWizard::start(std::string_view entry) {
     stopCopy();
     staged_ = integrations_.choices();
     signingIn_ = false;
+    signInOnly_ = false;
     bool* on = switchOf(staged_, entry);
     if (on == nullptr) {
         return;
@@ -76,6 +76,14 @@ void IntegrationWizard::start(std::string_view entry) {
             hooks_.toast(std::string{offered.label} + " added", false);
         }
     }
+}
+
+void IntegrationWizard::signInToSteam() {
+    stopCopy();
+    staged_ = integrations_.choices();
+    signingIn_ = false;
+    signInOnly_ = true;
+    show(Step::Login);
 }
 
 ui::SettingsCategory IntegrationWizard::page(Step step) const {
@@ -107,8 +115,6 @@ ui::SettingsCategory IntegrationWizard::page(Step step) const {
                 std::string{loginCopyPrefix} + peer.id, "Copy from " + peer.name,
                 "The account " + peer.name + " signs in with, once " + peer.name + " allows it"));
         }
-        page.rows.push_back(
-            action(loginLaterId, "Sign in later", "Steam's games show once fumarole is signed in"));
         break;
     case Step::Copy: {
         const std::string host = copying_ ? copying_->name : std::string{"the other openSU"};
@@ -229,8 +235,6 @@ void IntegrationWizard::run(const std::string& id, int step) {
         hooks_.toast("Signing in with this PC's Steam login", false);
     } else if (id.starts_with(loginCopyPrefix)) {
         copyFrom(id.substr(loginCopyPrefix.size()));
-    } else if (id == loginLaterId) {
-        finish("Steam added");
     }
 }
 
@@ -247,8 +251,12 @@ void IntegrationWizard::service() {
     const std::optional<lan::Peer> copied = std::exchange(copying_, std::nullopt);
     arrival_.reset();
     if (result->ok) {
-        finish(copied ? "Steam added with " + copied->name + "'s sign-in"
-                      : "Steam added. " + result->message);
+        if (copied) {
+            finish((signInOnly_ ? "Signed in to Steam" : "Steam added") + std::string{" with "} +
+                   copied->name + "'s sign-in");
+        } else {
+            finish(signInOnly_ ? result->message : "Steam added. " + result->message);
+        }
         return;
     }
     closeFrom(copied ? copyPageId : qrPageId);

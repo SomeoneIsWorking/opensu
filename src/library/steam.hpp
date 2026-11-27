@@ -64,7 +64,8 @@ class Library {
 /// stays Steam's, one only fumarole installed starts through fumarole. With no Steam here, the
 /// account's other owned games fumarole can install are listed too, not installed (asked once).
 /// Throws when there is neither Steam nor fumarole, which the catalog reports as a problem rather
-/// than a failure.
+/// than a failure, and when, with no Steam, fumarole cannot list the account's games (not signed
+/// in), which the catalog reports as needing the player.
 class Provider final : public library::Provider {
   public:
     Provider(Library library, fumarole::Installs fumarole);

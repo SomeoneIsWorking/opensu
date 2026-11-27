@@ -11,16 +11,9 @@
 namespace opensu::app {
 namespace {
 
-/// Whether a launcher tile for a store with its own sign-in has none yet.
-bool needsSignIn(const library::Launcher& launcher) noexcept {
-    return !launcher.ready && !launcher.loading &&
-           (launcher.source == library::Source::Gog || launcher.source == library::Source::Epic);
-}
-
 ui::SettingsRow entry(std::string_view id, std::string label) {
     return ui::makeRow(std::string{id}, ui::RowKind::Action, std::move(label), {}, {});
 }
-
 
 } // namespace
 
@@ -58,9 +51,6 @@ std::vector<ui::SettingsRow> contextEntriesFor(const library::ShelfItem& item, b
     }
     if (onHome) {
         entries.push_back(homeEntry());
-    }
-    if (launcher != nullptr && needsSignIn(*launcher)) {
-        entries.push_back(entry(menuSignInId, "Sign in"));
     }
     entries.push_back(entry(menuRefreshId, "Refresh library"));
     if (launcher != nullptr && removable) {
@@ -132,10 +122,6 @@ void ContextMenuController::run(const std::string& id, int /*step*/) {
         if (const std::optional<library::Folder> folder = library::folderOf(target)) {
             hooks_.open(*folder);
         }
-    } else if (id == menuSignInId) {
-        if (const auto* launcher = std::get_if<library::Launcher>(&target)) {
-            hooks_.signIn(launcher->source);
-        }
     } else if (id == menuConfigureId) {
         if (const std::optional<library::Folder> folder = library::folderOf(target)) {
             hooks_.configure(*folder);
@@ -157,15 +143,14 @@ void ContextMenuController::run(const std::string& id, int /*step*/) {
 
 void ContextMenuController::remove(const library::Launcher& launcher) {
     const std::string name = library::name(library::Folder{launcher});
-    const std::string what = launcher.source == library::Source::Remote
-                                 ? "This device forgets " + name +
-                                       " and its games; pair again to see them."
-                                 : name + "'s games leave the library. Add it again from Library's "
-                                          "Add tile.";
-    navigator_.push(gpu2d::ui::confirm("Remove " + name + "?", what, "Remove",
-                                       [this, launcher] {
-                                           hooks_.remove(launcher);
-                                       }));
+    const std::string what =
+        launcher.source == library::Source::Remote
+            ? "This device forgets " + name + " and its games; pair again to see them."
+            : name + "'s games leave the library. Add it again from Library's "
+                     "Add tile.";
+    navigator_.push(gpu2d::ui::confirm("Remove " + name + "?", what, "Remove", [this, launcher] {
+        hooks_.remove(launcher);
+    }));
 }
 
 void ContextMenuController::uninstall(const library::Game& game) {

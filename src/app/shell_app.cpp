@@ -459,15 +459,7 @@ void ShellApp::openFolder(const library::Folder& folder) {
             shell_.setToast("still loading " + store);
             return;
         }
-        if (!launcher->ready && launcher->source == library::Source::Gog) {
-            startSignIn(Store::Gog);
-            return;
-        }
-        if (!launcher->ready && launcher->source == library::Source::Epic) {
-            startSignIn(Store::Epic);
-            return;
-        }
-        shell_.setToast(launcher->ready ? "no games in " + store : "sign in to " + store, true);
+        shell_.setToast("no games in " + store, true);
         return;
     }
     // input-sound.md 3.4 EnterConsolesApps: A on a console, an app category or a collection.
@@ -477,6 +469,14 @@ void ShellApp::openFolder(const library::Folder& folder) {
     search_.clear();
     browser_.open(folder, from);
     showShelf(0);
+}
+
+void ShellApp::signInTo(library::Source source) {
+    if (source == library::Source::Gog || source == library::Source::Epic) {
+        startSignIn(source == library::Source::Gog ? Store::Gog : Store::Epic);
+    } else if (source == library::Source::Steam) {
+        integrationWizard_.signInToSteam();
+    }
 }
 
 void ShellApp::startSignIn(Store store) {

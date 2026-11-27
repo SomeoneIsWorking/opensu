@@ -328,6 +328,8 @@ class ShellApp final {
     void typeIntoField(const input::TextInput& typed);
     /// Opens a store's sign-in page in the browser, off the loop.
     void startSignIn(Store store);
+    /// Opens the sign-in of `source`, a store in force that lists nothing until it signs in.
+    void signInTo(library::Source source);
     /// Whether a menu cannot open now: a launch, a chooser, the search or a typed field has the
     /// buttons.
     [[nodiscard]] bool menusBlocked();
@@ -619,9 +621,6 @@ class ShellApp final {
             [this] {
                 reloadCatalog();
                 shell_.setToast("library refreshed");
-            },
-            [this](library::Source source) {
-                startSignIn(source == library::Source::Gog ? Store::Gog : Store::Epic);
             },
             [this](const library::Folder& folder) {
                 settingsScreen_.configure(folder);
@@ -1555,7 +1554,10 @@ class ShellApp final {
         fumaroleSignIn_,
         IntegrationWizard::Hooks{.add =
                                      [this](const settings::IntegrationChoices& choices) {
-                                         integrations_.choose(choices);
+                                         // Unchanged choices mean a store in force just signed in.
+                                         if (!integrations_.choose(choices)) {
+                                             reloadCatalog();
+                                         }
                                          applyIntegrations();
                                      },
                                  .signIn =
@@ -1599,6 +1601,21 @@ class ShellApp final {
                                 .addIntegration =
                                     [this](std::string_view entry) {
                                         integrationWizard_.start(entry);
+                                    },
+                                .unsignedStores =
+                                    [this] {
+                                        std::vector<library::Source> stores;
+                                        for (const library::SourceStatus& status : sources_) {
+                                            if (status.availability ==
+                                                library::Availability::Attention) {
+                                                stores.push_back(status.source);
+                                            }
+                                        }
+                                        return stores;
+                                    },
+                                .signIn =
+                                    [this](library::Source source) {
+                                        signInTo(source);
                                     }}};
     std::unique_ptr<gamepad::PadSource> pads_{
         gamepad::openPadSource(PadOwner::padsFor(environment_.dataDir, settings_.hidden))};

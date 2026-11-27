@@ -158,9 +158,7 @@ void HomeGrid::fillTile(Tile& tile, library::ShelfItem item) const {
     if (const auto* console = std::get_if<library::Console>(&tile.item)) {
         tile.caption = gameCount(console->games);
     } else if (const auto* launcher = std::get_if<library::Launcher>(&tile.item)) {
-        tile.caption = launcher->loading
-                           ? "Loading"
-                           : (launcher->ready ? gameCount(launcher->games) : "Sign in");
+        tile.caption = launcher->loading ? "Loading" : gameCount(launcher->games);
         if (launcher->source == library::Source::Remote) {
             tile.caption = !launcher->online           ? "Offline · " + gameCount(launcher->games)
                            : launcher->playing.empty() ? "Online · " + gameCount(launcher->games)
