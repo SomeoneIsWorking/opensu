@@ -15,6 +15,10 @@ namespace opensu::display {
 /// by openSU for what runs in its nested Gamescope, which has the desktop's.
 inline constexpr const char* scaleVariable = "OPENSU_DISPLAY_SCALE";
 
+/// The desktop's WAYLAND_DISPLAY, which a nested session hands the openSU inside its Gamescope,
+/// whose own socket its children otherwise get.
+inline constexpr const char* desktopWaylandVariable = "OPENSU_DESKTOP_WAYLAND_DISPLAY";
+
 struct ScaleSource {
     /// Stated from outside (`Config::displayScale`); it wins.
     std::optional<float> stated;

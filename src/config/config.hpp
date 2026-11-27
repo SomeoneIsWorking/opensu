@@ -168,6 +168,11 @@ struct Config {
     /// The X display opensu's window is on (DISPLAY): inside Gamescope, its Xwayland.
     std::string x11Display;
 
+    /// The desktop's Wayland socket, where its display settings are reached: what a nested
+    /// session hands the openSU inside it (`display::desktopWaylandVariable`), else WAYLAND_DISPLAY
+    /// outside Gamescope; empty in openSU's own session.
+    std::string desktopWaylandDisplay;
+
     /// Gamescope's own Wayland socket under XDG_RUNTIME_DIR (GAMESCOPE_WAYLAND_DISPLAY), for the
     /// games it shows; empty outside Gamescope.
     std::string gamescopeWaylandDisplay;

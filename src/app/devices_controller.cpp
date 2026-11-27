@@ -20,6 +20,7 @@ constexpr const char* displayTabId = "display";
 constexpr const char* devicePrefix = "bt:";
 constexpr const char* padPrefix = "pad:";
 constexpr const char* sinkPrefix = "sink:";
+constexpr const char* screenPrefix = "screen:";
 constexpr const char* remapId = "pads.remap";
 constexpr const char* noPadId = "pads.none";
 
@@ -263,8 +264,17 @@ ui::SettingsCategory DevicesController::audioTab() const {
 
 ui::SettingsCategory DevicesController::displayTab() const {
     ui::SettingsCategory tab{displayTabId, "Display", {}};
+    const bool choosable = shownScreens_ && !shownScreens_->empty();
     tab.rows.push_back(ui::makeRow("output", RowKind::Info, "Output",
-                                   "Set by the session that runs openSU", hooks_.output()));
+                                   choosable ? "" : "Set by the session that runs openSU",
+                                   hooks_.output()));
+    if (choosable) {
+        for (const host::Screen& screen : *shownScreens_) {
+            tab.rows.push_back(ui::makeRow(
+                screenPrefix + screen.id, screen.inUse ? RowKind::Info : RowKind::Action,
+                screen.name, screen.mode, screen.inUse ? "In use" : "Use"));
+        }
+    }
     tab.rows.push_back(ui::makeRow("display.scale", RowKind::Info, "Brightness and interface size",
                                    {}, "In Settings › Appearance and Quick settings"));
     return tab;
@@ -277,6 +287,7 @@ void DevicesController::open() {
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
     outputs_.refresh();
+    readScreens();
     if (bluetooth_ != nullptr) {
         bluetooth_->readSoon();
         chosen_ = bluetoothTabId;
@@ -324,6 +335,9 @@ void DevicesController::choose(const std::string& tab) {
         // The outputs are read when the tab is reached, not on a timer.
         outputs_.refresh();
     }
+    if (tab == displayTabId) {
+        readScreens();
+    }
     refresh();
 }
 
@@ -349,6 +363,10 @@ void DevicesController::controllerChanged() {
     }
 }
 
+void DevicesController::readScreens() {
+    shownScreens_ = screens_ != nullptr ? screens_->read() : std::nullopt;
+}
+
 void DevicesController::refuse(const std::string& reason) {
     if (!reason.empty()) {
         hooks_.say(reason, true);
@@ -366,6 +384,9 @@ void DevicesController::run(const std::string& id, int step) {
         runBluetooth(id);
     } else if (id.starts_with(sinkPrefix)) {
         refuse(outputs_.choose(id.substr(std::string_view{sinkPrefix}.size())));
+    } else if (id.starts_with(screenPrefix) && screens_ != nullptr) {
+        refuse(screens_->use(id.substr(std::string_view{screenPrefix}.size())));
+        readScreens();
     }
     refresh();
 }

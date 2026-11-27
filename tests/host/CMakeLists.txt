@@ -72,3 +72,8 @@ target_compile_definitions(ring_light_scripts_test PRIVATE
     OPENSU_PACKAGING_DIR="${CMAKE_SOURCE_DIR}/packaging")
 add_test(NAME ring_light_scripts COMMAND ring_light_scripts_test)
 set_tests_properties(ring_light_scripts PROPERTIES SKIP_RETURN_CODE 77)
+
+add_executable(screens_test screens_test.cpp)
+target_link_libraries(screens_test PRIVATE opensu::host)
+opensu_warnings(screens_test)
+add_test(NAME screens COMMAND screens_test)

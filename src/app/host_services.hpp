@@ -1,9 +1,10 @@
 // host_services — the machine's own services the shell reaches: power (logind), session mode
-// (SDDM), Bluetooth (BlueZ), the backlight, the power profile, the stick lights' helper and openSU's
-// own polkit agent. One place decides what a hidden run may touch: it may read the Bluetooth state,
-// the brightness, whether session mode or the lights' helper is installed and the power profile,
-// and it never sleeps, restarts, shuts down, installs or switches session mode, installs or runs
-// the lights' helper, scans, pairs, connects, forgets or writes a brightness or a power profile.
+// (SDDM), Bluetooth (BlueZ), the backlight, the power profile, the stick lights' helper and
+// openSU's own polkit agent, and the screens. One place decides what a hidden run may touch: it may
+// read the Bluetooth state, the brightness, whether session mode or the lights' helper is
+// installed, the power profile and the screens, and it never sleeps, restarts, shuts down, installs
+// or switches session mode, installs or runs the lights' helper, scans, pairs, connects, forgets,
+// writes a brightness or a power profile, or switches the screen.
 #pragma once
 
 #include <filesystem>
@@ -17,6 +18,7 @@
 #include "host/power.hpp"
 #include "host/power_profiles.hpp"
 #include "host/ring_light_helper.hpp"
+#include "host/screens.hpp"
 #include "host/session_mode.hpp"
 
 namespace opensu::app {
@@ -38,6 +40,9 @@ struct HostServices {
     /// The agent polkit asks for what openSU's children start through pkexec; null where there is
     /// no polkit, and in services made `over` fakes.
     std::unique_ptr<host::PolkitAgent> polkit;
+    /// The screens openSU can be shown on, through the desktop's display settings; null off Linux
+    /// and in services made `over` fakes.
+    std::unique_ptr<host::Screens> screens;
 
     /// The real services for this machine; with `hidden` they can be read but not changed.
     [[nodiscard]] static HostServices detect(const config::Config& config, bool hidden);

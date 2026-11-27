@@ -20,6 +20,24 @@ using namespace opensu;
 using gpu2d::ui::Action;
 using test::expect;
 
+/// A panel and a TV, the panel in use.
+class FakeScreens final : public opensu::host::Screens {
+  public:
+    std::optional<std::vector<opensu::host::Screen>> read() override {
+        return screens;
+    }
+    std::string use(const std::string& id) override {
+        for (opensu::host::Screen& screen : screens) {
+            screen.inUse = screen.id == id;
+        }
+        return {};
+    }
+
+    std::vector<opensu::host::Screen> screens{
+        {"eDP-1", "Built-in screen", "1920x1080 at 120 Hz", true},
+        {"DP-2", "DisplayPort (DP-2)", "1920x1080 at 60 Hz", false}};
+};
+
 struct Rig {
     explicit Rig(bool withBluetooth = true)
         : volume{std::make_unique<test::FakeMixer>()}, outputs{volume}, bluetooth{radio},
@@ -35,7 +53,8 @@ struct Rig {
                       }},
           controller{ui.navigator,
                      chrome,
-                     {withBluetooth ? &bluetooth : nullptr, roster, outputs, lights, calibration},
+                     {withBluetooth ? &bluetooth : nullptr, roster, outputs, lights, calibration,
+                      &screens},
                      sounds,
                      {[this](const std::string& text, bool) {
                           said.push_back(text);
@@ -138,6 +157,7 @@ struct Rig {
                                             said.push_back(text);
                                         },
                                         false};
+    FakeScreens screens;
     app::DevicesController controller;
 };
 
@@ -321,6 +341,13 @@ void displayShowsTheOutput() {
     Rig rig;
     rig.openOn("display");
     expect(rig.row("output").value == "1920 x 1080 at 60 Hz", "the output line");
+    expect(rig.row("screen:eDP-1").value == "In use" && rig.row("screen:DP-2").value == "Use" &&
+               rig.row("screen:DP-2").label == "DisplayPort (DP-2)",
+           "each screen, the one openSU is on in use");
+    rig.press(Action::Right);
+    rig.on("screen:DP-2", Action::Accept);
+    expect(rig.row("screen:DP-2").value == "In use" && rig.row("screen:eDP-1").value == "Use",
+           "Use moves openSU to that screen");
 }
 
 void backGoesToTheTabsThenCloses() {

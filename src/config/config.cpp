@@ -278,6 +278,10 @@ Config read() {
     value.controlChannel = envBool("OPENSU_CONTROL_CHANNEL", value.controlChannel);
     value.gamescopeWaylandDisplay = std::string{env("GAMESCOPE_WAYLAND_DISPLAY")};
     value.insideGamescope = !value.gamescopeWaylandDisplay.empty();
+    value.desktopWaylandDisplay = std::string{env(display::desktopWaylandVariable)};
+    if (value.desktopWaylandDisplay.empty() && !value.insideGamescope) {
+        value.desktopWaylandDisplay = std::string{env("WAYLAND_DISPLAY")};
+    }
     value.x11Display = std::string{env("DISPLAY")};
     value.session = std::string{env("OPENSU_SESSION")};
     value.sessionInherited = !value.session.empty();

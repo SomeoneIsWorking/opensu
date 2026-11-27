@@ -23,9 +23,13 @@ int main(int argc, char** argv) try {
         lucent::error("driver", "usage: <session> <gamescope> <desktop note> <width> <height>");
         return 2;
     }
-    opensu::session::CompositorSession session{args[0], args[1], opensu::config::read().stateDir,
+    const opensu::config::Config config = opensu::config::read();
+    opensu::session::CompositorSession session{args[0],
+                                               args[1],
+                                               config.stateDir,
                                                opensu::launch::chooseContainment(),
-                                               opensu::host::DesktopRequest{args[2]}};
+                                               opensu::host::DesktopRequest{args[2]},
+                                               config.desktopWaylandDisplay};
     const opensu::display::Output output{std::stoi(args[3]), std::stoi(args[4]), 60};
     return session.run(output, {});
 } catch (...) {

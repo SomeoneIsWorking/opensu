@@ -68,9 +68,12 @@ std::optional<int> runInOwnSession(const config::Config& config, const config::A
     // game share the one compositor that closing opensu ends.
     // Held here, not by the shell: the shell dies with its display when the session is stopped.
     const std::unique_ptr<host::ReadablePads> pads = host::makeReadablePads(host::systemRunner());
-    session::CompositorSession session{config.session, config.gamescope, config.stateDir,
+    session::CompositorSession session{config.session,
+                                       config.gamescope,
+                                       config.stateDir,
                                        launch::chooseContainment(),
-                                       host::DesktopRequest{config.desktopRequest}};
+                                       host::DesktopRequest{config.desktopRequest},
+                                       config.desktopWaylandDisplay};
     if (arguments.loginSession) {
         // No display yet: Gamescope takes the seat at the native mode.
         session::LoginSession login{

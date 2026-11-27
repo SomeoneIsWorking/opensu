@@ -40,9 +40,11 @@ fs::path logOf(const fs::path& logDir, const display::Output& output) {
 
 CompositorSession::CompositorSession(std::string session, fs::path gamescope, fs::path logDir,
                                      launch::Containment containment,
-                                     host::DesktopRequest desktopRequest, RestartLimit restarts)
+                                     host::DesktopRequest desktopRequest,
+                                     std::string desktopWayland, RestartLimit restarts)
     : session_{std::move(session)}, gamescope_{std::move(gamescope)}, logDir_{std::move(logDir)},
-      containment_{containment}, desktopRequest_{std::move(desktopRequest)}, restarts_{restarts} {
+      containment_{containment}, desktopRequest_{std::move(desktopRequest)},
+      desktopWayland_{std::move(desktopWayland)}, restarts_{restarts} {
 }
 
 void CompositorSession::stopLeftovers() const {
@@ -109,6 +111,11 @@ int CompositorSession::runOnce(const display::Output& output, const std::string&
     std::vector<std::string> environment{std::string{sessionVariable} + "=" + session_,
                                          std::string{launch::gamescopeWsiOff} + "=1",
                                          std::string{qtOnXwayland}};
+    // Gamescope gives its children its own socket; the desktop's display settings need the
+    // desktop's.
+    if (!desktopWayland_.empty()) {
+        environment.push_back(std::string{display::desktopWaylandVariable} + "=" + desktopWayland_);
+    }
     // A nested Gamescope's windows see no desktop, so they are told its scale.
     if (output.scale > 0.0F) {
         environment.push_back(std::string{display::scaleVariable} + "=" +

@@ -1687,7 +1687,7 @@ class ShellApp final {
     DevicesController devicesScreen_{
         shell_.screens().navigator(), shell_.screens().chrome(),
         DevicesController::Services{bluetooth_.get(), roster_, outputs_, ringLights_,
-                                    padCalibration_},
+                                    padCalibration_, host_.screens.get()},
         sounds_,
         DevicesController::Hooks{[this](const std::string& text, bool isError) {
                                      shell_.setToast(text, isError);

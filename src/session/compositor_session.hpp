@@ -33,10 +33,12 @@ class CompositorSession {
     /// (`Config::gamescope`); Gamescope's output goes to a log in `logDir` (`Config::stateDir`);
     /// `containment` holds it (`launch::chooseContainment`);
     /// `desktopRequest` is the note Switch to desktop leaves before it stops Gamescope;
-    /// `restarts` bounds how often a crashed Gamescope is started again.
+    /// `restarts` bounds how often a crashed Gamescope is started again; `desktopWayland` is the
+    /// desktop's Wayland socket (`Config::desktopWaylandDisplay`), handed to the openSU inside.
     CompositorSession(std::string session, std::filesystem::path gamescope,
                       std::filesystem::path logDir, launch::Containment containment,
-                      host::DesktopRequest desktopRequest, RestartLimit restarts = {});
+                      host::DesktopRequest desktopRequest, std::string desktopWayland,
+                      RestartLimit restarts = {});
 
     /// Runs `<this executable> <args>` in a Gamescope sized to `output` (top level when it is
     /// native), in the scope `<session>-compositor.scope`, with the Gamescope WSI layer off
@@ -72,6 +74,7 @@ class CompositorSession {
     std::filesystem::path logDir_;
     launch::Containment containment_;
     host::DesktopRequest desktopRequest_;
+    std::string desktopWayland_;
     RestartLimit restarts_;
     bool stopRequested_{false};
 };

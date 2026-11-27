@@ -22,6 +22,7 @@
 #include "bluetooth_session.hpp"
 #include "controller_roster.hpp"
 #include "device/wii_remotes.hpp"
+#include "host/screens.hpp"
 #include "pad_calibration_flow.hpp"
 #include "ring_light_settings.hpp"
 #include "ui/row_widgets.hpp"
@@ -59,6 +60,8 @@ class DevicesController final : public ui::RowActions {
         RingLightSettings& lights;
         /// Each pad's Calibrate row.
         PadCalibrationFlow& calibration;
+        /// The screens Display offers; null for none.
+        host::Screens* screens;
     };
 
     /// The screen goes on `navigator`'s stack, under `chrome`.
@@ -66,7 +69,8 @@ class DevicesController final : public ui::RowActions {
                       audio::SdlSoundPlayer& sounds, Hooks hooks)
         : navigator_{navigator}, chrome_{chrome}, bluetooth_{services.bluetooth},
           controllers_{services.controllers}, outputs_{services.outputs}, lights_{services.lights},
-          calibration_{services.calibration}, sounds_{sounds}, hooks_{std::move(hooks)} {
+          calibration_{services.calibration}, screens_{services.screens}, sounds_{sounds},
+          hooks_{std::move(hooks)} {
     }
 
     /// Opens the screen on its first tab.
@@ -117,6 +121,8 @@ class DevicesController final : public ui::RowActions {
     /// The device whose row is `id`, or null.
     [[nodiscard]] const host::BluetoothDevice* deviceOf(const std::string& id) const;
     void runBluetooth(const std::string& id);
+    /// Reads the screens again.
+    void readScreens();
     /// Tells the player why a change was refused.
     void refuse(const std::string& reason);
 
@@ -127,6 +133,9 @@ class DevicesController final : public ui::RowActions {
     AudioOutputs& outputs_;
     RingLightSettings& lights_;
     PadCalibrationFlow& calibration_;
+    host::Screens* screens_;
+    /// The screens as last read: on opening, on reaching Display and after a switch.
+    std::optional<std::vector<host::Screen>> shownScreens_;
     audio::SdlSoundPlayer& sounds_;
     Hooks hooks_;
     std::string chosen_;

@@ -121,6 +121,7 @@ struct Fixture {
                                  base / "state",
                                  opensu::launch::chooseContainment(),
                                  DesktopRequest{desktopNote},
+                                 {},
                                  limit};
     }
 };
@@ -178,9 +179,11 @@ void testLoginSessionIsTopLevel() {
 /// A missing gamescope binary is refused, not run.
 void testMissingGamescope() {
     CompositorSession session{"opensu-test-missing-" + std::to_string(getpid()),
-                              "/nonexistent/gamescope", "/nonexistent/state",
+                              "/nonexistent/gamescope",
+                              "/nonexistent/state",
                               opensu::launch::chooseContainment(),
-                              DesktopRequest{"/nonexistent/desktop"}};
+                              DesktopRequest{"/nonexistent/desktop"},
+                              {}};
     expect(session.run(Output{1280, 720, 0}, {}) == 1, "a missing gamescope fails");
 }
 

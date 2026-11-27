@@ -33,10 +33,15 @@ host::RingLightHelperPaths HostServices::ringLightPaths(const config::Config& co
 }
 
 HostServices HostServices::detect(const config::Config& config, bool hidden) {
-    HostServices services = over(host::systemRunner(), host::systemSpawner(config.executablePath),
-                                 "/sys/class/backlight", hidden, sessionPaths(config),
-                                 ringLightPaths(config));
+    HostServices services =
+        over(host::systemRunner(), host::systemSpawner(config.executablePath),
+             "/sys/class/backlight", hidden, sessionPaths(config), ringLightPaths(config));
     services.polkit = host::startPolkitAgent(config.messageLocale, config.polkitHelperStandIn);
+    services.screens = host::makeKScreenScreens(host::systemRunner(), config.desktopWaylandDisplay);
+    if (hidden) {
+        services.screens =
+            host::makeReadOnlyScreens(std::move(services.screens), std::string{hiddenRunRefusal});
+    }
     return services;
 }
 
