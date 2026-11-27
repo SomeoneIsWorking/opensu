@@ -205,6 +205,20 @@ void gamesAreIdentified(const fs::path& games) {
     expect(appIdOnly.steamAppId == "2050650", "steam_appid.txt gives the app without the store");
 }
 
+void aGogGameIsNotItsDlc(const fs::path& games) {
+    const fs::path folder = games / "The Smurfs - Dreams";
+    const fs::path exe = file(folder / "Smurf_DreamsGOG.exe");
+    file(folder / "goggame-1562352553.info",
+         R"({"gameId": "1562352553", "rootGameId": "1882505557", "name": "The Smurfs - Cosmic"})");
+    file(folder / "goggame-1882505557.info",
+         R"({"gameId": "1882505557", "rootGameId": "1882505557", "name": "The Smurfs - Dreams"})");
+    file(folder / "goggame-1945835509.info",
+         R"({"gameId": "1945835509", "rootGameId": "1882505557", "name": "The Smurfs - Deluxe"})");
+    const identify::Clues clues = identify::cluesOf(exe, games);
+    expect(!clues.names.empty() && clues.names.front().name == "The Smurfs - Dreams",
+           "a GOG game is named by its own info, not a DLC's beside it");
+}
+
 void foldersThatNameAGame() {
     using opensu::library::identify::mayNameAGame;
     expect(mayNameAGame("C:/Games/Dino Crisis 2"), "a folder on C: names a game");
@@ -277,6 +291,7 @@ int main() try {
     versionResourceIsRead(scratch.path() / "programs");
     fileNamesAreTitles();
     gamesAreIdentified(scratch.path() / "Games");
+    aGogGameIsNotItsDlc(scratch.path() / "Gog");
     foldersThatNameAGame();
     sameTitleIsExact();
     storeAnswersAreRead();

@@ -124,8 +124,10 @@ std::string desktopName(const fs::path& dir, const fs::path& file) {
     return {};
 }
 
-/// The `name` of a GOG `goggame-*.info` in `dir`.
+/// The `name` of the GOG `goggame-*.info` in `dir` that is the game, not one of its DLCs (its
+/// `gameId` is its `rootGameId`); else of any.
 std::string gogName(const fs::path& dir) {
+    std::string any;
     std::error_code error;
     for (const fs::directory_entry& entry : fs::directory_iterator{dir, error}) {
         const std::string name = entry.path().filename().string();
@@ -134,11 +136,19 @@ std::string gogName(const fs::path& dir) {
         }
         std::ifstream in{entry.path()};
         const nlohmann::json info = nlohmann::json::parse(in, nullptr, false);
-        if (info.is_object() && info.contains("name") && info["name"].is_string()) {
+        if (!info.is_object() || !info.contains("name") || !info["name"].is_string()) {
+            continue;
+        }
+        const nlohmann::json game = info.value("gameId", nlohmann::json{});
+        const nlohmann::json root = info.value("rootGameId", nlohmann::json{});
+        if (game.is_null() || root.is_null() || game == root) {
             return info["name"].get<std::string>();
         }
+        if (any.empty()) {
+            any = info["name"].get<std::string>();
+        }
     }
-    return {};
+    return any;
 }
 
 /// The app id in `dir/steam_appid.txt`.
