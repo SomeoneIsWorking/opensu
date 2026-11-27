@@ -49,7 +49,7 @@ last page.
   In a login session there is no choice: the session's default, Managed. The client asks for its
   own login when it starts. fumarole then signs in: a QR code the Steam mobile app scans
   (`fumarole auth --qr`, shown on its own page and refreshed as Steam changes it), this PC's Steam
-  login (`--from-steam`), Copy from <name> for each paired, announced openSU, or later; signing in
+  login (`--from-steam`), Copy from <name> for each paired, announced openSU; signing in
   adds Steam. A copy asks that openSU (`/lan/steam/login`), whose player is asked as for a profile
   copy, waits on its own page (Back stops waiting), and pipes the sign-in that openSU's
   `fumarole auth --export` printed into `fumarole auth --import` here
@@ -97,3 +97,14 @@ integration shouldn't consider "added" if it can't work".
   with no sign-in: `Availability::Attention`) has no Library tile, Giveaways do not count it, and
   it stays on the Add page, "Sign in to <store>", picking it running that store's sign-in.
 - The Steam wizard has no "Sign in later": fumarole adds Steam only when its sign-in succeeds.
+
+## Store settings live on the store's tile
+
+The player (2026-11-27, Ally): "Settings window shouldn't have Steam, Steam settings should be only
+accessible via Steam's context menu, also Epic's context menu settings take you to Wine instead, if
+Epic doesn't have any settings then you can hide the option or make an empty Epic settings page but
+imo you can add install paths there for example (by default, inheriting from openSU)".
+
+- Settings has no Steam page; Configure on Steam's tile is the only way to it.
+- Configure on Epic's tile (and GOG's) opens that store's own page, not Wine. It holds the store's
+  install folder, which follows openSU's own until the player picks one.
