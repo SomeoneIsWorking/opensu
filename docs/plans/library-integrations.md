@@ -112,3 +112,6 @@ imo you can add install paths there for example (by default, inheriting from ope
   version and wineprefix, these should also be able to overriden per game in game settings". Epic's
   and GOG's pages also hold their Wine runner and prefix, following openSU's Wine choice until the
   player picks one; each game's settings can override them again.
+- The player (2026-11-27, Ally): "So everything goes through the layered config". Each of these
+  (install folder, Wine runner, prefix) resolves through one layered lookup: the game's own choice,
+  else its store's, else openSU's.
