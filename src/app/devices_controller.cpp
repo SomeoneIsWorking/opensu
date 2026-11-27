@@ -21,6 +21,7 @@ constexpr const char* devicePrefix = "bt:";
 constexpr const char* padPrefix = "pad:";
 constexpr const char* sinkPrefix = "sink:";
 constexpr const char* remapId = "pads.remap";
+constexpr const char* noPadId = "pads.none";
 
 std::string joined(const std::vector<std::string>& parts, const char* between) {
     std::string text;
@@ -85,6 +86,17 @@ std::string heldText(const std::vector<gamepad::Button>& held) {
         names.emplace_back(gamepad::prompt(button));
     }
     return names.empty() ? "Press a button" : joined(names, "  ");
+}
+
+/// A pad's row: its name, its player and battery, and the buttons it holds now.
+SettingsRow padRow(const ControllerStatus& pad) {
+    std::vector<std::string> parts{"Player " + std::to_string(pad.player)};
+    if (pad.battery) {
+        parts.push_back("Battery " + percentOf(pad.battery->percent) +
+                        (pad.battery->charging ? ", charging" : ""));
+    }
+    return ui::makeRow(padPrefix + pad.id, RowKind::Info, pad.name, joined(parts, " · "),
+                       heldText(pad.held));
 }
 
 } // namespace
@@ -175,21 +187,27 @@ ui::SettingsCategory DevicesController::bluetoothTab() const {
     return tab;
 }
 
+std::vector<SettingsRow> DevicesController::padRows() const {
+    std::vector<SettingsRow> rows;
+    const std::vector<ControllerStatus> pads = controllers_.controllers(Clock::now());
+    if (pads.empty()) {
+        rows.push_back(ui::makeRow(noPadId, RowKind::Info, "No controller connected",
+                                   "Plug one in, or pair it on the Bluetooth tab", ""));
+    }
+    for (const ControllerStatus& pad : pads) {
+        rows.push_back(padRow(pad));
+    }
+    return rows;
+}
+
 ui::SettingsCategory DevicesController::controllersTab() const {
     ui::SettingsCategory tab{controllersTabId, "Controllers", {}};
     const std::vector<ControllerStatus> pads = controllers_.controllers(Clock::now());
     if (pads.empty()) {
-        tab.rows.push_back(ui::makeRow("pads.none", RowKind::Info, "No controller connected",
-                                       "Plug one in, or pair it on the Bluetooth tab", ""));
+        tab.rows = padRows();
     }
     for (const ControllerStatus& pad : pads) {
-        std::vector<std::string> parts{"Player " + std::to_string(pad.player)};
-        if (pad.battery) {
-            parts.push_back("Battery " + percentOf(pad.battery->percent) +
-                            (pad.battery->charging ? ", charging" : ""));
-        }
-        tab.rows.push_back(ui::makeRow(padPrefix + pad.id, RowKind::Info, pad.name,
-                                       joined(parts, " · "), heldText(pad.held)));
+        tab.rows.push_back(padRow(pad));
         std::ranges::move(calibration_.rows(pad), std::back_inserter(tab.rows));
     }
     std::ranges::move(lights_.rows(), std::back_inserter(tab.rows));

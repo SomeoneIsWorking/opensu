@@ -93,6 +93,9 @@ class DevicesController final : public ui::RowActions {
     // What the screen asks.
     /// The tabs in their order, as last built.
     [[nodiscard]] const std::vector<ui::SettingsCategory>& tabs();
+    /// Each connected pad (its name, player and battery, the buttons it holds), or one row saying
+    /// none is; the Controllers tab's and Quick settings' rows.
+    [[nodiscard]] std::vector<ui::SettingsRow> padRows() const;
     /// The tab the screen shows; the screen's tabs set it.
     [[nodiscard]] const std::string& chosen() const noexcept {
         return chosen_;

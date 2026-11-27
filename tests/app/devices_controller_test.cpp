@@ -240,6 +240,18 @@ void controllersShowTheLiveButtonTest() {
     expect(rig.calls == std::vector<std::string>{"shortcuts"}, "the remapping link opens");
 }
 
+void padRowsAreTheControllersTabs() {
+    Rig rig;
+    std::vector<ui::SettingsRow> rows = rig.controller.padRows();
+    expect(rows.size() == 1 && rows.front().id == "pad:/dev/input/event5" &&
+               rows.front().note == "Player 1 · Battery 90%",
+           "each pad with its player and battery");
+    rig.pads.clear();
+    rows = rig.controller.padRows();
+    expect(rows.size() == 1 && rows.front().label == "No controller connected",
+           "a row saying no pad is connected");
+}
+
 void aPadIsCalibratedFromItsRow() {
     Rig rig;
     rig.openOn("controllers");
@@ -320,6 +332,7 @@ int main() try {
     forgettingAsksFirst();
     aRefusalIsSaid();
     controllersShowTheLiveButtonTest();
+    padRowsAreTheControllersTabs();
     aPadIsCalibratedFromItsRow();
     wiiRemotesSayWhatWiiGamesPlay();
     audioChoosesTheOutput();
